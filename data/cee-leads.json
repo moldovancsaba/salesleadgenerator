@@ -1,0 +1,378 @@
+[
+  {
+    "region": "CEE",
+    "entity_name": "Lech Poznań",
+    "url": "https://lechia.net",
+    "address": "ul. Bułgarska 17, 60-189 Poznań, Poland",
+    "general_contact": "info@lechia.net",
+    "size": "~150 staff, stadium capacity 43,269, avg ~12,600 attendance",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football",
+    "level_league": "Ekstraklasa (Poland 1st tier) / Champions League qualifiers",
+    "decision_maker_name": "Karol Klimczak",
+    "decision_maker_title": "President of the Management Board",
+    "decision_maker_contact": "not publicly available — via club secretary office at info@lechia.net",
+    "pro_for_cogmap": [
+      "Reigning Ekstraklasa champions with Champions League qualifying pathway — elite performance incentive and budget justification",
+      "Polish clubs increasingly invest in sports science; Lech leads Ekstraklasa in data analytics adoption",
+      "West Ham reference carries weight given Premier League's popularity in Poland"
+    ],
+    "con_for_cogmap": [
+      "Mid-size Ekstraklasa budgets may limit deal size vs Western European clubs (€20-50K/year range)",
+      "Operational staff speak Polish — demo materials need local translation",
+      "Pre-season window is July; Polish club hierarchies can be slow in decision cycles"
+    ],
+    "value_proposition": "As reigning Ekstraklasa champions entering Champions League qualifying, Lech Poznań can leverage CogMap's UCL-validated cognitive profiling to identify elite decision-making talent. Your West Ham partnership demonstrates football credibility that resonates in Poland's most commercially advanced league, and cogLab's sub-20-minute browser-based format fits seamlessly into pre-season screening protocols."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "Legia Warszawa",
+    "url": "https://legia.com",
+    "address": "ul. Łazienkowska 3, 00-449 Warszawa, Poland",
+    "general_contact": "+48 22 318 20 00 | info@legia.pl",
+    "size": "Stadium capacity 31,871, avg attendance ~24,800; major Polish club with full commercial operation",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football",
+    "level_league": "Ekstraklasa / UEFA Conference League quarter-finalists 2024-25",
+    "decision_maker_name": "Dariusz Mioduski",
+    "decision_maker_title": "CEO / President of the Board",
+    "decision_maker_contact": "Via executive office; innovation-minded per public statements",
+    "pro_for_cogmap": [
+      "Largest Polish football brand; highest match-going attendance in Ekstraklasa",
+      "Conference League QF run (including 29,000-capacity crowd v Chelsea) demonstrates appetite for innovation",
+      "Warsaw location = easiest travel logistics for CogMap demo/implementation"
+    ],
+    "con_for_cogmap": [
+      "Complex club politics with multiple board members can slow procurement",
+      "Local sports science ecosystem (AWF Warsaw) may provide cheaper cognitive assessment alternatives",
+      "Budget still constrained vs Western Europe; likely €15-40K annual deal ceiling"
+    ],
+    "value_proposition": "Legia's recent Conference League quarter-final run demonstrates an organization investing in competitive edges. CogMap's cognitive assessment complements your existing performance department with objective, UCL-validated talent ID metrics that no subjective scouting can match — giving Legia a measurable advantage in European recruitment."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "SK Slavia Praha",
+    "url": "https://www.slavia.cz",
+    "address": "Vladivostocká 1460/10, 100 00 Praha 10, Czech Republic",
+    "general_contact": "+420 233 081 753 | slavia@slavia.cz",
+    "size": "~200 staff, Eden Arena (20,800 capacity); major Czech club with ~14 league titles",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football",
+    "level_league": "Fortuna Liga (Czech 1st tier) / UEFA Europa & Conference League regular",
+    "decision_maker_name": "Aleš Řebíček",
+    "decision_maker_title": "Club President / Chairman of the Board",
+    "decision_maker_contact": "marketing@slavia.cz (marketing) | michal.bycek@slavia.cz (media, Michal Býček Press Officer)",
+    "pro_for_cogmap": [
+      "Regular UEFA group-stage participant needs elite European-level talent assessment",
+      "Prague is a major Central European business hub with strong English proficiency",
+      "Czech market appreciates academic rigor — UCL neuroscientist origin is strong credibility"
+    ],
+    "con_for_cogmap": [
+      "Czech club budgets (€15-35K range) are tighter than Western European tiers",
+      "Czech language required for player-facing assessments",
+      "Local university partnerships (Charles University Faculty of Physical Education) may compete"
+    ],
+    "value_proposition": "Slavia Prague is the Czech Republic's most commercially advanced football brand with regular European exposure. CogMap's gamified assessments align with your data-driven recruitment approach, and President Řebíček's corporate governance background makes him receptive to credible, measurable performance tools. UCL's neuroscience pedigree adds academic authority that resonates in the Czech market."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "FC Viktoria Plzeň",
+    "url": "https://fcviktoria.cz",
+    "address": "Štruncovy sady 3, 301 12 Plzeň, Czech Republic",
+    "general_contact": "+420 377 221 515 | fcviktoria@fcviktoria.cz",
+    "size": "~120 staff, Doosan Arena (11,700 capacity); historically strongest Czech club in Europe",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football",
+    "level_league": "Fortuna Liga / Champions League & Europa League group-stage participant",
+    "decision_maker_name": "Adolf Šádek",
+    "decision_maker_title": "Chairman of the Board / President",
+    "decision_maker_contact": "Via club office",
+    "pro_for_cogmap": [
+      "Club culture emphasizes data-informed recruitment; open to sports science innovation",
+      "Strong relationship with Doosan (general partner) could enable co-funded partnership",
+      "Smaller organizational size enables faster decision-making than Prague clubs"
+    ],
+    "con_for_cogmap": [
+      "Plzeň is a smaller city (~170K); less commercial infrastructure than Prague",
+      "Budget likely lower than Slavia's; needs clear ROI demonstration",
+      "Travel logistics from Prague add complexity for on-site demo"
+    ],
+    "value_proposition": "Viktoria Plzeň's reputation for punching above its weight in Europe (multiple Champions League group stages) aligns perfectly with CogMap's objective cognitive measurement. Your recruitment team would gain a measurable edge in identifying undervalued talent — complementing your history of smart signings. The remote, browser-based delivery of cogLab is ideal for a smaller-city club."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "ŠK Slovan Bratislava",
+    "url": "https://www.skslovan.com",
+    "address": "Viktora Tegelhoffa 4, 831 04 Bratislava, Slovakia",
+    "general_contact": "+421 2 44 63 63 63 | info@skslovan.com",
+    "size": "~100 staff, stadium capacity 22,500; Slovakia's dominant club",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football",
+    "level_league": "Fortuna Liga (Slovakia 1st tier) / Champions League 2024-25 participant",
+    "decision_maker_name": "not publicly confirmed — approach via board",
+    "decision_maker_title": "Club Chairman",
+    "decision_maker_contact": "info@skslovan.com | UEFA contact: Tomáš Cho (cho@skslovan.com)",
+    "pro_for_cogmap": [
+      "Slovakia's most successful club; regular European competition participation",
+      "Bratislava's proximity to Vienna and Budapest enables easy regional demo tours",
+      "Slovak market has limited local cognitive assessment competitors"
+    ],
+    "con_for_cogmap": [
+      "Slovak club budgets are among the tightest in UEFA-ranked leagues",
+      "Slovak language required for player-facing assessments",
+      "Smaller market means limited reference value for broader CEE sales"
+    ],
+    "value_proposition": "ŠK Slovan Bratislava's Champions League participation demonstrates elite ambition. CogMap's cognitive assessment would provide your talent identification team with UCL-validated measurement tools that no traditional scouting can match — at a price point accessible even for Slovakia's top club, especially when benchmarked against the UEFA licensing requirements for sports science."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "Ferencvárosi TC (Fradi)",
+    "url": "https://www.fradi.hu",
+    "address": "Albert Flórián út 1-5, 1091 Budapest, Hungary",
+    "general_contact": "info@fradi.hu | +36 1 476 1899",
+    "size": "~250 staff, Groupama Arena (22,000 capacity); Hungary's most successful club",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football",
+    "level_league": "NB I (Hungary 1st tier) / Champions League & Europa League regular",
+    "decision_maker_name": "not publicly confirmed",
+    "decision_maker_title": "Club President",
+    "decision_maker_contact": "info@fradi.hu | via club board",
+    "pro_for_cogmap": [
+      "Hungary's most commercially dominant club; regular European competition",
+      "Budapest is a major Central European hub with strong English proficiency",
+      "Ferencváros has history of investing in modern infrastructure (Groupama Arena)"
+    ],
+    "con_for_cogmap": [
+      "Hungarian club budgets under current political/economic climate are constrained",
+      "Hungarian language needed for player assessments",
+      "Political connections may influence procurement decisions"
+    ],
+    "value_proposition": "Ferencváros's consistent European competition requires elite-level talent decisions. CogMap's UCL-validated cognitive profiling gives your academy and first-team staff an objective, science-backed lens on decision-making and cognitive readiness — especially valuable in Champions League/Europa League group-stage preparation where marginal cognitive edges translate to results. Budapest's strong English environment eases implementation."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "FCSB (formerly Steaua București)",
+    "url": "https://www.fcsb.ro",
+    "address": "Bd. Ghencea 35-37, Sector 6, 061633 București, Romania",
+    "general_contact": "office@fcsb.ro | +40 21 314 4600",
+    "size": "~200 staff, Ghencea Stadium (40,000 cap. planned new stadium); Romania's most successful club",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football",
+    "level_league": "SuperLiga (Romania 1st tier) / Champions League & Europa League 2024-25 participant",
+    "decision_maker_name": "not publicly confirmed — ownership via Gigi Becali influence",
+    "decision_maker_title": "Club leadership",
+    "decision_maker_contact": "office@fcsb.ro",
+    "pro_for_cogmap": [
+      "Romania's most commercially valuable club; European competition participation",
+      "Bucharest is a growing tech/business hub with strong English-language capability",
+      "FCSB's new stadium project signals appetite for modern, professional infrastructure"
+    ],
+    "con_for_cogmap": [
+      "Controversial ownership (Gigi Becali) creates unpredictable decision-making",
+      "Romanian league budgets are tighter than top CEE leagues",
+      "Romanian language needed for assessments"
+    ],
+    "value_proposition": "FCSB's Champions League 2024-25 campaign requires objective, data-driven talent decisions to remain competitive against wealthier European opponents. CogMap's UCL-validated cognitive profiles provide your recruitment and development teams with measurable indicators of performance that complement traditional scouting. Bucharest's growing international business environment means implementation logistics are straightforward."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "GNK Dinamo Zagreb",
+    "url": "https://www.gnkdinamo.hr",
+    "address": "Maksimirska cesta 108, 10000 Zagreb, Croatia",
+    "general_contact": "info@gnkdinamo.hr | +385 1 2320 099",
+    "size": "~150 staff, Maksimir Stadium (35,123 capacity); Croatia's dominant club",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football",
+    "level_league": "HNL (Croatia 1st tier) / Champions League 2024-25 participant",
+    "decision_maker_name": "not publicly confirmed",
+    "decision_maker_title": "Club Board Chairman",
+    "decision_maker_contact": "info@gnkdinamo.hr",
+    "pro_for_cogmap": [
+      "Croatia's dominant club; Champions League group-stage participation",
+      "Zagreb's location bridges Central and Southeastern Europe — regional hub potential",
+      "Strong domestic talent pipeline — cognitive profiling valuable for youth-to-first-team pathway"
+    ],
+    "con_for_cogmap": [
+      "Croatian club budgets significantly below Western European standards",
+      "Croatian language required for player-facing tools",
+      "Travel from London to Zagreb adds ~2.5h; logistics more complex than Central Europe"
+    ],
+    "value_proposition": "Dinamo Zagreb's Champions League 2024-25 campaign and historic talent production record make cognitive assessment invaluable for both first-team preparation and academy development. CogMap's UCL-validated platform provides a neuroscience-backed lens that complements your existing scouting network — especially valuable in identifying which young Croatian talents have the cognitive profile to succeed at European level."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "Red Star Belgrade (Crvena zvezda)",
+    "url": "https://www.redstarbelgrade.info",
+    "address": "Ljutice Bogdana 1, 11000 Beograd, Serbia",
+    "general_contact": "info@redstarbelgrade.info | +381 11 3953 777",
+    "size": "~180 staff, Rajko Mitić Stadium (55,533 capacity); Serbia's most successful club",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football",
+    "level_league": "SuperLiga (Serbia 1st tier) / Champions League 2024-25 participant",
+    "decision_maker_name": "not publicly confirmed",
+    "decision_maker_title": "General Director",
+    "decision_maker_contact": "info@redstarbelgrade.info | via club administration",
+    "pro_for_cogmap": [
+      "Champions League regular; sells talent to top European clubs — cognitive profiling adds transfer value",
+      "Red Star's brand extends across the Balkans — regional reference partner for CogMap",
+      "Belgrade's growing tech and startup scene signals openness to innovation partnerships"
+    ],
+    "con_for_cogmap": [
+      "Serbia is non-EU; payment, contracting, and compliance logistics are more complex",
+      "Budget significantly below top CEE clubs",
+      "Serbian language required; fewer English-speaking operational staff"
+    ],
+    "value_proposition": "Red Star Belgrade's track record of developing talent for Europe's top leagues makes cognitive profiling essential for identifying which young players have the mental attributes to succeed at the highest level. CogMap's UCL-validated assessments add objective, science-backed data to your already strong scouting network — enhancing transfer value and ensuring first-team players have the cognitive resilience for Champions League competition."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "FK Partizan Belgrade",
+    "url": "https://www.fkpartizan.com",
+    "address": "Humska 1, 11000 Beograd, Serbia",
+    "general_contact": "info@fkpartizan.com | +381 11 2633 300",
+    "size": "~150 staff, Partizan Stadium (29,775 capacity); one of Serbia's big two",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football",
+    "level_league": "SuperLiga (Serbia 1st tier) / Europa League participant",
+    "decision_maker_name": "not publicly confirmed",
+    "decision_maker_title": "Club President / Sporting Director",
+    "decision_maker_contact": "info@fkpartizan.com",
+    "pro_for_cogmap": [
+      "Strong academy tradition; consistent European competition",
+      "Partizan's multi-sport academy infrastructure creates cross-sport deployment opportunity",
+      "Belgrade location bridges the Balkan region for CogMap expansion"
+    ],
+    "con_for_cogmap": [
+      "Non-EU logistics for Serbia",
+      "Budget constraints vs. Western European clubs",
+      "Traditional club culture may resist external cognitive assessment approaches"
+    ],
+    "value_proposition": "Partizan's multi-sport academy infrastructure is a unique deployment opportunity — CogMap can serve football, basketball, volleyball, and water polo programs under one license. UCL-validated cognitive measurement gives your academy directors objective data across all youth-to-first-team pathways, particularly valuable in Europe-facing competitions where cognitive resilience separates success from elimination."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "PFC Ludogorets Razgrad",
+    "url": "https://www.ludogorets.com",
+    "address": "kn. Dondukov-Korsakov 45, 7200 Razgrad, Bulgaria",
+    "general_contact": "info@ludogorets.com | +359 84 669 669",
+    "size": "~120 staff, Huvepharma Arena (8,808 capacity); Bulgaria's dominant club",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football",
+    "level_league": "Parva Liga (Bulgaria 1st tier) / frequent Champions League group-stage participant",
+    "decision_maker_name": "Aleksandr Aleksandrov / Alex Rangelov",
+    "decision_maker_title": "Club Chairman (Aleksandrov) / CEO (Rangelov)",
+    "decision_maker_contact": "Via club administration",
+    "pro_for_cogmap": [
+      "Most dominant Bulgarian club in modern era; frequent European competition",
+      "Huvepharma ownership (pharma company) means health/science mindset in boardroom",
+      "Proven appetite for innovation — built Bulgaria's most successful club on smart recruitment"
+    ],
+    "con_for_cogmap": [
+      "Small city (Razgrad, ~35K population) limits logistics for demo",
+      "Bulgarian language needed for player assessments",
+      "Bulgarian league budgets are among the lowest in UEFA-ranked leagues"
+    ],
+    "value_proposition": "Ludogorets has built its unprecedented Bulgarian dominance on smart recruitment and infrastructure investment. CogMap's UCL-validated cognitive profiling would add the next layer of scientific rigor to your recruitment — particularly valuable in qualifying rounds where split-second decision-making under pressure separates Champions League group-stages from elimination. Huvepharma's pharma background creates a natural cultural fit for a neuroscience-based partnership."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "CD PROJEKT RED",
+    "url": "https://www.cdprojektred.com",
+    "address": "ul. Jagiellońska 73A, 03-301 Warszawa, Poland",
+    "general_contact": "contact@cdprojektred.com | +48 22 337 66 00",
+    "size": "~1,200 employees; Warsaw HQ",
+    "industry": "Technology / Gaming",
+    "sport_or_sector": "Game Development Studio",
+    "level_league": "Warsaw Stock Exchange listed (CDR)",
+    "decision_maker_name": "not publicly confirmed for specific HR contact",
+    "decision_maker_title": "VP of People / Head of HR",
+    "decision_maker_contact": "Via corporate HR department",
+    "pro_for_cogmap": [
+      "Poland's most famous tech company; 1,200 employees in creative/technical roles requiring cognitive precision",
+      "Warsaw-based = easy logistics from UK; strong English-speaking workforce",
+      "Game development requires creative problem-solving, focus, and collaboration — all CogMap measurable traits"
+    ],
+    "con_for_cogmap": [
+      "May view cognitive assessment as duplicating existing HR frameworks",
+      "Post-Cyberpunk 2077 launch culture may be sensitive to employee assessment concerns",
+      "Competition from established corporate assessment tools (SHL, Hogan)"
+    ],
+    "value_proposition": "CD Projekt Red's teams of 1,000+ developers require exceptional cognitive collaboration, creative problem-solving, and sustained focus under crunch periods. CogMap's neuroscience-based assessment can inform team composition, leadership potential, and burnout detection (cogWell) — giving you objective data on the cognitive traits that drive game development excellence, backed by UCL's peer-reviewed research."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "Bitdefender",
+    "url": "https://www.bitdefender.com",
+    "address": "Strada Vasile Lascăr 22, 020492 București, Romania",
+    "general_contact": "info@bitdefender.com | +40 21 407 2800",
+    "size": "~1,700 employees; Bucharest HQ + global offices",
+    "industry": "Technology / Cybersecurity",
+    "sport_or_sector": "Cybersecurity Software",
+    "level_league": "Top-tier global cybersecurity vendor (NYSE-listed via AVET)",
+    "decision_maker_name": "not publicly confirmed for specific HR contact",
+    "decision_maker_title": "VP Human Resources",
+    "decision_maker_contact": "Via corporate HR",
+    "pro_for_cogmap": [
+      "Cybersecurity operations require high-stakes cognitive performance under stress",
+      "1,700 employees across multiple markets; scalable deployment opportunity",
+      "Bucharest is a growing tech hub — reference customer for CEE tech expansion"
+    ],
+    "con_for_cogmap": [
+      "Competes with global corporate assessment providers (SHL, Korn Ferry)",
+      "Cybersecurity firms may prefer to build internal psychometric tools",
+      "Long procurement cycles for large, listed companies"
+    ],
+    "value_proposition": "Bitdefender's cybersecurity teams operate under intense pressure — split-second cognitive decisions matter. CogMap's UCL-validated cognitive assessment provides objective data on decision-making, focus, and stress resilience for high-performing technical roles. cogWell's burnout detection is particularly relevant for SOCs and incident response teams where cognitive fatigue introduces security risk."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "The British School Warsaw (Nord Anglia Education)",
+    "url": "https://www.nordangliaeducation.com/tbsw-warsaw",
+    "address": "ul. Mysia 3, 00-496 Warszawa, Poland",
+    "general_contact": "+48 22 842 32 81 | british@thebritishschool.pl",
+    "size": "~150 staff, ~800 students; Nord Anglia global network",
+    "industry": "Education",
+    "sport_or_sector": "International School / K-12 Education",
+    "level_league": "International Baccalaureate school",
+    "decision_maker_name": "John Brett",
+    "decision_maker_title": "Principal",
+    "decision_maker_contact": "british@thebritishschool.pl",
+    "pro_for_cogmap": [
+      "Part of Nord Anglia global network — one school win opens network-wide deployment",
+      "UK curriculum school; CogMap's UCL origin carries immediate academic credibility",
+      "English-first environment; minimal localization needed for initial pilot",
+      "International parent community values neuroscience-backed student development"
+    ],
+    "con_for_cogmap": [
+      "Education budgets are significantly lower than sports/corporate segments",
+      "Parental consent required for student cognitive assessments",
+      "Academic year procurement cycles; decision windows are narrow"
+    ],
+    "value_proposition": "BSW's UK curriculum and Nord Anglia network alignment make CogMap's UCL neuroscience background an instant credibility match. Cognitive profiling can support your IB learner profile framework and student university applications — providing objective, science-backed developmental insights that differentiate BSW in Warsaw's competitive international school market. A successful pilot here opens Nord Anglia's 80+ school network."
+  },
+  {
+    "region": "CEE",
+    "entity_name": "Hungarian University of Sports Science (TE)",
+    "url": "https://www.tf.hu",
+    "address": "Alkotás utca 17-21, 1123 Budapest, Hungary",
+    "general_contact": "+36 1 487 8900 | info@tf.hu",
+    "size": "~120 academic staff, ~2,500 students",
+    "industry": "Higher Education / Sports Science",
+    "sport_or_sector": "Sports Science Research & Education",
+    "level_league": "National sports science university",
+    "decision_maker_name": "not publicly confirmed",
+    "decision_maker_title": "Rector / Head of Research",
+    "decision_maker_contact": "info@tf.hu",
+    "pro_for_cogmap": [
+      "Hungary's premier sports science institution — research partnership potential",
+      "Hungarian Olympic Committee affiliation — gateway to national federation access",
+      "Academic credibility amplifies CogMap's UCL peer-reviewed positioning"
+    ],
+    "con_for_cogmap": [
+      "University partnership revenue is limited vs. commercial contracts",
+      "Academic procurement and ethics approvals are slow in Hungary",
+      "Hungarian language needed for student-facing tools"
+    ],
+    "value_proposition": "A research partnership between CogMap and Hungary's premier sports science university would validate your platform across Eastern European athletic populations and unlock access to Hungarian Olympic Committee networks. The academic collaboration strengthens CogMap's peer-reviewed positioning while the university gains a UCL-validated assessment tool for its athletes and research outputs. It's a strategic entry point for the broader Hungarian and Balkan markets."
+  }
+]

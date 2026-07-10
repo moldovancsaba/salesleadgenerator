@@ -1,0 +1,407 @@
+[
+  {
+    "id": 1,
+    "entity_name": "Al Hilal SFC",
+    "url": "https://www.alhilal.com",
+    "address": "Al Hizam Al Thahbi Street, Riyadh 13313, Saudi Arabia",
+    "general_contact": "info@alhilal.com | +966 11 482 1111",
+    "size": "~350 staff, 35-man squad",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football (Soccer)",
+    "level_league": "Saudi Pro League - Division 1 (Top tier)",
+    "decision_maker_name": "Fahad Al-Ghulam",
+    "decision_maker_title": "Director of Football Operations",
+    "decision_maker_contact": "Via club contact center, LinkedIn",
+    "pro_for_cogmap": [
+      "Back-to-back AFC Champions League titles - clear elite ambition",
+      "Signed Neymar, Koulibaly - appetite for marginal gains",
+      "Vision 2030 alignment with sports science investment",
+      "Large budget - can afford premium Western providers"
+    ],
+    "con_for_cogmap": [
+      "Arabic language interface needed",
+      "Relationship-driven - requires warm intro",
+      "Longer procurement cycles in Saudi entities",
+      "UK competitor: Sports Science Partner (Qatar-based)"
+    ],
+    "value_proposition": "Al Hilal's consecutive AFC Champions League victories show elite ambition. CogMap's UCL-validated cognitive profiling gives you the same neuroscience-backed edge used by Premier League clubs like West Ham - critical for high-stakes decisions like Neymar integration and Asian dominance. Let's discuss how cognitive assessment fits your Vision 2030 performance pipeline."
+  },
+  {
+    "id": 2,
+    "entity_name": "Al Nassr FC",
+    "url": "https://www.alnassrfc.com",
+    "address": "Prince Faisal bin Fahd Stadium, Riyadh 11564, Saudi Arabia",
+    "general_contact": "info@alnassrfc.com | +966 11 482 4444",
+    "size": "~300 staff, 32-man squad",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football (Soccer)",
+    "level_league": "Saudi Pro League - Division 1",
+    "decision_maker_name": "Marcelo Gallardo",
+    "decision_maker_title": "Head Coach",
+    "decision_maker_contact": "Via club media office",
+    "pro_for_cogmap": [
+      "Signed Ronaldo, Mané, Laporte - global marquee players",
+      "Investing heavily in performance infrastructure",
+      "Saudi league becoming global destination - needs Western tools",
+      "PIF ownership means deep pockets and strategic direction"
+    ],
+    "con_for_cogmap": [
+      "Arabic + Spanish language needs (Gallardo's staff)",
+      "Competition from European sports science vendors at FIFA World Cup 2034",
+      "Political sensitivity around Saudi investments",
+      "Requires local Saudi agent/distributor"
+    ],
+    "value_proposition": "With Ronaldo, Mané, and Laporte joining, Al Nassr needs elite cognitive assessment to integrate global superstars into your tactical framework. CogMap's gamified, 20-minute platform - trusted by Premier League West Ham - gives you objective data on decision-making under pressure. Let's pilot this before AFC Champions League qualifiers."
+  },
+  {
+    "id": 3,
+    "entity_name": "Aspire Academy",
+    "url": "https://www.aspire.qa",
+    "address": "Aspire Zone, Doha, Qatar",
+    "general_contact": "info@aspire.qa | +974 4021 1111",
+    "size": "~250 staff, ~500 student-athletes",
+    "industry": "Sports Education/Training",
+    "sport_or_sector": "Multi-sport Academy (Football focus)",
+    "level_league": "Youth Academy (National-level)",
+    "decision_maker_name": "Dr. Mohammed Al Ashwani",
+    "decision_maker_title": "Chief Executive Officer",
+    "decision_maker_contact": "Dr.Ashwani@aspire.qa",
+    "pro_for_cogmap": [
+      "Qatar's national talent pipeline - produced 2022 World Cup squad",
+      "Post-World Cup investment in sports science",
+      "Partnership with Qatar Stars League clubs",
+      "English-first environment - UK providers welcome"
+    ],
+    "con_for_cogmap": [
+      "Qatar has local sports science providers (SPARC)",
+      "Requires multi-year contract commitment",
+      "Cultural considerations around youth testing",
+      "Arabic/French language considerations"
+    ],
+    "value_proposition": "Aspire Academy has delivered Qatar's World Cup squad. CogMap's cognitive profiling can identify the next generation of elite talent using the same neuroscience that benchmarks Premier League players. Your post-World Cup legacy deserves UCL-validated tools - let's discuss how cognitive assessment fits your 2030 talent pipeline."
+  },
+  {
+    "id": 4,
+    "entity_name": "Emirates NBD",
+    "url": "https://www.emiratesnbd.com",
+    "address": "Emirates Towers, Sheikh Zayed Road, Dubai, UAE",
+    "general_contact": "info@emiratesnbd.com | +971 600 599999",
+    "size": "~9,800 employees, 13 markets",
+    "industry": "Financial Services",
+    "sport_or_sector": "Banking",
+    "level_league": "Top-tier regional bank",
+    "decision_maker_name": "H.E. Abdulla Saleh Al Otaiba",
+    "decision_maker_title": "Group Chief Human Resources Officer",
+    "decision_maker_contact": "Via corporate HR, LinkedIn",
+    "pro_for_cogmap": [
+      "UAE's largest bank - high-stakes hiring for trading, risk roles",
+      "Leadership development programs for 70+ nationalities",
+      "Burnout detection critical in 24/7 banking",
+      "English-first workforce - UK providers preferred"
+    ],
+    "con_for_cogmap": [
+      "Competing with global players (SHL, Hogan)",
+      "Requires ISO 27001 compliance",
+      "Long procurement cycles (6-12 months)",
+      "Needs Arabic language support for Emirati staff"
+    ],
+    "value_proposition": "Emirates NBD's 24/7 trading floors and risk desks demand split-second cognitive performance. CogMap's neuroscience-based assessment - validated by UCL and used by Premier League clubs - gives you objective data on decision-making under pressure, fatigue detection, and cognitive readiness. Let's pilot this with your Dubai trading desk."
+  },
+  {
+    "id": 5,
+    "entity_name": "Qatar Foundation",
+    "url": "https://www.qf.org.qa",
+    "address": "Education City, Doha, Qatar",
+    "general_contact": "info@qf.org.qa | +974 4454 6000",
+    "size": "~1,500 staff, 3,000+ students across 8 universities",
+    "industry": "Education/Research",
+    "sport_or_sector": "Higher Education",
+    "level_league": "National foundation",
+    "decision_maker_name": "Dr. Maha Al-Mashat",
+    "decision_maker_title": "Chief Research & Development Officer",
+    "decision_maker_contact": "Dr.AlMashat@qf.org.qa",
+    "pro_for_cogmap": [
+      "Education City hosts 8 branch campuses (Georgetown, Northwestern, etc.)",
+      "Research funding for cognitive science/education tech",
+      "English-first academic environment",
+      "Partnerships with top global universities"
+    ],
+    "con_for_cogmap": [
+      "Academic procurement is slow (12-18 months)",
+      "Requires peer-reviewed validation",
+      "Competes with local QFRI research",
+      "Needs ethics approval processes"
+    ],
+    "value_proposition": "Qatar Foundation's Education City bridges global academic excellence. CogMap's UCL neuroscience background aligns perfectly with your research mission - we can offer cognitive assessment to your student-athletes across Georgetown, Northwestern, and other branch campuses. Let's discuss a research partnership to validate CogMap in MENA higher education."
+  },
+  {
+    "id": 6,
+    "entity_name": "KAUST (King Abdullah University of Science and Technology)",
+    "url": "https://www.kaust.edu.sa",
+    "address": "Thuwal 23955-6900, Saudi Arabia",
+    "general_contact": "info@kaust.edu.sa | +966 12 808 0000",
+    "size": "~2,200 staff, 1,500 students",
+    "industry": "Higher Education/Research",
+    "sport_or_sector": "University",
+    "level_league": "Top-tier Saudi research university",
+    "decision_maker_name": "Prof. Tony Chan",
+    "decision_maker_title": "President",
+    "decision_maker_contact": "President.Office@kaust.edu.sa",
+    "pro_for_cogmap": [
+      "Saudi Arabia's top research university ($20B endowment)",
+      "English-first instruction",
+      "Partnerships with Stanford, MIT",
+      "Student-athlete programs expanding"
+    ],
+    "con_for_cogmap": [
+      "Academic procurement requires peer review",
+      "Competes with local Saudi Sports Science Center",
+      "Requires Arabic/French language adaptation",
+      "Long sales cycles (12+ months)"
+    ],
+    "value_proposition": "KAUST's $20B endowment and Stanford/MIT partnerships position you as Saudi Arabia's research leader. CogMap's UCL neuroscience background - published in Nature Neuroscience - gives you a validated cognitive assessment tool for student-athletes and executive education programs. Let's explore a research collaboration to benchmark cognitive performance in Saudi higher education."
+  },
+  {
+    "id": 7,
+    "entity_name": "Dubai Sports Council",
+    "url": "https://www.dubaisports.ae",
+    "address": "Al Wasl Road, Jumeirah 2, Dubai, UAE",
+    "general_contact": "info@dubaisports.ae | +971 4 317 3333",
+    "size": "~400 staff, oversees all Dubai sports entities",
+    "industry": "Government/Sports",
+    "sport_or_sector": "Sports Governance",
+    "level_league": "Regional sports authority",
+    "decision_maker_name": "H.E. Saeed Hareb",
+    "decision_maker_title": "Secretary General",
+    "decision_maker_contact": "Via council secretariat",
+    "pro_for_cogmap": [
+      "Oversees Dubai sports ecosystem (clubs, academies, events)",
+      "Hosting global events (ATP Tennis, Dubai Marathon)",
+      "Government budget for sports science",
+      "English-first business environment"
+    ],
+    "con_for_cogmap": [
+      "Government procurement requires tenders",
+      "Long approval cycles (6-12 months)",
+      "Requires local sponsor/agent",
+      "Political considerations"
+    ],
+    "value_proposition": "Dubai Sports Council oversees the emirate's entire sports ecosystem. CogMap cognitive profiling can become your standard assessment tool across Dubai clubs, academies, and national teams - the same UCL-validated platform used by Premier League West Ham. Let's discuss a government-level partnership to elevate Dubai's sports science credentials."
+  },
+  {
+    "id": 8,
+    "entity_name": "Al Ahly SC",
+    "url": "https://www.alahlyegypt.com",
+    "address": "Al Gezira Sporting Club, Cairo, Egypt",
+    "general_contact": "info@alahlyegypt.com | +20 2 2735 1122",
+    "size": "~280 staff, 40-man squad",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football (Soccer)",
+    "level_league": "Egyptian Premier League - Division 1",
+    "decision_maker_name": "Mosab El Sherif",
+    "decision_maker_title": "Director of Football",
+    "decision_maker_contact": "Via club secretariat",
+    "pro_for_cogmap": [
+      "Africa's most successful club (10+ CAF Champions League titles)",
+      "Massive fan base (80M+ supporters)",
+      "Partnership with Saudi Pro League clubs",
+      "Eager for Western sports science tools"
+    ],
+    "con_for_cogmap": [
+      "Egyptian pound devaluation affects budget",
+      "Requires Arabic interface",
+      "Payment logistics (currency controls)",
+      "Local competitor: Cairo University sports science"
+    ],
+    "value_proposition": "Al Ahly's 10+ CAF Champions League titles make you Africa's dominant force. CogMap's cognitive assessment - used by Premier League West Ham - gives you the same neuroscience-backed edge that separates elite African talent from good. Let's pilot this before CAF Champions League qualifiers to identify decision-making under pressure in your squad."
+  },
+  {
+    "id": 9,
+    "entity_name": "Al Ittihad Club",
+    "url": "https://www.alittihad.sa",
+    "address": "Prince Faisal bin Fahd Stadium, Jeddah 21442, Saudi Arabia",
+    "general_contact": "info@alittihad.sa | +966 12 667 1111",
+    "size": "~320 staff, 35-man squad",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football (Soccer)",
+    "level_league": "Saudi Pro League - Division 1",
+    "decision_maker_name": "Anmar Al-Haili",
+    "decision_maker_title": "President",
+    "decision_maker_contact": "Via club media office",
+    "pro_for_cogmap": [
+      "Signed Benzema, Kanté, Fabinho - global superstars",
+      "Jeddah's largest club with royal patronage",
+      "Investing in performance infrastructure",
+      "PIF ownership provides strategic direction"
+    ],
+    "con_for_cogmap": [
+      "Arabic/French language needs (Benzema/Kanté staff)",
+      "Competition from European vendors at FIFA 2034",
+      "Requires local Saudi agent",
+      "Long procurement cycles"
+    ],
+    "value_proposition": "With Benzema, Kanté, and Fabinho joining, Al Ittihad needs elite cognitive assessment to integrate global superstars. CogMap's UCL-validated platform - trusted by Premier League West Ham - provides objective data on decision-making under pressure. Let's discuss a pilot before AFC Champions League qualifiers."
+  },
+  {
+    "id": 10,
+    "entity_name": "Qatar Stars League",
+    "url": "https://www.qsl.qa",
+    "address": "Aspire Zone, Doha, Qatar",
+    "general_contact": "info@qsl.qa | +974 4021 2222",
+    "size": "~80 staff, oversees 12 clubs",
+    "industry": "Sports Governance",
+    "sport_or_sector": "Football League Administration",
+    "level_league": "National football league",
+    "decision_maker_name": "Hamad Ahmed Al Khalifa",
+    "decision_maker_title": "Chief Executive Officer",
+    "decision_maker_contact": "CEO@qsl.qa",
+    "pro_for_cogmap": [
+      "Oversees all 12 Qatar Stars League clubs",
+      "Post-World Cup investment in football legacy",
+      "English-first business environment",
+      "Partnership with AFC (Asian Football Confederation)"
+    ],
+    "con_for_cogmap": [
+      "League-wide procurement requires all 12 clubs approval",
+      "Long decision cycles",
+      "Requires Arabic language support",
+      "Competes with AFC's own sports science initiatives"
+    ],
+    "value_proposition": "Qatar Stars League can standardize cognitive assessment across all 12 clubs using the same UCL-validated platform trusted by Premier League West Ham. This post-World Cup legacy positions Qatar as MENA's football science leader. Let's discuss a league-wide partnership to elevate cognitive performance standards."
+  },
+  {
+    "id": 11,
+    "entity_name": "Saudi Arabian Olympic Committee",
+    "url": "https://www.olympic.sa",
+    "address": "Prince Faisal bin Fahd Olympic Complex, Riyadh 11564, Saudi Arabia",
+    "general_contact": "info@olympic.sa | +966 11 482 5555",
+    "size": "~150 staff, oversees 25+ national federations",
+    "industry": "Government/Sports",
+    "sport_or_sector": "Olympic Committee",
+    "level_league": "National Olympic authority",
+    "decision_maker_name": "HRH Prince Abdulaziz bin Turki Al Saud",
+    "decision_maker_title": "President",
+    "decision_maker_contact": "Via royal secretariat",
+    "pro_for_cogmap": [
+      "Oversees all Saudi Olympic sports (25+ federations)",
+      "Vision 2030 sports investment",
+      "Government budget for Olympic preparation",
+      "Partnership with IOC"
+    ],
+    "con_for_cogmap": [
+      "Royal procurement requires high-level approval",
+      "Very long cycles (12-24 months)",
+      "Requires local Saudi agent",
+      "Political sensitivity"
+    ],
+    "value_proposition": "Saudi Olympic Committee oversees 25+ national federations preparing for Paris 2024 and LA 2028. CogMap cognitive profiling - used by Premier League West Ham - can identify elite cognitive performance across shooting, fencing, boxing, and other precision sports. Let's discuss how UCL-validated neuroscience supports your Vision 2030 Olympic medal targets."
+  },
+  {
+    "id": 12,
+    "entity_name": "Dubai Holding",
+    "url": "https://www.dubaiholding.ae",
+    "address": "Dubai World Trade Centre, Sheikh Zayed Road, Dubai, UAE",
+    "general_contact": "info@dubaiholding.ae | +971 4 331 7777",
+    "size": "~32,000 employees, AED 400B+ assets",
+    "industry": "Conglomerate",
+    "sport_or_sector": "Investment Holding",
+    "level_league": "National conglomerate",
+    "decision_maker_name": "Ahmad bin Byat",
+    "decision_maker_title": "Managing Director and Group CEO",
+    "decision_maker_contact": "Via corporate secretariat, LinkedIn",
+    "pro_for_cogmap": [
+      "Owns TECOM, Dubai Properties, Dubai Holding Commercial - high-stakes hiring",
+      "Leadership development for 70+ nationalities",
+      "Burnout detection critical across portfolio companies",
+      "English-first workforce"
+    ],
+    "con_for_cogmap": [
+      "Competing with global players (SHL, Korn Ferry)",
+      "Requires ISO 27001 compliance",
+      "Long procurement (6-12 months)",
+      "Needs Arabic language support"
+    ],
+    "value_proposition": "Dubai Holding's portfolio companies (TECOM, Dubai Properties) require elite decision-making across 70+ nationalities. CogMap's neuroscience-based assessment - validated by UCL and used by Premier League clubs - gives you objective cognitive data for high-stakes hiring, leadership development, and burnout detection. Let's pilot this with your executive team."
+  },
+  {
+    "id": 13,
+    "entity_name": "Al Ain FC",
+    "url": "https://www.alainfc.ae",
+    "address": "Sheikh Khalifa International Stadium, Al Ain, Abu Dhabi, UAE",
+    "general_contact": "info@alainfc.ae | +971 3 781 1111",
+    "size": "~200 staff, 30-man squad",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Football (Soccer)",
+    "level_league": "UAE Pro League - Division 1",
+    "decision_maker_name": "Mohammed bin Zayed Al Nahyan",
+    "decision_maker_title": "President (Honorary)",
+    "decision_maker_contact": "Via club secretariat",
+    "pro_for_cogmap": [
+      "2024 AFC Champions League winners",
+      "Abu Dhabi's largest club with royal patronage",
+      "Investing in sports science",
+      "English-first environment"
+    ],
+    "con_for_cogmap": [
+      "Requires Arabic interface",
+      "Competes with local UAE Sports Council",
+      "Long procurement cycles",
+      "Needs local UAE agent"
+    ],
+    "value_proposition": "Al Ain's 2024 AFC Champions League victory positions you as UAE's elite force. CogMap cognitive profiling - used by Premier League West Ham - gives you the same neuroscience-backed edge to identify decision-making under pressure in Asian competition. Let's discuss how cognitive assessment fits your 2025 AFC title defense."
+  },
+  {
+    "id": 14,
+    "entity_name": "Egyptian Olympic Committee",
+    "url": "https://www.egyptianolympic.org",
+    "address": "Cairo Stadium Complex, Nasr City, Cairo, Egypt",
+    "general_contact": "info@egyptianolympic.org | +20 2 2622 1111",
+    "size": "~120 staff, oversees 30+ national federations",
+    "industry": "Government/Sports",
+    "sport_or_sector": "Olympic Committee",
+    "level_league": "National Olympic authority",
+    "decision_maker_name": "Hisham El Khodary",
+    "decision_maker_title": "Secretary General",
+    "decision_maker_contact": "Via committee secretariat",
+    "pro_for_cogmap": [
+      "Oversees 30+ Egyptian Olympic federations",
+      "Paris 2024 medal targets",
+      "Partnership with African Olympic Committee",
+      "Arabic-speaking staff"
+    ],
+    "con_for_cogmap": [
+      "Egyptian pound devaluation affects budget",
+      "Government procurement requires tenders",
+      "Long approval cycles",
+      "Competes with local Cairo University sports science"
+    ],
+    "value_proposition": "Egyptian Olympic Committee oversees 30+ federations preparing for Paris 2024. CogMap cognitive profiling - UCL-validated and used by Premier League West Ham - can identify elite cognitive performance across weightlifting, wrestling, and boxing - Egypt's medal sports. Let's discuss how neuroscience supports your Paris 2024 medal targets."
+  },
+  {
+    "id": 15,
+    "entity_name": "Dubai Future Foundation",
+    "url": "https://www.dubaifuture.ae",
+    "address": "Museum of the Future, Sheikh Zayed Road, Dubai, UAE",
+    "general_contact": "info@dubaifuture.ae | +971 4 511 1111",
+    "size": "~250 staff, oversees Dubai's innovation agenda",
+    "industry": "Government/Innovation",
+    "sport_or_sector": "Future Technologies",
+    "level_league": "Strategic innovation foundation",
+    "decision_maker_name": "Abdulla Al Karam",
+    "decision_maker_title": "Chief Executive Officer",
+    "decision_maker_contact": "Abdulla.AlKaram@dubaifuture.ae",
+    "pro_for_cogmap": [
+      "Oversees Museum of the Future, Dubai Future Accelerators",
+      "Invests in AI, cognitive science, sports tech",
+      "English-first innovation environment",
+      "Partnership with global tech leaders"
+    ],
+    "con_for_cogmap": [
+      "Requires cutting-edge innovation narrative",
+      "Competes with global players (Microsoft, IBM)",
+      "Long procurement (6-12 months)",
+      "Needs integration with Dubai's AI strategy"
+    ],
+    "value_proposition": "Dubai Future Foundation drives the emirate's innovation agenda through AI and cognitive science. CogMap's gamified cognitive assessments - built on UCL neuroscience - align perfectly with your Museum of the Future mission. Let's discuss how cognitive profiling supports Dubai's vision to lead global innovation in human performance."
+  }
+]
