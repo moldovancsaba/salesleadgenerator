@@ -1,78 +1,63 @@
 #!/usr/bin/env node
-
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
 const mongoose = require('mongoose');
 const fs = require('fs');
-const path = require('path');
 
-const MONGODB_URI = 'mongodb+srv://moldovancsaba_cogmap:hDdCxB93I1U94Mpv@sales.8wytusk.mongodb.net/?appName=sales';
+const MONGODB_URI = process.env.MONGODB_URI;
 
-const leadSchema = new mongoose.Schema({
-  id: Number,
-  region: String,
-  entity_name: String,
-  url: String,
-  address: String,
-  general_contact: String,
-  size: String,
-  industry: String,
-  sport_or_sector: String,
-  level_league: String,
-  decision_maker_name: String,
-  decision_maker_title: String,
-  decision_maker_contact: String,
-  pro_for_cogmap: [String],
-  con_for_cogmap: [String],
-  value_proposition: String,
-  priority: { type: String, enum: ['high', 'medium', 'low'], default: 'medium' },
-  status: { type: String, enum: ['new', 'contacted', 'qualified', 'proposal', 'closed'], default: 'new' },
-  notes: { type: String, default: '' },
-  tags: [String],
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-});
+if (!MONGODB_URI) {
+  console.error('ERROR: MONGODB_URI not found in .env.local');
+  process.exit(1);
+}
 
-const Lead = mongoose.model('Lead', leadSchema);
-
-async function seedDatabase() {
+async function seed() {
   try {
     console.log('Connecting to MongoDB Atlas...');
     await mongoose.connect(MONGODB_URI);
-    console.log('✓ Connected to MongoDB');
+    console.log('✓ Connected');
 
-    console.log('\nClearing existing data...');
-    await Lead.deleteMany({});
-    console.log('✓ Database cleared');
+    // Clear existing data
+    console.log('Clearing existing leads...');
+    await mongoose.connection.db.collection('leads').deleteMany({});
+    console.log('✓ Cleared');
 
-    console.log('\nLoading lead data...');
-    const base = path.join(__dirname, '..');
-    const usLeads = JSON.parse(fs.readFileSync(path.join(base, 'public/us-leads.json'), 'utf8'));
-    const ceeLeads = JSON.parse(fs.readFileSync(path.join(base, 'public/cee-leads.json'), 'utf8'));
-    const menaLeads = JSON.parse(fs.readFileSync(path.join(base, 'public/mena-leads.json'), 'utf8'));
+    // Load and normalize all leads from public/ (where the JSON files are)
+    console.log('Loading leads...');
+    const usLeads = JSON.parse(fs.readFileSync(path.join(__dirname, '../public/us-leads.json'), 'utf8')).map(lead => ({
+      ...lead,
+      pro_for_cogmap: Array.isArray(lead.pro_for_cogmap) ? lead.pro_for_cogmap : [lead.pro_for_cogmap],
+      con_for_cogmap: Array.isArray(lead.con_for_cogmap) ? lead.con_for_cogmap : [lead.con_for_cogmap]
+    }));
+
+    const ceeLeads = JSON.parse(fs.readFileSync(path.join(__dirname, '../public/cee-leads.json'), 'utf8')).map(lead => ({
+      ...lead,
+      pro_for_cogmap: Array.isArray(lead.pro_for_cogmap) ? lead.pro_for_cogmap : [lead.pro_for_cogmap],
+      con_for_cogmap: Array.isArray(lead.con_for_cogmap) ? lead.con_for_cogmap : [lead.con_for_cogmap]
+    }));
+
+    const menaLeads = JSON.parse(fs.readFileSync(path.join(__dirname, '../public/mena-leads.json'), 'utf8')).map(lead => ({
+      ...lead,
+      pro_for_cogmap: Array.isArray(lead.pro_for_cogmap) ? lead.pro_for_cogmap : [lead.pro_for_cogmap],
+      con_for_cogmap: Array.isArray(lead.con_for_cogmap) ? lead.con_for_cogmap : [lead.con_for_cogmap]
+    }));
 
     console.log(`✓ Loaded ${usLeads.length} US leads`);
     console.log(`✓ Loaded ${ceeLeads.length} CEE leads`);
     console.log(`✓ Loaded ${menaLeads.length} MENA leads`);
 
-    // Assign IDs sequentially and set reasonable priorities
-    const allLeads = [
-      ...usLeads.map((l, i) => ({ ...l, id: i + 1, priority: 'high' })),
-      ...ceeLeads.map((l, i) => ({ ...l, id: usLeads.length + i + 1, priority: 'medium' })),
-      ...menaLeads.map((l, i) => ({ ...l, id: usLeads.length + ceeLeads.length + i + 1, priority: 'medium' })),
-    ];
-
-    console.log('\nInserting leads into database...');
-    await Lead.insertMany(allLeads);
-    console.log(`✓ Inserted ${allLeads.length} leads`);
-
-    const count = await Lead.countDocuments();
-    console.log(`\n✓ Database seeded successfully! Total leads: ${count}`);
+    // Insert all leads
+    const allLeads = [...usLeads, ...ceeLeads, ...menaLeads];
+    console.log(`Inserting ${allLeads.length} leads...`);
+    await mongoose.connection.db.collection('leads').insertMany(allLeads);
+    console.log('✓ Inserted');
 
     await mongoose.disconnect();
-    console.log('✓ Disconnected from MongoDB');
+    console.log('✓ Database seeded successfully');
   } catch (error) {
-    console.error('Error seeding database:', error);
+    console.error('Seed error:', error);
     process.exit(1);
   }
 }
 
-seedDatabase();
+seed();
