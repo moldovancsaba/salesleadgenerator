@@ -1,62 +1,95 @@
-import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/mongodb';
-import Lead from '@/models/Lead';
+import { NextResponse } from 'next/server'
+import clientPromise from '@/lib/mongodb'
+import { ObjectId } from 'mongodb'
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    await dbConnect();
-    const lead = await Lead.findOne({ _id: params.id }).lean();
+    const client = await clientPromise
+    const db = client.db()
+
+    const lead = await db.collection('leads').findOne({
+      _id: new ObjectId(params.id)
+    })
+
     if (!lead) {
-      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Lead not found' },
+        { status: 404 }
+      )
     }
-    return NextResponse.json(lead);
-  } catch (error) {
-    console.error('GET /api/leads/[id] error:', error);
-    return NextResponse.json({ error: 'Failed to fetch lead' }, { status: 500 });
+
+    return NextResponse.json({
+      ...lead,
+      _id: lead._id.toString()
+    })
+  } catch (error: any) {
+    console.error('API Error:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch lead', details: error.message },
+      { status: 500 }
+    )
   }
 }
 
 export async function PUT(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    await dbConnect();
-    const body = await request.json();
+    const client = await clientPromise
+    const db = client.db()
+    const body = await request.json()
 
-    const lead = await Lead.findByIdAndUpdate(
-      params.id,
-      { ...body, updatedAt: new Date() },
-      { new: true, runValidators: true }
-    );
+    const result = await db.collection('leads').updateOne(
+      { _id: new ObjectId(params.id) },
+      { $set: body }
+    )
 
-    if (!lead) {
-      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+    if (result.matchedCount === 0) {
+      return NextResponse.json(
+        { error: 'Lead not found' },
+        { status: 404 }
+      )
     }
 
-    return NextResponse.json(lead);
+    return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('PUT /api/leads/[id] error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to update lead' }, { status: 400 });
+    console.error('API Error:', error)
+    return NextResponse.json(
+      { error: 'Failed to update lead', details: error.message },
+      { status: 500 }
+    )
   }
 }
 
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    await dbConnect();
-    const lead = await Lead.findByIdAndDelete(params.id);
-    if (!lead) {
-      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+    const client = await clientPromise
+    const db = client.db()
+
+    const result = await db.collection('leads').deleteOne({
+      _id: new ObjectId(params.id)
+    })
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json(
+        { error: 'Lead not found' },
+        { status: 404 }
+      )
     }
-    return NextResponse.json({ success: true, id: params.id });
-  } catch (error) {
-    console.error('DELETE /api/leads/[id] error:', error);
-    return NextResponse.json({ error: 'Failed to delete lead' }, { status: 500 });
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('API Error:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete lead', details: error.message },
+      { status: 500 }
+    )
   }
 }
