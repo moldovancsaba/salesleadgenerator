@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Stack, Group, Text, Card, Title, Loader, Alert, Paper, Badge, SimpleGrid } from "@mantine/core";
+import { IconAlertCircle } from "@tabler/icons-react";
+import { semanticToneToMantineColor } from "./utils/semantic-colors";
 
 interface TopQuery {
   query: string;
@@ -61,205 +64,281 @@ export function SearchLearningPanel() {
   };
 
   const getPerformanceColor = (rate: number) => {
-    if (rate >= 70) return "text-green-600 bg-green-50";
-    if (rate >= 40) return "text-yellow-600 bg-yellow-50";
-    return "text-red-600 bg-red-50";
+    const tone = rate >= 70 ? "synthesis" : rate >= 40 ? "checklist" : "strategy";
+    return semanticToneToMantineColor(tone);
   };
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-16 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <Paper p="xl" style={{ backgroundColor: "var(--mantine-color-gray-0)" }}>
+        <Stack gap="md">
+          <Loader size="lg" />
+          <Text size="md">Loading search learning data...</Text>
+        </Stack>
+      </Paper>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h3 className="text-red-800 font-semibold mb-2">Error Loading Search Learning Data</h3>
-          <p className="text-red-600 text-sm">{error}</p>
-        </div>
-      </div>
+      <Paper p="xl">
+        <Alert
+          icon={<IconAlertCircle size="1rem" />}
+          title="Error Loading Search Learning Data"
+          color="red"
+        >
+          {error}
+        </Alert>
+      </Paper>
     );
   }
 
   if (!data || (data.topQueries.length === 0 && data.topTerms.length === 0 && data.topDomains.length === 0)) {
     return (
-      <div className="p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Search Learning</h2>
-        <p className="text-gray-600 mb-6">
-          Track which search queries are producing the best results.
-        </p>
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-          <p className="text-gray-500 mb-2">No search learning data available yet</p>
-          <p className="text-gray-400 text-sm">
+      <Stack gap="md" p="xl">
+        <Title order={2}>Search Learning</Title>
+        <Text>Track which search queries are producing the best results.</Text>
+        <Paper
+          p="xl"
+          style={{
+            backgroundColor: "var(--mantine-color-gray-0)",
+            border: "1px solid var(--mantine-color-gray-2)",
+          }}
+        >
+          <Text size="lg" c="dimmed" ta="center">
+            No search learning data available yet
+          </Text>
+          <Text size="sm" c="dimmed" ta="center">
             Search queries will be tracked as you accept or decline leads in the pipeline
-          </p>
-        </div>
-      </div>
+          </Text>
+        </Paper>
+      </Stack>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Search Learning</h2>
-        <p className="text-gray-600">
+    <Stack gap="xl" p="xl">
+      <Stack gap="xs">
+        <Title order={2}>Search Learning</Title>
+        <Text>
           Track which search queries are producing the best results. High success rates indicate valuable queries for finding leads.
-        </p>
-      </div>
+        </Text>
+      </Stack>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="text-sm text-gray-600 mb-1">Total Search Runs</div>
-          <div className="text-3xl font-bold text-gray-900">{data.totalRuns}</div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="text-sm text-gray-600 mb-1">Average Success Rate</div>
-          <div className="text-3xl font-bold text-gray-900">
-            {Math.round(data.avgSuccessRate * 100)}%
-          </div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="text-sm text-gray-600 mb-1">Last Updated</div>
-          <div className="text-sm font-semibold text-gray-900">
-            {data.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : 'Never'}
-          </div>
-        </div>
-      </div>
+      <SimpleGrid cols={{ base: 1, sm: 3 }}>
+        <Paper
+          p="md"
+          style={{
+            backgroundColor: "var(--mantine-color-gray-0)",
+            border: "1px solid var(--mantine-color-gray-2)",
+          }}
+        >
+          <Stack gap="xs">
+            <Text size="sm" c="dimmed">
+              Total Search Runs
+            </Text>
+            <Title order={1}>{data.totalRuns}</Title>
+          </Stack>
+        </Paper>
+        <Paper
+          p="md"
+          style={{
+            backgroundColor: "var(--mantine-color-gray-0)",
+            border: "1px solid var(--mantine-color-gray-2)",
+          }}
+        >
+          <Stack gap="xs">
+            <Text size="sm" c="dimmed">
+              Average Success Rate
+            </Text>
+            <Title order={1}>{Math.round(data.avgSuccessRate * 100)}%</Title>
+          </Stack>
+        </Paper>
+        <Paper
+          p="md"
+          style={{
+            backgroundColor: "var(--mantine-color-gray-0)",
+            border: "1px solid var(--mantine-color-gray-2)",
+          }}
+        >
+          <Stack gap="xs">
+            <Text size="sm" c="dimmed">
+              Last Updated
+            </Text>
+            <Text fw={600}>
+              {data.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : "Never"}
+            </Text>
+          </Stack>
+        </Paper>
+      </SimpleGrid>
 
       {/* Top Queries */}
       {data.topQueries.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Top Queries</h3>
-          <div className="space-y-4">
+        <Stack gap="md">
+          <Title order={3}>Top Queries</Title>
+          <Stack gap="md">
             {data.topQueries.map((query, index) => {
               const successRate = getSuccessRate(query);
               const performanceColor = getPerformanceColor(successRate);
 
               return (
-                <div
+                <Paper
                   key={index}
-                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  p="md"
+                  withBorder
+                  style={{
+                    transition: "box-shadow 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900 text-lg mb-1">
+                  <Group justify="space-between" align="flex-start" mb="md">
+                    <Stack gap={4} style={{ flex: 1 }}>
+                      <Text fw={600} size="lg">
                         {query.query}
-                      </h4>
-                      <p className="text-xs text-gray-500">
+                      </Text>
+                      <Text size="xs" c="dimmed">
                         {query.createdLeads} lead(s) created
-                      </p>
-                    </div>
-                    <div className={`px-3 py-1.5 rounded-full text-sm font-bold ${performanceColor}`}>
+                      </Text>
+                    </Stack>
+                    <Badge color={performanceColor} variant="light" size="md">
                       {successRate}% success
-                    </div>
-                  </div>
+                    </Badge>
+                  </Group>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-green-50 rounded p-3">
-                      <div className="text-2xl font-bold text-green-600">
-                        {query.accepted}
-                      </div>
-                      <div className="text-sm text-green-700">Accepted</div>
-                    </div>
-                    <div className="bg-red-50 rounded p-3">
-                      <div className="text-2xl font-bold text-red-600">
-                        {query.declined}
-                      </div>
-                      <div className="text-sm text-red-700">Declined</div>
-                    </div>
-                  </div>
-                </div>
+                  <SimpleGrid cols={2}>
+                    <Paper
+                      p="md"
+                      style={{
+                        backgroundColor: "var(--mantine-color-green-0)",
+                      }}
+                    >
+                      <Stack gap={4}>
+                        <Title order={2} c="green">
+                          {query.accepted}
+                        </Title>
+                        <Text size="sm" c="green">
+                          Accepted
+                        </Text>
+                      </Stack>
+                    </Paper>
+                    <Paper
+                      p="md"
+                      style={{
+                        backgroundColor: "var(--mantine-color-red-0)",
+                      }}
+                    >
+                      <Stack gap={4}>
+                        <Title order={2} c="red">
+                          {query.declined}
+                        </Title>
+                        <Text size="sm" c="red">
+                          Declined
+                        </Text>
+                      </Stack>
+                    </Paper>
+                  </SimpleGrid>
+                </Paper>
               );
             })}
-          </div>
-        </div>
+          </Stack>
+        </Stack>
       )}
 
       {/* Top Terms */}
       {data.topTerms.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Top Terms</h3>
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex flex-wrap gap-2">
-              {data.topTerms.slice(0, 20).map((term, index) => (
-                <span
-                  key={index}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                    term.score >= 0.7
-                      ? "bg-green-100 text-green-700"
-                      : term.score >= 0.4
-                      ? "bg-yellow-100 text-yellow-700"
-                      : "bg-gray-100 text-gray-700"
-                  }`}
-                >
-                  {term.key}
-                  <span className="ml-2 text-xs opacity-75">
-                    ({Math.round(term.score * 100)})
-                  </span>
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+        <Stack gap="md">
+          <Title order={3}>Top Terms</Title>
+          <Paper p="md" withBorder>
+            <Group gap="xs" wrap="wrap">
+              {data.topTerms.slice(0, 20).map((term, index) => {
+                const tone = term.score >= 0.7 ? "synthesis" : term.score >= 0.4 ? "checklist" : "neutral";
+                const color = semanticToneToMantineColor(tone);
+
+                return (
+                  <Badge key={index} color={color} variant="light" size="md">
+                    {term.key}
+                    <Text component="span" size="xs" ml={4} opacity={0.75}>
+                      ({Math.round(term.score * 100)})
+                    </Text>
+                  </Badge>
+                );
+              })}
+            </Group>
+          </Paper>
+        </Stack>
       )}
 
       {/* Top Domains */}
       {data.topDomains.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Top Domains</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Stack gap="md">
+          <Title order={3}>Top Domains</Title>
+          <SimpleGrid cols={{ base: 1, md: 2 }}>
             {data.topDomains.slice(0, 10).map((domain, index) => (
-              <div
-                key={index}
-                className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between"
-              >
-                <div className="font-mono text-sm text-gray-900">{domain.key}</div>
-                <div className="text-sm font-semibold text-gray-700">
-                  Score: {Math.round(domain.score * 100)}
-                </div>
-              </div>
+              <Paper key={index} p="md" withBorder>
+                <Group justify="space-between">
+                  <Text ff="monospace" size="sm">
+                    {domain.key}
+                  </Text>
+                  <Text size="sm" fw={600}>
+                    Score: {Math.round(domain.score * 100)}
+                  </Text>
+                </Group>
+              </Paper>
             ))}
-          </div>
-        </div>
+          </SimpleGrid>
+        </Stack>
       )}
 
       {/* Recent Queries */}
       {data.lastQueries.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Recent Queries</h3>
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="space-y-2">
+        <Stack gap="md">
+          <Title order={3}>Recent Queries</Title>
+          <Paper p="md" withBorder>
+            <Stack gap="xs">
               {data.lastQueries.slice(0, 10).map((query, index) => (
-                <div key={index} className="text-sm text-gray-700 py-1 border-b border-gray-100 last:border-0">
+                <Text
+                  key={index}
+                  size="sm"
+                  py={4}
+                  style={{
+                    borderBottom: index < data.lastQueries.length - 1 ? "1px solid var(--mantine-color-gray-2)" : "none",
+                  }}
+                >
                   {query}
-                </div>
+                </Text>
               ))}
-            </div>
-          </div>
-        </div>
+            </Stack>
+          </Paper>
+        </Stack>
       )}
 
-      <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-blue-900 font-semibold mb-2">💡 Tips</h3>
-        <ul className="text-blue-800 text-sm space-y-1 list-disc list-inside">
-          <li>Focus on queries with high success rates (70%+)</li>
-          <li>Review queries with low success rates to refine your search strategy</li>
-          <li>Use successful query patterns to discover similar opportunities</li>
-          <li>Search learning data updates automatically as you accept or decline leads</li>
-        </ul>
-      </div>
-    </div>
+      <Paper
+        p="md"
+        style={{
+          backgroundColor: "var(--mantine-color-blue-0)",
+          border: "1px solid var(--mantine-color-blue-2)",
+        }}
+      >
+        <Stack gap="xs">
+          <Text fw={600} c="blue">
+            💡 Tips
+          </Text>
+          <Text size="sm">
+            <ul style={{ margin: 0, paddingLeft: "1.5rem" }}>
+              <li>Focus on queries with high success rates (70%+)</li>
+              <li>Review queries with low success rates to refine your search strategy</li>
+              <li>Use successful query patterns to discover similar opportunities</li>
+              <li>Search learning data updates automatically as you accept or decline leads</li>
+            </ul>
+          </Text>
+        </Stack>
+      </Paper>
+    </Stack>
   );
 }

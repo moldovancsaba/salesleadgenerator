@@ -1,7 +1,28 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import type { Lead } from "./types";
+import { useState } from 'react';
+import type { Lead } from './types';
+import { 
+  Modal, 
+  Stack, 
+  Group, 
+  Text, 
+  Badge, 
+  Progress, 
+  Textarea, 
+  Select, 
+  Button, 
+  Box,
+  Title,
+  Divider,
+  Paper,
+  SimpleGrid
+} from '@mantine/core';
+import { regionTone } from './theme/semantic';
+import { iceTone, qualityTone } from './theme/semantic';
+import { semanticToneToMantineColor } from './utils/semantic-colors';
+import { IconX, IconThumbUp, IconThumbDown, IconPin, IconRefresh } from '@tabler/icons-react';
+
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
 
@@ -31,19 +52,15 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
   const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const ice = lead.ice || { impact: 5, confidence: 5, ease: 5 };
+  const ice = lead.ice || { impact: 0, confidence: 0, ease: 0 };
   const iceScore = Math.round(ice.impact * ice.confidence * ice.ease);
   const maxIce = 1000;
   const icePercent = Math.min(100, (iceScore / maxIce) * 100);
-
-  function regionColor(): string {
-    const colors: Record<string, string> = {
-      US: "bg-red-100 text-red-800 border-red-200",
-      CEE: "bg-blue-100 text-blue-800 border-blue-200",
-      MENA: "bg-green-100 text-green-800 border-green-200",
-    };
-    return colors[lead.region] || "bg-slate-100 text-slate-800 border-slate-200";
-  }
+  
+  // Get Mantine color values from semantic tones
+  const iceToneValue = semanticToneToMantineColor(iceTone(iceScore));
+  const regionToneValue = semanticToneToMantineColor(regionTone[lead.region]);
+  const qualityToneValue = semanticToneToMantineColor(qualityTone[lead.qualityStatus]);
 
   async function handleAccept() {
     setBusy(true);
@@ -76,236 +93,259 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <Modal
+      opened={true}
+      onClose={onClose}
+      size="xl"
+      padding={0}
+      withCloseButton={false}
+    >
+      <Paper radius="md" withBorder={false}>
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold text-slate-900">{lead.entity_name}</h2>
-              <div className="flex items-center gap-2 mt-2">
-                <span className={`px-2 py-0.5 text-xs font-medium rounded border ${regionColor()}`}>
+        <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
+          <Group justify="space-between" align="flex-start">
+            <Stack gap="xs" style={{ flex: 1 }}>
+              <Title order={2}>{lead.entity_name}</Title>
+              <Group gap="xs">
+                <Badge variant="light" color={regionToneValue}>
                   {lead.region}
-                </span>
-                <span className="text-sm text-slate-600">{lead.industry || lead.sport_or_sector}</span>
-                <span className="text-xs text-slate-400">•</span>
-                <span className="text-xs text-slate-500">{lead.kanbanColumn}</span>
-              </div>
-            </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">
-              ×
-            </button>
-          </div>
-        </div>
+                </Badge>
+                <Text size="sm" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
+                <Badge variant="light" color={qualityToneValue}>
+                  {lead.qualityStatus || 'DRAFT'}
+                </Badge>
+              </Group>
+            </Stack>
+            <Button variant="subtle" color="gray" onClick={onClose} p={4}>
+              <IconX size={20} />
+            </Button>
+          </Group>
+        </Box>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* ICE Score */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold text-slate-700">ICE Score</span>
-              <span className="text-lg font-bold text-slate-900">{iceScore} / {maxIce}</span>
-            </div>
-            <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all ${iceScore >= 720 ? "bg-emerald-500" : iceScore >= 480 ? "bg-indigo-500" : iceScore >= 200 ? "bg-blue-500" : "bg-slate-400"}`}
-                style={{ width: `${icePercent}%` }}
+        <Box p="md">
+          <Stack gap="md">
+            {/* ICE Score */}
+            <Paper p="md" withBorder>
+              <Stack gap="xs">
+                <Group justify="space-between">
+                  <Text fw={600}>ICE Score</Text>
+                  <Text fw={700} size="lg">{iceScore} / {maxIce}</Text>
+                </Group>
+                <Progress value={icePercent} size="lg" color={iceToneValue} />
+                <SimpleGrid cols={3} spacing="xs">
+                  <Box>
+                    <Text size="xs" c="dimmed">Impact</Text>
+                    <Text fw={600}>{ice.impact} / 10</Text>
+                  </Box>
+                  <Box>
+                    <Text size="xs" c="dimmed">Confidence</Text>
+                    <Text fw={600}>{ice.confidence} / 10</Text>
+                  </Box>
+                  <Box>
+                    <Text size="xs" c="dimmed">Ease</Text>
+                    <Text fw={600}>{ice.ease} / 10</Text>
+                  </Box>
+                </SimpleGrid>
+              </Stack>
+            </Paper>
+
+            {/* Details */}
+            <SimpleGrid cols={2} spacing="md">
+              <Box>
+                <Text size="xs" c="dimmed">URL</Text>
+                {lead.url ? (
+                  <Text size="sm" component="a" href={lead.url} target="_blank" c="blue">
+                    {lead.url}
+                  </Text>
+                ) : '—'}
+              </Box>
+              <Box>
+                <Text size="xs" c="dimmed">Size</Text>
+                <Text size="sm">{lead.size || '—'}</Text>
+              </Box>
+              <Box>
+                <Text size="xs" c="dimmed">Level / League</Text>
+                <Text size="sm">{lead.level_league || '—'}</Text>
+              </Box>
+              <Box>
+                <Text size="xs" c="dimmed">Kanban Column</Text>
+                <Text size="sm">{lead.kanbanColumn}</Text>
+              </Box>
+            </SimpleGrid>
+
+            {/* Decision Maker */}
+            {lead.decision_maker_name && (
+              <Paper p="md" withBorder>
+                <Stack gap="xs">
+                  <Text size="xs" c="dimmed" fw={600}>DECISION MAKER</Text>
+                  <Text fw={600}>{lead.decision_maker_name}</Text>
+                  {lead.decision_maker_title && (
+                    <Text size="sm" c="dimmed">{lead.decision_maker_title}</Text>
+                  )}
+                  {lead.decision_maker_contact && (
+                    <Text size="sm" c="dimmed">{lead.decision_maker_contact}</Text>
+                  )}
+                </Stack>
+              </Paper>
+            )}
+
+            {/* Pros / Cons */}
+            {((lead.pro_for_cogmap && lead.pro_for_cogmap.length > 0) || 
+              (lead.con_for_cogmap && lead.con_for_cogmap.length > 0)) && (
+              <SimpleGrid cols={2} spacing="md">
+                {lead.pro_for_cogmap && lead.pro_for_cogmap.length > 0 && (
+                  <Paper p="md" withBorder>
+                    <Stack gap="xs">
+                      <Text size="xs" c="green" fw={600} tt="uppercase">Pros for CogMap</Text>
+                      <Stack gap={4}>
+                        {lead.pro_for_cogmap.map((pro, i) => (
+                          <Text size="sm" key={i}>• {pro}</Text>
+                        ))}
+                      </Stack>
+                    </Stack>
+                  </Paper>
+                )}
+                {lead.con_for_cogmap && lead.con_for_cogmap.length > 0 && (
+                  <Paper p="md" withBorder>
+                    <Stack gap="xs">
+                      <Text size="xs" c="red" fw={600} tt="uppercase">Cons for CogMap</Text>
+                      <Stack gap={4}>
+                        {lead.con_for_cogmap.map((con, i) => (
+                          <Text size="sm" key={i}>• {con}</Text>
+                        ))}
+                      </Stack>
+                    </Stack>
+                  </Paper>
+                )}
+              </SimpleGrid>
+            )}
+
+            {/* Value Proposition */}
+            {lead.value_proposition && (
+              <Paper p="md" withBorder>
+                <Stack gap="xs">
+                  <Text size="xs" c="blue" fw={600} tt="uppercase">Value Proposition</Text>
+                  <Text size="sm">{lead.value_proposition}</Text>
+                </Stack>
+              </Paper>
+            )}
+
+            {/* Feedback Summary */}
+            {(lead.feedbackScore > 0 || lead.declineCount > 0 || lead.acceptanceCount > 0) && (
+              <Paper p="md" withBorder>
+                <Stack gap="xs">
+                  <Text size="xs" fw={600} tt="uppercase">Feedback History</Text>
+                  <SimpleGrid cols={3} spacing="xs">
+                    <Box>
+                      <Text size="xs" c="dimmed">Feedback Score</Text>
+                      <Text fw={700}>{lead.feedbackScore}</Text>
+                    </Box>
+                    <Box>
+                      <Text size="xs" c="dimmed">Acceptances</Text>
+                      <Text fw={700} c="green">{lead.acceptanceCount}</Text>
+                    </Box>
+                    <Box>
+                      <Text size="xs" c="dimmed">Declines</Text>
+                      <Text fw={700} c="red">{lead.declineCount}</Text>
+                    </Box>
+                  </SimpleGrid>
+                  {lead.declinedAt && lead.declineReason && (
+                    <Text size="xs" c="dimmed">
+                      Declined: {new Date(lead.declinedAt).toLocaleDateString()} ({lead.declineReason})
+                    </Text>
+                  )}
+                </Stack>
+              </Paper>
+            )}
+
+            <Divider />
+
+            {/* Annotation */}
+            <Stack gap="xs">
+              <Text fw={600}>Annotation</Text>
+              <Textarea
+                value={annotation}
+                onChange={(e) => setAnnotation(e.target.value)}
+                rows={3}
+                placeholder="Add notes, reasoning, or context for your action…"
               />
-            </div>
-            <div className="grid grid-cols-3 gap-4 mt-3 text-xs">
-              <div>
-                <div className="text-slate-500 mb-1">Impact</div>
-                <div className="font-semibold text-slate-900">{ice.impact} / 10</div>
-              </div>
-              <div>
-                <div className="text-slate-500 mb-1">Confidence</div>
-                <div className="font-semibold text-slate-900">{ice.confidence} / 10</div>
-              </div>
-              <div>
-                <div className="text-slate-500 mb-1">Ease</div>
-                <div className="font-semibold text-slate-900">{ice.ease} / 10</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Details */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-xs text-slate-500 mb-1">URL</div>
-              {lead.url && (
-                <a href={lead.url} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 hover:underline">
-                  {lead.url}
-                </a>
-              )}
-            </div>
-            <div>
-              <div className="text-xs text-slate-500 mb-1">Size</div>
-              <div className="text-sm text-slate-900">{lead.size || "—"}</div>
-            </div>
-            <div>
-              <div className="text-xs text-slate-500 mb-1">Level / League</div>
-              <div className="text-sm text-slate-900">{lead.level_league || "—"}</div>
-            </div>
-            <div>
-              <div className="text-xs text-slate-500 mb-1">Quality Status</div>
-              <div className="text-sm text-slate-900 font-medium">{lead.qualityStatus || "DRAFT"}</div>
-            </div>
-          </div>
-
-          {/* Decision Maker */}
-          {lead.decision_maker_name && (
-            <div className="border border-slate-200 rounded-lg p-4">
-              <div className="text-xs text-slate-500 mb-2">Decision Maker</div>
-              <div className="font-semibold text-slate-900">{lead.decision_maker_name}</div>
-              {lead.decision_maker_title && <div className="text-sm text-slate-600 mt-1">{lead.decision_maker_title}</div>}
-              {lead.decision_maker_contact && (
-                <div className="text-sm text-slate-500 mt-1">{lead.decision_maker_contact}</div>
-              )}
-            </div>
-          )}
-
-          {/* Pros / Cons */}
-          {((lead.pro_for_cogmap && lead.pro_for_cogmap.length > 0) || (lead.con_for_cogmap && lead.con_for_cogmap.length > 0)) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {lead.pro_for_cogmap && lead.pro_for_cogmap.length > 0 && (
-                <div className="border-l-4 border-emerald-500 bg-emerald-50 rounded-r-lg p-4">
-                  <div className="text-xs font-semibold text-emerald-700 mb-2">PROS FOR COGMAP</div>
-                  <ul className="space-y-1 text-sm text-emerald-900">
-                    {lead.pro_for_cogmap.map((pro, i) => (
-                      <li key={i}>• {pro}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {lead.con_for_cogmap && lead.con_for_cogmap.length > 0 && (
-                <div className="border-l-4 border-rose-500 bg-rose-50 rounded-r-lg p-4">
-                  <div className="text-xs font-semibold text-rose-700 mb-2">CONS FOR COGMAP</div>
-                  <ul className="space-y-1 text-sm text-rose-900">
-                    {lead.con_for_cogmap.map((con, i) => (
-                      <li key={i}>• {con}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Value Proposition */}
-          {lead.value_proposition && (
-            <div className="border-l-4 border-indigo-500 bg-indigo-50 rounded-r-lg p-4">
-              <div className="text-xs font-semibold text-indigo-700 mb-2">VALUE PROPOSITION</div>
-              <p className="text-sm text-indigo-900">{lead.value_proposition}</p>
-            </div>
-          )}
-
-          {/* Feedback Summary */}
-          {(lead.feedbackScore > 0 || lead.declineCount > 0 || lead.acceptanceCount > 0) && (
-            <div className="bg-slate-50 rounded-lg p-4">
-              <div className="text-xs font-semibold text-slate-700 mb-2">FEEDBACK HISTORY</div>
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div>
-                  <div className="text-slate-500">Feedback Score</div>
-                  <div className="font-bold text-slate-900">{lead.feedbackScore}</div>
-                </div>
-                <div>
-                  <div className="text-slate-500">Acceptances</div>
-                  <div className="font-bold text-emerald-600">{lead.acceptanceCount}</div>
-                </div>
-                <div>
-                  <div className="text-slate-500">Declines</div>
-                  <div className="font-bold text-rose-600">{lead.declineCount}</div>
-                </div>
-              </div>
-              {lead.declinedAt && lead.declineReason && (
-                <div className="mt-3 text-xs text-slate-500">
-                  Declined: {new Date(lead.declinedAt).toLocaleDateString()} ({lead.declineReason})
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Annotation */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Annotation</label>
-            <textarea
-              value={annotation}
-              onChange={(e) => setAnnotation(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              rows={3}
-              placeholder="Add notes, reasoning, or context for your action…"
-            />
-          </div>
-        </div>
+            </Stack>
+          </Stack>
+        </Box>
 
         {/* Actions */}
-        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4">
+        <Box p="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
           {!actionMode ? (
-            <div className="grid grid-cols-2 gap-3">
-              <button
+            <Group gap="sm">
+              <Button 
+                color="green" 
+                leftSection={<IconThumbUp size={16} />}
                 onClick={handleAccept}
                 disabled={busy}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50"
               >
                 Accept → QUALIFIED
-              </button>
-              <button
+              </Button>
+              <Button 
+                color="red" 
+                leftSection={<IconThumbDown size={16} />}
                 onClick={() => setActionMode("decline")}
                 disabled={busy}
-                className="px-4 py-2 bg-rose-600 text-white rounded-lg font-medium hover:bg-rose-700 disabled:opacity-50"
+                variant="light"
               >
                 Decline → LOST
-              </button>
-              <button
+              </Button>
+              <Button 
+                color="blue" 
+                leftSection={<IconPin size={16} />}
                 onClick={handlePin}
                 disabled={busy}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50"
+                variant="light"
               >
                 Pin to ENGAGED
-              </button>
-              <button
+              </Button>
+              <Button 
+                color="gray" 
+                leftSection={<IconRefresh size={16} />}
                 onClick={handleRefresh}
                 disabled={busy}
-                className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 disabled:opacity-50"
+                variant="light"
               >
                 Request Refresh
-              </button>
-            </div>
+              </Button>
+            </Group>
           ) : actionMode === "decline" ? (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Decline Reason</label>
-                <select
+            <Stack gap="sm">
+              <Stack gap="xs">
+                <Text fw={600}>Decline Reason</Text>
+                <Select
+                  data={DECLINE_REASONS.map(r => ({ value: r.value, label: r.label }))}
                   value={declineReason}
-                  onChange={(e) => setDeclineReason(e.target.value as DeclineReason)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
-                >
-                  {DECLINE_REASONS.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-3">
-                <button
+                  onChange={(value) => setDeclineReason((value as DeclineReason) || "OTHER")}
+                />
+              </Stack>
+              <Group gap="sm">
+                <Button 
+                  color="red" 
                   onClick={handleDecline}
                   disabled={busy}
-                  className="flex-1 px-4 py-2 bg-rose-600 text-white rounded-lg font-medium hover:bg-rose-700 disabled:opacity-50"
+                  style={{ flex: 1 }}
                 >
                   Confirm Decline
-                </button>
-                <button
+                </Button>
+                <Button 
+                  color="gray" 
+                  variant="light"
                   onClick={() => setActionMode(null)}
                   disabled={busy}
-                  className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 disabled:opacity-50"
                 >
                   Cancel
-                </button>
-              </div>
-            </div>
+                </Button>
+              </Group>
+            </Stack>
           ) : null}
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Paper>
+    </Modal>
   );
 }

@@ -1,256 +1,286 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { KanbanBoard } from "./kanban";
-import { LeadDetailModal } from "./detail";
-import { SearchLearningPanel } from "./search-learning";
-import { MetricsPanel } from "./metrics";
-import { COLUMNS } from "./constants";
+import { useState, useEffect } from "react";
+import {
+  Container,
+  Title,
+  Text,
+  Group,
+  Stack,
+  Select,
+  TextInput,
+  Badge,
+  Box,
+  Paper,
+  SimpleGrid,
+  Card,
+  Progress,
+} from "@mantine/core";
+import { IconSearch, IconBuilding, IconChartBar } from "@tabler/icons-react";
 import type { Lead, KanbanColumn } from "./types";
+import { COLUMNS } from "./constants";
+import { KanbanBoard } from "./kanban";
+import { MetricsPanel } from "./metrics";
+import { SearchLearningPanel } from "./search-learning";
 
-type Tab = "pipeline" | "search" | "metrics";
-
-// ── Kanban Columns ─────────────────────────────────────────────────────────────
-const KANBAN_COLUMNS: KanbanColumn[] = ["DISCOVERED", "QUALIFIED", "ENGAGED", "PROPOSAL", "WON", "LOST"];
-
-export default function Home() {
-  const [tab, setTab] = useState<Tab>("pipeline");
+export default function PipelinePage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"pipeline" | "metrics" | "learning">("pipeline");
   const [regionFilter, setRegionFilter] = useState<"ALL" | "US" | "CEE" | "MENA">("ALL");
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Lead | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // ── Fetch leads ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const fetchLeads = async () => {
-      try {
-        setLoading(true);
-        const params = new URLSearchParams();
-        if (regionFilter !== "ALL") params.append("region", regionFilter);
-        
-        const res = await fetch(`/api/leads?${params.toString()}`);
-        if (!res.ok) throw new Error("Failed to fetch leads");
-        
-        const data = await res.json();
-        setLeads(data.leads || []);
-      } catch (error) {
-        console.error("Fetch error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchLeads();
-  }, [refreshKey, regionFilter]);
+  }, []);
 
-  // ── Filter by search ────────────────────────────────────────────────────────
-  const filteredLeads = useMemo(() => {
-    if (!search.trim()) return leads;
-    
-    const query = search.toLowerCase();
-    return leads.filter((lead) => {
-      return (
-        lead.entity_name?.toLowerCase().includes(query) ||
-        lead.industry?.toLowerCase().includes(query) ||
-        lead.sport_or_sector?.toLowerCase().includes(query) ||
-        lead.decision_maker_name?.toLowerCase().includes(query) ||
-        lead.region?.toLowerCase().includes(query)
-      );
-    });
-  }, [leads, search]);
+  async function fetchLeads() {
+    try {
+      const response = await fetch("/api/leads");
+      if (!response.ok) throw new Error("Failed to fetch leads");
+      const data = await response.json();
+      setLeads(data.leads || []);
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  // ── Counts per column ───────────────────────────────────────────────────────
-  const columnCounts = useMemo(() => {
-    const counts: Record<KanbanColumn, number> = {
-      DISCOVERED: 0,
-      QUALIFIED: 0,
-      ENGAGED: 0,
-      PROPOSAL: 0,
-      WON: 0,
-      LOST: 0,
-    };
-    
-    filteredLeads.forEach((lead) => {
-      if (lead.kanbanColumn && counts[lead.kanbanColumn] !== undefined) {
-        counts[lead.kanbanColumn]++;
-      }
-    });
-    
-    return counts;
-  }, [filteredLeads]);
-
-  // ── Region counts ───────────────────────────────────────────────────────────
-  const regionCounts = useMemo(() => {
-    const counts = {
-      ALL: leads.length,
-      US: 0,
-      CEE: 0,
-      MENA: 0,
-    };
-    
-    leads.forEach((lead) => {
-      if (lead.region === "US") counts.US++;
-      else if (lead.region === "CEE") counts.CEE++;
-      else if (lead.region === "MENA") counts.MENA++;
-    });
-    
-    return counts;
-  }, [leads]);
-
-  // ── Move handler ────────────────────────────────────────────────────────────
   async function handleMove(leadId: string, column: KanbanColumn, sortOrder: number) {
+    const lead = leads.find((l) => l._id === leadId);
+    const fromColumn = lead?.kanbanColumn;
+
     try {
-      const res = await fetch(`/api/leads?id=${leadId}`, {
+      const response = await fetch(`/api/leads?id=${leadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kanbanColumn: column, sortOrder }),
+        body: JSON.stringify({
+          kanbanColumn: column,
+          sortOrder,
+          fromColumn,
+        }),
       });
-      
-      if (!res.ok) throw new Error("Failed to move lead");
-      
-      setRefreshKey((k) => k + 1);
+
+      if (!response.ok) throw new Error("Failed to move lead");
+
+      setLeads((prev) =>
+        prev.map((l) =>
+          l._id === leadId ? { ...l, kanbanColumn: column, sortOrder } : l
+        )
+      );
     } catch (error) {
-      console.error("Move error:", error);
-      alert("Failed to move lead. Please try again.");
+      console.error("Error moving lead:", error);
+      await fetchLeads();
     }
   }
 
-  // ── Action handler (DECLINE, ACCEPT, etc) ───────────────────────────────────
-  async function handleAction(leadId: string, action: "DECLINE" | "ACCEPT", payload: any) {
-    try {
-      const res = await fetch(`/api/leads?id=${leadId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, ...payload }),
-      });
-      
-      if (!res.ok) throw new Error("Failed to update lead");
-      
-      setSelected(null);
-      setRefreshKey((k) => k + 1);
-    } catch (error) {
-      console.error("Action error:", error);
-      alert("Failed to update lead. Please try again.");
-    }
-  }
+  const filteredLeads = leads.filter((lead) => {
+    const matchesRegion = regionFilter === "ALL" || lead.region === regionFilter;
+    const matchesSearch = searchQuery
+      ? lead.entity_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.industry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.decision_maker_name?.toLowerCase().includes(searchQuery.toLowerCase())
+      : true;
+    return matchesRegion && matchesSearch;
+  });
 
-  if (loading && leads.length === 0) {
+  const columnCounts = (column: KanbanColumn) =>
+    filteredLeads.filter((l) => l.kanbanColumn === column).length;
+
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
-      </div>
+      <Box p="xl">
+        <Text>Loading pipeline...</Text>
+      </Box>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-[1600px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-slate-900">CogMap Pipeline</h1>
-            
-            {/* Tab navigation */}
-            <nav className="flex gap-1">
-              {(["pipeline", "search", "metrics"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    tab === t
-                      ? "bg-indigo-50 text-indigo-700"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                </button>
-              ))}
-            </nav>
-          </div>
-          
-          {/* Region filters and search */}
-          <div className="flex items-center gap-4">
-            <div className="flex gap-1">
-              {(["ALL", "US", "CEE", "MENA"] as const).map((region) => (
-                <button
-                  key={region}
-                  onClick={() => setRegionFilter(region)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    regionFilter === region
-                      ? "bg-indigo-600 text-white"
-                      : "bg-white text-slate-700 hover:bg-slate-100"
-                  }`}
-                >
-                  {region}
-                  <span className="ml-2 text-xs opacity-70">
-                    {regionCounts[region]}
-                  </span>
-                </button>
-              ))}
-            </div>
-            
-            <input
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 px-4 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+    <Box
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "var(--app-bg)",
+        color: "var(--text-primary)",
+      }}
+    >
+      {/* Header */}
+      <Paper
+        shadow="xs"
+        p="md"
+        style={{
+          backgroundColor: "var(--sidebar-bg)",
+          borderBottom: "1px solid var(--border-primary)",
+        }}
+      >
+        <Stack gap="md">
+          <Group justify="space-between" align="center">
+            <Group gap="sm" align="center">
+              <IconBuilding size={28} color="var(--text-primary)" />
+              <Stack gap={0}>
+                <Title order={2} style={{ color: "var(--text-primary)" }}>
+                  CogMap Pipeline
+                </Title>
+                <Text size="xs" c="dimmed">
+                  Intelligent Lead Management System
+                </Text>
+              </Stack>
+            </Group>
+
+            <Group gap="md">
+              <Badge size="lg" variant="light" color="blue">
+                {leads.length} Total Leads
+              </Badge>
+            </Group>
+          </Group>
+
+          {/* Tab Navigation */}
+          <Group gap="xs">
+            <Card
+              p="xs"
+              radius="sm"
+              withBorder
+              onClick={() => setActiveTab("pipeline")}
+              style={{
+                cursor: "pointer",
+                backgroundColor:
+                  activeTab === "pipeline" ? "var(--surface-elevated)" : "transparent",
+                borderColor:
+                  activeTab === "pipeline"
+                    ? "var(--border-strong)"
+                    : "var(--border-primary)",
+              }}
+            >
+              <Group gap="xs">
+                <IconBuilding size={16} />
+                <Text size="sm" fw={500}>
+                  Pipeline Board
+                </Text>
+              </Group>
+            </Card>
+
+            <Card
+              p="xs"
+              radius="sm"
+              withBorder
+              onClick={() => setActiveTab("metrics")}
+              style={{
+                cursor: "pointer",
+                backgroundColor:
+                  activeTab === "metrics" ? "var(--surface-elevated)" : "transparent",
+                borderColor:
+                  activeTab === "metrics"
+                    ? "var(--border-strong)"
+                    : "var(--border-primary)",
+              }}
+            >
+              <Group gap="xs">
+                <IconChartBar size={16} />
+                <Text size="sm" fw={500}>
+                  Metrics
+                </Text>
+              </Group>
+            </Card>
+
+            <Card
+              p="xs"
+              radius="sm"
+              withBorder
+              onClick={() => setActiveTab("learning")}
+              style={{
+                cursor: "pointer",
+                backgroundColor:
+                  activeTab === "learning" ? "var(--surface-elevated)" : "transparent",
+                borderColor:
+                  activeTab === "learning"
+                    ? "var(--border-strong)"
+                    : "var(--border-primary)",
+              }}
+            >
+              <Group gap="xs">
+                <IconSearch size={16} />
+                <Text size="sm" fw={500}>
+                  Search Learning
+                </Text>
+              </Group>
+            </Card>
+          </Group>
+        </Stack>
+      </Paper>
+
+      {/* Filters */}
+      {activeTab === "pipeline" && (
+        <Paper
+          shadow="xs"
+          p="md"
+          style={{
+            backgroundColor: "var(--surface-base)",
+            borderBottom: "1px solid var(--border-primary)",
+          }}
+        >
+          <Group gap="md">
+            <TextInput
+              placeholder="Search leads..."
+              leftSection={<IconSearch size={16} />}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ flex: 1, maxWidth: 400 }}
             />
-          </div>
-        </div>
-      </header>
 
-      {/* ── Column Overview ─────────────────────────────────────────────────── */}
-      <section className="bg-white border-b border-slate-200">
-        <div className="max-w-[1600px] mx-auto px-6 py-4">
-          <div className="grid grid-cols-6 gap-3">
-            {KANBAN_COLUMNS.map((col) => {
-              const meta = COLUMNS.find((c) => c.key === col)!;
-              return (
-                <div key={col} className="text-center">
-                  <div className="text-3xl font-bold text-slate-900">
-                    {columnCounts[col]}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    {meta.icon} {meta.label}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+            <Select
+              placeholder="Filter by region"
+              value={regionFilter}
+              onChange={(value) => setRegionFilter((value as any) || "ALL")}
+              data={[
+                { value: "ALL", label: "All Regions" },
+                { value: "US", label: "US" },
+                { value: "CEE", label: "CEE" },
+                { value: "MENA", label: "MENA" },
+              ]}
+              style={{ width: 200 }}
+            />
+          </Group>
+        </Paper>
+      )}
 
-      {/* ── Main Content ────────────────────────────────────────────────────── */}
-      <div className="max-w-[1600px] mx-auto px-6 py-6">
-        {tab === "pipeline" && (
+      {/* Column Counts */}
+      {activeTab === "pipeline" && (
+        <Paper
+          shadow="xs"
+          p="md"
+          style={{
+            backgroundColor: "var(--surface-base)",
+            borderBottom: "1px solid var(--border-primary)",
+          }}
+        >
+          <Group gap="md" wrap="wrap">
+            {COLUMNS.map((col) => (
+              <Group key={col.key} gap="xs" align="center">
+                <Text size="sm" fw={500}>
+                  {col.label}:
+                </Text>
+                <Badge size="sm" variant="light" color={col.color}>
+                  {columnCounts(col.key)}
+                </Badge>
+              </Group>
+            ))}
+          </Group>
+        </Paper>
+      )}
+
+      {/* Content */}
+      <Box p="md">
+        {activeTab === "pipeline" && (
           <KanbanBoard
             leads={filteredLeads}
-            columns={COLUMNS}
             onMove={handleMove}
-            onSelect={setSelected}
           />
         )}
-        
-        {tab === "search" && <SearchLearningPanel />}
-        
-        {tab === "metrics" && <MetricsPanel leads={leads} />}
-      </div>
 
-      {/* ── Detail Modal ────────────────────────────────────────────────────── */}
-      {selected && (
-        <LeadDetailModal
-          lead={selected}
-          onClose={() => setSelected(null)}
-          onAction={(leadId, action, payload) => handleAction(leadId, action as any, payload)}
-          onUpdated={() => {
-            setSelected(null);
-            setRefreshKey((k) => k + 1);
-          }}
-        />
-      )}
-    </main>
+        {activeTab === "metrics" && <MetricsPanel leads={filteredLeads} />}
+
+        {activeTab === "learning" && <SearchLearningPanel />}
+      </Box>
+    </Box>
   );
 }

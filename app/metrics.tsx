@@ -1,12 +1,35 @@
 /**
  * Metrics Dashboard
  * Shows overall pipeline health, ICE score distribution, regional breakdowns
+ * Uses GDS semantic tokens for all colors
  */
 
 "use client";
 
 import { useMemo } from "react";
 import type { Lead } from "./types";
+import {
+  Paper,
+  Text,
+  Stack,
+  Grid,
+  Progress,
+  Badge,
+  RingProgress,
+  Group,
+  Title,
+  Card,
+  SimpleGrid,
+} from "@mantine/core";
+import {
+  IconTrendingUp,
+  IconUsers,
+  IconWorld,
+  IconCircleCheck,
+  IconAlertCircle,
+  IconClock,
+} from "@tabler/icons-react";
+import { semanticToneToMantineColor, qualityStatusToMantineColor, regionToMantineColor } from "./utils/semantic-colors";
 
 type Props = {
   leads: Lead[];
@@ -15,7 +38,7 @@ type Props = {
 export function MetricsPanel({ leads }: Props) {
   const metrics = useMemo(() => {
     const columns = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST'];
-    const regions = ['us', 'cee', 'mena'];
+    const regions = ['US', 'CEE', 'MENA'];
     const declineReasons: Record<string, number> = {};
 
     // Column distribution
@@ -29,7 +52,7 @@ export function MetricsPanel({ leads }: Props) {
     // Regional distribution
     const regionCounts = Object.fromEntries(regions.map(r => [r, 0]));
     leads.forEach(lead => {
-      const region = lead.region?.toLowerCase();
+      const region = lead.region;
       if (region && regionCounts[region] !== undefined) {
         regionCounts[region]++;
       }
@@ -55,11 +78,11 @@ export function MetricsPanel({ leads }: Props) {
 
     // ICE score buckets
     const buckets = [
-      { label: '0-200', min: 0, max: 200, count: 0 },
-      { label: '200-400', min: 200, max: 400, count: 0 },
-      { label: '400-600', min: 400, max: 600, count: 0 },
-      { label: '600-800', min: 600, max: 800, count: 0 },
-      { label: '800+', min: 800, max: Infinity, count: 0 },
+      { label: '0-200', min: 0, max: 200, count: 0, tone: 'ingress' },
+      { label: '200-400', min: 200, max: 400, count: 0, tone: 'synthesis' },
+      { label: '400-600', min: 400, max: 600, count: 0, tone: 'checklist' },
+      { label: '600-800', min: 600, max: 800, count: 0, tone: 'tactical' },
+      { label: '800+', min: 800, max: Infinity, count: 0, tone: 'review' },
     ];
 
     iceScores.forEach(score => {
@@ -78,20 +101,21 @@ export function MetricsPanel({ leads }: Props) {
       .sort(([, a], [, b]) => b - a);
 
     // Quality distribution
-    const qualityCounts = { verified: 0, checked: 0, draft: 0 };
+    const qualityCounts = { VERIFIED: 0, CHECKED: 0, DRAFT: 0 };
     leads.forEach(lead => {
-      const quality = lead.scoreProfile?.qualityStatus || 'draft';
-      if (quality === 'verified') qualityCounts.verified++;
-      else if (quality === 'checked') qualityCounts.checked++;
-      else qualityCounts.draft++;
+      const quality = lead.qualityStatus || 'DRAFT';
+      if (quality === 'VERIFIED') qualityCounts.VERIFIED++;
+      else if (quality === 'CHECKED') qualityCounts.CHECKED++;
+      else qualityCounts.DRAFT++;
     });
 
-    // Status distribution (legacy status field)
-    const statusCounts: Record<string, number> = {};
-    leads.forEach(lead => {
-      const status = lead.status || 'unknown';
-      statusCounts[status] = (statusCounts[status] || 0) + 1;
-    });
+    const totalWithFeedback = leads.filter(l => 
+      l.acceptanceCount > 0 || l.declineCount > 0
+    ).length;
+
+    const successRate = totalWithFeedback > 0 
+      ? (qualityCounts.VERIFIED + qualityCounts.CHECKED) / totalWithFeedback * 100 
+      : 0;
 
     return {
       total: leads.length,
@@ -102,141 +126,216 @@ export function MetricsPanel({ leads }: Props) {
       buckets,
       sortedDeclineReasons,
       qualityCounts,
-      statusCounts,
+      successRate,
     };
   }, [leads]);
 
+  const regionTones = {
+    US: regionToMantineColor('US'),
+    CEE: regionToMantineColor('CEE'),
+    MENA: regionToMantineColor('MENA'),
+  };
+
   return (
-    <div className="space-y-8">
+    <Stack gap="xl">
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="text-sm text-gray-600 mb-1">Total Leads</div>
-          <div className="text-3xl font-bold text-gray-900">{metrics.total}</div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="text-sm text-gray-600 mb-1">Avg ICE Score</div>
-          <div className="text-3xl font-bold text-blue-600">{metrics.avgIce.toFixed(0)}</div>
-          <div className="text-xs text-gray-500 mt-1">Median: {metrics.medianIce}</div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="text-sm text-gray-600 mb-1">Regional Split</div>
-          <div className="text-sm text-gray-900 mt-2">
-            <div className="flex justify-between mb-1">
-              <span>US:</span>
-              <span className="font-semibold">{metrics.regionCounts.us}</span>
-            </div>
-            <div className="flex justify-between mb-1">
-              <span>CEE:</span>
-              <span className="font-semibold">{metrics.regionCounts.cee}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>MENA:</span>
-              <span className="font-semibold">{metrics.regionCounts.mena}</span>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="text-sm text-gray-600 mb-1">Quality Status</div>
-          <div className="text-sm text-gray-900 mt-2">
-            <div className="flex justify-between mb-1">
-              <span className="text-green-600">Verified:</span>
-              <span className="font-semibold">{metrics.qualityCounts.verified}</span>
-            </div>
-            <div className="flex justify-between mb-1">
-              <span className="text-yellow-600">Checked:</span>
-              <span className="font-semibold">{metrics.qualityCounts.checked}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Draft:</span>
-              <span className="font-semibold">{metrics.qualityCounts.draft}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Grid>
+        <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
+          <Card withBorder p="xl" radius="md">
+            <Stack gap="xs">
+              <Group justify="space-between">
+                <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                  Total Leads
+                </Text>
+                <IconUsers size={20} color="var(--mantine-color-gray-6)" />
+              </Group>
+              <Text size="xl" fw={700}>{metrics.total}</Text>
+            </Stack>
+          </Card>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
+          <Card withBorder p="xl" radius="md">
+            <Stack gap="xs">
+              <Group justify="space-between">
+                <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                  Avg ICE Score
+                </Text>
+                <IconTrendingUp size={20} color="var(--mantine-color-blue-6)" />
+              </Group>
+              <Stack gap={0}>
+                <Text size="xl" fw={700}>{metrics.avgIce.toFixed(0)}</Text>
+                <Text size="xs" c="dimmed">Median: {metrics.medianIce}</Text>
+              </Stack>
+            </Stack>
+          </Card>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
+          <Card withBorder p="xl" radius="md">
+            <Stack gap="xs">
+              <Group justify="space-between">
+                <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                  Success Rate
+                </Text>
+                <IconCircleCheck size={20} color="var(--mantine-color-green-6)" />
+              </Group>
+              <Stack gap={0}>
+                <Text size="xl" fw={700}>{metrics.successRate.toFixed(1)}%</Text>
+                <Text size="xs" c="dimmed">Accepted leads</Text>
+              </Stack>
+            </Stack>
+          </Card>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
+          <Card withBorder p="xl" radius="md">
+            <Stack gap="xs">
+              <Text size="xs" c="dimmed" tt="uppercase" fw={700} mb={4}>
+                Regional Split
+              </Text>
+              <SimpleGrid cols={1} spacing="xs">
+                {Object.entries(metrics.regionCounts).map(([region, count]) => (
+                  <Group key={region} justify="space-between">
+                    <Group gap="xs">
+                      <Badge color={regionTones[region as keyof typeof regionTones]} variant="light" size="sm">
+                        {region}
+                      </Badge>
+                    </Group>
+                    <Text size="sm" fw={600}>{count}</Text>
+                  </Group>
+                ))}
+              </SimpleGrid>
+            </Stack>
+          </Card>
+        </Grid.Col>
+      </Grid>
 
       {/* ICE Score Distribution */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">ICE Score Distribution</h3>
-        <div className="space-y-3">
-          {metrics.buckets.map((bucket) => (
-            <div key={bucket.label} className="flex items-center gap-4">
-              <div className="w-20 text-sm text-gray-600">{bucket.label}</div>
-              <div className="flex-1 bg-gray-100 rounded-full h-6 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-end pr-2 text-xs text-white font-medium transition-all"
-                  style={{
-                    width: `${metrics.total > 0 ? (bucket.count / metrics.total) * 100 : 0}%`,
-                    minWidth: bucket.count > 0 ? '2rem' : '0',
-                  }}
-                >
-                  {bucket.count > 0 && bucket.count}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <Paper withBorder p="xl" radius="md">
+        <Stack gap="md">
+          <Title order={4}>ICE Score Distribution</Title>
+          <Stack gap="md">
+            {metrics.buckets.map((bucket) => {
+              const percentage = metrics.total > 0 ? (bucket.count / metrics.total) * 100 : 0;
+              const color = semanticToneToMantineColor(bucket.tone);
+
+              return (
+                <Stack key={bucket.label} gap={4}>
+                  <Group justify="space-between">
+                    <Text size="sm" fw={500}>{bucket.label}</Text>
+                    <Text size="sm" c="dimmed">{bucket.count} leads</Text>
+                  </Group>
+                  <Progress value={percentage} color={color} size="xl" radius="xl" />
+                </Stack>
+              );
+            })}
+          </Stack>
+        </Stack>
+      </Paper>
 
       {/* Pipeline Distribution */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Pipeline Distribution</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Object.entries(metrics.columnCounts).map(([column, count]) => (
-            <div key={column} className="border border-gray-200 rounded p-4">
-              <div className="text-sm text-gray-600 mb-1">{column}</div>
-              <div className="text-2xl font-bold text-gray-900">{count}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {metrics.total > 0 ? ((count / metrics.total) * 100).toFixed(1) : 0}%
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <Paper withBorder p="xl" radius="md">
+        <Stack gap="md">
+          <Title order={4}>Pipeline Distribution</Title>
+          <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="md">
+            {Object.entries(metrics.columnCounts).map(([column, count]) => {
+              const tone = column === 'WON' ? 'tactical' : column === 'LOST' ? 'strategy' : 'ingress';
+              const color = semanticToneToMantineColor(tone);
+              const percentage = metrics.total > 0 ? (count / metrics.total) * 100 : 0;
+
+              return (
+                <Card key={column} withBorder p="md" radius="md">
+                  <Stack gap="xs">
+                    <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                      {column}
+                    </Text>
+                    <Text size="xl" fw={700}>{count}</Text>
+                    <Text size="xs" c="dimmed">
+                      {percentage.toFixed(1)}%
+                    </Text>
+                    <Progress value={percentage} color={color} size="sm" />
+                  </Stack>
+                </Card>
+              );
+            })}
+          </SimpleGrid>
+        </Stack>
+      </Paper>
+
+      {/* Quality Status */}
+      <Paper withBorder p="xl" radius="md">
+        <Stack gap="md">
+          <Title order={4}>Quality Status</Title>
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+            {Object.entries(metrics.qualityCounts).map(([status, count]) => {
+              const color = qualityStatusToMantineColor(status);
+              return (
+                <Card key={status} withBorder p="md" radius="md">
+                  <Stack gap="xs" align="center">
+                    <Badge color={color} variant="light" size="lg">
+                      {status}
+                    </Badge>
+                    <Text size="xl" fw={700}>{count}</Text>
+                  </Stack>
+                </Card>
+              );
+            })}
+          </SimpleGrid>
+        </Stack>
+      </Paper>
 
       {/* Decline Reasons */}
       {metrics.sortedDeclineReasons.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Decline Reasons</h3>
-          <div className="space-y-2">
-            {metrics.sortedDeclineReasons.map(([reason, count]) => (
-              <div key={reason} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                <span className="text-sm text-gray-700">{reason}</span>
-                <span className="text-sm font-semibold text-gray-900">{count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Paper withBorder p="xl" radius="md">
+          <Stack gap="md">
+            <Title order={4}>Decline Reasons</Title>
+            <Stack gap="xs">
+              {metrics.sortedDeclineReasons.map(([reason, count]) => (
+                <Group key={reason} justify="space-between" py="xs" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
+                  <Text size="sm">{reason.replace(/_/g, ' ')}</Text>
+                  <Badge color="red" variant="light">
+                    {count}
+                  </Badge>
+                </Group>
+              ))}
+            </Stack>
+          </Stack>
+        </Paper>
       )}
 
       {/* Regional Breakdown */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Regional Breakdown</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Object.entries(metrics.regionCounts).map(([region, count]) => (
-            <div key={region} className="border border-gray-200 rounded p-4">
-              <div className="text-sm text-gray-600 mb-1">{region.toUpperCase()}</div>
-              <div className="text-2xl font-bold text-gray-900">{count}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {metrics.total > 0 ? ((count / metrics.total) * 100).toFixed(1) : 0}% of total
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <Paper withBorder p="xl" radius="md">
+        <Stack gap="md">
+          <Title order={4}>Regional Breakdown</Title>
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+            {Object.entries(metrics.regionCounts).map(([region, count]) => {
+              const color = regionTones[region as keyof typeof regionTones];
+              const percentage = metrics.total > 0 ? (count / metrics.total) * 100 : 0;
 
-      {/* Status Distribution */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Legacy Status Distribution</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Object.entries(metrics.statusCounts).map(([status, count]) => (
-            <div key={status} className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{count}</div>
-              <div className="text-sm text-gray-600 capitalize">{status}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+              return (
+                <Card key={region} withBorder p="md" radius="md">
+                  <Stack gap="xs">
+                    <Group justify="space-between">
+                      <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                        {region}
+                      </Text>
+                      <Badge color={color} variant="light">
+                        {count}
+                      </Badge>
+                    </Group>
+                    <Text size="xl" fw={700}>{count}</Text>
+                    <Text size="xs" c="dimmed">
+                      {percentage.toFixed(1)}% of total
+                    </Text>
+                    <Progress value={percentage} color={color} size="sm" />
+                  </Stack>
+                </Card>
+              );
+            })}
+          </SimpleGrid>
+        </Stack>
+      </Paper>
+    </Stack>
   );
 }

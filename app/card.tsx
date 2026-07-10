@@ -1,95 +1,133 @@
-"use client";
+'use client';
 
-import type { Lead } from "./types";
+import { useRef } from 'react';
+import type { Lead } from './types';
+import { iceTone, regionTone, qualityTone } from './theme/semantic';
+import { semanticToneToMantineColor } from './utils/semantic-colors';
 
-type Props = {
+interface LeadCardProps {
   lead: Lead;
-  onClick: () => void;
-};
+  onClick?: () => void;
+  onDragStart?: () => void;
+}
 
-export function LeadCard({ lead, onClick }: Props) {
-  const ice = lead.ice || { impact: 5, confidence: 5, ease: 5 };
-  const iceScore = ice.impact * ice.confidence * ice.ease;
-  const maxIce = 1000; // 10*10*10
-  const icePercent = Math.min(100, (iceScore / maxIce) * 100);
+export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
 
-  function iceColor(): string {
-    if (iceScore >= 720) return "bg-emerald-500";
-    if (iceScore >= 480) return "bg-indigo-500";
-    if (iceScore >= 200) return "bg-blue-500";
-    return "bg-slate-400";
+  const ice = (lead.ice?.impact || 0) * (lead.ice?.confidence || 0) * (lead.ice?.ease || 0);
+  const region = lead.region || 'UNKNOWN';
+  const quality = lead.qualityStatus || 'DRAFT';
+  const iceToneValue = iceTone(ice);
+  const regionToneValue = regionTone[region];
+  const qualityToneValue = qualityTone[quality] || 'neutral';
+  
+  const iceColor = semanticToneToMantineColor(iceToneValue);
+  const regionColor = semanticToneToMantineColor(regionToneValue);
+  const qualityColor = semanticToneToMantineColor(qualityToneValue);
+
+  function handleDragStart(e: React.DragEvent) {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ index: 0 }));
+    onDragStart?.();
   }
-
-  function regionColor(): string {
-    const colors: Record<string, string> = {
-      US: "bg-red-100 text-red-800",
-      CEE: "bg-blue-100 text-blue-800",
-      MENA: "bg-green-100 text-green-800",
-    };
-    return colors[lead.region] || "bg-slate-100 text-slate-800";
-  }
-
-  function qualityBadge(): { label: string; color: string } {
-    switch (lead.qualityStatus) {
-      case "VERIFIED": return { label: "✓ Verified", color: "text-emerald-600" };
-      case "CHECKED": return { label: "✓ Checked", color: "text-indigo-600" };
-      case "DRAFT":
-      default:
-        return { label: "Draft", color: "text-slate-400" };
-    }
-  }
-
-  const q = qualityBadge();
 
   return (
     <div
+      ref={cardRef}
       onClick={onClick}
-      className="bg-white border border-slate-200 rounded-lg p-3 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer"
+      draggable
+      onDragStart={handleDragStart}
+      style={{
+        padding: '0.75rem',
+        borderRadius: '0.375rem',
+        backgroundColor: 'var(--mantine-color-gray-0)',
+        border: '1px solid var(--mantine-color-gray-3)',
+        cursor: 'pointer',
+        transition: 'box-shadow 0.2s',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = 'none';
+      }}
     >
-      {/* Header: name + ICE score */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-slate-900 truncate">
-            {lead.entity_name}
+      {/* Header */}
+      <div style={{ marginBottom: '0.5rem' }}>
+        <div style={{ 
+          fontSize: '0.875rem', 
+          fontWeight: 600,
+          color: 'var(--mantine-color-gray-9)',
+          marginBottom: '0.25rem'
+        }}>
+          {lead.entity_name || 'Unknown Entity'}
+        </div>
+        {lead.url && (
+          <div style={{ 
+            fontSize: '0.75rem',
+            color: 'var(--mantine-color-gray-6)',
+            textOverflow: 'ellipsis',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap'
+          }}>
+            {lead.url}
           </div>
-          <div className="text-xs text-slate-500 truncate mt-0.5">
-            {lead.industry || lead.sport_or_sector || "—"}
-          </div>
+        )}
+      </div>
+
+      {/* ICE Badge */}
+      <div style={{ 
+        display: 'flex',
+        gap: '0.5rem',
+        marginBottom: '0.5rem'
+      }}>
+        <div style={{
+          padding: '0.25rem 0.5rem',
+          borderRadius: '0.25rem',
+          backgroundColor: `var(--mantine-color-${iceColor}-1)`,
+          color: `var(--mantine-color-${iceColor}-9)`,
+          fontSize: '0.75rem',
+          fontWeight: 600
+        }}>
+          ICE: {ice}
         </div>
-        <div className="text-right flex-shrink-0">
-          <div className="text-xs font-bold text-slate-700">{Math.round(iceScore)}</div>
-          <div className="text-[10px] text-slate-500 uppercase">ICE</div>
+        <div style={{
+          padding: '0.25rem 0.5rem',
+          borderRadius: '0.25rem',
+          backgroundColor: `var(--mantine-color-${regionColor}-1)`,
+          color: `var(--mantine-color-${regionColor}-9)`,
+          fontSize: '0.75rem',
+          fontWeight: 500
+        }}>
+          {region}
         </div>
       </div>
 
-      {/* ICE bar */}
-      <div className="mb-2">
-        <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-          <div className={`h-full ${iceColor()} transition-all`} style={{ width: `${icePercent}%` }} />
-        </div>
+      {/* Quality Status */}
+      <div style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.25rem',
+        fontSize: '0.75rem',
+        color: `var(--mantine-color-${qualityColor}-9)`
+      }}>
+        <span style={{
+          display: 'inline-block',
+          width: '0.5rem',
+          height: '0.5rem',
+          borderRadius: '50%',
+          backgroundColor: `var(--mantine-color-${qualityColor}-6)`
+        }} />
+        {quality}
       </div>
 
-      {/* Footer: region + quality + score */}
-      <div className="flex items-center justify-between gap-2 text-[11px]">
-        <span className={`px-1.5 py-0.5 rounded font-medium ${regionColor()}`}>
-          {lead.region}
-        </span>
-        <span className={`${q.color} font-medium`}>{q.label}</span>
-      </div>
-
-      {/* Decision maker (if present) */}
+      {/* Decision Maker */}
       {lead.decision_maker_name && (
-        <div className="mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500 truncate">
-          👤 {lead.decision_maker_name}
-          {lead.decision_maker_title && ` · ${lead.decision_maker_title}`}
-        </div>
-      )}
-
-      {/* Feedback indicators */}
-      {(lead.feedbackScore > 0 || lead.declineCount > 0) && (
-        <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-400">
-          {lead.feedbackScore > 0 && <span>↑ {lead.feedbackScore}</span>}
-          {lead.declineCount > 0 && <span>↓ {lead.declineCount}</span>}
+        <div style={{ 
+          marginTop: '0.5rem',
+          fontSize: '0.75rem',
+          color: 'var(--mantine-color-gray-7)'
+        }}>
+          DM: {lead.decision_maker_name}
         </div>
       )}
     </div>
