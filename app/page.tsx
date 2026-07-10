@@ -189,7 +189,7 @@ export default function Home() {
                     <div className="border-l-4 border-green-500 bg-green-50 rounded-r-xl p-6">
                       <h4 className="text-lg font-bold text-green-900 mb-3">✅ Pro for CogMap</h4>
                       <ul className="space-y-2 text-sm text-green-800">
-                        {lead.pro_for_cogmap?.map((pro, i) => (
+                        {lead.pro_for_cogmap?.map((pro: string, i: number) => (
                           <li key={i}>• {pro}</li>
                         ))}
                       </ul>
@@ -198,7 +198,7 @@ export default function Home() {
                     <div className="border-l-4 border-red-500 bg-red-50 rounded-r-xl p-6">
                       <h4 className="text-lg font-bold text-red-900 mb-3">⚠️ Con for CogMap</h4>
                       <ul className="space-y-2 text-sm text-red-800">
-                        {lead.con_for_cogmap?.map((con, i) => (
+                        {lead.con_for_cogmap?.map((con: string, i: number) => (
                           <li key={i}>• {con}</li>
                         ))}
                       </ul>
