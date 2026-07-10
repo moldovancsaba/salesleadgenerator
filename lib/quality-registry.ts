@@ -3,8 +3,6 @@
  * Prevents verified leads from depending on unverified evidence
  */
 
-import type { Lead } from '@/models/Lead'
-
 export type QualityStatus = 'DRAFT' | 'CHECKED' | 'VERIFIED'
 
 export const QUALITY_STATUS_CHAIN: QualityStatus[] = ['DRAFT', 'CHECKED', 'VERIFIED']
