@@ -1,6 +1,6 @@
 "use client";
 
-import type { Lead } from "./page";
+import type { Lead } from "./types";
 
 type Props = {
   lead: Lead;

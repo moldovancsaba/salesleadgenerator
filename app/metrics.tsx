@@ -6,16 +6,7 @@
 "use client";
 
 import { useMemo } from "react";
-
-type Lead = {
-  _id: string;
-  kanbanColumn: string;
-  region: string;
-  ice?: { impact: number; confidence: number; ease: number };
-  scoreProfile?: any;
-  declineReason?: string;
-  status?: string;
-};
+import type { Lead } from "./types";
 
 type Props = {
   leads: Lead[];

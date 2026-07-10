@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { Lead, KanbanColumn, DeclineReason } from "./page";
+import type { Lead } from "./types";
+type KanbanColumn = Lead['kanbanColumn'];
+type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
 
 type Props = {
   lead: Lead;

@@ -3,84 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { KanbanBoard } from "./kanban";
 import { LeadDetailModal } from "./detail";
-import { SearchLearningPanel } from "./search";
+import { SearchLearningPanel } from "./search-learning";
 import { MetricsPanel } from "./metrics";
-
-// ── Types (mirror models/Lead.ts) ───────────────────────────────────────────
-export type KanbanColumn =
-  | "DISCOVERED"
-  | "QUALIFIED"
-  | "ENGAGED"
-  | "PROPOSAL"
-  | "WON"
-  | "LOST";
-
-export type QualityStatus = "DRAFT" | "CHECKED" | "VERIFIED";
-export type DeclineReason =
-  | "WRONG_INDUSTRY"
-  | "NO_DECISION_MAKER"
-  | "TOO_SMALL"
-  | "ALREADY_COMPETITOR"
-  | "BAD_TIMING"
-  | "BUDGET_CONSTRAINTS"
-  | "NOT_RESPONSIVE"
-  | "MISSING_CONTEXT"
-  | "LOW_PRIORITY"
-  | "OTHER";
-
-export type Lead = {
-  _id: string;
-  id?: number;
-  region: "US" | "CEE" | "MENA";
-  entity_name: string;
-  url?: string;
-  address?: string;
-  general_contact?: string;
-  size?: string;
-  industry?: string;
-  sport_or_sector?: string;
-  level_league?: string;
-  decision_maker_name?: string;
-  decision_maker_title?: string;
-  decision_maker_contact?: string;
-  pro_for_cogmap?: string[];
-  con_for_cogmap?: string[];
-  value_proposition?: string;
-  priority?: "high" | "medium" | "low";
-  status?: string;
-  notes?: string;
-  tags?: string[];
-  kanbanColumn: KanbanColumn;
-  sortOrder: number;
-  fingerprint?: string;
-  ice?: { impact: number; confidence: number; ease: number };
-  scoreProfile?: any;
-  qualityStatus: QualityStatus;
-  feedbackScore: number;
-  declineCount: number;
-  acceptanceCount: number;
-  declineReason?: DeclineReason;
-  declinedAt?: string;
-  manualLaneOverrideAt?: string;
-  manualLaneCooldownUntil?: string;
-  manualLaneFloorColumn?: string;
-  manualLaneOverrideBy?: string;
-  lastActionAt?: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-// ── Column metadata (Check-inspired) ────────────────────────────────────────
-export const COLUMNS: { key: KanbanColumn; label: string; description: string; color: string; icon: string }[] = [
-  { key: "DISCOVERED", label: "Discovered", description: "Raw discovery queue", color: "slate", icon: "🔍" },
-  { key: "QUALIFIED", label: "Qualified", description: "Fit confirmed, ICE ≥ 200", color: "blue", icon: "✓" },
-  { key: "ENGAGED", label: "Engaged", description: "Active outreach, ICE ≥ 480", color: "indigo", icon: "⚡" },
-  { key: "PROPOSAL", label: "Proposal", description: "In negotiation", color: "purple", icon: "📝" },
-  { key: "WON", label: "Won", description: "Closed positive", color: "emerald", icon: "🏆" },
-  { key: "LOST", label: "Lost", description: "Declined / no fit", color: "rose", icon: "✕" },
-];
+import { COLUMNS } from "./constants";
+import type { Lead, KanbanColumn } from "./types";
 
 type Tab = "pipeline" | "search" | "metrics";
+
+// ── Kanban Columns ─────────────────────────────────────────────────────────────
+const KANBAN_COLUMNS: KanbanColumn[] = ["DISCOVERED", "QUALIFIED", "ENGAGED", "PROPOSAL", "WON", "LOST"];
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>("pipeline");
@@ -91,205 +22,220 @@ export default function Home() {
   const [selected, setSelected] = useState<Lead | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  // ── Fetch leads ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    (async () => {
+    const fetchLeads = async () => {
       try {
-        const params = new URLSearchParams({ limit: "500" });
+        setLoading(true);
+        const params = new URLSearchParams();
+        if (regionFilter !== "ALL") params.append("region", regionFilter);
+        
         const res = await fetch(`/api/leads?${params.toString()}`);
+        if (!res.ok) throw new Error("Failed to fetch leads");
+        
         const data = await res.json();
         setLeads(data.leads || []);
-      } catch (err) {
-        console.error("fetch leads failed", err);
+      } catch (error) {
+        console.error("Fetch error:", error);
       } finally {
         setLoading(false);
       }
-    })();
-  }, [refreshKey]);
+    };
 
-  // ── Filter + Search ────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    return leads.filter((l) => {
-      if (regionFilter !== "ALL" && l.region !== regionFilter) return false;
-      if (!search.trim()) return true;
-      const q = search.toLowerCase();
+    fetchLeads();
+  }, [refreshKey, regionFilter]);
+
+  // ── Filter by search ────────────────────────────────────────────────────────
+  const filteredLeads = useMemo(() => {
+    if (!search.trim()) return leads;
+    
+    const query = search.toLowerCase();
+    return leads.filter((lead) => {
       return (
-        l.entity_name.toLowerCase().includes(q) ||
-        l.industry?.toLowerCase().includes(q) ||
-        l.sport_or_sector?.toLowerCase().includes(q) ||
-        l.region.toLowerCase().includes(q)
+        lead.entity_name?.toLowerCase().includes(query) ||
+        lead.industry?.toLowerCase().includes(query) ||
+        lead.sport_or_sector?.toLowerCase().includes(query) ||
+        lead.decision_maker_name?.toLowerCase().includes(query) ||
+        lead.region?.toLowerCase().includes(query)
       );
     });
-  }, [leads, regionFilter, search]);
+  }, [leads, search]);
 
-  // ── Counts ─────────────────────────────────────────────────────────────────
-  const counts = useMemo(() => {
-    const c: Record<KanbanColumn, number> = {
-      DISCOVERED: 0, QUALIFIED: 0, ENGAGED: 0, PROPOSAL: 0, WON: 0, LOST: 0,
+  // ── Counts per column ───────────────────────────────────────────────────────
+  const columnCounts = useMemo(() => {
+    const counts: Record<KanbanColumn, number> = {
+      DISCOVERED: 0,
+      QUALIFIED: 0,
+      ENGAGED: 0,
+      PROPOSAL: 0,
+      WON: 0,
+      LOST: 0,
     };
-    filtered.forEach((l) => { c[l.kanbanColumn]++; });
-    return c;
-  }, [filtered]);
+    
+    filteredLeads.forEach((lead) => {
+      if (lead.kanbanColumn && counts[lead.kanbanColumn] !== undefined) {
+        counts[lead.kanbanColumn]++;
+      }
+    });
+    
+    return counts;
+  }, [filteredLeads]);
 
-  // ── Move handler ───────────────────────────────────────────────────────────
+  // ── Region counts ───────────────────────────────────────────────────────────
+  const regionCounts = useMemo(() => {
+    const counts = {
+      ALL: leads.length,
+      US: 0,
+      CEE: 0,
+      MENA: 0,
+    };
+    
+    leads.forEach((lead) => {
+      if (lead.region === "US") counts.US++;
+      else if (lead.region === "CEE") counts.CEE++;
+      else if (lead.region === "MENA") counts.MENA++;
+    });
+    
+    return counts;
+  }, [leads]);
+
+  // ── Move handler ────────────────────────────────────────────────────────────
   async function handleMove(leadId: string, column: KanbanColumn, sortOrder: number) {
-    setLeads((prev) =>
-      prev.map((l) =>
-        l._id === leadId ? { ...l, kanbanColumn: column, sortOrder } : l
-      )
-    );
     try {
-      await fetch(`/api/leads?id=${leadId}`, {
+      const res = await fetch(`/api/leads?id=${leadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kanbanColumn: column, sortOrder }),
       });
-    } catch (err) {
-      console.error("move failed", err);
+      
+      if (!res.ok) throw new Error("Failed to move lead");
+      
       setRefreshKey((k) => k + 1);
+    } catch (error) {
+      console.error("Move error:", error);
+      alert("Failed to move lead. Please try again.");
     }
   }
 
-  // ── Action handler (ACCEPT / DECLINE / PIN / etc.) ────────────────────────
-  async function handleAction(
-    leadId: string,
-    action: "ACCEPT" | "DECLINE" | "MODIFY" | "PIN" | "REQUEST_REFRESH",
-    payload: any = {}
-  ) {
+  // ── Action handler (DECLINE, ACCEPT, etc) ───────────────────────────────────
+  async function handleAction(leadId: string, action: "DECLINE" | "ACCEPT", payload: any) {
     try {
       const res = await fetch(`/api/leads?id=${leadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...payload }),
       });
-      const data = await res.json();
-      if (data.lead) {
-        setLeads((prev) => prev.map((l) => (l._id === leadId ? data.lead : l)));
-        setSelected(data.lead);
-      } else {
-        setRefreshKey((k) => k + 1);
-      }
-    } catch (err) {
-      console.error("action failed", err);
+      
+      if (!res.ok) throw new Error("Failed to update lead");
+      
+      setSelected(null);
       setRefreshKey((k) => k + 1);
+    } catch (error) {
+      console.error("Action error:", error);
+      alert("Failed to update lead. Please try again.");
     }
   }
 
-  function handleLeadUpdated() {
-    setRefreshKey((k) => k + 1);
-    setSelected(null);
-  }
-
-  // ── Region counts for top filters ──────────────────────────────────────────
-  const regionCounts = useMemo(() => {
-    const total = leads.length;
-    return {
-      ALL: total,
-      US: leads.filter((l) => l.region === "US").length,
-      CEE: leads.filter((l) => l.region === "CEE").length,
-      MENA: leads.filter((l) => l.region === "MENA").length,
-    };
-  }, [leads]);
-
-  if (loading) {
+  if (loading && leads.length === 0) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-200 border-t-indigo-600 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-medium">Loading pipeline from MongoDB…</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
       </div>
     );
   }
 
   return (
     <main className="min-h-screen bg-slate-50">
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-[1600px] mx-auto px-6 py-5">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                CogMap Sales Pipeline
-              </h1>
-              <p className="text-sm text-slate-500 mt-1">
-                {leads.length} leads • Check-inspired Kanban • ICE scoring • Structured decline
-              </p>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
-              {([
-                { id: "pipeline", label: "Pipeline" },
-                { id: "search", label: "Search Learning" },
-                { id: "metrics", label: "Metrics" },
-              ] as { id: Tab; label: string }[]).map((t) => (
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="max-w-[1600px] mx-auto px-6 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold text-slate-900">CogMap Pipeline</h1>
+            
+            {/* Tab navigation */}
+            <nav className="flex gap-1">
+              {(["pipeline", "search", "metrics"] as const).map((t) => (
                 <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${
-                    tab === t.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    tab === t
+                      ? "bg-indigo-50 text-indigo-700"
+                      : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
-                  {t.label}
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
                 </button>
               ))}
-            </div>
+            </nav>
           </div>
-
-          {/* Region filter + search */}
-          <div className="mt-4 flex items-center gap-3 flex-wrap">
-            <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
-              {(["ALL", "US", "CEE", "MENA"] as const).map((r) => (
+          
+          {/* Region filters and search */}
+          <div className="flex items-center gap-4">
+            <div className="flex gap-1">
+              {(["ALL", "US", "CEE", "MENA"] as const).map((region) => (
                 <button
-                  key={r}
-                  onClick={() => setRegionFilter(r)}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition ${
-                    regionFilter === r ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  key={region}
+                  onClick={() => setRegionFilter(region)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    regionFilter === region
+                      ? "bg-indigo-600 text-white"
+                      : "bg-white text-slate-700 hover:bg-slate-100"
                   }`}
                 >
-                  {r} <span className="text-xs text-slate-400 ml-1">{regionCounts[r]}</span>
+                  {region}
+                  <span className="ml-2 text-xs opacity-70">
+                    {regionCounts[region]}
+                  </span>
                 </button>
               ))}
             </div>
-
+            
             <input
               type="text"
-              placeholder="Search entity, industry, sector…"
+              placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 min-w-[200px] px-4 py-1.5 bg-slate-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 px-4 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* ── Content ─────────────────────────────────────────────────────────── */}
+      {/* ── Column Overview ─────────────────────────────────────────────────── */}
+      <section className="bg-white border-b border-slate-200">
+        <div className="max-w-[1600px] mx-auto px-6 py-4">
+          <div className="grid grid-cols-6 gap-3">
+            {KANBAN_COLUMNS.map((col) => {
+              const meta = COLUMNS.find((c) => c.key === col)!;
+              return (
+                <div key={col} className="text-center">
+                  <div className="text-3xl font-bold text-slate-900">
+                    {columnCounts[col]}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    {meta.icon} {meta.label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Main Content ────────────────────────────────────────────────────── */}
       <div className="max-w-[1600px] mx-auto px-6 py-6">
         {tab === "pipeline" && (
-          <>
-            {/* Column counts strip */}
-            <div className="grid grid-cols-6 gap-2 mb-4">
-              {COLUMNS.map((c) => (
-                <div key={c.key} className="bg-white rounded-lg border border-slate-200 px-3 py-2">
-                  <div className="text-xs text-slate-500 font-medium">
-                    {c.icon} {c.label}
-                  </div>
-                  <div className="text-2xl font-bold text-slate-900">{counts[c.key]}</div>
-                </div>
-              ))}
-            </div>
-
-            <KanbanBoard
-              leads={filtered}
-              columns={COLUMNS}
-              onMove={handleMove}
-              onSelect={setSelected}
-            />
-          </>
+          <KanbanBoard
+            leads={filteredLeads}
+            columns={COLUMNS}
+            onMove={handleMove}
+            onSelect={setSelected}
+          />
         )}
-
+        
         {tab === "search" && <SearchLearningPanel />}
+        
         {tab === "metrics" && <MetricsPanel leads={leads} />}
       </div>
 
@@ -298,14 +244,13 @@ export default function Home() {
         <LeadDetailModal
           lead={selected}
           onClose={() => setSelected(null)}
-          onAction={handleAction}
-          onUpdated={handleLeadUpdated}
+          onAction={(leadId, action, payload) => handleAction(leadId, action as any, payload)}
+          onUpdated={() => {
+            setSelected(null);
+            setRefreshKey((k) => k + 1);
+          }}
         />
       )}
-
-      <footer className="max-w-[1600px] mx-auto px-6 pb-6 text-center text-xs text-slate-400">
-        CogMap Sales Pipeline • MongoDB Atlas • Vercel • Check-inspired architecture
-      </footer>
     </main>
   );
 }

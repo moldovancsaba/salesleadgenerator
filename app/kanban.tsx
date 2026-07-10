@@ -1,6 +1,7 @@
 "use client";
 
-import type { KanbanColumn, Lead } from "../page";
+import type { KanbanColumn, Lead } from "./types";
+import type { COLUMNS } from "./constants";
 import { LeadCard } from "./card";
 
 type Props = {
