@@ -1,47 +1,34 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
+import { getPublicLeadById } from '@/lib/public-data'
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const client = await clientPromise
-    const db = client.db()
+    let lead: any = null
 
-    const lead = await db.collection('leads').findOne({
-      _id: new ObjectId(params.id)
-    })
-
-    if (!lead) {
-      return NextResponse.json(
-        { error: 'Lead not found' },
-        { status: 404 }
-      )
+    try {
+      const client = await clientPromise
+      const db = client.db()
+      lead = await db.collection('leads').findOne({ _id: new ObjectId(params.id) })
+      if (lead) {
+        lead = { ...lead, _id: lead._id.toString() }
+      }
+    } catch {
+      lead = getPublicLeadById(params.id)
     }
 
-    // Fetch linked outcome logs
-    const outcomes = await db.collection('outcomelogs')
-      .find({ leadId: params.id })
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .toArray()
+    if (!lead) {
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
+    }
 
-    return NextResponse.json({
-      ...lead,
-      _id: lead._id.toString(),
-      outcomes: outcomes.map(o => ({
-        ...o,
-        _id: o._id.toString(),
-      })),
-    })
+    return NextResponse.json(lead)
   } catch (error: any) {
     console.error('GET lead/:id Error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch lead', details: error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch lead', details: error.message }, { status: 500 })
   }
 }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
+import { getPublicLeads } from '@/lib/public-data'
 import crypto from 'crypto'
 
 // Helper functions
@@ -44,32 +45,35 @@ function buildScoreProfile(impact: number, confidence: number, ease: number) {
 // GET - List leads with filters
 export async function GET(request: Request) {
   try {
-    const client = await clientPromise
-    const db = client.db()
     const { searchParams } = new URL(request.url)
-    
-    const company = searchParams.get('company') || 'cogmap'
-    const region = searchParams.get('region')
-    const kanbanColumn = searchParams.get('kanbanColumn')
-    const limit = parseInt(searchParams.get('limit') || '100')
-    
-    const filter: any = {}
-    if (region) filter.region = region
-    if (kanbanColumn) filter.kanbanColumn = kanbanColumn
-    
-    const leads = await db.collection('leads')
-      .find(filter)
-      .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
-      .limit(limit)
-      .toArray()
-    
-    return NextResponse.json({ leads })
+    const region = searchParams.get('region') || undefined
+    const kanbanColumn = searchParams.get('kanbanColumn') || undefined
+    const limit = Math.max(1, Math.min(500, parseInt(searchParams.get('limit') || '100') || 100))
+
+    let rawLeads: any[] = []
+
+    try {
+      const client = await clientPromise
+      const db = client.db()
+      const filter: any = {}
+      if (region) filter.region = region
+      if (kanbanColumn) filter.kanbanColumn = kanbanColumn
+      rawLeads = await db.collection('leads')
+        .find(filter)
+        .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
+        .limit(limit)
+        .toArray()
+      return NextResponse.json({ leads: rawLeads.map((l) => ({ ...l, _id: l._id.toString() })), source: 'mongodb' })
+    } catch {
+      rawLeads = getPublicLeads()
+      if (region) rawLeads = rawLeads.filter((l) => l.region === region)
+      if (kanbanColumn) rawLeads = rawLeads.filter((l) => l.kanbanColumn === kanbanColumn)
+      rawLeads = rawLeads.slice(0, limit)
+      return NextResponse.json({ leads: rawLeads, source: 'public-data' })
+    }
   } catch (error: any) {
     console.error('GET Error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch leads', details: error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch leads', details: error.message }, { status: 500 })
   }
 }
 
