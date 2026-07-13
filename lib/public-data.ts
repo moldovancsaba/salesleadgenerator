@@ -23,6 +23,10 @@ function normalizeLead(record: any, index: number): any {
     id: sourceId,
     kanbanColumn: record.kanbanColumn || record.kanban_column || 'DISCOVERED',
     sortOrder: typeof record.sortOrder === 'number' ? record.sortOrder : index,
+    qualityStatus: record.qualityStatus || 'DRAFT',
+    feedbackScore: record.feedbackScore ?? 0,
+    declineCount: record.declineCount ?? 0,
+    acceptanceCount: record.acceptanceCount ?? 0,
     ice: record.ice || { impact: record.impact ?? 5, confidence: record.confidence ?? 5, ease: record.ease ?? 5 },
     scoreProfile:
       record.scoreProfile ||
