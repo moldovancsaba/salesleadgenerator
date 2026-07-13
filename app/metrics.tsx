@@ -77,7 +77,7 @@ export function MetricsPanel({ leads }: Props) {
       : 0;
 
     // ICE score buckets
-    const buckets = [
+    const buckets: Array<{ label: string; min: number; max: number; count: number; tone: import('./theme/semantic').SemanticTone }> = [
       { label: '0-200', min: 0, max: 200, count: 0, tone: 'ingress' },
       { label: '200-400', min: 200, max: 400, count: 0, tone: 'synthesis' },
       { label: '400-600', min: 400, max: 600, count: 0, tone: 'checklist' },
