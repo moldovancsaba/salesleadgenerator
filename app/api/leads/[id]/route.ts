@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '@/lib/mongodb'
+import clientPromise from '../../../lib/mongodb'
 import { ObjectId } from 'mongodb'
-import { getPublicLeadById } from '@/lib/public-data'
+import { getPublicLeadById } from '../../../lib/public-data'
 
 export async function GET(
   request: Request,
