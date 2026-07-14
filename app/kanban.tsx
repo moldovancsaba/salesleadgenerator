@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Box, Group, Stack, Text, Badge, Card } from '@mantine/core';
 import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
@@ -15,10 +15,9 @@ type BoardProps = {
 
 export function KanbanBoard({ leads, onMove }: BoardProps) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [dragData, setDragData] = useState<{ leadId: string; fromColumn: KanbanColumn } | null>(null);
-  const [dropTarget, setDropTarget] = useState<KanbanColumn | null>(null);
-  const [dragOverColumn, setDragOverColumn] = useState<KanbanColumn | null>(null);
-  const dragCounter = useRef<Record<string, number>>({});
+  const [dragOverCol, setDragOverCol] = useState<KanbanColumn | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const colRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   function leadsInColumn(col: KanbanColumn): Lead[] {
     return leads
@@ -26,45 +25,66 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   }
 
-  const handleDragOver = useCallback((e: React.DragEvent, col: KanbanColumn) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+  // Listen for pointer events from cards using window event system
+  useEffect(() => {
+    function handleGlobalPointerMove(e: PointerEvent) {
+      const dragData = (window as any).__cogmapDragData;
+      if (!dragData) return;
 
-    // Track enter/leave to stabilize drop target
-    dragCounter.current[col] = (dragCounter.current[col] || 0) + 1;
-    setDragOverColumn(col);
-  }, []);
+      // Find which column the pointer is over
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (!el) return;
 
-  const handleDragLeave = useCallback((e: React.DragEvent, col: KanbanColumn) => {
-    dragCounter.current[col] = (dragCounter.current[col] || 0) - 1;
-    if (dragCounter.current[col] <= 0) {
-      delete dragCounter.current[col];
-      if (dragOverColumn === col) {
-        setDragOverColumn(null);
+      const colEl = el.closest('[data-column]');
+      if (colEl) {
+        const col = colEl.getAttribute('data-column') as KanbanColumn;
+        if (col && col !== dragData.fromColumn) {
+          setDragOverCol(col);
+        } else {
+          setDragOverCol(null);
+        }
+      } else {
+        setDragOverCol(null);
       }
     }
-  }, [dragOverColumn]);
 
-  const handleDrop = useCallback(async (e: React.DragEvent, targetColumn: KanbanColumn) => {
-    e.preventDefault();
-    dragCounter.current = {};
-    setDragOverColumn(null);
-    setDropTarget(null);
+    function handleGlobalPointerUp(e: PointerEvent) {
+      const dragData = (window as any).__cogmapDragData;
+      if (!dragData) return;
 
-    if (!dragData) return;
-    if (dragData.fromColumn === targetColumn) {
-      setDragData(null);
-      return;
+      // Find drop target
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      let targetColumn: KanbanColumn | null = null;
+
+      if (el) {
+        const colEl = el.closest('[data-column]');
+        if (colEl) {
+          targetColumn = colEl.getAttribute('data-column') as KanbanColumn;
+        }
+      }
+
+      if (targetColumn && targetColumn !== dragData.fromColumn) {
+        const colLeads = leadsInColumn(targetColumn);
+        const newSortOrder = colLeads.length > 0
+          ? Math.max(...colLeads.map((l) => l.sortOrder ?? 0)) + 10
+          : 0;
+
+        onMove(dragData.leadId, targetColumn, newSortOrder);
+      }
+
+      // Cleanup
+      delete (window as any).__cogmapDragData;
+      setDragOverCol(null);
     }
 
-    const colLeads = leadsInColumn(targetColumn);
-    const newSortOrder = colLeads.length > 0
-      ? Math.max(...colLeads.map((l) => l.sortOrder ?? 0)) + 10
-      : 0;
+    window.addEventListener('pointermove', handleGlobalPointerMove);
+    window.addEventListener('pointerup', handleGlobalPointerUp);
 
-    await onMove(dragData.leadId, targetColumn, newSortOrder);
-    setDragData(null);
-  }, [dragData, leadsInColumn, onMove]);
+    return () => {
+      window.removeEventListener('pointermove', handleGlobalPointerMove);
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+    };
+  }, [leadsInColumn, onMove]);
 
   async function handleAction(leadId: string, action: string, payload: any) {
     try {
@@ -80,60 +100,88 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
   }
 
   return (
-    <>
-      <Group gap="sm" align="flex-start" wrap="nowrap" style={{ overflowX: 'auto', overflowY: 'hidden', minHeight: 520, paddingBottom: '0.5rem', touchAction: 'pan-y' }}>
-        {COLUMNS.map((col) => {
-          const colLeads = leadsInColumn(col.key);
-          const color = semanticToneToMantineColor(col.color);
-          const isDropTarget = dragOverColumn === col.key;
+    <Box
+      ref={boardRef}
+      style={{
+        display: 'flex',
+        gap: '0.75rem',
+        overflowX: 'auto',
+        overflowY: 'visible',
+        minHeight: '100%',
+        padding: '0.5rem',
+        paddingBottom: '2rem',
+        touchAction: 'pan-y',
+        WebkitOverflowScrolling: 'touch',
+        scrollSnapType: 'x proximity',
+        msOverflowStyle: 'auto',
+        scrollbarWidth: 'auto',
+      }}
+    >
+      {COLUMNS.map((col) => {
+        const colLeads = leadsInColumn(col.key);
+        const color = semanticToneToMantineColor(col.color);
+        const isDropTarget = dragOverCol === col.key;
 
-          return (
-            <Stack key={col.key} gap="xs" style={{ flex: '0 0 280px', minWidth: 240 }}>
-              <Group justify="space-between" align="center">
-                <Text fw={600} size="sm" tt="uppercase">
-                  {col.label}
-                </Text>
-                <Badge variant="light" color={color} size="sm">
-                  {colLeads.length}
-                </Badge>
-              </Group>
+        return (
+          <Box
+            key={col.key}
+            data-column={col.key}
+            ref={(el) => { colRefs.current[col.key] = el; }}
+            style={{
+              flex: '0 0 280px',
+              minWidth: 240,
+              maxHeight: 'calc(100vh - 220px)',
+              display: 'flex',
+              flexDirection: 'column',
+              scrollSnapAlign: 'start',
+            }}
+          >
+            {/* Column Header */}
+            <Group justify="space-between" align="center" mb="xs">
+              <Text fw={600} size="sm" tt="uppercase">
+                {col.label}
+              </Text>
+              <Badge variant="light" color={color} size="sm">
+                {colLeads.length}
+              </Badge>
+            </Group>
 
-              <Card
-                padding="xs"
-                radius="md"
-                withBorder
-                style={{
-                  minHeight: 420,
-                  backgroundColor: isDropTarget ? `var(--mantine-color-${color}-1)` : `var(--mantine-color-${color}-0)`,
-                  border: isDropTarget ? `2px dashed var(--mantine-color-${color}-5)` : undefined,
-                  transition: 'all 0.2s ease',
-                }}
-                onDragOver={(e) => handleDragOver(e, col.key)}
-                onDragLeave={(e) => handleDragLeave(e, col.key)}
-                onDrop={(e) => handleDrop(e, col.key)}
-              >
-                <Stack gap="xs">
-                  {colLeads.map((lead) => (
-                    <LeadCard
-                      key={lead._id}
-                      lead={lead}
-                      onClick={() => setSelectedLead(lead)}
-                      onDragStart={() =>
-                        setDragData({ leadId: lead._id, fromColumn: lead.kanbanColumn })
-                      }
-                    />
-                  ))}
-                  {colLeads.length === 0 && (
-                    <Text size="xs" c="dimmed" ta="center" py="xl">
-                      {col.description}
-                    </Text>
-                  )}
-                </Stack>
-              </Card>
-            </Stack>
-          );
-        })}
-      </Group>
+            {/* Column Body — scrollable vertically */}
+            <Card
+              padding="xs"
+              radius="md"
+              withBorder
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                maxHeight: 'calc(100vh - 280px)',
+                backgroundColor: isDropTarget ? `var(--mantine-color-${color}-1)` : `var(--mantine-color-${color}-0)`,
+                border: isDropTarget ? `2px dashed var(--mantine-color-${color}-5)` : undefined,
+                transition: 'all 0.2s ease',
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-y',
+              }}
+            >
+              <Stack gap="xs">
+                {colLeads.map((lead) => (
+                  <LeadCard
+                    key={lead._id}
+                    lead={lead}
+                    onClick={() => setSelectedLead(lead)}
+                    onDragStart={() => {}}
+                    onDragEnd={() => {}}
+                  />
+                ))}
+                {colLeads.length === 0 && (
+                  <Text size="xs" c="dimmed" ta="center" py="xl">
+                    {col.description}
+                  </Text>
+                )}
+              </Stack>
+            </Card>
+          </Box>
+        );
+      })}
 
       {selectedLead && (
         <LeadDetailModal
@@ -143,6 +191,6 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
           onUpdated={() => setSelectedLead(null)}
         />
       )}
-    </>
+    </Box>
   );
 }

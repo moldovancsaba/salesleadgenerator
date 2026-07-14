@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import type { Lead } from './types';
 import { iceTone, regionTone, qualityTone } from './theme/semantic';
 import { semanticToneToMantineColor } from './utils/semantic-colors';
@@ -9,12 +9,14 @@ interface LeadCardProps {
   lead: Lead;
   onClick?: () => void;
   onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
-export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
+export function LeadCard({ lead, onClick, onDragStart, onDragEnd }: LeadCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number } | null>(null);
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const pointerMoved = useRef(false);
 
   const ice = (lead.ice?.impact || 0) * (lead.ice?.confidence || 0) * (lead.ice?.ease || 0);
   const region = lead.region || 'UNKNOWN';
@@ -27,80 +29,120 @@ export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
   const regionColor = semanticToneToMantineColor(regionToneValue);
   const qualityColor = semanticToneToMantineColor(qualityToneValue);
 
-  // Prevent context menu on long press (causes search on mobile)
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (isDragging) {
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none';
+        document.body.style.touchAction = 'none';
+      }
+    };
+  }, [isDragging]);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    // Only handle primary button (left click / touch)
+    if (e.button !== 0) return;
+
+    pointerStart.current = { x: e.clientX, y: e.clientY };
+    pointerMoved.current = false;
+
+    // Capture pointer for reliable tracking even outside the element
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+
     e.preventDefault();
   }, []);
 
-  // Touch handlers for mobile drag
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    setTouchStart({ x: touch.clientX, y: touch.clientY, time: Date.now() });
-  }, []);
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!pointerStart.current) return;
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!touchStart) return;
-    const touch = e.touches[0];
-    const dx = touch.clientX - touchStart.x;
-    const dy = touch.clientY - touchStart.y;
+    const dx = e.clientX - pointerStart.current.x;
+    const dy = e.clientY - pointerStart.current.y;
 
-    // If moved more than 10px, consider it a drag
-    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+    // Only start drag after 8px movement — this makes clicks/taps still work
+    if (!pointerMoved.current && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      pointerMoved.current = true;
       setIsDragging(true);
-      // Prevent scrolling while dragging
+      onDragStart?.();
+
+      // Prevent body scroll and selection during drag
+      document.body.style.userSelect = 'none';
+      document.body.style.webkitUserSelect = 'none';
+      document.body.style.touchAction = 'none';
+    }
+
+    if (pointerMoved.current) {
       e.preventDefault();
     }
-  }, [touchStart]);
+  }, [onDragStart]);
 
-  const handleTouchEnd = useCallback(() => {
-    if (isDragging) {
-      // Touch drag ended — the drop zone handler will deal with it
-      setTimeout(() => setIsDragging(false), 100);
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+
+    if (pointerMoved.current) {
+      // Drag ended — the kanban board's pointerup handler will process the drop
+      setTimeout(() => {
+        setIsDragging(false);
+        pointerMoved.current = false;
+        pointerStart.current = null;
+        document.body.style.userSelect = '';
+        document.body.style.webkitUserSelect = '';
+        document.body.style.touchAction = '';
+        onDragEnd?.();
+      }, 50);
+    } else {
+      // It was a click, not a drag
+      pointerStart.current = null;
     }
-    setTouchStart(null);
-  }, [isDragging]);
+  }, [onDragEnd]);
 
-  function handleDragStart(e: React.DragEvent) {
-    e.dataTransfer.setData('text/plain', JSON.stringify({ index: 0 }));
-    e.dataTransfer.effectAllowed = 'move';
-    // Set a transparent drag image for cleaner UX
-    const img = new Image();
-    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-    e.dataTransfer.setDragImage(img, 0, 0);
-    onDragStart?.();
-  }
+  // Store drag state globally so kanban can access it
+  useEffect(() => {
+    if (isDragging) {
+      (window as any).__cogmapDragData = {
+        leadId: lead._id,
+        fromColumn: lead.kanbanColumn,
+        cardElement: cardRef.current,
+      };
+    } else {
+      delete (window as any).__cogmapDragData;
+    }
+  }, [isDragging, lead._id, lead.kanbanColumn]);
 
   return (
     <div
       ref={cardRef}
-      onClick={onClick}
-      draggable
-      onDragStart={handleDragStart}
-      onContextMenu={handleContextMenu}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onClick={pointerMoved.current ? undefined : onClick}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onContextMenu={(e) => isDragging && e.preventDefault()}
       style={{
         padding: '0.75rem',
         borderRadius: '0.375rem',
         backgroundColor: isDragging ? 'var(--mantine-color-blue-0)' : 'var(--mantine-color-gray-0)',
         border: isDragging ? '2px solid var(--mantine-color-blue-5)' : '1px solid var(--mantine-color-gray-3)',
-        cursor: 'pointer',
-        transition: 'box-shadow 0.2s, border-color 0.2s, background-color 0.2s',
-        touchAction: 'none', // Prevent browser gestures on touch
-        userSelect: 'none', // Prevent text selection during drag
+        cursor: 'grab',
+        transition: isDragging ? 'none' : 'box-shadow 0.2s, border-color 0.2s, background-color 0.2s',
+        touchAction: 'none',
+        userSelect: 'none',
         WebkitUserSelect: 'none',
-        WebkitTouchCallout: 'none', // Prevent iOS callout menu
-        opacity: isDragging ? 0.7 : 1,
-        transform: isDragging ? 'scale(1.02)' : 'scale(1)',
+        WebkitTouchCallout: 'none',
+        opacity: isDragging ? 0.85 : 1,
+        transform: isDragging ? 'scale(1.03)' : 'scale(1)',
+        boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.2)' : 'none',
+        position: 'relative',
+        zIndex: isDragging ? 1000 : 1,
       }}
       onMouseEnter={(e) => {
-        if (!isDragging) {
+        if (!isDragging && !pointerMoved.current) {
           e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
         }
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = 'none';
+        if (!isDragging) {
+          e.currentTarget.style.boxShadow = 'none';
+        }
       }}
     >
       {/* Header */}
