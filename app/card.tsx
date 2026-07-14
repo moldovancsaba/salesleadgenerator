@@ -8,9 +8,12 @@ import { semanticToneToMantineColor } from './utils/semantic-colors';
 interface LeadCardProps {
   lead: Lead;
   isDragging?: boolean;
+  onClick?: () => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
-export function LeadCard({ lead, isDragging = false }: LeadCardProps) {
+export function LeadCard({ lead, isDragging = false, onClick, onDragStart, onDragEnd }: LeadCardProps) {
   const ice = (lead.ice?.impact || 0) * (lead.ice?.confidence || 0) * (lead.ice?.ease || 0);
   const region = lead.region || 'US';
   const quality = lead.qualityStatus || 'DRAFT';
@@ -21,6 +24,48 @@ export function LeadCard({ lead, isDragging = false }: LeadCardProps) {
 
   return (
     <div
+      onClick={onClick}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        const startX = e.clientX;
+        const startY = e.clientY;
+        let moved = false;
+
+        function onMove(ev: PointerEvent) {
+          if (Math.abs(ev.clientX - startX) > 8 || Math.abs(ev.clientY - startY) > 8) {
+            moved = true;
+            onDragStart?.();
+            document.body.style.userSelect = 'none';
+            document.body.style.touchAction = 'none';
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+          }
+        }
+
+        function onUp(ev: PointerEvent) {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          document.body.style.userSelect = '';
+          document.body.style.touchAction = '';
+
+          if (!moved) {
+            // It's a tap — open detail
+            onClick?.();
+          } else {
+            // It was a drag — process drop
+            const el = document.elementFromPoint(ev.clientX, ev.clientY);
+            const colEl = el?.closest('[data-column]');
+            const targetCol = colEl?.getAttribute('data-column');
+            if (targetCol && targetCol !== lead.kanbanColumn) {
+              (window as any).__pendingDrop = { leadId: lead._id, toColumn: targetCol };
+            }
+            onDragEnd?.();
+          }
+        }
+
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      }}
       style={{
         padding: '0.6rem 0.7rem',
         borderRadius: '0.4rem',
@@ -33,31 +78,33 @@ export function LeadCard({ lead, isDragging = false }: LeadCardProps) {
         userSelect: 'none',
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
-        opacity: isDragging ? 0.4 : 1,
-        transition: 'opacity 0.1s, background-color 0.1s',
+        opacity: isDragging ? 0.35 : 1,
+        transform: isDragging ? 'scale(0.96)' : 'scale(1)',
+        transition: 'opacity 0.12s, transform 0.12s, background-color 0.12s',
       }}
     >
-      {/* Name */}
+      {/* Name — single line, bold */}
       <div style={{
         fontSize: '0.82rem',
         fontWeight: 600,
         color: 'var(--mantine-color-gray-9)',
-        marginBottom: '0.35rem',
-        lineHeight: 1.3,
+        marginBottom: '0.3rem',
+        lineHeight: 1.25,
         wordBreak: 'break-word',
       }}>
         {lead.entity_name}
       </div>
 
       {/* Badges */}
-      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{
           padding: '0.15rem 0.4rem',
           borderRadius: '0.2rem',
           backgroundColor: `var(--mantine-color-${iceColor}-1)`,
           color: `var(--mantine-color-${iceColor}-9)`,
           fontSize: '0.68rem',
-          fontWeight: 600,
+          fontWeight: 700,
+          lineHeight: 1.3,
         }}>
           {ice}
         </span>
@@ -82,19 +129,6 @@ export function LeadCard({ lead, isDragging = false }: LeadCardProps) {
           {quality}
         </span>
       </div>
-
-      {/* DM — only if exists */}
-      {lead.decision_maker_name && (
-        <div style={{
-          marginTop: '0.3rem',
-          fontSize: '0.68rem',
-          color: 'var(--mantine-color-gray-6)',
-          lineHeight: 1.3,
-        }}>
-          {lead.decision_maker_name}
-          {lead.decision_maker_title && <span style={{ opacity: 0.7 }}> — {lead.decision_maker_title}</span>}
-        </div>
-      )}
     </div>
   );
 }
