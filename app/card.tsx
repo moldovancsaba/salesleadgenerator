@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import type { Lead } from './types';
 import { iceTone, regionTone, qualityTone } from './theme/semantic';
 import { semanticToneToMantineColor } from './utils/semantic-colors';
@@ -13,6 +13,8 @@ interface LeadCardProps {
 
 export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number } | null>(null);
 
   const ice = (lead.ice?.impact || 0) * (lead.ice?.confidence || 0) * (lead.ice?.ease || 0);
   const region = lead.region || 'UNKNOWN';
@@ -20,13 +22,51 @@ export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
   const iceToneValue = iceTone(ice);
   const regionToneValue = regionTone[region];
   const qualityToneValue = qualityTone[quality] || 'neutral';
-  
+
   const iceColor = semanticToneToMantineColor(iceToneValue);
   const regionColor = semanticToneToMantineColor(regionToneValue);
   const qualityColor = semanticToneToMantineColor(qualityToneValue);
 
+  // Prevent context menu on long press (causes search on mobile)
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+  }, []);
+
+  // Touch handlers for mobile drag
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    setTouchStart({ x: touch.clientX, y: touch.clientY, time: Date.now() });
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStart) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStart.x;
+    const dy = touch.clientY - touchStart.y;
+
+    // If moved more than 10px, consider it a drag
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      setIsDragging(true);
+      // Prevent scrolling while dragging
+      e.preventDefault();
+    }
+  }, [touchStart]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (isDragging) {
+      // Touch drag ended — the drop zone handler will deal with it
+      setTimeout(() => setIsDragging(false), 100);
+    }
+    setTouchStart(null);
+  }, [isDragging]);
+
   function handleDragStart(e: React.DragEvent) {
     e.dataTransfer.setData('text/plain', JSON.stringify({ index: 0 }));
+    e.dataTransfer.effectAllowed = 'move';
+    // Set a transparent drag image for cleaner UX
+    const img = new Image();
+    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    e.dataTransfer.setDragImage(img, 0, 0);
     onDragStart?.();
   }
 
@@ -36,16 +76,28 @@ export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
       onClick={onClick}
       draggable
       onDragStart={handleDragStart}
+      onContextMenu={handleContextMenu}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       style={{
         padding: '0.75rem',
         borderRadius: '0.375rem',
-        backgroundColor: 'var(--mantine-color-gray-0)',
-        border: '1px solid var(--mantine-color-gray-3)',
+        backgroundColor: isDragging ? 'var(--mantine-color-blue-0)' : 'var(--mantine-color-gray-0)',
+        border: isDragging ? '2px solid var(--mantine-color-blue-5)' : '1px solid var(--mantine-color-gray-3)',
         cursor: 'pointer',
-        transition: 'box-shadow 0.2s',
+        transition: 'box-shadow 0.2s, border-color 0.2s, background-color 0.2s',
+        touchAction: 'none', // Prevent browser gestures on touch
+        userSelect: 'none', // Prevent text selection during drag
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none', // Prevent iOS callout menu
+        opacity: isDragging ? 0.7 : 1,
+        transform: isDragging ? 'scale(1.02)' : 'scale(1)',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+        if (!isDragging) {
+          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+        }
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.boxShadow = 'none';
@@ -53,8 +105,8 @@ export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
     >
       {/* Header */}
       <div style={{ marginBottom: '0.5rem' }}>
-        <div style={{ 
-          fontSize: '0.875rem', 
+        <div style={{
+          fontSize: '0.875rem',
           fontWeight: 600,
           color: 'var(--mantine-color-gray-9)',
           marginBottom: '0.25rem'
@@ -62,7 +114,7 @@ export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
           {lead.entity_name || 'Unknown Entity'}
         </div>
         {lead.url && (
-          <div style={{ 
+          <div style={{
             fontSize: '0.75rem',
             color: 'var(--mantine-color-gray-6)',
             textOverflow: 'ellipsis',
@@ -75,7 +127,7 @@ export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
       </div>
 
       {/* ICE Badge */}
-      <div style={{ 
+      <div style={{
         display: 'flex',
         gap: '0.5rem',
         marginBottom: '0.5rem'
@@ -122,7 +174,7 @@ export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
 
       {/* Decision Maker */}
       {lead.decision_maker_name && (
-        <div style={{ 
+        <div style={{
           marginTop: '0.5rem',
           fontSize: '0.75rem',
           color: 'var(--mantine-color-gray-7)'

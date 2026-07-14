@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Box, Group, Stack, Text, Badge, Card } from '@mantine/core';
 import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
@@ -17,6 +17,8 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [dragData, setDragData] = useState<{ leadId: string; fromColumn: KanbanColumn } | null>(null);
   const [dropTarget, setDropTarget] = useState<KanbanColumn | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<KanbanColumn | null>(null);
+  const dragCounter = useRef<Record<string, number>>({});
 
   function leadsInColumn(col: KanbanColumn): Lead[] {
     return leads
@@ -24,21 +26,45 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   }
 
-  async function handleDrop(targetColumn: KanbanColumn) {
+  const handleDragOver = useCallback((e: React.DragEvent, col: KanbanColumn) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    // Track enter/leave to stabilize drop target
+    dragCounter.current[col] = (dragCounter.current[col] || 0) + 1;
+    setDragOverColumn(col);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent, col: KanbanColumn) => {
+    dragCounter.current[col] = (dragCounter.current[col] || 0) - 1;
+    if (dragCounter.current[col] <= 0) {
+      delete dragCounter.current[col];
+      if (dragOverColumn === col) {
+        setDragOverColumn(null);
+      }
+    }
+  }, [dragOverColumn]);
+
+  const handleDrop = useCallback(async (e: React.DragEvent, targetColumn: KanbanColumn) => {
+    e.preventDefault();
+    dragCounter.current = {};
+    setDragOverColumn(null);
+    setDropTarget(null);
+
     if (!dragData) return;
     if (dragData.fromColumn === targetColumn) {
       setDragData(null);
-      setDropTarget(null);
       return;
     }
+
     const colLeads = leadsInColumn(targetColumn);
     const newSortOrder = colLeads.length > 0
       ? Math.max(...colLeads.map((l) => l.sortOrder ?? 0)) + 10
       : 0;
+
     await onMove(dragData.leadId, targetColumn, newSortOrder);
     setDragData(null);
-    setDropTarget(null);
-  }
+  }, [dragData, leadsInColumn, onMove]);
 
   async function handleAction(leadId: string, action: string, payload: any) {
     try {
@@ -55,11 +81,11 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
 
   return (
     <>
-      <Group gap="sm" align="flex-start" wrap="nowrap" style={{ overflowX: 'auto', overflowY: 'hidden', minHeight: 520, paddingBottom: '0.5rem' }}>
+      <Group gap="sm" align="flex-start" wrap="nowrap" style={{ overflowX: 'auto', overflowY: 'hidden', minHeight: 520, paddingBottom: '0.5rem', touchAction: 'pan-y' }}>
         {COLUMNS.map((col) => {
           const colLeads = leadsInColumn(col.key);
           const color = semanticToneToMantineColor(col.color);
-          const isDropTarget = dropTarget === col.key;
+          const isDropTarget = dragOverColumn === col.key;
 
           return (
             <Stack key={col.key} gap="xs" style={{ flex: '0 0 280px', minWidth: 240 }}>
@@ -82,12 +108,9 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
                   border: isDropTarget ? `2px dashed var(--mantine-color-${color}-5)` : undefined,
                   transition: 'all 0.2s ease',
                 }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDropTarget(col.key);
-                }}
-                onDragLeave={() => setDropTarget(null)}
-                onDrop={() => handleDrop(col.key)}
+                onDragOver={(e) => handleDragOver(e, col.key)}
+                onDragLeave={(e) => handleDragLeave(e, col.key)}
+                onDrop={(e) => handleDrop(e, col.key)}
               >
                 <Stack gap="xs">
                   {colLeads.map((lead) => (
