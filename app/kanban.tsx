@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Box, Group, Text, Badge, Card, Button } from '@mantine/core';
+import { Box, Group, Text, Badge, Card, Stack } from '@mantine/core';
 import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
 import { LeadDetailModal } from './detail';
