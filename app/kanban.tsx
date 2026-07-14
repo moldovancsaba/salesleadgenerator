@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Box, Group, Text, Badge, Card, Button, ActionIcon } from '@mantine/core';
-import { IconAdjustmentsHorizontal, IconX } from '@tabler/icons-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Box, Text, Badge, Button, Group, Stack, ActionIcon } from '@mantine/core';
+import { IconChevronLeft, IconChevronRight, IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
 import { LeadDetailModal } from './detail';
@@ -19,8 +19,17 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [regionFilter, setRegionFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [currentColIndex, setCurrentColIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
   const boardRef = useRef<HTMLDivElement>(null);
+
+  // Only use columns that have leads or are agent-managed
+  const activeColumns = COLUMNS.filter(col => {
+    const colLeads = leads.filter(l => l.kanbanColumn === col.key);
+    return colLeads.length > 0 || ['DISCOVERED', 'QUALIFIED'].includes(col.key);
+  });
 
   function leadsInColumn(col: KanbanColumn): Lead[] {
     let colLeads = leads
@@ -41,18 +50,56 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
     return colLeads;
   }
 
-  // Process pending drops from card pointer events
-  useEffect(() => {
-    const drop = (window as any).__pendingDrop;
-    if (!drop) return;
+  const currentCol = activeColumns[currentColIndex] || activeColumns[0];
+  const currentLeads = leadsInColumn(currentCol?.key || 'DISCOVERED');
+  const currentColor = currentCol ? semanticToneToMantineColor(currentCol.color) : 'gray';
 
-    const colLeads = leads.filter((l) => l.kanbanColumn === drop.toColumn);
-    const newSort = colLeads.length > 0
-      ? Math.max(...colLeads.map((l) => l.sortOrder ?? 0)) + 10
-      : 0;
-    onMove(drop.leadId, drop.toColumn, newSort);
-    delete (window as any).__pendingDrop;
-  }, [leads, onMove]);
+  // Navigation
+  const goToPrev = useCallback(() => {
+    if (currentColIndex > 0) {
+      setIsTransitioning(true);
+      setCurrentColIndex(i => i - 1);
+      setTimeout(() => setIsTransitioning(false), 300);
+    }
+  }, [currentColIndex]);
+
+  const goToNext = useCallback(() => {
+    if (currentColIndex < activeColumns.length - 1) {
+      setIsTransitioning(true);
+      setCurrentColIndex(i => i + 1);
+      setTimeout(() => setIsTransitioning(false), 300);
+    }
+  }, [currentColIndex, activeColumns.length]);
+
+  // Touch swipe handling
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+
+    // Only trigger if horizontal swipe is dominant
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX < 0) {
+        goToNext(); // Swipe left → next column
+      } else {
+        goToPrev(); // Swipe right → previous column
+      }
+    }
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'ArrowLeft') goToPrev();
+      if (e.key === 'ArrowRight') goToNext();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [goToPrev, goToNext]);
 
   async function handleAction(leadId: string, action: string, payload: any) {
     try {
@@ -79,8 +126,16 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
   }).length;
 
   return (
-    <Box style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
-      {/* Toolbar — compact */}
+    <Box
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100dvh',
+        overflow: 'hidden',
+        touchAction: 'pan-y',
+      }}
+    >
+      {/* Compact header */}
       <Box
         style={{
           padding: '0.5rem 0.75rem',
@@ -89,34 +144,78 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
           flexShrink: 0,
         }}
       >
-        <Group justify="space-between" align="center" gap="xs">
+        <Group justify="space-between" align="center">
           <Group gap="xs">
             <Text fw={700} size="sm">{totalFiltered} leads</Text>
-            {(regionFilter !== 'ALL' || searchQuery.trim()) && (
-              <Badge size="xs" variant="light" color="blue">filtered</Badge>
-            )}
+            <Badge size="xs" variant="light" color={currentColor}>{currentCol?.label}</Text>
+            <Text size="xs" c="dimmed">
+              {currentColIndex + 1}/{activeColumns.length}
+            </Text>
           </Group>
           <ActionIcon
             size="sm"
             variant={showFilters ? 'filled' : 'light'}
             color="gray"
             onClick={() => setShowFilters(!showFilters)}
-            aria-label="Filters"
           >
             <IconAdjustmentsHorizontal size={16} />
           </ActionIcon>
         </Group>
 
+        {/* Column navigation */}
+        <Group justify="center" gap="xs" mt="xs">
+          <ActionIcon
+            size="xs"
+            variant="subtle"
+            disabled={currentColIndex === 0}
+            onClick={goToPrev}
+          >
+            <IconChevronLeft size={16} />
+          </ActionIcon>
+
+          {/* Dot indicators */}
+          <Group gap={4}>
+            {activeColumns.map((col, i) => (
+              <Box
+                key={col.key}
+                onClick={() => {
+                  setIsTransitioning(true);
+                  setCurrentColIndex(i);
+                  setTimeout(() => setIsTransitioning(false), 300);
+                }}
+                style={{
+                  width: currentColIndex === i ? 20 : 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: currentColIndex === i
+                    ? `var(--mantine-color-${semanticToneToMantineColor(col.color)}-6)`
+                    : 'var(--mantine-color-gray-3)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              />
+            ))}
+          </Group>
+
+          <ActionIcon
+            size="xs"
+            variant="subtle"
+            disabled={currentColIndex === activeColumns.length - 1}
+            onClick={goToNext}
+          >
+            <IconChevronRight size={16} />
+          </ActionIcon>
+        </Group>
+
         {/* Collapsible filters */}
         {showFilters && (
-          <Box mt="xs" pb="xs">
+          <Box mt="xs">
             <Group gap="xs" wrap="wrap">
               {['ALL', 'US', 'CEE', 'MENA'].map((r) => (
                 <Button
                   key={r}
                   size="xs"
                   variant={regionFilter === r ? 'filled' : 'light'}
-                  color="gray"
                   onClick={() => setRegionFilter(r)}
                 >
                   {r === 'ALL' ? 'All' : r}
@@ -129,13 +228,11 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
                   flex: 1,
-                  minWidth: 120,
+                  minWidth: 100,
                   padding: '0.3rem 0.5rem',
                   borderRadius: '0.25rem',
                   border: '1px solid var(--mantine-color-gray-3)',
                   fontSize: '0.8rem',
-                  backgroundColor: 'var(--mantine-color-white)',
-                  color: 'var(--mantine-color-gray-9)',
                 }}
               />
             </Group>
@@ -143,96 +240,89 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
         )}
       </Box>
 
-      {/* Board — horizontal scroll, each column scrolls vertically */}
+      {/* Column content — swipeable */}
       <Box
         ref={boardRef}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         style={{
-          display: 'flex',
-          gap: '0.5rem',
-          overflowX: 'auto',
-          overflowY: 'hidden',
           flex: 1,
-          padding: '0.5rem',
-          paddingBottom: '1.5rem',
-          scrollSnapType: 'x proximity',
-          WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'thin',
+          overflow: 'hidden',
+          position: 'relative',
         }}
       >
-        {COLUMNS.map((col) => {
-          const colLeads = leadsInColumn(col.key);
-          const color = semanticToneToMantineColor(col.color);
-          const isOver = draggingId !== null;
+        <Box
+          style={{
+            display: 'flex',
+            height: '100%',
+            transform: `translateX(-${currentColIndex * 100}%)`,
+            transition: isTransitioning ? 'transform 0.3s ease' : 'none',
+          }}
+        >
+          {activeColumns.map((col) => {
+            const colLeads = leadsInColumn(col.key);
+            const color = semanticToneToMantineColor(col.color);
 
-          return (
-            <Box
-              key={col.key}
-              data-column={col.key}
-              style={{
-                flex: '0 0 290px',
-                minWidth: 260,
-                maxWidth: 320,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                scrollSnapAlign: 'start',
-              }}
-            >
-              {/* Column header */}
+            return (
               <Box
+                key={col.key}
                 style={{
-                  padding: '0.45rem 0.65rem',
-                  backgroundColor: `var(--mantine-color-${color}-0)`,
-                  borderBottom: `2px solid var(--mantine-color-${color}-3)`,
-                  borderRadius: '0.4rem 0.4rem 0 0',
-                  marginBottom: '0.2rem',
-                  flexShrink: 0,
+                  minWidth: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '0.5rem',
+                  overflow: 'hidden',
                 }}
               >
-                <Group justify="space-between" align="center" gap="xs">
-                  <Text fw={700} size="xs" tt="uppercase" c={color}>{col.label}</Text>
-                  <Badge variant="light" color={color} size="xs">{colLeads.length}</Badge>
-                </Group>
-              </Box>
+                {/* Column title */}
+                <Box
+                  style={{
+                    padding: '0.5rem',
+                    backgroundColor: `var(--mantine-color-${color}-0)`,
+                    borderBottom: `2px solid var(--mantine-color-${color}-3)`,
+                    borderRadius: '0.4rem',
+                    marginBottom: '0.5rem',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Group justify="space-between" align="center">
+                    <Text fw={700} size="sm" tt="uppercase">{col.label}</Text>
+                    <Badge variant="light" color={color} size="sm">{colLeads.length}</Badge>
+                  </Group>
+                </Box>
 
-              {/* Cards — vertically scrollable */}
-              <Card
-                padding="xs"
-                radius="md"
-                withBorder
-                style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  overflowX: 'hidden',
-                  backgroundColor: 'var(--mantine-color-gray-0)',
-                  transition: 'background-color 0.15s',
-                  WebkitOverflowScrolling: 'touch',
-                  touchAction: 'pan-y',
-                  border: isOver ? '2px dashed var(--mantine-color-gray-4)' : undefined,
-                }}
-              >
-                {colLeads.length === 0 ? (
-                  <Text size="xs" c="dimmed" ta="center" py="xl">
-                    {col.description}
-                  </Text>
-                ) : (
-                  <Box style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    {colLeads.map((lead) => (
-                      <LeadCard
-                        key={lead._id}
-                        lead={lead}
-                        isDragging={draggingId === lead._id}
-                        onClick={() => setSelectedLead(lead)}
-                        onDragStart={() => setDraggingId(lead._id)}
-                        onDragEnd={() => setDraggingId(null)}
-                      />
-                    ))}
-                  </Box>
-                )}
-              </Card>
-            </Box>
-          );
-        })}
+                {/* Cards — scrollable */}
+                <Box
+                  style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    WebkitOverflowScrolling: 'touch',
+                    touchAction: 'pan-y',
+                  }}
+                >
+                  {colLeads.length === 0 ? (
+                    <Text size="xs" c="dimmed" ta="center" py="xl">
+                      {col.description}
+                    </Text>
+                  ) : (
+                    <Stack gap="xs">
+                      {colLeads.map((lead) => (
+                        <Box
+                          key={lead._id}
+                          onClick={() => setSelectedLead(lead)}
+                        >
+                          <LeadCard lead={lead} />
+                        </Box>
+                      ))}
+                    </Stack>
+                  )}
+                </Box>
+              </Box>
+            );
+          })}
+        </Box>
       </Box>
 
       {selectedLead && (
