@@ -107,18 +107,18 @@ export default function PipelinePage() {
       {/* Header */}
       <Paper
         shadow="xs"
-        p="md"
+        p={{ base: "sm", sm: "md" }}
         style={{
           backgroundColor: "var(--sidebar-bg)",
           borderBottom: "1px solid var(--border-primary)",
         }}
       >
         <Stack gap="md">
-          <Group justify="space-between" align="center">
+          <Group justify="space-between" align="center" wrap="wrap">
             <Group gap="sm" align="center">
-              <IconBuilding size={28} color="var(--text-primary)" />
+              <IconBuilding size={28} color="var(--text-primary)" style={{ flexShrink: 0 }} />
               <Stack gap={0}>
-                <Title order={2} style={{ color: "var(--text-primary)" }}>
+                <Title order={2} style={{ color: "var(--text-primary)", fontSize: 'clamp(1.25rem, 5vw, 1.625rem)' }}>
                   CogMap Pipeline
                 </Title>
                 <Text size="xs" c="dimmed">
@@ -135,7 +135,7 @@ export default function PipelinePage() {
           </Group>
 
           {/* Tab Navigation */}
-          <Group gap="xs">
+          <Group gap="xs" wrap="wrap">
             <Card
               p="xs"
               radius="sm"
@@ -212,19 +212,19 @@ export default function PipelinePage() {
       {activeTab === "pipeline" && (
         <Paper
           shadow="xs"
-          p="md"
+          p={{ base: "sm", sm: "md" }}
           style={{
             backgroundColor: "var(--surface-base)",
             borderBottom: "1px solid var(--border-primary)",
           }}
         >
-          <Group gap="md">
+          <Group gap="md" wrap="wrap">
             <TextInput
               placeholder="Search leads..."
               leftSection={<IconSearch size={16} />}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ flex: 1, maxWidth: 400 }}
+              style={{ flex: 1, minWidth: 200, maxWidth: 400 }}
             />
 
             <Select
@@ -237,7 +237,7 @@ export default function PipelinePage() {
                 { value: "CEE", label: "CEE" },
                 { value: "MENA", label: "MENA" },
               ]}
-              style={{ width: 200 }}
+              style={{ width: 200, flexShrink: 0 }}
             />
           </Group>
         </Paper>
@@ -247,7 +247,7 @@ export default function PipelinePage() {
       {activeTab === "pipeline" && (
         <Paper
           shadow="xs"
-          p="md"
+          p={{ base: "sm", sm: "md" }}
           style={{
             backgroundColor: "var(--surface-base)",
             borderBottom: "1px solid var(--border-primary)",
@@ -269,7 +269,7 @@ export default function PipelinePage() {
       )}
 
       {/* Content */}
-      <Box p="md">
+      <Box p={{ base: "xs", sm: "md" }} style={{ overflowX: 'hidden' }}>
         {activeTab === "pipeline" && (
           <KanbanBoard
             leads={filteredLeads}

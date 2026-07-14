@@ -96,9 +96,10 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
     <Modal
       opened={true}
       onClose={onClose}
-      size="xl"
+      size={{ base: "100%", sm: "xl" }}
       padding={0}
       withCloseButton={false}
+      fullScreen={{ base: true, sm: false }}
     >
       <Paper radius="md" withBorder={false}>
         {/* Header */}
@@ -133,7 +134,7 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
                   <Text fw={700} size="lg">{iceScore} / {maxIce}</Text>
                 </Group>
                 <Progress value={icePercent} size="lg" color={iceToneValue} />
-                <SimpleGrid cols={3} spacing="xs">
+                <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
                   <Box>
                     <Text size="xs" c="dimmed">Impact</Text>
                     <Text fw={600}>{ice.impact} / 10</Text>
@@ -151,7 +152,7 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
             </Paper>
 
             {/* Details */}
-            <SimpleGrid cols={2} spacing="md">
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
               <Box>
                 <Text size="xs" c="dimmed">URL</Text>
                 {lead.url ? (
@@ -193,7 +194,7 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
             {/* Pros / Cons */}
             {((lead.pro_for_cogmap && lead.pro_for_cogmap.length > 0) || 
               (lead.con_for_cogmap && lead.con_for_cogmap.length > 0)) && (
-              <SimpleGrid cols={2} spacing="md">
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                 {lead.pro_for_cogmap && lead.pro_for_cogmap.length > 0 && (
                   <Paper p="md" withBorder>
                     <Stack gap="xs">
@@ -236,7 +237,7 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
               <Paper p="md" withBorder>
                 <Stack gap="xs">
                   <Text size="xs" fw={600} tt="uppercase">Feedback History</Text>
-                  <SimpleGrid cols={3} spacing="xs">
+                  <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
                     <Box>
                       <Text size="xs" c="dimmed">Feedback Score</Text>
                       <Text fw={700}>{lead.feedbackScore}</Text>
@@ -277,7 +278,7 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
         {/* Actions */}
         <Box p="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
           {!actionMode ? (
-            <Group gap="sm">
+            <Group gap="sm" wrap="wrap">
               <Button 
                 color="green" 
                 leftSection={<IconThumbUp size={16} />}

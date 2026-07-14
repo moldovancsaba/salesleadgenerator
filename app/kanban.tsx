@@ -55,14 +55,14 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
 
   return (
     <>
-      <Group gap="sm" align="flex-start" wrap="nowrap" style={{ overflowX: 'auto', minHeight: 520 }}>
+      <Group gap="sm" align="flex-start" wrap="nowrap" style={{ overflowX: 'auto', overflowY: 'hidden', minHeight: 520, paddingBottom: '0.5rem' }}>
         {COLUMNS.map((col) => {
           const colLeads = leadsInColumn(col.key);
           const color = semanticToneToMantineColor(col.color);
           const isDropTarget = dropTarget === col.key;
 
           return (
-            <Stack key={col.key} gap="xs" style={{ flex: '0 0 280px' }}>
+            <Stack key={col.key} gap="xs" style={{ flex: '0 0 280px', minWidth: 240 }}>
               <Group justify="space-between" align="center">
                 <Text fw={600} size="sm" tt="uppercase">
                   {col.label}
