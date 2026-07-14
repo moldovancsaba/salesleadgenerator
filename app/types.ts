@@ -38,6 +38,7 @@ export type Lead = {
   decision_maker_name?: string;
   decision_maker_title?: string;
   decision_maker_contact?: string;
+  contact_phone?: string;
   pro_for_cogmap?: string[];
   con_for_cogmap?: string[];
   value_proposition?: string;
