@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Box, TextInput, Select, Badge } from "@mantine/core";
+import { Box, Text, TextInput, Select, Badge } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import type { Lead, KanbanColumn } from "./types";
 import { KanbanBoard } from "./kanban";

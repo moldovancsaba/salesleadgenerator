@@ -322,3 +322,5 @@ export async function PATCH(request: Request) {
     )
   }
 }
+
+export const dynamic = 'force-dynamic';
