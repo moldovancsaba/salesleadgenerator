@@ -20,76 +20,103 @@ export function LeadCard({ lead }: LeadCardProps) {
   return (
     <div
       style={{
-        padding: '0.7rem 0.8rem',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '0.5rem',
+        padding: '0.7rem 0.75rem',
         borderRadius: '0.5rem',
-        backgroundColor: 'var(--mantine-color-gray-0)',
+        backgroundColor: 'var(--mantine-color-white)',
         border: '1px solid var(--mantine-color-gray-3)',
-        cursor: 'pointer',
+        cursor: 'grab',
         touchAction: 'none',
         userSelect: 'none',
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
-        transition: 'background-color 0.1s',
+        transition: 'transform 0.1s, box-shadow 0.1s',
       }}
     >
-      {/* Name */}
-      <div style={{
-        fontSize: '0.9rem',
-        fontWeight: 600,
-        color: 'var(--mantine-color-gray-9)',
-        marginBottom: '0.4rem',
-        lineHeight: 1.3,
-        wordBreak: 'break-word',
-      }}>
-        {lead.entity_name}
+      {/* Grip handle */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          paddingTop: '0.1rem',
+          color: 'var(--mantine-color-gray-4)',
+          cursor: 'grab',
+          flexShrink: 0,
+        }}
+      >
+        <svg width="12" height="16" viewBox="0 0 12 16" fill="none" style={{ display: 'block' }}>
+          <circle cx="4" cy="3" r="1.5" fill="currentColor" />
+          <circle cx="8" cy="3" r="1.5" fill="currentColor" />
+          <circle cx="4" cy="8" r="1.5" fill="currentColor" />
+          <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+          <circle cx="4" cy="13" r="1.5" fill="currentColor" />
+          <circle cx="8" cy="13" r="1.5" fill="currentColor" />
+        </svg>
       </div>
 
-      {/* Badges */}
-      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{
-          padding: '0.18rem 0.45rem',
-          borderRadius: '0.25rem',
-          backgroundColor: `var(--mantine-color-${iceColor}-1)`,
-          color: `var(--mantine-color-${iceColor}-9)`,
-          fontSize: '0.72rem',
-          fontWeight: 700,
-        }}>
-          {ice}
-        </span>
-        <span style={{
-          padding: '0.18rem 0.45rem',
-          borderRadius: '0.25rem',
-          backgroundColor: `var(--mantine-color-${regionColor}-1)`,
-          color: `var(--mantine-color-${regionColor}-9)`,
-          fontSize: '0.72rem',
-          fontWeight: 500,
-        }}>
-          {region}
-        </span>
-        <span style={{
-          padding: '0.18rem 0.45rem',
-          borderRadius: '0.25rem',
-          backgroundColor: `var(--mantine-color-${qualityColor}-1)`,
-          color: `var(--mantine-color-${qualityColor}-9)`,
-          fontSize: '0.72rem',
-          fontWeight: 500,
-        }}>
-          {quality}
-        </span>
-      </div>
-
-      {/* DM if exists */}
-      {lead.decision_maker_name && (
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Name */}
         <div style={{
-          marginTop: '0.35rem',
-          fontSize: '0.72rem',
-          color: 'var(--mantine-color-gray-6)',
+          fontSize: '0.9rem',
+          fontWeight: 600,
+          color: 'var(--mantine-color-gray-9)',
+          marginBottom: '0.4rem',
           lineHeight: 1.3,
+          wordBreak: 'break-word',
         }}>
-          {lead.decision_maker_name}
-          {lead.decision_maker_title && <span style={{ opacity: 0.7 }}> — {lead.decision_maker_title}</span>}
+          {lead.entity_name}
         </div>
-      )}
+
+        {/* Badges */}
+        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{
+            padding: '0.18rem 0.45rem',
+            borderRadius: '0.25rem',
+            backgroundColor: `var(--mantine-color-${iceColor}-1)`,
+            color: `var(--mantine-color-${iceColor}-9)`,
+            fontSize: '0.72rem',
+            fontWeight: 700,
+          }}>
+            {ice}
+          </span>
+          <span style={{
+            padding: '0.18rem 0.45rem',
+            borderRadius: '0.25rem',
+            backgroundColor: `var(--mantine-color-${regionColor}-1)`,
+            color: `var(--mantine-color-${regionColor}-9)`,
+            fontSize: '0.72rem',
+            fontWeight: 500,
+          }}>
+            {region}
+          </span>
+          <span style={{
+            padding: '0.18rem 0.45rem',
+            borderRadius: '0.25rem',
+            backgroundColor: `var(--mantine-color-${qualityColor}-1)`,
+            color: `var(--mantine-color-${qualityColor}-9)`,
+            fontSize: '0.72rem',
+            fontWeight: 500,
+          }}>
+            {quality}
+          </span>
+        </div>
+
+        {/* DM if exists */}
+        {lead.decision_maker_name && (
+          <div style={{
+            marginTop: '0.35rem',
+            fontSize: '0.72rem',
+            color: 'var(--mantine-color-gray-6)',
+            lineHeight: 1.3,
+          }}>
+            {lead.decision_maker_name}
+            {lead.decision_maker_title && <span style={{ opacity: 0.7 }}> — {lead.decision_maker_title}</span>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
