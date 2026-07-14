@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Box, Group, Text, Badge, Card, Stack } from '@mantine/core';
+import { Box, Group, Text, Badge, Card } from '@mantine/core';
 import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
 import { LeadDetailModal } from './detail';
@@ -18,8 +18,8 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
   const [dragOverCol, setDragOverCol] = useState<KanbanColumn | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const dragInfo = useRef<{ leadId: string; fromColumn: KanbanColumn } | null>(null);
-  const longPressTimer = useRef<number | null>(null);
-  const [isLongPress, setIsLongPress] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
 
   function leadsInColumn(col: KanbanColumn): Lead[] {
     return leads
@@ -27,30 +27,28 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   }
 
-  // Cleanup
   useEffect(() => {
     return () => {
       if (longPressTimer.current) clearTimeout(longPressTimer.current);
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+      document.body.style.touchAction = '';
     };
   }, []);
 
-  // Global pointer move/up for drag
+  // Global pointer tracking for drag
   useEffect(() => {
     function onPointerMove(e: PointerEvent) {
-      if (!dragInfo.current || !draggingId) return;
+      if (!dragInfo.current) return;
       const el = document.elementFromPoint(e.clientX, e.clientY);
       if (!el) { setDragOverCol(null); return; }
       const colEl = el.closest('[data-column]');
       const col = colEl?.getAttribute('data-column') as KanbanColumn | null;
-      if (col && col !== dragInfo.current.fromColumn) {
-        setDragOverCol(col);
-      } else {
-        setDragOverCol(null);
-      }
+      setDragOverCol(col && col !== dragInfo.current.fromColumn ? col : null);
     }
 
     function onPointerUp(e: PointerEvent) {
-      if (!dragInfo.current || !draggingId) return;
+      if (!dragInfo.current) return;
       const targetCol = dragOverCol;
       if (targetCol) {
         const colLeads = leadsInColumn(targetCol);
@@ -62,7 +60,9 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
       dragInfo.current = null;
       setDraggingId(null);
       setDragOverCol(null);
-      setIsLongPress(false);
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+      document.body.style.touchAction = '';
     }
 
     window.addEventListener('pointermove', onPointerMove);
@@ -71,42 +71,40 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
     };
-  }, [draggingId, dragOverCol, leadsInColumn, onMove]);
+  }, [dragOverCol, leadsInColumn, onMove]);
 
-  function handleCardPointerDown(e: React.PointerEvent, lead: Lead) {
+  function handleCardDown(e: React.PointerEvent, lead: Lead) {
     if (e.button !== 0) return;
-    setIsLongPress(false);
+    e.preventDefault();
 
-    longPressTimer.current = window.setTimeout(() => {
-      setIsLongPress(true);
+    longPressTimer.current = setTimeout(() => {
       dragInfo.current = { leadId: lead._id, fromColumn: lead.kanbanColumn };
       setDraggingId(lead._id);
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
       document.body.style.userSelect = 'none';
+      document.body.style.webkitUserSelect = 'none';
       document.body.style.touchAction = 'none';
-    }, 400);
+    }, 350);
   }
 
-  function handleCardPointerMove(e: React.PointerEvent) {
+  function handleCardMove(e: React.PointerEvent) {
     if (longPressTimer.current && !draggingId) {
-      const dx = e.movementX;
-      const dy = e.movementY;
-      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      if (Math.abs(e.movementX) > 6 || Math.abs(e.movementY) > 6) {
         clearTimeout(longPressTimer.current);
         longPressTimer.current = null;
       }
     }
   }
 
-  function handleCardPointerUp(e: React.PointerEvent) {
+  function handleCardUp(e: React.PointerEvent, lead: Lead) {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
     (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+    // If not dragging, it's a tap → open modal
     if (!draggingId) {
-      document.body.style.userSelect = '';
-      document.body.style.touchAction = '';
+      setSelectedLead(lead);
     }
   }
 
@@ -123,134 +121,101 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
     }
   }
 
-  // Drag ghost element
-  const dragLead = draggingId ? leads.find(l => l._id === draggingId) : null;
-
   return (
-    <>
-      <Box
-        style={{
-          display: 'flex',
-          gap: '0.75rem',
-          overflowX: 'auto',
-          overflowY: 'hidden',
-          height: 'calc(100vh - 180px)',
-          minHeight: 500,
-          padding: '0.5rem',
-          paddingBottom: '1rem',
-          touchAction: 'pan-y',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        {COLUMNS.map((col) => {
-          const colLeads = leadsInColumn(col.key);
-          const color = semanticToneToMantineColor(col.color);
-          const isDropTarget = dragOverCol === col.key;
+    <Box
+      ref={boardRef}
+      style={{
+        display: 'flex',
+        gap: '0.6rem',
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        height: '100dvh',
+        padding: '0.5rem',
+        touchAction: 'pan-y',
+        WebkitOverflowScrolling: 'touch',
+      }}
+    >
+      {COLUMNS.map((col) => {
+        const colLeads = leadsInColumn(col.key);
+        const color = semanticToneToMantineColor(col.color);
+        const isDropTarget = dragOverCol === col.key;
 
-          return (
+        return (
+          <Box
+            key={col.key}
+            data-column={col.key}
+            style={{
+              flex: '0 0 300px',
+              minWidth: 280,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            {/* Column header — fixed */}
             <Box
-              key={col.key}
-              data-column={col.key}
               style={{
-                flex: '0 0 300px',
-                minWidth: 280,
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
+                padding: '0.5rem 0.75rem',
+                borderBottom: `2px solid var(--mantine-color-${color}-4)`,
+                marginBottom: '0.25rem',
+                flexShrink: 0,
               }}
             >
-              {/* Header */}
-              <Box
-                style={{
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '0.5rem 0.5rem 0 0',
-                  backgroundColor: `var(--mantine-color-${color}-0)`,
-                  borderBottom: `2px solid var(--mantine-color-${color}-3)`,
-                  marginBottom: '0.25rem',
-                }}
-              >
-                <Group justify="space-between" align="center">
-                  <Text fw={700} size="sm" tt="uppercase">{col.label}</Text>
-                  <Badge variant="light" color={color} size="sm">{colLeads.length}</Badge>
-                </Group>
-              </Box>
-
-              {/* Cards — scrollable */}
-              <Card
-                padding="xs"
-                radius="md"
-                withBorder
-                style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  overflowX: 'hidden',
-                  backgroundColor: isDropTarget
-                    ? `var(--mantine-color-${color}-1)`
-                    : `var(--mantine-color-gray-0)`,
-                  border: isDropTarget
-                    ? `2px dashed var(--mantine-color-${color}-5)`
-                    : undefined,
-                  transition: 'background-color 0.15s, border-color 0.15s',
-                  WebkitOverflowScrolling: 'touch',
-                  touchAction: 'pan-y',
-                }}
-              >
-                {colLeads.length === 0 ? (
-                  <Text size="xs" c="dimmed" ta="center" py="xl">
-                    {col.description}
-                  </Text>
-                ) : (
-                  <Stack gap="xs">
-                    {colLeads.map((lead) => {
-                      const isDragging = draggingId === lead._id;
-                      return (
-                        <Box
-                          key={lead._id}
-                          onPointerDown={(e) => handleCardPointerDown(e, lead)}
-                          onPointerMove={handleCardPointerMove}
-                          onPointerUp={handleCardPointerUp}
-                          onClick={() => {
-                            if (!isLongPress && !draggingId) {
-                              setSelectedLead(lead);
-                            }
-                          }}
-                          style={{
-                            opacity: isDragging ? 0.3 : 1,
-                            transform: isDragging ? 'scale(0.95)' : 'scale(1)',
-                            transition: 'opacity 0.15s, transform 0.15s',
-                            cursor: isLongPress ? 'grabbing' : 'grab',
-                          }}
-                        >
-                          <LeadCard
-                            lead={lead}
-                            isDragging={isDragging}
-                          />
-                        </Box>
-                      );
-                    })}
-                  </Stack>
-                )}
-              </Card>
+              <Group justify="space-between" align="center" gap="xs">
+                <Text fw={700} size="xs" tt="uppercase">{col.label}</Text>
+                <Badge variant="light" color={color} size="xs">{colLeads.length}</Badge>
+              </Group>
             </Box>
-          );
-        })}
-      </Box>
 
-      {/* Drag ghost */}
-      {dragLead && (
-        <Box
-          style={{
-            position: 'fixed',
-            pointerEvents: 'none',
-            zIndex: 9999,
-            opacity: 0.9,
-            transform: 'rotate(2deg)',
-          }}
-          id="drag-ghost"
-        >
-          <LeadCard lead={dragLead} isDragging={true} />
-        </Box>
-      )}
+            {/* Cards — scrollable, fills remaining height */}
+            <Card
+              padding="xs"
+              radius="md"
+              withBorder
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                backgroundColor: isDropTarget
+                  ? `var(--mantine-color-${color}-1)`
+                  : 'var(--mantine-color-gray-0)',
+                border: isDropTarget
+                  ? `2px dashed var(--mantine-color-${color}-5)`
+                  : undefined,
+                transition: 'background-color 0.15s',
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-y',
+              }}
+            >
+              {colLeads.length === 0 ? (
+                <Text size="xs" c="dimmed" ta="center" py="xl">
+                  {col.description}
+                </Text>
+              ) : (
+                <Box style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {colLeads.map((lead) => {
+                    const dragging = draggingId === lead._id;
+                    return (
+                      <Box
+                        key={lead._id}
+                        onPointerDown={(e) => handleCardDown(e, lead)}
+                        onPointerMove={handleCardMove}
+                        onPointerUp={(e) => handleCardUp(e, lead)}
+                        style={{
+                          opacity: dragging ? 0.3 : 1,
+                          transition: 'opacity 0.1s',
+                        }}
+                      >
+                        <LeadCard lead={lead} isDragging={dragging} />
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
+            </Card>
+          </Box>
+        );
+      })}
 
       {selectedLead && (
         <LeadDetailModal
@@ -260,6 +225,6 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
           onUpdated={() => setSelectedLead(null)}
         />
       )}
-    </>
+    </Box>
   );
 }
