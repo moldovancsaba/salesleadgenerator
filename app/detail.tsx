@@ -96,10 +96,10 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
     <Modal
       opened={true}
       onClose={onClose}
-      size={{ base: "100%", sm: "xl" }}
+      size="xl"
       padding={0}
       withCloseButton={false}
-      fullScreen={{ base: true, sm: false }}
+      fullScreen={true}
     >
       <Paper radius="md" withBorder={false}>
         {/* Header */}
