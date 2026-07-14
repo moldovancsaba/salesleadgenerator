@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { GDSProvider } from "./components/gds-provider";
 import "@mantine/core/styles.css";
@@ -8,18 +7,13 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-export const metadata: Metadata = {
-  title: "CogMap - Pipeline Intelligence Platform",
-  description: "AI-powered lead intelligence and pipeline management",
-};
-
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}">
+    <html lang="en" className={inter.variable}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <meta name="theme-color" content="#1a1a2e" />
@@ -29,6 +23,8 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/icon-192.png" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        <title>CogMap - Pipeline Intelligence Platform</title>
+        <meta name="description" content="AI-powered lead intelligence and pipeline management" />
       </head>
       <body>
         <GDSProvider>{children}</GDSProvider>
