@@ -12,10 +12,10 @@ import { COLUMNS } from './constants';
 type BoardProps = {
   leads: Lead[];
   onMove: (leadId: string, column: KanbanColumn, sortOrder: number) => Promise<void>;
+  onOpenLead: (lead: Lead) => void;
 };
 
-export function KanbanBoard({ leads, onMove }: BoardProps) {
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [regionFilter, setRegionFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -154,19 +154,6 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
-
-  async function handleAction(leadId: string, action: string, payload: any) {
-    try {
-      await fetch(`/api/leads?id=${leadId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, ...payload }),
-      });
-      setSelectedLead(null);
-    } catch (err) {
-      console.error('Action failed', err);
-    }
-  }
 
   return (
     <Box
@@ -322,7 +309,7 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
                         style={{ touchAction: 'none' }}
                       >
                         <Box
-                          onClick={() => !isDragging && setSelectedLead(lead)}
+                          onClick={() => !isDragging && onOpenLead(lead)}
                           style={{
                             cursor: isDragging ? 'grabbing' : 'pointer',
                             opacity: dragRef.current?.leadId === lead._id ? 0.4 : 1,
@@ -339,15 +326,6 @@ export function KanbanBoard({ leads, onMove }: BoardProps) {
           );
         })}
       </Box>
-
-      {selectedLead && (
-        <LeadDetailModal
-          lead={selectedLead}
-          onClose={() => setSelectedLead(null)}
-          onAction={handleAction}
-          onUpdated={() => setSelectedLead(null)}
-        />
-      )}
     </Box>
   );
 }
