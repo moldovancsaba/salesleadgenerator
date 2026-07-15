@@ -21,7 +21,8 @@ import {
 import { regionTone } from './theme/semantic';
 import { iceTone, qualityTone } from './theme/semantic';
 import { semanticToneToMantineColor } from './utils/semantic-colors';
-import { IconX, IconThumbUp, IconThumbDown, IconPin, IconRefresh } from '@tabler/icons-react';
+import { IconX, IconThumbUp, IconThumbDown, IconPin, IconRefresh, IconMail, IconBrandLinkedin } from '@tabler/icons-react';
+import { DEFAULT_TEMPLATES, interpolate } from '../lib/outreach/templates';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -48,6 +49,9 @@ const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
 
 export function LeadDetailModal({ lead, onClose, onAction }: Props) {
   const [annotation, setAnnotation] = useState("");
+  const [showOutreach, setShowOutreach] = useState(false);
+  const [outreachTemplateId, setOutreachTemplateId] = useState<string | null>(null);
+  const [outreachPreview, setOutreachPreview] = useState<string>('');
   const [declineReason, setDeclineReason] = useState<DeclineReason>("OTHER");
   const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,6 +89,34 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
     onAction(lead._id, "REQUEST_REFRESH", { annotation });
     setBusy(false);
   }
+
+  async function handleDraftOutreach() {
+    const template = DEFAULT_TEMPLATES.find(t => t.id === outreachTemplateId);
+    if (!template) return;
+    const text = interpolate(template.body, {
+      entity_name: lead.entity_name,
+      decision_maker_name: lead.decision_maker_name || '',
+      value_proposition: lead.value_proposition || '',
+      sport_or_sector: lead.sport_or_sector || '',
+    });
+    setOutreachPreview(text);
+  }
+
+  async function copyOutreachToClipboard() {
+    await navigator.clipboard.writeText(outreachPreview);
+  }
+
+  async function openGmail() {
+    const subject = outreachPreview.split('\n')[0].replace(/^Subject:\s*/, '');
+    window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject || '')}&body=${encodeURIComponent(outreachPreview)}`, '_blank');
+  }
+
+  async function openOutlook() {
+    const subject = outreachPreview.split('\n')[0].replace(/^Subject:\s*/, '');
+    window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encodeURIComponent(subject || '')}&body=${encodeURIComponent(outreachPreview)}`, '_blank');
+  }
+
+  const outreachTemplates = DEFAULT_TEMPLATES.filter(t => t.industry === lead.sport_or_sector || t.industry === 'General');
 
   async function handleModify() {
     setBusy(true);
@@ -323,6 +355,41 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
               >
                 Request Refresh
               </Button>
+              <Button
+                color="teal"
+                variant="light"
+                onClick={() => setShowOutreach((v) => !v)}
+                disabled={busy}
+              >
+                Outreach
+              </Button>
+            </Group>
+            {showOutreach && (
+              <Paper p="md" withBorder mt="md">
+                <Stack gap="xs">
+                  <Text fw={600}>Choose template</Text>
+                  <Select
+                    placeholder="Select template…"
+                    data={outreachTemplates.map(t => ({ value: t.id, label: t.name }))}
+                    value={outreachTemplateId}
+                    onChange={(value) => { setOutreachTemplateId(value || null); if (value) handleDraftOutreach(); }}
+                  />
+                  {outreachPreview ? (
+                    <Stack gap="xs" mt="xs">
+                      <Text size="xs" c="dimmed">Preview</Text>
+                      <Paper p="xs" withBorder>
+                        <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>{outreachPreview}</Text>
+                      </Paper>
+                      <Group gap="xs" wrap="wrap">
+                        <Button size="xs" variant="light" onClick={copyOutreachToClipboard}>Copy</Button>
+                        <Button size="xs" variant="light" onClick={openGmail}>Gmail</Button>
+                        <Button size="xs" variant="light" onClick={openOutlook}>Outlook</Button>
+                      </Group>
+                    </Stack>
+                  ) : null}
+                </Stack>
+              </Paper>
+            )}
             </Group>
           ) : actionMode === "decline" ? (
             <Stack gap="sm">
