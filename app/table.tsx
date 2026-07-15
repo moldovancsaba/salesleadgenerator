@@ -15,7 +15,7 @@ export function TableView({ leads, onRowClick }: TableViewProps) {
     if (lead.ice) {
       return lead.ice.impact * lead.ice.confidence * lead.ice.ease;
     }
-    return lead.iceScore ?? 0;
+    return 0;
   };
 
   const contactDetails = (lead: Lead) => {
