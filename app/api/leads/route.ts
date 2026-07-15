@@ -16,6 +16,24 @@ function deriveKanbanColumn(iceScore: number): string {
   return 'DISCOVERED'
 }
 
+
+function computeEase(body: any): number {
+  const hasNamed = !!body.decision_maker_name;
+  const hasEmail = !!body.decision_maker_contact;
+  const hasPhone = !!body.contact_phone;
+  const hasAddress = !!body.address;
+  const hasGeneral = !!body.general_contact;
+
+  if (!hasNamed && !hasGeneral) return 1;
+  if (!hasNamed && hasGeneral) return 2;
+  if (hasNamed && !hasEmail && !hasPhone) return 3;
+  if (hasNamed && hasAddress && !hasEmail && !hasPhone) return 4;
+  if (hasNamed && (hasEmail || hasPhone) && !hasAddress) return 5;
+  if (hasNamed && hasAddress && (hasEmail || hasPhone) && !(hasEmail && hasPhone)) return 6;
+  if (hasNamed && hasAddress && hasEmail && hasPhone) return 7;
+  return 4;
+}
+
 function computeIceScore(impact: number, confidence: number, ease: number): number {
   return impact * confidence * ease
 }
@@ -116,7 +134,7 @@ export async function POST(request: Request) {
     // Compute ICE score
     const impact = body.ice?.impact || body.impact || 5
     const confidence = body.ice?.confidence || body.confidence || 5
-    const ease = body.ice?.ease || body.ease || 5
+    const ease = computeEase(body)
     
     const iceScore = computeIceScore(impact, confidence, ease)
     const scoreProfile = buildScoreProfile(impact, confidence, ease)
@@ -132,6 +150,7 @@ export async function POST(request: Request) {
       region: body.region || 'US',
       entity_name: body.entity_name || body.name,
       url: body.url || '',
+      contact_phone: body.contact_phone || '',
       address: body.address || '',
       general_contact: body.general_contact || '',
       size: body.size || '',
@@ -148,7 +167,7 @@ export async function POST(request: Request) {
       status: body.status || 'new',
       notes: body.notes || '',
       tags: body.tags || [],
-      
+
       // Check-inspired fields
       kanbanColumn,
       sortOrder: count * 100,
