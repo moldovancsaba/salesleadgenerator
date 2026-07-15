@@ -38,12 +38,13 @@ Best,`,
     id: 'performance-center-email',
     name: 'Performance Center — Cognitive Performance',
     channel: 'email',
+    industry: 'Performance Center',
     subject: 'Performance insight for {entity_name}',
     body: `Hi {decision_maker_name},
 
-Performance isn’t just physical. CogMap gives your athletes and coaches a cognitive performance layer — decision speed, working memory, and situational awareness — with live feedback during sessions via a second-screen experience.
+Performance isn't just physical. CogMap gives your athletes and coaches a cognitive performance layer — decision speed, working memory, and situational awareness — with live feedback during sessions via a second-screen experience.
 
-I’d love to show you how {entity_name} can integrate this into what you’re already doing.
+I'd love to show you how {entity_name} can integrate this into what you're already doing.
 
 Best,`,
     variables: ['entity_name', 'decision_maker_name', 'value_proposition'],
