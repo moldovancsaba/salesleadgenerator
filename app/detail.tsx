@@ -198,7 +198,7 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
                 {lead.pro_for_cogmap && lead.pro_for_cogmap.length > 0 && (
                   <Paper p="md" withBorder>
                     <Stack gap="xs">
-                      <Text size="xs" c="green" fw={600} tt="uppercase">Pros for CogMap</Text>
+                      <Text size="xs" c="green" fw={600} tt="uppercase">Pros</Text>
                       <Stack gap={4}>
                         {lead.pro_for_cogmap.map((pro, i) => (
                           <Text size="sm" key={i}>• {pro}</Text>
@@ -210,7 +210,7 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
                 {lead.con_for_cogmap && lead.con_for_cogmap.length > 0 && (
                   <Paper p="md" withBorder>
                     <Stack gap="xs">
-                      <Text size="xs" c="red" fw={600} tt="uppercase">Cons for CogMap</Text>
+                      <Text size="xs" c="red" fw={600} tt="uppercase">Cons</Text>
                       <Stack gap={4}>
                         {lead.con_for_cogmap.map((con, i) => (
                           <Text size="sm" key={i}>• {con}</Text>
