@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Box, Text, Button, Group, ActionIcon } from "@mantine/core";
 import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
-import type { Lead, KanbanColumn } from "./types";
+import type { Lead, KanbanColumn } from "../types";
 import { KanbanBoard } from "../kanban";
 import { TableView } from "../table";
 import { LeadDetailModal } from "../detail";
