@@ -175,21 +175,30 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
               </Box>
             </SimpleGrid>
 
-            {/* Decision Maker */}
-            {lead.decision_maker_name && (
-              <Paper p="md" withBorder>
-                <Stack gap="xs">
-                  <Text size="xs" c="dimmed" fw={600}>DECISION MAKER</Text>
-                  <Text fw={600}>{lead.decision_maker_name}</Text>
-                  {lead.decision_maker_title && (
-                    <Text size="sm" c="dimmed">{lead.decision_maker_title}</Text>
-                  )}
-                  {lead.decision_maker_contact && (
-                    <Text size="sm" c="dimmed">{lead.decision_maker_contact}</Text>
-                  )}
-                </Stack>
-              </Paper>
-            )}
+            {/* Contacts */}
+            <Paper p="md" withBorder>
+              <Stack gap="xs">
+                <Text size="xs" c="dimmed" fw={600}>CONTACTS</Text>
+                {lead.decision_maker_name ? (
+                  <Box>
+                    <Text fw={600}>{lead.decision_maker_name}</Text>
+                    {lead.decision_maker_title && (
+                      <Text size="sm" c="dimmed">{lead.decision_maker_title}</Text>
+                    )}
+                    <Text size="sm" c="dimmed">{lead.decision_maker_contact || ''}</Text>
+                  </Box>
+                ) : null}
+                {(lead.contacts || []).map((contact, i) => (
+                  <Box key={i}>
+                    <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
+                    {contact.title && <Text size="sm" c="dimmed">{contact.title}</Text>}
+                    {contact.email && <Text size="sm" c="dimmed">{contact.email}</Text>}
+                    {contact.phone && <Text size="sm" c="dimmed">{contact.phone}</Text>}
+                    {contact.linkedin && <Text size="sm" c="blue">{contact.linkedin}</Text>}
+                  </Box>
+                ))}
+              </Stack>
+            </Paper>
 
             {/* Pros / Cons */}
             {((lead.pro_for_cogmap && lead.pro_for_cogmap.length > 0) || 

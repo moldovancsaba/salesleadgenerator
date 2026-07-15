@@ -33,7 +33,7 @@ CogMap uses Mongoose for:
 
 - **GitHub:** https://github.com/moldovancsaba/CogMap
 - **Vercel project:** `cog-map` (under team `moldovan`)
-- **Production URL:** https://cog-map-ten.vercel.app
+- **Production URL:** https://salesleadgenerator.vercel.app
 - **Build:** `npm run build` → `next build` → static + serverless functions
 
 ## Environment

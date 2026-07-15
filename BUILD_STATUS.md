@@ -2,7 +2,7 @@
 
 ## Current State: ✅ Production Ready
 
-All build issues resolved. App is deployed at https://cog-map-ten.vercel.app
+All build issues resolved. App is deployed at https://salesleadgenerator.vercel.app
 
 ### Verified Features
 - ✅ Next.js 14 production build passes

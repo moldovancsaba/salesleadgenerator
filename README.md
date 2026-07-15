@@ -4,8 +4,8 @@
 
 CogMap is a cognitive assessment service that measures decision-making speed, situational awareness, and working memory under pressure. This repository contains the CogMap lead generation pipeline — an automated research system that discovers, enriches, and scores sales leads.
 
-- **Live kanban board:** https://cog-map-ten.vercel.app
-- **API:** `https://cog-map-ten.vercel.app/api/leads`
+- **Live kanban board:** https://salesleadgenerator.vercel.app
+- **API:** `https://salesleadgenerator.vercel.app/api/leads`
 - **App version:** 2.0.0
 
 ---

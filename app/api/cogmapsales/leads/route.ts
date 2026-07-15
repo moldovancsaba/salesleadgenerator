@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
-import { getPublicLeads } from '../../../lib/public-data'
+import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
+import { getPublicLeads } from '../../../../lib/public-data'
 import crypto from 'crypto'
 
 // Helper functions
@@ -151,6 +151,7 @@ export async function POST(request: Request) {
       entity_name: body.entity_name || body.name,
       url: body.url || '',
       contact_phone: body.contact_phone || '',
+      contacts: body.contacts || [],
       address: body.address || '',
       general_contact: body.general_contact || '',
       size: body.size || '',
@@ -297,7 +298,7 @@ export async function PATCH(request: Request) {
         const upstreamQuality = body.upstreamQualityStatuses || ['DRAFT']
         
         // Import quality enforcement
-        const { enforceQualityCeiling } = await import('../../../lib/quality-registry')
+        const { enforceQualityCeiling } = await import('../../../../lib/quality-registry')
         updateData.qualityStatus = enforceQualityCeiling(
           body.qualityStatus,
           upstreamQuality

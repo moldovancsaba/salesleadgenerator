@@ -151,6 +151,7 @@ export async function POST(request: Request) {
       entity_name: body.entity_name || body.name,
       url: body.url || '',
       contact_phone: body.contact_phone || '',
+      contacts: body.contacts || [],
       address: body.address || '',
       general_contact: body.general_contact || '',
       size: body.size || '',

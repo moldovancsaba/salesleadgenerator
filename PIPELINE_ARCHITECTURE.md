@@ -141,8 +141,8 @@ Unique index on `fingerprint` prevents duplicate leads.
 
 | Component | URL |
 |-----------|-----|
-| Production app | https://cog-map-ten.vercel.app |
-| API health | https://cog-map-ten.vercel.app/api/health |
+| Production app | https://salesleadgenerator.vercel.app |
+| API health | https://salesleadgenerator.vercel.app/api/health |
 | Database | MongoDB Atlas (`sales.8wytusk.mongodb.net`, database: `cogmap`) |
 
 ---

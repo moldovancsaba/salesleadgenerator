@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
-import { getPublicLeadById } from '../../../../lib/public-data'
+import { isMongoConfigured, getClientPromise } from '../../../../../lib/mongodb'
+import { getPublicLeadById } from '../../../../../lib/public-data'
 
 export async function GET(
   request: Request,

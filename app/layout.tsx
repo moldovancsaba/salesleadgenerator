@@ -7,6 +7,11 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+export const metadata = {
+  title: "Sales Lead Generator",
+  description: "AI-powered sales lead collection platform",
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -19,12 +24,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#1a1a2e" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="CogMap" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/icon-192.png" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
-        <title>CogMap - Pipeline Intelligence Platform</title>
-        <meta name="description" content="AI-powered lead intelligence and pipeline management" />
       </head>
       <body>
         <GDSProvider>{children}</GDSProvider>
