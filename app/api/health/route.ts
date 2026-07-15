@@ -4,11 +4,14 @@ import clientPromise from '../../../lib/mongodb'
 export async function GET() {
   try {
     let db = 'unavailable'
-    try {
-      const client = await clientPromise
-      db = client.db().databaseName || 'connected'
-    } catch {
-      db = 'unavailable'
+
+    if (clientPromise) {
+      try {
+        const client = await clientPromise
+        db = client.db().databaseName || 'connected'
+      } catch {
+        db = 'unavailable'
+      }
     }
 
     return NextResponse.json({

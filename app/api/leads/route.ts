@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '../../../lib/mongodb'
+import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
 import { getPublicLeads } from '../../../lib/public-data'
 import crypto from 'crypto'
 
@@ -51,26 +51,35 @@ export async function GET(request: Request) {
     const limit = Math.max(1, Math.min(500, parseInt(searchParams.get('limit') || '100') || 100))
 
     let rawLeads: any[] = []
+    let source = 'public-data'
 
-    try {
-      const client = await clientPromise
-      const db = client.db()
-      const filter: any = {}
-      if (region) filter.region = region
-      if (kanbanColumn) filter.kanbanColumn = kanbanColumn
-      rawLeads = await db.collection('leads')
-        .find(filter)
-        .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
-        .limit(limit)
-        .toArray()
-      return NextResponse.json({ leads: rawLeads.map((l) => ({ ...l, _id: l._id.toString() })), source: 'mongodb' })
-    } catch {
+    if (isMongoConfigured()) {
+      try {
+        const client = await getClientPromise()
+        const db = client.db()
+        const filter: any = {}
+        if (region) filter.region = region
+        if (kanbanColumn) filter.kanbanColumn = kanbanColumn
+        rawLeads = await db.collection('leads')
+          .find(filter)
+          .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
+          .limit(limit)
+          .toArray()
+        source = 'mongodb'
+      } catch {
+        rawLeads = getPublicLeads()
+      }
+    } else {
       rawLeads = getPublicLeads()
+    }
+
+    if (source === 'public-data') {
       if (region) rawLeads = rawLeads.filter((l) => l.region === region)
       if (kanbanColumn) rawLeads = rawLeads.filter((l) => l.kanbanColumn === kanbanColumn)
       rawLeads = rawLeads.slice(0, limit)
-      return NextResponse.json({ leads: rawLeads, source: 'public-data' })
     }
+
+    return NextResponse.json({ leads: rawLeads.map((l) => ({ ...l, _id: l._id.toString() })), source })
   } catch (error: any) {
     console.error('GET Error:', error)
     return NextResponse.json({ error: 'Failed to fetch leads', details: error.message }, { status: 500 })
@@ -80,7 +89,11 @@ export async function GET(request: Request) {
 // POST - Create new lead with dedup and scoring
 export async function POST(request: Request) {
   try {
-    const client = await clientPromise
+    if (!isMongoConfigured()) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+    }
+
+    const client = await getClientPromise()
     const db = client.db()
     const body = await request.json()
     
@@ -187,7 +200,11 @@ export async function POST(request: Request) {
 // PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, COLUMN_MOVE
 export async function PATCH(request: Request) {
   try {
-    const client = await clientPromise
+    if (!isMongoConfigured()) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+    }
+
+    const client = await getClientPromise()
     const db = client.db()
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -197,7 +214,7 @@ export async function PATCH(request: Request) {
     }
     
     const body = await request.json()
-    const { ObjectId } = require('mongodb')
+    const { ObjectId } = await import('mongodb')
     
     const existing = await db.collection('leads').findOne({ _id: new ObjectId(id) })
     if (!existing) {

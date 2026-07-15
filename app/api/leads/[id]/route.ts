@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '../../../../lib/mongodb'
-import { ObjectId } from 'mongodb'
+import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
 import { getPublicLeadById } from '../../../../lib/public-data'
 
 export async function GET(
@@ -8,12 +7,17 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    if (!isMongoConfigured()) {
+      return NextResponse.json(getPublicLeadById(params.id) || { error: 'Lead not found' }, { status: getPublicLeadById(params.id) ? 200 : 404 })
+    }
+
+    const clientPromise = getClientPromise()
     let lead: any = null
 
     try {
       const client = await clientPromise
       const db = client.db()
-      lead = await db.collection('leads').findOne({ _id: new ObjectId(params.id) })
+      lead = await db.collection('leads').findOne({ _id: new (await import('mongodb')).ObjectId(params.id) })
       if (lead) {
         lead = { ...lead, _id: lead._id.toString() }
       }
@@ -37,11 +41,15 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const client = await clientPromise
+    if (!isMongoConfigured()) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+    }
+
+    const client = await getClientPromise()
     const db = client.db()
 
     const result = await db.collection('leads').deleteOne({
-      _id: new ObjectId(params.id)
+      _id: new (await import('mongodb')).ObjectId(params.id)
     })
 
     if (result.deletedCount === 0) {
