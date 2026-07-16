@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Box, Text, Button, Group, ActionIcon } from "@mantine/core";
-import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
+import { IconAdjustmentsHorizontal, IconX } from "@tabler/icons-react";
 import type { Lead, KanbanColumn } from "../../types";
 import { KanbanBoard } from "../../kanban";
 import { TableView } from "../../table";
@@ -24,10 +24,15 @@ export default function BrandPipelinePage({ params }: Props) {
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLeads();
   }, []);
+
+  function showError(message: string) {
+    setErrorMessage(message);
+  }
 
   async function fetchLeads() {
     try {
@@ -49,6 +54,7 @@ export default function BrandPipelinePage({ params }: Props) {
       setLeads(allLeads);
     } catch (error) {
       console.error("Error fetching leads:", error);
+      showError(error instanceof Error ? error.message : "Failed to load leads");
     } finally {
       setLoading(false);
     }
@@ -106,7 +112,7 @@ export default function BrandPipelinePage({ params }: Props) {
       setSelectedLead(null);
     } catch (err) {
       console.error("Action failed", err);
-      alert(err instanceof Error ? err.message : "Action failed");
+      showError(err instanceof Error ? err.message : "Action failed");
     }
   }
 
@@ -121,7 +127,7 @@ export default function BrandPipelinePage({ params }: Props) {
       await fetchLeads();
     } catch (err) {
       console.error("Delete failed", err);
-      alert("Delete failed: " + (err instanceof Error ? err.message : "unknown"));
+      showError("Delete failed: " + (err instanceof Error ? err.message : "unknown"));
     }
   }
 
@@ -162,6 +168,24 @@ export default function BrandPipelinePage({ params }: Props) {
           flexShrink: 0,
         }}
       >
+        {errorMessage && (
+          <Box
+            mb="xs"
+            p="xs"
+            style={{
+              borderRadius: '0.25rem',
+              backgroundColor: 'var(--mantine-color-red-0)',
+              border: '1px solid var(--mantine-color-red-4)',
+            }}
+          >
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="red">{errorMessage}</Text>
+              <ActionIcon size="sm" variant="light" color="red" onClick={() => setErrorMessage(null)}>
+                <IconX size={14} />
+              </ActionIcon>
+            </Group>
+          </Box>
+        )}
         <Group justify="space-between" align="center">
           <Group gap="xs">
             <Text fw={700} size="sm">{config.label}</Text>
