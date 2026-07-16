@@ -113,6 +113,9 @@ export async function PATCH(
     let outcomeValue = action
     let teachingWeight = 50
 
+    // If no explicit action, treat as MODIFY (direct field update)
+    if (!action) action = 'MODIFY'
+
     if (body.kanbanColumn && body.kanbanColumn !== existing.kanbanColumn) {
       action = 'COLUMN_MOVE'
       const now = new Date()
@@ -145,9 +148,10 @@ export async function PATCH(
     }
 
     if (action === 'MODIFY') {
-      const fields = ['entity_name', 'url', 'address', 'general_contact', 'size', 'industry', 
+      const fields = ['entity_name', 'url', 'region', 'address', 'general_contact', 'size', 'industry', 
                       'sport_or_sector', 'level_league', 'decision_maker_name', 'decision_maker_title',
-                      'decision_maker_contact', 'value_proposition', 'notes', 'tags']
+                      'decision_maker_contact', 'value_proposition', 'notes', 'tags',
+                      'ice', 'iceScore', 'sortOrder', 'contacts']
       fields.forEach(field => {
         if (body[field] !== undefined) updateData[field] = body[field]
       })
