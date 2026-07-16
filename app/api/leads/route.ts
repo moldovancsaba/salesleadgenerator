@@ -81,6 +81,7 @@ export async function GET(request: Request) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
     const skip = (page - 1) * limit
     let rawLeads: any[] = []
+    let totalCount = 0
 
     if (isMongoConfigured()) {
       try {
@@ -90,10 +91,12 @@ export async function GET(request: Request) {
         if (region) filter.region = region
         if (kanbanColumn) filter.kanbanColumn = kanbanColumn
         totalCount = await db.collection(config.dbCollection).countDocuments(filter)
+        rawLeads = await db.collection(config.dbCollection)
           .find(filter)
           .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
           .limit(limit)
           .skip(skip)
+          .toArray()
         source = 'mongodb'
       } catch {
         rawLeads = getPublicLeads()
