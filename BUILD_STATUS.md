@@ -9,8 +9,8 @@ All build issues resolved. App is deployed at https://salesleadgenerator.vercel.
 - ✅ Mobile-first kanban board with horizontal column scroll + vertical card scroll
 - ✅ PWA manifest, standalone mode, installable
 - ✅ ICE scoring engine (Impact × Confidence × Ease)
-- ✅ MongoDB Atlas connectivity (cogmap database)
-- ✅ Lead CRUD API (7 endpoints)
+- ✅ MongoDB Atlas connectivity
+- ✅ Lead CRUD API
 - ✅ Pointer-event based card drag between columns
 - ✅ Collapsible filters (region + search)
 - ✅ Responsive layout (100dvh, flex columns)
@@ -26,5 +26,4 @@ All build issues resolved. App is deployed at https://salesleadgenerator.vercel.
 | Node.js | 24.x (Vercel) |
 
 ### Last Deploy
-- **Commit:** `560316e` — refactor: kanban mobile-first layout with minimal cards, collapsible filters, pointer drag
-- **Deployed:** July 14, 2026
+- **Deployed:** July 16, 2026

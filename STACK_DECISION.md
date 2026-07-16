@@ -1,4 +1,4 @@
-# Stack Decision — CogMap v2.0
+# Stack Decision — SLG v2.0
 
 ## Tech Stack
 
@@ -10,11 +10,11 @@
 | **ODM** | Mongoose 8.x | Schema validation, middleware, direct MongoDB access |
 | **Hosting** | Vercel | Next.js native, preview deployments, env management |
 | **Research** | OpenClaw agent | Web search + fetch, cron scheduling, memory continuity |
-| **Scheduling** | OpenClaw cron | 2-hour lead generation runs |
+| **Scheduling** | OpenClaw cron | Configurable lead generation runs |
 
 ## Why Mongoose Instead of Prisma
 
-CogMap uses Mongoose for:
+SLG uses Mongoose for:
 1. **Rapid schema evolution** — lead schema changes frequently during research iteration
 2. **Direct MongoDB features** — aggregations, text search, unique indexes
 3. **No codegen step** — simpler build pipeline on Vercel
@@ -31,8 +31,7 @@ CogMap uses Mongoose for:
 
 ## Deployment
 
-- **GitHub:** https://github.com/moldovancsaba/CogMap
-- **Vercel project:** `cog-map` (under team `moldovan`)
+- **Vercel project:** `salesleadgenerator`
 - **Production URL:** https://salesleadgenerator.vercel.app
 - **Build:** `npm run build` → `next build` → static + serverless functions
 
@@ -44,4 +43,4 @@ CogMap uses Mongoose for:
 
 ---
 
-*Updated: July 14, 2026 — CogMap v2.0*
+*Updated: July 16, 2026 — SLG v2.0*

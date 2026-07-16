@@ -1,8 +1,8 @@
-# CogMap Pipeline Architecture
+# Sales Lead Generator Pipeline Architecture
 
 ## Overview
 
-CogMap is a sales intelligence pipeline for sports franchises, clubs, and federations. Leads are discovered by an automated research agent, enriched with contact data and ICE scores, and managed on a kanban board.
+SLG is a sales intelligence pipeline. Leads are discovered by an automated research agent, enriched with contact data and ICE scores, and managed on a kanban board.
 
 ## Pipeline Stages
 
@@ -51,7 +51,7 @@ Max: 1000
 - 3 = named contact, no details
 - 4 = named contact + address only
 - 5 = named contact + email or phone
-- 6 = named contact + address + email or phone
+- 6 = named contact + address + email/phone
 - 7 = named contact + address + email + phone
 - 8 = phone is mobile
 - 9 = "I know them" (user button)
@@ -65,10 +65,9 @@ Unique index on `fingerprint` prevents duplicate leads.
 
 ## Research Agent
 
-- **Schedule:** Every 2 hours via OpenClaw cron
-- **Scope:** Sports franchises, clubs, federations only
-- **Regions:** US, CEE, MENA (rotates each run)
-- **Output:** 3–5 leads per run, POSTed to `/api/leads`
+- **Schedule:** Configurable via OpenClaw cron
+- **Scope:** Depends on configured brand pipeline
+- **Output:** Leads POSTed to `/api/leads?brand=...`
 - **Qualification:** Agent promotes to QUALIFIED when criteria are met
 - **Learning:** Agent reads kanban feedback to improve search queries
 
@@ -76,13 +75,11 @@ Unique index on `fingerprint` prevents duplicate leads.
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| GET | `/api/leads` | Fetch leads (filters: region, kanbanColumn, limit, page) |
-| POST | `/api/leads` | Create lead (auto-scoring, dedup, fingerprint) |
-| PATCH | `/api/leads?id=<id>` | Update lead (actions, column moves) |
-| GET | `/api/leads/[id]` | Fetch single lead |
-| DELETE | `/api/leads/[id]` | Delete lead |
+| GET | `/api/leads?brand=<brand>` | Fetch leads |
+| POST | `/api/leads?brand=<brand>` | Create lead |
+| GET | `/api/leads/[id]?brand=<brand>` | Fetch single lead |
+| DELETE | `/api/leads/[id]?brand=<brand>` | Delete lead |
 | GET | `/api/search-learning` | Search analytics |
-| GET | `/api/stats` | Database statistics |
 | GET | `/api/health` | Health check |
 
 ## Database Schema
@@ -94,7 +91,7 @@ Unique index on `fingerprint` prevents duplicate leads.
   entity_name: string
   url: string
   region: 'US' | 'CEE' | 'MENA'
-  industry: 'Sports'
+  industry: string
   sport_or_sector: string
   size: 'Small' | 'Medium' | 'Large' | 'Enterprise'
   address: string
@@ -103,8 +100,8 @@ Unique index on `fingerprint` prevents duplicate leads.
   decision_maker_name: string
   decision_maker_title: string
   decision_maker_contact: string
-  pro_for_cogmap: string[]
-  con_for_cogmap: string[]
+  pro_for_<brand>: string[]
+  con_for_<brand>: string[]
   value_proposition: string
   ice: { impact: number, confidence: number, ease: number }
   iceScore: number
@@ -119,7 +116,6 @@ Unique index on `fingerprint` prevents duplicate leads.
   acceptanceCount: number
   declineReason?: string
   declinedAt?: string
-  userRelation?: 'know_them' | 'connection'
   tags: string[]
   notes: string
   createdAt: string
@@ -143,8 +139,8 @@ Unique index on `fingerprint` prevents duplicate leads.
 |-----------|-----|
 | Production app | https://salesleadgenerator.vercel.app |
 | API health | https://salesleadgenerator.vercel.app/api/health |
-| Database | MongoDB Atlas (`sales.8wytusk.mongodb.net`, database: `cogmap`) |
+| Database | MongoDB Atlas |
 
 ---
 
-*Last updated: July 14, 2026*
+*Last updated: July 16, 2026*

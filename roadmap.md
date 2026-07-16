@@ -72,10 +72,10 @@ Organized by delivery phase. Each phase is independently shippable.
 
 ## Current State
 
-- ✅ CogMap kanban at `/cogmapsales`
-- ✅ Seyu kanban at `/seyusales`
+- ✅ SLG kanban at `/sales/cogmap`
+- ✅ SLG kanban at `/sales/seyu`
 - ✅ Landing page at `/`
-- ✅ Unified API structure: `/api/cogmapsales/leads`, `/api/seyusales/leads`
+- ✅ Unified API structure: `/api/leads?brand=cogmap`, `/api/leads?brand=seyu`
 - ✅ Contact depth: primary + secondary contacts with email/phone
-- ✅ Value props include CogMap + Seyu second-screen angle
+- ✅ Value props include lead-specific and product-specific angles
 - 🚧 Phase 1 ready to start

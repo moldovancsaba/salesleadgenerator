@@ -1,11 +1,11 @@
-# CogMap Pipeline
+# Sales Lead Generator Pipeline
 
 **AI-powered sales intelligence for sports franchises, clubs, and federations.**
 
-CogMap is a cognitive assessment service that measures decision-making speed, situational awareness, and working memory under pressure. This repository contains the CogMap lead generation pipeline — an automated research system that discovers, enriches, and scores sales leads.
+SLG is a sales lead generation platform that discovers, enriches, and scores sales leads across multiple brands and regions. This repository contains the SLG pipeline — an automated research system that finds decision makers, calculates ICE scores, and feeds a kanban board for sales workflow.
 
 - **Live kanban board:** https://salesleadgenerator.vercel.app
-- **API:** `https://salesleadgenerator.vercel.app/api/leads`
+- **API:** `https://salesleadgenerator.vercel.app/api/leads?brand=cogmap`
 - **App version:** 2.0.0
 
 ---
@@ -40,7 +40,7 @@ vercel deploy --prod
 
 | Variable | Description |
 |----------|-------------|
-| `MONGODB_URI` | MongoDB Atlas connection string (`cogmap` database) |
+| `MONGODB_URI` | MongoDB Atlas connection string (`salesleadgenerator` database) |
 
 ---
 
@@ -60,11 +60,11 @@ DISCOVERED → QUALIFIED → ENGAGED → PROPOSAL → WON / LOST
 
 Runs on a schedule (every 2 hours via OpenClaw cron). For each run:
 
-1. Selects a region (US, CEE, MENA — rotates each run)
-2. Searches for 3–5 real sports organizations
+1. Selects a region/brand and rotates through target markets
+2. Searches for 3–5 real organizations
 3. Researches decision makers, contacts, pros/cons, value propositions
 4. Calculates ICE score and kanban column
-5. POSTs to `/api/leads` with deduplication fingerprint
+5. POSTs to `/api/leads?brand=...` with deduplication fingerprint
 6. Promotes to QUALIFIED when criteria are met
 
 ### ICE Scoring
@@ -99,19 +99,19 @@ Fingerprint = SHA1(`url` + `entity_name` + `region`). Duplicate fingerprints are
 | **Database** | MongoDB Atlas (Mongoose ODM) |
 | **Hosting** | Vercel (production + preview deployments) |
 | **Research** | OpenClaw agent with web_search + web_fetch |
-| **Scheduling** | OpenClaw cron (every 2 hours) |
+| **Scheduling** | OpenClaw cron (configurable per brand) |
 
 ---
 
 ## Project Structure
 
 ```
-cogmap-webapp/
+salesleadgenerator/
 ├── app/
 │   ├── api/
 │   │   ├── leads/
 │   │   │   ├── route.ts          # GET/POST leads
-│   │   │   └── [id]/route.ts     # GET/PATCH/DELETE single lead
+│   │   │   └── [id]/route.ts     # GET/DELETE single lead
 │   │   ├── search-learning/
 │   │   │   └── route.ts          # Search analytics
 │   │   └── health/
@@ -146,16 +146,17 @@ cogmap-webapp/
 
 ## API Reference
 
-### `GET /api/leads`
+### `GET /api/leads?brand=<brand>`
 
 Fetch leads with optional filters.
 
 **Query params:**
 | Param | Description |
 |-------|-------------|
+| `brand` | Brand key, for example `cogmap` or `seyu` |
 | `region` | Filter by US, CEE, MENA |
 | `kanbanColumn` | Filter by pipeline stage |
-| `limit` | Results per page (default 10) |
+| `limit` | Results per page |
 | `page` | Page number |
 
 **Response:**
@@ -168,32 +169,37 @@ Fetch leads with optional filters.
 }
 ```
 
-### `POST /api/leads`
+### `POST /api/leads?brand=<brand>`
 
 Create a new lead. Automatically calculates ICE score, fingerprint, and kanban column.
 
 **Body:**
 ```json
 {
-  "entity_name": "Al Hilal SFC",
-  "url": "https://alhilal.com",
-  "region": "MENA",
-  "sport_or_sector": "Football",
-  "size": "Enterprise",
-  "decision_maker_name": "John Doe",
-  "decision_maker_title": "Performance Director",
-  "decision_maker_contact": "john@alhilal.com",
-  "contact_phone": "+966500000000",
-  "address": "Riyadh, Saudi Arabia",
-  "pro_for_cogmap": ["Large squad", "High budget"],
-  "con_for_cogmap": ["Competitors already engaged"],
-  "value_proposition": "CogMap can measure..."
+  "entity_name": "Example Club",
+  "url": "https://example.com",
+  "region": "US",
+  "sport_or_sector": "Soccer",
+  "size": "Medium",
+  "decision_maker_name": "Jordan Smith",
+  "decision_maker_title": "Academy Director",
+  "decision_maker_contact": "jordan@example.com",
+  "contact_phone": "+1 555 0100",
+  "address": "New York, NY",
+  "value_proposition": "SLG can help...",
+  "pro_for_cogmap": ["Benefit 1", "Benefit 2"],
+  "con_for_cogmap": ["Objection 1"],
+  "kanbanColumn": "QUALIFIED"
 }
 ```
 
-### `PATCH /api/leads?id=<leadId>`
+### `GET /api/leads/[id]?brand=<brand>`
 
-Update a lead. Supports actions: `ACCEPT`, `DECLINE`, `PIN`, `MODIFY`, `REQUEST_REFRESH`.
+Fetch a single lead by ID.
+
+### `DELETE /api/leads/[id]?brand=<brand>`
+
+Delete a lead by ID.
 
 ### `GET /api/health`
 
@@ -217,9 +223,9 @@ The kanban board is built mobile-first:
 ## Database
 
 - **MongoDB Atlas** cluster: `sales.8wytusk.mongodb.net`
-- **Database:** `cogmap`
-- **Collection:** `leads`
-- **Indexes:** `fingerprint` (unique), `kanbanColumn`, `region`, `iceScore`
+- **Database:** `salesleadgenerator`
+- **Collections:** `leads`, `seyu_leads`
+- **Indexes:** `fingerprint`, `kanbanColumn`, `region`, `iceScore`
 
 ---
 
@@ -227,15 +233,15 @@ The kanban board is built mobile-first:
 
 | Job | Schedule | Purpose |
 |-----|----------|---------|
-| `2d9f1aa8` | Every 2 hours | Research new sports leads, POST to API |
+| Configurable per brand | On schedule | Research new leads and POST to API |
 
 ---
 
 ## License
 
-Private — CogMap internal use only.
+Private — SLG internal use only.
 
 ---
 
-*Last updated: July 14, 2026*  
+*Last updated: July 16, 2026*  
 *Generated by KiloClaw*

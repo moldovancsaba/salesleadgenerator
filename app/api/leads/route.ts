@@ -74,15 +74,13 @@ export async function GET(request: Request) {
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
     const { searchParams } = new URL(request.url)
+    let source = 'public-data'
     const region = searchParams.get('region') || undefined
     const kanbanColumn = searchParams.get('kanbanColumn') || undefined
-    const limit = Math.max(1, Math.min(500, parseInt(searchParams.get('limit') || '100') || 100))
     const limit = Math.max(1, Math.min(500, parseInt(searchParams.get('limit') || '100') || 100))
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
     const skip = (page - 1) * limit
     let rawLeads: any[] = []
-    let rawLeads: any[] = []
-    let totalCount = 0
 
     if (isMongoConfigured()) {
       try {
@@ -92,12 +90,10 @@ export async function GET(request: Request) {
         if (region) filter.region = region
         if (kanbanColumn) filter.kanbanColumn = kanbanColumn
         totalCount = await db.collection(config.dbCollection).countDocuments(filter)
-        rawLeads = await db.collection(config.dbCollection)
           .find(filter)
           .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
           .limit(limit)
           .skip(skip)
-          .limit(limit)
         source = 'mongodb'
       } catch {
         rawLeads = getPublicLeads()
@@ -250,6 +246,7 @@ export async function PATCH(request: Request) {
     const client = await getClientPromise()
     const db = client.db()
     const { searchParams } = new URL(request.url)
+    let source = 'public-data'
     const id = searchParams.get('id')
     
     if (!id) {

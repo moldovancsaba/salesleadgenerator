@@ -33,9 +33,9 @@ This file breaks every planned improvement into deliverable, buildable segments.
 - Persist model version in DB; never break existing leads if model is missing
 
 ### Segment 1.4 — AI Score API
-- Add `POST /api/cogmapsales/leads/score` and `POST /api/seyusales/leads/score`
+- Add `POST /api/leads/score?brand=<brand>` for single-lead scoring
 - Returns `{ aiScore: number (0-1000), confidence: number, modelVersion: string }`
-- Batch endpoint: `POST /api/cogmapsales/leads/score-batch` for re-scoring all leads
+- Batch endpoint: `POST /api/leads/score-batch?brand=<brand>` for re-scoring all leads
 
 ### Segment 1.5 — UI Integration
 - Add AI Score badge to `LeadCard` and `LeadDetailModal`
@@ -44,7 +44,7 @@ This file breaks every planned improvement into deliverable, buildable segments.
 - Tooltip explaining AI Score is experimental / based on historical feedback
 
 ### Segment 1.6 — Monitoring & Calibration
-- Dashboard endpoint: `GET /api/cogmapsales/leads/score-metrics`
+- Dashboard endpoint: `GET /api/leads/score-metrics?brand=<brand>`
   - Accuracy vs actual outcomes (acceptance rate by score bucket)
   - Model version history
   - Feature importance
@@ -164,7 +164,7 @@ This file breaks every planned improvement into deliverable, buildable segments.
 - Agent automatically tags leads with research query / source on creation
 
 ### Segment 5.2 — Attribution Dashboard
-- New page: `/cogmapsales/analytics` (and `/seyusales/analytics`)
+- New page: `/sales/cogmap/analytics` and `/sales/seyu/analytics`
 - Charts: leads by source, conversion rate by source, avg ICE by source
 - Filter by date range, region, sector
 
@@ -265,7 +265,7 @@ This file breaks every planned improvement into deliverable, buildable segments.
 - Conversion rates, avg time in stage, drop-off points
 
 ### Segment 9.2 — Dashboard Page
-- New page: `/cogmapsales/analytics`
+- New page: `/sales/[brand]/analytics`
 - Charts: funnel, conversion over time, lead volume by source/region
 - Date range picker, export to CSV
 
