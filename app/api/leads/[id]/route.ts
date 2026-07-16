@@ -148,10 +148,10 @@ export async function PATCH(
     }
 
     if (action === 'MODIFY') {
-      const fields = ['entity_name', 'url', 'region', 'address', 'general_contact', 'size', 'industry', 
+      const fields = ['entity_name', 'url', 'country', 'region', 'address', 'general_contact', 'size', 'industry', 
                       'sport_or_sector', 'level_league', 'decision_maker_name', 'decision_maker_title',
-                      'decision_maker_contact', 'value_proposition', 'notes', 'tags',
-                      'ice', 'iceScore', 'sortOrder', 'contacts']
+                      'decision_maker_contact', 'contact_phone', 'value_proposition', 'notes', 'tags',
+                      'ice', 'iceScore', 'sortOrder', 'contacts', 'general_email']
       fields.forEach(field => {
         if (body[field] !== undefined) updateData[field] = body[field]
       })

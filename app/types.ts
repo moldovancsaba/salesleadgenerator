@@ -26,7 +26,8 @@ export type DeclineReason =
 export type Lead = {
   _id: string;
   id?: number;
-  region: "US" | "CEE" | "MENA";
+  country: string; // ISO 3166-1 alpha-2 (US, GB, FR, DE, IT, ES, SA, AE, QA, PL, CZ, SK, HU, RO, BG, HR, RS, SI, UA, BY, LT, LV, EE, KZ, GE, AZ, AM, IL, LB, JO, IQ, KW, OM, BH, QA, SA, AE, MA, TN, DZ, EG, LY, SD, SS, ET, SO, KE, NG, ZA, AU, NZ, JP, KR, CN, IN, PK, BD, LK, PH, ID, MY, TH, VN, SG, HK, TW, MO, BT, NP, MV, FJ, PG, NC, and more)
+  region: "USA" | "CEE" | "MENA" | "APAC" | "LATAM" | "EUROPE" | "GLOBAL" | "AFRICA"; // Broader regional grouping
   entity_name: string;
   url?: string;
   address?: string;

@@ -5,6 +5,45 @@ import { BRAND_CONFIG, resolveBrand } from '../../lib/brand'
 import { normalizeLead } from '../../lib/normalize-lead'
 import crypto from 'crypto'
 
+// Normalize phone to international format
+function normalizePhone(phone: string): string {
+  if (!phone) return phone
+  const cleaned = phone.replace(/[^\d+]/g, '')
+  if (cleaned.startsWith('+')) return cleaned
+  if (cleaned.length === 10 && /^\d{10}$/.test(cleaned)) {
+    return '+1' + cleaned  // Assume US
+  }
+  if (cleaned.startsWith('1') && cleaned.length === 11) {
+    return '+' + cleaned
+  }
+  return '+' + cleaned
+}
+
+// Normalize email to lowercase, trim
+function normalizeEmail(email: string): string {
+  if (!email) return email
+  return email.toLowerCase().trim()
+}
+
+// Normalize address - ensure country is included if missing
+function normalizeAddress(address: string, country: string): string {
+  if (!address) return address
+  const addr = address.trim()
+  // If address doesn't contain country name and no ZIP pattern, add country
+  const country_names: Record<string, string> = {
+    'US': 'United States', 'GB': 'United Kingdom', 'FR': 'France',
+    'DE': 'Germany', 'IT': 'Italy', 'ES': 'Spain', 'SA': 'Saudi Arabia',
+    'AE': 'United Arab Emirates', 'QA': 'Qatar', 'PL': 'Poland',
+    'AU': 'Australia', 'NZ': 'New Zealand', 'CA': 'Canada'
+  }
+  const country_name = country_names[country] || country
+  if (!addr.toLowerCase().includes(country_name.toLowerCase()) && 
+      !addr.match(/\b[A-Z]{2}\s+\d{4,6}\b/)) {
+    return addr + ', ' + country_name
+  }
+  return addr
+}
+
 type Brand = 'cogmap' | 'seyu';
 
 function buildFingerprint(name: string, url: string, region: string): string {
@@ -135,6 +174,29 @@ export async function POST(request: Request) {
     
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+    }
+
+    const body = await request.json()
+    
+    // Normalize contact fields
+    if (body.decision_maker_contact) {
+      body.decision_maker_contact = normalizeEmail(body.decision_maker_contact)
+    }
+    if (body.contact_phone) {
+      body.contact_phone = normalizePhone(body.contact_phone)
+    }
+    if (body.address) {
+      body.address = normalizeAddress(body.address, body.country || 'US')
+    }
+    if (body.general_email) {
+      body.general_email = normalizeEmail(body.general_email)
+    }
+    if (body.contacts && Array.isArray(body.contacts)) {
+      body.contacts = body.contacts.map((c: any) => ({
+        ...c,
+        email: c.email ? normalizeEmail(c.email) : c.email,
+        phone: c.phone ? normalizePhone(c.phone) : c.phone,
+      }))
     }
 
     const client = await getClientPromise()

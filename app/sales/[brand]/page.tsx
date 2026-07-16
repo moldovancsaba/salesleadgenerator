@@ -19,7 +19,7 @@ export default function BrandPipelinePage({ params }: Props) {
   const config = BRAND_CONFIG[brand];
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [regionFilter, setRegionFilter] = useState<"ALL" | "US" | "CEE" | "MENA">("ALL");
+  const [countryFilter, setCountryFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -63,13 +63,17 @@ export default function BrandPipelinePage({ params }: Props) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action: "COLUMN_MOVE",
           kanbanColumn: column,
           sortOrder,
           fromColumn,
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to move lead");
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to move lead");
+      }
 
       setLeads((prev) =>
         prev.map((l) =>
@@ -84,15 +88,25 @@ export default function BrandPipelinePage({ params }: Props) {
 
   async function handleAction(leadId: string, action: string, payload: any) {
     try {
-      await fetch(`/api/leads?id=${leadId}&brand=${brand}`, {
+      const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...payload }),
       });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Action ${action} failed`);
+      }
+
+      setLeads((prev) =>
+        prev.map((l) => (l._id === leadId ? { ...l, ...(result.lead || {}) } : l))
+      );
       setSelectedLead(null);
-      await fetchLeads();
     } catch (err) {
       console.error("Action failed", err);
+      alert(err instanceof Error ? err.message : "Action failed");
     }
   }
 
@@ -112,7 +126,7 @@ export default function BrandPipelinePage({ params }: Props) {
   }
 
   const filteredLeads = leads.filter((lead) => {
-    const matchesRegion = regionFilter === "ALL" || lead.region === regionFilter;
+    const matchesRegion = countryFilter === "ALL" || lead.country === countryFilter;
     const matchesSearch = searchQuery
       ? lead.entity_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lead.industry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -184,14 +198,14 @@ export default function BrandPipelinePage({ params }: Props) {
         {showFilters && (
           <Box mt="xs">
             <Group gap="xs" wrap="wrap">
-              {['ALL', 'US', 'CEE', 'MENA'].map((r) => (
+              {['ALL', 'US', 'GB', 'FR', 'DE', 'IT', 'ES', 'SA', 'AE', 'PL', 'AU', 'NZ'].map((c) => (
                 <Button
-                  key={r}
+                  key={c}
                   size="xs"
-                  variant={regionFilter === r ? 'filled' : 'light'}
-                  onClick={() => setRegionFilter(r as any)}
+                  variant={countryFilter === c ? 'filled' : 'light'}
+                  onClick={() => setCountryFilter(c)}
                 >
-                  {r === 'ALL' ? 'All' : r}
+                  {c === 'ALL' ? 'All' : c}
                 </Button>
               ))}
               <input

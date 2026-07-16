@@ -123,8 +123,11 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
             <Stack gap="xs" style={{ flex: 1 }}>
               <Title order={2}>{lead.entity_name}</Title>
               <Group gap="xs">
+                <Badge variant="light" color="gray">
+                  {lead.country || '—'}
+                </Badge>
                 <Badge variant="light" color={regionToneValue}>
-                  {lead.region}
+                  {lead.region || '—'}
                 </Badge>
                 <Text size="sm" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
                 <Badge variant="light" color={qualityToneValue}>
