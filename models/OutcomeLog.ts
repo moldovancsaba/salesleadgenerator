@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const outcomeLogSchema = new mongoose.Schema({
   leadId: { type: String, required: true },
-  companyId: { type: String, default: 'cogmap' },
+  companyId: { type: String, default: 'slg' },
   
   action: {
     type: String,

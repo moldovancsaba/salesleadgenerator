@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * CogMap Pipeline Monitor
+ * SLG Pipeline Monitor
  * Direct MongoDB connection for real-time status checks
  */
 
@@ -17,7 +17,7 @@ async function main() {
   
   try {
     await client.connect();
-    const db = client.db('cogmap');
+    const db = client.db('salesleadgenerator');
     const leads = db.collection('leads');
     const outcomeLogs = db.collection('outcomelogs');
     const searchLearning = db.collection('searchlearnings');
@@ -74,7 +74,7 @@ async function main() {
     console.log(`Total outcome logs: ${outcomeCount}`);
     
     // Search learning
-    const slDoc = await searchLearning.findOne({ companyId: 'cogmap' });
+    const slDoc = await searchLearning.findOne({ companyId: 'slg' });
     console.log(`\n=== SEARCH LEARNING ===`);
     if (slDoc) {
       console.log(`Search runs: ${slDoc.searchRuns}`);

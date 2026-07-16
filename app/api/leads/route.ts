@@ -77,9 +77,12 @@ export async function GET(request: Request) {
     const region = searchParams.get('region') || undefined
     const kanbanColumn = searchParams.get('kanbanColumn') || undefined
     const limit = Math.max(1, Math.min(500, parseInt(searchParams.get('limit') || '100') || 100))
-
+    const limit = Math.max(1, Math.min(500, parseInt(searchParams.get('limit') || '100') || 100))
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+    const skip = (page - 1) * limit
     let rawLeads: any[] = []
-    let source = 'public-data'
+    let rawLeads: any[] = []
+    let totalCount = 0
 
     if (isMongoConfigured()) {
       try {
@@ -88,11 +91,13 @@ export async function GET(request: Request) {
         const filter: any = {}
         if (region) filter.region = region
         if (kanbanColumn) filter.kanbanColumn = kanbanColumn
+        totalCount = await db.collection(config.dbCollection).countDocuments(filter)
         rawLeads = await db.collection(config.dbCollection)
           .find(filter)
           .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
           .limit(limit)
-          .toArray()
+          .skip(skip)
+          .limit(limit)
         source = 'mongodb'
       } catch {
         rawLeads = getPublicLeads()
@@ -104,13 +109,18 @@ export async function GET(request: Request) {
     if (source === 'public-data') {
       if (region) rawLeads = rawLeads.filter((l) => l.region === region)
       if (kanbanColumn) rawLeads = rawLeads.filter((l) => l.kanbanColumn === kanbanColumn)
-      rawLeads = rawLeads.slice(0, limit)
+      totalCount = rawLeads.length
+      rawLeads = rawLeads.slice(skip, skip + limit)
     }
 
     return NextResponse.json({ 
       leads: rawLeads.map((l) => normalizeLead({ ...l, _id: l._id.toString() }, brand)), 
       source,
-      brand 
+      brand,
+      total: totalCount,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit)
     })
   } catch (error: any) {
     console.error('GET Error:', error)

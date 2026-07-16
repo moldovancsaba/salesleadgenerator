@@ -1,6 +1,6 @@
 {
-  "name": "CogMap Pipeline",
-  "short_name": "CogMap",
+  "name": "SLG Pipeline",
+  "short_name": "SLG",
   "description": "Intelligent Lead Management System",
   "start_url": "/",
   "display": "standalone",

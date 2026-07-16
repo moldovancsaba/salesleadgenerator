@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
 
-const uri = process.env.MONGODB_URI || 'mongodb+srv://moldovancsaba_cogmap:***@sales.8wytusk.mongodb.net/sales?retryWrites=true&w=majority';
+const uri = process.env.MONGODB_URI || 'mongodb+srv://moldovancsaba_salesleadgenerator:***@sales.8wytusk.mongodb.net/sales?retryWrites=true&w=majority';
 
 mongoose.connect(uri)
   .then(async () => {

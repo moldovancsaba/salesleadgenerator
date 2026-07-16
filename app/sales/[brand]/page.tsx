@@ -31,10 +31,22 @@ export default function BrandPipelinePage({ params }: Props) {
 
   async function fetchLeads() {
     try {
-      const response = await fetch(`/api/leads?brand=${brand}&limit=500`);
-      if (!response.ok) throw new Error("Failed to fetch leads");
-      const data = await response.json();
-      setLeads((data.leads || []).map((l: any) => normalizeLeadShared(l, brand)));
+      setLoading(true);
+      const allLeads: any[] = [];
+      let page = 1;
+      let totalPages = 1;
+
+      do {
+        const response = await fetch(`/api/leads?brand=${brand}&limit=500&page=${page}`);
+        if (!response.ok) throw new Error("Failed to fetch leads");
+        const data = await response.json();
+        const pageLeads = (data.leads || []).map((l: any) => normalizeLeadShared(l, brand));
+        allLeads.push(...pageLeads);
+        totalPages = data.totalPages || 1;
+        page++;
+      } while (page <= totalPages);
+
+      setLeads(allLeads);
     } catch (error) {
       console.error("Error fetching leads:", error);
     } finally {
