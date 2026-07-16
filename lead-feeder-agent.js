@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * CogMap Lead Feeder Agent
+ * SLG Lead Feeder Agent
  * 24/7 background service that continuously feeds leads to the webapp
  * Integrates with OpenClaw for persistent operation
  */
@@ -32,7 +32,7 @@ class LeadFeederAgent {
 
     this.client = new MongoClient(process.env.MONGODB_URI);
     await this.client.connect();
-    this.db = this.client.db('cogmap');
+    this.db = this.client.db('slg');
     console.log('✓ Connected to MongoDB Atlas');
   }
 

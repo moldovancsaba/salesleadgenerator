@@ -48,6 +48,7 @@ export function UnifiedCard({
     MENA: "orange",
   };
 
+  const safeQuality = qualityStatus || "DRAFT";
   const qualityColors: Record<string, MantineColor> = {
     VERIFIED: "green",
     CHECKED: "blue",
@@ -96,8 +97,8 @@ export function UnifiedCard({
           <Badge size="xs" variant="light" color={regionColors[region] || "gray"}>
             {region}
           </Badge>
-          <Badge size="xs" variant="light" color={qualityColors[qualityStatus] || "gray"}>
-            {qualityStatus}
+          <Badge size="xs" variant="light" color={qualityColors[safeQuality] || "gray"}>
+            {safeQuality}
           </Badge>
           {feedbackScore > 0 && (
             <Badge size="xs" variant="light" color="green">

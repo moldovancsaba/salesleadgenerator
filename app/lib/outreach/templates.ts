@@ -17,7 +17,7 @@ export const DEFAULT_TEMPLATES: OutreachTemplate[] = [
     subject: 'Cognitive performance insights for {entity_name}',
     body: `Hi {decision_maker_name},
 
-I wanted to reach out because CogMap is already helping academies like yours measure the cognitive skills that separate good players from elite performers.
+I wanted to reach out because SLG is already helping academies like yours measure the cognitive skills that separate good players from elite performers.
 
 For {entity_name}, I see real potential in using our assessment + live second-screen feedback to give coaches and players actionable insight during training and matches — not just post-session reports.
 
@@ -31,7 +31,7 @@ Best,`,
     name: 'Soccer Academy — LinkedIn Connection',
     channel: 'linkedin',
     industry: 'Soccer',
-    body: `Hi {decision_maker_name}, I came across {entity_name} and was impressed by your work. CogMap helps soccer academies measure decision-making speed, situational awareness, and working memory under pressure — paired with a live second-screen experience during training. Would love to connect and share how it could apply to your program.`,
+    body: `Hi {decision_maker_name}, I came across {entity_name} and was impressed by your work. SLG helps soccer academies measure decision-making speed, situational awareness, and working memory under pressure — paired with a live second-screen experience during training. Would love to connect and share how it could apply to your program.`,
     variables: ['entity_name', 'decision_maker_name', 'value_proposition'],
   },
   {
@@ -42,7 +42,7 @@ Best,`,
     subject: 'Performance insight for {entity_name}',
     body: `Hi {decision_maker_name},
 
-Performance isn't just physical. CogMap gives your athletes and coaches a cognitive performance layer — decision speed, working memory, and situational awareness — with live feedback during sessions via a second-screen experience.
+Performance isn't just physical. SLG gives your athletes and coaches a cognitive performance layer — decision speed, working memory, and situational awareness — with live feedback during sessions via a second-screen experience.
 
 I'd love to show you how {entity_name} can integrate this into what you're already doing.
 

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const db = client.db()
 
     const { searchParams } = new URL(request.url)
-    const company = searchParams.get('company') || 'cogmap'
+    const company = searchParams.get('company') || 'slg'
 
     const learning = await db.collection('searchlearnings').findOne({ companyId: company })
 
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     const db = client.db()
     const body = await request.json()
 
-    const company = body.company || 'cogmap'
+    const company = body.company || 'slg'
     const query = body.query
     const domain = body.domain
     const terms = body.terms || []

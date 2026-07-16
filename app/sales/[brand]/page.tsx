@@ -1,14 +1,22 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from "react";
 import { Box, Text, Button, Group, ActionIcon } from "@mantine/core";
 import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
-import type { Lead, KanbanColumn } from "../types";
-import { KanbanBoard } from "../kanban";
-import { TableView } from "../table";
-import { LeadDetailModal } from "../detail";
+import type { Lead, KanbanColumn } from "../../types";
+import { KanbanBoard } from "../../kanban";
+import { TableView } from "../../table";
+import { LeadDetailModal } from "../../detail";
+import { normalizeLead as normalizeLeadShared } from "../../lib/normalize-lead";
+import { resolveBrand, BRAND_CONFIG } from "../../lib/brand";
 
-export default function PipelinePage() {
+type Props = {
+  params: { brand: string };
+};
+
+export default function BrandPipelinePage({ params }: Props) {
+  const brand = resolveBrand(params.brand);
+  const config = BRAND_CONFIG[brand];
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [regionFilter, setRegionFilter] = useState<"ALL" | "US" | "CEE" | "MENA">("ALL");
@@ -23,10 +31,10 @@ export default function PipelinePage() {
 
   async function fetchLeads() {
     try {
-      const response = await fetch("/api/cogmapsales/leads");
+      const response = await fetch(`/api/leads?brand=${brand}&limit=500`);
       if (!response.ok) throw new Error("Failed to fetch leads");
       const data = await response.json();
-      setLeads(data.leads || []);
+      setLeads((data.leads || []).map((l: any) => normalizeLeadShared(l, brand)));
     } catch (error) {
       console.error("Error fetching leads:", error);
     } finally {
@@ -39,7 +47,7 @@ export default function PipelinePage() {
     const fromColumn = lead?.kanbanColumn;
 
     try {
-      const response = await fetch(`/api/cogmapsales/leads?id=${leadId}`, {
+      const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -64,7 +72,7 @@ export default function PipelinePage() {
 
   async function handleAction(leadId: string, action: string, payload: any) {
     try {
-      await fetch(`/api/cogmapsales/leads?id=${leadId}`, {
+      await fetch(`/api/leads?id=${leadId}&brand=${brand}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...payload }),
@@ -73,6 +81,21 @@ export default function PipelinePage() {
       await fetchLeads();
     } catch (err) {
       console.error("Action failed", err);
+    }
+  }
+
+  async function handleDelete(leadId: string) {
+    if (!confirm("Permanently delete this lead?")) return;
+    try {
+      const response = await fetch(`/api/leads/${leadId}?brand=${brand}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete");
+      setSelectedLead(null);
+      await fetchLeads();
+    } catch (err) {
+      console.error("Delete failed", err);
+      alert("Delete failed: " + (err instanceof Error ? err.message : "unknown"));
     }
   }
 
@@ -89,7 +112,7 @@ export default function PipelinePage() {
   if (loading) {
     return (
       <Box p="xl">
-        <Text>Loading pipeline...</Text>
+        <Text>Loading {config.label} pipeline...</Text>
       </Box>
     );
   }
@@ -115,6 +138,7 @@ export default function PipelinePage() {
       >
         <Group justify="space-between" align="center">
           <Group gap="xs">
+            <Text fw={700} size="sm">{config.label}</Text>
             <Button
               size="xs"
               variant={viewMode === 'kanban' ? 'filled' : 'light'}
@@ -192,9 +216,11 @@ export default function PipelinePage() {
 
       {selectedLead && (
         <LeadDetailModal
+          brand={brand}
           lead={selectedLead}
           onClose={() => setSelectedLead(null)}
           onAction={handleAction}
+          onDelete={handleDelete}
           onUpdated={() => setSelectedLead(null)}
         />
       )}

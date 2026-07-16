@@ -20,8 +20,8 @@ export function extractFeatures(lead: any): LeadFeatures {
 
   const valuePropLength = Math.min(1, (lead.value_proposition?.length || 0) / 300);
 
-  const pros = Array.isArray(lead.pro_for_cogmap) ? lead.pro_for_cogmap.length : 0;
-  const cons = Array.isArray(lead.con_for_cogmap) ? lead.con_for_cogmap.length : 0;
+  const pros = Array.isArray(lead.pro_for_slg) ? lead.pro_for_slg.length : 0;
+  const cons = Array.isArray(lead.con_for_slg) ? lead.con_for_slg.length : 0;
   const prosConsCompleteness = Math.min(1, (pros + cons) / 5);
 
   const createdAt = lead.createdAt ? new Date(lead.createdAt).getTime() : Date.now();

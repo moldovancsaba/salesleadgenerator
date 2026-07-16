@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
-import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
-import { getPublicLeads } from '../../../../lib/public-data'
+import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
+import { getPublicLeads } from '../../../lib/public-data'
+import { BRAND_CONFIG, resolveBrand } from '../../lib/brand'
+import { normalizeLead } from '../../lib/normalize-lead'
 import crypto from 'crypto'
 
-// Helper functions
+type Brand = 'cogmap' | 'seyu';
+
 function buildFingerprint(name: string, url: string, region: string): string {
   const data = `${(url || '').trim().toLowerCase()}|${(name || '').trim().toLowerCase()}|${(region || '').toUpperCase()}`
   return crypto.createHash('sha1').update(data).digest('hex')
@@ -15,7 +18,6 @@ function deriveKanbanColumn(iceScore: number): string {
   if (iceScore >= 240) return 'DISCOVERED'
   return 'DISCOVERED'
 }
-
 
 function computeEase(body: any): number {
   const hasNamed = !!body.decision_maker_name;
@@ -60,9 +62,17 @@ function buildScoreProfile(impact: number, confidence: number, ease: number) {
   }
 }
 
+function getBrand(request: Request): Brand {
+  const url = new URL(request.url);
+  const brandParam = url.searchParams.get('brand') || url.pathname.split('/')[2] || 'cogmap';
+  return resolveBrand(brandParam);
+}
+
 // GET - List leads with filters
 export async function GET(request: Request) {
   try {
+    const brand = getBrand(request);
+    const config = BRAND_CONFIG[brand];
     const { searchParams } = new URL(request.url)
     const region = searchParams.get('region') || undefined
     const kanbanColumn = searchParams.get('kanbanColumn') || undefined
@@ -78,7 +88,7 @@ export async function GET(request: Request) {
         const filter: any = {}
         if (region) filter.region = region
         if (kanbanColumn) filter.kanbanColumn = kanbanColumn
-        rawLeads = await db.collection('leads')
+        rawLeads = await db.collection(config.dbCollection)
           .find(filter)
           .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
           .limit(limit)
@@ -97,7 +107,11 @@ export async function GET(request: Request) {
       rawLeads = rawLeads.slice(0, limit)
     }
 
-    return NextResponse.json({ leads: rawLeads.map((l) => ({ ...l, _id: l._id.toString() })), source })
+    return NextResponse.json({ 
+      leads: rawLeads.map((l) => normalizeLead({ ...l, _id: l._id.toString() }, brand)), 
+      source,
+      brand 
+    })
   } catch (error: any) {
     console.error('GET Error:', error)
     return NextResponse.json({ error: 'Failed to fetch leads', details: error.message }, { status: 500 })
@@ -107,6 +121,9 @@ export async function GET(request: Request) {
 // POST - Create new lead with dedup and scoring
 export async function POST(request: Request) {
   try {
+    const brand = getBrand(request);
+    const config = BRAND_CONFIG[brand];
+    
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
@@ -115,15 +132,13 @@ export async function POST(request: Request) {
     const db = client.db()
     const body = await request.json()
     
-    // Build fingerprint for dedup
     const fingerprint = buildFingerprint(
       body.entity_name || body.name || '',
       body.url || '',
       body.region || 'US'
     )
     
-    // Check for duplicate
-    const existing = await db.collection('leads').findOne({ fingerprint })
+    const existing = await db.collection(config.dbCollection).findOne({ fingerprint })
     if (existing) {
       return NextResponse.json(
         { error: 'Duplicate lead detected', existing: { _id: existing._id, entity_name: existing.entity_name } },
@@ -131,7 +146,6 @@ export async function POST(request: Request) {
       )
     }
     
-    // Compute ICE score
     const impact = body.ice?.impact || body.impact || 5
     const confidence = body.ice?.confidence || body.confidence || 5
     const ease = computeEase(body)
@@ -139,14 +153,12 @@ export async function POST(request: Request) {
     const iceScore = computeIceScore(impact, confidence, ease)
     const scoreProfile = buildScoreProfile(impact, confidence, ease)
     
-    // Derive initial kanban column
     const kanbanColumn = body.kanbanColumn || deriveKanbanColumn(iceScore)
     
-    // Count existing leads for sortOrder
-    const count = await db.collection('leads').countDocuments({ kanbanColumn })
+    const count = await db.collection(config.dbCollection).countDocuments({ kanbanColumn })
     
     const newLead = {
-      id: Date.now(), // Simple ID generation
+      id: Date.now(),
       region: body.region || 'US',
       entity_name: body.entity_name || body.name,
       url: body.url || '',
@@ -161,15 +173,14 @@ export async function POST(request: Request) {
       decision_maker_name: body.decision_maker_name || '',
       decision_maker_title: body.decision_maker_title || '',
       decision_maker_contact: body.decision_maker_contact || '',
-      pro_for_cogmap: body.pro_for_cogmap || [],
-      con_for_cogmap: body.con_for_cogmap || [],
+      [config.proField]: body[config.proField] || [],
+      [config.conField]: body[config.conField] || [],
       value_proposition: body.value_proposition || '',
       priority: body.priority || 'medium',
       status: body.status || 'new',
       notes: body.notes || '',
       tags: body.tags || [],
 
-      // Check-inspired fields
       kanbanColumn,
       sortOrder: count * 100,
       fingerprint,
@@ -184,9 +195,8 @@ export async function POST(request: Request) {
       updatedAt: new Date(),
     }
     
-    const result = await db.collection('leads').insertOne(newLead)
+    const result = await db.collection(config.dbCollection).insertOne(newLead)
     
-    // Log outcome
     await db.collection('outcomelogs').insertOne({
       leadId: result.insertedId.toString(),
       action: 'CREATE',
@@ -220,6 +230,9 @@ export async function POST(request: Request) {
 // PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, COLUMN_MOVE
 export async function PATCH(request: Request) {
   try {
+    const brand = getBrand(request);
+    const config = BRAND_CONFIG[brand];
+    
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
@@ -236,7 +249,7 @@ export async function PATCH(request: Request) {
     const body = await request.json()
     const { ObjectId } = await import('mongodb')
     
-    const existing = await db.collection('leads').findOne({ _id: new ObjectId(id) })
+    const existing = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(id) })
     if (!existing) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
     }
@@ -246,21 +259,19 @@ export async function PATCH(request: Request) {
     let outcomeValue = action
     let teachingWeight = 50
     
-    // Handle COLUMN_MOVE (drag-and-drop)
     if (body.kanbanColumn && body.kanbanColumn !== existing.kanbanColumn) {
       action = 'COLUMN_MOVE'
       const now = new Date()
       updateData.kanbanColumn = body.kanbanColumn
       updateData.sortOrder = body.sortOrder || 0
       updateData.manualLaneOverrideAt = now
-      updateData.manualLaneCooldownUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000) // 24h cooldown
+      updateData.manualLaneCooldownUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000)
       updateData.manualLaneFloorColumn = body.kanbanColumn
       updateData.manualLaneOverrideBy = body.manualLaneOverrideBy || 'webapp-user'
       teachingWeight = 70
       outcomeValue = `Moved to ${body.kanbanColumn}`
     }
     
-    // Handle ACCEPT
     if (action === 'ACCEPT') {
       updateData.status = 'qualified'
       updateData.acceptanceCount = (existing.acceptanceCount || 0) + 1
@@ -268,7 +279,6 @@ export async function PATCH(request: Request) {
       teachingWeight = 80
     }
     
-    // Handle DECLINE
     if (action === 'DECLINE') {
       updateData.status = 'lost'
       updateData.kanbanColumn = 'LOST'
@@ -280,7 +290,6 @@ export async function PATCH(request: Request) {
       outcomeValue = body.declineReason || 'DECLINED'
     }
     
-    // Handle MODIFY
     if (action === 'MODIFY') {
       const fields = ['entity_name', 'url', 'address', 'general_contact', 'size', 'industry', 
                       'sport_or_sector', 'level_league', 'decision_maker_name', 'decision_maker_title',
@@ -288,17 +297,14 @@ export async function PATCH(request: Request) {
       fields.forEach(field => {
         if (body[field] !== undefined) updateData[field] = body[field]
       })
-      if (body.pro_for_cogmap) updateData.pro_for_cogmap = body.pro_for_cogmap
-      if (body.con_for_cogmap) updateData.con_for_cogmap = body.con_for_cogmap
+      if (body[config.proField]) updateData[config.proField] = body[config.proField]
+      if (body[config.conField]) updateData[config.conField] = body[config.conField]
       
-      // Quality ceiling enforcement (Check-inspired)
-      // If lead is VERIFIED but upstream evidence is DRAFT, downgrade lead to DRAFT
       if (body.qualityStatus) {
         const currentLeadQuality = updateData.qualityStatus || existing.qualityStatus || 'DRAFT'
         const upstreamQuality = body.upstreamQualityStatuses || ['DRAFT']
         
-        // Import quality enforcement
-        const { enforceQualityCeiling } = await import('../../../../lib/quality-registry')
+        const { enforceQualityCeiling } = await import('../../../lib/quality-registry')
         updateData.qualityStatus = enforceQualityCeiling(
           body.qualityStatus,
           upstreamQuality
@@ -308,27 +314,24 @@ export async function PATCH(request: Request) {
       teachingWeight = 95
     }
     
-    // Handle PIN
     if (action === 'PIN') {
       updateData.kanbanColumn = 'ENGAGED'
       const now = new Date()
       updateData.manualLaneOverrideAt = now
-      updateData.manualLaneCooldownUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000) // 48h for PIN
+      updateData.manualLaneCooldownUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000)
       outcomeValue = 'Pinned to ENGAGED'
     }
     
-    // Handle REQUEST_REFRESH
     if (action === 'REQUEST_REFRESH') {
       outcomeValue = 'Refresh requested'
     }
     
-    const result = await db.collection('leads').findOneAndUpdate(
+    const result = await db.collection(config.dbCollection).findOneAndUpdate(
       { _id: new ObjectId(id) },
       { $set: updateData },
       { returnDocument: 'after' }
     )
     
-    // Log outcome
     await db.collection('outcomelogs').insertOne({
       leadId: id,
       action,

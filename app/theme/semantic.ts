@@ -1,5 +1,5 @@
 /**
- * GDS Semantic Theme Constants for CogMap
+ * GDS Semantic Theme Constants for SLG
  * 
  * Maps domain concepts to GDS semantic tokens
  * No hardcoded colors — only semantic tone references

@@ -1,14 +1,27 @@
 import { NextResponse } from 'next/server'
-import { isMongoConfigured, getClientPromise } from '@/lib/mongodb'
-import { getPublicLeadById } from '@/lib/public-data'
+import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
+import { getPublicLeadById } from '../../../../lib/public-data'
+import { BRAND_CONFIG, resolveBrand } from '../../../lib/brand'
+import { normalizeLead } from '../../../lib/normalize-lead'
+
+function getBrand(request: Request): 'cogmap' | 'seyu' {
+  const url = new URL(request.url);
+  const brandParam = url.searchParams.get('brand') || 'cogmap';
+  return resolveBrand(brandParam);
+}
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
+    const brand = getBrand(request);
+    const config = BRAND_CONFIG[brand];
+
     if (!isMongoConfigured()) {
-      return NextResponse.json(getPublicLeadById(params.id) || { error: 'Lead not found' }, { status: getPublicLeadById(params.id) ? 200 : 404 })
+      const fallback = getPublicLeadById(params.id);
+      if (!fallback) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+      return NextResponse.json(normalizeLead(fallback, brand));
     }
 
     const clientPromise = getClientPromise()
@@ -17,12 +30,13 @@ export async function GET(
     try {
       const client = await clientPromise
       const db = client.db()
-      lead = await db.collection('seyu_leads').findOne({ _id: new (await import('mongodb')).ObjectId(params.id) })
+      lead = await db.collection(config.dbCollection).findOne({ _id: new (await import('mongodb')).ObjectId(params.id) })
       if (lead) {
-        lead = { ...lead, _id: lead._id.toString() }
+        lead = normalizeLead({ ...lead, _id: lead._id.toString() }, brand);
       }
     } catch {
-      lead = getPublicLeadById(params.id)
+      lead = getPublicLeadById(params.id);
+      if (lead) lead = normalizeLead(lead, brand);
     }
 
     if (!lead) {
@@ -41,6 +55,9 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const brand = getBrand(request);
+    const config = BRAND_CONFIG[brand];
+
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
@@ -48,7 +65,7 @@ export async function DELETE(
     const client = await getClientPromise()
     const db = client.db()
 
-    const result = await db.collection('seyu_leads').deleteOne({
+    const result = await db.collection(config.dbCollection).deleteOne({
       _id: new (await import('mongodb')).ObjectId(params.id)
     })
 

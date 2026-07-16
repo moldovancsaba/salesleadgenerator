@@ -20,16 +20,19 @@ import {
 } from '@mantine/core';
 import { regionTone } from './theme/semantic';
 import { iceTone, qualityTone } from './theme/semantic';
+import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { semanticToneToMantineColor } from './utils/semantic-colors';
-import { IconX, IconThumbUp, IconThumbDown, IconPin, IconRefresh } from '@tabler/icons-react';
+import { IconX, IconThumbUp, IconThumbDown, IconPin, IconRefresh, IconTrash } from '@tabler/icons-react';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
 
 type Props = {
   lead: Lead;
+  brand?: string;
   onClose: () => void;
   onAction: (leadId: string, action: string, payload?: any) => void;
+  onDelete: (leadId: string) => void;
   onUpdated: () => void;
 };
 
@@ -46,7 +49,7 @@ const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
   { value: "OTHER", label: "Other" },
 ];
 
-export function LeadDetailModal({ lead, onClose, onAction }: Props) {
+export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDelete }: Props) {
   const [annotation, setAnnotation] = useState("");
   const [declineReason, setDeclineReason] = useState<DeclineReason>("OTHER");
   const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
@@ -56,11 +59,16 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
   const iceScore = Math.round(ice.impact * ice.confidence * ice.ease);
   const maxIce = 1000;
   const icePercent = Math.min(100, (iceScore / maxIce) * 100);
-  
+
+  const normalized = normalizeLead(lead, brand);
+  const normalizedPro = ensureArrayField((normalized as any)[`pro_for_${brand}`]);
+  const normalizedCon = ensureArrayField((normalized as any)[`con_for_${brand}`]);
+
   // Get Mantine color values from semantic tones
   const iceToneValue = semanticToneToMantineColor(iceTone(iceScore));
   const regionToneValue = semanticToneToMantineColor(regionTone[lead.region]);
-  const qualityToneValue = semanticToneToMantineColor(qualityTone[lead.qualityStatus]);
+  const qualityStatus = normalized.qualityStatus || 'DRAFT';
+  const qualityToneValue = semanticToneToMantineColor(qualityTone[qualityStatus]);
 
   async function handleAccept() {
     setBusy(true);
@@ -92,6 +100,12 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
     setBusy(false);
   }
 
+  async function handleDelete() {
+    setBusy(true);
+    onDelete(lead._id);
+    setBusy(false);
+  }
+
   return (
     <Modal
       opened={true}
@@ -99,11 +113,12 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
       size="xl"
       padding={0}
       withCloseButton={false}
-      fullScreen={true}
+      fullScreen={false}
+      centered
     >
-      <Paper radius="md" withBorder={false}>
+      <Paper radius="md" withBorder={false} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
-        <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
+        <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 }}>
           <Group justify="space-between" align="flex-start">
             <Stack gap="xs" style={{ flex: 1 }}>
               <Title order={2}>{lead.entity_name}</Title>
@@ -113,7 +128,7 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
                 </Badge>
                 <Text size="sm" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
                 <Badge variant="light" color={qualityToneValue}>
-                  {lead.qualityStatus || 'DRAFT'}
+                  {qualityStatus}
                 </Badge>
               </Group>
             </Stack>
@@ -124,7 +139,7 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
         </Box>
 
         {/* Content */}
-        <Box p="md">
+        <Box p="md" style={{ flex: 1, overflowY: 'auto' }}>
           <Stack gap="md">
             {/* ICE Score */}
             <Paper p="md" withBorder>
@@ -201,27 +216,27 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
             </Paper>
 
             {/* Pros / Cons */}
-            {((lead.pro_for_cogmap && lead.pro_for_cogmap.length > 0) || 
-              (lead.con_for_cogmap && lead.con_for_cogmap.length > 0)) && (
+            {((normalizedPro && normalizedPro.length > 0) || 
+              (normalizedCon && normalizedCon.length > 0)) && (
               <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                {lead.pro_for_cogmap && lead.pro_for_cogmap.length > 0 && (
+                {normalizedPro && normalizedPro.length > 0 && (
                   <Paper p="md" withBorder>
                     <Stack gap="xs">
                       <Text size="xs" c="green" fw={600} tt="uppercase">Pros</Text>
                       <Stack gap={4}>
-                        {lead.pro_for_cogmap.map((pro, i) => (
+                        {normalizedPro.map((pro, i) => (
                           <Text size="sm" key={i}>• {pro}</Text>
                         ))}
                       </Stack>
                     </Stack>
                   </Paper>
                 )}
-                {lead.con_for_cogmap && lead.con_for_cogmap.length > 0 && (
+                {normalizedCon && normalizedCon.length > 0 && (
                   <Paper p="md" withBorder>
                     <Stack gap="xs">
                       <Text size="xs" c="red" fw={600} tt="uppercase">Cons</Text>
                       <Stack gap={4}>
-                        {lead.con_for_cogmap.map((con, i) => (
+                        {normalizedCon.map((con, i) => (
                           <Text size="sm" key={i}>• {con}</Text>
                         ))}
                       </Stack>
@@ -285,7 +300,7 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
         </Box>
 
         {/* Actions */}
-        <Box p="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
+        <Box p="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 }}>
           {!actionMode ? (
             <Group gap="sm" wrap="wrap">
               <Button 
@@ -322,6 +337,15 @@ export function LeadDetailModal({ lead, onClose, onAction }: Props) {
                 variant="light"
               >
                 Request Refresh
+              </Button>
+              <Button 
+                color="red" 
+                variant="subtle"
+                leftSection={<IconTrash size={16} />}
+                onClick={handleDelete}
+                disabled={busy}
+              >
+                Delete
               </Button>
             </Group>
           ) : actionMode === "decline" ? (
