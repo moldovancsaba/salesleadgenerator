@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
 import { getPublicLeads } from '../../../lib/public-data'
 import { BRAND_CONFIG, resolveBrand } from '../../lib/brand'
-import { normalizeLead } from '../../lib/normalize-lead'
+import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import crypto from 'crypto'
 
 // Normalize phone to international format
@@ -202,10 +202,13 @@ export async function POST(request: Request) {
     const client = await getClientPromise()
     const db = client.db()
 
+    const normalizedBody = normalizeLead(body, brand)
+    const normalizedWarnings = extractWarnings(normalizedBody)
+
     const fingerprint = buildFingerprint(
-      body.entity_name || body.name || '',
-      body.url || '',
-      body.region || 'US'
+      normalizedBody.entity_name || normalizedBody.name || '',
+      normalizedBody.url || '',
+      normalizedBody.region || 'US'
     )
 
     const existing = await db.collection(config.dbCollection).findOne({ fingerprint })
@@ -216,46 +219,47 @@ export async function POST(request: Request) {
       )
     }
 
-    const impact = body.ice?.impact || body.impact || 5
-    const confidence = body.ice?.confidence || body.confidence || 5
-    const ease = computeEase(body)
+    const impact = normalizedBody.ice?.impact || normalizedBody.impact || 5
+    const confidence = normalizedBody.ice?.confidence || normalizedBody.confidence || 5
+    const ease = computeEase(normalizedBody)
 
     const iceScore = computeIceScore(impact, confidence, ease)
     const scoreProfile = buildScoreProfile(impact, confidence, ease)
 
-    const kanbanColumn = body.kanbanColumn || deriveKanbanColumn(iceScore)
+    const kanbanColumn = normalizedBody.kanbanColumn || deriveKanbanColumn(iceScore)
 
     const count = await db.collection(config.dbCollection).countDocuments({ kanbanColumn })
 
     const newLead = {
       id: Date.now(),
-      region: body.region || 'US',
-      entity_name: body.entity_name || body.name,
-      url: body.url || '',
-      contact_phone: body.contact_phone || '',
-      contacts: body.contacts || [],
-      address: body.address || '',
-      general_contact: body.general_contact || '',
-      size: body.size || '',
-      industry: body.industry || '',
-      sport_or_sector: body.sport_or_sector || '',
-      level_league: body.level_league || '',
-      decision_maker_name: body.decision_maker_name || '',
-      decision_maker_title: body.decision_maker_title || '',
-      decision_maker_contact: body.decision_maker_contact || '',
-      [config.proField]: body[config.proField] || [],
-      [config.conField]: body[config.conField] || [],
-      value_proposition: body.value_proposition || '',
-      priority: body.priority || 'medium',
-      status: body.status || 'new',
-      notes: body.notes || '',
-      tags: body.tags || [],
+      region: normalizedBody.region || 'US',
+      entity_name: normalizedBody.entity_name || normalizedBody.name,
+      url: normalizedBody.url || '',
+      contact_phone: normalizedBody.contact_phone || '',
+      contacts: normalizedBody.contacts || [],
+      address: normalizedBody.address || '',
+      general_contact: normalizedBody.general_contact || '',
+      size: normalizedBody.size || '',
+      industry: normalizedBody.industry || '',
+      sport_or_sector: normalizedBody.sport_or_sector || '',
+      level_league: normalizedBody.level_league || '',
+      decision_maker_name: normalizedBody.decision_maker_name || '',
+      decision_maker_title: normalizedBody.decision_maker_title || '',
+      decision_maker_contact: normalizedBody.decision_maker_contact || '',
+      [config.proField]: normalizedBody[config.proField] || [],
+      [config.conField]: normalizedBody[config.conField] || [],
+      value_proposition: normalizedBody.value_proposition || '',
+      priority: normalizedBody.priority || 'medium',
+      status: normalizedBody.status || 'new',
+      notes: normalizedBody.notes || '',
+      tags: normalizedBody.tags || [],
 
       kanbanColumn,
       sortOrder: count * 100,
       fingerprint,
       ice: { impact, confidence, ease },
       scoreProfile,
+      normalizationWarnings: normalizedWarnings,
 
       feedbackScore: 0,
       declineCount: 0,
@@ -266,6 +270,10 @@ export async function POST(request: Request) {
     }
 
     const result = await db.collection(config.dbCollection).insertOne(newLead)
+
+    if (normalizedWarnings.length > 0) {
+      console.warn('Lead created with normalization warnings', normalizedWarnings)
+    }
 
     await db.collection('outcomelogs').insertOne({
       leadId: result.insertedId.toString(),
@@ -318,6 +326,8 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json()
+    const normalizedBody = normalizeLead(body, brand)
+    const normalizedWarnings = extractWarnings(normalizedBody)
     const { ObjectId } = await import('mongodb')
 
     const existing = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(id) })
@@ -326,21 +336,21 @@ export async function PATCH(request: Request) {
     }
 
     const updateData: any = { updatedAt: new Date() }
-    let action = body.action
+    let action = normalizedBody.action
     let outcomeValue = action
     let teachingWeight = 50
 
-    if (body.kanbanColumn && body.kanbanColumn !== existing.kanbanColumn) {
+    if (normalizedBody.kanbanColumn && normalizedBody.kanbanColumn !== existing.kanbanColumn) {
       action = 'COLUMN_MOVE'
       const now = new Date()
-      updateData.kanbanColumn = body.kanbanColumn
-      updateData.sortOrder = body.sortOrder || 0
+      updateData.kanbanColumn = normalizedBody.kanbanColumn
+      updateData.sortOrder = normalizedBody.sortOrder || 0
       updateData.manualLaneOverrideAt = now
       updateData.manualLaneCooldownUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-      updateData.manualLaneFloorColumn = body.kanbanColumn
-      updateData.manualLaneOverrideBy = body.manualLaneOverrideBy || 'webapp-user'
+      updateData.manualLaneFloorColumn = normalizedBody.kanbanColumn
+      updateData.manualLaneOverrideBy = normalizedBody.manualLaneOverrideBy || 'webapp-user'
       teachingWeight = 70
-      outcomeValue = `Moved to ${body.kanbanColumn}`
+      outcomeValue = `Moved to ${normalizedBody.kanbanColumn}`
     }
 
     if (action === 'ACCEPT') {
@@ -353,12 +363,12 @@ export async function PATCH(request: Request) {
     if (action === 'DECLINE') {
       updateData.status = 'lost'
       updateData.kanbanColumn = 'LOST'
-      updateData.declineReason = body.declineReason || 'OTHER'
+      updateData.declineReason = normalizedBody.declineReason || 'OTHER'
       updateData.declinedAt = new Date()
       updateData.declineCount = (existing.declineCount || 0) + 1
       updateData.feedbackScore = (existing.feedbackScore || 0) - 1
       teachingWeight = 100
-      outcomeValue = body.declineReason || 'DECLINED'
+      outcomeValue = normalizedBody.declineReason || 'DECLINED'
     }
 
     if (action === 'MODIFY') {
@@ -366,18 +376,18 @@ export async function PATCH(request: Request) {
                       'sport_or_sector', 'level_league', 'decision_maker_name', 'decision_maker_title',
                       'decision_maker_contact', 'value_proposition', 'notes', 'tags']
       fields.forEach(field => {
-        if (body[field] !== undefined) updateData[field] = body[field]
+        if (normalizedBody[field] !== undefined) updateData[field] = normalizedBody[field]
       })
-      if (body[config.proField]) updateData[config.proField] = body[config.proField]
-      if (body[config.conField]) updateData[config.conField] = body[config.conField]
+      if (normalizedBody[config.proField]) updateData[config.proField] = normalizedBody[config.proField]
+      if (normalizedBody[config.conField]) updateData[config.conField] = normalizedBody[config.conField]
 
-      if (body.qualityStatus) {
+      if (normalizedBody.qualityStatus) {
         const currentLeadQuality = updateData.qualityStatus || existing.qualityStatus || 'DRAFT'
-        const upstreamQuality = body.upstreamQualityStatuses || ['DRAFT']
+        const upstreamQuality = normalizedBody.upstreamQualityStatuses || ['DRAFT']
 
         const { enforceQualityCeiling } = await import('../../../lib/quality-registry')
         updateData.qualityStatus = enforceQualityCeiling(
-          body.qualityStatus,
+          normalizedBody.qualityStatus,
           upstreamQuality
         )
       }
@@ -395,6 +405,10 @@ export async function PATCH(request: Request) {
 
     if (action === 'REQUEST_REFRESH') {
       outcomeValue = 'Refresh requested'
+    }
+
+    if (normalizedWarnings.length > 0) {
+      console.warn('PATCH with normalization warnings', normalizedWarnings)
     }
 
     const result = await db.collection(config.dbCollection).findOneAndUpdate(

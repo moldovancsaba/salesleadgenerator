@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
 import { getPublicLeadById } from '../../../../lib/public-data'
 import { BRAND_CONFIG, resolveBrand } from '../../../lib/brand'
-import { normalizeLead } from '../../../lib/normalize-lead'
+import { normalizeLead, extractWarnings } from '../../../lib/normalize-lead'
 
 function getBrand(request: Request): 'cogmap' | 'seyu' {
   const url = new URL(request.url);
@@ -101,6 +101,8 @@ export async function PATCH(
     const client = await getClientPromise()
     const db = client.db()
     const body = await request.json()
+    const normalizedBody = normalizeLead(body, brand)
+    const normalizedWarnings = extractWarnings(normalizedBody)
     const { ObjectId } = await import('mongodb')
 
     const existing = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(params.id) })
@@ -109,7 +111,7 @@ export async function PATCH(
     }
 
     const updateData: any = { updatedAt: new Date() }
-    let action = body.action
+    let action = normalizedBody.action
     let outcomeValue = action
     let teachingWeight = 50
 
@@ -153,18 +155,18 @@ export async function PATCH(
                       'decision_maker_contact', 'contact_phone', 'value_proposition', 'notes', 'tags',
                       'ice', 'iceScore', 'sortOrder', 'contacts', 'general_email']
       fields.forEach(field => {
-        if (body[field] !== undefined) updateData[field] = body[field]
+        if (normalizedBody[field] !== undefined) updateData[field] = normalizedBody[field]
       })
-      if (body[config.proField]) updateData[config.proField] = body[config.proField]
-      if (body[config.conField]) updateData[config.conField] = body[config.conField]
+      if (normalizedBody[config.proField]) updateData[config.proField] = normalizedBody[config.proField]
+      if (normalizedBody[config.conField]) updateData[config.conField] = normalizedBody[config.conField]
 
-      if (body.qualityStatus) {
+      if (normalizedBody.qualityStatus) {
         const currentLeadQuality = updateData.qualityStatus || existing.qualityStatus || 'DRAFT'
-        const upstreamQuality = body.upstreamQualityStatuses || ['DRAFT']
+        const upstreamQuality = normalizedBody.upstreamQualityStatuses || ['DRAFT']
 
         const { enforceQualityCeiling } = await import('../../../../lib/quality-registry')
         updateData.qualityStatus = enforceQualityCeiling(
-          body.qualityStatus,
+          normalizedBody.qualityStatus,
           upstreamQuality
         )
       }
@@ -182,6 +184,10 @@ export async function PATCH(
 
     if (action === 'REQUEST_REFRESH') {
       outcomeValue = 'Refresh requested'
+    }
+
+    if (normalizedWarnings.length > 0) {
+      console.warn('PATCH [id] with normalization warnings', normalizedWarnings)
     }
 
     const result = await db.collection(config.dbCollection).findOneAndUpdate(
