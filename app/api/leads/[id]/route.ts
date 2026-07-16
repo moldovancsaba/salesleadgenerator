@@ -190,6 +190,12 @@ export async function PATCH(
       { returnDocument: 'after' }
     )
 
+    const updatedLead = (result as any)?.value || (result as any)
+
+    if (!updatedLead) {
+      return NextResponse.json({ error: 'Lead not found after update' }, { status: 404 })
+    }
+
     await db.collection('outcomelogs').insertOne({
       leadId: params.id,
       action,
@@ -210,7 +216,8 @@ export async function PATCH(
       createdAt: new Date(),
     })
 
-    return NextResponse.json({ success: true, lead: result })
+    const normalizedLead = normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }, brand)
+    return NextResponse.json({ success: true, lead: normalizedLead })
 
   } catch (error: any) {
     console.error('PATCH Error:', error)

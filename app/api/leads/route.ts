@@ -37,7 +37,7 @@ function normalizeAddress(address: string, country: string): string {
     'AU': 'Australia', 'NZ': 'New Zealand', 'CA': 'Canada'
   }
   const country_name = country_names[country] || country
-  if (!addr.toLowerCase().includes(country_name.toLowerCase()) && 
+  if (!addr.toLowerCase().includes(country_name.toLowerCase()) &&
       !addr.match(/\b[A-Z]{2}\s+\d{4,6}\b/)) {
     return addr + ', ' + country_name
   }
@@ -151,8 +151,8 @@ export async function GET(request: Request) {
       rawLeads = rawLeads.slice(skip, skip + limit)
     }
 
-    return NextResponse.json({ 
-      leads: rawLeads.map((l) => normalizeLead({ ...l, _id: l._id.toString() }, brand)), 
+    return NextResponse.json({
+      leads: rawLeads.map((l) => normalizeLead({ ...l, _id: l._id.toString() }, brand)),
       source,
       brand,
       total: totalCount,
@@ -171,13 +171,13 @@ export async function POST(request: Request) {
   try {
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
-    
+
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
 
     const body = await request.json()
-    
+
     // Normalize contact fields
     if (body.decision_maker_contact) {
       body.decision_maker_contact = normalizeEmail(body.decision_maker_contact)
@@ -201,14 +201,13 @@ export async function POST(request: Request) {
 
     const client = await getClientPromise()
     const db = client.db()
-    const body = await request.json()
-    
+
     const fingerprint = buildFingerprint(
       body.entity_name || body.name || '',
       body.url || '',
       body.region || 'US'
     )
-    
+
     const existing = await db.collection(config.dbCollection).findOne({ fingerprint })
     if (existing) {
       return NextResponse.json(
@@ -216,18 +215,18 @@ export async function POST(request: Request) {
         { status: 409 }
       )
     }
-    
+
     const impact = body.ice?.impact || body.impact || 5
     const confidence = body.ice?.confidence || body.confidence || 5
     const ease = computeEase(body)
-    
+
     const iceScore = computeIceScore(impact, confidence, ease)
     const scoreProfile = buildScoreProfile(impact, confidence, ease)
-    
+
     const kanbanColumn = body.kanbanColumn || deriveKanbanColumn(iceScore)
-    
+
     const count = await db.collection(config.dbCollection).countDocuments({ kanbanColumn })
-    
+
     const newLead = {
       id: Date.now(),
       region: body.region || 'US',
@@ -257,17 +256,17 @@ export async function POST(request: Request) {
       fingerprint,
       ice: { impact, confidence, ease },
       scoreProfile,
-      
+
       feedbackScore: 0,
       declineCount: 0,
       acceptanceCount: 0,
-      
+
       createdAt: new Date(),
       updatedAt: new Date(),
     }
-    
+
     const result = await db.collection(config.dbCollection).insertOne(newLead)
-    
+
     await db.collection('outcomelogs').insertOne({
       leadId: result.insertedId.toString(),
       action: 'CREATE',
@@ -283,12 +282,12 @@ export async function POST(request: Request) {
       },
       createdAt: new Date(),
     })
-    
-    return NextResponse.json({ 
-      success: true, 
-      lead: { ...newLead, _id: result.insertedId } 
+
+    return NextResponse.json({
+      success: true,
+      lead: { ...newLead, _id: result.insertedId }
     }, { status: 201 })
-    
+
   } catch (error: any) {
     console.error('POST Error:', error)
     return NextResponse.json(
@@ -303,7 +302,7 @@ export async function PATCH(request: Request) {
   try {
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
-    
+
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
@@ -313,24 +312,24 @@ export async function PATCH(request: Request) {
     const { searchParams } = new URL(request.url)
     let source = 'public-data'
     const id = searchParams.get('id')
-    
+
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 })
     }
-    
+
     const body = await request.json()
     const { ObjectId } = await import('mongodb')
-    
+
     const existing = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(id) })
     if (!existing) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
     }
-    
+
     const updateData: any = { updatedAt: new Date() }
     let action = body.action
     let outcomeValue = action
     let teachingWeight = 50
-    
+
     if (body.kanbanColumn && body.kanbanColumn !== existing.kanbanColumn) {
       action = 'COLUMN_MOVE'
       const now = new Date()
@@ -343,14 +342,14 @@ export async function PATCH(request: Request) {
       teachingWeight = 70
       outcomeValue = `Moved to ${body.kanbanColumn}`
     }
-    
+
     if (action === 'ACCEPT') {
       updateData.status = 'qualified'
       updateData.acceptanceCount = (existing.acceptanceCount || 0) + 1
       updateData.feedbackScore = (existing.feedbackScore || 0) + 1
       teachingWeight = 80
     }
-    
+
     if (action === 'DECLINE') {
       updateData.status = 'lost'
       updateData.kanbanColumn = 'LOST'
@@ -361,9 +360,9 @@ export async function PATCH(request: Request) {
       teachingWeight = 100
       outcomeValue = body.declineReason || 'DECLINED'
     }
-    
+
     if (action === 'MODIFY') {
-      const fields = ['entity_name', 'url', 'address', 'general_contact', 'size', 'industry', 
+      const fields = ['entity_name', 'url', 'address', 'general_contact', 'size', 'industry',
                       'sport_or_sector', 'level_league', 'decision_maker_name', 'decision_maker_title',
                       'decision_maker_contact', 'value_proposition', 'notes', 'tags']
       fields.forEach(field => {
@@ -371,21 +370,21 @@ export async function PATCH(request: Request) {
       })
       if (body[config.proField]) updateData[config.proField] = body[config.proField]
       if (body[config.conField]) updateData[config.conField] = body[config.conField]
-      
+
       if (body.qualityStatus) {
         const currentLeadQuality = updateData.qualityStatus || existing.qualityStatus || 'DRAFT'
         const upstreamQuality = body.upstreamQualityStatuses || ['DRAFT']
-        
+
         const { enforceQualityCeiling } = await import('../../../lib/quality-registry')
         updateData.qualityStatus = enforceQualityCeiling(
           body.qualityStatus,
           upstreamQuality
         )
       }
-      
+
       teachingWeight = 95
     }
-    
+
     if (action === 'PIN') {
       updateData.kanbanColumn = 'ENGAGED'
       const now = new Date()
@@ -393,17 +392,23 @@ export async function PATCH(request: Request) {
       updateData.manualLaneCooldownUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000)
       outcomeValue = 'Pinned to ENGAGED'
     }
-    
+
     if (action === 'REQUEST_REFRESH') {
       outcomeValue = 'Refresh requested'
     }
-    
+
     const result = await db.collection(config.dbCollection).findOneAndUpdate(
       { _id: new ObjectId(id) },
       { $set: updateData },
       { returnDocument: 'after' }
     )
-    
+
+    const updatedLead = (result as any)?.value || (result as any)
+
+    if (!updatedLead) {
+      return NextResponse.json({ error: 'Lead not found after update' }, { status: 404 })
+    }
+
     await db.collection('outcomelogs').insertOne({
       leadId: id,
       action,
@@ -423,9 +428,10 @@ export async function PATCH(request: Request) {
       },
       createdAt: new Date(),
     })
-    
-    return NextResponse.json({ success: true, lead: result })
-    
+
+    const normalizedLead = normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }, brand)
+    return NextResponse.json({ success: true, lead: normalizedLead })
+
   } catch (error: any) {
     console.error('PATCH Error:', error)
     return NextResponse.json(
