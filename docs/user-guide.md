@@ -29,12 +29,27 @@ Sales operators and researchers who use the kanban board at `https://salesleadge
 
 - Region filter: US, CEE, MENA, or ALL
 - Search: entity name, contact name, or sector
+- Outreach filters: template industry/channel + brand-specific defaults
+
+## Outreach
+
+- Use **Outreach** from a lead detail view to compose message quickly.
+- The system supports both **email** and **LinkedIn** outreach templates.
+- Templates can be organization-specific; use the brand switch to load the correct set.
+- Analytics are available from the templates API for usage tracking.
+
+## Multi-Brand / Multi-Organization Behavior
+
+- The pipeline URL pattern is `/sales/[brand]`.
+- Each brand gets its own lead namespace in the database.
+- Existing leads without `tenantId` are still visible for the default tenant.
 
 ## Tips
 
 - Keep value propositions specific to the organization.
 - Use pros/cons to track objections and talking points.
 - Decline reasons improve future lead selection.
+- Use the brand switch when working across organizations so outreach templates load correctly.
 
 ## API Integration
 

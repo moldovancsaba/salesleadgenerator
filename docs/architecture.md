@@ -27,11 +27,13 @@ Sales Lead Generator is a Next.js app + API for managing sports sales leads acro
 ## API Layer
 
 - `/api/leads` → list + create leads
-- `/api/leads/[id]` → get + delete lead
+- `/api/leads/[id]` → get + update + delete lead
 - `/api/health` → readiness + DB latency + counts
 - `/api/admin/cron-status` → observability for automated runs
 - `/api/search-learning` → search memory/feedback
 - `/api/outcome-logs` → outcome tracking
+- `/api/outreach-templates` → list + create templates, analytics mode
+- `/api/outreach-logs` → outreach activity logs
 
 Auth is enforced on write/admin endpoints via `requireApiKey`.
 

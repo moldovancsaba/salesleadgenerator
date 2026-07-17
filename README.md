@@ -6,7 +6,7 @@ SLG is a sales lead generation platform that discovers, enriches, and scores sal
 
 - **Live kanban board:** https://salesleadgenerator.vercel.app
 - **API:** `https://salesleadgenerator.vercel.app/api/leads?brand=cogmap`
-- **App version:** 2.0.0
+- **App version:** 2.1.0
 
 ---
 
@@ -17,6 +17,8 @@ SLG is a sales lead generation platform that discovers, enriches, and scores sal
 3. **Scores** leads using the ICE framework (Impact × Confidence × Ease, max 1000)
 4. **Feeds** the kanban board where the agent manages DISCOVERED → QUALIFIED, and the user manages QUALIFIED → ENGAGED → PROPOSAL → WON/LOST
 5. **Learns** from user feedback (acceptances, declines) to improve future research
+6. **Outreach** — organization-agnostic templates with channel rules, compose modal, and usage analytics
+7. **Multi-brand** — works for any number of organizations via dynamic `brand` scoping
 
 ---
 

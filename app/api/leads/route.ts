@@ -50,6 +50,68 @@ async function readBody(request: Request) {
   return request.json()
 }
 
+// Deduplicate contacts within a single lead and against top-level decision-maker fields
+function dedupeContacts(contacts: any[], lead: any) {
+  if (!Array.isArray(contacts)) return [];
+
+  const seen = new Set<string>()
+  const deduped: any[] = []
+
+  // Build top-level contact info as a baseline
+  const dmName = (lead.decision_maker_name || '').trim().toLowerCase()
+  const dmEmail = (lead.decision_maker_contact || '').trim().toLowerCase()
+  const dmPhone = (lead.contact_phone || '').trim()
+  const dmTitle = (lead.decision_maker_title || '').trim().toLowerCase()
+
+  // Helper: make a stable key from contact fields
+  const contactKey = (c: any) => {
+    const name = (c.name || '').trim().toLowerCase()
+    const email = (c.email || '').trim().toLowerCase()
+    const phone = (c.phone || c.contact_phone || '').trim()
+    const title = (c.title || '').trim().toLowerCase()
+    // Use name + phone as primary key, fallback to name + email
+    const primary = name && phone ? `${name}|${phone}` : name && email ? `${name}|${email}` : name
+    return primary
+  }
+
+  const normalize = (c: any) => ({
+    name: typeof c.name === 'string' ? c.name.trim() : '',
+    title: typeof c.title === 'string' ? c.title.trim() : '',
+    email: typeof c.email === 'string' ? c.email.trim() : '',
+    phone: typeof c.phone === 'string' ? c.phone.trim() : (c.contact_phone || '').trim(),
+    linkedin: typeof c.linkedin === 'string' ? c.linkedin.trim() : '',
+    role: typeof c.role === 'string' ? c.role.trim() : '',
+  })
+
+  // If top-level decision maker info exists and is not already represented in contacts, add as main contact
+  const topLevelKey = dmName && dmPhone ? `${dmName}|${dmPhone}` : dmName && dmEmail ? `${dmName}|${dmEmail}` : dmName
+  const hasTopLevel = dmName || dmEmail || dmPhone
+
+  if (hasTopLevel && topLevelKey && !seen.has(topLevelKey)) {
+    seen.add(topLevelKey)
+    deduped.push({
+      name: dmName,
+      title: dmTitle || 'Decision Maker',
+      email: dmEmail,
+      phone: dmPhone,
+      linkedin: '',
+      role: 'main_contact',
+    })
+  }
+
+  for (const raw of contacts) {
+    const c = normalize(raw)
+    if (!c.name && !c.email && !c.phone) continue
+    const key = contactKey(c)
+    if (!key) continue
+    if (seen.has(key)) continue
+    seen.add(key)
+    deduped.push(c)
+  }
+
+  return deduped
+}
+
 type Brand = 'cogmap' | 'seyu';
 
 function buildFingerprint(name: string, url: string, region: string): string {
@@ -158,7 +220,11 @@ export async function GET(request: Request) {
       .toArray()
 
     return NextResponse.json({
-      leads: rawLeads.map((l) => normalizeLead({ ...l, _id: l._id.toString() }, brand)),
+      leads: rawLeads.map((l) => {
+        const normalized = normalizeLead({ ...l, _id: l._id.toString() }, brand)
+        normalized.contacts = dedupeContacts(normalized.contacts || [], normalized)
+        return normalized
+      }),
       brand,
       tenantId,
       total: totalCount,
@@ -218,6 +284,9 @@ export async function POST(request: Request) {
 
     const normalizedBody = normalizeLead(body, brand)
     const normalizedWarnings = extractWarnings(normalizedBody)
+
+    // Remove duplicate contacts and merge with top-level decision-maker info
+    normalizedBody.contacts = dedupeContacts(normalizedBody.contacts || [], normalizedBody)
 
     const fingerprint = buildFingerprint(
       normalizedBody.entity_name || normalizedBody.name || '',
@@ -471,6 +540,7 @@ export async function PATCH(request: Request) {
     })
 
     const normalizedLead = normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }, brand)
+    normalizedLead.contacts = dedupeContacts(normalizedLead.contacts || [], normalizedLead)
     return NextResponse.json({ success: true, lead: normalizedLead })
 
   } catch (error: any) {
