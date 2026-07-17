@@ -22,7 +22,8 @@ import { regionTone } from './theme/semantic';
 import { iceTone, qualityTone } from './theme/semantic';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { semanticToneToMantineColor } from './utils/semantic-colors';
-import { IconX, IconThumbUp, IconThumbDown, IconPin, IconRefresh, IconTrash } from '@tabler/icons-react';
+import { IconX, IconThumbUp, IconThumbDown, IconPin, IconRefresh, IconTrash, IconMail, IconBrandLinkedin } from '@tabler/icons-react';
+import { OutreachComposeModal } from './outreach/compose-modal';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -54,6 +55,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
   const [declineReason, setDeclineReason] = useState<DeclineReason>("OTHER");
   const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
   const [busy, setBusy] = useState(false);
+  const [outreachOpen, setOutreachOpen] = useState(false);
 
   const ice = lead.ice || { impact: 0, confidence: 0, ease: 0 };
   const iceScore = Math.round(ice.impact * ice.confidence * ice.ease);
@@ -107,15 +109,16 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
   }
 
   return (
-    <Modal
-      opened={true}
-      onClose={onClose}
-      size="xl"
-      padding={0}
-      withCloseButton={false}
-      fullScreen={false}
-      centered
-    >
+      <>
+        <Modal
+          opened={true}
+          onClose={onClose}
+          size="xl"
+          padding={0}
+          withCloseButton={false}
+          fullScreen={false}
+          centered
+        >
       <Paper radius="md" withBorder={false} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 }}>
@@ -341,6 +344,15 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
               >
                 Request Refresh
               </Button>
+              <Button
+                color="dark"
+                variant="light"
+                leftSection={<IconMail size={16} />}
+                onClick={() => setOutreachOpen(true)}
+                disabled={busy}
+              >
+                Outreach
+              </Button>
               <Button 
                 color="red" 
                 variant="subtle"
@@ -383,6 +395,13 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
           ) : null}
         </Box>
       </Paper>
-    </Modal>
+      </Modal>
+      <OutreachComposeModal
+        opened={outreachOpen}
+        onClose={() => setOutreachOpen(false)}
+        lead={lead}
+        brand={brand}
+      />
+    </>
   );
 }
