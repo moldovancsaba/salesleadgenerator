@@ -28,7 +28,9 @@ function ensureNumber(value: any, min = 0, max = 10): number {
 
 export function ensureArrayField(value: any): string[] {
   if (Array.isArray(value)) {
-    return value
+    const flat = value.flat(Infinity);
+    if (!Array.isArray(flat)) return [];
+    return flat
       .map((item) => ensureString(item))
       .filter((item) => item.length > 0);
   }
