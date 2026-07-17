@@ -5,6 +5,7 @@ import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import crypto from 'crypto'
 import { requireApiKey } from '../../../lib/api-auth'
 import { validateLeadPayload, validatePatchPayload } from '../../../lib/validate-lead'
+import { generateRequestId } from '../../lib/request-id'
 
 // Normalize phone to international format
 function normalizePhone(phone: string): string {
@@ -392,6 +393,7 @@ export async function POST(request: Request) {
 
 // PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, COLUMN_MOVE
 export async function PATCH(request: Request) {
+  const requestId = generateRequestId();
   const authError = requireApiKey(request);
   if (authError) return authError;
 
@@ -401,7 +403,7 @@ export async function PATCH(request: Request) {
     const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) {
-      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+      return NextResponse.json({ error: 'Database not configured', requestId }, { status: 503 })
     }
 
     const client = await getClientPromise()
@@ -541,12 +543,12 @@ export async function PATCH(request: Request) {
 
     const normalizedLead = normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }, brand)
     normalizedLead.contacts = dedupeContacts(normalizedLead.contacts || [], normalizedLead)
-    return NextResponse.json({ success: true, lead: normalizedLead })
+    return NextResponse.json({ success: true, lead: normalizedLead, requestId })
 
   } catch (error: any) {
     console.error('PATCH Error:', error)
     return NextResponse.json(
-      { error: 'Failed to update lead', details: error.message },
+      { error: 'Failed to update lead', details: error.message, requestId },
       { status: 500 }
     )
   }
