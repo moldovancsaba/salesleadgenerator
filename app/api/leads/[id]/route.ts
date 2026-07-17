@@ -38,7 +38,7 @@ export async function GET(
     try {
       const client = await clientPromise
       const db = client.db()
-      lead = await db.collection(config.dbCollection).findOne({ _id: new (await import('mongodb')).ObjectId(params.id), tenantId })
+      lead = await db.collection(config.dbCollection).findOne({ _id: new (await import('mongodb')).ObjectId(params.id), $or: tenantId === 'default' ? [{ tenantId: 'default' }, { tenantId: { $exists: false } }] : [{ tenantId }] })
       if (lead) {
         lead = normalizeLead({ ...lead, _id: lead._id.toString() }, brand);
       }

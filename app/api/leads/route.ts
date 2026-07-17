@@ -45,6 +45,11 @@ function normalizeAddress(address: string, country: string): string {
   return addr
 }
 
+// Shared JSON body reader for route handlers
+async function readBody(request: Request) {
+  return request.json()
+}
+
 type Brand = 'cogmap' | 'seyu';
 
 function buildFingerprint(name: string, url: string, region: string): string {
@@ -133,7 +138,14 @@ export async function GET(request: Request) {
 
     const client = await getClientPromise()
     const db = client.db()
-    const filter: any = { tenantId }
+
+    // Backward-compatible tenant filter: include legacy docs without tenantId when querying default
+    let filter: any = {}
+    if (tenantId === 'default') {
+      filter = { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] }
+    } else {
+      filter = { tenantId }
+    }
     if (region) filter.region = region
     if (kanbanColumn) filter.kanbanColumn = kanbanColumn
 
@@ -174,7 +186,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
 
-    const body = await request.json()
+    const body = await readBody(request)
     const validation = validateLeadPayload(body, brand);
     if (!validation.valid) {
       return NextResponse.json({ error: 'Validation failed', details: validation.errors }, { status: 400 });
@@ -332,7 +344,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 })
     }
 
-    const body = await request.json()
+    const body = await readBody(request)
     const validation = validatePatchPayload(body, brand);
     if (!validation.valid) {
       return NextResponse.json({ error: 'Validation failed', details: validation.errors }, { status: 400 });
@@ -342,7 +354,9 @@ export async function PATCH(request: Request) {
     const normalizedWarnings = extractWarnings(normalizedBody)
     const { ObjectId } = await import('mongodb')
 
-    const existing = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(id) })
+    const tenantFilter = tenantId === 'default' ? { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] } : { tenantId }
+
+    const existing = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(id), ...tenantFilter })
     if (!existing) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
     }
@@ -424,7 +438,7 @@ export async function PATCH(request: Request) {
     }
 
     const result = await db.collection(config.dbCollection).findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), ...tenantFilter },
       { $set: updateData },
       { returnDocument: 'after' }
     )
