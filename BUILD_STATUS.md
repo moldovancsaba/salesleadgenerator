@@ -19,6 +19,14 @@ App is deployed at https://salesleadgenerator.vercel.app
 - ✅ Request validation on POST/PATCH
 - ✅ Expanded health endpoint with latency, counts, and error state
 - ✅ Admin cron-status observability endpoint
+- ✅ Multi-tenant aware health and admin endpoints with brand filtering
+- ✅ One-click outreach templates with brand-scoped storage and channel rules
+- ✅ Outreach routing enforcement persisted in outreach logs
+- ✅ Backward-compatible tenant queries for legacy leads without tenantId
+- ✅ Organization-agnostic outreach template system
+
+### Known Issues
+- Full `next build` OOMs in local build environment; using `tsc --noEmit` for verification
 
 ### Tech Versions
 | Component | Version |
@@ -31,3 +39,5 @@ App is deployed at https://salesleadgenerator.vercel.app
 
 ### Last Deploy
 - **Deployed:** July 17, 2026
+- **Verified:** 256 CogMap + 114 Seyu leads visible live
+- **Fix:** tenantId backward compatibility restored missing Seyu leads
