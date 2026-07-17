@@ -1,6 +1,7 @@
+'use client'
+
 import { useEffect, useState } from 'react'
-import { Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput, SimpleGrid } from '@mantine/core'
-import { useSearchParams } from 'next/navigation'
+import { Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 
 type Template = {
@@ -23,9 +24,16 @@ const EMPTY_TEMPLATE: Omit<Template, 'id'> = {
 }
 
 export default function OutreachTemplatesPage() {
-  const search = useSearchParams()
-  const brand = search.get('brand') || 'default'
-  const tenantId = search.get('tenantId') || 'default'
+  const [brand, setBrand] = useState('default')
+  const [tenantId, setTenantId] = useState('default')
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('brand')) setBrand(params.get('brand') || 'default')
+      if (params.get('tenantId')) setTenantId(params.get('tenantId') || 'default')
+    } catch {}
+  }, [])
 
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
