@@ -17,16 +17,16 @@ This file describes the current implementation and the next deliverable improvem
 - Outcome logging for mutations
 - Pagination support on list endpoint
 - MongoDB Atlas persistence per brand collection
-- Old per-brand paths kept as redirects for backward compatibility
+- Write-endpoint auth gate via `requireApiKey`
+- Lightweight request validation for POST/PATCH via `lib/validate-lead.ts`
+- Expanded `/api/health` with `dbLatencyMs`, `leadCounts`, `lastError`
+- New `/api/admin/cron-status` endpoint for observability
+- Pre-POST research-agent validation helper in `lib/lead-validator.ts`
 
-### Gaps
-- Two PATCH handlers exist with overlapping logic
-- No authentication or rate limiting
-- No structured request validation
-- Limited user-facing error feedback
-- No observability/alerting beyond console logs
-- No test coverage
-- Research agent has no retry or batch verification
+### Remaining Gaps
+- Dedicated CORS/security headers middleware
+- Test coverage
+- Retry/batch verification in active research-agent runner
 
 ---
 

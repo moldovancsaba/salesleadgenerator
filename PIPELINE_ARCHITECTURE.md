@@ -11,7 +11,7 @@ DISCOVERED → QUALIFIED → ENGAGED → PROPOSAL → WON / LOST
 ```
 
 | Stage | Managed By | Criteria |
-|-------|-----------|----------|
+|-------|-----------|---------|
 | **DISCOVERED** | Agent | Newly discovered, awaiting enrichment |
 | **QUALIFIED** | Agent | Has decision maker email (name + title + email) OR name + title + value proposition (>20 chars) |
 | **ENGAGED** | User only | Manual move |
@@ -77,10 +77,12 @@ Unique index on `fingerprint` prevents duplicate leads.
 |--------|----------|---------|
 | GET | `/api/leads?brand=<brand>` | Fetch leads |
 | POST | `/api/leads?brand=<brand>` | Create lead |
+| PATCH | `/api/leads?brand=<brand>&id=<id>` | Update lead/actions |
 | GET | `/api/leads/[id]?brand=<brand>` | Fetch single lead |
 | DELETE | `/api/leads/[id]?brand=<brand>` | Delete lead |
 | GET | `/api/search-learning` | Search analytics |
 | GET | `/api/health` | Health check |
+| GET | `/api/admin/cron-status` | Cron observability |
 
 ## Database Schema
 
@@ -91,6 +93,7 @@ Unique index on `fingerprint` prevents duplicate leads.
   entity_name: string
   url: string
   region: 'US' | 'CEE' | 'MENA'
+  country?: string
   industry: string
   sport_or_sector: string
   size: 'Small' | 'Medium' | 'Large' | 'Enterprise'
@@ -100,6 +103,7 @@ Unique index on `fingerprint` prevents duplicate leads.
   decision_maker_name: string
   decision_maker_title: string
   decision_maker_contact: string
+  contacts: Array<{ name, title, email, phone, linkedin }>
   pro_for_<brand>: string[]
   con_for_<brand>: string[]
   value_proposition: string
@@ -110,7 +114,7 @@ Unique index on `fingerprint` prevents duplicate leads.
   sortOrder: number (for column sorting by ICE)
   priority: 'high' | 'medium' | 'low'
   status: string
-  qualityStatus: 'DRAFT' | 'CHECKED' | 'VERIFIED'
+  qualityStatus?: 'DRAFT' | 'CHECKED' | 'VERIFIED'
   feedbackScore: number
   declineCount: number
   acceptanceCount: number
@@ -120,6 +124,23 @@ Unique index on `fingerprint` prevents duplicate leads.
   notes: string
   createdAt: string
   updatedAt: string
+}
+```
+
+### Outcome Log Model
+
+```typescript
+{
+  leadId: string
+  action: string
+  outcomeType: string
+  outcomeValue: string
+  teachingWeight: number
+  actorType: string
+  actedBy: string
+  beforeState: object
+  afterState: object
+  createdAt: string
 }
 ```
 
@@ -133,6 +154,18 @@ Unique index on `fingerprint` prevents duplicate leads.
 - **Drag:** Long-press + pointer events for cross-column moves
 - **Filters:** Collapsible (region chips + search)
 
+## Observability
+
+- `/api/health` returns `dbLatencyMs`, `leadCounts`, and `lastError`
+- `/api/admin/cron-status` returns per-brand run counts, error rates, and lead creation counts
+- Outcome logs record every mutation for audit/learning
+
+## Security
+
+- Public read access for lead listings and health checks
+- Write and admin endpoints require API key auth via `x-api-key`
+- Input validation enforced before database writes
+
 ## Hosting
 
 | Component | URL |
@@ -143,4 +176,4 @@ Unique index on `fingerprint` prevents duplicate leads.
 
 ---
 
-*Last updated: July 16, 2026*
+*Last updated: July 17, 2026*

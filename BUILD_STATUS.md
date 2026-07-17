@@ -2,7 +2,7 @@
 
 ## Current State: ✅ Production Ready
 
-All build issues resolved. App is deployed at https://salesleadgenerator.vercel.app
+App is deployed at https://salesleadgenerator.vercel.app
 
 ### Verified Features
 - ✅ Next.js 14 production build passes
@@ -15,6 +15,10 @@ All build issues resolved. App is deployed at https://salesleadgenerator.vercel.
 - ✅ Collapsible filters (region + search)
 - ✅ Responsive layout (100dvh, flex columns)
 - ✅ TypeScript compilation clean
+- ✅ Auth-gated write and admin endpoints
+- ✅ Request validation on POST/PATCH
+- ✅ Expanded health endpoint with latency, counts, and error state
+- ✅ Admin cron-status observability endpoint
 
 ### Tech Versions
 | Component | Version |
@@ -26,4 +30,4 @@ All build issues resolved. App is deployed at https://salesleadgenerator.vercel.
 | Node.js | 24.x (Vercel) |
 
 ### Last Deploy
-- **Deployed:** July 16, 2026
+- **Deployed:** July 17, 2026

@@ -76,6 +76,9 @@ Organized by delivery phase. Each phase is independently shippable.
 - ✅ SLG kanban at `/sales/seyu`
 - ✅ Landing page at `/`
 - ✅ Unified API structure: `/api/leads?brand=cogmap`, `/api/leads?brand=seyu`
+- ✅ Auth-gated writes and admin routes
+- ✅ Request validation for POST/PATCH
+- ✅ Health + cron observability endpoints
 - ✅ Contact depth: primary + secondary contacts with email/phone
 - ✅ Value props include lead-specific and product-specific angles
-- 🚧 Phase 1 ready to start
+- 🚧 Phase 1 features in progress: outreach templates, alerts, saved views

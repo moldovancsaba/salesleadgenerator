@@ -103,61 +103,13 @@ Fingerprint = SHA1(`url` + `entity_name` + `region`). Duplicate fingerprints are
 
 ---
 
-## Project Structure
-
-```
-salesleadgenerator/
-├── app/
-│   ├── api/
-│   │   ├── leads/
-│   │   │   ├── route.ts          # GET/POST leads
-│   │   │   └── [id]/route.ts     # GET/DELETE single lead
-│   │   ├── search-learning/
-│   │   │   └── route.ts          # Search analytics
-│   │   └── health/
-│   │       └── route.ts          # Health check
-│   ├── components/
-│   │   ├── gds-provider.tsx      # Theme provider
-│   │   ├── theme-helpers.ts      # Semantic color system
-│   │   └── unified-card.tsx      # Shared card component
-│   ├── kanban.tsx                # Kanban board (mobile-first)
-│   ├── card.tsx                  # Lead card component
-│   ├── detail.tsx                # Lead detail modal
-│   ├── page.tsx                  # Main pipeline page
-│   ├── layout.tsx                # Root layout (PWA meta)
-│   ├── types.ts                  # TypeScript types
-│   └── constants.ts              # Column definitions
-├── lib/
-│   └── metrics.ts                # Pipeline metrics
-├── models/
-│   └── Lead.ts                   # Mongoose schema
-├── scripts/
-│   └── audit-gds-style.mjs       # Style audit
-├── public/
-│   ├── manifest.json             # PWA manifest
-│   └── icon-192.png              # App icon
-├── package.json
-├── next.config.js
-├── tsconfig.json
-└── postcss.config.js
-```
-
----
-
 ## API Reference
 
 ### `GET /api/leads?brand=<brand>`
 
-Fetch leads with optional filters.
+Public read access.
 
-**Query params:**
-| Param | Description |
-|-------|-------------|
-| `brand` | Brand key, for example `cogmap` or `seyu` |
-| `region` | Filter by US, CEE, MENA |
-| `kanbanColumn` | Filter by pipeline stage |
-| `limit` | Results per page |
-| `page` | Page number |
+**Query params:** `brand`, `region`, `kanbanColumn`, `limit`, `page`
 
 **Response:**
 ```json
@@ -171,7 +123,7 @@ Fetch leads with optional filters.
 
 ### `POST /api/leads?brand=<brand>`
 
-Create a new lead. Automatically calculates ICE score, fingerprint, and kanban column.
+Create lead. Requires API key auth.
 
 **Body:**
 ```json
@@ -193,17 +145,90 @@ Create a new lead. Automatically calculates ICE score, fingerprint, and kanban c
 }
 ```
 
+### `PATCH /api/leads?brand=<brand>&id=<id>`
+
+Update lead actions: `ACCEPT`, `DECLINE`, `MODIFY`, `PIN`, `REQUEST_REFRESH`, `COLUMN_MOVE`. Requires API key auth.
+
 ### `GET /api/leads/[id]?brand=<brand>`
 
 Fetch a single lead by ID.
 
 ### `DELETE /api/leads/[id]?brand=<brand>`
 
-Delete a lead by ID.
+Delete a lead by ID. Requires API key auth.
 
 ### `GET /api/health`
 
-Health check. Returns MongoDB connection status and lead count.
+Public health check.
+
+```json
+{
+  "status": "ok",
+  "database": "salesleadgenerator",
+  "dbLatencyMs": 12,
+  "leadCounts": {
+    "cogmap": 48,
+    "seyu": 12
+  },
+  "lastError": null,
+  "timestamp": "2026-07-17T07:54:00.000Z"
+}
+```
+
+### `GET /api/admin/cron-status`
+
+Auth required. Returns per-brand cron health.
+
+```json
+{
+  "status": "healthy",
+  "checkedAt": "2026-07-17T07:54:00.000Z",
+  "window": "24h",
+  "brands": [
+    {
+      "brand": "cogmap",
+      "status": "healthy",
+      "lastRun": "2026-07-17T06:00:00.000Z",
+      "lastRunAction": "CREATE",
+      "lastRunOutcome": "CREATE",
+      "runsLast24h": 12,
+      "leadsCreatedLast24h": 8,
+      "errorsLast24h": 0,
+      "errorRate": 0,
+      "avgRunsPerHour": 0.5
+    }
+  ]
+}
+```
+
+---
+
+## API Key Auth
+
+Write and admin endpoints require the header:
+
+```
+x-api-key: <SLG_API_KEY>
+```
+
+Set this via Vercel environment variable on the app. Rotate via your secret manager.
+
+### Example curl
+
+```bash
+# Read
+curl "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap"
+
+# Create
+curl -X POST "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $SLG_API_KEY" \
+  -d '{"entity_name":"Test FC","url":"https://test.example.com","region":"US"}'
+
+# Admin
+curl "https://salesleadgenerator.vercel.app/api/admin/cron-status" \
+  -H "x-api-key: $SLG_API_KEY"
+```
 
 ---
 
@@ -224,7 +249,7 @@ The kanban board is built mobile-first:
 
 - **MongoDB Atlas** cluster: `sales.8wytusk.mongodb.net`
 - **Database:** `salesleadgenerator`
-- **Collections:** `leads`, `seyu_leads`
+- **Collections:** `leads`, `seyu_leads`, `outcomelogs`, `searchlearnings`
 - **Indexes:** `fingerprint`, `kanbanColumn`, `region`, `iceScore`
 
 ---
@@ -233,15 +258,17 @@ The kanban board is built mobile-first:
 
 | Job | Schedule | Purpose |
 |-----|----------|---------|
-| Configurable per brand | On schedule | Research new leads and POST to API |
+| Research agent | Configurable per brand | Research new leads and POST to API |
+| Admin visibility | `/api/admin/cron-status` | Observe last 24h/7d run health |
+
+---
+
+## Observability
+
+- `/api/health` returns `dbLatencyMs`, `leadCounts`, and `lastError`
+- `/api/admin/cron-status` returns per-brand run counts, error rates, and lead creation counts
+- Outcome logs record every mutation for audit/learning
 
 ---
 
 ## License
-
-Private — SLG internal use only.
-
----
-
-*Last updated: July 16, 2026*  
-*Generated by KiloClaw*
