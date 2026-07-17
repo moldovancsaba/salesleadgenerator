@@ -11,6 +11,12 @@ function getBrand(request: Request): 'cogmap' | 'seyu' {
   return resolveBrand(brandParam);
 }
 
+function getTenantId(request: Request): string {
+  const url = new URL(request.url);
+  const tenantId = (url.searchParams.get('tenantId') || 'default').trim();
+  return tenantId || 'default';
+}
+
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
@@ -18,6 +24,7 @@ export async function GET(
   try {
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
+    const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) {
       const fallback = getPublicLeadById(params.id);
@@ -31,7 +38,7 @@ export async function GET(
     try {
       const client = await clientPromise
       const db = client.db()
-      lead = await db.collection(config.dbCollection).findOne({ _id: new (await import('mongodb')).ObjectId(params.id) })
+      lead = await db.collection(config.dbCollection).findOne({ _id: new (await import('mongodb')).ObjectId(params.id), tenantId })
       if (lead) {
         lead = normalizeLead({ ...lead, _id: lead._id.toString() }, brand);
       }
@@ -61,6 +68,7 @@ export async function DELETE(
   try {
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
+    const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
@@ -70,7 +78,8 @@ export async function DELETE(
     const db = client.db()
 
     const result = await db.collection(config.dbCollection).deleteOne({
-      _id: new (await import('mongodb')).ObjectId(params.id)
+      _id: new (await import('mongodb')).ObjectId(params.id),
+      tenantId,
     })
 
     if (result.deletedCount === 0) {

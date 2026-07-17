@@ -108,11 +108,18 @@ function getBrand(request: Request): Brand {
   return resolveBrand(brandParam);
 }
 
+function getTenantId(request: Request): string {
+  const url = new URL(request.url);
+  const tenantId = (url.searchParams.get('tenantId') || 'default').trim();
+  return tenantId || 'default';
+}
+
 // GET - List leads with filters
 export async function GET(request: Request) {
   try {
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
+    const tenantId = getTenantId(request);
     const { searchParams } = new URL(request.url)
     const region = searchParams.get('region') || undefined
     const kanbanColumn = searchParams.get('kanbanColumn') || undefined
@@ -126,7 +133,7 @@ export async function GET(request: Request) {
 
     const client = await getClientPromise()
     const db = client.db()
-    const filter: any = {}
+    const filter: any = { tenantId }
     if (region) filter.region = region
     if (kanbanColumn) filter.kanbanColumn = kanbanColumn
 
@@ -141,6 +148,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       leads: rawLeads.map((l) => normalizeLead({ ...l, _id: l._id.toString() }, brand)),
       brand,
+      tenantId,
       total: totalCount,
       page,
       limit,
@@ -160,6 +168,7 @@ export async function POST(request: Request) {
   try {
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
+    const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
@@ -204,7 +213,7 @@ export async function POST(request: Request) {
       normalizedBody.region || 'US'
     )
 
-    const existing = await db.collection(config.dbCollection).findOne({ fingerprint })
+    const existing = await db.collection(config.dbCollection).findOne({ fingerprint, tenantId })
     if (existing) {
       return NextResponse.json(
         { error: 'Duplicate lead detected', existing: { _id: existing._id, entity_name: existing.entity_name } },
@@ -221,7 +230,7 @@ export async function POST(request: Request) {
 
     const kanbanColumn = normalizedBody.kanbanColumn || deriveKanbanColumn(iceScore)
 
-    const count = await db.collection(config.dbCollection).countDocuments({ kanbanColumn })
+    const count = await db.collection(config.dbCollection).countDocuments({ kanbanColumn, tenantId })
 
     const newLead = {
       id: Date.now(),
@@ -250,6 +259,7 @@ export async function POST(request: Request) {
       kanbanColumn,
       sortOrder: count * 100,
       fingerprint,
+      tenantId,
       ice: { impact, confidence, ease },
       scoreProfile,
       normalizationWarnings: normalizedWarnings,
@@ -282,11 +292,12 @@ export async function POST(request: Request) {
         iceScore,
       },
       createdAt: new Date(),
+      tenantId,
     })
 
     return NextResponse.json({
       success: true,
-      lead: { ...newLead, _id: result.insertedId }
+      lead: { ...newLead, _id: result.insertedId, tenantId }
     }, { status: 201 })
 
   } catch (error: any) {
@@ -306,6 +317,7 @@ export async function PATCH(request: Request) {
   try {
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
+    const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
@@ -441,6 +453,7 @@ export async function PATCH(request: Request) {
         status: updateData.status || existing.status,
       },
       createdAt: new Date(),
+      tenantId,
     })
 
     const normalizedLead = normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }, brand)
