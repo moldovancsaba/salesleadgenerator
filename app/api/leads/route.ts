@@ -4,6 +4,8 @@ import { getPublicLeads } from '../../../lib/public-data'
 import { BRAND_CONFIG, resolveBrand } from '../../lib/brand'
 import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import crypto from 'crypto'
+import { requireApiKey } from '../../../lib/api-auth'
+import { validateLeadPayload, validatePatchPayload } from '../../../lib/validate-lead'
 
 // Normalize phone to international format
 function normalizePhone(phone: string): string {
@@ -168,6 +170,9 @@ export async function GET(request: Request) {
 
 // POST - Create new lead with dedup and scoring
 export async function POST(request: Request) {
+  const authError = requireApiKey(request);
+  if (authError) return authError;
+
   try {
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
@@ -177,6 +182,10 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
+    const validation = validateLeadPayload(body, brand);
+    if (!validation.valid) {
+      return NextResponse.json({ error: 'Validation failed', details: validation.errors }, { status: 400 });
+    }
 
     // Normalize contact fields
     if (body.decision_maker_contact) {
@@ -307,6 +316,9 @@ export async function POST(request: Request) {
 
 // PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, COLUMN_MOVE
 export async function PATCH(request: Request) {
+  const authError = requireApiKey(request);
+  if (authError) return authError;
+
   try {
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
@@ -326,6 +338,11 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json()
+    const validation = validatePatchPayload(body, brand);
+    if (!validation.valid) {
+      return NextResponse.json({ error: 'Validation failed', details: validation.errors }, { status: 400 });
+    }
+
     const normalizedBody = normalizeLead(body, brand)
     const normalizedWarnings = extractWarnings(normalizedBody)
     const { ObjectId } = await import('mongodb')

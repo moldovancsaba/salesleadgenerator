@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
 import { getPublicLeadById } from '../../../../lib/public-data'
 import { BRAND_CONFIG, resolveBrand } from '../../../lib/brand'
-import { normalizeLead, extractWarnings } from '../../../lib/normalize-lead'
+import { normalizeLead } from '../../../lib/normalize-lead'
+import { requireApiKey } from '../../../../lib/api-auth'
 
 function getBrand(request: Request): 'cogmap' | 'seyu' {
   const url = new URL(request.url);
@@ -54,6 +55,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const authError = requireApiKey(request);
+  if (authError) return authError;
+
   try {
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
