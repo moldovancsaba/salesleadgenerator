@@ -3,6 +3,7 @@ import clientPromise from '../../../lib/mongodb'
 import { requireApiKey } from '../../../lib/api-auth'
 import { DEFAULT_OUTREACH_TEMPLATES } from '../../lib/outreach/default-templates'
 import type { OutreachTemplate } from '../../lib/outreach/default-templates'
+import { ObjectId } from 'mongodb'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,10 @@ function getBrand(request: Request): string {
   return brand || 'default'
 }
 
+function isMongoConfigured(): boolean {
+  return Boolean(process.env.MONGODB_URI || process.env.MONGODB_URI_LEADS || process.env.MONGODB_URI_CLASSCOUT)
+}
+
 export async function GET(request: Request) {
   try {
     const tenantId = getTenantId(request)
@@ -25,6 +30,63 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const industry = (searchParams.get('industry') || '').trim()
     const channel = (searchParams.get('channel') || '').trim()
+    const mode = (searchParams.get('mode') || '').trim()
+
+    if (mode === 'analytics') {
+      if (!isMongoConfigured()) {
+        return NextResponse.json({ analytics: [], total: 0, source: 'default' })
+      }
+
+      const client = await clientPromise
+      const db = client.db()
+
+      const match: Record<string, string> = { tenantId, brand }
+      if (industry) match.industry = industry
+      if (channel) match.channel = channel
+
+      const pipeline = [
+        { $match: match },
+        {
+          $group: {
+            _id: '$templateId',
+            totalLogs: { $sum: 1 },
+            channels: { $addToSet: '$channel' },
+            lastUsed: { $max: '$createdAt' },
+          },
+        },
+        { $sort: { totalLogs: -1 } },
+      ]
+
+      const analyticsRaw = await db.collection('outreach_logs').aggregate(pipeline).toArray()
+
+      const templateIds = analyticsRaw
+        .map((item) => typeof item._id === 'string' ? item._id : String(item._id))
+        .filter(Boolean)
+
+      const dbTemplates = templateIds.length
+        ? await db.collection('outreach_templates').find({ tenantId, brand, _id: { $in: templateIds.map((id) => new ObjectId(id)) } }).toArray()
+        : []
+
+      const templateNameMap = new Map(dbTemplates.map((t) => [t._id.toString(), t.name]))
+
+      const analytics = analyticsRaw.map((item) => {
+        const templateId = typeof item._id === 'string' ? item._id : String(item._id)
+        const channels = Array.isArray(item.channels) ? item.channels : []
+        const totalLogs = typeof item.totalLogs === 'number' ? item.totalLogs : 0
+        const lastUsed = item.lastUsed instanceof Date ? item.lastUsed.toISOString() : null
+
+        return {
+          templateId,
+          name: templateNameMap.get(templateId) || `Template #${templateId}`,
+          channel: channels[0] || 'email',
+          channels,
+          totalLogs,
+          lastUsed,
+        }
+      })
+
+      return NextResponse.json({ analytics, total: analytics.length, source: 'mongodb', brand })
+    }
 
     if (!isMongoConfigured()) {
       const defaults = DEFAULT_OUTREACH_TEMPLATES.filter((t: OutreachTemplate) => {
@@ -116,8 +178,4 @@ export async function POST(request: Request) {
     console.error('[API:outreach-templates] POST error:', error)
     return NextResponse.json({ error: 'Failed to create template', details: error.message }, { status: 500 })
   }
-}
-
-function isMongoConfigured(): boolean {
-  return Boolean(process.env.MONGODB_URI || process.env.MONGODB_URI_LEADS || process.env.MONGODB_URI_CLASSCOUT)
 }
