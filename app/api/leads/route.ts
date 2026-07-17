@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
-import { getPublicLeads } from '../../../lib/public-data'
 import { BRAND_CONFIG, resolveBrand } from '../../lib/brand'
 import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import crypto from 'crypto'
@@ -115,47 +114,32 @@ export async function GET(request: Request) {
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
     const { searchParams } = new URL(request.url)
-    let source = 'public-data'
     const region = searchParams.get('region') || undefined
     const kanbanColumn = searchParams.get('kanbanColumn') || undefined
     const limit = Math.max(1, Math.min(500, parseInt(searchParams.get('limit') || '100') || 100))
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
     const skip = (page - 1) * limit
-    let rawLeads: any[] = []
-    let totalCount = 0
 
-    if (isMongoConfigured()) {
-      try {
-        const client = await getClientPromise()
-        const db = client.db()
-        const filter: any = {}
-        if (region) filter.region = region
-        if (kanbanColumn) filter.kanbanColumn = kanbanColumn
-        totalCount = await db.collection(config.dbCollection).countDocuments(filter)
-        rawLeads = await db.collection(config.dbCollection)
-          .find(filter)
-          .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
-          .limit(limit)
-          .skip(skip)
-          .toArray()
-        source = 'mongodb'
-      } catch {
-        rawLeads = getPublicLeads()
-      }
-    } else {
-      rawLeads = getPublicLeads()
+    if (!isMongoConfigured()) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
 
-    if (source === 'public-data') {
-      if (region) rawLeads = rawLeads.filter((l) => l.region === region)
-      if (kanbanColumn) rawLeads = rawLeads.filter((l) => l.kanbanColumn === kanbanColumn)
-      totalCount = rawLeads.length
-      rawLeads = rawLeads.slice(skip, skip + limit)
-    }
+    const client = await getClientPromise()
+    const db = client.db()
+    const filter: any = {}
+    if (region) filter.region = region
+    if (kanbanColumn) filter.kanbanColumn = kanbanColumn
+
+    const totalCount = await db.collection(config.dbCollection).countDocuments(filter)
+    const rawLeads = await db.collection(config.dbCollection)
+      .find(filter)
+      .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
+      .limit(limit)
+      .skip(skip)
+      .toArray()
 
     return NextResponse.json({
       leads: rawLeads.map((l) => normalizeLead({ ...l, _id: l._id.toString() }, brand)),
-      source,
       brand,
       total: totalCount,
       page,
@@ -330,7 +314,6 @@ export async function PATCH(request: Request) {
     const client = await getClientPromise()
     const db = client.db()
     const { searchParams } = new URL(request.url)
-    let source = 'public-data'
     const id = searchParams.get('id')
 
     if (!id) {
