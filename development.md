@@ -22,7 +22,7 @@ This file describes the current implementation and the next deliverable improvem
 - Expanded `/api/health` with `dbLatencyMs`, `leadCounts`, `lastError`
 - New `/api/admin/cron-status` endpoint for observability
 - Pre-POST research-agent validation helper in `lib/lead-validator.ts`
-- Single PATCH mutation path in `/api/leads/route.ts`
+- Canonical PATCH mutation path in `lib/lead-actions.ts` with requestId tracing
 - Removed dead public-data fallback branches and unused `source` field
 - Optional `tenantId` scoping for leads, outcome logs, health, and admin routes
 - Frontend pipeline accepts `tenantId` from query params and UI
@@ -32,9 +32,9 @@ This file describes the current implementation and the next deliverable improvem
 - Outreach compose modal with channel-aware send rules
 - Outreach template management UI at `/outreach/templates`
 - Backward-compatible tenant queries for legacy leads without tenantId
+- CORS and security headers middleware
 
 ### Remaining Gaps
-- Dedicated CORS/security headers middleware
 - Test coverage
 - Global toast/notification UX for action failures
 - Retry/batch verification in active research-agent runner
@@ -60,7 +60,7 @@ This file describes the current implementation and the next deliverable improvem
 
 ### Segment 1.3 — Verification
 - Manual verification matrix: ACCEPT, DECLINE, PIN, REQUEST_REFRESH, COLUMN_MOVE, DELETE
-- Verify old `/cogmapsales` and `/seyusales` redirects still work after changes
+- Verify middleware routing still works after changes
 
 ---
 
@@ -153,9 +153,9 @@ This file describes the current implementation and the next deliverable improvem
 **Goal:** Remove maintenance burden and inconsistent behavior.
 
 ### Segment 7.1 — Single Update Path
-- Remove duplicate PATCH handler
-- Update frontend to use one canonical URL pattern
-- Extract shared action behavior into `app/lib/lead-actions.ts`
+- ✅ Extracted shared action behavior into `lib/lead-actions.ts`
+- PATCH route delegates to shared helper
+- Frontend uses canonical action endpoint
 
 ### Segment 7.2 — Remove Dead Code
 - Remove unused branches, fallback paths, and outdated comments
@@ -189,13 +189,13 @@ This file describes the current implementation and the next deliverable improvem
 **Goal:** Make it safe to add more brands or workspace isolation later.
 
 ### Segment 9.1 — Tenant Awareness
-- Add `tenantId` or `workspaceId` to leads, outcome logs, and search learning
-- Update queries to filter by tenant + brand
-- Add tenant-aware indexes
+- ✅ Add `tenantId` to leads, outcome logs, health, and admin routes
+- ✅ Update queries to filter by tenant + brand
+- ✅ Add tenant-aware indexes
 
 ### Segment 9.2 — Migration Path
-- Document how to migrate existing data into tenant-aware structure
-- Keep backward compatibility for current single-tenant usage
+- ✅ Backward compatibility for current single-tenant usage
+- Existing docs updated in README, docs/architecture.md, docs/user-guide.md, BUILD_STATUS.md
 
 ---
 

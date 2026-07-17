@@ -225,6 +225,25 @@ export async function GET(request: Request) {
       leads: rawLeads.map((l) => {
         const normalized = normalizeLead({ ...l, _id: l._id.toString() }, brand)
         normalized.contacts = dedupeContacts(normalized.contacts || [], normalized)
+        // Canonicalize response: contacts is the single source of truth for contact data
+        const hasMainContact = Array.isArray(normalized.contacts) && normalized.contacts.some(c => c.role === 'main_contact')
+        const hasTopLevelContact = normalized.decision_maker_name || normalized.decision_maker_contact || normalized.contact_phone
+        if (!hasMainContact && hasTopLevelContact) {
+          const main = {
+            name: normalized.decision_maker_name || '',
+            title: normalized.decision_maker_title || 'Contact',
+            email: normalized.decision_maker_contact || '',
+            phone: normalized.contact_phone || '',
+            linkedin: '',
+            role: 'main_contact',
+          }
+          normalized.contacts = [main, ...(Array.isArray(normalized.contacts) ? normalized.contacts : [])]
+        }
+        // Strip redundant top-level contact fields from response; contacts array is canonical
+        normalized.decision_maker_name = ''
+        normalized.decision_maker_title = ''
+        normalized.decision_maker_contact = ''
+        normalized.contact_phone = ''
         return normalized
       }),
       brand,
@@ -290,6 +309,26 @@ export async function POST(request: Request) {
     // Remove duplicate contacts and merge with top-level decision-maker info
     normalizedBody.contacts = dedupeContacts(normalizedBody.contacts || [], normalizedBody)
 
+    // Canonicalize contact storage: contacts is the single source of truth
+    // Merge any top-level decision-maker fields into contacts, then clear top-level duplicates
+    const topLevelContact = {
+      name: normalizedBody.decision_maker_name || '',
+      title: normalizedBody.decision_maker_title || 'Contact',
+      email: normalizedBody.decision_maker_contact || '',
+      phone: normalizedBody.contact_phone || '',
+      linkedin: '',
+      role: 'main_contact',
+    }
+    if (topLevelContact.name || topLevelContact.email || topLevelContact.phone) {
+      normalizedBody.contacts = dedupeContacts([topLevelContact, ...(normalizedBody.contacts || [])], normalizedBody)
+    } else {
+      normalizedBody.contacts = dedupeContacts(normalizedBody.contacts || [], normalizedBody)
+    }
+    normalizedBody.decision_maker_name = ''
+    normalizedBody.decision_maker_title = ''
+    normalizedBody.decision_maker_contact = ''
+    normalizedBody.contact_phone = ''
+
     const fingerprint = buildFingerprint(
       normalizedBody.entity_name || normalizedBody.name || '',
       normalizedBody.url || '',
@@ -311,6 +350,24 @@ export async function POST(request: Request) {
     const iceScore = computeIceScore(impact, confidence, ease)
     const scoreProfile = buildScoreProfile(impact, confidence, ease)
 
+    const contactQuality = bestContactConfidence(normalizedBody.contacts || [])
+    const hasVerifiedDecisionMaker = contactQuality >= 5
+
+    if ((confidence < 6 || ease < 4) && !hasVerifiedDecisionMaker) {
+      return NextResponse.json(
+        {
+          error: 'Quality gate: low-confidence or low-ease lead requires a verified decision-maker contact',
+          details: {
+            confidence,
+            ease,
+            contactQuality,
+            requirement: 'At least 1 contact with email/phone/Linkedin confidence >= 5',
+          },
+        },
+        { status: 422 }
+      )
+    }
+
     const kanbanColumn = normalizedBody.kanbanColumn || deriveKanbanColumn(iceScore)
 
     const count = await db.collection(config.dbCollection).countDocuments({ kanbanColumn, tenantId })
@@ -320,7 +377,7 @@ export async function POST(request: Request) {
       region: normalizedBody.region || 'US',
       entity_name: normalizedBody.entity_name || normalizedBody.name,
       url: normalizedBody.url || '',
-      contact_phone: normalizedBody.contact_phone || '',
+      contact_phone: '',
       contacts: normalizedBody.contacts || [],
       address: normalizedBody.address || '',
       general_contact: normalizedBody.general_contact || '',
@@ -328,9 +385,9 @@ export async function POST(request: Request) {
       industry: normalizedBody.industry || '',
       sport_or_sector: normalizedBody.sport_or_sector || '',
       level_league: normalizedBody.level_league || '',
-      decision_maker_name: normalizedBody.decision_maker_name || '',
-      decision_maker_title: normalizedBody.decision_maker_title || '',
-      decision_maker_contact: normalizedBody.decision_maker_contact || '',
+      decision_maker_name: '',
+      decision_maker_title: '',
+      decision_maker_contact: '',
       [config.proField]: normalizedBody[config.proField] || [],
       [config.conField]: normalizedBody[config.conField] || [],
       value_proposition: normalizedBody.value_proposition || '',

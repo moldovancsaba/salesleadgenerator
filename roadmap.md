@@ -17,9 +17,9 @@ Organized by delivery phase. Each phase is independently shippable.
 **Milestone:** Users can draft outreach in one click, get notified of hot leads, and save favorite filters.
 
 ### Outreach Templates Status
-- ✅ Segment 3.1: brand-specific template storage + API
-- 🚧 Segment 3.2: routing rules + channel enforcement
-- 🚧 Segment 3.3: delivery UX and template analytics
+- ✅ Segment 3.1: organization-agnostic template storage + brand scoping + `/outreach/templates` management UI
+- ✅ Segment 3.2: routing rules + channel enforcement in outreach logs
+- ✅ Segment 3.3: analytics mode on `/api/outreach-templates?mode=analytics` for usage tracking
 
 ---
 
@@ -86,4 +86,7 @@ Organized by delivery phase. Each phase is independently shippable.
 - ✅ Health + cron observability endpoints
 - ✅ Contact depth: primary + secondary contacts with email/phone
 - ✅ Value props include lead-specific and product-specific angles
-- 🚧 Phase 1 features in progress: outreach templates, alerts, saved views
+- ✅ Outreach templates, routing rules, analytics UI, and management UI shipped
+- ✅ Canonical PATCH mutation path with shared helper and requestId tracing
+- ✅ Backward-compatible tenant queries for legacy leads without tenantId
+- 🚧 Remaining Phase 1 items: alerts/notifications UX, saved views/custom filters

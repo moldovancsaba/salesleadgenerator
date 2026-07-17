@@ -7,9 +7,28 @@ const ISO_COUNTRY_RE = /^[A-Z]{2}$/;
 const URL_RE = /^https?:\/\/\S+$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+[\d][\d\-\s]{7,}$/;
+const LINKEDIN_RE = /^https?:\/\/(www\.)?linkedin\.com\/in\/\S+$/i;
+const CONTACT_CONFIDENCE_RE = /[A-Za-z]{2,}/;
 
-const KANBAN_COLUMNS = new Set(['DRAFT', 'LIVE', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST', 'QUALIFIED', 'DISCOVERED']);
+const KANBAN_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST'];
+const KANBAN_COLUMN_SET = new Set(KANBAN_COLUMNS);
 const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE']);
+
+function contactConfidence(contact: any): number {
+  if (!contact || typeof contact !== 'object') return 0;
+  let score = 0;
+  if (typeof contact.name === 'string' && CONTACT_CONFIDENCE_RE.test(contact.name)) score += 2;
+  if (typeof contact.title === 'string' && contact.title.trim().length > 1) score += 2;
+  if (typeof contact.email === 'string' && EMAIL_RE.test(contact.email)) score += 3;
+  if (typeof contact.phone === 'string' && PHONE_RE.test(contact.phone)) score += 2;
+  if (typeof contact.linkedin === 'string' && LINKEDIN_RE.test(contact.linkedin)) score += 1;
+  return Math.min(10, score);
+}
+
+export function bestContactConfidence(contacts: any[]): number {
+  if (!Array.isArray(contacts) || contacts.length === 0) return 0;
+  return Math.max(...contacts.map(contactConfidence));
+}
 
 export function validateLeadPayload(body: any, brand: string): ValidationResult {
   const errors: string[] = [];
@@ -58,8 +77,8 @@ export function validateLeadPayload(body: any, brand: string): ValidationResult 
   }
 
   const kanbanColumn = body.kanbanColumn;
-  if (!kanbanColumn || typeof kanbanColumn !== 'string' || !KANBAN_COLUMNS.has(kanbanColumn.toUpperCase())) {
-    errors.push('kanbanColumn must be one of: DRAFT, LIVE, ENGAGED, PROPOSAL, WON, LOST, QUALIFIED, DISCOVERED');
+  if (!kanbanColumn || typeof kanbanColumn !== 'string' || !KANBAN_COLUMN_SET.has(kanbanColumn.toUpperCase())) {
+    errors.push('kanbanColumn must be one of: ' + KANBAN_COLUMNS.join(', '));
   }
 
   const ice = body.ice;
@@ -83,12 +102,6 @@ export function validateLeadPayload(body: any, brand: string): ValidationResult 
     const expectedScore = impact * confidence * ease;
     if (Number.isFinite(expectedScore) && body.iceScore != null && Number(body.iceScore) !== expectedScore) {
       errors.push(`iceScore must equal impact×confidence×ease (${expectedScore})`);
-    }
-  }
-
-  if (kanbanColumn && ['LIVE', 'ENGAGED'].includes(String(kanbanColumn).toUpperCase())) {
-    if (!Array.isArray(body.contacts) || body.contacts.length === 0) {
-      errors.push('contacts array is required for LIVE/ENGAGED leads');
     }
   }
 
@@ -139,8 +152,8 @@ export function validatePatchPayload(body: any, brand: string): ValidationResult
 
   if (action === 'COLUMN_MOVE') {
     const kanbanColumn = body.kanbanColumn;
-    if (!kanbanColumn || typeof kanbanColumn !== 'string' || !KANBAN_COLUMNS.has(kanbanColumn.toUpperCase())) {
-      errors.push('kanbanColumn must be one of: DRAFT, LIVE, ENGAGED, PROPOSAL, WON, LOST, QUALIFIED, DISCOVERED');
+    if (!kanbanColumn || typeof kanbanColumn !== 'string' || !KANBAN_COLUMN_SET.has(kanbanColumn.toUpperCase())) {
+      errors.push('kanbanColumn must be one of: ' + KANBAN_COLUMNS.join(', '));
     }
   }
 

@@ -83,6 +83,8 @@ Unique index on `fingerprint` prevents duplicate leads.
 | GET | `/api/search-learning` | Search analytics |
 | GET | `/api/health` | Health check |
 | GET | `/api/admin/cron-status` | Cron observability |
+| GET/POST | `/api/outreach-templates` | Template CRUD and analytics |
+| GET | `/api/outreach-logs` | Outreach activity logs |
 
 ## Database Schema
 
@@ -104,8 +106,10 @@ Unique index on `fingerprint` prevents duplicate leads.
   decision_maker_title: string
   decision_maker_contact: string
   contacts: Array<{ name, title, email, phone, linkedin }>
-  pro_for_<brand>: string[]
-  con_for_<brand>: string[]
+  pro_for_cogmap: string[]
+  con_for_cogmap: string[]
+  pro_for_seyu: string[]
+  con_for_seyu: string[]
   value_proposition: string
   ice: { impact: number, confidence: number, ease: number }
   iceScore: number
@@ -122,6 +126,7 @@ Unique index on `fingerprint` prevents duplicate leads.
   declinedAt?: string
   tags: string[]
   notes: string
+  tenantId?: string
   createdAt: string
   updatedAt: string
 }
@@ -141,6 +146,7 @@ Unique index on `fingerprint` prevents duplicate leads.
   beforeState: object
   afterState: object
   createdAt: string
+  tenantId?: string
 }
 ```
 
@@ -152,12 +158,13 @@ Unique index on `fingerprint` prevents duplicate leads.
 - **Board:** Horizontal scroll between columns, vertical scroll within columns
 - **Cards:** Minimal (name + ICE + region), tap for detail modal
 - **Drag:** Long-press + pointer events for cross-column moves
-- **Filters:** Collapsible (region chips + search)
+- **Filters:** Collapsible (region chips + search + tenantId)
 
 ## Observability
 
 - `/api/health` returns `dbLatencyMs`, `leadCounts`, and `lastError`
 - `/api/admin/cron-status` returns per-brand run counts, error rates, and lead creation counts
+- `/api/outreach-templates?mode=analytics` returns template usage stats
 - Outcome logs record every mutation for audit/learning
 
 ## Security
@@ -165,6 +172,7 @@ Unique index on `fingerprint` prevents duplicate leads.
 - Public read access for lead listings and health checks
 - Write and admin endpoints require API key auth via `x-api-key`
 - Input validation enforced before database writes
+- CORS and security headers enforced via middleware
 
 ## Hosting
 
@@ -176,4 +184,4 @@ Unique index on `fingerprint` prevents duplicate leads.
 
 ---
 
-*Last updated: July 17, 2026*
+*Last updated: July 18, 2026*
