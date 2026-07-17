@@ -74,37 +74,37 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
 
   async function handleAccept() {
     setBusy(true);
-    onAction(lead._id, "ACCEPT", { annotation: annotation || "Accepted" });
+    await onAction(lead._id, "ACCEPT", { annotation: annotation || "Accepted" });
     setBusy(false);
   }
 
   async function handleDecline() {
     setBusy(true);
-    onAction(lead._id, "DECLINE", { declineReason, annotation });
+    await onAction(lead._id, "DECLINE", { declineReason, annotation });
     setBusy(false);
   }
 
   async function handlePin() {
     setBusy(true);
-    onAction(lead._id, "PIN", { annotation });
+    await onAction(lead._id, "PIN", { annotation });
     setBusy(false);
   }
 
   async function handleRefresh() {
     setBusy(true);
-    onAction(lead._id, "REQUEST_REFRESH", { annotation });
+    await onAction(lead._id, "REQUEST_REFRESH", { annotation });
     setBusy(false);
   }
 
   async function handleModify() {
     setBusy(true);
-    onAction(lead._id, "MODIFY", { annotation });
+    await onAction(lead._id, "MODIFY", { annotation });
     setBusy(false);
   }
 
   async function handleDelete() {
     setBusy(true);
-    onDelete(lead._id);
+    await onDelete(lead._id);
     setBusy(false);
   }
 
@@ -312,8 +312,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
               <Button 
                 color="green" 
                 leftSection={<IconThumbUp size={16} />}
-                onClick={handleAccept}
-                disabled={busy}
+                disabled={busy} onClick={handleAccept}
               >
                 Accept → QUALIFIED
               </Button>
@@ -329,8 +328,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
               <Button 
                 color="blue" 
                 leftSection={<IconPin size={16} />}
-                onClick={handlePin}
-                disabled={busy}
+                disabled={busy} onClick={handlePin}
                 variant="light"
               >
                 Pin to ENGAGED
@@ -338,8 +336,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
               <Button 
                 color="gray" 
                 leftSection={<IconRefresh size={16} />}
-                onClick={handleRefresh}
-                disabled={busy}
+                disabled={busy} onClick={handleRefresh}
                 variant="light"
               >
                 Request Refresh
@@ -357,8 +354,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
                 color="red" 
                 variant="subtle"
                 leftSection={<IconTrash size={16} />}
-                onClick={handleDelete}
-                disabled={busy}
+                disabled={busy} onClick={handleDelete}
               >
                 Delete
               </Button>
@@ -376,8 +372,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
               <Group gap="sm">
                 <Button 
                   color="red" 
-                  onClick={handleDecline}
-                  disabled={busy}
+                  disabled={busy} onClick={handleDecline}
                   style={{ flex: 1 }}
                 >
                   Confirm Decline

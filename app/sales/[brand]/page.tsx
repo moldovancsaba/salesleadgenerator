@@ -28,6 +28,7 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchLeads();
@@ -35,6 +36,23 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
 
   function showError(message: string) {
     setErrorMessage(message);
+  }
+
+  function setActionBusy(leadId: string, action: string, busy: boolean) {
+    const key = `${leadId}:${action}`;
+    setActionLoading((prev) => {
+      const next = { ...prev };
+      if (busy) {
+        next[key] = true;
+      } else {
+        delete next[key];
+      }
+      return next;
+    });
+  }
+
+  function isActionBusy(leadId: string, action: string) {
+    return Boolean(actionLoading[`${leadId}:${action}`]);
   }
 
   async function fetchLeads() {
@@ -67,6 +85,8 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
     const lead = leads.find((l) => l._id === leadId);
     const fromColumn = lead?.kanbanColumn;
 
+    if (isActionBusy(leadId, 'COLUMN_MOVE')) return;
+    setActionBusy(leadId, 'COLUMN_MOVE', true);
     try {
       const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`, {
         method: "PATCH",
@@ -91,11 +111,16 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
       );
     } catch (error) {
       console.error("Error moving lead:", error);
+      showError(error instanceof Error ? error.message : "Failed to move lead");
       await fetchLeads();
+    } finally {
+      setActionBusy(leadId, 'COLUMN_MOVE', false);
     }
   }
 
   async function handleAction(leadId: string, action: string, payload: any) {
+    if (isActionBusy(leadId, action)) return;
+    setActionBusy(leadId, action, true);
     try {
       const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`, {
         method: "PATCH",
@@ -115,12 +140,16 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
       setSelectedLead(null);
     } catch (err) {
       console.error("Action failed", err);
-      showError(err instanceof Error ? err.message : "Action failed");
+      showError(err instanceof Error ? err.message : `Action ${action} failed`);
+    } finally {
+      setActionBusy(leadId, action, false);
     }
   }
 
   async function handleDelete(leadId: string) {
     if (!confirm("Permanently delete this lead?")) return;
+    if (isActionBusy(leadId, 'DELETE')) return;
+    setActionBusy(leadId, 'DELETE', true);
     try {
       const response = await fetch(`/api/leads/${leadId}?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`, {
         method: "DELETE",
@@ -131,6 +160,8 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
     } catch (err) {
       console.error("Delete failed", err);
       showError("Delete failed: " + (err instanceof Error ? err.message : "unknown"));
+    } finally {
+      setActionBusy(leadId, 'DELETE', false);
     }
   }
 
