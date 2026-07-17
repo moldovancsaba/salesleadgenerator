@@ -16,6 +16,11 @@ Organized by delivery phase. Each phase is independently shippable.
 
 **Milestone:** Users can draft outreach in one click, get notified of hot leads, and save favorite filters.
 
+### Outreach Templates Status
+- ✅ Segment 3.1: brand-specific template storage + API
+- 🚧 Segment 3.2: routing rules + channel enforcement
+- 🚧 Segment 3.3: delivery UX and template analytics
+
 ---
 
 ## Phase 2 — Core Platform (1–2 months)

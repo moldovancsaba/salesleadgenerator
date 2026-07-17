@@ -24,6 +24,11 @@ This file describes the current implementation and the next deliverable improvem
 - Pre-POST research-agent validation helper in `lib/lead-validator.ts`
 - Single PATCH mutation path in `/api/leads/route.ts`
 - Removed dead public-data fallback branches and unused `source` field
+- Optional `tenantId` scoping for leads, outcome logs, health, and admin routes
+- Frontend pipeline accepts `tenantId` from query params and UI
+- One-click outreach templates with brand-specific defaults (CogMap/Seyu)
+- `/api/outreach-templates` and `/api/outreach-logs` endpoints
+- Outreach compose modal with channel-aware send rules
 
 ### Remaining Gaps
 - Dedicated CORS/security headers middleware
