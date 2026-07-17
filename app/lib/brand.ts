@@ -1,6 +1,6 @@
 export type Brand = 'cogmap' | 'seyu';
 
-export const BRAND_CONFIG: Record<Brand, {
+export const BRAND_CONFIG: Record<string, {
   label: string;
   dbCollection: string;
   proField: string;

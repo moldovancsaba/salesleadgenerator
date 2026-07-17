@@ -6,6 +6,7 @@ import crypto from 'crypto'
 import { requireApiKey } from '../../../lib/api-auth'
 import { validateLeadPayload, validatePatchPayload } from '../../../lib/validate-lead'
 import { generateRequestId } from '../../lib/request-id'
+import { executeLeadAction } from '../../lib/lead-actions'
 
 // Normalize phone to international format
 function normalizePhone(phone: string): string {
@@ -399,152 +400,35 @@ export async function PATCH(request: Request) {
 
   try {
     const brand = getBrand(request);
-    const config = BRAND_CONFIG[brand];
     const tenantId = getTenantId(request);
 
-    if (!isMongoConfigured()) {
-      return NextResponse.json({ error: 'Database not configured', requestId }, { status: 503 })
-    }
-
-    const client = await getClientPromise()
-    const db = client.db()
+    const body = await readBody(request)
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
     if (!id) {
-      return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing id', requestId }, { status: 400 })
     }
 
-    const body = await readBody(request)
-    const validation = validatePatchPayload(body, brand);
-    if (!validation.valid) {
-      return NextResponse.json({ error: 'Validation failed', details: validation.errors }, { status: 400 });
+    const action = String(body.action || '').toUpperCase()
+    const allowed = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE'])
+    if (!allowed.has(action)) {
+      return NextResponse.json({ error: `Unsupported action: ${action}` }, { status: 400 })
     }
 
-    const normalizedBody = normalizeLead(body, brand)
-    const normalizedWarnings = extractWarnings(normalizedBody)
-    const { ObjectId } = await import('mongodb')
-
-    const tenantFilter = tenantId === 'default' ? { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] } : { tenantId }
-
-    const existing = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(id), ...tenantFilter })
-    if (!existing) {
-      return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
-    }
-
-    const updateData: any = { updatedAt: new Date() }
-    let action = normalizedBody.action
-    let outcomeValue = action
-    let teachingWeight = 50
-
-    if (normalizedBody.kanbanColumn && normalizedBody.kanbanColumn !== existing.kanbanColumn) {
-      action = 'COLUMN_MOVE'
-      const now = new Date()
-      updateData.kanbanColumn = normalizedBody.kanbanColumn
-      updateData.sortOrder = normalizedBody.sortOrder || 0
-      updateData.manualLaneOverrideAt = now
-      updateData.manualLaneCooldownUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-      updateData.manualLaneFloorColumn = normalizedBody.kanbanColumn
-      updateData.manualLaneOverrideBy = normalizedBody.manualLaneOverrideBy || 'webapp-user'
-      teachingWeight = 70
-      outcomeValue = `Moved to ${normalizedBody.kanbanColumn}`
-    }
-
-    if (action === 'ACCEPT') {
-      updateData.status = 'qualified'
-      updateData.acceptanceCount = (existing.acceptanceCount || 0) + 1
-      updateData.feedbackScore = (existing.feedbackScore || 0) + 1
-      teachingWeight = 80
-    }
-
-    if (action === 'DECLINE') {
-      updateData.status = 'lost'
-      updateData.kanbanColumn = 'LOST'
-      updateData.declineReason = normalizedBody.declineReason || 'OTHER'
-      updateData.declinedAt = new Date()
-      updateData.declineCount = (existing.declineCount || 0) + 1
-      updateData.feedbackScore = (existing.feedbackScore || 0) - 1
-      teachingWeight = 100
-      outcomeValue = normalizedBody.declineReason || 'DECLINED'
-    }
-
-    if (action === 'MODIFY') {
-      const fields = ['entity_name', 'url', 'address', 'general_contact', 'size', 'industry',
-                      'sport_or_sector', 'level_league', 'decision_maker_name', 'decision_maker_title',
-                      'decision_maker_contact', 'value_proposition', 'notes', 'tags']
-      fields.forEach(field => {
-        if (normalizedBody[field] !== undefined) updateData[field] = normalizedBody[field]
-      })
-      if (normalizedBody[config.proField]) updateData[config.proField] = normalizedBody[config.proField]
-      if (normalizedBody[config.conField]) updateData[config.conField] = normalizedBody[config.conField]
-
-      if (normalizedBody.qualityStatus) {
-        const currentLeadQuality = updateData.qualityStatus || existing.qualityStatus || 'DRAFT'
-        const upstreamQuality = normalizedBody.upstreamQualityStatuses || ['DRAFT']
-
-        const { enforceQualityCeiling } = await import('../../../lib/quality-registry')
-        updateData.qualityStatus = enforceQualityCeiling(
-          normalizedBody.qualityStatus,
-          upstreamQuality
-        )
-      }
-
-      teachingWeight = 95
-    }
-
-    if (action === 'PIN') {
-      updateData.kanbanColumn = 'ENGAGED'
-      const now = new Date()
-      updateData.manualLaneOverrideAt = now
-      updateData.manualLaneCooldownUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000)
-      outcomeValue = 'Pinned to ENGAGED'
-    }
-
-    if (action === 'REQUEST_REFRESH') {
-      outcomeValue = 'Refresh requested'
-    }
-
-    if (normalizedWarnings.length > 0) {
-      console.warn('PATCH with normalization warnings', normalizedWarnings)
-    }
-
-    const result = await db.collection(config.dbCollection).findOneAndUpdate(
-      { _id: new ObjectId(id), ...tenantFilter },
-      { $set: updateData },
-      { returnDocument: 'after' }
-    )
-
-    const updatedLead = (result as any)?.value || (result as any)
-
-    if (!updatedLead) {
-      return NextResponse.json({ error: 'Lead not found after update' }, { status: 404 })
-    }
-
-    await db.collection('outcomelogs').insertOne({
+    const result = await executeLeadAction({
       leadId: id,
-      action,
-      outcomeType: action,
-      outcomeValue,
-      annotation: body.annotation || body.notes || '',
-      teachingWeight,
-      actorType: 'USER',
-      actedBy: 'webapp-user',
-      beforeState: {
-        kanbanColumn: existing.kanbanColumn,
-        status: existing.status,
-      },
-      afterState: {
-        kanbanColumn: updateData.kanbanColumn || existing.kanbanColumn,
-        status: updateData.status || existing.status,
-      },
-      createdAt: new Date(),
+      action: action as any,
+      brand,
       tenantId,
+      payload: body,
     })
 
-    const normalizedLead = normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }, brand)
-    normalizedLead.contacts = dedupeContacts(normalizedLead.contacts || [], normalizedLead)
-    return NextResponse.json({ success: true, lead: normalizedLead, requestId })
+    if (!result.success) {
+      return NextResponse.json({ error: result.error || 'Action failed', requestId }, { status: 400 })
+    }
 
+    return NextResponse.json({ success: true, lead: result.lead, requestId })
   } catch (error: any) {
     console.error('PATCH Error:', error)
     return NextResponse.json(

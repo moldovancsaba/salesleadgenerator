@@ -1,6 +1,6 @@
 import { BRAND_CONFIG } from './brand'
 import { normalizeLead } from './normalize-lead'
-import { validatePatchPayload } from '../validate-lead'
+import { validatePatchPayload } from '../../lib/validate-lead'
 
 export type LeadActionInput = {
   brand: string
@@ -27,7 +27,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
 
   const config = BRAND_CONFIG[brand]
 
-  const client = await (await import('../mongodb')).getClientPromise()
+  const client = await (await import('../../lib/mongodb')).getClientPromise()
   const db = client.db()
   const { ObjectId } = await import('mongodb')
 
@@ -80,7 +80,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     if (normalizedBody[config.proField]) updateData[config.proField] = normalizedBody[config.proField]
     if (normalizedBody[config.conField]) updateData[config.conField] = normalizedBody[config.conField]
     if (normalizedBody.qualityStatus) {
-      const { enforceQualityCeiling } = await import('../quality-registry')
+      const { enforceQualityCeiling } = await import('../../lib/quality-registry')
       const upstreamQuality = normalizedBody.upstreamQualityStatuses || ['DRAFT']
       updateData.qualityStatus = enforceQualityCeiling(normalizedBody.qualityStatus, upstreamQuality)
     }
