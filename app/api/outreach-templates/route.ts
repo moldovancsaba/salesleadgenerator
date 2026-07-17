@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
 import { requireApiKey } from '../../../lib/api-auth'
-import { BRAND_CONFIG, resolveBrand } from '../../lib/brand'
-import { DEFAULT_TEMPLATES as DEFAULT_COGMAP_TEMPLATES } from '../../lib/outreach/cogmap-templates'
-import { DEFAULT_TEMPLATES as DEFAULT_SEYU_TEMPLATES } from '../../lib/outreach/seyu-templates'
+import { DEFAULT_OUTREACH_TEMPLATES } from '../../lib/outreach/default-templates'
+import type { OutreachTemplate } from '../../lib/outreach/default-templates'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,14 +12,10 @@ function getTenantId(request: Request): string {
   return tenantId || 'default'
 }
 
-function getBrand(request: Request): 'cogmap' | 'seyu' {
+function getBrand(request: Request): string {
   const url = new URL(request.url)
-  const brandParam = url.searchParams.get('brand') || 'cogmap'
-  return resolveBrand(brandParam)
-}
-
-function getBrandDefaults(brand: 'cogmap' | 'seyu') {
-  return brand === 'seyu' ? DEFAULT_SEYU_TEMPLATES : DEFAULT_COGMAP_TEMPLATES
+  const brand = (url.searchParams.get('brand') || '').trim()
+  return brand || 'default'
 }
 
 export async function GET(request: Request) {
@@ -29,21 +24,20 @@ export async function GET(request: Request) {
     const brand = getBrand(request)
     const { searchParams } = new URL(request.url)
     const industry = (searchParams.get('industry') || '').trim()
-    const channel = (searchParams.get('channel') || '').trim() as 'email' | 'linkedin' | ''
+    const channel = (searchParams.get('channel') || '').trim()
 
     if (!isMongoConfigured()) {
-      const defaults = getBrandDefaults(brand)
-      const filtered = defaults.filter((t) => {
+      const defaults = DEFAULT_OUTREACH_TEMPLATES.filter((t: OutreachTemplate) => {
         if (industry && t.industry !== industry) return false
         if (channel && t.channel !== channel) return false
         return true
       })
-      return NextResponse.json({ templates: filtered, source: 'default', brand })
+      return NextResponse.json({ templates: defaults, source: 'default', brand })
     }
 
     const client = await clientPromise
     const db = client.db()
-    const filter: any = { tenantId, brand }
+    const filter: Record<string, string> = { tenantId, brand }
     if (industry) filter.industry = industry
     if (channel) filter.channel = channel
 

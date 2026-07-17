@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
 import { requireApiKey } from '../../../lib/api-auth'
+import { evaluateOutreachRouting } from '../../lib/outreach/routing-rules'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,8 @@ export async function GET(request: Request) {
         body: log.body,
         createdAt: log.createdAt,
         tenantId: log.tenantId,
+        routingAllowed: log.routingAllowed,
+        routingReason: log.routingReason,
       })),
       source: 'mongodb',
     })
@@ -54,7 +57,7 @@ export async function POST(request: Request) {
     const body = await request.json()
 
     const leadId = String(body.leadId || '').trim()
-    const brand = String(body.brand || 'cogmap').trim()
+    const brand = String(body.brand || 'default').trim()
     const channel = String(body.channel || '').trim() as 'email' | 'linkedin'
     const templateId = body.templateId ? String(body.templateId) : undefined
     const subject = body.subject ? String(body.subject) : undefined
@@ -66,6 +69,22 @@ export async function POST(request: Request) {
 
     if (!['email', 'linkedin'].includes(channel)) {
       return NextResponse.json({ error: 'channel must be email or linkedin' }, { status: 400 })
+    }
+
+    const routing = evaluateOutreachRouting(channel, {
+      decision_maker_contact: body.decision_maker_contact,
+      decision_maker_name: body.decision_maker_name,
+      url: body.url,
+      industry: body.industry,
+      sport_or_sector: body.sport_or_sector,
+    }, bodyText)
+
+    if (!routing.allowed) {
+      return NextResponse.json({ error: routing.reason || 'Outreach not allowed for this channel/lead state.' }, { status: 400 })
+    }
+
+    if (channel === 'email' && !subject) {
+      return NextResponse.json({ error: 'subject is required for email outreach' }, { status: 400 })
     }
 
     if (!isMongoConfigured()) {
@@ -83,6 +102,8 @@ export async function POST(request: Request) {
       channel,
       subject,
       body: bodyText,
+      routingAllowed: routing.allowed,
+      routingReason: routing.reason || null,
       createdAt: new Date(),
     }
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title } from '@mantine/core';
 import { IconX } from '@tabler/icons-react';
+import { evaluateOutreachRouting } from '../lib/outreach/routing-rules';
 
 type Props = {
   opened: boolean;
@@ -42,7 +43,7 @@ function interpolate(template: string, values: Record<string, string>): string {
   }, template);
 }
 
-export function OutreachComposeModal({ opened, onClose, lead, brand = 'cogmap', onSent }: Props) {
+export function OutreachComposeModal({ opened, onClose, lead, brand = 'default', onSent }: Props) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
   const [templateId, setTemplateId] = useState<string | null>(null);
@@ -52,19 +53,11 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'cogmap', 
   const [sending, setSending] = useState(false);
 
   const industry = lead.industry || lead.sport_or_sector || '';
-  const decisionEmail = typeof lead.decision_maker_contact === 'string' ? lead.decision_maker_contact.trim() : '';
-  const hasEmailContact = decisionEmail.includes('@');
-  const hasLinkedInIdentity = Boolean((lead.decision_maker_name || '').trim().length > 0);
-  const canSendEmail = channel === 'email' && hasEmailContact && body.trim().length > 0;
-  const canSendLinkedIn = channel === 'linkedin' && hasLinkedInIdentity && body.trim().length > 0;
-  const canSend = canSendEmail || canSendLinkedIn;
-  const channelBlockReason = channel === 'email'
-    ? !hasEmailContact
-      ? 'Add a decision maker email before sending email outreach.'
-      : undefined
-    : !hasLinkedInIdentity
-      ? 'Add a decision maker name before sending LinkedIn outreach.'
-      : undefined;
+  const routeResult = evaluateOutreachRouting(channel, lead, body);
+  const channelBlockReason = routeResult.allowed ? undefined : routeResult.reason;
+  const canSendEmail = channel === 'email' && routeResult.allowed && body.trim().length > 0 && (channel === 'email' ? subject.trim().length > 0 : true);
+  const canSendLinkedIn = channel === 'linkedin' && routeResult.allowed && body.trim().length > 0;
+  const canSend = channel === 'email' ? canSendEmail : canSendLinkedIn;
 
   useEffect(() => {
     if (!opened) return;
@@ -122,6 +115,11 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'cogmap', 
           channel,
           subject: channel === 'email' ? subject : undefined,
           body,
+          decision_maker_contact: lead.decision_maker_contact,
+          decision_maker_name: lead.decision_maker_name,
+          url: lead.url,
+          industry: lead.industry,
+          sport_or_sector: lead.sport_or_sector,
         }),
       })
       onSent?.({ leadId: lead._id, templateId: templateId || undefined, channel, subject, body })
