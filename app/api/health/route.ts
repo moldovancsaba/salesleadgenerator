@@ -2,13 +2,21 @@ import { NextResponse } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
 import { BRAND_CONFIG } from '../../lib/brand'
 
-export async function GET() {
+function getTenantId(request: Request): string {
+  const url = new URL(request.url);
+  const tenantId = (url.searchParams.get('tenantId') || '').trim();
+  return tenantId || '';
+}
+
+export async function GET(request: Request) {
   const started = Date.now()
   let database = 'unavailable'
   let dbLatencyMs: number | null = null
   let leadCounts: Record<string, number> = {}
+  let tenantLeadCounts: Record<string, number> | null = null
   let status: 'ok' | 'degraded' | 'error' = 'error'
   let lastError: { timestamp?: string; message?: string } | null = null
+  const tenantId = getTenantId(request)
 
   try {
     if (!clientPromise) {
@@ -18,6 +26,8 @@ export async function GET() {
           database,
           dbLatencyMs: null,
           leadCounts,
+          tenantId: tenantId || undefined,
+          tenantLeadCounts,
           lastError: { timestamp: new Date().toISOString(), message: 'Database client not configured' },
           timestamp: new Date().toISOString(),
         },
@@ -44,6 +54,19 @@ export async function GET() {
           leadCounts[brandKey] = -1
         }
       }
+
+      if (tenantId) {
+        const tenantCounts: Record<string, number> = {}
+        for (const [brandKey, config] of Object.entries(BRAND_CONFIG)) {
+          try {
+            const count = await db.collection(config.dbCollection).countDocuments({ tenantId })
+            tenantCounts[brandKey] = count
+          } catch {
+            tenantCounts[brandKey] = -1
+          }
+        }
+        tenantLeadCounts = tenantCounts
+      }
     } catch {
       // Non-fatal: counts are informational
     }
@@ -55,6 +78,8 @@ export async function GET() {
       database,
       dbLatencyMs,
       leadCounts,
+      tenantId: tenantId || undefined,
+      tenantLeadCounts,
       lastError,
       timestamp: new Date().toISOString(),
     })
@@ -66,6 +91,8 @@ export async function GET() {
         database,
         dbLatencyMs: elapsed,
         leadCounts,
+        tenantId: tenantId || undefined,
+        tenantLeadCounts,
         lastError: {
           timestamp: new Date().toISOString(),
           message: error?.message || 'Unknown health check failure',

@@ -22,10 +22,18 @@ function hoursAgo(hours: number): Date {
   return new Date(Date.now() - hours * 60 * 60 * 1000)
 }
 
+function getTenantId(request: Request): string {
+  const url = new URL(request.url);
+  const tenantId = (url.searchParams.get('tenantId') || 'default').trim();
+  return tenantId || 'default';
+}
+
 export const dynamic = 'force-dynamic'
 export async function GET(request: Request) {
   const authError = requireApiKey(request)
   if (authError) return authError
+
+  const tenantId = getTenantId(request)
 
   try {
     const client = await clientPromise
@@ -33,10 +41,10 @@ export async function GET(request: Request) {
     const since24h = hoursAgo(24)
     const since168h = hoursAgo(168) // 7 days
 
-    // Fetch recent outcome logs for all brands
+    // Tenant-isolated outcome log fetch
     const [logs24h, logs168h] = await Promise.all([
-      db.collection(COLLECTION).find({ createdAt: { $gte: since24h } }).sort({ createdAt: -1 }).limit(500).toArray(),
-      db.collection(COLLECTION).find({ createdAt: { $gte: since168h } }).sort({ createdAt: -1 }).limit(2000).toArray(),
+      db.collection(COLLECTION).find({ createdAt: { $gte: since24h }, tenantId }).sort({ createdAt: -1 }).limit(500).toArray(),
+      db.collection(COLLECTION).find({ createdAt: { $gte: since168h }, tenantId }).sort({ createdAt: -1 }).limit(2000).toArray(),
     ])
 
     const byBrand24h = new Map<string, any[]>()
@@ -117,6 +125,7 @@ export async function GET(request: Request) {
       status: overallStatus,
       checkedAt: new Date().toISOString(),
       window: '24h',
+      tenantId,
       brands: statuses,
     })
   } catch (error: any) {
