@@ -26,13 +26,17 @@ This file describes the current implementation and the next deliverable improvem
 - Removed dead public-data fallback branches and unused `source` field
 - Optional `tenantId` scoping for leads, outcome logs, health, and admin routes
 - Frontend pipeline accepts `tenantId` from query params and UI
-- One-click outreach templates with brand-specific defaults (CogMap/Seyu)
-- `/api/outreach-templates` and `/api/outreach-logs` endpoints
+- One-click outreach templates with organization-agnostic defaults
+- `/api/outreach-templates` with analytics mode and brand scoping
+- `/api/outreach-logs` with server-side channel routing enforcement
 - Outreach compose modal with channel-aware send rules
+- Outreach template management UI at `/outreach/templates`
+- Backward-compatible tenant queries for legacy leads without tenantId
 
 ### Remaining Gaps
 - Dedicated CORS/security headers middleware
 - Test coverage
+- Global toast/notification UX for action failures
 - Retry/batch verification in active research-agent runner
 
 ---
