@@ -12,11 +12,14 @@ import { resolveBrand, BRAND_CONFIG } from "../../lib/brand";
 
 type Props = {
   params: { brand: string };
+  searchParams?: Record<string, string | string[]>;
 };
 
-export default function BrandPipelinePage({ params }: Props) {
+export default function BrandPipelinePage({ params, searchParams }: Props) {
   const brand = resolveBrand(params.brand);
   const config = BRAND_CONFIG[brand];
+  const urlTenant = typeof searchParams?.tenantId === 'string' ? searchParams.tenantId : '';
+  const [tenantId, setTenantId] = useState<string>(() => urlTenant || 'default');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [countryFilter, setCountryFilter] = useState<string>("ALL");
@@ -28,7 +31,7 @@ export default function BrandPipelinePage({ params }: Props) {
 
   useEffect(() => {
     fetchLeads();
-  }, []);
+  }, [brand, tenantId]);
 
   function showError(message: string) {
     setErrorMessage(message);
@@ -42,7 +45,7 @@ export default function BrandPipelinePage({ params }: Props) {
       let totalPages = 1;
 
       do {
-        const response = await fetch(`/api/leads?brand=${brand}&limit=500&page=${page}`);
+        const response = await fetch(`/api/leads?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}&limit=500&page=${page}`);
         if (!response.ok) throw new Error("Failed to fetch leads");
         const data = await response.json();
         const pageLeads = (data.leads || []).map((l: any) => normalizeLeadShared(l, brand));
@@ -65,7 +68,7 @@ export default function BrandPipelinePage({ params }: Props) {
     const fromColumn = lead?.kanbanColumn;
 
     try {
-      const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}`, {
+      const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -94,7 +97,7 @@ export default function BrandPipelinePage({ params }: Props) {
 
   async function handleAction(leadId: string, action: string, payload: any) {
     try {
-      const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}`, {
+      const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...payload }),
@@ -119,7 +122,7 @@ export default function BrandPipelinePage({ params }: Props) {
   async function handleDelete(leadId: string) {
     if (!confirm("Permanently delete this lead?")) return;
     try {
-      const response = await fetch(`/api/leads/${leadId}?brand=${brand}`, {
+      const response = await fetch(`/api/leads/${leadId}?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Failed to delete");
@@ -189,6 +192,20 @@ export default function BrandPipelinePage({ params }: Props) {
         <Group justify="space-between" align="center">
           <Group gap="xs">
             <Text fw={700} size="sm">{config.label}</Text>
+            <input
+              type="text"
+              value={tenantId}
+              onChange={(e) => setTenantId(e.target.value || 'default')}
+              placeholder="tenantId"
+              title="Tenant ID"
+              style={{
+                padding: '0.2rem 0.4rem',
+                borderRadius: '0.25rem',
+                border: '1px solid var(--mantine-color-gray-3)',
+                fontSize: '0.75rem',
+                width: 120,
+              }}
+            />
             <Button
               size="xs"
               variant={viewMode === 'kanban' ? 'filled' : 'light'}

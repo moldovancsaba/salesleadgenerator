@@ -22,6 +22,8 @@ This file describes the current implementation and the next deliverable improvem
 - Expanded `/api/health` with `dbLatencyMs`, `leadCounts`, `lastError`
 - New `/api/admin/cron-status` endpoint for observability
 - Pre-POST research-agent validation helper in `lib/lead-validator.ts`
+- Single PATCH mutation path in `/api/leads/route.ts`
+- Removed dead public-data fallback branches and unused `source` field
 
 ### Remaining Gaps
 - Dedicated CORS/security headers middleware
