@@ -135,7 +135,7 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
   }
 
   const filteredLeads = leads.filter((lead) => {
-    const matchesRegion = countryFilter === "ALL" || lead.country === countryFilter;
+    const matchesRegion = countryFilter === "ALL" || lead.region === countryFilter;
     const matchesSearch = searchQuery
       ? lead.entity_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lead.industry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -239,14 +239,14 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
         {showFilters && (
           <Box mt="xs">
             <Group gap="xs" wrap="wrap">
-              {['ALL', 'US', 'GB', 'FR', 'DE', 'IT', 'ES', 'SA', 'AE', 'PL', 'AU', 'NZ'].map((c) => (
+              {['ALL', 'USA', 'CEE', 'MENA', 'APAC', 'EUROPE'].map((r) => (
                 <Button
-                  key={c}
+                  key={r}
                   size="xs"
-                  variant={countryFilter === c ? 'filled' : 'light'}
-                  onClick={() => setCountryFilter(c)}
+                  variant={countryFilter === r ? 'filled' : 'light'}
+                  onClick={() => setCountryFilter(r)}
                 >
-                  {c === 'ALL' ? 'All' : c}
+                  {r === 'ALL' ? 'All' : r}
                 </Button>
               ))}
               <input

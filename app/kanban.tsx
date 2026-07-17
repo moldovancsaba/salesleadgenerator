@@ -196,7 +196,7 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
         {showFilters && (
           <Box mt="xs">
             <Group gap="xs" wrap="wrap">
-              {['ALL', 'US', 'CEE', 'MENA'].map((r) => (
+              {['ALL', 'USA', 'CEE', 'MENA', 'APAC', 'EUROPE'].map((r) => (
                 <Button
                   key={r}
                   size="xs"

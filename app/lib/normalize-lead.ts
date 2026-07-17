@@ -94,6 +94,18 @@ export function normalizeLead(raw: LeadRaw, brand: string): NormalizedLead {
   const pro = ensureArrayField(proValue);
   const con = ensureArrayField(conValue);
 
+  const VALID_KANBAN_COLUMNS = new Set([
+    'DISCOVERED',
+    'QUALIFIED',
+    'ENGAGED',
+    'PROPOSAL',
+    'WON',
+    'LOST',
+  ]);
+
+  const kanbanColumn = typeof raw.kanbanColumn === 'string' ? raw.kanbanColumn.trim().toUpperCase() : '';
+  const normalizedColumn = kanbanColumn && VALID_KANBAN_COLUMNS.has(kanbanColumn) ? kanbanColumn : 'DISCOVERED';
+
   const normalized: NormalizedLead = {
     ...raw,
     [proKey]: pro,
@@ -113,6 +125,7 @@ export function normalizeLead(raw: LeadRaw, brand: string): NormalizedLead {
     industry: ensureString(raw.industry || raw.sport_or_sector),
     value_proposition: ensureString(raw.value_proposition),
     notes: ensureString(raw.notes),
+    kanbanColumn: normalizedColumn,
   };
 
   if (typeof raw.ice === 'object' && raw.ice !== null) {
