@@ -36,6 +36,22 @@ export async function GET(request: Request) {
     }
 
     const client = await clientPromise
+    if (!client) {
+      return NextResponse.json(
+        {
+          status: 'degraded',
+          database,
+          dbLatencyMs: null,
+          leadCounts,
+          tenantId: tenantId || undefined,
+          tenantLeadCounts,
+          lastError: { timestamp: new Date().toISOString(), message: 'Database client not configured' },
+          timestamp: new Date().toISOString(),
+        },
+        { status: 503 }
+      )
+    }
+
     const db = client.db()
     database = db.databaseName || 'connected'
 
