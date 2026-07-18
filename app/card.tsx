@@ -6,9 +6,14 @@ import { semanticToneToMantineColor } from './utils/semantic-colors';
 
 interface LeadCardProps {
   lead: Lead;
+  onOpen?: () => void;
+  onMoveStart?: (e: React.PointerEvent) => void;
+  onMove?: (e: React.PointerEvent) => void;
+  onMoveEnd?: (e: React.PointerEvent) => void;
+  isDragging?: boolean;
 }
 
-export function LeadCard({ lead }: LeadCardProps) {
+export function LeadCard({ lead, onOpen, onMoveStart, onMove, onMoveEnd, isDragging = false }: LeadCardProps) {
   const ice = (lead.ice?.impact || 0) * (lead.ice?.confidence || 0) * (lead.ice?.ease || 0);
   const region = lead.region || 'US';
   const quality = lead.qualityStatus || 'DRAFT';

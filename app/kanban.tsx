@@ -1,11 +1,9 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { Box, Text, Badge, Button, Group, Stack, TextInput, ActionIcon } from '@mantine/core';
-import { IconChevronLeft, IconChevronRight, IconAdjustmentsHorizontal, IconX, IconCheck, IconGripVertical } from '@tabler/icons-react';
+import { useState, useRef, useEffect } from 'react';
+import { Box, Group, Text, Badge } from '@mantine/core';
 import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
-import { LeadDetailModal } from './detail';
 import { semanticToneToMantineColor } from './utils/semantic-colors';
 import { COLUMNS } from './constants';
 
@@ -16,9 +14,6 @@ type BoardProps = {
 };
 
 export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
-  const [showFilters, setShowFilters] = useState(false);
-  const [regionFilter, setRegionFilter] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const boardRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -30,39 +25,15 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
   } | null>(null);
 
   function leadsInColumn(col: KanbanColumn): Lead[] {
-    let colLeads = leads
+    return leads
       .filter((l) => l.kanbanColumn === col)
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-
-    if (regionFilter !== 'ALL') {
-      colLeads = colLeads.filter((l) => l.region === regionFilter);
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      colLeads = colLeads.filter((l) =>
-        l.entity_name.toLowerCase().includes(q) ||
-        l.decision_maker_name?.toLowerCase().includes(q) ||
-        l.sport_or_sector?.toLowerCase().includes(q)
-      );
-    }
-    return colLeads;
   }
 
-  const totalFiltered = leads.filter((l) => {
-    if (regionFilter !== 'ALL' && l.region !== regionFilter) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return l.entity_name.toLowerCase().includes(q) ||
-        l.decision_maker_name?.toLowerCase().includes(q) ||
-        l.sport_or_sector?.toLowerCase().includes(q);
-    }
-    return true;
-  }).length;
-
-  // Drag handling
   const handleDragStart = (e: React.PointerEvent, leadId: string, column: KanbanColumn) => {
     const target = e.currentTarget as HTMLElement;
-    const rect = target.getBoundingClientRect();
+    target.setPointerCapture(e.pointerId);
+    target.style.opacity = '0.4';
 
     dragRef.current = {
       leadId,
@@ -71,9 +42,6 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
       ghost: null,
       sourceColumn: column,
     };
-
-    target.setPointerCapture(e.pointerId);
-    target.style.opacity = '0.4';
   };
 
   const handleDragMove = (e: React.PointerEvent) => {
@@ -82,7 +50,6 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
     const deltaX = e.clientX - dragRef.current.startX;
     const deltaY = e.clientY - dragRef.current.startY;
 
-    // Create ghost on first significant move
     if (!dragRef.current.ghost && (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10)) {
       const target = e.currentTarget as HTMLElement;
       const rect = target.getBoundingClientRect();
@@ -117,14 +84,13 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
 
     if (!dragRef.current) return;
 
-    // Check if dropped on a different column
     const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
     const dropColumn = dropTarget?.closest('[data-column]');
     const targetColumn = dropColumn?.getAttribute('data-column') as KanbanColumn | undefined;
 
     if (targetColumn && targetColumn !== dragRef.current.sourceColumn) {
       const colLeads = leadsInColumn(targetColumn);
-      const sortOrder = colLeads.length > 0 ? Math.max(...colLeads.map(l => l.sortOrder ?? 0)) + 1 : 0;
+      const sortOrder = colLeads.length > 0 ? Math.max(...colLeads.map((l) => l.sortOrder ?? 0)) + 1 : 0;
       await onMove(dragRef.current.leadId, targetColumn, sortOrder);
     }
 
@@ -132,16 +98,6 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
     setIsDragging(false);
   };
 
-  // Scroll to column
-  const scrollToColumn = (colKey: KanbanColumn) => {
-    if (!boardRef.current) return;
-    const columnEl = boardRef.current.querySelector(`[data-column="${colKey}"]`) as HTMLElement;
-    if (columnEl) {
-      columnEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }
-  };
-
-  // Keyboard navigation
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'ArrowLeft') {
@@ -157,175 +113,88 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
 
   return (
     <Box
+      ref={boardRef}
       style={{
+        flex: 1,
         display: 'flex',
-        flexDirection: 'column',
-        height: '100dvh',
-        overflow: 'hidden',
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        gap: '0.75rem',
+        padding: '0.75rem',
+        scrollSnapType: 'x proximity',
+        WebkitOverflowScrolling: 'touch',
+        scrollBehavior: 'smooth',
       }}
     >
-      {/* Compact header */}
-      <Box
-        style={{
-          padding: '0.5rem 0.75rem',
-          borderBottom: '1px solid var(--mantine-color-gray-2)',
-          backgroundColor: 'var(--mantine-color-gray-0)',
-          flexShrink: 0,
-        }}
-      >
-        <Group justify="space-between" align="center">
-          <Group gap="xs">
-            <Text fw={700} size="sm">{totalFiltered} leads</Text>
-            {isDragging && (
-              <Text size="xs" c="blue" fw={500}>
-                Drop on a column to move
-              </Text>
-            )}
-          </Group>
-          <ActionIcon
-            size="sm"
-            variant={showFilters ? 'filled' : 'light'}
-            color="gray"
-            onClick={() => setShowFilters(!showFilters)}
+      {COLUMNS.map((col) => {
+        const colLeads = leadsInColumn(col.key);
+        const color = semanticToneToMantineColor(col.color);
+
+        return (
+          <Box
+            key={col.key}
+            data-column={col.key}
+            style={{
+              minWidth: 300,
+              maxWidth: 340,
+              flexShrink: 0,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              backgroundColor: 'var(--mantine-color-gray-0)',
+              borderRadius: '0.5rem',
+              border: '1px solid var(--mantine-color-gray-3)',
+            }}
           >
-            <IconAdjustmentsHorizontal size={16} />
-          </ActionIcon>
-        </Group>
-
-        {/* Collapsible filters */}
-        {showFilters && (
-          <Box mt="xs">
-            <Group gap="xs" wrap="wrap">
-              {['ALL', 'USA', 'CEE', 'MENA', 'APAC', 'EUROPE'].map((r) => (
-                <Button
-                  key={r}
-                  size="xs"
-                  variant={regionFilter === r ? 'filled' : 'light'}
-                  onClick={() => setRegionFilter(r)}
-                >
-                  {r === 'ALL' ? 'All' : r}
-                </Button>
-              ))}
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  flex: 1,
-                  minWidth: 100,
-                  padding: '0.3rem 0.5rem',
-                  borderRadius: '0.25rem',
-                  border: '1px solid var(--mantine-color-gray-3)',
-                  fontSize: '0.8rem',
-                }}
-              />
-            </Group>
-          </Box>
-        )}
-      </Box>
-
-      {/* Board — horizontal scroll */}
-      <Box
-        ref={boardRef}
-        style={{
-          flex: 1,
-          display: 'flex',
-          overflowX: 'auto',
-          overflowY: 'hidden',
-          gap: '0.75rem',
-          padding: '0.75rem',
-          scrollSnapType: 'x proximity',
-          WebkitOverflowScrolling: 'touch',
-          scrollBehavior: 'smooth',
-        }}
-      >
-        {COLUMNS.map((col) => {
-          const colLeads = leadsInColumn(col.key);
-          const color = semanticToneToMantineColor(col.color);
-
-          return (
             <Box
-              key={col.key}
-              data-column={col.key}
               style={{
-                minWidth: 300,
-                maxWidth: 340,
+                padding: '0.5rem 0.75rem',
+                borderBottom: '1px solid var(--mantine-color-gray-2)',
+                borderTopLeftRadius: '0.5rem',
+                borderTopRightRadius: '0.5rem',
+                backgroundColor: color,
+                color: '#fff',
                 flexShrink: 0,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                backgroundColor: 'var(--mantine-color-gray-0)',
-                borderRadius: '0.5rem',
-                border: '1px solid var(--mantine-color-gray-3)',
-                scrollSnapAlign: 'start',
               }}
             >
-              {/* Column header */}
-              <Box
-                style={{
-                  padding: '0.6rem 0.75rem',
-                  backgroundColor: `var(--mantine-color-${color}-0)`,
-                  borderBottom: `2px solid var(--mantine-color-${color}-3)`,
-                  borderRadius: '0.5rem 0.5rem 0 0',
-                  flexShrink: 0,
-                }}
-              >
-                <Group justify="space-between" align="center">
-                  <Group gap="xs">
-                    <Text fw={700} size="sm" tt="uppercase">{col.label}</Text>
-                  </Group>
-                  <Badge variant="light" color={color} size="sm">{colLeads.length}</Badge>
-                </Group>
-              </Box>
-
-              {/* Cards — scrollable */}
-              <Box
-                style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  overflowX: 'hidden',
-                  padding: '0.5rem',
-                  WebkitOverflowScrolling: 'touch',
-                }}
-              >
-                {colLeads.length === 0 ? (
-                  <Text size="xs" c="dimmed" ta="center" py="xl">
-                    {col.description}
-                  </Text>
-                ) : (
-                  <Stack gap="xs">
-                    {colLeads.map((lead) => (
-                      <Box
-                        key={lead._id}
-                        onPointerDown={(e) => handleDragStart(e, lead._id, col.key)}
-                        onPointerMove={handleDragMove}
-                        onPointerUp={(e) => handleDragEnd(e, col.key)}
-                        onPointerCancel={() => {
-                          if (dragRef.current?.ghost) dragRef.current.ghost.remove();
-                          dragRef.current = null;
-                          setIsDragging(false);
-                        }}
-                        style={{ touchAction: 'none' }}
-                      >
-                        <Box
-                          onClick={() => !isDragging && onOpenLead(lead)}
-                          style={{
-                            cursor: isDragging ? 'grabbing' : 'pointer',
-                            opacity: dragRef.current?.leadId === lead._id ? 0.4 : 1,
-                          }}
-                        >
-                          <LeadCard lead={lead} />
-                        </Box>
-                      </Box>
-                    ))}
-                  </Stack>
-                )}
-              </Box>
+              <Group justify="space-between">
+                <Text fw={700} size="sm">{col.label}</Text>
+                <Badge size="xs" color="gray" variant="white">
+                  {colLeads.length}
+                </Badge>
+              </Group>
             </Box>
-          );
-        })}
-      </Box>
+
+            <Box
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '0.5rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+              }}
+            >
+              {colLeads.map((lead) => (
+                <LeadCard
+                  key={lead._id}
+                  lead={lead}
+                  onOpen={() => onOpenLead(lead)}
+                  onMoveStart={(e) => handleDragStart(e, lead._id, col.key)}
+                  onMove={handleDragMove}
+                  onMoveEnd={(e) => handleDragEnd(e, col.key)}
+                  isDragging={isDragging}
+                />
+              ))}
+              {!colLeads.length && (
+                <Text size="xs" c="dimmed" ta="center" py="md">
+                  No leads
+                </Text>
+              )}
+            </Box>
+          </Box>
+        );
+      })}
     </Box>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Box, Text, Button, Group, ActionIcon } from "@mantine/core";
+import { showNotification } from "@mantine/notifications";
 import { IconAdjustmentsHorizontal, IconX } from "@tabler/icons-react";
 import type { Lead, KanbanColumn } from "../../types";
 import { KanbanBoard } from "../../kanban";
@@ -9,6 +10,7 @@ import { TableView } from "../../table";
 import { LeadDetailModal } from "../../detail";
 import { normalizeLead as normalizeLeadShared } from "../../lib/normalize-lead";
 import { resolveBrand, BRAND_CONFIG } from "../../lib/brand";
+import { useActionNotifications } from "../../hooks/use-action-notifications";
 
 type Props = {
   params: { brand: string };
@@ -22,13 +24,14 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
   const [tenantId, setTenantId] = useState<string>(() => urlTenant || 'default');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [countryFilter, setCountryFilter] = useState<string>("ALL");
+  const [countyFilter, setCountyFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const { notifyFromResult } = useActionNotifications();
 
   useEffect(() => {
     fetchLeads();
@@ -101,9 +104,11 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
 
       const result = await response.json();
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Failed to move lead");
+        showNotification({ message: result.error || 'Failed to move lead', color: 'red', autoClose: 5000 });
+        throw new Error(result.error || 'Failed to move lead');
       }
 
+      showNotification({ message: `Moved to ${column}`, color: 'green', autoClose: 4000 });
       setLeads((prev) =>
         prev.map((l) =>
           l._id === leadId ? { ...l, kanbanColumn: column, sortOrder } : l
@@ -131,9 +136,11 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
+        showNotification({ message: result.error || `Action ${action} failed`, color: 'red', autoClose: 5000 });
         throw new Error(result.error || `Action ${action} failed`);
       }
 
+      showNotification({ message: `Action completed: ${action}`, color: 'green', autoClose: 4000 });
       setLeads((prev) =>
         prev.map((l) => (l._id === leadId ? { ...l, ...(result.lead || {}) } : l))
       );
@@ -154,25 +161,29 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
       const response = await fetch(`/api/leads/${leadId}?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`, {
         method: "DELETE",
       });
-      if (!response.ok) throw new Error("Failed to delete");
+      if (!response.ok) {
+        showNotification({ message: 'Failed to delete', color: 'red', autoClose: 5000 });
+        throw new Error('Failed to delete');
+      }
+      showNotification({ message: 'Lead deleted', color: 'green', autoClose: 4000 });
       setSelectedLead(null);
       await fetchLeads();
     } catch (err) {
-      console.error("Delete failed", err);
-      showError("Delete failed: " + (err instanceof Error ? err.message : "unknown"));
+      console.error('Delete failed', err);
+      showError('Delete failed: ' + (err instanceof Error ? err.message : 'unknown'));
     } finally {
       setActionBusy(leadId, 'DELETE', false);
     }
   }
 
   const filteredLeads = leads.filter((lead) => {
-    const matchesRegion = countryFilter === "ALL" || lead.region === countryFilter;
+    const matchesCounty = countyFilter === "ALL" || lead.region === countyFilter;
     const matchesSearch = searchQuery
       ? lead.entity_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lead.industry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lead.decision_maker_name?.toLowerCase().includes(searchQuery.toLowerCase())
       : true;
-    return matchesRegion && matchesSearch;
+    return matchesCounty && matchesSearch;
   });
 
   if (loading) {
@@ -274,15 +285,15 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
                 <Button
                   key={r}
                   size="xs"
-                  variant={countryFilter === r ? 'filled' : 'light'}
-                  onClick={() => setCountryFilter(r)}
+                  variant={countyFilter === r ? 'filled' : 'light'}
+                  onClick={() => setCountyFilter(r)}
                 >
                   {r === 'ALL' ? 'All' : r}
                 </Button>
               ))}
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search by name, sector..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{

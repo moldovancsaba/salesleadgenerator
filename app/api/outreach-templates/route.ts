@@ -105,6 +105,15 @@ export async function GET(request: Request) {
 
     const templates = await db.collection('outreach_templates').find(filter).sort({ name: 1 }).toArray()
 
+    if (!templates.length) {
+      const defaults = DEFAULT_OUTREACH_TEMPLATES.filter((t: OutreachTemplate) => {
+        if (industry && t.industry !== industry) return false
+        if (channel && t.channel !== channel) return false
+        return true
+      })
+      return NextResponse.json({ templates: defaults, source: 'default', brand })
+    }
+
     return NextResponse.json({
       templates: templates.map((t) => ({
         id: t._id.toString(),
