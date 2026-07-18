@@ -167,7 +167,7 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 - `/api/health` returns `status`, `database`, `dbLatencyMs`, `leadCounts`, `lastError`, and `timestamp`
 - `/api/admin/cron-status` returns per-brand run counts, error rates, and lead creation counts
 - `/api/admin/data-hygiene` returns malformed lead counts by brand
-- `/api/stats` returns lead totals and breakdowns by kanban column and region
+
 - `/api/outreach-templates?mode=analytics` returns template usage stats
 - Outcome logs record every mutation for audit/learning
 
