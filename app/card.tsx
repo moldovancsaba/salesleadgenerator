@@ -24,6 +24,7 @@ export function LeadCard({ lead, onOpen, onMoveStart, onMove, onMoveEnd, isDragg
 
   return (
     <div
+      onClick={onOpen}
       style={{
         display: 'flex',
         alignItems: 'flex-start',
