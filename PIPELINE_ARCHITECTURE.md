@@ -19,7 +19,7 @@ DISCOVERED → QUALIFIED → ENGAGED → PROPOSAL → WON / LOST
 | **WON** | User only | Closed deal |
 | **LOST** | User only | Declined or no longer viable |
 
-**Cards within each column are sorted by ICE score (highest first).**
+**Cards within each column are sorted by `sortOrder` ascending (server assigns `count * 100` on creation; frontend drag assigns incrementing integers).** ICE score is not used for display ordering.
 
 ## ICE Scoring
 
@@ -61,7 +61,7 @@ Max: 1000
 
 Fingerprint = SHA1(`url` + `entity_name` + `region`)
 
-Unique index on `fingerprint` prevents duplicate leads.
+The API enforces duplicate prevention with `findOne` + 409 responses. The schema defines an index on `fingerprint`, not a unique constraint.
 
 ## Research Agent
 
@@ -80,11 +80,16 @@ Unique index on `fingerprint` prevents duplicate leads.
 | PATCH | `/api/leads?brand=<brand>&id=<id>` | Update lead/actions |
 | GET | `/api/leads/[id]?brand=<brand>` | Fetch single lead |
 | DELETE | `/api/leads/[id]?brand=<brand>` | Delete lead |
-| GET | `/api/search-learning` | Search analytics |
 | GET | `/api/health` | Health check |
+| GET | `/api/stats` | Lead counts by brand/column/region |
+| GET | `/api/search` | Search/suggest |
+| GET | `/api/search-learning` | Search analytics |
+| GET | `/api/boards` | Brand/board config |
 | GET | `/api/admin/cron-status` | Cron observability |
+| GET | `/api/admin/data-hygiene` | Malformed lead counts by brand |
 | GET/POST | `/api/outreach-templates` | Template CRUD and analytics |
 | GET | `/api/outreach-logs` | Outreach activity logs |
+| GET/POST | `/api/outcome-logs` | Outcome logs for feedback learning |
 
 ## Database Schema
 
@@ -112,10 +117,9 @@ Unique index on `fingerprint` prevents duplicate leads.
   con_for_seyu: string[]
   value_proposition: string
   ice: { impact: number, confidence: number, ease: number }
-  iceScore: number
-  fingerprint: string (SHA1, unique)
+  fingerprint: string (SHA1, indexed)
   kanbanColumn: 'DISCOVERED' | 'QUALIFIED' | 'ENGAGED' | 'PROPOSAL' | 'WON' | 'LOST'
-  sortOrder: number (for column sorting by ICE)
+  sortOrder: number
   priority: 'high' | 'medium' | 'low'
   status: string
   qualityStatus?: 'DRAFT' | 'CHECKED' | 'VERIFIED'
@@ -137,14 +141,16 @@ Unique index on `fingerprint` prevents duplicate leads.
 ```typescript
 {
   leadId: string
+  companyId: string
   action: string
   outcomeType: string
   outcomeValue: string
+  annotation: string
   teachingWeight: number
-  actorType: string
-  actedBy: string
   beforeState: object
   afterState: object
+  actorType: string
+  actedBy: string
   createdAt: string
   tenantId?: string
 }
@@ -162,8 +168,10 @@ Unique index on `fingerprint` prevents duplicate leads.
 
 ## Observability
 
-- `/api/health` returns `dbLatencyMs`, `leadCounts`, and `lastError`
+- `/api/health` returns `status`, `database`, `dbLatencyMs`, `leadCounts`, `lastError`, and `timestamp`
 - `/api/admin/cron-status` returns per-brand run counts, error rates, and lead creation counts
+- `/api/admin/data-hygiene` returns malformed lead counts by brand
+- `/api/stats` returns lead totals and breakdowns by kanban column and region
 - `/api/outreach-templates?mode=analytics` returns template usage stats
 - Outcome logs record every mutation for audit/learning
 
@@ -172,7 +180,8 @@ Unique index on `fingerprint` prevents duplicate leads.
 - Public read access for lead listings and health checks
 - Write and admin endpoints require API key auth via `x-api-key`
 - Input validation enforced before database writes
-- CORS and security headers enforced via middleware
+- CORS restricted to configured origins via `middleware.ts`
+- Security headers set in middleware: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`
 
 ## Hosting
 
@@ -181,7 +190,3 @@ Unique index on `fingerprint` prevents duplicate leads.
 | Production app | https://salesleadgenerator.vercel.app |
 | API health | https://salesleadgenerator.vercel.app/api/health |
 | Database | MongoDB Atlas |
-
----
-
-*Last updated: July 18, 2026*

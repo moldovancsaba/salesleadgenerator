@@ -2,10 +2,10 @@
 
 ## Tech Stack
 
-| Layer | Choice | Rationale |
-|-------|--------|-----------|
-| **Frontend** | Next.js 14 (App Router) | Server components, API routes in same repo, Vercel-optimized |
-| **UI Library** | Mantine 7 | Component-rich, accessible, good mobile support |
+| Layer | Choice | Version/Rationale |
+|-------|--------|-------------------|
+| **Frontend** | Next.js 14.2.x | App Router, server components, Vercel-optimized |
+| **UI Library** | Mantine 7.17.8 | Component-rich, accessible, good mobile support |
 | **Database** | MongoDB Atlas | Flexible schema for evolving lead data, Atlas managed |
 | **ODM** | Mongoose 8.x | Schema validation, middleware, direct MongoDB access |
 | **Hosting** | Vercel | Next.js native, preview deployments, env management |
@@ -16,7 +16,7 @@
 
 SLG uses Mongoose for:
 1. **Rapid schema evolution** — lead schema changes frequently during research iteration
-2. **Direct MongoDB features** — aggregations, text search, unique indexes
+2. **Direct MongoDB features** — aggregations, text search, indexes
 3. **No codegen step** — simpler build pipeline on Vercel
 4. **Existing implementation** — stable, tested, no migration needed
 
@@ -43,4 +43,4 @@ SLG uses Mongoose for:
 
 ---
 
-*Updated: July 16, 2026 — SLG v2.0*
+*Updated: July 18, 2026 — SLG v2.1.0*

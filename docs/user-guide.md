@@ -10,6 +10,7 @@ Sales operators and researchers who use the kanban board at `https://salesleadge
 - **Kanban columns**: DISCOVERED → QUALIFIED → ENGAGED → PROPOSAL → WON / LOST.
 - **Brand**: each pipeline is scoped by brand. Use the brand switcher in the UI to switch between CogMap and Seyu, or any configured brand.
 - **ICE score**: 1–1000 score based on Impact × Confidence × Ease.
+- **Sort order**: cards within each column are sorted by `sortOrder`, not by ICE score. New cards are placed at the end of the column.
 
 ## Daily Workflow
 

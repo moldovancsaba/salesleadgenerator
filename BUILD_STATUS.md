@@ -18,6 +18,8 @@ App is deployed at https://salesleadgenerator.vercel.app
 - ✅ Request validation on POST/PATCH
 - ✅ Expanded health endpoint with latency, counts, and error state
 - ✅ Admin cron-status observability endpoint
+- ✅ Admin data-hygiene endpoint
+- ✅ Stats endpoint with brand/column/region breakdowns
 - ✅ Backward-compatible tenant queries for legacy leads without tenantId
 - ✅ Organization-agnostic outreach template system
 - ✅ Outreach routing enforcement persisted in outreach logs
@@ -29,7 +31,7 @@ App is deployed at https://salesleadgenerator.vercel.app
 ### Tech Versions
 | Component | Version |
 |-----------|---------|
-| Next.js | 14.2.35 |
+| Next.js | 14.2.x (lockfile resolves 14.2.35) |
 | React | 18.3.0 |
 | Mantine | 7.17.8 |
 | Mongoose | 8.x |

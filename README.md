@@ -10,7 +10,7 @@
 ## What This Does
 
 1. **Discovers** sports organizations (clubs, federations, franchises) across US, CEE, and MENA.
-2. **Enriches** each lead with decision-maker contacts, ICE scores, pros/cons, and value propositions.
+2. **Enriches** each lead with contacts, ICE scores, pros/cons, and value propositions.
 3. **Scores** leads using ICE = Impact × Confidence × Ease (max 1000).
 4. **Feeds** the kanban board where the agent manages DISCOVERED → QUALIFIED, and the user manages QUALIFIED → ENGAGED → PROPOSAL → WON/LOST.
 5. **Learns** from user feedback (acceptances, declines) to improve future research.
@@ -63,8 +63,8 @@ Runs on a schedule via OpenClaw cron. For each run:
 ### Frontend
 
 - `/sales/[brand]` — pipeline kanban board + table view.
-- `/detail` route or card modal — lead details and actions.
 - `/outreach/templates` — template management UI.
+- `/detail` route or card modal — lead details and actions.
 
 ### Backend
 
@@ -73,8 +73,14 @@ Runs on a schedule via OpenClaw cron. For each run:
 - `/api/leads` `PATCH` — canonical action path: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE.
 - `/api/health` — readiness, DB latency, counts, last error.
 - `/api/admin/cron-status` — observability for automated runs.
+- `/api/admin/data-hygiene` — malformed lead counts by brand.
+- `/api/stats` — lead counts by brand, column, and region.
+- `/api/search` — search/suggest.
+- `/api/search-learning` — search analytics.
+- `/api/boards` — brand/board config.
 - `/api/outreach-templates` — list/create templates; analytics via `?mode=analytics`.
 - `/api/outreach-logs` — outreach activity logs with enforced channel routing.
+- `/api/outcome-logs` — outcome logs for feedback learning.
 
 ---
 
@@ -95,6 +101,7 @@ Runs on a schedule via OpenClaw cron. For each run:
 - **Brand-aware fields** for pros/cons: `pro_for_cogmap`, `con_for_cogmap`, `pro_for_seyu`, `con_for_seyu`.
 - **Tenant scoping:** optional `tenantId`. Default queries include legacy docs with missing `tenantId`.
 - **Fingerprint dedup:** SHA1 of `url` + `entity_name` + `region`.
+- **Contacts are canonical:** top-level contact fields are normalized into `contacts[]` on create and stripped from list/detail responses where possible.
 
 ---
 
@@ -205,6 +212,14 @@ Public health check.
 
 Auth required. Returns per-brand cron health.
 
+### `GET /api/admin/data-hygiene`
+
+Auth required. Returns malformed lead counts by brand.
+
+### `GET /api/stats`
+
+Auth required. Returns lead totals and breakdowns by brand, kanban column, and region.
+
 ### `GET /api/outreach-templates?mode=analytics`
 
 Auth required. Returns template usage analytics.
@@ -216,7 +231,7 @@ Auth required. Returns template usage analytics.
 Write and admin endpoints require the header:
 
 ```
-x-api-key: <key>
+x-api-key: ***
 ```
 
 Set via Vercel environment variable.
@@ -228,20 +243,13 @@ Set via Vercel environment variable.
 curl "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap"
 
 # Create
-curl -X POST "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ***" \
-  -d '{"entity_name":"Test FC","url":"https://test.example.com","region":"US"}'
+curl -X POST "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap"   -H "Content-Type: application/json"   -H "x-api-key: ***"   -d '{"entity_name":"Test FC","url":"https://test.example.com","region":"US"}'
 
 # Action
-curl -X PATCH "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap&id=<id>" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ***" \
-  -d '{"action":"ACCEPT"}'
+curl -X PATCH "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap&id=<id>"   -H "Content-Type: application/json"   -H "x-api-key: ***"   -d '{"action":"ACCEPT"}'
 
 # Admin
-curl "https://salesleadgenerator.vercel.app/api/admin/cron-status" \
-  -H "x-api-key: ***"
+curl "https://salesleadgenerator.vercel.app/api/admin/cron-status"   -H "x-api-key: ***"
 ```
 
 ---
@@ -260,9 +268,14 @@ curl "https://salesleadgenerator.vercel.app/api/admin/cron-status" \
 ## Database
 
 - **MongoDB Atlas** cluster.
-- **Database:** `cogmap`
 - **Collections:** `leads`, `seyu_leads`, `outcomelogs`, `outreach_templates`, `outreach_logs`
-- **Indexes:** `fingerprint`, `kanbanColumn`, `region`, `iceScore`, `tenantId`
+- **Indexes:** `fingerprint`, `kanbanColumn`, `region`, `sortOrder`, `tenantId`
+
+---
+
+## Sorting
+
+Cards are sorted by `sortOrder` within each column. On create, the server assigns `count * 100`; drag updates assign incrementing integers. ICE score is used for qualification thresholds, not for display sort order.
 
 ---
 

@@ -32,8 +32,14 @@ Sales Lead Generator is a Next.js app + API for managing sports sales leads acro
 - `/api/leads` `PATCH` → canonical action endpoint
 - `/api/health` → readiness + DB latency + counts
 - `/api/admin/cron-status` → observability for automated runs
+- `/api/admin/data-hygiene` → malformed lead counts by brand
+- `/api/stats` → lead counts by brand, kanban column, and region
+- `/api/search` → search/suggest
+- `/api/search-learning` → search analytics
+- `/api/boards` → brand/board config
 - `/api/outreach-templates` → template CRUD + analytics
 - `/api/outreach-logs` → outreach activity logs with routing enforcement
+- `/api/outcome-logs` → outcome logs for feedback learning
 
 Auth is enforced on write/admin endpoints via `requireApiKey`.
 
@@ -47,8 +53,10 @@ Auth is enforced on write/admin endpoints via `requireApiKey`.
 
 ## Observability
 
-- Health endpoint: `status`, `dbLatencyMs`, `leadCounts`, `lastError`
+- Health endpoint: `status`, `database`, `dbLatencyMs`, `leadCounts`, `lastError`, `timestamp`
 - Admin cron status: per-brand run stats, error rate, leads created
+- Admin data hygiene: malformed lead counts by brand
+- Stats endpoint: lead totals and breakdowns by kanban column and region
 - Outreach template analytics via `?mode=analytics`
 
 ## Deployment

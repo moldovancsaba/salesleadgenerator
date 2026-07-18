@@ -105,28 +105,38 @@ export async function GET(request: Request) {
 
     const templates = await db.collection('outreach_templates').find(filter).sort({ name: 1 }).toArray()
 
+    const effectiveIndustry = industry || ''
+    const effectiveChannel = channel || ''
+
     if (!templates.length) {
       const defaults = DEFAULT_OUTREACH_TEMPLATES.filter((t: OutreachTemplate) => {
-        if (industry && t.industry !== industry) return false
-        if (channel && t.channel !== channel) return false
+        if (effectiveChannel && t.channel !== effectiveChannel) return false
+        if (effectiveIndustry && t.industry !== effectiveIndustry) return false
         return true
       })
       return NextResponse.json({ templates: defaults, source: 'default', brand })
     }
 
-    return NextResponse.json({
-      templates: templates.map((t) => ({
-        id: t._id.toString(),
-        name: t.name,
-        channel: t.channel,
-        industry: t.industry,
-        subject: t.subject,
-        body: t.body,
-        variables: t.variables,
-      })),
-      source: 'mongodb',
-      brand,
-    })
+    const mapped = templates.map((t) => ({
+      id: t._id.toString(),
+      name: t.name,
+      channel: t.channel,
+      industry: t.industry,
+      subject: t.subject,
+      body: t.body,
+      variables: t.variables,
+    }))
+
+    if (effectiveIndustry || effectiveChannel) {
+      const matched = mapped.filter((t) => {
+        if (effectiveChannel && t.channel !== effectiveChannel) return false
+        if (effectiveIndustry && t.industry !== effectiveIndustry) return false
+        return true
+      })
+      return NextResponse.json({ templates: matched.length ? matched : mapped, source: 'mongodb', brand })
+    }
+
+    return NextResponse.json({ templates: mapped, source: 'mongodb', brand })
   } catch (error: any) {
     console.error('[API:outreach-templates] GET error:', error)
     return NextResponse.json({ error: 'Failed to fetch templates', details: error.message }, { status: 500 })
