@@ -81,10 +81,6 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 | GET | `/api/leads/[id]?brand=<brand>` | Fetch single lead |
 | DELETE | `/api/leads/[id]?brand=<brand>` | Delete lead |
 | GET | `/api/health` | Health check |
-| GET | `/api/stats` | Lead counts by brand/column/region |
-| GET | `/api/search` | Search/suggest |
-| GET | `/api/search-learning` | Search analytics |
-| GET | `/api/boards` | Brand/board config |
 | GET | `/api/admin/cron-status` | Cron observability |
 | GET | `/api/admin/data-hygiene` | Malformed lead counts by brand |
 | GET/POST | `/api/outreach-templates` | Template CRUD and analytics |

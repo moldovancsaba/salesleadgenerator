@@ -74,10 +74,7 @@ Runs on a schedule via OpenClaw cron. For each run:
 - `/api/health` — readiness, DB latency, counts, last error.
 - `/api/admin/cron-status` — observability for automated runs.
 - `/api/admin/data-hygiene` — malformed lead counts by brand.
-- `/api/stats` — lead counts by brand, column, and region.
-- `/api/search` — search/suggest.
 - `/api/search-learning` — search analytics.
-- `/api/boards` — brand/board config.
 - `/api/outreach-templates` — list/create templates; analytics via `?mode=analytics`.
 - `/api/outreach-logs` — outreach activity logs with enforced channel routing.
 - `/api/outcome-logs` — outcome logs for feedback learning.
@@ -215,10 +212,6 @@ Auth required. Returns per-brand cron health.
 ### `GET /api/admin/data-hygiene`
 
 Auth required. Returns malformed lead counts by brand.
-
-### `GET /api/stats`
-
-Auth required. Returns lead totals and breakdowns by brand, kanban column, and region.
 
 ### `GET /api/outreach-templates?mode=analytics`
 

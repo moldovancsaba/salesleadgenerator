@@ -18,8 +18,6 @@ App is deployed at https://salesleadgenerator.vercel.app
 - ✅ Request validation on POST/PATCH
 - ✅ Expanded health endpoint with latency, counts, and error state
 - ✅ Admin cron-status observability endpoint
-- ✅ Admin data-hygiene endpoint
-- ✅ Stats endpoint with brand/column/region breakdowns
 - ✅ Backward-compatible tenant queries for legacy leads without tenantId
 - ✅ Organization-agnostic outreach template system
 - ✅ Outreach routing enforcement persisted in outreach logs

@@ -22,8 +22,6 @@ This file describes the current implementation and the next deliverable improvem
 - Pre-POST research-agent validation helper in `lib/lead-validator.ts`
 - Expanded `/api/health` with `dbLatencyMs`, `leadCounts`, `lastError`
 - `/api/admin/cron-status` endpoint for observability
-- `/api/admin/data-hygiene` endpoint for malformed lead counts
-- `/api/stats` endpoint for lead counts by brand/column/region
 - Canonical PATCH mutation path in `lib/lead-actions.ts` with requestId tracing
 - Outreach templates with organization-agnostic defaults
 - `/api/outreach-templates` with analytics mode and brand scoping
