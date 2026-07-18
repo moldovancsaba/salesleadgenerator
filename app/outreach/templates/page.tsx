@@ -24,13 +24,13 @@ const EMPTY_TEMPLATE: Omit<Template, 'id'> = {
 }
 
 export default function OutreachTemplatesPage() {
-  const [brand, setBrand] = useState('default')
+  const [brand, setBrand] = useState('cogmap')
   const [tenantId, setTenantId] = useState('default')
 
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search)
-      if (params.get('brand')) setBrand(params.get('brand') || 'default')
+      if (params.get('brand')) setBrand(params.get('brand') || 'cogmap')
       if (params.get('tenantId')) setTenantId(params.get('tenantId') || 'default')
     } catch {}
   }, [])
@@ -126,6 +126,7 @@ export default function OutreachTemplatesPage() {
             <Title order={2}>Outreach Templates</Title>
             <Text size="sm" c="dimmed">
               Manage brand-specific templates for <Text span fw={700}>{brand}</Text>.
+              Templates are filtered by county and channel.
             </Text>
           </div>
           <Button leftSection={<IconPlus size={16} />} onClick={resetForm} variant="light">

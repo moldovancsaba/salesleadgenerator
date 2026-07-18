@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Box, Group, Text, Badge } from '@mantine/core';
+import { Box, Text, Badge } from '@mantine/core';
 import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
 import { semanticToneToMantineColor } from './utils/semantic-colors';
@@ -157,12 +157,7 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
                 flexShrink: 0,
               }}
             >
-              <Group justify="space-between">
-                <Text fw={700} size="sm">{col.label}</Text>
-                <Badge size="xs" color="gray" variant="white">
-                  {colLeads.length}
-                </Badge>
-              </Group>
+              <Text fw={700} size="sm">{col.label}</Text>
             </Box>
 
             <Box

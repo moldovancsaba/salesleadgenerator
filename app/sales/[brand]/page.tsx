@@ -266,7 +266,6 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
             </Button>
           </Group>
           <Group gap="xs">
-            <Text fw={700} size="sm">{filteredLeads.length} leads</Text>
             <ActionIcon
               size="sm"
               variant={showFilters ? 'filled' : 'light'}
@@ -288,14 +287,14 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
                   variant={countyFilter === r ? 'filled' : 'light'}
                   onClick={() => setCountyFilter(r)}
                 >
-                  {r === 'ALL' ? 'All' : r}
+                  {r === 'ALL' ? 'All Counties' : r}
                 </Button>
               ))}
               <input
                 type="text"
                 placeholder="Search by name, sector..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => setSearchQuery(e.currentTarget.value)}
                 style={{
                   flex: 1,
                   minWidth: 100,
