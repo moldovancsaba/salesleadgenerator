@@ -10,7 +10,6 @@ import { TableView } from "../../table";
 import { LeadDetailModal } from "../../detail";
 import { normalizeLead as normalizeLeadShared } from "../../lib/normalize-lead";
 import { resolveBrand, BRAND_CONFIG } from "../../lib/brand";
-import { showNotification } from "@mantine/notifications";
 
 type Props = {
   params: { brand: string };

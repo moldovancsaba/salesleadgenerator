@@ -4,7 +4,7 @@ import { BRAND_CONFIG, resolveBrand } from '../../lib/brand'
 import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import crypto from 'crypto'
 import { requireApiKey } from '../../../lib/api-auth'
-import { validateLeadPayload, validatePatchPayload } from '../../../lib/validate-lead'
+import { validateLeadPayload, validatePatchPayload, bestContactConfidence } from '../../../lib/validate-lead'
 import { generateRequestId } from '../../lib/request-id'
 import { executeLeadAction } from '../../lib/lead-actions'
 
