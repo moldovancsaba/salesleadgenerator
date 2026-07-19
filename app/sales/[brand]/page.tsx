@@ -10,7 +10,7 @@ import { TableView } from "../../table";
 import { LeadDetailModal } from "../../detail";
 import { normalizeLead as normalizeLeadShared } from "../../lib/normalize-lead";
 import { resolveBrand, BRAND_CONFIG } from "../../lib/brand";
-import { useActionNotifications } from "../../hooks/use-action-notifications";
+import { showNotification } from "@mantine/notifications";
 
 type Props = {
   params: { brand: string };
@@ -31,7 +31,6 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
   const [showFilters, setShowFilters] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
-  const { notifyFromResult } = useActionNotifications();
 
   useEffect(() => {
     fetchLeads();
