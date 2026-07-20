@@ -16,11 +16,13 @@
 
 ## Supporting Docs
 
+- `developmentgaps.md` — technical debt, unused dependencies, DB/auth/env audit, and unification plan
 - `PIPELINE_ARCHITECTURE.md` — pipeline stages, ICE scoring, dedup, research agent behavior
 - `PROPOSAL.md` — improvement proposal with shipped/remaining workstreams
 - `roadmap.md` — phased roadmap with shipped/in-progress/planned items
 - `CHANGELOG.md` — version history and feature baselines
-- `documentationtasks.md` — documentation backlog and deliverables
+- `documentationtasks.md` — documentation backlog and quality checklist
+- `docs/DOC_LINT.md` — doc lint checklist
 
 ---
 

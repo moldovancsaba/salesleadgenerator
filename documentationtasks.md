@@ -37,3 +37,11 @@
 ### Doc Lint
 - [ ] Use `docs/DOC_LINT.md` before merging doc changes
 - [ ] Review stale references during PR review
+
+### Completed Audits
+- [x] Initial documentation audit and rewrite
+- [x] README.md, CHANGELOG.md, docs/ARCHITECTURE.md, docs/OPERATOR_GUIDE.md, docs/STACK_AND_DEPENDENCIES.md, docs/INDEX.md, docs/DOC_LINT.md created/updated
+- [x] PROPOSAL.md and roadmap.md cleaned up
+- [x] Stale docs archived
+- [x] Tech stack audit completed; results in `developmentgaps.md`
+- [x] GDS localization verified; local install present at `node_modules/@doneisbetter/gds`
