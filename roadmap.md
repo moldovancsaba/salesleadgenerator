@@ -44,6 +44,7 @@
 - ✅ Pointer-capture cleanup and ghost removal on cancel/interrupt
 - ✅ Table view contrast fix: dark text on light background
 - ✅ Table view simplified columns for mobile
+- ✅ Validation smoke tests (`npm run test:smoke`)
 
 ---
 
@@ -51,7 +52,6 @@
 
 | Item | Notes |
 |------|-------|
-| Test coverage | Add basic API/route tests for list, mutation, and health endpoints |
 | Available countries visibility | Country filter UI is implemented, but live lead data currently lacks populated `country` values, so the list may appear empty until data is backfilled or mapped from `region` |
 | Mobile zoom refinement | Zoom behavior tightened but may still need further PWA-specific tuning |
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
