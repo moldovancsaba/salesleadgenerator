@@ -31,20 +31,36 @@ This file describes the current implementation and the next deliverable improvem
 - Backward-compatible tenant queries for legacy leads without tenantId
 - CORS and security headers middleware
 - Removed dead public-data fallback branches and unused `source` field
-- Mobile/PWA usability fixes:
-  - Relaxed viewport meta to allow natural zoom
+- Action feedback toasts for mutations in lead detail modal
+- Shared retry utility for transient API failures
+- Mobile/PWA fixes:
   - Pipeline page uses `minHeight: 100dvh` with `overflow: auto`
   - Kanban board switches to vertical stack on narrow screens
   - Lead detail modal opens full-screen on mobile via `matchMedia`
   - Wrapped header/filter controls for narrow viewports
   - PWA manifest aligned with app metadata
+  - Note: PWA now works on mobile; zoom is still enabled
 
 ### Remaining Gaps
 - Test coverage
 - Global toast/notification UX for action failures
 - Retry/batch verification in active research-agent runner
+- List/table view is not mobile-ready
+- Zoom is still enabled in the PWA experience
+- Kanban card drag-and-drop touch target is too small
+- Kanban columns are not collapsible for mobile navigation
+- Filters are global-area based instead of country based
+- No view ordering by ICE score in kanban/table view
+- TenantId/default input field is still present in the UI
+- Kanban column titles do not show live lead counts
 
 ### Next Steps
-- T-1: Add action feedback toasts for mutations
-- T-2: Add retry/batch verification flow for the research-agent runner
-- T-3: Add basic API/route tests for mutation and list paths
+- T-1: Remove zoom or tighten mobile zoom behavior for PWA
+- T-2: Make list/table view responsive for mobile
+- T-3: Enlarge kanban card drag area and improve touch drag behavior
+- T-4: Add collapsible kanban columns for mobile navigation
+- T-5: Replace global-area filters with country-based filters
+- T-6: Add ICE-score sort order controls to kanban and list view
+- T-7: Remove tenantId/default input field from the pipeline UI
+- T-8: Show live lead counts in kanban column titles
+- T-9: Add basic API/route tests for mutation and list paths
