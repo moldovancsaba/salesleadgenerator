@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
-import { getPublicLeadById } from '../../../../lib/public-data'
 import { BRAND_CONFIG, resolveBrand } from '../../../lib/brand'
 import { normalizeLead } from '../../../lib/normalize-lead'
 import { requireApiKey } from '../../../../lib/api-auth'
@@ -17,6 +16,43 @@ function getTenantId(request: Request): string {
   return tenantId || 'default';
 }
 
+function buildTenantFilter(tenantId: string) {
+  return tenantId === 'default'
+    ? { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] }
+    : { tenantId };
+}
+
+async function tryFindLead(db: any, config: any, tenantId: string, rawId: string) {
+  const trimmed = rawId.trim();
+  const filter = buildTenantFilter(tenantId);
+
+  // Try MongoDB ObjectId first
+  try {
+    const lead = await db.collection(config.dbCollection).findOne({
+      _id: new (await import('mongodb')).ObjectId(trimmed),
+      ...filter,
+    });
+    if (lead) return lead;
+  } catch {
+    // not a valid ObjectId; fall through
+  }
+
+  // Try numeric `id` field returned by POST
+  const numericId = Number(trimmed);
+  if (Number.isFinite(numericId)) {
+    return db.collection(config.dbCollection).findOne({
+      id: numericId,
+      ...filter,
+    });
+  }
+
+  // Last resort: string match against stored id/_id
+  return db.collection(config.dbCollection).findOne({
+    $or: [{ id: trimmed }, { _id: trimmed }],
+    ...filter,
+  });
+}
+
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
@@ -27,9 +63,7 @@ export async function GET(
     const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) {
-      const fallback = getPublicLeadById(params.id);
-      if (!fallback) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
-      return NextResponse.json(normalizeLead(fallback, brand));
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
 
     const clientPromise = getClientPromise()
@@ -38,13 +72,13 @@ export async function GET(
     try {
       const client = await clientPromise
       const db = client.db()
-      lead = await db.collection(config.dbCollection).findOne({ _id: new (await import('mongodb')).ObjectId(params.id), $or: tenantId === 'default' ? [{ tenantId: 'default' }, { tenantId: { $exists: false } }] : [{ tenantId }] })
+      lead = await tryFindLead(db, config, tenantId, params.id)
       if (lead) {
         lead = normalizeLead({ ...lead, _id: lead._id.toString() }, brand);
       }
     } catch {
-      lead = getPublicLeadById(params.id);
-      if (lead) lead = normalizeLead(lead, brand);
+      // DB lookup failed; treat as not found instead of falling back to legacy static data
+      lead = null;
     }
 
     if (!lead) {

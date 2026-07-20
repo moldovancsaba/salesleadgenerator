@@ -221,8 +221,24 @@ export async function GET(request: Request) {
       .skip(skip)
       .toArray()
 
+    // UI dedup: collapse duplicate fingerprints to the newest document per fingerprint
+    const byFingerprint = new Map<string, any>()
+    for (const lead of rawLeads) {
+      const fp = lead.fingerprint || lead._id.toString()
+      const existing = byFingerprint.get(fp)
+      if (!existing || new Date(lead.createdAt) > new Date(existing.createdAt)) {
+        byFingerprint.set(fp, lead)
+      }
+    }
+    const dedupedLeads = Array.from(byFingerprint.values())
+      .sort((a, b) => {
+        const ac = a.createdAt ? new Date(a.createdAt).getTime() : 0
+        const bc = b.createdAt ? new Date(b.createdAt).getTime() : 0
+        return bc - ac
+      })
+
     return NextResponse.json({
-      leads: rawLeads.map((l) => {
+      leads: dedupedLeads.map((l) => {
         const normalized = normalizeLead({ ...l, _id: l._id.toString() }, brand)
         normalized.contacts = dedupeContacts(normalized.contacts || [], normalized)
         // Canonicalize response: contacts is the single source of truth for contact data
@@ -248,7 +264,7 @@ export async function GET(request: Request) {
       }),
       brand,
       tenantId,
-      total: totalCount,
+      total: dedupedLeads.length,
       page,
       limit,
       totalPages: Math.ceil(totalCount / limit)
@@ -335,12 +351,30 @@ export async function POST(request: Request) {
       normalizedBody.region || 'US'
     )
 
-    const existing = await db.collection(config.dbCollection).findOne({ fingerprint, tenantId })
+    // Match both exact tenantId and legacy docs without tenantId to prevent duplicates
+    const existing = await db.collection(config.dbCollection).findOne({
+      fingerprint,
+      $or: [{ tenantId }, { tenantId: { $exists: false } }, { tenantId: 'default' }],
+    })
     if (existing) {
       return NextResponse.json(
         { error: 'Duplicate lead detected', existing: { _id: existing._id, entity_name: existing.entity_name } },
         { status: 409 }
       )
+    }
+
+    // Hard-enforce no duplicate fingerprints for this tenant.
+    // The schema index is currently non-unique, so we dedupe here before insert.
+    const duplicateCandidates = await db.collection(config.dbCollection)
+      .find({ fingerprint, tenantId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .toArray()
+    if (duplicateCandidates.length > 1) {
+      const keep = duplicateCandidates[0]
+      const removeIds = duplicateCandidates.slice(1).map((d: any) => d._id)
+      await db.collection(config.dbCollection).deleteMany({ _id: { $in: removeIds } })
+      console.warn(`Deduplicated ${removeIds.length} duplicate lead(s) for fingerprint=${fingerprint}`)
     }
 
     const impact = normalizedBody.ice?.impact || normalizedBody.impact || 5
