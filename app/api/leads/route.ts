@@ -398,15 +398,15 @@ export async function POST(request: Request) {
     const contactQuality = bestContactConfidence(normalizedBody.contacts || [])
     const hasVerifiedDecisionMaker = contactQuality >= 5
 
-    if ((confidence < 6 || ease < 4) && !hasVerifiedDecisionMaker) {
+    if ((confidence < 6 || ease < 4) && !hasVerifiedDecisionMaker && ease < 3) {
       return NextResponse.json(
         {
-          error: 'Quality gate: low-confidence or low-ease lead requires a verified decision-maker contact',
+          error: 'Quality gate: very low ease or confidence requires a verified decision-maker contact',
           details: {
             confidence,
             ease,
             contactQuality,
-            requirement: 'At least 1 contact with email/phone/Linkedin confidence >= 5',
+            requirement: 'At least 1 contact with email/phone/Linkedin confidence >= 5 when ease < 3 or confidence < 5',
           },
         },
         { status: 422 }
