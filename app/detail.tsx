@@ -94,7 +94,6 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
     try {
       await onAction(lead._id, "ACCEPT", { annotation: annotation || "Accepted" });
       showNotification({ message: 'Moved to QUALIFIED', color: 'green', autoClose: 4000 });
-      onClose();
     } catch (err) {
       showNotification({ message: err instanceof Error ? err.message : 'Accept failed', color: 'red', autoClose: 5000 });
     } finally {
@@ -107,7 +106,6 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
     try {
       await onAction(lead._id, "DECLINE", { declineReason, annotation });
       showNotification({ message: 'Moved to LOST', color: 'green', autoClose: 4000 });
-      onClose();
     } catch (err) {
       showNotification({ message: err instanceof Error ? err.message : 'Decline failed', color: 'red', autoClose: 5000 });
     } finally {
@@ -120,7 +118,6 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
     try {
       await onAction(lead._id, "PIN", { annotation });
       showNotification({ message: 'Pinned to ENGAGED', color: 'green', autoClose: 4000 });
-      onClose();
     } catch (err) {
       showNotification({ message: err instanceof Error ? err.message : 'Pin failed', color: 'red', autoClose: 5000 });
     } finally {
@@ -133,7 +130,6 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
     try {
       await onAction(lead._id, "REQUEST_REFRESH", { annotation });
       showNotification({ message: 'Refresh requested', color: 'green', autoClose: 4000 });
-      onClose();
     } catch (err) {
       showNotification({ message: err instanceof Error ? err.message : 'Refresh request failed', color: 'red', autoClose: 5000 });
     } finally {
@@ -146,7 +142,6 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
     try {
       await onAction(lead._id, "MODIFY", { annotation });
       showNotification({ message: 'Lead updated', color: 'green', autoClose: 4000 });
-      onClose();
     } catch (err) {
       showNotification({ message: err instanceof Error ? err.message : 'Modify failed', color: 'red', autoClose: 5000 });
     } finally {
@@ -159,7 +154,6 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
     try {
       await onDelete(lead._id);
       showNotification({ message: 'Lead deleted', color: 'green', autoClose: 4000 });
-      onClose();
     } catch (err) {
       showNotification({ message: err instanceof Error ? err.message : 'Delete failed', color: 'red', autoClose: 5000 });
     } finally {

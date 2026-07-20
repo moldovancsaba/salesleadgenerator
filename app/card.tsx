@@ -25,6 +25,7 @@ export function LeadCard({ lead, onOpen, onMoveStart, onMove, onMoveEnd, isDragg
   return (
     <div
       onClick={onOpen}
+      onPointerDown={onMoveStart}
       style={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -41,24 +42,26 @@ export function LeadCard({ lead, onOpen, onMoveStart, onMove, onMoveEnd, isDragg
         transition: 'transform 0.1s, box-shadow 0.1s',
       }}
     >
-      {/* Grip handle */}
+      {/* Larger drag handle / touch target */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          paddingTop: '0.1rem',
-          color: 'var(--mantine-color-gray-4)',
+          padding: '0.35rem',
+          color: 'var(--mantine-color-gray-5)',
           cursor: 'grab',
           flexShrink: 0,
+          borderRadius: '0.35rem',
         }}
+        aria-label="Drag handle"
       >
-        <svg width="12" height="16" viewBox="0 0 12 16" fill="none" style={{ display: 'block' }}>
-          <circle cx="4" cy="3" r="1.5" fill="currentColor" />
-          <circle cx="8" cy="3" r="1.5" fill="currentColor" />
-          <circle cx="4" cy="8" r="1.5" fill="currentColor" />
-          <circle cx="8" cy="8" r="1.5" fill="currentColor" />
-          <circle cx="4" cy="13" r="1.5" fill="currentColor" />
-          <circle cx="8" cy="13" r="1.5" fill="currentColor" />
+        <svg width="20" height="24" viewBox="0 0 12 16" fill="none" style={{ display: 'block' }}>
+          <circle cx="4" cy="3" r="1.8" fill="currentColor" />
+          <circle cx="8" cy="3" r="1.8" fill="currentColor" />
+          <circle cx="4" cy="8" r="1.8" fill="currentColor" />
+          <circle cx="8" cy="8" r="1.8" fill="currentColor" />
+          <circle cx="4" cy="13" r="1.8" fill="currentColor" />
+          <circle cx="8" cy="13" r="1.8" fill="currentColor" />
         </svg>
       </div>
 

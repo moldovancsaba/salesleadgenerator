@@ -1,92 +1,64 @@
 # Roadmap — Sales Lead Generator
 
-Organized by delivery phase. Each phase is independently shippable.
+**Version:** 2.1.0
 
 ---
 
-## Phase 1 — Quick Wins (2–4 weeks)
+## Shipped
 
-**Goal:** Deliver immediate user value with minimal engineering effort.
+### Outreach and Pipeline
+- ✅ One-click outreach templates with analytics (`/api/outreach-templates?mode=analytics`)
+- ✅ Outreach routing enforcement in outreach logs
+- ✅ Template management UI at `/outreach/templates`
+- ✅ Canonical kanban action path with shared helper
+- ✅ Backward-compatible tenant queries
 
-| # | Feature | Deliverable Segments | Impact |
-|---|---------|----------------------|--------|
-| 3 | One-Click Outreach Templates | 3.1, 3.2, 3.3 | High — turns viewer into worker |
-| 6 | Smart Alerts & Notifications | 6.1, 6.2, 6.3 | High — drives retention |
-| 7 | Saved Views & Custom Filters | 7.1, 7.2, 7.4 | Medium — improves daily UX |
+### Observability
+- ✅ `/api/health` expansion
+- ✅ `/api/admin/cron-status`
+- ✅ `/api/admin/data-hygiene`
+- ✅ `/api/stats`
 
-**Milestone:** Users can draft outreach in one click, get notified of hot leads, and save favorite filters.
+### Data Quality
+- ✅ Server-side normalization and validation
+- ✅ Fingerprint deduplication on write
+- ✅ Quality gate for low-confidence leads
 
-### Outreach Templates Status
-- ✅ Segment 3.1: organization-agnostic template storage + brand scoping + `/outreach/templates` management UI
-- ✅ Segment 3.2: routing rules + channel enforcement in outreach logs
-- ✅ Segment 3.3: analytics mode on `/api/outreach-templates?mode=analytics` for usage tracking
-
----
-
-## Phase 2 — Core Platform (1–2 months)
-
-**Goal:** Make the platform data-rich and team-ready.
-
-| # | Feature | Deliverable Segments | Impact |
-|---|---------|----------------------|--------|
-| 2 | Auto-Enrichment Pipeline | 2.1, 2.2, 2.3, 2.5, 2.6 | High — reduces manual research |
-| 8 | Team Workspaces | 8.1, 8.2, 8.3, 8.4 | High — expands from personal to company tool |
-| 1 | AI-Powered Lead Scoring | 1.1, 1.2, 1.3, 1.4, 1.5 | High — improves lead quality over time |
-
-**Milestone:** Leads auto-enrich on discovery, teams can share pipelines, AI score appears alongside ICE.
+### UX
+- ✅ Mobile-first kanban and table view toggle
+- ✅ Detail modal actions with toast feedback
+- ✅ Retry utility for transient failures
 
 ---
 
-## Phase 3 — Scale & Enterprise (2–4 months)
+## In Progress
 
-**Goal:** Integrate with existing enterprise toolchains.
-
-| # | Feature | Deliverable Segments | Impact |
-|---|---------|----------------------|--------|
-| 4 | CRM Sync (Read + Write) | 4.1, 4.2, 4.3, 4.4 | High — enterprise readiness |
-| 5 | Lead Source & Campaign Attribution | 5.1, 5.2, 5.3 | Medium — proves ROI |
-| 9 | Pipeline Analytics Dashboard | 9.1, 9.2, 9.3 | High — justifies the service |
-
-**Milestone:** Leads sync to CRM, attribution shows which sources convert, analytics dashboard proves pipeline health.
+| Item | Notes |
+|------|-------|
+| Mobile UX polish | Table view responsiveness, drag affordance, collapsible columns, live counts, country filters, ICE sort controls |
+| Research agent reliability | Retry/backoff, batch verification, run logging, duplicate feedback loop |
 
 ---
 
-## Phase 4 — Strategic Bets (3–6 months)
+## Planned
 
-**Goal:** Open the platform for power users and ecosystem integration.
-
-| # | Feature | Deliverable Segments | Impact |
-|---|---------|----------------------|--------|
-| 10 | Client API & Webhooks | 10.1, 10.2, 10.3, 10.4 | High — self-serve + integration |
-| 1 (continued) | AI Scoring Calibration | 1.6 | Medium — model trust |
-| 2 (continued) | Advanced Enrichment | 2.4 | Medium — richer contact data |
-
-**Milestone:** External teams can pull leads via API, receive webhooks, and build custom integrations.
-
----
-
-## Sequencing Principles
-
-1. **Each phase must be independently deployable.** Do not block Phase 2 on all of Phase 1.
-2. **User feedback loops first.** Outreach templates and alerts create immediate "aha" moments.
-3. **Data before intelligence.** Enrichment feeds the AI scoring model; build enrichment first.
-4. **Enterprise features last.** CRM sync and team workspaces require mature data models.
-5. **AI scoring is additive.** ICE remains the default sort. AI Score is a second indicator. No breaking changes to existing UX.
+| Phase | Item | Target Outcome |
+|-------|------|----------------|
+| 2 | Auto-enrichment pipeline | Reduce manual research |
+| 2 | Team workspaces | Multi-user pipelines |
+| 2 | AI scoring calibration | Model trust and tuning |
+| 3 | CRM sync | Enterprise readiness |
+| 3 | Attribution | Prove ROI |
+| 3 | Analytics dashboard | Pipeline health visibility |
+| 4 | Client API and webhooks | External integration |
+| 4 | Advanced enrichment | Richer contact data |
 
 ---
 
-## Current State
+## Traceability
 
-- ✅ SLG kanban at `/sales/cogmap`
-- ✅ SLG kanban at `/sales/seyu`
-- ✅ Landing page at `/`
-- ✅ Unified API structure: `/api/leads?brand=cogmap`, `/api/leads?brand=seyu`
-- ✅ Auth-gated writes and admin routes
-- ✅ Request validation for POST/PATCH
-- ✅ Health + cron observability endpoints
-- ✅ Contact depth: primary + secondary contacts with email/phone
-- ✅ Value props include lead-specific and product-specific angles
-- ✅ Outreach templates, routing rules, analytics UI, and management UI shipped
-- ✅ Canonical PATCH mutation path with shared helper and requestId tracing
-- ✅ Backward-compatible tenant queries for legacy leads without tenantId
-- 🚧 Remaining Phase 1 items: alerts/notifications UX, saved views/custom filters
+- Implementation details: `CHANGELOG.md`
+- Architecture and data flow: `docs/ARCHITECTURE.md`
+- Operator workflows: `docs/OPERATOR_GUIDE.md`
+- Stack and dependencies: `docs/STACK_AND_DEPENDENCIES.md`
+- Documentation backlog: `documentationtasks.md`

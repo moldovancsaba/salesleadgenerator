@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Box, Text, Button, Group, ActionIcon } from "@mantine/core";
 import { showNotification } from "@mantine/notifications";
 import { IconAdjustmentsHorizontal, IconX } from "@tabler/icons-react";
@@ -10,6 +10,7 @@ import { TableView } from "../../table";
 import { LeadDetailModal } from "../../detail";
 import { normalizeLead as normalizeLeadShared } from "../../lib/normalize-lead";
 import { resolveBrand, BRAND_CONFIG } from "../../lib/brand";
+import { COLUMNS } from "../../constants";
 
 type Props = {
   params: { brand: string };
@@ -19,21 +20,47 @@ type Props = {
 export default function BrandPipelinePage({ params, searchParams }: Props) {
   const brand = resolveBrand(params.brand);
   const config = BRAND_CONFIG[brand];
-  const urlTenant = typeof searchParams?.tenantId === 'string' ? searchParams.tenantId : '';
-  const [tenantId, setTenantId] = useState<string>(() => urlTenant || 'default');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [countyFilter, setCountyFilter] = useState<string>("ALL");
+  const [countryFilter, setCountryFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
+  const [sortByIce, setSortByIce] = useState<"ice" | "name">("ice");
+  const [iceSortOrder, setIceSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchLeads();
-  }, [brand, tenantId]);
+  }, [brand]);
+
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const lead of leads) {
+      const country = lead.country?.trim();
+      if (country) set.add(country);
+    }
+    return ["ALL", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [leads]);
+
+  const columnCounts = useMemo(() => {
+    const counts: Record<KanbanColumn, number> = {
+      DISCOVERED: 0,
+      QUALIFIED: 0,
+      ENGAGED: 0,
+      PROPOSAL: 0,
+      WON: 0,
+      LOST: 0,
+    };
+    for (const lead of leads) {
+      const col = (lead.kanbanColumn as KanbanColumn) || "DISCOVERED";
+      counts[col] = (counts[col] || 0) + 1;
+    }
+    return counts;
+  }, [leads]);
 
   function showError(message: string) {
     setErrorMessage(message);
@@ -64,7 +91,7 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
       let totalPages = 1;
 
       do {
-        const response = await fetch(`/api/leads?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}&limit=500&page=${page}`);
+        const response = await fetch(`/api/leads?brand=${brand}&limit=500&page=${page}`);
         if (!response.ok) throw new Error("Failed to fetch leads");
         const data = await response.json();
         const pageLeads = (data.leads || []).map((l: any) => normalizeLeadShared(l, brand));
@@ -89,7 +116,7 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
     if (isActionBusy(leadId, 'COLUMN_MOVE')) return;
     setActionBusy(leadId, 'COLUMN_MOVE', true);
     try {
-      const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`, {
+      const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,7 +152,7 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
     if (isActionBusy(leadId, action)) return;
     setActionBusy(leadId, action, true);
     try {
-      const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`, {
+      const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...payload }),
@@ -156,7 +183,7 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
     if (isActionBusy(leadId, 'DELETE')) return;
     setActionBusy(leadId, 'DELETE', true);
     try {
-      const response = await fetch(`/api/leads/${leadId}?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`, {
+      const response = await fetch(`/api/leads/${leadId}?brand=${brand}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -175,13 +202,13 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
   }
 
   const filteredLeads = leads.filter((lead) => {
-    const matchesCounty = countyFilter === "ALL" || lead.region === countyFilter;
+    const matchesCountry = countryFilter === "ALL" || lead.country === countryFilter;
     const matchesSearch = searchQuery
       ? lead.entity_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lead.industry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lead.decision_maker_name?.toLowerCase().includes(searchQuery.toLowerCase())
       : true;
-    return matchesCounty && matchesSearch;
+    return matchesCountry && matchesSearch;
   });
 
   if (loading) {
@@ -191,6 +218,10 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
       </Box>
     );
   }
+
+  const toggleColumn = (key: string) => {
+    setCollapsedColumns((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
     <Box
@@ -232,20 +263,6 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
         <Group justify="space-between" align="center" wrap="wrap" gap="xs">
           <Group gap="xs">
             <Text fw={700} size="sm">{config.label}</Text>
-            <input
-              type="text"
-              value={tenantId}
-              onChange={(e) => setTenantId(e.target.value || 'default')}
-              placeholder="tenantId"
-              title="Tenant ID"
-              style={{
-                padding: '0.2rem 0.4rem',
-                borderRadius: '0.25rem',
-                border: '1px solid var(--mantine-color-gray-3)',
-                fontSize: '0.75rem',
-              width: 110,
-            }}
-            />
             <Button
               size="xs"
               variant={viewMode === 'kanban' ? 'filled' : 'light'}
@@ -264,11 +281,35 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
             </Button>
           </Group>
           <Group gap="xs">
+            <Button
+              size="xs"
+              variant={sortByIce === 'ice' ? 'filled' : 'light'}
+              color="gray"
+              onClick={() => setSortByIce('ice')}
+            >
+              ICE {iceSortOrder === 'asc' ? '↑' : '↓'}
+            </Button>
+            <Button
+              size="xs"
+              variant={sortByIce === 'name' ? 'filled' : 'light'}
+              color="gray"
+              onClick={() => setSortByIce('name')}
+            >
+              Name
+            </Button>
+            <Button
+              size="xs"
+              variant="light"
+              color="gray"
+              onClick={() => setIceSortOrder((prev) => prev === 'asc' ? 'desc' : 'asc')}
+            >
+              {iceSortOrder === 'asc' ? 'Asc' : 'Desc'}
+            </Button>
             <ActionIcon
               size="sm"
               variant={showFilters ? 'filled' : 'light'}
               color="gray"
-              onClick={() => setShowFilters(!showFilters)}
+              onClick={() => setShowFilters((prev) => !prev)}
             >
               <IconAdjustmentsHorizontal size={16} />
             </ActionIcon>
@@ -278,14 +319,14 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
         {showFilters && (
           <Box mt="xs">
             <Group gap="xs" wrap="wrap">
-              {['ALL', 'USA', 'CEE', 'MENA', 'APAC', 'EUROPE'].map((r) => (
+              {countryOptions.map((c) => (
                 <Button
-                  key={r}
+                  key={c}
                   size="xs"
-                  variant={countyFilter === r ? 'filled' : 'light'}
-                  onClick={() => setCountyFilter(r)}
+                  variant={countryFilter === c ? 'filled' : 'light'}
+                  onClick={() => setCountryFilter(c)}
                 >
-                  {r === 'ALL' ? 'All Counties' : r}
+                  {c === 'ALL' ? 'All Countries' : c}
                 </Button>
               ))}
               <input
@@ -312,11 +353,16 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
           leads={filteredLeads}
           onMove={handleMove}
           onOpenLead={setSelectedLead}
+          collapsedColumns={collapsedColumns}
+          onToggleColumn={toggleColumn}
+          columnCounts={columnCounts}
         />
       ) : (
         <TableView
           leads={filteredLeads}
           onRowClick={setSelectedLead}
+          sortKey={sortByIce}
+          sortOrder={iceSortOrder}
         />
       )}
 

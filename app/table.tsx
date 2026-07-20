@@ -1,27 +1,36 @@
-"use client";
+'use client';
 
-import { Lead } from "./types";
+import { Lead } from './types';
 
 type TableViewProps = {
   leads: Lead[];
   onRowClick: (lead: Lead) => void;
+  sortKey?: 'ice' | 'name';
+  sortOrder?: 'asc' | 'desc';
 };
 
-export function TableView({ leads, onRowClick }: TableViewProps) {
-  const score = (lead: Lead) => {
-    if (lead.scoreProfile?.finalBlended?.ice != null) {
-      return lead.scoreProfile.finalBlended.ice;
-    }
-    if (lead.ice) {
-      return lead.ice.impact * lead.ice.confidence * lead.ice.ease;
-    }
+export function TableView({ leads, onRowClick, sortKey = 'ice', sortOrder = 'desc' }: TableViewProps) {
+  const ice = (lead: Lead) => {
+    if (lead.scoreProfile?.finalBlended?.ice != null) return lead.scoreProfile.finalBlended.ice;
+    if (lead.ice) return lead.ice.impact * lead.ice.confidence * lead.ice.ease;
     return 0;
   };
 
   const contactDetails = (lead: Lead) => {
     const parts = [lead.decision_maker_contact, lead.general_contact, lead.contact_phone].filter(Boolean);
-    return parts.join(" · ") || "—";
+    return parts.join(' · ') || '—';
   };
+
+  const sorted = [...leads].sort((a, b) => {
+    if (sortKey === 'name') {
+      const an = (a.entity_name || '').toLowerCase();
+      const bn = (b.entity_name || '').toLowerCase();
+      return sortOrder === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an);
+    }
+    const ia = ice(a);
+    const ib = ice(b);
+    return sortOrder === 'asc' ? ia - ib : ib - ia;
+  });
 
   return (
     <div className="table-view">
@@ -38,13 +47,13 @@ export function TableView({ leads, onRowClick }: TableViewProps) {
             </tr>
           </thead>
           <tbody>
-            {leads.map((lead) => (
+            {sorted.map((lead) => (
               <tr key={lead._id} onClick={() => onRowClick(lead)}>
                 <td>{lead.entity_name}</td>
-                <td>{score(lead)}</td>
-                <td>{lead.decision_maker_name || "—"}</td>
+                <td>{ice(lead)}</td>
+                <td>{lead.decision_maker_name || '—'}</td>
                 <td>{contactDetails(lead)}</td>
-                <td>{lead.value_proposition || "—"}</td>
+                <td>{lead.value_proposition || '—'}</td>
                 <td>{lead.kanbanColumn}</td>
               </tr>
             ))}
@@ -54,8 +63,8 @@ export function TableView({ leads, onRowClick }: TableViewProps) {
 
       <style jsx>{`
         .table-view {
-          height: 100dvh;
-          overflow: hidden;
+          minHeight: 100dvh;
+          overflow: auto;
           display: flex;
           flex-direction: column;
           background: var(--mantine-color-gray-0);
@@ -69,6 +78,7 @@ export function TableView({ leads, onRowClick }: TableViewProps) {
           width: 100%;
           border-collapse: collapse;
           font-size: 0.875rem;
+          min-width: 720px;
         }
         th,
         td {
@@ -92,6 +102,20 @@ export function TableView({ leads, onRowClick }: TableViewProps) {
         }
         td:nth-child(5) {
           max-width: 40ch;
+        }
+
+        @media (max-width: 767px) {
+          .table-wrap {
+            padding: 0.5rem;
+          }
+          table {
+            min-width: 640px;
+            font-size: 0.8rem;
+          }
+          th,
+          td {
+            padding: 0.45rem 0.5rem;
+          }
         }
       `}</style>
     </div>

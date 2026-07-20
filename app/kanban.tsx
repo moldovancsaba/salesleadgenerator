@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Box, Text, Badge } from '@mantine/core';
+import { Box, Text, Badge, Group, ActionIcon } from '@mantine/core';
+import { IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
 import { semanticToneToMantineColor } from './utils/semantic-colors';
@@ -11,9 +12,12 @@ type BoardProps = {
   leads: Lead[];
   onMove: (leadId: string, column: KanbanColumn, sortOrder: number) => Promise<void>;
   onOpenLead: (lead: Lead) => void;
+  collapsedColumns?: Record<string, boolean>;
+  onToggleColumn?: (key: string) => void;
+  columnCounts?: Record<string, number>;
 };
 
-export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
+export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, onToggleColumn, columnCounts = {} }: BoardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [vertical, setVertical] = useState(false);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -152,6 +156,11 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
       {COLUMNS.map((col) => {
         const colLeads = leadsInColumn(col.key);
         const color = semanticToneToMantineColor(col.color);
+        const collapsed = Boolean(collapsedColumns[col.key]);
+
+        const toggleColumn = () => {
+          onToggleColumn?.(col.key);
+        };
 
         const columnStyle: React.CSSProperties = vertical
           ? {
@@ -196,37 +205,52 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
                 flexShrink: 0,
               }}
             >
-              <Text fw={700} size="sm">{col.label}</Text>
+              <Group justify="space-between" align="center" gap="xs">
+                <Text fw={700} size="sm">
+                  {col.label} ({columnCounts[col.key] ?? colLeads.length})
+                </Text>
+                <ActionIcon
+                  size="xs"
+                  variant="subtle"
+                  color="white"
+                  onClick={toggleColumn}
+                  aria-label={collapsed ? 'Expand column' : 'Collapse column'}
+                >
+                  {collapsed ? <IconChevronRight size={16} /> : <IconChevronDown size={16} />}
+                </ActionIcon>
+              </Group>
             </Box>
 
-            <Box
-              style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '0.5rem',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.5rem',
-                minHeight: 0,
-              }}
-            >
-              {colLeads.map((lead) => (
-                <LeadCard
-                  key={lead._id}
-                  lead={lead}
-                  onOpen={() => onOpenLead(lead)}
-                  onMoveStart={(e) => handleDragStart(e, lead._id, col.key)}
-                  onMove={handleDragMove}
-                  onMoveEnd={(e) => handleDragEnd(e, col.key)}
-                  isDragging={isDragging}
-                />
-              ))}
-              {!colLeads.length && (
-                <Text size="xs" c="dimmed" ta="center" py="md">
-                  No leads
-                </Text>
-              )}
-            </Box>
+            {!collapsed && (
+              <Box
+                style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  padding: '0.5rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                  minHeight: 0,
+                }}
+              >
+                {colLeads.map((lead) => (
+                  <LeadCard
+                    key={lead._id}
+                    lead={lead}
+                    onOpen={() => onOpenLead(lead)}
+                    onMoveStart={(e) => handleDragStart(e, lead._id, col.key)}
+                    onMove={handleDragMove}
+                    onMoveEnd={(e) => handleDragEnd(e, col.key)}
+                    isDragging={isDragging}
+                  />
+                ))}
+                {!colLeads.length && (
+                  <Text size="xs" c="dimmed" ta="center" py="md">
+                    No leads
+                  </Text>
+                )}
+              </Box>
+            )}
           </Box>
         );
       })}
