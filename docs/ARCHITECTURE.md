@@ -23,8 +23,7 @@
 ┌──────────────┐ ┌──────────────┐ ┌───────────────────┐
 │   MongoDB    │ │  Outcome +   │ │  Research Agent   │
 │   Atlas      │ │  Outreach    │ │  OpenClaw cron    │
-│              │ │  Logs        │ │                   │
-└──────────────┘ └──────────────┘ └───────────────────┘
+│              │ │  Logs        │ │                   │\�──────────────┘ └──────────────┘ └───────────────────┘
 ```
 
 ---
@@ -41,6 +40,8 @@
 - Uses `handleMove` for drag-to-column moves
 - Shows Mantine notifications for success/failure
 - Filters by country and search text client-side
+- Sort state is kept in page state and passed into kanban and table view
+- Detail modal is full-screen on mobile via `matchMedia`
 
 ---
 
@@ -52,6 +53,7 @@
 - `PATCH /api/leads?brand=<brand>&id=<id>` — action lead via shared `lead-actions` helper
 - `GET /api/leads/[id]?brand=<brand>` — fetch single lead
 - `DELETE /api/leads/[id]?brand=<brand>` — delete lead
+- `PUT /api/leads/[id]?brand=<brand>` — update lead fields for enrichment without requiring action workflow
 
 ### Health and Observability
 - `GET /api/health` — database connectivity, latency, brand counts, last error
@@ -145,6 +147,13 @@ Tracks query success, accepted/declined counts, top terms, and top domains.
 4. Supported actions: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE
 5. Outcome log records mutation with before/after state
 6. Response returns normalized lead
+
+### Update Lead
+1. Frontend or agent calls `PUT /api/leads/[id]?brand=<brand>` with field updates
+2. `requireApiKey` enforces auth
+3. Route updates allowed fields without requiring action workflow
+4. Forbidden brand fields are blocked by schema mapper
+5. Response returns updated lead
 
 ### Outreach
 1. Frontend posts to `/api/outreach-logs` with lead context and channel

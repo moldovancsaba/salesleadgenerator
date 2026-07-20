@@ -29,8 +29,9 @@ Pipeline operators and sales researchers who manage leads in the kanban board or
 
 ## Filters and Search
 
-- Region/country filters are available in the pipeline UI.
+- Country filters are available in the pipeline UI and are visible by default.
 - Search matches entity name, sector, and contact name.
+- Sort by ICE score or name, with asc/desc order.
 - Tenant filter exists in the API; current UI focus is on brand and country.
 
 ---
@@ -61,6 +62,7 @@ curl -X POST "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap" \
   -d '{
     "entity_name": "Example Club",
     "url": "https://example.com",
+    "country": "US",
     "region": "US",
     "sport_or_sector": "Soccer",
     "size": "Medium",
@@ -71,7 +73,9 @@ curl -X POST "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap" \
     "address": "New York, NY",
     "value_proposition": "SLG can help...",
     "pro_for_cogmap": ["Benefit 1", "Benefit 2"],
-    "con_for_cogmap": ["Objection 1"]
+    "con_for_cogmap": ["Objection 1"],
+    "kanbanColumn": "DISCOVERED",
+    "ice": {"impact": 5, "confidence": 5, "ease": 5}
   }'
 ```
 
@@ -81,6 +85,14 @@ curl -X PATCH "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap&id=<
   -H "Content-Type: application/json" \
   -H "x-api-key: YOUR_API_KEY" \
   -d '{"action":"ACCEPT"}'
+```
+
+### Update Lead
+```bash
+curl -X PUT "https://salesleadgenerator.vercel.app/api/leads/<LEAD_ID>?brand=cogmap" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR_API_KEY" \
+  -d '{"decision_maker_name": "New Name"}'
 ```
 
 ### Health Check
@@ -110,14 +122,10 @@ These require API key auth.
 ## Known Issues and Limitations
 
 - Full `next build` may OOM in limited local environments; use `tsc --noEmit` for type verification.
-- PWA pinch-zoom behavior still needs tightening.
-- List/table view is not fully mobile-ready.
-- Kanban drag affordance and touch target sizing need improvement.
-- Kanban columns are not collapsible for mobile navigation.
-- Filters are country-based in UI but global-area based in some legacy paths.
-- No view ordering by ICE score in kanban/table view.
-- TenantId/default input field is still present in some UI paths.
-- Kanban column titles do not show live lead counts.
+- PWA pinch-zoom behavior is tightened but may still need further refinement.
+- Table view mobile density/readability may still need additional tuning.
+- Country filter population depends on lead `country` data; some datasets may need backfill from `region`.
+- Test coverage is limited to validation smoke tests; API route tests remain TODO.
 
 ---
 
