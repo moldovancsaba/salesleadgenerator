@@ -27,6 +27,7 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
     startY: number;
     ghost: HTMLDivElement | null;
     sourceColumn: KanbanColumn;
+    sourceEl: HTMLElement | null;
   } | null>(null);
 
   useEffect(() => {
@@ -54,7 +55,10 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
       startY: e.clientY,
       ghost: null,
       sourceColumn: column,
+      sourceEl: target,
     };
+
+    setIsDragging(true);
   };
 
   const handleDragMove = (e: React.PointerEvent) => {
@@ -87,6 +91,17 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
     }
   };
 
+  const cleanupDrag = () => {
+    if (dragRef.current?.sourceEl) {
+      dragRef.current.sourceEl.style.opacity = '1';
+    }
+    if (dragRef.current?.ghost) {
+      dragRef.current.ghost.remove();
+    }
+    dragRef.current = null;
+    setIsDragging(false);
+  };
+
   const handleDragEnd = async (e: React.PointerEvent, column: KanbanColumn) => {
     const target = e.currentTarget as HTMLElement;
     target.style.opacity = '1';
@@ -95,7 +110,10 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
       dragRef.current.ghost.remove();
     }
 
-    if (!dragRef.current) return;
+    if (!dragRef.current) {
+      cleanupDrag();
+      return;
+    }
 
     const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
     const dropColumn = dropTarget?.closest('[data-column]');
@@ -107,8 +125,7 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
       await onMove(dragRef.current.leadId, targetColumn, sortOrder);
     }
 
-    dragRef.current = null;
-    setIsDragging(false);
+    cleanupDrag();
   };
 
   useEffect(() => {
@@ -200,7 +217,7 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
                 borderBottom: '1px solid var(--mantine-color-gray-2)',
                 borderTopLeftRadius: '0.5rem',
                 borderTopRightRadius: '0.5rem',
-                backgroundColor: color,
+                backgroundColor: col.key === 'WON' ? '#198754' : col.key === 'LOST' ? '#dc3545' : color,
                 color: '#fff',
                 flexShrink: 0,
               }}

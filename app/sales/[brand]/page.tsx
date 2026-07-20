@@ -211,6 +211,21 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
     return matchesCountry && matchesSearch;
   });
 
+  const sortedLeads = useMemo(() => {
+    const list = [...filteredLeads];
+    list.sort((a, b) => {
+      if (sortByIce === 'name') {
+        const an = (a.entity_name || '').toLowerCase();
+        const bn = (b.entity_name || '').toLowerCase();
+        return iceSortOrder === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an);
+      }
+      const ia = (a.scoreProfile?.finalBlended?.ice ?? a.ice?.impact ?? 0) * (a.ice?.confidence ?? 0) * (a.ice?.ease ?? 0);
+      const ib = (b.scoreProfile?.finalBlended?.ice ?? b.ice?.impact ?? 0) * (b.ice?.confidence ?? 0) * (b.ice?.ease ?? 0);
+      return iceSortOrder === 'asc' ? ia - ib : ib - ia;
+    });
+    return list;
+  }, [filteredLeads, sortByIce, iceSortOrder]);
+
   if (loading) {
     return (
       <Box p="xl">
@@ -350,7 +365,7 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
 
       {viewMode === 'kanban' ? (
         <KanbanBoard
-          leads={filteredLeads}
+          leads={sortedLeads}
           onMove={handleMove}
           onOpenLead={setSelectedLead}
           collapsedColumns={collapsedColumns}
@@ -359,7 +374,7 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
         />
       ) : (
         <TableView
-          leads={filteredLeads}
+          leads={sortedLeads}
           onRowClick={setSelectedLead}
           sortKey={sortByIce}
           sortOrder={iceSortOrder}

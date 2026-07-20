@@ -14,6 +14,7 @@ interface LeadCardProps {
 }
 
 export function LeadCard({ lead, onOpen, onMoveStart, onMove, onMoveEnd, isDragging = false }: LeadCardProps) {
+  const cardRef = (lead as any)?._id || Math.random().toString(36).slice(2);
   const ice = (lead.ice?.impact || 0) * (lead.ice?.confidence || 0) * (lead.ice?.ease || 0);
   const region = lead.region || 'US';
   const quality = lead.qualityStatus || 'DRAFT';
@@ -24,8 +25,19 @@ export function LeadCard({ lead, onOpen, onMoveStart, onMove, onMoveEnd, isDragg
 
   return (
     <div
+      ref={(node) => {
+        if (!node) return;
+        if (isDragging) {
+          node.style.opacity = '0.4';
+        } else if (node.style.opacity === '0.4') {
+          node.style.opacity = '1';
+        }
+      }}
       onClick={onOpen}
       onPointerDown={onMoveStart}
+      onPointerMove={onMove}
+      onPointerUp={onMoveEnd}
+      onPointerCancel={() => onMoveEnd?.(null as any)}
       style={{
         display: 'flex',
         alignItems: 'flex-start',
