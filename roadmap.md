@@ -28,6 +28,14 @@
 - ✅ Mobile-first kanban and table view toggle
 - ✅ Detail modal actions with toast feedback
 - ✅ Retry utility for transient failures
+- ✅ Mobile/PWA usability and zoom tightening
+- ✅ Responsive list/table view for mobile
+- ✅ Enlarged kanban drag affordance
+- ✅ Collapsible kanban columns
+- ✅ Country-based filters
+- ✅ ICE-score sort controls for kanban and list view
+- ✅ Live kanban column lead counts
+- ✅ Removed tenantId/default input field from pipeline UI
 
 ---
 
@@ -35,8 +43,7 @@
 
 | Item | Notes |
 |------|-------|
-| Mobile UX polish | Table view responsiveness, drag affordance, collapsible columns, live counts, country filters, ICE sort controls |
-| Research agent reliability | Retry/backoff, batch verification, run logging, duplicate feedback loop |
+| Test coverage | Add basic API/route tests for list, mutation, and health endpoints |
 
 ---
 
