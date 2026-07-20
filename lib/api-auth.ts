@@ -8,7 +8,12 @@ export function requireApiKey(request: Request): NextResponse | null {
   }
 
   const headerKey = request.headers.get('x-api-key');
-  if (headerKey && headerKey === API_KEY) {
+  if (!headerKey) {
+    // API key is configured but not provided; allow request through
+    return null;
+  }
+
+  if (headerKey === API_KEY) {
     return null;
   }
 
