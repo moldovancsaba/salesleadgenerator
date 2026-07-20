@@ -25,6 +25,12 @@ type BoardProps = {
 
 type LayoutMode = 'mobile-portrait' | 'mobile-landscape' | 'tablet-portrait' | 'tablet-landscape' | 'desktop';
 
+const MOBILE_MAX = breakpoints.mobileMax;
+const MOBILE_LANDSCAPE_MAX = breakpoints.mobileLandscapeMax;
+const TABLET_PORTRAIT_MAX = breakpoints.tabletPortraitMax;
+const TABLET_LANDSCAPE_MAX = breakpoints.tabletLandscapeMax;
+const DESKTOP_MIN = breakpoints.desktopMin;
+
 function useBreakpoint() {
   const [mode, setMode] = useState<LayoutMode>('desktop');
 
@@ -33,24 +39,18 @@ function useBreakpoint() {
 
     function computeMode(): LayoutMode {
       const width = window.innerWidth;
-      if (width >= breakpoints.desktopMin) return 'desktop';
-      if (width >= breakpoints.tabletLandscapeMin && width <= breakpoints.tabletLandscapeMax) return 'tablet-landscape';
-      if (width >= breakpoints.tabletPortraitMin && width <= breakpoints.tabletPortraitMax) return 'tablet-portrait';
-      if (width >= breakpoints.mobileLandscapeMin && width <= breakpoints.mobileLandscapeMax) return 'mobile-landscape';
-      if (width <= breakpoints.mobileMax) return 'mobile-portrait';
-      return 'desktop';
+      if (width >= DESKTOP_MIN) return 'desktop';
+      if (width > TABLET_LANDSCAPE_MAX) return 'desktop';
+      if (width > TABLET_PORTRAIT_MAX) return 'tablet-landscape';
+      if (width > MOBILE_LANDSCAPE_MAX) return 'tablet-portrait';
+      if (width > MOBILE_MAX) return 'mobile-landscape';
+      return 'mobile-portrait';
     }
 
     setMode(computeMode());
 
-    const mql = window.matchMedia(`(max-width: ${breakpoints.mobileMax}px)`);
-    const handler = () => {
-      if (mql.matches) {
-        setMode('mobile-portrait');
-      } else {
-        setMode(computeMode());
-      }
-    };
+    const mql = window.matchMedia(`(max-width: ${MOBILE_MAX}px)`);
+    const handler = () => setMode(computeMode());
     if (typeof mql.addEventListener === 'function') {
       mql.addEventListener('change', handler);
     } else {
@@ -66,30 +66,6 @@ function useBreakpoint() {
   }, []);
 
   return mode;
-}
-
-function columnHeaderStyle(colKey: KanbanColumn, toneColor: string): React.CSSProperties {
-  return {
-    padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
-    borderBottom: '1px solid var(--mantine-color-gray-2)',
-    borderTopLeftRadius: tokens.radii.md,
-    borderTopRightRadius: tokens.radii.md,
-    backgroundColor: colKey === 'WON' ? 'var(--mantine-color-green-6)' : colKey === 'LOST' ? 'var(--mantine-color-red-6)' : toneColor,
-    color: '#fff',
-    flexShrink: 0,
-  };
-}
-
-function columnBodyStyle(): React.CSSProperties {
-  return {
-    flex: 1,
-    overflowY: 'auto',
-    padding: tokens.spacing.xs,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: tokens.spacing.xs,
-    minHeight: 0,
-  };
 }
 
 export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, onToggleColumn, columnCounts = {}, sortKey = 'ice', sortOrder = 'desc', onSortKeyChange, onSortOrderChange }: BoardProps) {
@@ -322,7 +298,17 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
               className={columnClass(col.key)}
               style={columnBaseStyle}
             >
-              <Box style={columnHeaderStyle(col.key, color)}>
+              <Box
+                style={{
+                  padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
+                  borderBottom: '1px solid var(--mantine-color-gray-2)',
+                  borderTopLeftRadius: tokens.radii.md,
+                  borderTopRightRadius: tokens.radii.md,
+                  backgroundColor: col.key === 'WON' ? 'var(--mantine-color-green-6)' : col.key === 'LOST' ? 'var(--mantine-color-red-6)' : color,
+                  color: '#fff',
+                  flexShrink: 0,
+                }}
+              >
                 <Group justify="space-between" align="center" gap="xs">
                   <Text fw={700} size="sm">
                     {col.label} ({columnCounts[col.key] ?? colLeads.length})
@@ -340,7 +326,15 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
               </Box>
 
               {!collapsed && (
-                <Box className="kanban-column-body" style={columnBodyStyle()}>
+                <Box className="kanban-column-body" style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  padding: tokens.spacing.xs,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: tokens.spacing.xs,
+                  minHeight: 0,
+                }}>
                   {colLeads.map((lead) => (
                     <LeadCard
                       key={lead._id}
