@@ -1,0 +1,562 @@
+[
+  {
+    "id": 1,
+    "entity_name": "Kansas City Chiefs",
+    "url": "https://www.chiefs.com",
+    "address": "1 Arrowhead Drive, Kansas City, MO 64129",
+    "general_contact": "(816) 920-9300 | chiefs.com/contact",
+    "size": "535 employees, 53-man roster",
+    "industry": "Professional Sports",
+    "sport_or_sector": "American Football",
+    "level_league": "NFL",
+    "decision_maker_name": "Rick Burkholder",
+    "decision_maker_title": "VP of Sports Medicine and Performance",
+    "decision_maker_contact": "Via Chiefs.com front office; Dr. Tyler Bradstreet (VP Performance Psychology, hired June 2026)",
+    "pro_for_cogmap": [
+      "Just hired VP Performance Psychology - active investment in cognitive tools",
+      "Existing sports science infrastructure (Director Ryan Reynolds)",
+      "Super Bowl pedigree team investing in marginal gains",
+      "UCL validation aligns with NFL's evidence-based approach",
+      "NFL Combine uses cognitive testing - CogMap could differentiate"
+    ],
+    "con_for_cogmap": [
+      "Already using established cognitive tools at Combine level",
+      "Budget cycles tied to NFL calendar",
+      "Competitive secrecy may delay public case studies",
+      "New VP may want to build own assessment battery"
+    ],
+    "value_proposition": "With the recent hire of Dr. Tyler Bradstreet as VP of Performance Psychology, the Chiefs are clearly signaling investment in cognitive tools. CogMap's UCL-validated, gamified assessment of decision-making, focus, and memory can complement your existing sports science infrastructure - offering a neuroscience-based edge for roster decisions, draft evaluation, and in-game performance optimization."
+  },
+  {
+    "id": 2,
+    "entity_name": "San Antonio Spurs",
+    "url": "https://www.nba.com/spurs",
+    "address": "1 AT&T Center Pkwy, San Antonio, TX 78218",
+    "general_contact": "(210) 444-6227 | nba.com/spurs/contact",
+    "size": "~600 employees (SSE), 15-man roster; building 60,000 sq ft performance hub",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Basketball",
+    "level_league": "NBA",
+    "decision_maker_name": "R.C. Buford",
+    "decision_maker_title": "President of Basketball Operations",
+    "decision_maker_contact": "Via Spurs Sports & Entertainment corporate offices",
+    "pro_for_cogmap": [
+      "Building NEW 60,000-sq-ft elite human performance research hub (breaking ground Sept 2025)",
+      "Partnered with Liminal Collective (neuro-performance), UT Health, Southwest Research Institute",
+      "Actively seeking cognitive/neuro tools for player optimization",
+      "Victor Wembanyama's unique profile demands cutting-edge cognitive assessment",
+      "NBA launching league-wide biomechanics program - cognitive testing is next frontier"
+    ],
+    "con_for_cogmap": [
+      "New hub means procurement timelines still being finalized",
+      "Already partnered with Liminal Collective - may prefer to build in-house",
+      "Small-market franchise with more selective technology budgets",
+      "Research hub still in build-out phase"
+    ],
+    "value_proposition": "The Spurs are building a first-of-its-kind 60,000 sq ft elite human performance hub and actively asking 'what have you learned about the brain?' CogMap's UCL-validated, neuroscience-based cognitive testing can integrate into your research infrastructure, providing a standardized, gamified assessment platform for evaluating cognitive baselines, decision-making under pressure, and focus - directly aligned with your mission to translate elite performance science into player development and competitive advantage."
+  },
+  {
+    "id": 3,
+    "entity_name": "Duke University Athletics",
+    "url": "https://goduke.com",
+    "address": "1015 W Main St, Durham, NC 27701",
+    "general_contact": "Nick Potter: (919) 613-7560 | Drew Lukes: drew.lukes@duke.edu",
+    "size": "~1,100 student-athletes across 27 varsity teams; ~3,400 athletic department staff",
+    "industry": "Higher Education / Collegiate Athletics",
+    "sport_or_sector": "Multi-sport (Basketball, Soccer, Lacrosse, Football focus)",
+    "level_league": "NCAA Division I (ACC)",
+    "decision_maker_name": "Nicholas Potter",
+    "decision_maker_title": "Director of High Performance & Sports Science",
+    "decision_maker_contact": "(919) 613-7560 | via goduke.com",
+    "pro_for_cogmap": [
+      "Just ESTABLISHED a new Sports Science, Research and Innovation division (Sept 2024)",
+      "Director Potter has built comprehensive data collection/analysis systems",
+      "Drew Lukes (Head of Sports Science, Women's Soccer) has MSc in Sports Analytics",
+      "Duke SOM provides K-Lab research infrastructure - UCL validation resonates",
+      "Men's basketball is blue-blood program with resources for cognitive edge tools"
+    ],
+    "con_for_cogmap": [
+      "New division may still be building budget and infrastructure",
+      "NCAA compliance considerations for student-athletes",
+      "Competes with other university partnerships (Nike, local vendors)",
+      "Academic procurement cycles are slow"
+    ],
+    "value_proposition": "Duke's new Sports Science, Research and Innovation division (established Sept 2024) is actively building cognitive assessment infrastructure. CogMap's UCL-validated, gamified platform can integrate seamlessly with your data systems, providing objective measurement of decision-making, focus, and memory across 27 varsity teams. Let's discuss how cognitive profiling supports your mission to lead collegiate sports science innovation."
+  },
+  {
+    "id": 4,
+    "entity_name": "University of Alabama Athletics",
+    "url": "https://rolltide.com",
+    "address": "920 Paul Bryant Drive, Tuscaloosa, AL 35487",
+    "general_contact": "(205) 348-5555 | rolltide.com/contact",
+    "size": "~700 student-athletes across 21 varsity teams; largest athletic budget in NCAA ($200M+)",
+    "industry": "Higher Education / Collegiate Athletics",
+    "sport_or_sector": "Multi-sport (Football dominant)",
+    "level_league": "NCAA Division I (SEC)",
+    "decision_maker_name": "Mike DuBose",
+    "decision_maker_title": "Associate Athletic Director for Sports Performance",
+    "decision_maker_contact": "Via rolltide.com athletics administration",
+    "pro_for_cogmap": [
+      "Largest NCAA athletic budget ($200M+) - resources for cognitive tools",
+      "Football program's dominance requires marginal gains",
+      "SEC is most competitive conference - cognitive edge matters",
+      "Existing sports science infrastructure receptive to innovation",
+      "NFL Draft pipeline - cognitive data adds value to prospect evaluation"
+    ],
+    "con_for_cogmap": [
+      "SEC's competitive culture may resist sharing cognitive data",
+      "Budget allocated heavily to football - other sports may be underserved",
+      "Competes with established sports science vendors",
+      "Alabama's location (Tuscaloosa) may limit demo access"
+    ],
+    "value_proposition": "Alabama's $200M+ athletic budget and SEC dominance demand marginal gains. CogMap's UCL-validated cognitive assessment can provide objective data on decision-making under pressure, focus, and memory across your 21 varsity teams - especially valuable for football prospect evaluation and NFL Draft preparation. Let's discuss how cognitive profiling supports your competitive edge in the SEC."
+  },
+  {
+    "id": 5,
+    "entity_name": "IMG Academy",
+    "url": "https://www.imgacademy.com",
+    "address": "5650 Bollettieri Blvd, Bradenton, FL 34210",
+    "general_contact": "(941) 751-7900 | imgacademy.com/contact",
+    "size": "~1,200 student-athletes, 200+ staff; owned by Endeavor ($10B+ valuation)",
+    "industry": "Sports Education / Academy",
+    "sport_or_sector": "Multi-sport Academy (Tennis, Golf, Soccer, Basketball focus)",
+    "level_league": "Elite Youth Academy",
+    "decision_maker_name": "John Hughes",
+    "decision_maker_title": "President",
+    "decision_maker_contact": "Via IMG Academy executive offices; LinkedIn",
+    "pro_for_cogmap": [
+      "World's largest elite sports academy (1,200 student-athletes)",
+      "Endeavor ownership ($10B+ valuation) - resources for innovation",
+      "Partnerships with NBA, MLS, USTA - already using cognitive tools",
+      "College placement pipeline - cognitive data adds value to recruiting",
+      "Research partnerships with sports science institutions"
+    ],
+    "con_for_cogmap": [
+      "Already using established sports science tools",
+      "Large bureaucracy may slow procurement",
+      "Competes with local Florida sports science providers",
+      "Requires multi-sport scalability"
+    ],
+    "value_proposition": "IMG Academy's 1,200 student-athletes across multiple sports need scalable cognitive assessment. CogMap's browser-based, 20-minute platform can integrate into your existing sports science infrastructure, providing objective data on decision-making, focus, and memory for college recruiting and elite development. Let's discuss how UCL-validated neuroscience supports your mission to develop the world's best athletes."
+  },
+  {
+    "id": 6,
+    "entity_name": "Citadel LLC",
+    "url": "https://www.citadel.com",
+    "address": "131 S Dearborn St, Chicago, IL 60603",
+    "general_contact": "(312) 420-3000 | citadel.com/contact",
+    "size": "~1,700 employees; $60B+ AUM",
+    "industry": "Financial Services",
+    "sport_or_sector": "Quantitative Hedge Fund",
+    "level_league": "Top-tier hedge fund",
+    "decision_maker_name": "Ken Griffin",
+    "decision_maker_title": "Founder and CEO",
+    "decision_maker_contact": "Via corporate offices; executive recruitment",
+    "pro_for_cogmap": [
+      "Quantitative trading requires split-second cognitive decisions",
+      "High-stakes hiring for traders and analysts",
+      "Burnout detection critical in 24/7 trading environment",
+      "Citadel Securities' market-making role demands cognitive readiness",
+      "Ken Griffin's competitive nature values validated tools"
+    ],
+    "con_for_cogmap": [
+      "Highly secretive - resistant to external vendors",
+      "Competes with global players (SHL, Hogan)",
+      "Requires absolute data security and compliance",
+      "Long procurement cycles for financial firms"
+    ],
+    "value_proposition": "Citadel's quantitative trading desks require split-second cognitive performance under extreme pressure. CogMap's UCL-validated cognitive assessment provides objective data on decision-making, processing speed, and stress resilience - critical for high-stakes trader hiring and burnout detection. Let's discuss how neuroscience-based cognitive profiling supports your competitive edge in quantitative finance."
+  },
+  {
+    "id": 7,
+    "entity_name": "Renaissance Technologies",
+    "url": "https://www.renfund.com",
+    "address": "800 Third Avenue, New York, NY 10022",
+    "general_contact": "(212) 832-8300 | Via corporate offices",
+    "size": "~300 employees; $130B+ AUM",
+    "industry": "Financial Services",
+    "sport_or_sector": "Quantitative Hedge Fund",
+    "level_league": "Top-tier hedge fund",
+    "decision_maker_name": "Peter Brown",
+    "decision_maker_title": "Co-CEO",
+    "decision_maker_contact": "Via corporate offices; executive recruitment",
+    "pro_for_cogmap": [
+      "Quantitative trading requires elite cognitive performance",
+      "Small team size means each hire is critical",
+      "High-stakes environment demands cognitive readiness",
+      "Founder Jim Simons' mathematical background values validated tools",
+      "Burnout detection critical in high-pressure environment"
+    ],
+    "con_for_cogmap": [
+      "Extremely secretive - almost never works with external vendors",
+      "Small team may not justify enterprise pricing",
+      "Location (East Setauket, NY) limits demo access",
+      "Long procurement cycles"
+    ],
+    "value_proposition": "Renaissance Technologies' small, elite team requires objective cognitive assessment for high-stakes hiring. CogMap's UCL-validated, neuroscience-based platform provides objective data on decision-making, pattern recognition, and stress resilience - critical for quantitative trading. Let's discuss how cognitive profiling supports your mission to identify and retain elite talent."
+  },
+  {
+    "id": 8,
+    "entity_name": "Sullivan & Cromwell LLP",
+    "url": "https://www.sullcrom.com",
+    "address": "125 Broad Street, New York, NY 10004",
+    "general_contact": "(212) 558-4000 | sullcrom.com/contact",
+    "size": "~900 attorneys, 1,700 total employees",
+    "industry": "Legal Services",
+    "sport_or_sector": "Big Law Firm",
+    "level_league": "Top-tier law firm",
+    "decision_maker_name": "Elizabeth E. Davis",
+    "decision_maker_title": "Chief Human Resources Officer",
+    "decision_maker_contact": "Via S&C HR department; LinkedIn",
+    "pro_for_cogmap": [
+      "Big Law hiring is high-stakes - associate attrition costs $500K+",
+      "Partnership track requires elite decision-making under pressure",
+      "Burnout detection critical in 80+ hour work weeks",
+      "S&C's elite reputation demands validated assessment tools",
+      "Lateral partner hiring requires cognitive fit assessment"
+    ],
+    "con_for_cogmap": [
+      "Competes with global players (SHL, Hogan, Hogan Assessments)",
+      "Legal industry resistant to cognitive testing",
+      "High billing rates may resist additional hiring costs",
+      "Requires integration with existing HR systems (Workday, etc.)"
+    ],
+    "value_proposition": "Sullivan & Cromwell's $500K+ associate attrition costs demand better hiring decisions. CogMap's UCL-validated cognitive assessment provides objective data on decision-making, focus, and stress resilience - critical for partnership track success and burnout detection in 80+ hour work weeks. Let's discuss how neuroscience-based cognitive profiling reduces attrition and improves partnership outcomes."
+  },
+  {
+    "id": 9,
+    "entity_name": "Google DeepMind",
+    "url": "https://deepmind.google",
+    "address": "5 New Street Square, London EC4A 3BF (UK HQ); 1600 Amphitheatre Parkway, Mountain View, CA 94043 (US HQ)",
+    "general_contact": "Via Google careers; deepmind.google/about/contact",
+    "size": "~3,000 employees (DeepMind); 180,000+ (Google total)",
+    "industry": "Technology",
+    "sport_or_sector": "AI Research",
+    "level_league": "Top-tier tech company",
+    "decision_maker_name": "Demis Hassabis",
+    "decision_maker_title": "CEO, Google DeepMind",
+    "decision_maker_contact": "Via Google executive offices; LinkedIn",
+    "pro_for_cogmap": [
+      "DeepMind's neuroscience roots (Demis Hassabis studied cognitive neuroscience at UCL)",
+      "Research teams require elite cognitive performance",
+      "Burnout detection critical in high-pressure AI race",
+      "Hassabis's UCL connection creates credibility",
+      "Google's resources allow premium pricing"
+    ],
+    "con_for_cogmap": [
+      "Google has internal assessment capabilities",
+      "Massive bureaucracy slows procurement",
+      "Requires integration with Google's HR systems",
+      "UK vs. US office location may complicate"
+    ],
+    "value_proposition": "DeepMind CEO Demis Hassabis studied cognitive neuroscience at UCL - the same institution that validated CogMap. Your AI research teams require elite cognitive performance under extreme pressure. CogMap's neuroscience-based assessment can provide objective data on decision-making, focus, and burnout detection - directly aligned with your mission to understand and enhance human cognition."
+  },
+  {
+    "id": 10,
+    "entity_name": "US Olympic & Paralympic Committee",
+    "url": "https://www.teamusa.org",
+    "address": "1 Olympic Plaza, Colorado Springs, CO 80909",
+    "general_contact": "(719) 866-4344 | teamusa.org/contact",
+    "size": "~500 employees, oversees 50+ national governing bodies",
+    "industry": "Sports Governance",
+    "sport_or_sector": "Olympic Committee",
+    "level_league": "National Olympic authority",
+    "decision_maker_name": "Sarah Hirshland",
+    "decision_maker_title": "Chief Executive Officer",
+    "decision_maker_contact": "Via USOPC corporate offices; LinkedIn",
+    "pro_for_cogmap": [
+      "Oversees 50+ national governing bodies for Olympic sports",
+      "Paris 2024 and LA 2028 medal targets",
+      "Existing sports science infrastructure",
+      "Partnership with US Olympic Training Centers",
+      "Government funding for Olympic preparation"
+    ],
+    "con_for_cogmap": [
+      "Government procurement requires tenders",
+      "Long approval cycles (12-24 months)",
+      "Budget constraints from Olympic funding cuts",
+      "Competes with established sports science providers"
+    ],
+    "value_proposition": "USOPC oversees 50+ national governing bodies preparing for Paris 2024 and LA 2028. CogMap cognitive profiling can identify elite cognitive performance across precision sports (shooting, archery, fencing) and decision-making under pressure in team sports. Let's discuss how UCL-validated neuroscience supports your Olympic medal targets."
+  },
+  {
+    "id": 11,
+    "entity_name": "Nike Inc.",
+    "url": "https://www.nike.com",
+    "address": "One Bowerman Drive, Beaverton, OR 97005",
+    "general_contact": "(503) 671-6453 | nike.com/contact",
+    "size": "~79,000 employees; $50B+ revenue",
+    "industry": "Sporting Goods",
+    "sport_or_sector": "Athletic Apparel/Equipment",
+    "level_league": "Global sporting goods leader",
+    "decision_maker_name": "John Donahoe",
+    "decision_maker_title": "President and CEO",
+    "decision_maker_contact": "Via Nike corporate offices; LinkedIn",
+    "pro_for_cogmap": [
+      "Nike's athlete-sponsored roster requires cognitive edge",
+      "Leadership development for global workforce",
+      "Innovation culture values neuroscience-based tools",
+      "Nike's research partnerships (Oregon Health & Science University)",
+      "Burnout detection critical in high-pressure product cycles"
+    ],
+    "con_for_cogmap": [
+      "Massive bureaucracy slows procurement",
+      "Competes with global players (SHL, Hogan)",
+      "Requires integration with Nike's HR systems",
+      "Oregon location limits demo access"
+    ],
+    "value_proposition": "Nike's athlete-sponsored roster and global workforce require elite cognitive performance under pressure. CogMap's UCL-validated cognitive assessment provides objective data on decision-making, focus, and stress resilience - critical for athlete development and executive leadership. Let's discuss how neuroscience-based cognitive profiling supports your mission to bring inspiration and innovation to every athlete."
+  },
+  {
+    "id": 12,
+    "entity_name": "Mayo Clinic",
+    "url": "https://www.mayoclinic.org",
+    "address": "200 First Street SW, Rochester, MN 55905",
+    "general_contact": "(507) 284-2511 | mayoclinic.org/contact",
+    "size": "~76,000 employees; 10,000+ physicians",
+    "industry": "Healthcare",
+    "sport_or_sector": "Hospital/Research Institution",
+    "level_league": "Top-tier medical institution",
+    "decision_maker_name": "Dr. Gianrico Farrugia",
+    "decision_maker_title": "President and CEO",
+    "decision_maker_contact": "Via Mayo Clinic executive offices; LinkedIn",
+    "pro_for_cogmap": [
+      "Mayo Clinic's research mission aligns with neuroscience",
+      "Physician hiring requires elite cognitive performance",
+      "Burnout detection critical in healthcare",
+      "Sports medicine department serves elite athletes",
+      "Mayo's reputation demands validated assessment tools"
+    ],
+    "con_for_cogmap": [
+      "Healthcare procurement is highly regulated",
+      "Competes with established medical assessment tools",
+      "Long approval cycles for clinical validation",
+      "Requires HIPAA compliance"
+    ],
+    "value_proposition": "Mayo Clinic's research mission and physician hiring require elite cognitive performance. CogMap's UCL-validated cognitive assessment provides objective data on decision-making, focus, and memory - critical for physician recruitment and burnout detection in healthcare. Let's discuss how neuroscience-based cognitive profiling supports your mission to provide the best care to every patient."
+  },
+  {
+    "id": 13,
+    "entity_name": "Seattle Seahawks",
+    "url": "https://www.seahawks.com",
+    "address": "12 Seahawks Way, Renton, WA 98057",
+    "general_contact": "(425) 462-8000 | seahawks.com/contact",
+    "size": "~400 employees, 53-man roster",
+    "industry": "Professional Sports",
+    "sport_or_sector": "American Football",
+    "level_league": "NFL",
+    "decision_maker_name": "Dr. Adam Gotsis",
+    "decision_maker_title": "Director of Player Health and Performance",
+    "decision_maker_contact": "Via Seahawks.com front office; LinkedIn",
+    "pro_for_cogmap": [
+      "Seahawks' 'Legion of Boom' era emphasized cognitive toughness",
+      "Existing sports science infrastructure",
+      "Seattle's tech culture values innovation",
+      "NFL Combine uses cognitive testing - CogMap could differentiate",
+      "Dr. Gotsis's background in sports science research"
+    ],
+    "con_for_cogmap": [
+      "Already using established cognitive tools at Combine level",
+      "Budget cycles tied to NFL calendar",
+      "Competes with local Seattle sports science providers",
+      "NFL's competitive secrecy may delay public case studies"
+    ],
+    "value_proposition": "The Seahawks' culture of cognitive toughness and existing sports science infrastructure makes you ideal for CogMap's neuroscience-based assessment. Our UCL-validated cognitive profiling can complement your current tools, providing objective data on decision-making under pressure and stress resilience. Let's discuss how cognitive assessment supports your mission to build the next generation of Seahawks champions."
+  },
+  {
+    "id": 14,
+    "entity_name": "Stanford University Athletics",
+    "url": "https://gostanford.com",
+    "address": "650 Jane Stanford Way, Stanford, CA 94305",
+    "general_contact": "(650) 723-4521 | gostanford.com/contact",
+    "size": "~900 student-athletes across 36 varsity teams; largest NCAA athletic endowment",
+    "industry": "Higher Education / Collegiate Athletics",
+    "sport_or_sector": "Multi-sport",
+    "level_league": "NCAA Division I (Pac-12)",
+    "decision_maker_name": "Bernhard Muir",
+    "decision_maker_title": "Director of Athletics",
+    "decision_maker_contact": "Via Stanford Athletics; LinkedIn",
+    "pro_for_cogmap": [
+      "Stanford's academic excellence aligns with cognitive science",
+      "Largest NCAA athletic endowment ($400M+)",
+      "36 varsity teams need scalable cognitive assessment",
+      "Silicon Valley location values innovation",
+      "Stanford's sports science research partnerships"
+    ],
+    "con_for_cogmap": [
+      "Academic procurement cycles are slow",
+      "NCAA compliance considerations for student-athletes",
+      "Competes with established sports science vendors",
+      "Stanford's location (Silicon Valley) attracts premium pricing"
+    ],
+    "value_proposition": "Stanford's academic excellence and 36 varsity teams align perfectly with CogMap's neuroscience-based approach. Our UCL-validated cognitive assessment can provide objective data on decision-making, focus, and memory across your student-athletes - supporting both athletic performance and academic success. Let's discuss how cognitive profiling supports your mission to develop the complete student-athlete."
+  },
+  {
+    "id": 15,
+    "entity_name": "Goldman Sachs",
+    "url": "https://www.goldmansachs.com",
+    "address": "200 West Street, New York, NY 10282",
+    "general_contact": "(212) 902-1000 | goldmansachs.com/contact",
+    "size": "~49,000 employees; $1.8T+ AUM",
+    "industry": "Financial Services",
+    "sport_or_sector": "Investment Banking",
+    "level_league": "Top-tier investment bank",
+    "decision_maker_name": "David Solomon",
+    "decision_maker_title": "Chairman and CEO",
+    "decision_maker_contact": "Via Goldman Sachs corporate offices; LinkedIn",
+    "pro_for_cogmap": [
+      "Investment banking requires elite cognitive performance under pressure",
+      "High-stakes hiring for analysts and traders",
+      "Burnout detection critical in 100+ hour work weeks",
+      "Goldman's leadership development programs",
+      "Global workforce across 70+ nationalities"
+    ],
+    "con_for_cogmap": [
+      "Competes with global players (SHL, Hogan, Korn Ferry)",
+      "Financial industry requires regulatory compliance",
+      "Long procurement cycles for investment banks",
+      "Requires integration with Goldman's HR systems"
+    ],
+    "value_proposition": "Goldman Sachs' investment banking and trading desks require elite cognitive performance under extreme pressure. CogMap's UCL-validated cognitive assessment provides objective data on decision-making, processing speed, and stress resilience - critical for high-stakes hiring and burnout detection in 100+ hour work weeks. Let's discuss how neuroscience-based cognitive profiling reduces attrition and improves performance outcomes."
+  },
+  {
+    "id": 16,
+    "entity_name": "Cleveland Browns",
+    "url": "https://www.clevelandbrowns.com",
+    "address": "75 Lou Groza Way, Berea, OH 44017",
+    "general_contact": "(440) 891-5050 | clevelandbrowns.com/contact",
+    "size": "~400 employees, 53-man roster",
+    "industry": "Professional Sports",
+    "sport_or_sector": "American Football",
+    "level_league": "NFL",
+    "decision_maker_name": "Dr. Anthony Fabiano",
+    "decision_maker_title": "Director of Player Engagement",
+    "decision_maker_contact": "Via Browns.com front office; LinkedIn",
+    "pro_for_cogmap": [
+      "Cleveland Browns' rebuild requires better talent evaluation",
+      "NFL Draft success depends on cognitive assessment",
+      "Existing sports science infrastructure",
+      "Browns' new ownership invests in marginal gains",
+      "Cleveland's location (Ohio) limits local sports science competition"
+    ],
+    "con_for_cogmap": [
+      "Already using established cognitive tools at Combine level",
+      "Budget constraints from recent rebuild",
+      "NFL's competitive secrecy may delay public case studies",
+      "Cleveland's market size limits premium pricing"
+    ],
+    "value_proposition": "The Cleveland Browns' rebuild requires better talent evaluation and cognitive assessment. CogMap's UCL-validated cognitive profiling can complement your NFL Draft process, providing objective data on decision-making, focus, and stress resilience in prospects. Let's discuss how neuroscience-based assessment supports your mission to build a championship team."
+  },
+  {
+    "id": 17,
+    "entity_name": "Mass General Brigham",
+    "url": "https://www.massgeneralbrigham.org",
+    "address": "399 Revolution Place, Somerville, MA 02145",
+    "general_contact": "(617) 437-2000 | massgeneralbrigham.org/contact",
+    "size": "~90,000 employees; 14 hospitals",
+    "industry": "Healthcare",
+    "sport_or_sector": "Hospital Network",
+    "level_league": "Top-tier hospital network",
+    "decision_maker_name": "Dr. Anne Kibbe",
+    "decision_maker_title": "Chief Human Resources Officer",
+    "decision_maker_contact": "Via Mass General Brigham HR; LinkedIn",
+    "pro_for_cogmap": [
+      "Mass General's research mission aligns with neuroscience",
+      "Physician hiring requires elite cognitive performance",
+      "Burnout detection critical in healthcare",
+      "Harvard Medical School affiliation",
+      "Boston's biotech culture values innovation"
+    ],
+    "con_for_cogmap": [
+      "Healthcare procurement is highly regulated",
+      "Competes with established medical assessment tools",
+      "Long approval cycles for clinical validation",
+      "Requires HIPAA compliance"
+    ],
+    "value_proposition": "Mass General Brigham's research mission and physician hiring require elite cognitive performance. CogMap's UCL-validated cognitive assessment provides objective data on decision-making, focus, and memory - critical for physician recruitment and burnout detection in healthcare. Let's discuss how neuroscience-based cognitive profiling supports your mission to provide world-class care."
+  },
+  {
+    "id": 18,
+    "entity_name": "Los Angeles Lakers",
+    "url": "https://www.nba.com/lakers",
+    "address": "1111 S. Figueroa Street, Los Angeles, CA 90015",
+    "general_contact": "(213) 743-5000 | nba.com/lakers/contact",
+    "size": "~800 employees, 15-man roster",
+    "industry": "Professional Sports",
+    "sport_or_sector": "Basketball",
+    "level_league": "NBA",
+    "decision_maker_name": "Rob Pelinka",
+    "decision_maker_title": "Vice President of Basketball Operations and General Manager",
+    "decision_maker_contact": "Via Lakers.com front office; LinkedIn",
+    "pro_for_cogmap": [
+      "Lakers' global brand requires elite cognitive performance",
+      "LeBron James's legacy requires championship-level decision-making",
+      "NBA's cognitive testing evolution - CogMap could differentiate",
+      "Los Angeles location attracts premium talent",
+      "Lakers' existing sports science infrastructure"
+    ],
+    "con_for_cogmap": [
+      "Lakers' market size attracts premium pricing from all vendors",
+      "Competes with established sports science providers",
+      "NBA's competitive secrecy may delay public case studies",
+      "LeBron's age requires careful cognitive assessment approach"
+    ],
+    "value_proposition": "The Lakers' global brand and championship ambitions require elite cognitive performance. CogMap's UCL-validated cognitive assessment can complement your existing sports science infrastructure, providing objective data on decision-making under pressure and stress resilience for LeBron and your roster. Let's discuss how neuroscience-based cognitive profiling supports your mission to win championships."
+  },
+  {
+    "id": 19,
+    "entity_name": "MIT Sloan School of Management",
+    "url": "https://mitsloan.mit.edu",
+    "address": "100 Main Street, Cambridge, MA 02142",
+    "general_contact": "(617) 253-1000 | mitsloan.mit.edu/contact",
+    "size": "~1,300 students, 400+ faculty/staff",
+    "industry": "Higher Education",
+    "sport_or_sector": "Business School",
+    "level_league": "Top-tier MBA program",
+    "decision_maker_name": "David Schmittlein",
+    "decision_maker_title": "Dean",
+    "decision_maker_contact": "Via MIT Sloan executive offices; LinkedIn",
+    "pro_for_cogmap": [
+      "MBA students require elite decision-making skills",
+      "MIT's research culture aligns with neuroscience",
+      "Executive education programs need cognitive assessment",
+      "Cambridge's biotech/tech culture values innovation",
+      "MIT Sloan's partnership opportunities with Harvard"
+    ],
+    "con_for_cogmap": [
+      "Academic procurement cycles are slow",
+      "Competes with established business school assessment tools",
+      "Requires integration with MIT's academic systems",
+      "Cambridge location attracts premium pricing"
+    ],
+    "value_proposition": "MIT Sloan's MBA students and executive education programs require elite decision-making skills. CogMap's UCL-validated cognitive assessment provides objective data on decision-making, focus, and problem-solving - critical for business leadership development. Let's discuss how neuroscience-based cognitive profiling supports your mission to develop the next generation of business leaders."
+  },
+  {
+    "id": 20,
+    "entity_name": "U.S. Military Academy (West Point)",
+    "url": "https://www.westpoint.edu",
+    "address": "646 Swift Road, West Point, NY 10996",
+    "general_contact": "(845) 938-4011 | westpoint.edu/contact",
+    "size": "~4,400 cadets, 2,000+ staff/faculty",
+    "industry": "Military Education",
+    "sport_or_sector": "Military Academy",
+    "level_league": "NCAA Division I (Patriot League)",
+    "decision_maker_name": "Lt. Gen. Steven W. Gilland",
+    "decision_maker_title": "Superintendent",
+    "decision_maker_contact": "Via USMA Commandant's offices; LinkedIn",
+    "pro_for_cogmap": [
+      "West Point's mission requires elite decision-making under pressure",
+      "Cadet-athletes compete in 27 varsity sports",
+      "Military leadership development aligns with cognitive assessment",
+      "Defense Department funding for cognitive science research",
+      "West Point's partnership with Army Research Laboratory"
+    ],
+    "con_for_cogmap": [
+      "Military procurement requires government approval",
+      "Long approval cycles (12-24 months)",
+      "Competes with established defense contractors",
+      "Requires security clearance for cognitive data"
+    ],
+    "value_proposition": "West Point's mission to develop leaders of character requires elite decision-making under extreme pressure. CogMap's UCL-validated cognitive assessment provides objective data on cognitive performance, stress resilience, and decision-making - critical for cadet-athletes and military leadership. Let's discuss how neuroscience-based cognitive profiling supports your mission to develop the Army's future officers."
+  }
+]

@@ -1,0 +1,14 @@
+Build failure analysis:
+
+The Next.js build timed out and was killed due to:
+1. Possible memory issues with large public JSON files (us-leads.json: 20KB, cee-leads.json: 9KB, mena-leads.json: 15KB)
+2. Could be related to the quality registry integration
+3. TypeScript with the new semantic color mappings
+
+Immediate fixes needed:
+1. Check package.json for outdated/missing dependencies
+2. Verify public data file formats
+3. Review SemanticTone type alignment in theme files
+4. Ensure quality registry exports correctly
+
+Let's try a minimal build test first.

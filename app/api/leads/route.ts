@@ -1,0 +1,532 @@
+import { NextResponse } from 'next/server'
+import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
+import { BRAND_CONFIG, resolveBrand } from '../../lib/brand'
+import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
+import crypto from 'crypto'
+import { requireApiKey } from '../../../lib/api-auth'
+import { validateLeadPayload, validatePatchPayload, bestContactConfidence } from '../../../lib/validate-lead'
+import { generateRequestId } from '../../lib/request-id'
+import { executeLeadAction } from '../../lib/lead-actions'
+
+// Normalize phone to international format
+function normalizePhone(phone: string): string {
+  if (!phone) return phone
+  const cleaned = phone.replace(/[^\d+]/g, '')
+  if (cleaned.startsWith('+')) return cleaned
+  if (cleaned.length === 10 && /^\d{10}$/.test(cleaned)) {
+    return '+1' + cleaned  // Assume US
+  }
+  if (cleaned.startsWith('1') && cleaned.length === 11) {
+    return '+' + cleaned
+  }
+  return '+' + cleaned
+}
+
+// Normalize email to lowercase, trim
+function normalizeEmail(email: string): string {
+  if (!email) return email
+  return email.toLowerCase().trim()
+}
+
+// Normalize address - ensure country is included if missing
+function normalizeAddress(address: string, country: string): string {
+  if (!address) return address
+  const addr = address.trim()
+  // If address doesn't contain country name and no ZIP pattern, add country
+  const country_names: Record<string, string> = {
+    'US': 'United States', 'GB': 'United Kingdom', 'FR': 'France',
+    'DE': 'Germany', 'IT': 'Italy', 'ES': 'Spain', 'SA': 'Saudi Arabia',
+    'AE': 'United Arab Emirates', 'QA': 'Qatar', 'PL': 'Poland',
+    'AU': 'Australia', 'NZ': 'New Zealand', 'CA': 'Canada'
+  }
+  const country_name = country_names[country] || country
+  if (!addr.toLowerCase().includes(country_name.toLowerCase()) &&
+      !addr.match(/\b[A-Z]{2}\s+\d{4,6}\b/)) {
+    return addr + ', ' + country_name
+  }
+  return addr
+}
+
+// Shared JSON body reader for route handlers
+async function readBody(request: Request) {
+  return request.json()
+}
+
+// Deduplicate contacts within a single lead and against top-level decision-maker fields
+function dedupeContacts(contacts: any[], lead: any) {
+  if (!Array.isArray(contacts)) return [];
+
+  const seen = new Set<string>()
+  const deduped: any[] = []
+
+  // Build top-level contact info as a baseline
+  const dmName = (lead.decision_maker_name || '').trim().toLowerCase()
+  const dmEmail = (lead.decision_maker_contact || '').trim().toLowerCase()
+  const dmPhone = (lead.contact_phone || '').trim()
+  const dmTitle = (lead.decision_maker_title || '').trim().toLowerCase()
+
+  // Helper: make a stable key from contact fields
+  const contactKey = (c: any) => {
+    const name = (c.name || '').trim().toLowerCase()
+    const email = (c.email || '').trim().toLowerCase()
+    const phone = (c.phone || c.contact_phone || '').trim()
+    const title = (c.title || '').trim().toLowerCase()
+    // Use name + phone as primary key, fallback to name + email
+    const primary = name && phone ? `${name}|${phone}` : name && email ? `${name}|${email}` : name
+    return primary
+  }
+
+  const normalize = (c: any) => ({
+    name: typeof c.name === 'string' ? c.name.trim() : '',
+    title: typeof c.title === 'string' ? c.title.trim() : '',
+    email: typeof c.email === 'string' ? c.email.trim() : '',
+    phone: typeof c.phone === 'string' ? c.phone.trim() : (c.contact_phone || '').trim(),
+    linkedin: typeof c.linkedin === 'string' ? c.linkedin.trim() : '',
+    role: typeof c.role === 'string' ? c.role.trim() : '',
+  })
+
+  // If top-level decision maker info exists and is not already represented in contacts, add as main contact
+  const topLevelKey = dmName && dmPhone ? `${dmName}|${dmPhone}` : dmName && dmEmail ? `${dmName}|${dmEmail}` : dmName
+  const hasTopLevel = dmName || dmEmail || dmPhone
+
+  if (hasTopLevel && topLevelKey && !seen.has(topLevelKey)) {
+    seen.add(topLevelKey)
+    deduped.push({
+      name: dmName,
+      title: dmTitle || 'Decision Maker',
+      email: dmEmail,
+      phone: dmPhone,
+      linkedin: '',
+      role: 'main_contact',
+    })
+  }
+
+  for (const raw of contacts) {
+    const c = normalize(raw)
+    if (!c.name && !c.email && !c.phone) continue
+    const key = contactKey(c)
+    if (!key) continue
+    if (seen.has(key)) continue
+    seen.add(key)
+    deduped.push(c)
+  }
+
+  return deduped
+}
+
+type Brand = 'cogmap' | 'seyu';
+
+function buildFingerprint(name: string, url: string, region: string): string {
+  const data = `${(url || '').trim().toLowerCase()}|${(name || '').trim().toLowerCase()}|${(region || '').toUpperCase()}`
+  return crypto.createHash('sha1').update(data).digest('hex')
+}
+
+function deriveKanbanColumn(iceScore: number): string {
+  if (iceScore >= 720) return 'ENGAGED'
+  if (iceScore >= 480) return 'QUALIFIED'
+  if (iceScore >= 240) return 'DISCOVERED'
+  return 'DISCOVERED'
+}
+
+function computeEase(body: any): number {
+  const hasNamed = !!body.decision_maker_name;
+  const hasEmail = !!body.decision_maker_contact;
+  const hasPhone = !!body.contact_phone;
+  const hasAddress = !!body.address;
+  const hasGeneral = !!body.general_contact;
+
+  if (!hasNamed && !hasGeneral) return 1;
+  if (!hasNamed && hasGeneral) return 2;
+  if (hasNamed && !hasEmail && !hasPhone) return 3;
+  if (hasNamed && hasAddress && !hasEmail && !hasPhone) return 4;
+  if (hasNamed && (hasEmail || hasPhone) && !hasAddress) return 5;
+  if (hasNamed && hasAddress && (hasEmail || hasPhone) && !(hasEmail && hasPhone)) return 6;
+  if (hasNamed && hasAddress && hasEmail && hasPhone) return 7;
+  return 4;
+}
+
+function computeIceScore(impact: number, confidence: number, ease: number): number {
+  return impact * confidence * ease
+}
+
+function buildScoreProfile(impact: number, confidence: number, ease: number) {
+  const iceScore = computeIceScore(impact, confidence, ease)
+  return {
+    agentProposal: { impact, confidence, effort: ease },
+    calibratedHeuristic: { impact, confidence, effort: ease },
+    finalBlended: {
+      ice: iceScore,
+      quality: Math.round((impact / 10) * 100),
+      urgency: Math.round((confidence / 10) * 100),
+      freshness: 50,
+      humanSignal: 50,
+      risk: Math.round(((10 - ease) / 10) * 100),
+    },
+    qualityDimensions: {
+      evidenceQuality: confidence / 10,
+      linguisticQuality: 0.8,
+      actionabilityQuality: impact / 10,
+      strategicValue: impact / 10,
+    },
+  }
+}
+
+function getBrand(request: Request): Brand {
+  const url = new URL(request.url);
+  const brandParam = url.searchParams.get('brand') || url.pathname.split('/')[2] || 'cogmap';
+  return resolveBrand(brandParam);
+}
+
+function getTenantId(request: Request): string {
+  const url = new URL(request.url);
+  const tenantId = (url.searchParams.get('tenantId') || 'default').trim();
+  return tenantId || 'default';
+}
+
+// GET - List leads with filters
+export async function GET(request: Request) {
+  try {
+    const brand = getBrand(request);
+    const config = BRAND_CONFIG[brand];
+    const tenantId = getTenantId(request);
+    const { searchParams } = new URL(request.url)
+    const region = searchParams.get('region') || undefined
+    const kanbanColumn = searchParams.get('kanbanColumn') || undefined
+    const limit = Math.max(1, Math.min(500, parseInt(searchParams.get('limit') || '100') || 100))
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+    const skip = (page - 1) * limit
+
+    if (!isMongoConfigured()) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+    }
+
+    const client = await getClientPromise()
+    const db = client.db()
+
+    // Backward-compatible tenant filter: include legacy docs without tenantId when querying default
+    let filter: any = {}
+    if (tenantId === 'default') {
+      filter = { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] }
+    } else {
+      filter = { tenantId }
+    }
+    if (region) filter.region = region
+    if (kanbanColumn) filter.kanbanColumn = kanbanColumn
+
+    const totalCount = await db.collection(config.dbCollection).countDocuments(filter)
+    const rawLeads = await db.collection(config.dbCollection)
+      .find(filter)
+      .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
+      .limit(limit)
+      .skip(skip)
+      .toArray()
+
+    // UI dedup: collapse duplicate fingerprints to the newest document per fingerprint
+    const byFingerprint = new Map<string, any>()
+    for (const lead of rawLeads) {
+      const fp = lead.fingerprint || lead._id.toString()
+      const existing = byFingerprint.get(fp)
+      if (!existing || new Date(lead.createdAt) > new Date(existing.createdAt)) {
+        byFingerprint.set(fp, lead)
+      }
+    }
+    const dedupedLeads = Array.from(byFingerprint.values())
+      .sort((a, b) => {
+        const ac = a.createdAt ? new Date(a.createdAt).getTime() : 0
+        const bc = b.createdAt ? new Date(b.createdAt).getTime() : 0
+        return bc - ac
+      })
+
+    return NextResponse.json({
+      leads: dedupedLeads.map((l) => {
+        const normalized = normalizeLead({ ...l, _id: l._id.toString() }, brand)
+        normalized.contacts = dedupeContacts(normalized.contacts || [], normalized)
+        // Canonicalize response: contacts is the single source of truth for contact data
+        const hasMainContact = Array.isArray(normalized.contacts) && normalized.contacts.some(c => c.role === 'main_contact')
+        const hasTopLevelContact = normalized.decision_maker_name || normalized.decision_maker_contact || normalized.contact_phone
+        if (!hasMainContact && hasTopLevelContact) {
+          const main = {
+            name: normalized.decision_maker_name || '',
+            title: normalized.decision_maker_title || 'Contact',
+            email: normalized.decision_maker_contact || '',
+            phone: normalized.contact_phone || '',
+            linkedin: '',
+            role: 'main_contact',
+          }
+          normalized.contacts = [main, ...(Array.isArray(normalized.contacts) ? normalized.contacts : [])]
+        }
+        // Strip redundant top-level contact fields from response; contacts array is canonical
+        normalized.decision_maker_name = ''
+        normalized.decision_maker_title = ''
+        normalized.decision_maker_contact = ''
+        normalized.contact_phone = ''
+        return normalized
+      }),
+      brand,
+      tenantId,
+      total: dedupedLeads.length,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit)
+    })
+  } catch (error: any) {
+    console.error('GET Error:', error)
+    return NextResponse.json({ error: 'Failed to fetch leads', details: error.message }, { status: 500 })
+  }
+}
+
+// POST - Create new lead with dedup and scoring
+export async function POST(request: Request) {
+  const authError = requireApiKey(request);
+  if (authError) return authError;
+
+  try {
+    const brand = getBrand(request);
+    const config = BRAND_CONFIG[brand];
+    const tenantId = getTenantId(request);
+
+    if (!isMongoConfigured()) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+    }
+
+    const body = await readBody(request)
+    const validation = validateLeadPayload(body, brand);
+    if (!validation.valid) {
+      return NextResponse.json({ error: 'Validation failed', details: validation.errors }, { status: 400 });
+    }
+
+    // Normalize contact fields
+    if (body.decision_maker_contact) {
+      body.decision_maker_contact = normalizeEmail(body.decision_maker_contact)
+    }
+    if (body.contact_phone) {
+      body.contact_phone = normalizePhone(body.contact_phone)
+    }
+    if (body.address) {
+      body.address = normalizeAddress(body.address, body.country || 'US')
+    }
+    if (body.general_email) {
+      body.general_email = normalizeEmail(body.general_email)
+    }
+    if (body.contacts && Array.isArray(body.contacts)) {
+      body.contacts = body.contacts.map((c: any) => ({
+        ...c,
+        email: c.email ? normalizeEmail(c.email) : c.email,
+        phone: c.phone ? normalizePhone(c.phone) : c.phone,
+      }))
+    }
+
+    const client = await getClientPromise()
+    const db = client.db()
+
+    const normalizedBody = normalizeLead(body, brand)
+    const normalizedWarnings = extractWarnings(normalizedBody)
+
+    // Remove duplicate contacts and merge with top-level decision-maker info
+    normalizedBody.contacts = dedupeContacts(normalizedBody.contacts || [], normalizedBody)
+
+    // Canonicalize contact storage: contacts is the single source of truth
+    // Merge any top-level decision-maker fields into contacts, then clear top-level duplicates
+    const topLevelContact = {
+      name: normalizedBody.decision_maker_name || '',
+      title: normalizedBody.decision_maker_title || 'Contact',
+      email: normalizedBody.decision_maker_contact || '',
+      phone: normalizedBody.contact_phone || '',
+      linkedin: '',
+      role: 'main_contact',
+    }
+    if (topLevelContact.name || topLevelContact.email || topLevelContact.phone) {
+      normalizedBody.contacts = dedupeContacts([topLevelContact, ...(normalizedBody.contacts || [])], normalizedBody)
+    } else {
+      normalizedBody.contacts = dedupeContacts(normalizedBody.contacts || [], normalizedBody)
+    }
+    normalizedBody.decision_maker_name = ''
+    normalizedBody.decision_maker_title = ''
+    normalizedBody.decision_maker_contact = ''
+    normalizedBody.contact_phone = ''
+
+    const fingerprint = buildFingerprint(
+      normalizedBody.entity_name || normalizedBody.name || '',
+      normalizedBody.url || '',
+      normalizedBody.region || 'US'
+    )
+
+    // Match both exact tenantId and legacy docs without tenantId to prevent duplicates
+    const existing = await db.collection(config.dbCollection).findOne({
+      fingerprint,
+      $or: [{ tenantId }, { tenantId: { $exists: false } }, { tenantId: 'default' }],
+    })
+    if (existing) {
+      return NextResponse.json(
+        { error: 'Duplicate lead detected', existing: { _id: existing._id, entity_name: existing.entity_name } },
+        { status: 409 }
+      )
+    }
+
+    // Hard-enforce no duplicate fingerprints for this tenant.
+    // The schema index is currently non-unique, so we dedupe here before insert.
+    const duplicateCandidates = await db.collection(config.dbCollection)
+      .find({ fingerprint, tenantId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .toArray()
+    if (duplicateCandidates.length > 1) {
+      const keep = duplicateCandidates[0]
+      const removeIds = duplicateCandidates.slice(1).map((d: any) => d._id)
+      await db.collection(config.dbCollection).deleteMany({ _id: { $in: removeIds } })
+      console.warn(`Deduplicated ${removeIds.length} duplicate lead(s) for fingerprint=${fingerprint}`)
+    }
+
+    const impact = normalizedBody.ice?.impact || normalizedBody.impact || 5
+    const confidence = normalizedBody.ice?.confidence || normalizedBody.confidence || 5
+    const ease = computeEase(normalizedBody)
+
+    const iceScore = computeIceScore(impact, confidence, ease)
+    const scoreProfile = buildScoreProfile(impact, confidence, ease)
+
+    const contactQuality = bestContactConfidence(normalizedBody.contacts || [])
+    const hasVerifiedDecisionMaker = contactQuality >= 5
+
+    if ((confidence < 6 || ease < 4) && !hasVerifiedDecisionMaker) {
+      return NextResponse.json(
+        {
+          error: 'Quality gate: low-confidence or low-ease lead requires a verified decision-maker contact',
+          details: {
+            confidence,
+            ease,
+            contactQuality,
+            requirement: 'At least 1 contact with email/phone/Linkedin confidence >= 5',
+          },
+        },
+        { status: 422 }
+      )
+    }
+
+    const kanbanColumn = normalizedBody.kanbanColumn || deriveKanbanColumn(iceScore)
+
+    const count = await db.collection(config.dbCollection).countDocuments({ kanbanColumn, tenantId })
+
+    const newLead = {
+      id: Date.now(),
+      region: normalizedBody.region || 'US',
+      entity_name: normalizedBody.entity_name || normalizedBody.name,
+      url: normalizedBody.url || '',
+      contact_phone: '',
+      contacts: normalizedBody.contacts || [],
+      address: normalizedBody.address || '',
+      general_contact: normalizedBody.general_contact || '',
+      size: normalizedBody.size || '',
+      industry: normalizedBody.industry || '',
+      sport_or_sector: normalizedBody.sport_or_sector || '',
+      level_league: normalizedBody.level_league || '',
+      decision_maker_name: '',
+      decision_maker_title: '',
+      decision_maker_contact: '',
+      [config.proField]: normalizedBody[config.proField] || [],
+      [config.conField]: normalizedBody[config.conField] || [],
+      value_proposition: normalizedBody.value_proposition || '',
+      priority: normalizedBody.priority || 'medium',
+      status: normalizedBody.status || 'new',
+      notes: normalizedBody.notes || '',
+      tags: normalizedBody.tags || [],
+
+      kanbanColumn,
+      sortOrder: count * 100,
+      fingerprint,
+      tenantId,
+      ice: { impact, confidence, ease },
+      scoreProfile,
+      normalizationWarnings: normalizedWarnings,
+
+      feedbackScore: 0,
+      declineCount: 0,
+      acceptanceCount: 0,
+
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+
+    const result = await db.collection(config.dbCollection).insertOne(newLead)
+
+    if (normalizedWarnings.length > 0) {
+      console.warn('Lead created with normalization warnings', normalizedWarnings)
+    }
+
+    await db.collection('outcomelogs').insertOne({
+      leadId: result.insertedId.toString(),
+      action: 'CREATE',
+      outcomeType: 'CREATE',
+      outcomeValue: `Created ${kanbanColumn}`,
+      actorType: 'USER',
+      actedBy: 'webapp-user',
+      beforeState: {},
+      afterState: {
+        entity_name: newLead.entity_name,
+        kanbanColumn,
+        iceScore,
+      },
+      createdAt: new Date(),
+      tenantId,
+    })
+
+    return NextResponse.json({
+      success: true,
+      lead: { ...newLead, _id: result.insertedId, tenantId }
+    }, { status: 201 })
+
+  } catch (error: any) {
+    console.error('POST Error:', error)
+    return NextResponse.json(
+      { error: 'Failed to create lead', details: error.message },
+      { status: 500 }
+    )
+  }
+}
+
+// PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, COLUMN_MOVE
+export async function PATCH(request: Request) {
+  const requestId = generateRequestId();
+  const authError = requireApiKey(request);
+  if (authError) return authError;
+
+  try {
+    const brand = getBrand(request);
+    const tenantId = getTenantId(request);
+
+    const body = await readBody(request)
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'Missing id', requestId }, { status: 400 })
+    }
+
+    const action = String(body.action || '').toUpperCase()
+    const allowed = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE'])
+    if (!allowed.has(action)) {
+      return NextResponse.json({ error: `Unsupported action: ${action}` }, { status: 400 })
+    }
+
+    const result = await executeLeadAction({
+      leadId: id,
+      action: action as any,
+      brand,
+      tenantId,
+      payload: body,
+    })
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error || 'Action failed', requestId }, { status: 400 })
+    }
+
+    return NextResponse.json({ success: true, lead: result.lead, requestId })
+  } catch (error: any) {
+    console.error('PATCH Error:', error)
+    return NextResponse.json(
+      { error: 'Failed to update lead', details: error.message, requestId },
+      { status: 500 }
+    )
+  }
+}
+
+export const dynamic = 'force-dynamic';
