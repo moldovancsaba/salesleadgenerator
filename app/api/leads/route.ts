@@ -135,11 +135,11 @@ function computeEase(body: any): number {
   const hasAddress = !!body.address;
   const hasGeneral = !!body.general_contact;
 
-  const contacts = Array.isArray(body.contacts) ? body.contacts : [];
-  const contactEmail = contacts.some(c => typeof c?.email === 'string' && c.email.trim().length > 0);
-  const contactPhone = contacts.some(c => typeof c?.phone === 'string' && c.phone.trim().length > 0);
-  const contactName = contacts.some(c => typeof c?.name === 'string' && c.name.trim().length > 0);
-  const contactAddress = contacts.some(c => typeof c?.address === 'string' && c.address.trim().length > 0);
+  const contacts: any[] = Array.isArray(body.contacts) ? body.contacts : [];
+  const contactEmail = contacts.some((c: any) => typeof c?.email === 'string' && c.email.trim().length > 0);
+  const contactPhone = contacts.some((c: any) => typeof c?.phone === 'string' && c.phone.trim().length > 0);
+  const contactName = contacts.some((c: any) => typeof c?.name === 'string' && c.name.trim().length > 0);
+  const contactAddress = contacts.some((c: any) => typeof c?.address === 'string' && c.address.trim().length > 0);
 
   const effectiveNamed = hasNamed || contactName;
   const effectiveEmail = hasEmail || contactEmail;
