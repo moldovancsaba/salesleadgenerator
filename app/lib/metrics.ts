@@ -2,7 +2,7 @@
  * Metrics calculation utilities for GDS-compliant dashboard
  */
 
-export type Lead = {
+export type LeadMetrics = {
   _id: string;
   kanbanColumn: string;
   region: string;
@@ -13,7 +13,7 @@ export type Lead = {
 /**
  * Calculate leads count by pipeline stage
  */
-export function metricsByStage(leads: Lead[]): Record<string, number> {
+export function metricsByStage(leads: LeadMetrics[]): Record<string, number> {
   const stages = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST'];
   return stages.reduce((acc, stage) => {
     acc[stage] = leads.filter(l => l.kanbanColumn === stage).length;
@@ -24,7 +24,7 @@ export function metricsByStage(leads: Lead[]): Record<string, number> {
 /**
  * Calculate leads count by region
  */
-export function metricsByRegion(leads: Lead[]): Record<string, number> {
+export function metricsByRegion(leads: LeadMetrics[]): Record<string, number> {
   return leads.reduce((acc, lead) => {
     acc[lead.region] = (acc[lead.region] || 0) + 1;
     return acc;
@@ -34,7 +34,7 @@ export function metricsByRegion(leads: Lead[]): Record<string, number> {
 /**
  * Calculate leads count by quality status
  */
-export function metricsByQuality(leads: Lead[]): Record<string, number> {
+export function metricsByQuality(leads: LeadMetrics[]): Record<string, number> {
   const statuses = ['DRAFT', 'CHECKED', 'VERIFIED'];
   return statuses.reduce((acc, status) => {
     acc[status] = leads.filter(l => l.qualityStatus === status).length;
@@ -45,7 +45,7 @@ export function metricsByQuality(leads: Lead[]): Record<string, number> {
 /**
  * Calculate leads count by ICE score level
  */
-export function metricsByIceLevel(leads: Lead[]): Record<string, number> {
+export function metricsByIceLevel(leads: LeadMetrics[]): Record<string, number> {
   const levels = {
     'High (800+)': 0,
     'Medium (500-799)': 0,
