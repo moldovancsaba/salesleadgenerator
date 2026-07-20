@@ -173,7 +173,7 @@ function buildScoreProfile(impact: number, confidence: number, ease: number) {
 
 function getBrand(request: Request): Brand {
   const url = new URL(request.url);
-  const brandParam = url.searchParams.get('brand') || url.pathname.split('/')[2] || 'cogmap';
+  const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || url.pathname.split('/')[2] || 'cogmap';
   return resolveBrand(brandParam);
 }
 
