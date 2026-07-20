@@ -6,7 +6,7 @@ import { requireApiKey } from '../../../../lib/api-auth'
 
 function getBrand(request: Request): 'cogmap' | 'seyu' {
   const url = new URL(request.url);
-  const brandParam = url.searchParams.get('brand') || 'cogmap';
+  const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || 'cogmap';
   return resolveBrand(brandParam);
 }
 
