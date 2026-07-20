@@ -1,5 +1,7 @@
 # Development Specs — Sales Lead Generator
 
+**Version:** 2.1.0
+
 This file describes the current implementation and the next deliverable improvements. Each segment is sized to be implemented, tested, and shipped independently.
 
 ---
@@ -41,6 +43,16 @@ This file describes the current implementation and the next deliverable improvem
   - PWA manifest aligned with app metadata
   - Note: PWA launches on mobile; pinch-zoom behavior still needs tightening
 
+### Design System Baseline
+- GDS package: `@doneisbetter/gds` v3.4.3 installed locally in `node_modules`
+- GDS theme preset in use: `oceanic`
+- Current GDS usage is limited to provider setup in `app/components/gds-provider.tsx`
+- Mantine remains the primary UI toolkit; GDS is available but underused
+- Available GDS local modules:
+  - `@doneisbetter/gds-theme`
+  - `@doneisbetter/gds-core`
+  - `@doneisbetter/gds-admin`
+
 ### Remaining Gaps
 - Test coverage
 - Global toast/notification UX for action failures
@@ -53,8 +65,12 @@ This file describes the current implementation and the next deliverable improvem
 - No view ordering by ICE score in kanban/table view
 - TenantId/default input field is still present in the UI
 - Kanban column titles do not show live lead counts
+- Design system cleanup: many hard-coded colors, spacing, typography, radii, and breakpoints
+- GDS is installed but not meaningfully integrated beyond root providers
 
 ### Next Steps
+
+#### Mobile and UX
 - T-1: Tighten mobile zoom behavior for PWA: disable accidental zoom while keeping accessibility-friendly tap targets
 - T-2: Make list/table view responsive for mobile: card-style rows, horizontal scroll, readable density
 - T-3: Enlarge kanban drag affordance: make the whole card the drag target and improve touch pointer behavior
@@ -64,3 +80,13 @@ This file describes the current implementation and the next deliverable improvem
 - T-7: Remove tenantId/default input field from the pipeline UI
 - T-8: Show live lead counts in kanban column titles, e.g. `Discovered (258)`
 - T-9: Add basic API/route tests for list, mutation, and health endpoints
+
+#### Design System and GDS Integration
+- D-1: Audit GDS theme exports and identify replacements for inline color/spacing/typography usage
+- D-2: Replace inline styles in `app/card.tsx`, `app/kanban.tsx`, `app/sales/[brand]/page.tsx`, `app/detail.tsx`, `app/table.tsx`, `app/search-learning.tsx`, `app/page.tsx`, and shared UI components with GDS/Mantine theme tokens/props
+- D-3: Introduce shared local design tokens for spacing, radii, typography, and semantic colors
+- D-4: Extract reusable components: `Pill/Chip`, `CardShell`, `ColumnHeader`, `BoardLayout`, `FilterBar`
+- D-5: Replace hard-coded status colors in kanban with semantic theme colors
+- D-6: Centralize breakpoints: replace repeated `767px` checks with shared breakpoint helper or Mantine/GDS breakpoints
+- D-7: Evaluate GDS components for high-value replacements: cards, tables, shells, filter chips, notifications, confirmations, theme toggle
+- D-8: Audit and remove dead style paths that duplicate theme capability

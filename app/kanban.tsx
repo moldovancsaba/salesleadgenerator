@@ -15,9 +15,11 @@ type BoardProps = {
   collapsedColumns?: Record<string, boolean>;
   onToggleColumn?: (key: string) => void;
   columnCounts?: Record<string, number>;
+  sortKey?: 'ice' | 'name';
+  sortOrder?: 'asc' | 'desc';
 };
 
-export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, onToggleColumn, columnCounts = {} }: BoardProps) {
+export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, onToggleColumn, columnCounts = {}, sortKey = 'ice', sortOrder = 'desc' }: BoardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [vertical, setVertical] = useState(false);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -39,9 +41,19 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
   }, []);
 
   function leadsInColumn(col: KanbanColumn): Lead[] {
-    return leads
-      .filter((l) => l.kanbanColumn === col)
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const list = leads.filter((l) => l.kanbanColumn === col);
+    const sorted = [...list];
+    sorted.sort((a, b) => {
+      if (sortKey === 'name') {
+        const an = (a.entity_name || '').toLowerCase();
+        const bn = (b.entity_name || '').toLowerCase();
+        return sortOrder === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an);
+      }
+      const ia = (a.scoreProfile?.finalBlended?.ice ?? a.ice?.impact ?? 0) * (a.ice?.confidence ?? 0) * (a.ice?.ease ?? 0);
+      const ib = (b.scoreProfile?.finalBlended?.ice ?? b.ice?.impact ?? 0) * (b.ice?.confidence ?? 0) * (b.ice?.ease ?? 0);
+      return sortOrder === 'asc' ? ia - ib : ib - ia;
+    });
+    return sorted;
   }
 
   const handleDragStart = (e: React.PointerEvent, leadId: string, column: KanbanColumn) => {

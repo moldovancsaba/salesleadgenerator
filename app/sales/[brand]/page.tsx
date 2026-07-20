@@ -28,7 +28,6 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
   const [sortByIce, setSortByIce] = useState<"ice" | "name">("ice");
   const [iceSortOrder, setIceSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>({});
@@ -277,7 +276,6 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
         )}
         <Group justify="space-between" align="center" wrap="wrap" gap="xs">
           <Group gap="xs">
-            <Text fw={700} size="sm">{config.label}</Text>
             <Button
               size="xs"
               variant={viewMode === 'kanban' ? 'filled' : 'light'}
@@ -294,8 +292,6 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
             >
               Table
             </Button>
-          </Group>
-          <Group gap="xs">
             <Button
               size="xs"
               variant={sortByIce === 'ice' ? 'filled' : 'light'}
@@ -320,47 +316,36 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
             >
               {iceSortOrder === 'asc' ? 'Asc' : 'Desc'}
             </Button>
-            <ActionIcon
-              size="sm"
-              variant={showFilters ? 'filled' : 'light'}
-              color="gray"
-              onClick={() => setShowFilters((prev) => !prev)}
-            >
-              <IconAdjustmentsHorizontal size={16} />
-            </ActionIcon>
+          </Group>
+          <Group gap="xs" wrap="wrap">
+            {countryOptions.map((c) => (
+              <Button
+                key={c}
+                size="xs"
+                variant={countryFilter === c ? 'filled' : 'light'}
+                onClick={() => setCountryFilter(c)}
+              >
+                {c === 'ALL' ? 'All' : c}
+              </Button>
+            ))}
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.currentTarget.value)}
+              style={{
+                flex: '1 1 120px',
+                minWidth: 110,
+                padding: '0.3rem 0.5rem',
+                borderRadius: '0.25rem',
+                border: '1px solid var(--mantine-color-gray-3)',
+                fontSize: '0.8rem',
+                backgroundColor: '#fff',
+                color: '#000',
+              }}
+            />
           </Group>
         </Group>
-
-        {showFilters && (
-          <Box mt="xs">
-            <Group gap="xs" wrap="wrap">
-              {countryOptions.map((c) => (
-                <Button
-                  key={c}
-                  size="xs"
-                  variant={countryFilter === c ? 'filled' : 'light'}
-                  onClick={() => setCountryFilter(c)}
-                >
-                  {c === 'ALL' ? 'All Countries' : c}
-                </Button>
-              ))}
-              <input
-                type="text"
-                placeholder="Search by name, sector..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.currentTarget.value)}
-                style={{
-                  flex: '1 1 140px',
-                  minWidth: 120,
-                  padding: '0.3rem 0.5rem',
-                  borderRadius: '0.25rem',
-                  border: '1px solid var(--mantine-color-gray-3)',
-                  fontSize: '0.8rem',
-                }}
-              />
-            </Group>
-          </Box>
-        )}
       </Box>
 
       {viewMode === 'kanban' ? (
@@ -371,6 +356,8 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
           collapsedColumns={collapsedColumns}
           onToggleColumn={toggleColumn}
           columnCounts={columnCounts}
+          sortKey={sortByIce}
+          sortOrder={iceSortOrder}
         />
       ) : (
         <TableView

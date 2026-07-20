@@ -16,11 +16,6 @@ export function TableView({ leads, onRowClick, sortKey = 'ice', sortOrder = 'des
     return 0;
   };
 
-  const contactDetails = (lead: Lead) => {
-    const parts = [lead.decision_maker_contact, lead.general_contact, lead.contact_phone].filter(Boolean);
-    return parts.join(' · ') || '—';
-  };
-
   const sorted = [...leads].sort((a, b) => {
     if (sortKey === 'name') {
       const an = (a.entity_name || '').toLowerCase();
@@ -40,9 +35,6 @@ export function TableView({ leads, onRowClick, sortKey = 'ice', sortOrder = 'des
             <tr>
               <th>Name</th>
               <th>Score</th>
-              <th>Contact</th>
-              <th>Contact details</th>
-              <th>Value proposition</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -51,9 +43,6 @@ export function TableView({ leads, onRowClick, sortKey = 'ice', sortOrder = 'des
               <tr key={lead._id} onClick={() => onRowClick(lead)}>
                 <td>{lead.entity_name}</td>
                 <td>{ice(lead)}</td>
-                <td>{lead.decision_maker_name || '—'}</td>
-                <td>{contactDetails(lead)}</td>
-                <td>{lead.value_proposition || '—'}</td>
                 <td>{lead.kanbanColumn}</td>
               </tr>
             ))}
@@ -67,7 +56,7 @@ export function TableView({ leads, onRowClick, sortKey = 'ice', sortOrder = 'des
           overflow: auto;
           display: flex;
           flex-direction: column;
-          background: var(--mantine-color-gray-0);
+          background: #f4f6f8;
         }
         .table-wrap {
           flex: 1;
@@ -77,31 +66,36 @@ export function TableView({ leads, onRowClick, sortKey = 'ice', sortOrder = 'des
         table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 0.875rem;
-          min-width: 720px;
+          font-size: 0.9rem;
+          min-width: 320px;
         }
         th,
         td {
           text-align: left;
-          padding: 0.6rem 0.75rem;
-          border-bottom: 1px solid var(--mantine-color-gray-2);
+          padding: 0.65rem 0.75rem;
+          border-bottom: 1px solid #d7dce3;
           vertical-align: top;
+          color: #111827;
         }
         th {
           position: sticky;
           top: 0;
-          background: var(--mantine-color-gray-0);
+          background: #e5e7eb;
           font-weight: 700;
           z-index: 1;
+          color: #111827;
         }
         tbody tr {
           cursor: pointer;
         }
         tbody tr:hover {
-          background: rgba(0, 0, 0, 0.03);
+          background: #eef2f7;
         }
-        td:nth-child(5) {
-          max-width: 40ch;
+        td:nth-child(2) {
+          min-width: 70px;
+        }
+        td:nth-child(3) {
+          min-width: 100px;
         }
 
         @media (max-width: 767px) {
@@ -109,12 +103,12 @@ export function TableView({ leads, onRowClick, sortKey = 'ice', sortOrder = 'des
             padding: 0.5rem;
           }
           table {
-            min-width: 640px;
-            font-size: 0.8rem;
+            min-width: 280px;
+            font-size: 0.85rem;
           }
           th,
           td {
-            padding: 0.45rem 0.5rem;
+            padding: 0.55rem 0.6rem;
           }
         }
       `}</style>
