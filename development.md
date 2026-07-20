@@ -31,8 +31,20 @@ This file describes the current implementation and the next deliverable improvem
 - Backward-compatible tenant queries for legacy leads without tenantId
 - CORS and security headers middleware
 - Removed dead public-data fallback branches and unused `source` field
+- Mobile/PWA usability fixes:
+  - Relaxed viewport meta to allow natural zoom
+  - Pipeline page uses `minHeight: 100dvh` with `overflow: auto`
+  - Kanban board switches to vertical stack on narrow screens
+  - Lead detail modal opens full-screen on mobile via `matchMedia`
+  - Wrapped header/filter controls for narrow viewports
+  - PWA manifest aligned with app metadata
 
 ### Remaining Gaps
 - Test coverage
 - Global toast/notification UX for action failures
 - Retry/batch verification in active research-agent runner
+
+### Next Steps
+- T-1: Add action feedback toasts for mutations
+- T-2: Add retry/batch verification flow for the research-agent runner
+- T-3: Add basic API/route tests for mutation and list paths
