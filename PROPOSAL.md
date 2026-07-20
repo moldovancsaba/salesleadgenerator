@@ -1,5 +1,7 @@
 # SLG App — Improvement Proposal
 
+**Version:** 2.1.0
+
 ## Purpose
 
 This document tracks proposed improvements against the current shipped state. Completed or superseded workstreams are marked accordingly.
@@ -8,10 +10,25 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ## Completed Workstreams
 
-### Kanban Actions Reliability
+### Kanban UX and Mobile Pipeline
+- Responsive kanban layout with vertical stacking on narrow screens
+- Pointer-based drag-and-drop with ghost preview and cleanup
+- Collapsible kanban columns
+- Live column lead counts in headers
+- Won/Lost header color treatment
+- Country-based filter UI in pipeline
+- ICE/name sort controls with asc/desc in kanban and table view
+- Table view mobile simplification and contrast fix
+- Detail modal full-screen on mobile
+- Header/filter wrapping for narrow viewports
+- PWA manifest and mobile layout fixes
+
+### Lead Actions and Feedback
 - Canonical PATCH mutation path extracted to `app/lib/lead-actions.ts`
 - Frontend uses loading/disabled states and toast feedback
 - Actions verified: ACCEPT, DECLINE, PIN, REQUEST_REFRESH, COLUMN_MOVE, DELETE
+- Shared retry utility for transient API failures
+- Validation smoke tests via `npm run test:smoke`
 
 ### Lead Data Normalization
 - Server-side normalization in `POST /api/leads`
@@ -19,10 +36,12 @@ This document tracks proposed improvements against the current shipped state. Co
 - Duplicate fingerprint prevention on write
 - Quality gate enforcement for low-confidence leads
 
-### Error Handling and User Feedback
-- Mantine notifications wired to mutation outcomes
-- Shared retry utility for transient API failures
-- Request IDs for tracing
+### Observability
+- `/api/health` expanded with `dbLatencyMs`, `leadCounts`, `lastError`
+- `/api/admin/cron-status` endpoint
+- `/api/admin/data-hygiene` endpoint
+- `/api/stats` totals and breakdowns
+- Outcome logging for mutations
 
 ### Security and Access Control
 - `requireApiKey` guards write/admin endpoints
@@ -32,17 +51,6 @@ This document tracks proposed improvements against the current shipped state. Co
 ### Data Validation
 - Request validation for POST/PATCH via `lib/validate-lead.ts`
 - Pre-POST validation helper for research agent
-
-### Observability
-- `/api/health` expanded with `dbLatencyMs`, `leadCounts`, `lastError`
-- `/api/admin/cron-status` endpoint
-- `/api/admin/data-hygiene` endpoint
-- `/api/stats` totals and breakdowns
-- Outcome logging for mutations
-
-### Code Path Cleanup
-- Canonical PATCH path via `/api/leads?id=...&brand=...`
-- Shared action logic in `app/lib/lead-actions.ts`
 
 ---
 
@@ -58,11 +66,12 @@ This document tracks proposed improvements against the current shipped state. Co
 - Tenant-aware indexes and migration path
 
 ### Mobile UX Polish
-- Table view mobile responsiveness
-- Kanban drag affordance and touch targets
-- Collapsible columns and live counts
-- Country-based filters
-- ICE-score sort controls
+- PWA zoom refinement
+- Table view density/readability tuning
+- Country filter backfill/mapping from `region` when `country` is missing
+
+### Test Coverage
+- API/route tests beyond validation smoke tests
 
 ---
 

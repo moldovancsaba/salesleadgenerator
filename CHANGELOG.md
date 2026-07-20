@@ -7,44 +7,35 @@ Current production version. Baseline for this documentation set.
 ### Added
 - Brand-parameterized API: `/api/leads?brand=cogmap|seyu`
 - Single frontend pipeline page: `/sales/[brand]`
-- Mobile-first kanban board with horizontal column scroll and pointer drag
-- Table view toggle
-- Lead detail modal with Accept, Decline, Pin, Refresh, Modify, and Delete actions
-- ICE scoring with automatic calculation on lead creation
-- Brand-aware normalization for `pro_for_*` and `con_for_*`
-- Outcome logging for mutations
-- Pagination support on list endpoint
-- MongoDB Atlas persistence per brand collection
-- Write-endpoint auth gate via `requireApiKey`
-- Lightweight request validation for POST/PATCH via `lib/validate-lead.ts`
-- Pre-POST research-agent validation helper in `lib/lead-validator.ts`
-- Expanded `/api/health` with `dbLatencyMs`, `leadCounts`, `lastError`
-- `/api/admin/cron-status` endpoint for observability
-- Canonical PATCH mutation path in `lib/lead-actions.ts` with requestId tracing
-- Outreach templates with organization-agnostic defaults
-- `/api/outreach-templates` with analytics mode and brand scoping
-- `/api/outreach-logs` with server-side channel routing enforcement
-- Outreach compose modal with channel-aware send rules
-- Outreach template management UI at `/outreach/templates`
-- Backward-compatible tenant queries for legacy leads without `tenantId`
-- CORS and security headers middleware
+- Mobile-first kanban board with responsive vertical stack on narrow screens
+- Pointer-based drag-and-drop with ghost preview, pointer-capture cleanup, and opacity cleanup
+- Collapsible kanban columns with per-column expand/collapse controls
+- Live kanban column lead counts in headers, e.g. `Discovered (258)`
+- Country-based filter UI derived from lead data
+- ICE/name sort controls with asc/desc for kanban and table view
+- Table view simplified to Name, Score, Status for mobile readability
+- Table view contrast fix: dark text on light background
+- Detail modal full-screen behavior on mobile via `matchMedia`
+- Header/filter wrapping for narrow viewports
+- PWA manifest alignment with app start URL and scope
+- Mobile/PWA layout fixes: `minHeight: 100dvh`, `overflow: auto`, wrapped controls
 - Action feedback toasts for mutations in lead detail modal
 - Shared retry utility for transient API failures
+- Validation smoke tests via `npm run test:smoke`
 
 ### Changed
 - Tenant filter defaults to `default` and includes legacy docs without `tenantId`
 - Lead contacts are canonical; top-level contact fields are merged into `contacts[]` on write, then cleared from list/detail responses where possible
+- Drag affordance enlarged; whole card participates in pointer drag flow
+- Card selection state is cleaned up after drag end/cancel
+- Won/Lost column headers use green/red header treatment
 
 ### Known Issues
 - Full `next build` may OOM in limited local environments; use `tsc --noEmit` for type verification
-- PWA pinch-zoom behavior still needs tightening
-- List/table view is not mobile-ready
-- Kanban drag affordance and touch target sizing need improvement
-- Kanban columns are not collapsible for mobile navigation
-- Filters are global-area based instead of country based
-- No view ordering by ICE score in kanban/table view
-- TenantId/default input field is still present in the pipeline UI
-- Kanban column titles do not show live lead counts
+- PWA pinch-zoom behavior is tightened but may still need further refinement
+- Table view mobile density/readability may still need additional tuning
+- Country filter population depends on lead `country` data; sample data may be missing populated values
+- Test coverage is limited to validation smoke tests; API route tests remain TODO
 
 ---
 
