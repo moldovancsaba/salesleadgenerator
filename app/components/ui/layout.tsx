@@ -3,10 +3,11 @@
 import { Box, Stack, Text, Title } from './index';
 import type { ReactNode } from 'react';
 import type { SemanticTone } from '../../theme/semantic';
+import { tokens } from '../../theme/tokens';
+import { breakpoints } from '../../theme/breakpoints';
 
 /**
  * Page section with optional title and description
- * Uses GDS semantic spacing
  */
 export function PageSection({
   title,
@@ -20,9 +21,9 @@ export function PageSection({
   children: ReactNode;
 }) {
   return (
-    <Stack gap="lg">
+    <Stack gap={tokens.spacing.lg}>
       {title && (
-        <Stack gap="xs">
+        <Stack gap={tokens.spacing.xs}>
           <Title order={2} c={`${tone}.${tone === 'neutral' ? 7 : 6}`}>
             {title}
           </Title>
@@ -40,14 +41,14 @@ export function PageSection({
 
 /**
  * Card grid layout
- * Responsive columns using Mantine breakpoints
+ * Responsive columns using Mantine breakpoints and shared tokens
  */
 export function CardGrid({ children }: { children: ReactNode }) {
   return (
     <Box
       style={{
         display: 'grid',
-        gap: 'var(--mantine-spacing-md)',
+        gap: tokens.spacing.md,
         gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
       }}
     >
@@ -74,7 +75,7 @@ export function StatsCard({
       p="md"
       style={{
         backgroundColor: `var(--mantine-color-${tone}-0)`,
-        borderRadius: 'var(--mantine-radius-md)',
+        borderRadius: tokens.radii.md,
         border: '1px solid var(--mantine-color-gray-2)',
       }}
     >
