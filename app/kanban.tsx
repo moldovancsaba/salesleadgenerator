@@ -49,8 +49,13 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
         const bn = (b.entity_name || '').toLowerCase();
         return sortOrder === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an);
       }
-      const ia = (a.scoreProfile?.finalBlended?.ice ?? a.ice?.impact ?? 0) * (a.ice?.confidence ?? 0) * (a.ice?.ease ?? 0);
-      const ib = (b.scoreProfile?.finalBlended?.ice ?? b.ice?.impact ?? 0) * (b.ice?.confidence ?? 0) * (b.ice?.ease ?? 0);
+      const getIce = (lead: Lead) => {
+        if (lead.scoreProfile?.finalBlended?.ice != null) return lead.scoreProfile.finalBlended.ice;
+        if (lead.ice) return lead.ice.impact * lead.ice.confidence * lead.ice.ease;
+        return 0;
+      };
+      const ia = getIce(a);
+      const ib = getIce(b);
       return sortOrder === 'asc' ? ia - ib : ib - ia;
     });
     return sorted;
