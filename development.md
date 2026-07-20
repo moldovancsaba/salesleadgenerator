@@ -81,6 +81,12 @@ This file describes the current implementation and the next deliverable improvem
 - T-8: Show live lead counts in kanban column titles, e.g. `Discovered (258)`
 - T-9: Add basic API/route tests for list, mutation, and health endpoints
 
+#### Pipeline Automation and Card State
+- A-1: Auto-promote lead status from `draft` to `live` when it leaves `Discovered` or `Qualified`, and persist the live status on the lead record.
+- A-2: Add an age indicator on each kanban card that starts counting when the lead enters `Qualified`, and resets on modal open, drag between columns, or any status change.
+- A-3: Auto-move leads from `Discovered` to `Qualified` when ICE score improves above `500`, and automatically move back to `Discovered` when ICE score drops below `500` unless the lead is already in `Lost`.
+- A-4: Replace asc/desc sort buttons with two-state ICE and NAME sort controls using up/down arrow indicators for current order.
+
 #### Design System and GDS Integration
 - D-1: Audit GDS theme exports and identify replacements for inline color/spacing/typography usage
 - D-2: Replace inline styles in `app/card.tsx`, `app/kanban.tsx`, `app/sales/[brand]/page.tsx`, `app/detail.tsx`, `app/table.tsx`, `app/search-learning.tsx`, `app/page.tsx`, and shared UI components with GDS/Mantine theme tokens/props
