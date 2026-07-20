@@ -7,36 +7,36 @@
 ## General Tasks
 
 ### Versioning
-- [ ] Ensure all docs reference the current version from `package.json`
-- [ ] Update `CHANGELOG.md` for every release
-- [ ] Avoid hard-coded version strings in architecture or operator docs
+- [x] Ensure all docs reference the current version from `package.json`
+- [x] Update `CHANGELOG.md` for every release
+- [x] Avoid hard-coded version strings in architecture or operator docs
 
 ### Cross-Linking
-- [ ] README should point to canonical docs only
-- [ ] Avoid duplicating API details across README, OPERATOR_GUIDE, and ARCHITECTURE
-- [ ] Keep `docs/INDEX.md` up to date when docs are added/removed
+- [x] README should point to canonical docs only
+- [x] Avoid duplicating API details across README, OPERATOR_GUIDE, and ARCHITECTURE
+- [x] Keep `docs/INDEX.md` up to date when docs are added/removed
 
 ### Route and Endpoint Accuracy
-- [ ] Verify documented API routes match `app/api/**/route.ts`
-- [ ] Verify frontend routes match actual page and component structure
-- [ ] Update examples if endpoints change
+- [x] Verify documented API routes match `app/api/**/route.ts`
+- [x] Verify frontend routes match actual page and component structure
+- [x] Update examples if endpoints change
 
 ### Code and Doc Sync
-- [ ] If a feature is marked shipped, confirm it exists in code
-- [ ] If a feature is marked planned, confirm it is not already implemented
-- [ ] Update `PROPOSAL.md` and `roadmap.md` when workstreams complete
+- [x] If a feature is marked shipped, confirm it exists in code
+- [x] If a feature is marked planned, confirm it is not already implemented
+- [x] Update `PROPOSAL.md` and `roadmap.md` when workstreams complete
 
 ### Security and Auth Claims
-- [ ] Ensure auth, CORS, and middleware docs match `middleware.ts` and `lib/api-auth.ts`
-- [ ] Update known issues if security behavior changes
+- [x] Ensure auth, CORS, and middleware docs match `middleware.ts` and `lib/api-auth.ts`
+- [x] Update known issues if security behavior changes
 
 ### Archived References
-- [ ] Do not reference archived files: `docs/architecture.md`, `docs/user-guide.md`, `STACK_DECISION.md`, `BUILD_STATUS.md`, `development.md`
-- [ ] If historical context is needed, point to `_archived/` explicitly
+- [x] Do not reference archived files: `docs/architecture.md`, `docs/user-guide.md`, `STACK_DECISION.md`, `BUILD_STATUS.md`, `development.md`
+- [x] If historical context is needed, point to `_archived/` explicitly
 
 ### Doc Lint
-- [ ] Use `docs/DOC_LINT.md` before merging doc changes
-- [ ] Review stale references during PR review
+- [x] Use `docs/DOC_LINT.md` before merging doc changes
+- [x] Review stale references during PR review
 
 ### Completed Audits
 - [x] Initial documentation audit and rewrite
@@ -45,3 +45,5 @@
 - [x] Stale docs archived
 - [x] Tech stack audit completed; results in `developmentgaps.md`
 - [x] GDS localization verified; local install present at `node_modules/@doneisbetter/gds`
+- [x] 2026-07-20 doc sync: updated CHANGELOG.md, PROPOSAL.md, docs/ARCHITECTURE.md, docs/OPERATOR_GUIDE.md to match shipped 2.1.0 state; doc lint passed
+- [x] 2026-07-20 route audit: confirmed `/api/leads`, `/api/health`, `/api/admin/*`, `/api/outreach-*`, `/api/search*`, `/api/stats`, `/api/boards`, and frontend routes `/sales/[brand]`, `/outreach/templates` are documented
