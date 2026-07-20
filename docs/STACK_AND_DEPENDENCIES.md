@@ -17,23 +17,24 @@
 
 ## Frontend
 
-| Component | Version | Role |
-|-----------|---------|------|
-| Mantine | 7.17.8 | Component library |
-| @tabler/icons-react | 3.42.0 | Icons |
-| Framer Motion | 12.38.0 | Animation |
-| Sonner | 2.0.7 | Toasts/notifications |
-| @doneisbetter/gds | 3.4.3 | Design system provider |
+| Component | Version | Status | Role |
+|-----------|---------|--------|
+| Mantine | 7.17.8 | Active | Component library |
+| @tabler/icons-react | 3.42.0 | Active | Icons |
+| Framer Motion | 12.38.0 | Unused | Declared but no application usage found |
+| Sonner | 2.0.7 | Unused | Declared but no application usage found |
+| @doneisbetter/gds | 3.4.3 | Underused | Provider wired; no GDS UI components composed in app code |
 
 ---
 
 ## Backend
 
-| Component | Version | Role |
-|-----------|---------|------|
-| Mongoose | 8.x | MongoDB ODM |
-| MongoDB | Atlas hosted | Persistence |
-| dotenv | 17.4.2 | Environment loading |
+| Component | Version | Status | Role |
+|-----------|---------|--------|
+| Mongoose | 8.x | Active | Schema/index management in `models/*.ts` |
+| mongodb driver | 8.x | Active | Raw `MongoClient` used in `lib/mongodb.ts` and `scripts/*.js` |
+| MongoDB | Atlas hosted | Active | Persistence |
+| dotenv | 17.4.2 | Scripts-only | Used in `scripts/*.js` and `scripts/*.mjs`; not used in app code |
 
 ---
 
@@ -56,15 +57,11 @@
 
 ---
 
-## Why MongoDB Atlas and Mongoose
+## Auth and Middleware
 
-- Lead data is document-shaped and evolves frequently during research iteration.
-- Atlas provides managed backups, networking controls, and query performance without operating self-hosted MongoDB.
-- Mongoose was chosen over Prisma because the lead schema changes often, and the team wanted direct MongoDB features without a codegen step.
-
----
-
-## Known Constraints
-
-- Full `next build` can OOM in limited local environments. Use `tsc --noEmit` for type verification in those cases.
-- Vercel serverless functions enforce execution time and memory limits; large list pages should paginate or limit result sets.
+| Component | Behavior | Evidence |
+|-----------|----------|----------|
+| CORS/security headers | Applied in `middleware.ts` for `/api/*` | `middleware.ts` |
+| API key auth | `requireApiKey` in `lib/api-auth.ts` guards write/admin routes | `lib/api-auth.ts` |
+| API key fallback | Allows request through if `SLG_API_KEY` is unset or header is missing | `lib/api-auth.ts` |
+| Read access | Public for listings and health | Route handlers |
