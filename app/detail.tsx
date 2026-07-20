@@ -18,6 +18,7 @@ import {
   Paper,
   SimpleGrid,
 } from '@mantine/core';
+import { showNotification } from '@mantine/notifications';
 import { regionTone } from './theme/semantic';
 import { iceTone, qualityTone } from './theme/semantic';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
@@ -90,38 +91,80 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
 
   async function handleAccept() {
     setBusy(true);
-    await onAction(lead._id, "ACCEPT", { annotation: annotation || "Accepted" });
-    setBusy(false);
+    try {
+      await onAction(lead._id, "ACCEPT", { annotation: annotation || "Accepted" });
+      showNotification({ message: 'Moved to QUALIFIED', color: 'green', autoClose: 4000 });
+      onClose();
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Accept failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleDecline() {
     setBusy(true);
-    await onAction(lead._id, "DECLINE", { declineReason, annotation });
-    setBusy(false);
+    try {
+      await onAction(lead._id, "DECLINE", { declineReason, annotation });
+      showNotification({ message: 'Moved to LOST', color: 'green', autoClose: 4000 });
+      onClose();
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Decline failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handlePin() {
     setBusy(true);
-    await onAction(lead._id, "PIN", { annotation });
-    setBusy(false);
+    try {
+      await onAction(lead._id, "PIN", { annotation });
+      showNotification({ message: 'Pinned to ENGAGED', color: 'green', autoClose: 4000 });
+      onClose();
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Pin failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleRefresh() {
     setBusy(true);
-    await onAction(lead._id, "REQUEST_REFRESH", { annotation });
-    setBusy(false);
+    try {
+      await onAction(lead._id, "REQUEST_REFRESH", { annotation });
+      showNotification({ message: 'Refresh requested', color: 'green', autoClose: 4000 });
+      onClose();
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Refresh request failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleModify() {
     setBusy(true);
-    await onAction(lead._id, "MODIFY", { annotation });
-    setBusy(false);
+    try {
+      await onAction(lead._id, "MODIFY", { annotation });
+      showNotification({ message: 'Lead updated', color: 'green', autoClose: 4000 });
+      onClose();
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Modify failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleDelete() {
     setBusy(true);
-    await onDelete(lead._id);
-    setBusy(false);
+    try {
+      await onDelete(lead._id);
+      showNotification({ message: 'Lead deleted', color: 'green', autoClose: 4000 });
+      onClose();
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Delete failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
