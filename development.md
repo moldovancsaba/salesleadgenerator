@@ -39,14 +39,14 @@ This file describes the current implementation and the next deliverable improvem
   - Lead detail modal opens full-screen on mobile via `matchMedia`
   - Wrapped header/filter controls for narrow viewports
   - PWA manifest aligned with app metadata
-  - Note: PWA now works on mobile; zoom is still enabled
+  - Note: PWA launches on mobile; pinch-zoom behavior still needs tightening
 
 ### Remaining Gaps
 - Test coverage
 - Global toast/notification UX for action failures
 - Retry/batch verification in active research-agent runner
 - List/table view is not mobile-ready
-- Zoom is still enabled in the PWA experience
+- Pinch-zoom is still enabled in the PWA experience
 - Kanban card drag-and-drop touch target is too small
 - Kanban columns are not collapsible for mobile navigation
 - Filters are global-area based instead of country based
@@ -55,12 +55,12 @@ This file describes the current implementation and the next deliverable improvem
 - Kanban column titles do not show live lead counts
 
 ### Next Steps
-- T-1: Remove zoom or tighten mobile zoom behavior for PWA
-- T-2: Make list/table view responsive for mobile
-- T-3: Enlarge kanban card drag area and improve touch drag behavior
-- T-4: Add collapsible kanban columns for mobile navigation
-- T-5: Replace global-area filters with country-based filters
-- T-6: Add ICE-score sort order controls to kanban and list view
+- T-1: Tighten mobile zoom behavior for PWA: disable accidental zoom while keeping accessibility-friendly tap targets
+- T-2: Make list/table view responsive for mobile: card-style rows, horizontal scroll, readable density
+- T-3: Enlarge kanban drag affordance: make the whole card the drag target and improve touch pointer behavior
+- T-4: Add collapsible kanban columns: per-column expand/collapse control to reduce mobile clutter
+- T-5: Replace global-area filters with country-based filters: derive countries from lead data or a static list
+- T-6: Add ICE-score sort order controls for kanban and list view
 - T-7: Remove tenantId/default input field from the pipeline UI
-- T-8: Show live lead counts in kanban column titles
-- T-9: Add basic API/route tests for mutation and list paths
+- T-8: Show live lead counts in kanban column titles, e.g. `Discovered (258)`
+- T-9: Add basic API/route tests for list, mutation, and health endpoints
