@@ -135,13 +135,24 @@ function computeEase(body: any): number {
   const hasAddress = !!body.address;
   const hasGeneral = !!body.general_contact;
 
-  if (!hasNamed && !hasGeneral) return 1;
-  if (!hasNamed && hasGeneral) return 2;
-  if (hasNamed && !hasEmail && !hasPhone) return 3;
-  if (hasNamed && hasAddress && !hasEmail && !hasPhone) return 4;
-  if (hasNamed && (hasEmail || hasPhone) && !hasAddress) return 5;
-  if (hasNamed && hasAddress && (hasEmail || hasPhone) && !(hasEmail && hasPhone)) return 6;
-  if (hasNamed && hasAddress && hasEmail && hasPhone) return 7;
+  const contacts = Array.isArray(body.contacts) ? body.contacts : [];
+  const contactEmail = contacts.some(c => typeof c?.email === 'string' && c.email.trim().length > 0);
+  const contactPhone = contacts.some(c => typeof c?.phone === 'string' && c.phone.trim().length > 0);
+  const contactName = contacts.some(c => typeof c?.name === 'string' && c.name.trim().length > 0);
+  const contactAddress = contacts.some(c => typeof c?.address === 'string' && c.address.trim().length > 0);
+
+  const effectiveNamed = hasNamed || contactName;
+  const effectiveEmail = hasEmail || contactEmail;
+  const effectivePhone = hasPhone || contactPhone;
+  const effectiveAddress = hasAddress || contactAddress;
+
+  if (!effectiveNamed && !hasGeneral) return 1;
+  if (!effectiveNamed && hasGeneral) return 2;
+  if (effectiveNamed && !effectiveEmail && !effectivePhone) return 3;
+  if (effectiveNamed && effectiveAddress && !effectiveEmail && !effectivePhone) return 4;
+  if (effectiveNamed && (effectiveEmail || effectivePhone) && !effectiveAddress) return 5;
+  if (effectiveNamed && effectiveAddress && (effectiveEmail || effectivePhone) && !(effectiveEmail && effectivePhone)) return 6;
+  if (effectiveNamed && effectiveAddress && effectiveEmail && effectivePhone) return 7;
   return 4;
 }
 
