@@ -36,6 +36,15 @@
 - ✅ ICE-score sort controls for kanban and list view
 - ✅ Live kanban column lead counts
 - ✅ Removed tenantId/default input field from pipeline UI
+- 🟩 Change Won column header to green and Lost column header to red
+- 🟩 Fix kanban ICE/name ascending/descending sort behavior
+- 🟩 Fix kanban card drag-and-drop interaction on all devices
+- 🟩 Fix card selection/drag state so cards do not remain selected after drag
+- 🟩 Verify touch drag targets and drop detection on mobile and desktop
+- 🟩 Add pointer-capture cleanup and ghost removal on cancel/interrupt
+- 🟩 Add smoke tests for kanban sort order, column counts, and column collapse/expand
+- 🟩 Add smoke tests for list view filters, search, and row selection
+- 🟩 Add API smoke tests for `/api/health`, list, PATCH actions, and DELETE
 
 ---
 

@@ -1,71 +1,39 @@
-# Documentation Tasks — Sales Lead Generator
+# Documentation Quality Backlog — Sales Lead Generator
 
-## Audit Findings
-- README mixes summary, API reference, UX notes, and deployment docs
-- docs/user-guide.md repeats README content and omits current limitations
-- docs/architecture.md is high-level only; no low-level design
-- PIPELINE_ARCHITECTURE.md is the most structured doc but incomplete for runtime behavior
-- STACK_DECISION.md still references v2.0 while README/package.json/BUILD_STATUS use 2.1.0
-- development.md + roadmap.md mix shipped, planned, and aspirational work without clear separation
-- PROPOSAL.md contains workstreams that are partially implemented but not marked as such
-- Some endpoint and UX claims are stale vs. actual codebase
-- No single source of truth; 4–5 markdown files overlap
+**Version:** 2.1.0
 
-## Version Baseline
-- Current app version: **2.1.0**
-- Single source of truth: `package.json`
-- All docs must reference 2.1.0 going forward
+---
 
-## Deliverables
+## General Tasks
 
-### D1 — README.md Rewrite
-- [x] Make README an onboarding-first doc only
-- [x] Remove duplicated API reference, architecture prose, and UX details
-- [x] Add correct version header and compatibility statement
-- [x] Add single canonical links to ARCHITECTURE.md, OPERATOR_GUIDE.md, and CHANGELOG.md
-- [x] Fix any stale endpoint, route, or UX claims against current code
+### Versioning
+- [ ] Ensure all docs reference the current version from `package.json`
+- [ ] Update `CHANGELOG.md` for every release
+- [ ] Avoid hard-coded version strings in architecture or operator docs
 
-### D2 — docs/ARCHITECTURE.md Low-Level Design
-- [x] Add system context diagram: frontend, API routes, MongoDB, research agent, cron
-- [x] Document request/response flow for list, create, action, health, outreach endpoints
-- [x] Add module/responsibility map for `app/lib/*`, `models/*`, and API route handlers
-- [x] Document data flow for lead creation, normalization, dedup, and scoring
-- [x] Document auth, middleware, CORS, and security header enforcement
-- [x] Add deployment and environment diagram/notes
+### Cross-Linking
+- [ ] README should point to canonical docs only
+- [ ] Avoid duplicating API details across README, OPERATOR_GUIDE, and ARCHITECTURE
+- [ ] Keep `docs/INDEX.md` up to date when docs are added/removed
 
-### D3 — docs/OPERATOR_GUIDE.md
-- [x] Replace current docs/user-guide.md with operator-focused guide
-- [x] Daily workflow for pipeline operators
-- [x] Filter, search, drag, outreach, and action workflows
-- [x] Current limitations and known issues section
-- [x] API integration quickstart for integrators
-- [x] Escalation and admin endpoint usage
+### Route and Endpoint Accuracy
+- [ ] Verify documented API routes match `app/api/**/route.ts`
+- [ ] Verify frontend routes match actual page and component structure
+- [ ] Update examples if endpoints change
 
-### D4 — CHANGELOG.md
-- [x] Create CHANGELOG.md with v2.1.0 baseline
-- [x] Document shipped features from BUILD_STATUS.md, development.md, and roadmap.md
-- [x] Mark proposed work from PROPOSAL.md as pending or done
-- [x] Add version compatibility rules going forward
+### Code and Doc Sync
+- [ ] If a feature is marked shipped, confirm it exists in code
+- [ ] If a feature is marked planned, confirm it is not already implemented
+- [ ] Update `PROPOSAL.md` and `roadmap.md` when workstreams complete
 
-### D5 — docs/STACK_AND_DEPENDENCIES.md
-- [x] Replace/merge STACK_DECISION.md into a current stack doc
-- [x] Update version to 2.1.0
-- [x] Include runtime, framework, UI, DB, hosting, and agent/runtime dependencies
-- [x] Document why Mongoose and MongoDB Atlas are used vs alternatives
-- [x] Document known build constraints, e.g., `next build` OOM risk
+### Security and Auth Claims
+- [ ] Ensure auth, CORS, and middleware docs match `middleware.ts` and `lib/api-auth.ts`
+- [ ] Update known issues if security behavior changes
 
-### D6 — Route and Endpoint Audit
-- [x] Verify documented API routes match `app/api/**/route.ts`
-- [x] Verify frontend routes match `app/sales/**`, `app/outreach/**`, `app/detail.tsx`, etc.
-- [x] Update all docs with corrected endpoint/route list
-- [x] Add canonical API reference section in README with current examples
+### Archived References
+- [ ] Do not reference archived files: `docs/architecture.md`, `docs/user-guide.md`, `STACK_DECISION.md`, `BUILD_STATUS.md`, `development.md`
+- [ ] If historical context is needed, point to `_archived/` explicitly
 
-### D7 — Proposal and Roadmap Cleanup
-- [x] Update PROPOSAL.md: mark completed workstreams, remove duplicates
-- [x] Update roadmap.md: separate shipped, in-progress, and planned clearly
-- [x] Add traceability from roadmap items to docs/tasks
-
-### D8 — Doc Lint and Cross-Linking
-- [x] Add doclint task or checklist to catch future drift
-- [x] Ensure all docs link to each other instead of duplicating content
-- [x] Add a docs README or index pointing to D1–D7 outputs
+### Doc Lint
+- [ ] Use `docs/DOC_LINT.md` before merging doc changes
+- [ ] Review stale references during PR review
