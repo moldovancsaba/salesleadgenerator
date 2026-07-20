@@ -190,8 +190,16 @@ export async function DELETE(
     const clientPromise = getClientPromise()
     const db = await clientPromise.then(client => client.db())
 
+    const existing = await tryFindLead(db, config, tenantId, params.id)
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Lead not found' },
+        { status: 404 }
+      )
+    }
+
     const result = await db.collection(config.dbCollection).deleteOne({
-      _id: new (await import('mongodb')).ObjectId(params.id),
+      _id: existing._id,
       ...buildTenantFilter(tenantId),
     })
 
