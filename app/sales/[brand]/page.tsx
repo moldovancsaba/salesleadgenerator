@@ -195,8 +195,8 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
   return (
     <Box
       style={{
-        height: '100dvh',
-        overflow: 'hidden',
+        minHeight: '100dvh',
+        overflow: 'auto',
         backgroundColor: 'var(--mantine-color-gray-0)',
       }}
     >
@@ -229,7 +229,7 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
             </Group>
           </Box>
         )}
-        <Group justify="space-between" align="center">
+        <Group justify="space-between" align="center" wrap="wrap" gap="xs">
           <Group gap="xs">
             <Text fw={700} size="sm">{config.label}</Text>
             <input
@@ -243,8 +243,8 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
                 borderRadius: '0.25rem',
                 border: '1px solid var(--mantine-color-gray-3)',
                 fontSize: '0.75rem',
-                width: 120,
-              }}
+              width: 110,
+            }}
             />
             <Button
               size="xs"
@@ -294,8 +294,8 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.currentTarget.value)}
                 style={{
-                  flex: 1,
-                  minWidth: 100,
+                  flex: '1 1 140px',
+                  minWidth: 120,
                   padding: '0.3rem 0.5rem',
                   borderRadius: '0.25rem',
                   border: '1px solid var(--mantine-color-gray-3)',

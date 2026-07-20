@@ -15,6 +15,7 @@ type BoardProps = {
 
 export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [vertical, setVertical] = useState(false);
   const boardRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     leadId: string;
@@ -111,20 +112,18 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 767px)');
+    setVertical(mql.matches);
+    const handler = (event: MediaQueryListEvent) => setVertical(event.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
   return (
     <Box
       ref={boardRef}
-      style={{
-        flex: 1,
-        display: 'flex',
-        overflowX: 'auto',
-        overflowY: 'hidden',
-        gap: '0.75rem',
-        padding: '0.75rem',
-        scrollSnapType: 'x proximity',
-        WebkitOverflowScrolling: 'touch',
-        scrollBehavior: 'smooth',
-      }}
+      className={`kanban-board ${vertical ? 'kanban-board--vertical' : 'kanban-board--horizontal'}`}
     >
       {COLUMNS.map((col) => {
         const colLeads = leadsInColumn(col.key);
@@ -134,17 +133,7 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
           <Box
             key={col.key}
             data-column={col.key}
-            style={{
-              minWidth: 300,
-              maxWidth: 340,
-              flexShrink: 0,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              backgroundColor: 'var(--mantine-color-gray-0)',
-              borderRadius: '0.5rem',
-              border: '1px solid var(--mantine-color-gray-3)',
-            }}
+            className={`kanban-column ${vertical ? 'kanban-column--vertical' : 'kanban-column--horizontal'}`}
           >
             <Box
               style={{
@@ -161,13 +150,9 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
             </Box>
 
             <Box
+              className="kanban-column-body"
               style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '0.5rem',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.5rem',
+                // keeps existing padding/gap through CSS class
               }}
             >
               {colLeads.map((lead) => (

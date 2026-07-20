@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Lead } from './types';
 import { 
   Modal, 
@@ -56,6 +56,15 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
   const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
   const [busy, setBusy] = useState(false);
   const [outreachOpen, setOutreachOpen] = useState(false);
+  const [fullScreen, setFullScreen] = useState(false);
+
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 767px)');
+    setFullScreen(mql.matches);
+    const handler = (event: MediaQueryListEvent) => setFullScreen(event.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
 
   const ice = lead.ice || { impact: 0, confidence: 0, ease: 0 };
   const iceScore = Math.round(ice.impact * ice.confidence * ice.ease);
@@ -113,11 +122,11 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
         <Modal
           opened={true}
           onClose={onClose}
-          size="xl"
+          size={fullScreen ? 'full' : 'xl'}
           padding={0}
           withCloseButton={false}
-          fullScreen={false}
-          centered
+          fullScreen={fullScreen}
+          centered={!fullScreen}
         >
       <Paper radius="md" withBorder={false} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
