@@ -1,7 +1,7 @@
 {
-  "name": "SLG Pipeline",
+  "name": "Sales Lead Generator",
   "short_name": "SLG",
-  "description": "Intelligent Lead Management System",
+  "description": "AI-powered sales lead collection platform",
   "start_url": "/sales/cogmap",
   "scope": "/",
   "display": "standalone",

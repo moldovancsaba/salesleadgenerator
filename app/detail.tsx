@@ -2,27 +2,35 @@
 
 import { useState, useEffect } from 'react';
 import type { Lead } from './types';
-import { 
-  Modal, 
-  Stack, 
-  Group, 
-  Text, 
-  Badge, 
-  Progress, 
-  Textarea, 
-  Select, 
-  Button, 
+import {
+  Modal,
+  Stack,
+  Group,
+  Text,
+  Badge,
+  Progress,
+  Textarea,
+  Select,
+  Button,
   Box,
   Title,
   Divider,
   Paper,
-  SimpleGrid
+  SimpleGrid,
 } from '@mantine/core';
 import { regionTone } from './theme/semantic';
 import { iceTone, qualityTone } from './theme/semantic';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { semanticToneToMantineColor } from './utils/semantic-colors';
-import { IconX, IconThumbUp, IconThumbDown, IconPin, IconRefresh, IconTrash, IconMail, IconBrandLinkedin } from '@tabler/icons-react';
+import {
+  IconX,
+  IconThumbUp,
+  IconThumbDown,
+  IconPin,
+  IconRefresh,
+  IconTrash,
+  IconMail,
+} from '@tabler/icons-react';
 import { OutreachComposeModal } from './outreach/compose-modal';
 
 type KanbanColumn = Lead['kanbanColumn'];
@@ -75,7 +83,6 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
   const normalizedPro = ensureArrayField((normalized as any)[`pro_for_${brand}`]);
   const normalizedCon = ensureArrayField((normalized as any)[`con_for_${brand}`]);
 
-  // Get Mantine color values from semantic tones
   const iceToneValue = semanticToneToMantineColor(iceTone(iceScore));
   const regionToneValue = semanticToneToMantineColor(regionTone[lead.region]);
   const qualityStatus = normalized.qualityStatus || 'DRAFT';
@@ -231,7 +238,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
             </Paper>
 
             {/* Pros / Cons */}
-            {((normalizedPro && normalizedPro.length > 0) || 
+            {((normalizedPro && normalizedPro.length > 0) ||
               (normalizedCon && normalizedCon.length > 0)) && (
               <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                 {normalizedPro && normalizedPro.length > 0 && (
@@ -318,15 +325,16 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
         <Box p="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 }}>
           {!actionMode ? (
             <Group gap="sm" wrap="wrap">
-              <Button 
-                color="green" 
+              <Button
+                color="green"
                 leftSection={<IconThumbUp size={16} />}
-                disabled={busy} onClick={handleAccept}
+                disabled={busy}
+                onClick={handleAccept}
               >
                 Accept → QUALIFIED
               </Button>
-              <Button 
-                color="red" 
+              <Button
+                color="red"
                 leftSection={<IconThumbDown size={16} />}
                 onClick={() => setActionMode("decline")}
                 disabled={busy}
@@ -334,18 +342,20 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
               >
                 Decline → LOST
               </Button>
-              <Button 
-                color="blue" 
+              <Button
+                color="blue"
                 leftSection={<IconPin size={16} />}
-                disabled={busy} onClick={handlePin}
+                disabled={busy}
+                onClick={handlePin}
                 variant="light"
               >
                 Pin to ENGAGED
               </Button>
-              <Button 
-                color="gray" 
+              <Button
+                color="gray"
                 leftSection={<IconRefresh size={16} />}
-                disabled={busy} onClick={handleRefresh}
+                disabled={busy}
+                onClick={handleRefresh}
                 variant="light"
               >
                 Request Refresh
@@ -359,11 +369,12 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
               >
                 Outreach
               </Button>
-              <Button 
-                color="red" 
+              <Button
+                color="red"
                 variant="subtle"
                 leftSection={<IconTrash size={16} />}
-                disabled={busy} onClick={handleDelete}
+                disabled={busy}
+                onClick={handleDelete}
               >
                 Delete
               </Button>
@@ -379,19 +390,10 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
                 />
               </Stack>
               <Group gap="sm">
-                <Button 
-                  color="red" 
-                  disabled={busy} onClick={handleDecline}
-                  style={{ flex: 1 }}
-                >
+                <Button color="red" disabled={busy} onClick={handleDecline} style={{ flex: 1 }}>
                   Confirm Decline
                 </Button>
-                <Button 
-                  color="gray" 
-                  variant="light"
-                  onClick={() => setActionMode(null)}
-                  disabled={busy}
-                >
+                <Button color="gray" variant="light" onClick={() => setActionMode(null)} disabled={busy}>
                   Cancel
                 </Button>
               </Group>

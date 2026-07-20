@@ -25,6 +25,14 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
     sourceColumn: KanbanColumn;
   } | null>(null);
 
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 767px)');
+    setVertical(mql.matches);
+    const handler = (event: MediaQueryListEvent) => setVertical(event.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
   function leadsInColumn(col: KanbanColumn): Lead[] {
     return leads
       .filter((l) => l.kanbanColumn === col)
@@ -112,28 +120,70 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  useEffect(() => {
-    const mql = window.matchMedia('(max-width: 767px)');
-    setVertical(mql.matches);
-    const handler = (event: MediaQueryListEvent) => setVertical(event.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, []);
+  const boardStyle: React.CSSProperties = vertical
+    ? {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem',
+        padding: '0.75rem',
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        flex: '1 1 auto',
+        height: 'auto',
+        minHeight: 0,
+      }
+    : {
+        display: 'flex',
+        flexDirection: 'row',
+        gap: '0.75rem',
+        padding: '0.75rem',
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        flex: '1 1 auto',
+        height: 'auto',
+        minHeight: 0,
+        scrollSnapType: 'x proximity',
+        WebkitOverflowScrolling: 'touch',
+        scrollBehavior: 'smooth',
+      };
 
   return (
-    <Box
-      ref={boardRef}
-      className={`kanban-board ${vertical ? 'kanban-board--vertical' : 'kanban-board--horizontal'}`}
-    >
+    <Box ref={boardRef} style={boardStyle}>
       {COLUMNS.map((col) => {
         const colLeads = leadsInColumn(col.key);
         const color = semanticToneToMantineColor(col.color);
+
+        const columnStyle: React.CSSProperties = vertical
+          ? {
+              width: '100%',
+              minWidth: 'unset',
+              maxWidth: 'unset',
+              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              backgroundColor: 'var(--mantine-color-gray-0)',
+              borderRadius: '0.5rem',
+              border: '1px solid var(--mantine-color-gray-3)',
+              maxHeight: 'none',
+              height: 'auto',
+            }
+          : {
+              minWidth: 300,
+              maxWidth: 340,
+              flexShrink: 0,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              backgroundColor: 'var(--mantine-color-gray-0)',
+              borderRadius: '0.5rem',
+              border: '1px solid var(--mantine-color-gray-3)',
+            };
 
         return (
           <Box
             key={col.key}
             data-column={col.key}
-            className={`kanban-column ${vertical ? 'kanban-column--vertical' : 'kanban-column--horizontal'}`}
+            style={columnStyle}
           >
             <Box
               style={{
@@ -150,9 +200,14 @@ export function KanbanBoard({ leads, onMove, onOpenLead }: BoardProps) {
             </Box>
 
             <Box
-              className="kanban-column-body"
               style={{
-                // keeps existing padding/gap through CSS class
+                flex: 1,
+                overflowY: 'auto',
+                padding: '0.5rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+                minHeight: 0,
               }}
             >
               {colLeads.map((lead) => (
