@@ -132,7 +132,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title={<Title order={4}>Outreach</Title>} centered>
+    <Modal opened={opened} onClose={onClose} title={<Title order={4}>Outreach</Title>} centered withinPortal={false}>
       <Stack gap="sm">
         {loading ? (
           <Paper p="md" withBorder>

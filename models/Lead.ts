@@ -190,6 +190,9 @@ const leadSchema = new mongoose.Schema({
   lastActionAt: Date,
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
+
+  // Seyu company-specific optional pricing blocks
+  pricingByCompany: { type: Object, default: {} },
 });
 
 // ──── Fingerprint on save ────

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Group, Text, Button, SimpleGrid, Paper, Badge, Select, useMediaQuery } from '@mantine/core';
+import { Group, Text, Button, SimpleGrid, Paper, Badge, Select } from '@mantine/core';
 import { IconArrowsSort } from '@tabler/icons-react';
 import type { Lead } from '@/app/types';
 import { LeadCard } from '@/app/card';
@@ -45,7 +45,15 @@ export default function SalesPage({ params }: { params: { brand: string } }) {
   const [status, setStatus] = useState('all');
   const [sortKey, setSortKey] = useState<'ice' | 'name'>('ice');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const isMobile = useMediaQuery('(max-width: 1279px)');
+  const [isMobile, setIsMobile] = useState(true);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 1279px)');
+    setIsMobile(mql.matches);
+    const handler = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

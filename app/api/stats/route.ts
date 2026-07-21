@@ -93,19 +93,6 @@ export async function GET(request: Request) {
 
         const totalWeighted = Object.values(pipeline).reduce((sum: number, col: any) => sum + (col.weightedRevenue || 0), 0)
 
-        forecast = await collection.aggregate([
-          { $match: filter },
-          {
-            $group: {
-              _id: '$recommended_tier',
-              leads: { $sum: 1 },
-              participants: { $sum: { $ifNull: ['$estimated_participants', 0] } },
-              revenue: { $sum: { $ifNull: ['$estimated_annual_revenue_usd', 0] } },
-            },
-          },
-          { $sort: { revenue: -1 } },
-        ]).toArray()
-
         const revenueByModel = await collection.aggregate([
           { $match: filter },
           {
@@ -126,9 +113,48 @@ export async function GET(request: Request) {
         forecast = {
           pipeline,
           totalWeightedRevenue: totalWeighted,
-          byTier: forecast.reduce((acc, item) => ({ ...acc, [item._id || 'UNSET']: { leads: item.leads, participants: item.participants, revenue: item.revenue } }), {}),
-          byModel: revenueByModel.reduce((acc, item) => ({ ...acc, [item._id || 'UNSET']: { leads: item.leads, revenue: item.revenue } }), {}),
+          byTier: pipelineForecast.reduce((acc: Record<string, any>, item: any) => ({ ...acc, [item._id || 'UNSET']: { leads: item.leads, participants: item.participants, revenue: item.revenue } }), {}),
+          byModel: revenueByModel.reduce((acc: Record<string, any>, item: any) => ({ ...acc, [item._id || 'UNSET']: { leads: item.leads, revenue: item.revenue } }), {}),
           totals: totalRevenue[0] || { revenue: 0, participants: 0 },
+        }
+      }
+
+      if (brandKey === 'seyu') {
+        const seyuForecast = await collection.aggregate([
+          { $match: filter },
+          { $project: { companyPricing: { $objectToArray: '$pricingByCompany' } } },
+          { $unwind: { path: '$companyPricing', preserveNullAndEmptyArrays: true } },
+          {
+            $group: {
+              _id: '$companyPricing.k',
+              leads: { $sum: 1 },
+              currency: { $first: { $ifNull: ['$companyPricing.v.currency', 'EUR'] } },
+              upfrontEur: { $sum: { $ifNull: ['$companyPricing.v.upfront_eur', 0] } },
+              monthlyEur: { $sum: { $ifNull: ['$companyPricing.v.monthly_eur', 0] } },
+              annualEur: { $sum: { $ifNull: ['$companyPricing.v.annual_fee_eur', 0] } },
+              revenueSharePercent: { $max: { $ifNull: ['$companyPricing.v.revenue_share_percent', 0] } },
+              discountPercent: { $max: { $ifNull: ['$companyPricing.v.discount_percent', 0] } },
+            },
+          },
+          { $sort: { leads: -1 } },
+        ]).toArray()
+
+        const annualizedByCompany = (seyuForecast || []).map((doc: any) => ({
+          company: doc._id || 'UNKNOWN',
+          leads: doc.leads || 0,
+          currency: doc.currency || 'EUR',
+          upfrontEur: doc.upfrontEur || 0,
+          monthlyEur: doc.monthlyEur || 0,
+          annualFeeEur: doc.annualEur || 0,
+          revenueSharePercent: doc.revenueSharePercent || 0,
+          discountPercent: doc.discountPercent || 0,
+          estimatedAnnualValueEur: Math.max(doc.annualEur || 0, ((doc.monthlyEur || 0) * 12) + (doc.upfrontEur || 0)),
+        }))
+
+        const totalAnnualized = annualizedByCompany.reduce((sum: number, item: any) => sum + (item.estimatedAnnualValueEur || 0), 0)
+        forecast = {
+          byCompany: annualizedByCompany,
+          totalEstimatedAnnualValueEur: totalAnnualized,
         }
       }
 

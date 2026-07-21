@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { Lead } from './types';
 import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@doneisbetter/gds-admin/client';
-import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, useMediaQuery } from '@mantine/core';
+import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import {
@@ -48,7 +48,16 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
   const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
   const [busy, setBusy] = useState(false);
   const [outreachOpen, setOutreachOpen] = useState(false);
-  const fullScreen = useMediaQuery('(max-width: 1279px)');
+  const [fullScreen, setFullScreen] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 1279px)');
+    setFullScreen(mql.matches);
+    const handler = (event: MediaQueryListEvent) => setFullScreen(event.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
 
   const ice = lead.ice || { impact: 0, confidence: 0, ease: 0 };
   const iceScore = Math.round(ice.impact * ice.confidence * ice.ease);
@@ -126,52 +135,47 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
 
   const actions = {
     primary: {
-      action: 'accept',
+      action: 'gds.action.approve',
       color: 'green',
-      leftSection: <IconThumbUp size={16} />,
       disabled: busy,
       onClick: handleAccept,
     },
     secondary: [
       {
-        action: 'decline',
+        action: 'gds.action.reject',
         color: 'red',
         variant: 'light',
-        leftSection: <IconThumbDown size={16} />,
         disabled: busy,
         onClick: () => setActionMode("decline"),
       },
       {
-        action: 'pin',
+        action: 'gds.action.pin',
         color: 'blue',
         variant: 'light',
-        leftSection: <IconPin size={16} />,
         disabled: busy,
         onClick: handlePin,
       },
       {
-        action: 'refresh',
+        action: 'gds.action.refresh',
         color: 'gray',
         variant: 'light',
-        leftSection: <IconRefresh size={16} />,
         disabled: busy,
         onClick: handleRefresh,
       },
     ],
     tertiary: [
       {
-        action: 'outreach',
+        action: 'gds.action.edit',
         color: 'dark',
         variant: 'light',
-        leftSection: <IconMail size={16} />,
         disabled: busy,
         onClick: () => setOutreachOpen(true),
       },
       {
-        action: 'delete',
+        action: 'gds.action.delete',
         color: 'red',
         variant: 'subtle',
-        leftSection: <IconTrash size={16} />,
+        destructive: true,
         disabled: busy,
         onClick: handleDelete,
       },
