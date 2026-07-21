@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateLeadPayload, validatePatchPayload } from '../lib/validate-lead';
+import { validateLeadPayload, validatePatchPayload } from '../../lib/validate-lead';
 
 const basePayload = {
   entity_name: 'ACME FC',

@@ -1,6 +1,6 @@
 'use client';
 
-import { 
+import {
   Button as MantineButton,
   Card as MantineCard,
   TextInput as MantineTextInput,
@@ -24,12 +24,12 @@ import {
   type BoxProps as MantineBoxProps,
   type DividerProps as MantineDividerProps,
 } from '@mantine/core';
-import { forwardRef, CSSProperties } from 'react';
+import { forwardRef } from 'react';
 import type { SemanticTone } from '../../theme/semantic';
+import { semanticToneToMantineColor } from '../../utils/semantic-colors';
 
 /**
  * Semantic-aware Button
- * Maps tone prop to Mantine color
  */
 export interface ButtonProps extends Omit<MantineButtonProps, 'color'> {
   tone?: SemanticTone;
@@ -37,10 +37,11 @@ export interface ButtonProps extends Omit<MantineButtonProps, 'color'> {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ tone = 'neutral', ...props }, ref) => {
+    const color = semanticToneToMantineColor(tone);
     return (
       <MantineButton
         ref={ref}
-        color={tone}
+        color={color}
         variant={tone === 'neutral' ? 'default' : 'filled'}
         {...props}
       />
@@ -51,7 +52,6 @@ Button.displayName = 'Button';
 
 /**
  * Semantic-aware Card
- * Applies tone via data attribute for CSS targeting
  */
 export interface CardProps extends MantineCardProps {
   tone?: SemanticTone;
@@ -73,9 +73,8 @@ Card.displayName = 'Card';
 
 /**
  * Semantic-aware TextInput
- * Maps tone to focus color
  */
-export interface TextInputProps extends MantineTextInputProps {
+export interface TextInputProps extends Omit<MantineTextInputProps, 'color'> {
   tone?: SemanticTone;
 }
 
@@ -84,9 +83,6 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
     return (
       <MantineTextInput
         ref={ref}
-        classNames={{
-          input: tone === 'neutral' ? '' : '',
-        }}
         {...props}
       />
     );
@@ -96,7 +92,6 @@ TextInput.displayName = 'TextInput';
 
 /**
  * Semantic-aware Badge
- * Maps tone to color
  */
 export interface BadgeProps extends Omit<MantineBadgeProps, 'color'> {
   tone?: SemanticTone;
@@ -104,10 +99,11 @@ export interface BadgeProps extends Omit<MantineBadgeProps, 'color'> {
 
 export const Badge = forwardRef<HTMLDivElement, BadgeProps>(
   ({ tone = 'neutral', ...props }, ref) => {
+    const color = semanticToneToMantineColor(tone);
     return (
       <MantineBadge
         ref={ref as any}
-        color={tone}
+        color={color}
         variant={tone === 'neutral' ? 'outline' : 'light'}
         {...props}
       />
@@ -118,7 +114,6 @@ Badge.displayName = 'Badge';
 
 /**
  * Modal wrapper
- * Consistent styling across app
  */
 export const Modal = MantineModal;
 
@@ -139,3 +134,15 @@ export const Title = MantineTitle;
  * Divider
  */
 export const Divider = MantineDivider;
+
+/**
+ * Reusable Card shell
+ */
+export { CardShell } from './card-shell';
+
+/**
+ * Reusable ColumnHeader
+ */
+export { ColumnHeader } from './column-header';
+export { BoardLayout } from './board-layout';
+export { FilterBar } from './filter-bar';
