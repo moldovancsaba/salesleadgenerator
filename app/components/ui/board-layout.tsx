@@ -1,13 +1,10 @@
-import { Box, Group, Button, Select } from '@mantine/core';
+import { Box, Group, Button } from '@mantine/core';
 import type { ReactNode } from 'react';
 import { tokens } from '../../theme/tokens';
 import { breakpoints } from '../../theme/breakpoints';
 
 type BoardLayoutProps = {
   mode: 'mobile-portrait' | 'mobile-landscape' | 'tablet-portrait' | 'tablet-landscape' | 'desktop';
-  mobileColumnOptions: { value: string; label: string }[];
-  mobileSelectedColumn: string | null;
-  onMobileColumnChange: (value: string) => void;
   showAdvancedControls: boolean;
   sortControls?: ReactNode;
   boardContent: ReactNode;
@@ -18,9 +15,6 @@ type BoardLayoutProps = {
 
 export function BoardLayout({
   mode,
-  mobileColumnOptions,
-  mobileSelectedColumn,
-  onMobileColumnChange,
   showAdvancedControls,
   sortControls,
   boardContent,
@@ -30,18 +24,6 @@ export function BoardLayout({
 }: BoardLayoutProps) {
   return (
     <Box>
-      {mode === 'mobile-portrait' && (
-        <Box className="kanban-mobile-nav">
-          <Select
-            size="xs"
-            value={mobileSelectedColumn || 'DISCOVERED'}
-            onChange={(value) => onMobileColumnChange((value as string) || 'DISCOVERED')}
-            data={mobileColumnOptions}
-            allowDeselect={false}
-          />
-        </Box>
-      )}
-
       {showAdvancedControls && sortControls}
 
       <Box
