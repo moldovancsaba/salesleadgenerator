@@ -29,7 +29,7 @@ export function TableView({ leads }: TableViewProps) {
       renderMobileCard={(row) => (
         <div>
           <div style={{ fontWeight: 600 }}>{row.entity_name}</div>
-          <div style={{ color: 'var(--mantine-color-gray-6)' }}>
+          <div style={{ color: 'gray-6' }}>
             {row.region} • {row.qualityStatus || 'DRAFT'}
           </div>
         </div>

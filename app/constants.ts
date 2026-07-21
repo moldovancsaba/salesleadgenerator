@@ -1,14 +1,13 @@
-// Column metadata (Check-inspired)
+// Column metadata
 import type { KanbanColumn } from "./types";
-import type { SemanticTone } from "./theme/semantic";
 
-export const COLUMNS: { key: KanbanColumn; label: string; description: string; color: SemanticTone; icon: string }[] = [
-  { key: "DISCOVERED", label: "Discovered", description: "Raw discovery queue", color: "ingress", icon: "🔍" },
-  { key: "QUALIFIED", label: "Qualified", description: "Fit confirmed, ICE ≥ 200", color: "synthesis", icon: "✓" },
-  { key: "ENGAGED", label: "Engaged", description: "Active outreach, ICE ≥ 480", color: "tactical", icon: "⚡" },
-  { key: "PROPOSAL", label: "Proposal", description: "In negotiation", color: "strategy", icon: "📝" },
-  { key: "WON", label: "Won", description: "Closed positive", color: "review", icon: "🏆" },
-  { key: "LOST", label: "Lost", description: "Declined / no fit", color: "neutral", icon: "✕" },
+export const COLUMNS: { key: KanbanColumn; label: string; description: string; color: string; icon: string }[] = [
+  { key: "DISCOVERED", label: "Discovered", description: "Raw discovery queue", color: "blue", icon: "🔍" },
+  { key: "QUALIFIED", label: "Qualified", description: "Fit confirmed, ICE ≥ 200", color: "indigo", icon: "✓" },
+  { key: "ENGAGED", label: "Engaged", description: "Active outreach, ICE ≥ 480", color: "green", icon: "⚡" },
+  { key: "PROPOSAL", label: "Proposal", description: "In negotiation", color: "orange", icon: "📝" },
+  { key: "WON", label: "Won", description: "Closed positive", color: "teal", icon: "🏆" },
+  { key: "LOST", label: "Lost", description: "Declined / no fit", color: "red", icon: "✕" },
 ];
 
 export const MOBILE_MAX = 639;

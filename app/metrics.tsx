@@ -1,29 +1,14 @@
-/**
- * Metrics Dashboard
- * Shows overall pipeline health, ICE score distribution, regional breakdowns
- * Uses GDS semantic tokens for all colors
- */
-
 'use client';
 
 import { useMemo } from 'react';
 import type { Lead } from './types';
 import {
   Stack,
-  Grid,
-  Progress,
-  Badge,
-  Group,
   Title,
   SimpleGrid,
   Text,
+  Divider,
 } from '@mantine/core';
-import {
-  IconTrendingUp,
-  IconUsers,
-  IconCircleCheck,
-} from '@tabler/icons-react';
-import { semanticToneToMantineColor, iceTone, qualityTone, regionTone } from './utils/semantic-colors';
 import { InfoCard } from '@doneisbetter/gds-admin/client';
 
 type Props = {
@@ -69,11 +54,11 @@ export function MetricsPanel({ leads }: Props) {
       : 0;
 
     const buckets: Array<{ label: string; min: number; max: number; count: number; tone: string }> = [
-      { label: '0-200', min: 0, max: 200, count: 0, tone: 'ingress' },
-      { label: '200-400', min: 200, max: 400, count: 0, tone: 'synthesis' },
-      { label: '400-600', min: 400, max: 600, count: 0, tone: 'tactical' },
-      { label: '600-800', min: 600, max: 800, count: 0, tone: 'strategy' },
-      { label: '800+', min: 800, max: Infinity, count: 0, tone: 'review' },
+      { label: '0-200', min: 0, max: 200, count: 0, tone: 'blue' },
+      { label: '200-400', min: 200, max: 400, count: 0, tone: 'indigo' },
+      { label: '400-600', min: 400, max: 600, count: 0, tone: 'green' },
+      { label: '600-800', min: 600, max: 800, count: 0, tone: 'orange' },
+      { label: '800+', min: 800, max: Infinity, count: 0, tone: 'teal' },
     ];
 
     iceScores.forEach(score => {
@@ -119,11 +104,7 @@ export function MetricsPanel({ leads }: Props) {
     };
   }, [leads]);
 
-  const regionTones = {
-    US: semanticToneToMantineColor(regionTone('US')),
-    CEE: semanticToneToMantineColor(regionTone('CEE')),
-    MENA: semanticToneToMantineColor(regionTone('MENA')),
-  };
+  const regionMap: Record<string, string> = { US: 'blue', CEE: 'orange', MENA: 'green' };
 
   return (
     <Stack gap="xl">
@@ -138,7 +119,6 @@ export function MetricsPanel({ leads }: Props) {
         <Stack gap="md">
           {metrics.buckets.map((bucket) => {
             const percentage = metrics.total > 0 ? (bucket.count / metrics.total) * 100 : 0;
-            const color = semanticToneToMantineColor(bucket.tone);
 
             return (
               <Stack key={bucket.label} gap={4}>
@@ -146,7 +126,7 @@ export function MetricsPanel({ leads }: Props) {
                   <Text size="sm" fw={500}>{bucket.label}</Text>
                   <Text size="sm" c="dimmed">{bucket.count} leads</Text>
                 </Group>
-                <Progress value={percentage} color={color} size="xl" radius="xl" />
+                <Progress value={percentage} color={bucket.tone} size="xl" radius="xl" />
               </Stack>
             );
           })}
@@ -157,8 +137,7 @@ export function MetricsPanel({ leads }: Props) {
         <Title order={4}>Pipeline Distribution</Title>
         <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="md">
           {Object.entries(metrics.columnCounts).map(([column, count]) => {
-            const tone = column === 'WON' ? 'review' : column === 'LOST' ? 'strategy' : 'ingress';
-            const color = semanticToneToMantineColor(tone);
+            const tone = column === 'WON' ? 'teal' : column === 'LOST' ? 'red' : 'indigo';
             const percentage = metrics.total > 0 ? (count / metrics.total) * 100 : 0;
 
             return (
@@ -177,7 +156,7 @@ export function MetricsPanel({ leads }: Props) {
         <Title order={4}>Quality Status</Title>
         <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
           {Object.entries(metrics.qualityCounts).map(([status, count]) => {
-            const color = semanticToneToMantineColor(qualityTone(status));
+            const color = status === 'VERIFIED' ? 'teal' : status === 'CHECKED' ? 'orange' : 'gray';
             return (
               <InfoCard
                 key={status}
@@ -192,16 +171,12 @@ export function MetricsPanel({ leads }: Props) {
       {metrics.sortedDeclineReasons.length > 0 && (
         <Stack gap="md">
           <Title order={4}>Decline Reasons</Title>
-          <Stack gap="xs">
-            {metrics.sortedDeclineReasons.map(([reason, count]) => (
-              <Group key={reason} justify="space-between" py="xs" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
+          <Stack gap={0}><Divider color="gray.2" />{metrics.sortedDeclineReasons.map(([reason, count]) => (
+              <Group key={reason} justify="space-between" py="xs">
                 <Text size="sm">{reason.replace(/_/g, ' ')}</Text>
-                <Badge color="red" variant="light">
-                  {count}
-                </Badge>
+                <Text c="red" size="sm" fw={600}>{count}</Text>
               </Group>
-            ))}
-          </Stack>
+            ))}</Stack>
         </Stack>
       )}
 
@@ -209,7 +184,7 @@ export function MetricsPanel({ leads }: Props) {
         <Title order={4}>Regional Breakdown</Title>
         <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
           {Object.entries(metrics.regionCounts).map(([region, count]) => {
-            const color = regionTones[region as keyof typeof regionTones];
+            const color = regionMap[region] || 'gray';
             const percentage = metrics.total > 0 ? (count / metrics.total) * 100 : 0;
 
             return (

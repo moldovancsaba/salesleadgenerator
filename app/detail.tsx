@@ -3,10 +3,9 @@
 import { useState, useEffect } from 'react';
 import type { Lead } from './types';
 import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@doneisbetter/gds-admin/client';
-import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid } from '@mantine/core';
+import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, useMediaQuery } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
-import { semanticToneToMantineColor, iceTone, qualityTone, regionTone } from './utils/semantic-colors';
 import {
   IconX,
   IconThumbUp,
@@ -17,7 +16,6 @@ import {
   IconMail,
 } from '@tabler/icons-react';
 import { OutreachComposeModal } from './outreach/compose-modal';
-import { breakpoints } from './theme/breakpoints';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -50,17 +48,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
   const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
   const [busy, setBusy] = useState(false);
   const [outreachOpen, setOutreachOpen] = useState(false);
-  const [fullScreen, setFullScreen] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const mql = window.matchMedia(`(max-width: ${breakpoints.tabletLandscapeMax}px)`);
-    setFullScreen(mql.matches);
-    const handler = (event: MediaQueryListEvent) => setFullScreen(event.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, [lead._id]);
+  const fullScreen = useMediaQuery('(max-width: 1279px)');
 
   const ice = lead.ice || { impact: 0, confidence: 0, ease: 0 };
   const iceScore = Math.round(ice.impact * ice.confidence * ice.ease);
@@ -71,10 +59,10 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
   const normalizedPro = ensureArrayField((normalized as any)[`pro_for_${brand}`]);
   const normalizedCon = ensureArrayField((normalized as any)[`con_for_${brand}`]);
 
-  const iceToneValue = semanticToneToMantineColor(iceTone(iceScore));
-  const regionToneValue = semanticToneToMantineColor(regionTone(lead.region));
-  const qualityStatus: string = (normalized.qualityStatus || 'DRAFT') as string;
-  const qualityToneValue = semanticToneToMantineColor(qualityTone[qualityStatus as keyof typeof qualityTone]);
+  const iceToneValue = iceScore >= 700 ? 'teal' : iceScore >= 480 ? 'green' : iceScore >= 200 ? 'orange' : 'blue';
+  const regionToneValue = lead.region === 'US' ? 'blue' : lead.region === 'CEE' ? 'indigo' : lead.region === 'MENA' ? 'green' : 'gray';
+  const qualityStatus: string = ((normalized.qualityStatus || 'DRAFT') as string);
+  const qualityToneValue = qualityStatus === 'VERIFIED' ? 'teal' : qualityStatus === 'CHECKED' ? 'orange' : 'gray';
 
   async function handleAccept() {
     setBusy(true);
@@ -119,18 +107,6 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
       showNotification({ message: 'Refresh requested', color: 'green', autoClose: 4000 });
     } catch (err) {
       showNotification({ message: err instanceof Error ? err.message : 'Refresh request failed', color: 'red', autoClose: 5000 });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleModify() {
-    setBusy(true);
-    try {
-      await onAction(lead._id, "MODIFY", { annotation });
-      showNotification({ message: 'Lead updated', color: 'green', autoClose: 4000 });
-    } catch (err) {
-      showNotification({ message: err instanceof Error ? err.message : 'Modify failed', color: 'red', autoClose: 5000 });
     } finally {
       setBusy(false);
     }
@@ -330,6 +306,14 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
         </Box>
       )}
 
+      <AdminSelect
+        name="declineReason"
+        label="Decline Reason"
+        description="Only used when declining"
+        value={declineReason}
+        onChange={(value) => setDeclineReason(value as DeclineReason)}
+        data={DECLINE_REASONS.map((r) => ({ value: r.value, label: r.label }))}
+      />
       <AdminTextarea
         name="annotation"
         label="Annotation"
@@ -344,32 +328,13 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
   return (
     <>
       {fullScreen ? (
-        <AdminModal
-          opened
-          onClose={onClose}
-          title={lead.entity_name}
-          description={lead.industry || lead.sport_or_sector || undefined}
-          size="full"
-          actions={actions as any}
-        >
+        <AdminModal opened onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} size="full" actions={actions as any}>
           <Stack gap="md">{content}</Stack>
         </AdminModal>
       ) : (
-        <AdminDetailDrawer
-          opened
-          onClose={onClose}
-          title={lead.entity_name}
-          description={lead.industry || lead.sport_or_sector || undefined}
-          metadata={metadata}
-          actions={actions as any}
-        />
+        <AdminDetailDrawer opened onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} metadata={metadata} actions={actions as any} />
       )}
-      <OutreachComposeModal
-        opened={outreachOpen}
-        onClose={() => setOutreachOpen(false)}
-        lead={lead}
-        brand={brand}
-      />
+      <OutreachComposeModal opened={outreachOpen} onClose={() => setOutreachOpen(false)} lead={lead} brand={brand} />
     </>
   );
 }
