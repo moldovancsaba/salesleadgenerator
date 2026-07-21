@@ -72,19 +72,24 @@ export async function GET(request: Request) {
           LOST: 0.0,
         }
 
-        const pipeline = pipelineForecast.reduce((acc, item) => {
-          const rate = closedRates[(item._id || 'UNKNOWN') as string] ?? 0;
-          return {
-            ...acc,
-            [(item._id || 'UNKNOWN') as string]: {
-              leads: item.leads,
-              participants: item.participants,
-              rawRevenue: item.revenue,
-              probability: rate,
-              weightedRevenue: Math.round(item.revenue * rate),
-            },
-          };
-        }, {} as Record<string, any>)
+        const pipelineColumns = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST']
+        const rawByColumn: Record<string, any> = {}
+        for (const item of pipelineForecast) {
+          rawByColumn[(item._id || 'UNKNOWN') as string] = item
+        }
+
+        const pipeline: Record<string, any> = {}
+        for (const col of pipelineColumns) {
+          const item = rawByColumn[col] || { leads: 0, participants: 0, revenue: 0 }
+          const rate = closedRates[col] ?? 0
+          pipeline[col] = {
+            leads: item.leads,
+            participants: item.participants,
+            rawRevenue: item.revenue,
+            probability: rate,
+            weightedRevenue: Math.round(item.revenue * rate),
+          }
+        }
 
         const totalWeighted = Object.values(pipeline).reduce((sum: number, col: any) => sum + (col.weightedRevenue || 0), 0)
 
