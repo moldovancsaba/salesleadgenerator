@@ -157,7 +157,7 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
       ghost.style.zIndex = '9999';
       ghost.style.opacity = '0.9';
       ghost.style.pointerEvents = 'none';
-      ghost.style.transform = 'scale(1.05)';
+      ghost.style.transform = 'none';
       ghost.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
       ghost.style.transition = 'transform 0.1s';
       document.body.appendChild(ghost);
