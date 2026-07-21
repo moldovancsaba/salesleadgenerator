@@ -2,6 +2,26 @@ import { NextResponse } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
 import { BRAND_CONFIG } from '../../lib/brand'
 
+const DEFAULT_WEIGHTS: Record<string, number> = {
+  DISCOVERED: 0.01,
+  QUALIFIED: 0.05,
+  ENGAGED: 0.10,
+  PROPOSAL: 0.25,
+  WON: 1.0,
+  LOST: 0.0,
+}
+
+async function getPipelineWeights(): Promise<Record<string, number>> {
+  try {
+    const client = await clientPromise
+    const db = client.db()
+    const doc = await db.collection('settings').findOne({ key: 'pipeline_weights' })
+    return doc?.weights || DEFAULT_WEIGHTS
+  } catch {
+    return DEFAULT_WEIGHTS
+  }
+}
+
 function getTenantId(request: Request): string {
   const url = new URL(request.url)
   const tenantId = (url.searchParams.get('tenantId') || 'default').trim()
@@ -63,14 +83,7 @@ export async function GET(request: Request) {
           },
         ]).toArray()
 
-        const closedRates: Record<string, number> = {
-          DISCOVERED: 0.01,
-          QUALIFIED: 0.05,
-          ENGAGED: 0.10,
-          PROPOSAL: 0.25,
-          WON: 1.0,
-          LOST: 0.0,
-        }
+        const closedRates = await getPipelineWeights()
 
         const pipelineColumns = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST']
         const rawByColumn: Record<string, any> = {}
