@@ -43,10 +43,9 @@ function useBreakpoint() {
     function computeMode(): LayoutMode {
       const width = window.innerWidth;
       if (width >= DESKTOP_MIN) return 'desktop';
-      if (width > TABLET_LANDSCAPE_MAX) return 'desktop';
-      if (width > TABLET_PORTRAIT_MAX) return 'tablet-landscape';
-      if (width > MOBILE_LANDSCAPE_MAX) return 'tablet-portrait';
-      if (width > MOBILE_MAX) return 'mobile-landscape';
+      if (width >= TABLET_LANDSCAPE_MIN) return 'tablet-landscape';
+      if (width >= TABLET_PORTRAIT_MIN) return 'tablet-portrait';
+      if (width >= MOBILE_LANDSCAPE_MIN) return 'mobile-landscape';
       return 'mobile-portrait';
     }
 
@@ -321,13 +320,6 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
   return (
     <BoardLayout
       mode={mode}
-      mobileColumnOptions={mobileColumnOptions}
-      mobileSelectedColumn={mobileSelectedColumn}
-      onMobileColumnChange={(value) => {
-        const next = value || 'DISCOVERED';
-        const lead = leads.find((l) => l.kanbanColumn === next) || leads[0];
-        if (lead) onOpenLead(lead);
-      }}
       showAdvancedControls={showAdvancedControls}
       sortControls={sortControls}
       boardContent={boardContent}

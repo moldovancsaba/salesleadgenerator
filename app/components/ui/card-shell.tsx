@@ -18,6 +18,8 @@ export function CardShell({ children, className, onClick, withBorder = true, rad
       withBorder={withBorder}
       className={className}
       style={{
+        backgroundColor: 'var(--mantine-color-white)',
+        color: 'var(--mantine-color-gray-9)',
         cursor: onClick ? 'pointer' : 'default',
         transition: 'transform 0.1s, box-shadow 0.1s',
         ...style,
