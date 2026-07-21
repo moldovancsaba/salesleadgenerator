@@ -9,6 +9,8 @@ import { semanticToneToMantineColor } from './utils/semantic-colors';
 import { COLUMNS, getIceScore } from './constants';
 import { tokens } from './theme/tokens';
 import { breakpoints } from './theme/breakpoints';
+import { ColumnHeader } from './components/ui/column-header';
+import { BoardLayout } from './components/ui/board-layout';
 
 type BoardProps = {
   leads: Lead[];
@@ -21,6 +23,7 @@ type BoardProps = {
   sortOrder?: 'asc' | 'desc';
   onSortKeyChange?: (key: 'ice' | 'name') => void;
   onSortOrderChange?: (order: 'asc' | 'desc') => void;
+  mode?: LayoutMode;
 };
 
 type LayoutMode = 'mobile-portrait' | 'mobile-landscape' | 'tablet-portrait' | 'tablet-landscape' | 'desktop';
@@ -49,7 +52,7 @@ function useBreakpoint() {
 
     setMode(computeMode());
 
-    const mql = window.matchMedia(`(max-width: ${MOBILE_MAX}px)`);
+    const mql = window.matchMedia(`(max-width: ${DESKTOP_MIN}px)`);
     const handler = () => setMode(computeMode());
     if (typeof mql.addEventListener === 'function') {
       mql.addEventListener('change', handler);
@@ -68,9 +71,9 @@ function useBreakpoint() {
   return mode;
 }
 
-export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, onToggleColumn, columnCounts = {}, sortKey = 'ice', sortOrder = 'desc', onSortKeyChange, onSortOrderChange }: BoardProps) {
+export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, onToggleColumn, columnCounts = {}, sortKey = 'ice', sortOrder = 'desc', onSortKeyChange, onSortOrderChange, mode: modeProp }: BoardProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const mode = useBreakpoint();
+  const mode = modeProp || useBreakpoint();
   const boardRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     leadId: string;
@@ -81,11 +84,25 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
     sourceEl: HTMLElement | null;
   } | null>(null);
 
-  const mobileVisibleColumn = useMemo(() => {
+  const isMobile = mode === 'mobile-portrait' || mode === 'mobile-landscape';
+  const isTablet = mode === 'tablet-portrait' || mode === 'tablet-landscape';
+  const showAdvancedControls = !isMobile;
+  const enableDrag = !isMobile;
+
+  const mobileColumnOptions = useMemo(() => COLUMNS.map((col) => ({ value: col.key, label: `${col.icon} ${col.label}` })), []);
+  const mobileSelectedColumn = useMemo(() => {
     if (mode !== 'mobile-portrait') return null;
-    const visible = leads.find((l) => l.kanbanColumn === 'DISCOVERED');
-    return (visible?.kanbanColumn || 'DISCOVERED') as KanbanColumn;
+    const discovered = leads.find((l) => l.kanbanColumn === 'DISCOVERED');
+    return discovered?.kanbanColumn || 'DISCOVERED';
   }, [leads, mode]);
+
+  const visibleColumns = useMemo(() => {
+    if (mode === 'mobile-portrait') {
+      const active = mobileSelectedColumn || 'DISCOVERED';
+      return COLUMNS.filter((col) => col.key === active);
+    }
+    return COLUMNS;
+  }, [mode, mobileSelectedColumn]);
 
   function leadsInColumn(col: KanbanColumn): Lead[] {
     const list = leads.filter((l) => l.kanbanColumn === col);
@@ -104,6 +121,7 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
   }
 
   const handleDragStart = (e: React.PointerEvent, leadId: string, column: KanbanColumn) => {
+    if (!enableDrag) return;
     const target = e.currentTarget as HTMLElement;
     target.setPointerCapture(e.pointerId);
     target.style.opacity = '0.4';
@@ -121,7 +139,7 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
   };
 
   const handleDragMove = (e: React.PointerEvent) => {
-    if (!dragRef.current) return;
+    if (!enableDrag || !dragRef.current) return;
 
     const deltaX = e.clientX - dragRef.current.startX;
     const deltaY = e.clientY - dragRef.current.startY;
@@ -162,6 +180,7 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
   };
 
   const handleDragEnd = async (e: React.PointerEvent, column: KanbanColumn) => {
+    if (!enableDrag) return;
     const target = e.currentTarget as HTMLElement;
     target.style.opacity = '1';
 
@@ -200,28 +219,9 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  const showAdvancedControls = mode !== 'mobile-portrait';
-
-  const mobileColumnOptions = useMemo(() => COLUMNS.map((col) => ({ value: col.key, label: `${col.icon} ${col.label}` })), []);
-  const mobileSelectedColumn = useMemo(() => {
-    if (mode !== 'mobile-portrait') return null;
-    const discovered = leads.find((l) => l.kanbanColumn === 'DISCOVERED');
-    return discovered?.kanbanColumn || 'DISCOVERED';
-  }, [leads, mode]);
-
-  const visibleColumns = mode === 'mobile-portrait'
-    ? COLUMNS.filter((col) => col.key === mobileSelectedColumn)
-    : COLUMNS;
-
   const boardClass = `kanban-board kanban-board--${mode}`;
   const columnClass = (colKey: KanbanColumn) =>
     `kanban-column kanban-column--${mode}` + (collapsedColumns[colKey] ? ' kanban-column--collapsed' : '');
-
-  const boardStyle: React.CSSProperties = {
-    flex: '1 1 auto',
-    height: 'auto',
-    minHeight: 0,
-  };
 
   const columnBaseStyle: React.CSSProperties = {
     flexShrink: 0,
@@ -232,131 +232,112 @@ export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, 
     border: '1px solid var(--mantine-color-gray-3)',
   };
 
-  return (
-    <Box>
-      {mode === 'mobile-portrait' && (
-        <Box className="kanban-mobile-nav">
-          <Select
-            size="xs"
-            value={mobileSelectedColumn || 'DISCOVERED'}
-            onChange={(value) => {
-              const next = (value as string) || 'DISCOVERED';
-              const lead = leads.find((l) => l.kanbanColumn === next) || leads[0];
-              if (lead) onOpenLead(lead);
-            }}
-            data={mobileColumnOptions}
-            allowDeselect={false}
-          />
-        </Box>
-      )}
+  const sortControls = showAdvancedControls && onSortKeyChange && onSortOrderChange ? (
+    <Group gap="xs" mb="xs">
+      <Button
+        size="xs"
+        variant={sortKey === 'ice' ? 'filled' : 'light'}
+        color="gray"
+        onClick={() => onSortKeyChange('ice')}
+        rightSection={<IconArrowsSort size={14} />}
+      >
+        ICE {sortKey === 'ice' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+      </Button>
+      <Button
+        size="xs"
+        variant={sortKey === 'name' ? 'filled' : 'light'}
+        color="gray"
+        onClick={() => onSortKeyChange('name')}
+        rightSection={<IconArrowsSort size={14} />}
+      >
+        Name {sortKey === 'name' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+      </Button>
+      <Button
+        size="xs"
+        variant="light"
+        color="gray"
+        onClick={() => onSortOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}
+      >
+        {sortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}
+      </Button>
+    </Group>
+  ) : null;
 
-      {showAdvancedControls && onSortKeyChange && onSortOrderChange && (
-        <Group gap="xs" mb="xs">
-          <Button
-            size="xs"
-            variant={sortKey === 'ice' ? 'filled' : 'light'}
-            color="gray"
-            onClick={() => onSortKeyChange('ice')}
-            rightSection={<IconArrowsSort size={14} />}
-          >
-            ICE {sortKey === 'ice' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
-          </Button>
-          <Button
-            size="xs"
-            variant={sortKey === 'name' ? 'filled' : 'light'}
-            color="gray"
-            onClick={() => onSortKeyChange('name')}
-            rightSection={<IconArrowsSort size={14} />}
-          >
-            Name {sortKey === 'name' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
-          </Button>
-          <Button
-            size="xs"
-            variant="light"
-            color="gray"
-            onClick={() => onSortOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}
-          >
-            {sortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}
-          </Button>
-        </Group>
-      )}
+  const boardContent = visibleColumns.map((col) => {
+    const colLeads = leadsInColumn(col.key);
+    const color = semanticToneToMantineColor(col.color);
+    const collapsed = Boolean(collapsedColumns[col.key]);
+    const toggleColumn = () => onToggleColumn?.(col.key);
+    const headerTone = col.key === 'WON' ? 'green' : col.key === 'LOST' ? 'red' : col.color;
 
-      <Box ref={boardRef} className={boardClass} style={boardStyle}>
-        {visibleColumns.map((col) => {
-          const colLeads = leadsInColumn(col.key);
-          const color = semanticToneToMantineColor(col.color);
-          const collapsed = Boolean(collapsedColumns[col.key]);
+    return (
+      <Box
+        key={col.key}
+        data-column={col.key}
+        className={columnClass(col.key)}
+        style={columnBaseStyle}
+      >
+        <ColumnHeader
+          label={col.label}
+          count={columnCounts[col.key] ?? colLeads.length}
+          tone={headerTone}
+          collapsed={collapsed}
+          onToggle={toggleColumn}
+        />
 
-          const toggleColumn = () => {
-            onToggleColumn?.(col.key);
-          };
-
-          return (
-            <Box
-              key={col.key}
-              data-column={col.key}
-              className={columnClass(col.key)}
-              style={columnBaseStyle}
-            >
-              <Box
-                style={{
-                  padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
-                  borderBottom: '1px solid var(--mantine-color-gray-2)',
-                  borderTopLeftRadius: tokens.radii.md,
-                  borderTopRightRadius: tokens.radii.md,
-                  backgroundColor: col.key === 'WON' ? 'var(--mantine-color-green-6)' : col.key === 'LOST' ? 'var(--mantine-color-red-6)' : color,
-                  color: '#fff',
-                  flexShrink: 0,
-                }}
-              >
-                <Group justify="space-between" align="center" gap="xs">
-                  <Text fw={700} size="sm">
-                    {col.label} ({columnCounts[col.key] ?? colLeads.length})
-                  </Text>
-                  <ActionIcon
-                    size="xs"
-                    variant="subtle"
-                    color="white"
-                    onClick={toggleColumn}
-                    aria-label={collapsed ? 'Expand column' : 'Collapse column'}
-                  >
-                    {collapsed ? <IconChevronRight size={16} /> : <IconChevronDown size={16} />}
-                  </ActionIcon>
-                </Group>
-              </Box>
-
-              {!collapsed && (
-                <Box className="kanban-column-body" style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  padding: tokens.spacing.xs,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: tokens.spacing.xs,
-                  minHeight: 0,
-                }}>
-                  {colLeads.map((lead) => (
-                    <LeadCard
-                      key={lead._id}
-                      lead={lead}
-                      onOpen={() => onOpenLead(lead)}
-                      onMoveStart={(e) => handleDragStart(e, lead._id, col.key)}
-                      onMove={handleDragMove}
-                      onMoveEnd={(e) => handleDragEnd(e, col.key)}
-                      isDragging={isDragging}
-                    />
-                  ))}
-                  {!colLeads.length && (
-                    <Text size="xs" c="dimmed" ta="center" py="md">
-                      No leads
-                    </Text>
-                  )}
-                </Box>
-              )}
-            </Box>
-          );
-        })}
+        {!collapsed && (
+          <Box style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: tokens.spacing.xs,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: tokens.spacing.xs,
+            minHeight: 0,
+          }}>
+            {colLeads.map((lead) => (
+              <LeadCard
+                key={lead._id}
+                lead={lead}
+                onOpen={() => onOpenLead(lead)}
+                onMoveStart={(e) => handleDragStart(e, lead._id, col.key)}
+                onMove={handleDragMove}
+                onMoveEnd={(e) => handleDragEnd(e, col.key)}
+                isDragging={isDragging}
+                mode={mode}
+              />
+            ))}
+            {!colLeads.length && (
+              <Text size="xs" c="dimmed" ta="center" py="md">
+                No leads
+              </Text>
+            )}
+          </Box>
+        )}
       </Box>
-    </Box>
+    );
+  });
+
+  return (
+    <BoardLayout
+      mode={mode}
+      mobileColumnOptions={mobileColumnOptions}
+      mobileSelectedColumn={mobileSelectedColumn}
+      onMobileColumnChange={(value) => {
+        const next = value || 'DISCOVERED';
+        const lead = leads.find((l) => l.kanbanColumn === next) || leads[0];
+        if (lead) onOpenLead(lead);
+      }}
+      showAdvancedControls={showAdvancedControls}
+      sortControls={sortControls}
+      boardContent={boardContent}
+      boardClassName={boardClass}
+      boardStyle={{
+        flex: '1 1 auto',
+        height: 'auto',
+        minHeight: 0,
+      }}
+      boardRef={boardRef}
+    />
   );
 }
