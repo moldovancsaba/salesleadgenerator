@@ -73,4 +73,8 @@ export type Lead = {
   lastActionAt?: string;
   createdAt?: string;
   updatedAt?: string;
+  qualifiedAt?: string;
+  lastStatusChangeAt?: string;
+  autoMoved?: boolean;
+  autoMoveNote?: string;
 };

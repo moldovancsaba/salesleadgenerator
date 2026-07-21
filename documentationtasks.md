@@ -47,3 +47,5 @@
 - [x] GDS localization verified; local install present at `node_modules/@doneisbetter/gds`
 - [x] 2026-07-20 doc sync: updated CHANGELOG.md, PROPOSAL.md, docs/ARCHITECTURE.md, docs/OPERATOR_GUIDE.md to match shipped 2.1.0 state; doc lint passed
 - [x] 2026-07-20 route audit: confirmed `/api/leads`, `/api/health`, `/api/admin/*`, `/api/outreach-*`, `/api/search*`, `/api/stats`, `/api/boards`, and frontend routes `/sales/[brand]`, `/outreach/templates` are documented
+- [x] GDS/style token cleanup: created `app/theme/tokens.ts` and `app/theme/breakpoints.ts`; updated `app/card.tsx`, `app/kanban.tsx`, `app/table.tsx`, `app/detail.tsx`, `app/page.tsx`, `app/search-learning.tsx`, `app/metrics.tsx`, `app/components/unified-card.tsx`, `app/components/ui/layout.tsx`, and `app/sales/[brand]/page.tsx` to use shared tokens/breakpoints; removed duplicated kanban CSS from `app/globals.css`; tracked in `developmentgds.md`
+- [ ] Remaining GDS/style work: extract reusable components (`CardShell`, `ColumnHeader`, `BoardLayout`, `FilterBar`, `DataTable`), finish dead-style cleanup in `globals.css`, consider removing unused deps (`sonner`, `framer-motion`)
