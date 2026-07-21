@@ -135,7 +135,7 @@ export async function PUT(
       'kanbanColumn', 'sortOrder', 'priority', 'status', 'ice', 'iceScore',
       config.proField, config.conField, 'contacts', 'qualityStatus',
       'recommended_tier', 'estimated_participants', 'estimated_annual_revenue_usd',
-      'revenue_model', 'product_fit_notes'
+      'revenue_model', 'product_fit_notes', 'pricingByCompany'
     ];
 
     for (const field of allowedFields) {
