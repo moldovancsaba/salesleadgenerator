@@ -49,10 +49,50 @@ export async function GET(request: Request) {
         ])
         .toArray()
 
+      let forecast = null
+      if (brandKey === 'cogmap') {
+        forecast = await collection.aggregate([
+          { $match: filter },
+          {
+            $group: {
+              _id: '$recommended_tier',
+              leads: { $sum: 1 },
+              participants: { $sum: { $ifNull: ['$estimated_participants', 0] } },
+              revenue: { $sum: { $ifNull: ['$estimated_annual_revenue_usd', 0] } },
+            },
+          },
+          { $sort: { revenue: -1 } },
+        ]).toArray()
+
+        const revenueByModel = await collection.aggregate([
+          { $match: filter },
+          {
+            $group: {
+              _id: '$revenue_model',
+              leads: { $sum: 1 },
+              revenue: { $sum: { $ifNull: ['$estimated_annual_revenue_usd', 0] } },
+            },
+          },
+          { $sort: { revenue: -1 } },
+        ]).toArray()
+
+        const totalRevenue = await collection.aggregate([
+          { $match: filter },
+          { $group: { _id: null, revenue: { $sum: { $ifNull: ['$estimated_annual_revenue_usd', 0] } }, participants: { $sum: { $ifNull: ['$estimated_participants', 0] } } } },
+        ]).toArray()
+
+        forecast = {
+          byTier: forecast.reduce((acc, item) => ({ ...acc, [item._id || 'UNSET']: { leads: item.leads, participants: item.participants, revenue: item.revenue } }), {}),
+          byModel: revenueByModel.reduce((acc, item) => ({ ...acc, [item._id || 'UNSET']: { leads: item.leads, revenue: item.revenue } }), {}),
+          totals: totalRevenue[0] || { revenue: 0, participants: 0 },
+        }
+      }
+
       brands[brandKey] = {
         total: brandTotal,
         byColumn: byColumn.reduce((acc, item) => ({ ...acc, [item._id || 'UNKNOWN']: item.count }), {}),
         byRegion: byRegion.reduce((acc, item) => ({ ...acc, [item._id || 'UNKNOWN']: item.count }), {}),
+        forecast,
       }
     }
 
