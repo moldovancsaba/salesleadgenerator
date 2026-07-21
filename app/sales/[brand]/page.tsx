@@ -1,45 +1,71 @@
 'use client';
 
-import { useState, useEffect, useMemo } from "react";
-import { Box, Text, Button, Group, ActionIcon } from "@mantine/core";
-import { showNotification } from "@mantine/notifications";
-import { IconAdjustmentsHorizontal, IconX } from "@tabler/icons-react";
-import type { Lead, KanbanColumn } from "../../types";
-import { KanbanBoard } from "../../kanban";
-import { TableView } from "../../table";
-import { LeadDetailModal } from "../../detail";
-import { normalizeLead as normalizeLeadShared } from "../../lib/normalize-lead";
-import { resolveBrand, BRAND_CONFIG } from "../../lib/brand";
-import { COLUMNS } from "../../constants";
-import { tokens } from "../../theme/tokens";
-import { breakpoints } from "../../theme/breakpoints";
-import { FilterBar } from "../../components/ui/filter-bar";
+import { useState, useEffect, useMemo } from 'react';
+import { Group, Text, Button, SimpleGrid, Paper, Badge, Select } from '@mantine/core';
+import { IconArrowsSort, IconFilter, IconX } from '@tabler/icons-react';
+import type { Lead, KanbanColumn } from '@/app/types';
+import { LeadCard } from '@/app/card';
+import { KanbanBoard } from '@/app/kanban';
+import { LeadDetailModal } from '@/app/detail';
+import { TableView } from '@/app/table';
+import { MetricsPanel } from '@/app/metrics';
+import { SearchLearningPanel } from '@/app/search-learning';
+import { semanticToneToMantineColor } from '@/app/utils/semantic-colors';
+import { COLUMNS, getIceScore } from '@/app/constants';
+import { breakpoints } from '@/app/theme/breakpoints';
 
-type Props = {
-  params: { brand: string };
-  searchParams?: Record<string, string | string[]>;
-};
+const spacing = { md: '0.75rem' };
 
-export default function BrandPipelinePage({ params, searchParams }: Props) {
-  const brand = resolveBrand(params.brand);
-  const config = BRAND_CONFIG[brand];
+type ViewMode = 'kanban' | 'table' | 'metrics' | 'search';
+type LayoutMode = 'mobile-portrait' | 'mobile-landscape' | 'tablet-portrait' | 'tablet-landscape' | 'desktop';
+
+const BRAND_KEY = 'salesleadgenerator.brand';
+const MODE_KEY = 'salesleadgenerator.layoutMode';
+
+const REGION_OPTIONS = [
+  { value: 'all', label: 'All Regions' },
+  { value: 'US', label: 'US' },
+  { value: 'CEE', label: 'CEE' },
+  { value: 'MENA', label: 'MENA' },
+];
+
+const STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: 'all', label: 'All Statuses' },
+  ...COLUMNS.map((col) => ({ value: col.key, label: col.label })),
+];
+
+const VIEW_OPTIONS = [
+  { value: 'kanban', label: 'Kanban' },
+  { value: 'table', label: 'Table' },
+  { value: 'metrics', label: 'Metrics' },
+  { value: 'search', label: 'Search Learning' },
+];
+
+export default function SalesPage({ params }: { params: { brand: string } }) {
+  const brand = params?.brand || 'cogmap';
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [countryFilter, setCountryFilter] = useState<string>("ALL");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
-  const [sortByIce, setSortByIce] = useState<"ice" | "name">("ice");
-  const [iceSortOrder, setIceSortOrder] = useState<"asc" | "desc">("desc");
-  const [iceDirection, setIceDirection] = useState<'up' | 'down'>('down');
-  const [nameDirection, setNameDirection] = useState<'up' | 'down'>('down');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
-  const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>({});
-  const [mode, setMode] = useState<'mobile-portrait' | 'mobile-landscape' | 'tablet-portrait' | 'tablet-landscape' | 'desktop'>('desktop');
+  const [view, setView] = useState<ViewMode>('kanban');
+  const [region, setRegion] = useState('all');
+  const [status, setStatus] = useState('all');
+  const [sortKey, setSortKey] = useState<'ice' | 'name'>('ice');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [mode, setMode] = useState<LayoutMode>('desktop');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const storedMode = localStorage.getItem(MODE_KEY) as LayoutMode | null;
+    if (storedMode) setMode(storedMode);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(MODE_KEY, mode);
+  }, [mode]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     function computeMode() {
       const width = window.innerWidth;
       if (width >= breakpoints.desktopMin) return 'desktop';
@@ -48,7 +74,9 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
       if (width >= breakpoints.mobileLandscapeMin) return 'mobile-landscape';
       return 'mobile-portrait';
     }
+
     setMode(computeMode());
+
     const mql = window.matchMedia(`(max-width: ${breakpoints.desktopMin}px)`);
     const handler = () => setMode(computeMode());
     if (typeof mql.addEventListener === 'function') {
@@ -66,385 +94,177 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
   }, []);
 
   useEffect(() => {
-    fetchLeads();
-  }, [brand]);
-
-  const countryOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const lead of leads) {
-      const country = lead.country?.trim();
-      if (country) set.add(country);
-    }
-    return ["ALL", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
-  }, [leads]);
-
-  const columnCounts = useMemo(() => {
-    const counts: Record<KanbanColumn, number> = {
-      DISCOVERED: 0,
-      QUALIFIED: 0,
-      ENGAGED: 0,
-      PROPOSAL: 0,
-      WON: 0,
-      LOST: 0,
-    };
-    for (const lead of leads) {
-      const col = (lead.kanbanColumn as KanbanColumn) || "DISCOVERED";
-      counts[col] = (counts[col] || 0) + 1;
-    }
-    return counts;
-  }, [leads]);
-
-  function showError(message: string) {
-    setErrorMessage(message);
-  }
-
-  function setActionBusy(leadId: string, action: string, busy: boolean) {
-    const key = `${leadId}:${action}`;
-    setActionLoading((prev) => {
-      const next = { ...prev };
-      if (busy) {
-        next[key] = true;
-      } else {
-        delete next[key];
-      }
-      return next;
-    });
-  }
-
-  function isActionBusy(leadId: string, action: string) {
-    return Boolean(actionLoading[`${leadId}:${action}`]);
-  }
-
-  async function fetchLeads() {
-    try {
-      setLoading(true);
-      const allLeads: any[] = [];
-      let page = 1;
-      let totalPages = 1;
-
-      do {
-        const response = await fetch(`/api/leads?brand=${brand}&limit=500&page=${page}`);
-        if (!response.ok) throw new Error("Failed to fetch leads");
+    const loadLeads = async () => {
+      try {
+        const response = await fetch(`/api/leads?limit=100`);
+        if (!response.ok) throw new Error('Failed to fetch leads');
         const data = await response.json();
-        const pageLeads = (data.leads || []).map((l: any) => normalizeLeadShared(l, brand));
-        allLeads.push(...pageLeads);
-        totalPages = data.totalPages || 1;
-        page++;
-      } while (page <= totalPages);
-
-      setLeads(allLeads);
-    } catch (error) {
-      console.error("Error fetching leads:", error);
-      showError(error instanceof Error ? error.message : "Failed to load leads");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleMove(leadId: string, column: KanbanColumn, sortOrder: number) {
-    const lead = leads.find((l) => l._id === leadId);
-    const fromColumn = lead?.kanbanColumn;
-
-    if (isActionBusy(leadId, 'COLUMN_MOVE')) return;
-    setActionBusy(leadId, 'COLUMN_MOVE', true);
-    try {
-      const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "COLUMN_MOVE",
-          kanbanColumn: column,
-          sortOrder,
-          fromColumn,
-        }),
-      });
-
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        showNotification({ message: result.error || 'Failed to move lead', color: 'red', autoClose: 5000 });
-        throw new Error(result.error || 'Failed to move lead');
+        const mapped = (data.leads || []).map((lead: any) => ({
+          ...lead,
+          ice: lead.ice || { impact: 0, confidence: 0, ease: 0 },
+          region: lead.region || 'US',
+          qualityStatus: lead.qualityStatus || 'DRAFT',
+        }));
+        setLeads(mapped);
+      } catch (err) {
+        console.error(err);
       }
+    };
 
-      showNotification({ message: `Moved to ${column}`, color: 'green', autoClose: 4000 });
-      setLeads((prev) =>
-        prev.map((l) =>
-          l._id === leadId ? { ...l, kanbanColumn: column, sortOrder } : l
-        )
-      );
-    } catch (error) {
-      console.error("Error moving lead:", error);
-      showError(error instanceof Error ? error.message : "Failed to move lead");
-      await fetchLeads();
-    } finally {
-      setActionBusy(leadId, 'COLUMN_MOVE', false);
-    }
-  }
+    loadLeads();
+  }, []);
 
-  async function handleAction(leadId: string, action: string, payload: any) {
-    if (isActionBusy(leadId, action)) return;
-    setActionBusy(leadId, action, true);
-    try {
-      const response = await fetch(`/api/leads?id=${leadId}&brand=${brand}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, ...payload }),
+  const handleAction = async (leadId: string, action: string, payload?: any) => {
+    setLeads((prev) =>
+      prev.map((lead) => {
+        if (lead._id !== leadId) return lead;
+
+        if (action === 'ACCEPT') {
+          return { ...lead, status: 'QUALIFIED', kanbanColumn: 'QUALIFIED', qualifiedAt: new Date().toISOString() };
+        }
+        if (action === 'DECLINE') {
+          return {
+            ...lead,
+            status: 'LOST',
+            kanbanColumn: 'LOST',
+            declinedAt: new Date().toISOString(),
+            declineReason: payload?.declineReason,
+            annotation: payload?.annotation,
+          };
+        }
+        if (action === 'PIN') {
+          return { ...lead, status: 'ENGAGED', kanbanColumn: 'ENGAGED' };
+        }
+        if (action === 'REQUEST_REFRESH') {
+          return { ...lead, annotation: payload?.annotation };
+        }
+        if (action === 'MODIFY') {
+          return { ...lead, annotation: payload?.annotation };
+        }
+        return lead;
+      })
+    );
+
+    setSelectedLead(null);
+  };
+
+  const handleDelete = async (leadId: string) => {
+    setLeads((prev) => prev.filter((lead) => lead._id !== leadId));
+    setSelectedLead(null);
+  };
+
+  const filteredLeads = useMemo(() => {
+    const list = [...leads];
+    if (region !== 'all') {
+      list.filter((lead) => lead.region === region);
+      list.forEach((lead) => {
+        if (lead.region !== region) list.splice(list.indexOf(lead), 1);
       });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        showNotification({ message: result.error || `Action ${action} failed`, color: 'red', autoClose: 5000 });
-        throw new Error(result.error || `Action ${action} failed`);
-      }
-
-      showNotification({ message: `Action completed: ${action}`, color: 'green', autoClose: 4000 });
-      setLeads((prev) =>
-        prev.map((l) => (l._id === leadId ? { ...l, ...(result.lead || {}) } : l))
-      );
-      setSelectedLead(null);
-    } catch (err) {
-      console.error("Action failed", err);
-      showError(err instanceof Error ? err.message : `Action ${action} failed`);
-    } finally {
-      setActionBusy(leadId, action, false);
     }
-  }
-
-  async function handleDelete(leadId: string) {
-    if (!confirm("Permanently delete this lead?")) return;
-    if (isActionBusy(leadId, 'DELETE')) return;
-    setActionBusy(leadId, 'DELETE', true);
-    try {
-      const response = await fetch(`/api/leads/${leadId}?brand=${brand}`, {
-        method: "DELETE",
+    if (status !== 'all') {
+      list.forEach((lead) => {
+        if (lead.kanbanColumn !== status) list.splice(list.indexOf(lead), 1);
       });
-      if (!response.ok) {
-        showNotification({ message: 'Failed to delete', color: 'red', autoClose: 5000 });
-        throw new Error('Failed to delete');
-      }
-      showNotification({ message: 'Lead deleted', color: 'green', autoClose: 4000 });
-      setSelectedLead(null);
-      await fetchLeads();
-    } catch (err) {
-      console.error('Delete failed', err);
-      showError('Delete failed: ' + (err instanceof Error ? err.message : 'unknown'));
-    } finally {
-      setActionBusy(leadId, 'DELETE', false);
     }
-  }
-
-  const filteredLeads = leads.filter((lead) => {
-    const matchesCountry = countryFilter === "ALL" || lead.country === countryFilter;
-    const matchesSearch = searchQuery
-      ? lead.entity_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.industry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.decision_maker_name?.toLowerCase().includes(searchQuery.toLowerCase())
-      : true;
-    return matchesCountry && matchesSearch;
-  });
-
-  const sortedLeads = useMemo(() => {
-    const list = [...filteredLeads];
     list.sort((a, b) => {
-      if (sortByIce === 'name') {
+      if (sortKey === 'name') {
         const an = (a.entity_name || '').toLowerCase();
         const bn = (b.entity_name || '').toLowerCase();
-        return iceSortOrder === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an);
+        return sortOrder === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an);
       }
-      const getIce = (lead: Lead) => {
-        if (lead.scoreProfile?.finalBlended?.ice != null) return lead.scoreProfile.finalBlended.ice;
-        if (lead.ice) return lead.ice.impact * lead.ice.confidence * lead.ice.ease;
-        return 0;
-      };
-      const ia = getIce(a);
-      const ib = getIce(b);
-      return iceSortOrder === 'asc' ? ia - ib : ib - ia;
+      const ia = getIceScore(a);
+      const ib = getIceScore(b);
+      return sortOrder === 'asc' ? ia - ib : ib - ia;
     });
     return list;
-  }, [filteredLeads, sortByIce, iceSortOrder]);
-
-  useEffect(() => {
-    if (leads.length === 0) return;
-    let cancelled = false;
-    async function applyAutoMoves() {
-      const now = new Date().toISOString();
-      const updates: Array<{ id: string; patch: any; reason: string }> = [];
-      for (const lead of leads) {
-        if (lead.kanbanColumn === 'LOST' || lead.kanbanColumn === 'WON') continue;
-        const score = typeof lead.scoreProfile?.finalBlended?.ice === 'number' ? lead.scoreProfile.finalBlended.ice : (lead.ice ? lead.ice.impact * lead.ice.confidence * lead.ice.ease : 0);
-        if (lead.kanbanColumn === 'DISCOVERED' && score >= 500) {
-          updates.push({ id: lead._id, patch: { action: 'COLUMN_MOVE', kanbanColumn: 'QUALIFIED', sortOrder: lead.sortOrder ?? 0, autoMoved: true, autoMoveNote: 'ICE auto', status: 'live', qualifiedAt: now, lastStatusChangeAt: now }, reason: 'auto-qualify' });
-        } else if (lead.kanbanColumn === 'QUALIFIED' && score < 500) {
-          updates.push({ id: lead._id, patch: { action: 'COLUMN_MOVE', kanbanColumn: 'DISCOVERED', sortOrder: lead.sortOrder ?? 0, autoMoved: true, autoMoveNote: 'ICE reverted', status: 'new', lastStatusChangeAt: now }, reason: 'auto-revert' });
-        }
-      }
-      if (cancelled || updates.length === 0) return;
-      for (const item of updates) {
-        await fetch(`/api/leads?id=${item.id}&brand=${brand}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item.patch) });
-      }
-      await fetchLeads();
-    }
-    applyAutoMoves();
-    return () => { cancelled = true; };
-  }, [leads, brand]);
-
-  if (loading) {
-    return (
-      <Box p="xl">
-        <Text>Loading {config.label} pipeline...</Text>
-      </Box>
-    );
-  }
-
-  const toggleColumn = (key: string) => {
-    setCollapsedColumns((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleSortKeyChange = (key: 'ice' | 'name') => {
-    setSortByIce(key);
-    if (key === 'ice') setIceDirection((prev) => prev === 'up' ? 'down' : 'up');
-    if (key === 'name') setNameDirection((prev) => prev === 'up' ? 'down' : 'up');
-    setIceSortOrder((prev) => prev === 'asc' ? 'desc' : 'asc');
-  };
-
-  const handleSortOrderChange = (order: 'asc' | 'desc') => {
-    setIceSortOrder(order);
-    setIceDirection(order === 'asc' ? 'up' : 'down');
-    setNameDirection(order === 'asc' ? 'up' : 'down');
-  };
-
-  const searchInputStyle: React.CSSProperties = {
-    flex: '1 1 120px',
-    minWidth: 110,
-    padding: '0.3rem 0.5rem',
-    borderRadius: tokens.radii.sm,
-    border: '1px solid var(--mantine-color-gray-3)',
-    fontSize: tokens.typography.sm,
-    backgroundColor: 'var(--mantine-color-gray-0)',
-    color: 'var(--mantine-color-gray-9)',
-  };
+  }, [leads, region, status, sortKey, sortOrder]);
 
   return (
-    <Box
-      style={{
-        minHeight: '100dvh',
-        overflow: 'auto',
-        backgroundColor: 'var(--mantine-color-gray-0)',
-      }}
-    >
-      <FilterBar>
-        {errorMessage && (
-          <Box
-            mb={tokens.spacing.xs}
-            p="xs"
-            style={{
-              borderRadius: '0.25rem',
-              backgroundColor: 'var(--mantine-color-red-0)',
-              border: '1px solid var(--mantine-color-red-4)',
-            }}
-          >
-            <Group justify="space-between" align="center">
-              <Text size="sm" c="red">{errorMessage}</Text>
-              <ActionIcon size="sm" variant="light" color="red" onClick={() => setErrorMessage(null)}>
-                <IconX size={14} />
-              </ActionIcon>
-            </Group>
-          </Box>
-        )}
-        <Group gap="xs">
-          <Button
-            size="xs"
-            variant={viewMode === 'kanban' ? 'filled' : 'light'}
-            color="dark"
-            onClick={() => setViewMode('kanban')}
-          >
-            Kanban
-          </Button>
-          <Button
-            size="xs"
-            variant={viewMode === 'table' ? 'filled' : 'light'}
-            color="dark"
-            onClick={() => setViewMode('table')}
-          >
-            Table
-          </Button>
-          <Button
-            size="xs"
-            variant={sortByIce === 'ice' ? 'filled' : 'light'}
-            color="gray"
-            onClick={() => handleSortKeyChange('ice')}
-          >
-            ICE {sortByIce === 'ice' ? (iceDirection === 'up' ? '↑' : '↓') : ''}
-          </Button>
-          <Button
-            size="xs"
-            variant={sortByIce === 'name' ? 'filled' : 'light'}
-            color="gray"
-            onClick={() => handleSortKeyChange('name')}
-          >
-            Name {sortByIce === 'name' ? (nameDirection === 'up' ? '↑' : '↓') : ''}
-          </Button>
-          <Button
-            size="xs"
-            variant="light"
-            color="gray"
-            onClick={() => handleSortOrderChange(iceSortOrder === 'asc' ? 'desc' : 'asc')}
-          >
-            {iceSortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}
-          </Button>
-        </Group>
-        <Group gap="xs" wrap="wrap">
-          {countryOptions.map((c) => (
-            <Button
-              key={c}
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--mantine-color-gray-0)' }}>
+      <Paper radius="md" withBorder p="md" style={{ flexShrink: 0 }}>
+        <Group justify="space-between" align="flex-start">
+          <div>
+            <Text fw={700} size="xl">Sales Lead Generator</Text>
+            <Text size="sm" c="dimmed">Board: {brand}</Text>
+          </div>
+          <Group gap="xs">
+            <Select
               size="xs"
-              variant={countryFilter === c ? 'filled' : 'light'}
-              onClick={() => setCountryFilter(c)}
+              value={view}
+              onChange={(value) => setView((value as ViewMode) || 'kanban')}
+              data={VIEW_OPTIONS}
+            />
+            <Select
+              size="xs"
+              value={region}
+              onChange={(value) => setRegion((value as string) || 'all')}
+              data={REGION_OPTIONS}
+            />
+            <Select
+              size="xs"
+              value={status}
+              onChange={(value) => setStatus((value as string) || 'all')}
+              data={STATUS_OPTIONS}
+            />
+            <Button
+              size="xs"
+              variant="light"
+              color="gray"
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
             >
-              {c === 'ALL' ? 'All' : c}
+              {sortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}
             </Button>
-          ))}
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.currentTarget.value)}
-            style={searchInputStyle}
-          />
+          </Group>
         </Group>
-      </FilterBar>
+      </Paper>
 
-      {viewMode === 'kanban' ? (
-        <KanbanBoard
-          leads={sortedLeads}
-          onMove={handleMove}
-          onOpenLead={setSelectedLead}
-          collapsedColumns={collapsedColumns}
-          onToggleColumn={toggleColumn}
-          columnCounts={columnCounts}
-          sortKey={sortByIce}
-          sortOrder={iceSortOrder}
-          mode={mode}
-        />
-      ) : (
-        <TableView
-          leads={sortedLeads}
-          onRowClick={setSelectedLead}
-          sortKey={sortByIce}
-          sortOrder={iceSortOrder}
-        />
-      )}
+      <div style={{ flex: 1, minHeight: 0 }}>
+        {view === 'kanban' && (
+          <KanbanBoard
+            leads={filteredLeads}
+            onOpenLead={setSelectedLead}
+            onMove={async (leadId, column, sortOrder) => {
+              setLeads((prev) =>
+                prev.map((lead) => (lead._id === leadId ? { ...lead, status: column, kanbanColumn: column, sortOrder } : lead))
+              );
+            }}
+            sortKey={sortKey}
+            sortOrder={sortOrder}
+            onSortKeyChange={setSortKey}
+            onSortOrderChange={setSortOrder}
+            mode={mode}
+          />
+        )}
+
+        {view === 'table' && (
+          <div style={{ padding: spacing.md }}>
+            <TableView leads={filteredLeads} />
+          </div>
+        )}
+
+        {view === 'metrics' && (
+          <div style={{ padding: spacing.md }}>
+            <MetricsPanel leads={filteredLeads} />
+          </div>
+        )}
+
+        {view === 'search' && (
+          <div style={{ padding: spacing.md }}>
+            <SearchLearningPanel />
+          </div>
+        )}
+      </div>
 
       {selectedLead && (
         <LeadDetailModal
-          brand={brand}
           lead={selectedLead}
+          brand={brand}
           onClose={() => setSelectedLead(null)}
           onAction={handleAction}
           onDelete={handleDelete}
           onUpdated={() => setSelectedLead(null)}
         />
       )}
-    </Box>
+    </div>
   );
 }
