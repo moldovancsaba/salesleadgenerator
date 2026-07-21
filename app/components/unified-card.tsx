@@ -2,16 +2,18 @@
 
 import {
   Box,
-  Card,
   Text,
   Badge,
   Group,
   Stack,
   Progress,
-  type MantineColor,
 } from "@mantine/core";
 import type { ReactNode } from "react";
 import type { SemanticTone } from "../theme/semantic";
+import { semanticToneToMantineColor } from "../utils/semantic-colors";
+import { tokens } from "../theme/tokens";
+import { SemanticBadge } from "./ui/semantic-badge";
+import { CardShell } from "./ui/card-shell";
 
 type Props = {
   title: string;
@@ -28,6 +30,11 @@ type Props = {
   children?: ReactNode;
 };
 
+const cardStyle = {
+  cursor: "pointer",
+  transition: "transform 0.1s, box-shadow 0.1s",
+};
+
 export function UnifiedCard({
   title,
   subtitle,
@@ -42,34 +49,14 @@ export function UnifiedCard({
   onClick,
   children,
 }: Props) {
-  const regionColors: Record<string, MantineColor> = {
-    US: "blue",
-    CEE: "green",
-    MENA: "orange",
-  };
-
   const safeQuality = qualityStatus || "DRAFT";
-  const qualityColors: Record<string, MantineColor> = {
-    VERIFIED: "green",
-    CHECKED: "blue",
-    DRAFT: "gray",
-  };
+  const iceToneColor = semanticToneToMantineColor(tone);
 
   const icePercent = iceScore ? Math.min(100, (iceScore / 1000) * 100) : 0;
 
   return (
-    <Card
-      shadow="sm"
-      padding="md"
-      radius="md"
-      withBorder
-      style={{
-        cursor: onClick ? "pointer" : "default",
-        transition: "all 0.2s",
-      }}
-      onClick={onClick}
-    >
-      <Stack gap="sm">
+    <CardShell onClick={onClick} style={cardStyle}>
+      <Stack gap={tokens.spacing.sm}>
         {/* Header */}
         <Group justify="space-between" align="flex-start">
           <Stack gap={0} style={{ flex: 1 }}>
@@ -84,22 +71,18 @@ export function UnifiedCard({
           </Stack>
           {iceScore !== undefined && (
             <Stack gap={2} align="flex-end">
-              <Text size="xs" fw={600} c={tone}>
+              <Text size="xs" fw={600} c={iceToneColor}>
                 ICE: {iceScore}
               </Text>
-              <Progress value={icePercent} size="xs" w={60} color={tone} />
+              <Progress value={icePercent} size="xs" w={60} color={iceToneColor} />
             </Stack>
           )}
         </Group>
 
         {/* Badges */}
         <Group gap="xs">
-          <Badge size="xs" variant="light" color={regionColors[region] || "gray"}>
-            {region}
-          </Badge>
-          <Badge size="xs" variant="light" color={qualityColors[safeQuality] || "gray"}>
-            {safeQuality}
-          </Badge>
+          <SemanticBadge tone={region === 'US' ? 'ingress' : region === 'CEE' ? 'synthesis' : 'tactical'} label={region} />
+          <SemanticBadge tone={safeQuality === 'VERIFIED' ? 'review' : safeQuality === 'CHECKED' ? 'strategy' : 'checklist'} label={safeQuality} />
           {feedbackScore > 0 && (
             <Badge size="xs" variant="light" color="green">
               ↑ {feedbackScore}
@@ -132,6 +115,6 @@ export function UnifiedCard({
         {/* Additional content */}
         {children}
       </Stack>
-    </Card>
+    </CardShell>
   );
 }
