@@ -19,8 +19,7 @@ import {
   SimpleGrid,
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
-import { regionTone } from './theme/semantic';
-import { iceTone, qualityTone } from './theme/semantic';
+import { iceTone, qualityTone, regionTone } from './theme/semantic';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { semanticToneToMantineColor } from './utils/semantic-colors';
 import {
@@ -40,7 +39,6 @@ type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
 
 type Props = {
-  mode?: 'mobile-portrait' | 'mobile-landscape' | 'tablet-portrait' | 'tablet-landscape' | 'desktop';
   lead: Lead;
   brand?: string;
   onClose: () => void;
@@ -62,7 +60,7 @@ const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
   { value: "OTHER", label: "Other" },
 ];
 
-export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDelete, onUpdated, mode }: Props) {
+export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDelete, onUpdated }: Props) {
   const [annotation, setAnnotation] = useState("");
   const [declineReason, setDeclineReason] = useState<DeclineReason>("OTHER");
   const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
@@ -168,286 +166,283 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
     }
   }
 
-  const headerBorderStyle = { borderBottom: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 };
-  const footerBorderStyle = { borderTop: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 };
-
   return (
-      <>
-        <Modal
-          opened={true}
-          onClose={onClose}
-          size={fullScreen ? 'full' : 'xl'}
-          padding={0}
-          withCloseButton={false}
-          fullScreen={fullScreen}
-          centered={!fullScreen}
-        >
-      <Paper radius="md" withBorder={false} style={{ height: '100%', display: 'flex', flexDirection: 'column' }} className="lead-detail-modal">
-        {/* Header */}
-        <Box p="md" style={headerBorderStyle}>
-          <Group justify="space-between" align="flex-start">
-            <Stack gap="xs" style={{ flex: 1 }}>
-              <Title order={2}>{lead.entity_name}</Title>
-              <Group gap="xs">
-                <Badge variant="light" color="gray">
-                  {lead.country || '—'}
-                </Badge>
-                <Badge variant="light" color={regionToneValue}>
-                  {lead.region || '—'}
-                </Badge>
-                <Text size="sm" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
-                <Badge variant="light" color={qualityToneValue}>
-                  {qualityStatus}
-                </Badge>
-              </Group>
-            </Stack>
-            <Button variant="subtle" color="gray" onClick={onClose} p={4}>
-              <IconX size={20} />
-            </Button>
-          </Group>
-        </Box>
-
-        {/* Content */}
-        <Box p="md" style={{ flex: 1, overflowY: 'auto' }}>
-          <Stack gap="md">
-            {/* ICE Score */}
-            <Paper p="md" withBorder>
-              <Stack gap="xs">
-                <Group justify="space-between">
-                  <Text fw={600}>ICE Score</Text>
-                  <Text fw={700} size="lg">{iceScore} / {maxIce}</Text>
+    <>
+      <Modal
+        opened={true}
+        onClose={onClose}
+        size={fullScreen ? 'full' : 'xl'}
+        padding={0}
+        withCloseButton={false}
+        fullScreen={fullScreen}
+        centered={!fullScreen}
+      >
+        <Paper radius="md" withBorder={false} style={{ height: '100%', display: 'flex', flexDirection: 'column' }} className="lead-detail-modal">
+          {/* Header */}
+          <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 }}>
+            <Group justify="space-between" align="flex-start">
+              <Stack gap="xs" style={{ flex: 1 }}>
+                <Title order={2}>{lead.entity_name}</Title>
+                <Group gap="xs">
+                  <Badge variant="light" color="gray">
+                    {lead.country || '—'}
+                  </Badge>
+                  <Badge variant="light" color={regionToneValue}>
+                    {lead.region || '—'}
+                  </Badge>
+                  <Text size="sm" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
+                  <Badge variant="light" color={qualityToneValue}>
+                    {qualityStatus}
+                  </Badge>
                 </Group>
-                <Progress value={icePercent} size="lg" color={iceToneValue} />
-                <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
-                  <Box>
-                    <Text size="xs" c="dimmed">Impact</Text>
-                    <Text fw={600}>{ice.impact} / 10</Text>
-                  </Box>
-                  <Box>
-                    <Text size="xs" c="dimmed">Confidence</Text>
-                    <Text fw={600}>{ice.confidence} / 10</Text>
-                  </Box>
-                  <Box>
-                    <Text size="xs" c="dimmed">Ease</Text>
-                    <Text fw={600}>{ice.ease} / 10</Text>
-                  </Box>
-                </SimpleGrid>
               </Stack>
-            </Paper>
-
-            {/* Details */}
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-              <Box>
-                <Text size="xs" c="dimmed">URL</Text>
-                {lead.url ? (
-                  <Text size="sm" component="a" href={lead.url} target="_blank" c="blue">
-                    {lead.url}
-                  </Text>
-                ) : '—'}
-              </Box>
-              <Box>
-                <Text size="xs" c="dimmed">Size</Text>
-                <Text size="sm">{lead.size || '—'}</Text>
-              </Box>
-              <Box>
-                <Text size="xs" c="dimmed">Level / League</Text>
-                <Text size="sm">{lead.level_league || '—'}</Text>
-              </Box>
-              <Box>
-                <Text size="xs" c="dimmed">Kanban Column</Text>
-                <Text size="sm">{lead.kanbanColumn}</Text>
-              </Box>
-            </SimpleGrid>
-
-            {/* Contacts */}
-            <Paper p="md" withBorder>
-              <Stack gap="xs">
-                <Text size="xs" c="dimmed" fw={600}>CONTACTS</Text>
-                {lead.decision_maker_name ? (
-                  <Box>
-                    <Text fw={600}>{lead.decision_maker_name}</Text>
-                    {lead.decision_maker_title && (
-                      <Text size="sm" c="dimmed">{lead.decision_maker_title}</Text>
-                    )}
-                    <Text size="sm" c="dimmed">{lead.decision_maker_contact || ''}</Text>
-                  </Box>
-                ) : null}
-                {(lead.contacts || []).map((contact, i) => (
-                  <Box key={i}>
-                    <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
-                    {contact.title && <Text size="sm" c="dimmed">{contact.title}</Text>}
-                    {contact.email && <Text size="sm" c="dimmed">{contact.email}</Text>}
-                    {contact.phone && <Text size="sm" c="dimmed">{contact.phone}</Text>}
-                    {contact.linkedin && <Text size="sm" c="blue">{contact.linkedin}</Text>}
-                  </Box>
-                ))}
-              </Stack>
-            </Paper>
-
-            {/* Pros / Cons */}
-            {((normalizedPro && normalizedPro.length > 0) ||
-              (normalizedCon && normalizedCon.length > 0)) && (
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                {normalizedPro && normalizedPro.length > 0 && (
-                  <Paper p="md" withBorder>
-                    <Stack gap="xs">
-                      <Text size="xs" c="green" fw={600} tt="uppercase">Pros</Text>
-                      <Stack gap={4}>
-                        {normalizedPro.map((pro, i) => (
-                          <Text size="sm" key={i}>• {pro}</Text>
-                        ))}
-                      </Stack>
-                    </Stack>
-                  </Paper>
-                )}
-                {normalizedCon && normalizedCon.length > 0 && (
-                  <Paper p="md" withBorder>
-                    <Stack gap="xs">
-                      <Text size="xs" c="red" fw={600} tt="uppercase">Cons</Text>
-                      <Stack gap={4}>
-                        {normalizedCon.map((con, i) => (
-                          <Text size="sm" key={i}>• {con}</Text>
-                        ))}
-                      </Stack>
-                    </Stack>
-                  </Paper>
-                )}
-              </SimpleGrid>
-            )}
-
-            {/* Value Proposition */}
-            {lead.value_proposition && (
-              <Paper p="md" withBorder>
-                <Stack gap="xs">
-                  <Text size="xs" c="blue" fw={600} tt="uppercase">Value Proposition</Text>
-                  <Text size="sm">{lead.value_proposition}</Text>
-                </Stack>
-              </Paper>
-            )}
-
-            {/* Feedback Summary */}
-            {(lead.feedbackScore > 0 || lead.declineCount > 0 || lead.acceptanceCount > 0) && (
-              <Paper p="md" withBorder>
-                <Stack gap="xs">
-                  <Text size="xs" fw={600} tt="uppercase">Feedback History</Text>
-                  <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
-                    <Box>
-                      <Text size="xs" c="dimmed">Feedback Score</Text>
-                      <Text fw={700}>{lead.feedbackScore}</Text>
-                    </Box>
-                    <Box>
-                      <Text size="xs" c="dimmed">Acceptances</Text>
-                      <Text fw={700} c="green">{lead.acceptanceCount}</Text>
-                    </Box>
-                    <Box>
-                      <Text size="xs" c="dimmed">Declines</Text>
-                      <Text fw={700} c="red">{lead.declineCount}</Text>
-                    </Box>
-                  </SimpleGrid>
-                  {lead.declinedAt && lead.declineReason && (
-                    <Text size="xs" c="dimmed">
-                      Declined: {new Date(lead.declinedAt).toLocaleDateString()} ({lead.declineReason})
-                    </Text>
-                  )}
-                </Stack>
-              </Paper>
-            )}
-
-            <Divider />
-
-            {/* Annotation */}
-            <Stack gap="xs">
-              <Text fw={600}>Annotation</Text>
-              <Textarea
-                value={annotation}
-                onChange={(e) => setAnnotation(e.target.value)}
-                rows={3}
-                placeholder="Add notes, reasoning, or context for your action…"
-              />
-            </Stack>
-          </Stack>
-        </Box>
-
-        {/* Actions */}
-        <Box p="md" style={footerBorderStyle}>
-          {!actionMode ? (
-            <Group gap="sm" wrap="wrap">
-              <Button
-                color="green"
-                leftSection={<IconThumbUp size={16} />}
-                disabled={busy}
-                onClick={handleAccept}
-              >
-                Accept → QUALIFIED
-              </Button>
-              <Button
-                color="red"
-                leftSection={<IconThumbDown size={16} />}
-                onClick={() => setActionMode("decline")}
-                disabled={busy}
-                variant="light"
-              >
-                Decline → LOST
-              </Button>
-              <Button
-                color="blue"
-                leftSection={<IconPin size={16} />}
-                disabled={busy}
-                onClick={handlePin}
-                variant="light"
-              >
-                Pin to ENGAGED
-              </Button>
-              <Button
-                color="gray"
-                leftSection={<IconRefresh size={16} />}
-                disabled={busy}
-                onClick={handleRefresh}
-                variant="light"
-              >
-                Request Refresh
-              </Button>
-              <Button
-                color="dark"
-                variant="light"
-                leftSection={<IconMail size={16} />}
-                onClick={() => setOutreachOpen(true)}
-                disabled={busy}
-              >
-                Outreach
-              </Button>
-              <Button
-                color="red"
-                variant="subtle"
-                leftSection={<IconTrash size={16} />}
-                disabled={busy}
-                onClick={handleDelete}
-              >
-                Delete
+              <Button variant="subtle" color="gray" onClick={onClose} p={4}>
+                <IconX size={20} />
               </Button>
             </Group>
-          ) : actionMode === "decline" ? (
-            <Stack gap="sm">
+          </Box>
+
+          {/* Content */}
+          <Box p="md" style={{ flex: 1, overflowY: 'auto' }}>
+            <Stack gap="md">
+              {/* ICE Score */}
+              <Paper p="md" withBorder>
+                <Stack gap="xs">
+                  <Group justify="space-between">
+                    <Text fw={600}>ICE Score</Text>
+                    <Text fw={700} size="lg">{iceScore} / {maxIce}</Text>
+                  </Group>
+                  <Progress value={icePercent} size="lg" color={iceToneValue} />
+                  <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
+                    <Box>
+                      <Text size="xs" c="dimmed">Impact</Text>
+                      <Text fw={600}>{ice.impact} / 10</Text>
+                    </Box>
+                    <Box>
+                      <Text size="xs" c="dimmed">Confidence</Text>
+                      <Text fw={600}>{ice.confidence} / 10</Text>
+                    </Box>
+                    <Box>
+                      <Text size="xs" c="dimmed">Ease</Text>
+                      <Text fw={600}>{ice.ease} / 10</Text>
+                    </Box>
+                  </SimpleGrid>
+                </Stack>
+              </Paper>
+
+              {/* Details */}
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                <Box>
+                  <Text size="xs" c="dimmed">URL</Text>
+                  {lead.url ? (
+                    <Text size="sm" component="a" href={lead.url} target="_blank" c="blue">
+                      {lead.url}
+                    </Text>
+                  ) : '—'}
+                </Box>
+                <Box>
+                  <Text size="xs" c="dimmed">Size</Text>
+                  <Text size="sm">{lead.size || '—'}</Text>
+                </Box>
+                <Box>
+                  <Text size="xs" c="dimmed">Level / League</Text>
+                  <Text size="sm">{lead.level_league || '—'}</Text>
+                </Box>
+                <Box>
+                  <Text size="xs" c="dimmed">Kanban Column</Text>
+                  <Text size="sm">{lead.kanbanColumn}</Text>
+                </Box>
+              </SimpleGrid>
+
+              {/* Contacts */}
+              <Paper p="md" withBorder>
+                <Stack gap="xs">
+                  <Text size="xs" c="dimmed" fw={600}>CONTACTS</Text>
+                  {lead.decision_maker_name ? (
+                    <Box>
+                      <Text fw={600}>{lead.decision_maker_name}</Text>
+                      {lead.decision_maker_title && (
+                        <Text size="sm" c="dimmed">{lead.decision_maker_title}</Text>
+                      )}
+                      <Text size="sm" c="dimmed">{lead.decision_maker_contact || ''}</Text>
+                    </Box>
+                  ) : null}
+                  {(lead.contacts || []).map((contact, i) => (
+                    <Box key={i}>
+                      <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
+                      {contact.title && <Text size="sm" c="dimmed">{contact.title}</Text>}
+                      {contact.email && <Text size="sm" c="dimmed">{contact.email}</Text>}
+                      {contact.phone && <Text size="sm" c="dimmed">{contact.phone}</Text>}
+                      {contact.linkedin && <Text size="sm" c="blue">{contact.linkedin}</Text>}
+                    </Box>
+                  ))}
+                </Stack>
+              </Paper>
+
+              {/* Pros / Cons */}
+              {((normalizedPro && normalizedPro.length > 0) ||
+                (normalizedCon && normalizedCon.length > 0)) && (
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                  {normalizedPro && normalizedPro.length > 0 && (
+                    <Paper p="md" withBorder>
+                      <Stack gap="xs">
+                        <Text size="xs" c="green" fw={600} tt="uppercase">Pros</Text>
+                        <Stack gap={4}>
+                          {normalizedPro.map((pro, i) => (
+                            <Text size="sm" key={i}>• {pro}</Text>
+                          ))}
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  )}
+                  {normalizedCon && normalizedCon.length > 0 && (
+                    <Paper p="md" withBorder>
+                      <Stack gap="xs">
+                        <Text size="xs" c="red" fw={600} tt="uppercase">Cons</Text>
+                        <Stack gap={4}>
+                          {normalizedCon.map((con, i) => (
+                            <Text size="sm" key={i}>• {con}</Text>
+                          ))}
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  )}
+                </SimpleGrid>
+              )}
+
+              {/* Value Proposition */}
+              {lead.value_proposition && (
+                <Paper p="md" withBorder>
+                  <Stack gap="xs">
+                    <Text size="xs" c="blue" fw={600} tt="uppercase">Value Proposition</Text>
+                    <Text size="sm">{lead.value_proposition}</Text>
+                  </Stack>
+                </Paper>
+              )}
+
+              {/* Feedback Summary */}
+              {(lead.feedbackScore > 0 || lead.declineCount > 0 || lead.acceptanceCount > 0) && (
+                <Paper p="md" withBorder>
+                  <Stack gap="xs">
+                    <Text size="xs" fw={600} tt="uppercase">Feedback History</Text>
+                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
+                      <Box>
+                        <Text size="xs" c="dimmed">Feedback Score</Text>
+                        <Text fw={700}>{lead.feedbackScore}</Text>
+                      </Box>
+                      <Box>
+                        <Text size="xs" c="dimmed">Acceptances</Text>
+                        <Text fw={700} c="green">{lead.acceptanceCount}</Text>
+                      </Box>
+                      <Box>
+                        <Text size="xs" c="dimmed">Declines</Text>
+                        <Text fw={700} c="red">{lead.declineCount}</Text>
+                      </Box>
+                    </SimpleGrid>
+                    {lead.declinedAt && lead.declineReason && (
+                      <Text size="xs" c="dimmed">
+                        Declined: {new Date(lead.declinedAt).toLocaleDateString()} ({lead.declineReason})
+                      </Text>
+                    )}
+                  </Stack>
+                </Paper>
+              )}
+
+              <Divider />
+
+              {/* Annotation */}
               <Stack gap="xs">
-                <Text fw={600}>Decline Reason</Text>
-                <Select
-                  data={DECLINE_REASONS.map(r => ({ value: r.value, label: r.label }))}
-                  value={declineReason}
-                  onChange={(value) => setDeclineReason((value as DeclineReason) || "OTHER")}
+                <Text fw={600}>Annotation</Text>
+                <Textarea
+                  value={annotation}
+                  onChange={(e) => setAnnotation(e.target.value)}
+                  rows={3}
+                  placeholder="Add notes, reasoning, or context for your action…"
                 />
               </Stack>
-              <Group gap="sm">
-                <Button color="red" disabled={busy} onClick={handleDecline} style={{ flex: 1 }}>
-                  Confirm Decline
+            </Stack>
+          </Box>
+
+          {/* Actions */}
+          <Box p="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 }}>
+            {!actionMode ? (
+              <Group gap="sm" wrap="wrap">
+                <Button
+                  color="green"
+                  leftSection={<IconThumbUp size={16} />}
+                  disabled={busy}
+                  onClick={handleAccept}
+                >
+                  Accept → QUALIFIED
                 </Button>
-                <Button color="gray" variant="light" onClick={() => setActionMode(null)} disabled={busy}>
-                  Cancel
+                <Button
+                  color="red"
+                  leftSection={<IconThumbDown size={16} />}
+                  onClick={() => setActionMode("decline")}
+                  disabled={busy}
+                  variant="light"
+                >
+                  Decline → LOST
+                </Button>
+                <Button
+                  color="blue"
+                  leftSection={<IconPin size={16} />}
+                  disabled={busy}
+                  onClick={handlePin}
+                  variant="light"
+                >
+                  Pin to ENGAGED
+                </Button>
+                <Button
+                  color="gray"
+                  leftSection={<IconRefresh size={16} />}
+                  disabled={busy}
+                  onClick={handleRefresh}
+                  variant="light"
+                >
+                  Request Refresh
+                </Button>
+                <Button
+                  color="dark"
+                  variant="light"
+                  leftSection={<IconMail size={16} />}
+                  onClick={() => setOutreachOpen(true)}
+                  disabled={busy}
+                >
+                  Outreach
+                </Button>
+                <Button
+                  color="red"
+                  variant="subtle"
+                  leftSection={<IconTrash size={16} />}
+                  disabled={busy}
+                  onClick={handleDelete}
+                >
+                  Delete
                 </Button>
               </Group>
-            </Stack>
-          ) : null}
-        </Box>
-      </Paper>
+            ) : actionMode === "decline" ? (
+              <Stack gap="sm">
+                <Stack gap="xs">
+                  <Text fw={600}>Decline Reason</Text>
+                  <Select
+                    data={DECLINE_REASONS.map(r => ({ value: r.value, label: r.label }))}
+                    value={declineReason}
+                    onChange={(value) => setDeclineReason((value as DeclineReason) || "OTHER")}
+                  />
+                </Stack>
+                <Group gap="sm">
+                  <Button color="red" disabled={busy} onClick={handleDecline} style={{ flex: 1 }}>
+                    Confirm Decline
+                  </Button>
+                  <Button color="gray" variant="light" onClick={() => setActionMode(null)} disabled={busy}>
+                    Cancel
+                  </Button>
+                </Group>
+              </Stack>
+            ) : null}
+          </Box>
+        </Paper>
       </Modal>
       <OutreachComposeModal
         opened={outreachOpen}

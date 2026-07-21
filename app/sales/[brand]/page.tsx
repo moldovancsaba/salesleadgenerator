@@ -11,6 +11,9 @@ import { LeadDetailModal } from "../../detail";
 import { normalizeLead as normalizeLeadShared } from "../../lib/normalize-lead";
 import { resolveBrand, BRAND_CONFIG } from "../../lib/brand";
 import { COLUMNS } from "../../constants";
+import { tokens } from "../../theme/tokens";
+import { breakpoints } from "../../theme/breakpoints";
+import { FilterBar } from "../../components/ui/filter-bar";
 
 type Props = {
   params: { brand: string };
@@ -27,10 +30,41 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [sortByIce, setSortByIce] = useState<"ice" | "name">("ice");
   const [iceSortOrder, setIceSortOrder] = useState<"asc" | "desc">("desc");
+  const [iceDirection, setIceDirection] = useState<'up' | 'down'>('down');
+  const [nameDirection, setNameDirection] = useState<'up' | 'down'>('down');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>({});
+  const [mode, setMode] = useState<'mobile-portrait' | 'mobile-landscape' | 'tablet-portrait' | 'tablet-landscape' | 'desktop'>('desktop');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    function computeMode() {
+      const width = window.innerWidth;
+      if (width >= breakpoints.desktopMin) return 'desktop';
+      if (width > breakpoints.tabletLandscapeMax) return 'desktop';
+      if (width > breakpoints.tabletPortraitMax) return 'tablet-landscape';
+      if (width > breakpoints.mobileLandscapeMax) return 'tablet-portrait';
+      if (width > breakpoints.mobileMax) return 'mobile-landscape';
+      return 'mobile-portrait';
+    }
+    setMode(computeMode());
+    const mql = window.matchMedia(`(max-width: ${breakpoints.desktopMin}px)`);
+    const handler = () => setMode(computeMode());
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', handler);
+    } else {
+      (mql as any).addListener(handler);
+    }
+    return () => {
+      if (typeof mql.removeEventListener === 'function') {
+        mql.removeEventListener('change', handler);
+      } else {
+        (mql as any).removeListener(handler);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     fetchLeads();
@@ -230,6 +264,31 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
     return list;
   }, [filteredLeads, sortByIce, iceSortOrder]);
 
+  useEffect(() => {
+    if (leads.length === 0) return;
+    let cancelled = false;
+    async function applyAutoMoves() {
+      const now = new Date().toISOString();
+      const updates: Array<{ id: string; patch: any; reason: string }> = [];
+      for (const lead of leads) {
+        if (lead.kanbanColumn === 'LOST' || lead.kanbanColumn === 'WON') continue;
+        const score = typeof lead.scoreProfile?.finalBlended?.ice === 'number' ? lead.scoreProfile.finalBlended.ice : (lead.ice ? lead.ice.impact * lead.ice.confidence * lead.ice.ease : 0);
+        if (lead.kanbanColumn === 'DISCOVERED' && score >= 500) {
+          updates.push({ id: lead._id, patch: { action: 'COLUMN_MOVE', kanbanColumn: 'QUALIFIED', sortOrder: lead.sortOrder ?? 0, autoMoved: true, autoMoveNote: 'ICE auto', status: 'live', qualifiedAt: now, lastStatusChangeAt: now }, reason: 'auto-qualify' });
+        } else if (lead.kanbanColumn === 'QUALIFIED' && score < 500) {
+          updates.push({ id: lead._id, patch: { action: 'COLUMN_MOVE', kanbanColumn: 'DISCOVERED', sortOrder: lead.sortOrder ?? 0, autoMoved: true, autoMoveNote: 'ICE reverted', status: 'new', lastStatusChangeAt: now }, reason: 'auto-revert' });
+        }
+      }
+      if (cancelled || updates.length === 0) return;
+      for (const item of updates) {
+        await fetch(`/api/leads?id=${item.id}&brand=${brand}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item.patch) });
+      }
+      await fetchLeads();
+    }
+    applyAutoMoves();
+    return () => { cancelled = true; };
+  }, [leads, brand]);
+
   if (loading) {
     return (
       <Box p="xl">
@@ -242,6 +301,30 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
     setCollapsedColumns((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const handleSortKeyChange = (key: 'ice' | 'name') => {
+    setSortByIce(key);
+    if (key === 'ice') setIceDirection((prev) => prev === 'up' ? 'down' : 'up');
+    if (key === 'name') setNameDirection((prev) => prev === 'up' ? 'down' : 'up');
+    setIceSortOrder((prev) => prev === 'asc' ? 'desc' : 'asc');
+  };
+
+  const handleSortOrderChange = (order: 'asc' | 'desc') => {
+    setIceSortOrder(order);
+    setIceDirection(order === 'asc' ? 'up' : 'down');
+    setNameDirection(order === 'asc' ? 'up' : 'down');
+  };
+
+  const searchInputStyle: React.CSSProperties = {
+    flex: '1 1 120px',
+    minWidth: 110,
+    padding: '0.3rem 0.5rem',
+    borderRadius: tokens.radii.sm,
+    border: '1px solid var(--mantine-color-gray-3)',
+    fontSize: tokens.typography.sm,
+    backgroundColor: 'var(--mantine-color-gray-0)',
+    color: 'var(--mantine-color-gray-9)',
+  };
+
   return (
     <Box
       style={{
@@ -250,20 +333,10 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
         backgroundColor: 'var(--mantine-color-gray-0)',
       }}
     >
-      <Box
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-          padding: '0.75rem',
-          borderBottom: '1px solid var(--mantine-color-gray-2)',
-          backgroundColor: 'var(--mantine-color-gray-0)',
-          flexShrink: 0,
-        }}
-      >
+      <FilterBar>
         {errorMessage && (
           <Box
-            mb="xs"
+            mb={tokens.spacing.xs}
             p="xs"
             style={{
               borderRadius: '0.25rem',
@@ -279,79 +352,68 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
             </Group>
           </Box>
         )}
-        <Group justify="space-between" align="center" wrap="wrap" gap="xs">
-          <Group gap="xs">
-            <Button
-              size="xs"
-              variant={viewMode === 'kanban' ? 'filled' : 'light'}
-              color="dark"
-              onClick={() => setViewMode('kanban')}
-            >
-              Kanban
-            </Button>
-            <Button
-              size="xs"
-              variant={viewMode === 'table' ? 'filled' : 'light'}
-              color="dark"
-              onClick={() => setViewMode('table')}
-            >
-              Table
-            </Button>
-            <Button
-              size="xs"
-              variant={sortByIce === 'ice' ? 'filled' : 'light'}
-              color="gray"
-              onClick={() => setSortByIce('ice')}
-            >
-              ICE {iceSortOrder === 'asc' ? '↑' : '↓'}
-            </Button>
-            <Button
-              size="xs"
-              variant={sortByIce === 'name' ? 'filled' : 'light'}
-              color="gray"
-              onClick={() => setSortByIce('name')}
-            >
-              Name
-            </Button>
-            <Button
-              size="xs"
-              variant="light"
-              color="gray"
-              onClick={() => setIceSortOrder((prev) => prev === 'asc' ? 'desc' : 'asc')}
-            >
-              {iceSortOrder === 'asc' ? 'Asc' : 'Desc'}
-            </Button>
-          </Group>
-          <Group gap="xs" wrap="wrap">
-            {countryOptions.map((c) => (
-              <Button
-                key={c}
-                size="xs"
-                variant={countryFilter === c ? 'filled' : 'light'}
-                onClick={() => setCountryFilter(c)}
-              >
-                {c === 'ALL' ? 'All' : c}
-              </Button>
-            ))}
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.currentTarget.value)}
-              style={{
-                flex: '1 1 120px',
-                minWidth: 110,
-                padding: '0.3rem 0.5rem',
-                borderRadius: '0.25rem',
-                border: '1px solid var(--mantine-color-gray-3)',
-                fontSize: '0.8rem',
-                backgroundColor: '#fff',
-                color: '#000',
-              }}
-            />
-          </Group>
+        <Group gap="xs">
+          <Button
+            size="xs"
+            variant={viewMode === 'kanban' ? 'filled' : 'light'}
+            color="dark"
+            onClick={() => setViewMode('kanban')}
+          >
+            Kanban
+          </Button>
+          <Button
+            size="xs"
+            variant={viewMode === 'table' ? 'filled' : 'light'}
+            color="dark"
+            onClick={() => setViewMode('table')}
+          >
+            Table
+          </Button>
+          <Button
+            size="xs"
+            variant={sortByIce === 'ice' ? 'filled' : 'light'}
+            color="gray"
+            onClick={() => handleSortKeyChange('ice')}
+          >
+            ICE {sortByIce === 'ice' ? (iceDirection === 'up' ? '↑' : '↓') : ''}
+          </Button>
+          <Button
+            size="xs"
+            variant={sortByIce === 'name' ? 'filled' : 'light'}
+            color="gray"
+            onClick={() => handleSortKeyChange('name')}
+          >
+            Name {sortByIce === 'name' ? (nameDirection === 'up' ? '↑' : '↓') : ''}
+          </Button>
+          <Button
+            size="xs"
+            variant="light"
+            color="gray"
+            onClick={() => handleSortOrderChange(iceSortOrder === 'asc' ? 'desc' : 'asc')}
+          >
+            {iceSortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}
+          </Button>
         </Group>
-      </Box>
+        <Group gap="xs" wrap="wrap">
+          {countryOptions.map((c) => (
+            <Button
+              key={c}
+              size="xs"
+              variant={countryFilter === c ? 'filled' : 'light'}
+              onClick={() => setCountryFilter(c)}
+            >
+              {c === 'ALL' ? 'All' : c}
+            </Button>
+          ))}
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.currentTarget.value)}
+            style={searchInputStyle}
+          />
+        </Group>
+      </FilterBar>
 
       {viewMode === 'kanban' ? (
         <KanbanBoard
@@ -363,6 +425,7 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
           columnCounts={columnCounts}
           sortKey={sortByIce}
           sortOrder={iceSortOrder}
+          mode={mode}
         />
       ) : (
         <TableView
