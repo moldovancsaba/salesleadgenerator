@@ -51,6 +51,43 @@ export async function GET(request: Request) {
 
       let forecast = null
       if (brandKey === 'cogmap') {
+        const pipelineForecast = await collection.aggregate([
+          { $match: filter },
+          {
+            $group: {
+              _id: '$kanbanColumn',
+              leads: { $sum: 1 },
+              participants: { $sum: { $ifNull: ['$estimated_participants', 0] } },
+              revenue: { $sum: { $ifNull: ['$estimated_annual_revenue_usd', 0] } },
+            },
+          },
+        ]).toArray()
+
+        const closedRates: Record<string, number> = {
+          DISCOVERED: 0.01,
+          QUALIFIED: 0.05,
+          ENGAGED: 0.10,
+          PROPOSAL: 0.25,
+          WON: 1.0,
+          LOST: 0.0,
+        }
+
+        const pipeline = pipelineForecast.reduce((acc, item) => {
+          const rate = closedRates[(item._id || 'UNKNOWN') as string] ?? 0;
+          return {
+            ...acc,
+            [(item._id || 'UNKNOWN') as string]: {
+              leads: item.leads,
+              participants: item.participants,
+              rawRevenue: item.revenue,
+              probability: rate,
+              weightedRevenue: Math.round(item.revenue * rate),
+            },
+          };
+        }, {} as Record<string, any>)
+
+        const totalWeighted = Object.values(pipeline).reduce((sum: number, col: any) => sum + (col.weightedRevenue || 0), 0)
+
         forecast = await collection.aggregate([
           { $match: filter },
           {
@@ -82,6 +119,8 @@ export async function GET(request: Request) {
         ]).toArray()
 
         forecast = {
+          pipeline,
+          totalWeightedRevenue: totalWeighted,
           byTier: forecast.reduce((acc, item) => ({ ...acc, [item._id || 'UNSET']: { leads: item.leads, participants: item.participants, revenue: item.revenue } }), {}),
           byModel: revenueByModel.reduce((acc, item) => ({ ...acc, [item._id || 'UNSET']: { leads: item.leads, revenue: item.revenue } }), {}),
           totals: totalRevenue[0] || { revenue: 0, participants: 0 },
