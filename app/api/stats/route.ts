@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     const client = await clientPromise
     const db = client.db()
 
-    const brands: Record<string, { total: number; byColumn: Record<string, number>; byRegion: Record<string, number> }> = {}
+    const brands: Record<string, { total: number; byColumn: Record<string, number>; byRegion: Record<string, number>; forecast?: Record<string, any> | null }> = {}
     let total = 0
 
     for (const [brandKey, config] of Object.entries(BRAND_CONFIG)) {

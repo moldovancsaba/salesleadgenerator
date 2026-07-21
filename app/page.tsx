@@ -1,5 +1,3 @@
-import { tokens } from './theme/tokens';
-
 export default function LandingPage() {
   return (
     <div style={{
@@ -8,26 +6,26 @@ export default function LandingPage() {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'var(--mantine-color-gray-0)',
-      padding: tokens.spacing.lg,
+      padding: '1rem',
     }}>
       <div style={{
         maxWidth: 520,
         textAlign: 'center',
-        padding: tokens.spacing.xl,
+        padding: '1.5rem',
       }}>
         <h1 style={{
-          fontSize: tokens.typography['2xl'],
+          fontSize: '1.5rem',
           fontWeight: 700,
-          marginBottom: tokens.spacing.lg,
+          marginBottom: '1rem',
           color: 'var(--mantine-color-gray-9)',
         }}>
           AI Sales Lead Collector
         </h1>
         <p style={{
-          fontSize: tokens.typography.lg,
+          fontSize: '1.125rem',
           color: 'var(--mantine-color-gray-7)',
-          marginBottom: tokens.spacing.lg,
-          lineHeight: tokens.lineHeights.relaxed,
+          marginBottom: '1rem',
+          lineHeight: 1.625,
         }}>
           Contact for quote
         </p>
@@ -35,8 +33,8 @@ export default function LandingPage() {
           href="mailto:salesleadgenerator@haho.ai"
           style={{
             display: 'inline-block',
-            padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-            borderRadius: tokens.radii.md,
+            padding: '0.5rem 1rem',
+            borderRadius: '0.5rem',
             backgroundColor: 'var(--mantine-color-blue-6)',
             color: 'white',
             textDecoration: 'none',

@@ -148,16 +148,59 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
     }
   }
 
-  const actions = (
-    <Group gap="sm" wrap="wrap">
-      <Button color="green" leftSection={<IconThumbUp size={16} />} disabled={busy} onClick={handleAccept}>Accept → QUALIFIED</Button>
-      <Button color="red" leftSection={<IconThumbDown size={16} />} onClick={() => setActionMode("decline")} disabled={busy} variant="light">Decline → LOST</Button>
-      <Button color="blue" leftSection={<IconPin size={16} />} disabled={busy} onClick={handlePin} variant="light">Pin to ENGAGED</Button>
-      <Button color="gray" leftSection={<IconRefresh size={16} />} disabled={busy} onClick={handleRefresh} variant="light">Request Refresh</Button>
-      <Button color="dark" variant="light" leftSection={<IconMail size={16} />} onClick={() => setOutreachOpen(true)} disabled={busy}>Outreach</Button>
-      <Button color="red" variant="subtle" leftSection={<IconTrash size={16} />} disabled={busy} onClick={handleDelete}>Delete</Button>
-    </Group>
-  );
+  const actions = {
+    primary: {
+      action: 'accept',
+      color: 'green',
+      leftSection: <IconThumbUp size={16} />,
+      disabled: busy,
+      onClick: handleAccept,
+    },
+    secondary: [
+      {
+        action: 'decline',
+        color: 'red',
+        variant: 'light',
+        leftSection: <IconThumbDown size={16} />,
+        disabled: busy,
+        onClick: () => setActionMode("decline"),
+      },
+      {
+        action: 'pin',
+        color: 'blue',
+        variant: 'light',
+        leftSection: <IconPin size={16} />,
+        disabled: busy,
+        onClick: handlePin,
+      },
+      {
+        action: 'refresh',
+        color: 'gray',
+        variant: 'light',
+        leftSection: <IconRefresh size={16} />,
+        disabled: busy,
+        onClick: handleRefresh,
+      },
+    ],
+    tertiary: [
+      {
+        action: 'outreach',
+        color: 'dark',
+        variant: 'light',
+        leftSection: <IconMail size={16} />,
+        disabled: busy,
+        onClick: () => setOutreachOpen(true),
+      },
+      {
+        action: 'delete',
+        color: 'red',
+        variant: 'subtle',
+        leftSection: <IconTrash size={16} />,
+        disabled: busy,
+        onClick: handleDelete,
+      },
+    ],
+  };
 
   const metadata = (
     <Stack gap="xs">
@@ -288,10 +331,11 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
       )}
 
       <AdminTextarea
+        name="annotation"
         label="Annotation"
         description="Add notes, reasoning, or context for your action…"
         value={annotation}
-        onChange={(event) => setAnnotation(event.currentTarget.value)}
+        onChange={(value) => setAnnotation(value)}
         rows={3}
       />
     </Stack>
@@ -306,7 +350,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
           title={lead.entity_name}
           description={lead.industry || lead.sport_or_sector || undefined}
           size="full"
-          actions={actions}
+          actions={actions as any}
         >
           <Stack gap="md">{content}</Stack>
         </AdminModal>
@@ -317,7 +361,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
           title={lead.entity_name}
           description={lead.industry || lead.sport_or_sector || undefined}
           metadata={metadata}
-          actions={actions}
+          actions={actions as any}
         />
       )}
       <OutreachComposeModal

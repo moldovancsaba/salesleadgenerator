@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import { Stack, Group, Text, Title, Loader, Alert, Paper, Badge, SimpleGrid } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
-import { tokens } from "./theme/tokens";
-import { CardShell } from "./components/ui/card-shell";
+import { AdminResourceCard, InfoCard } from "@doneisbetter/gds-admin/client";
 
 interface TopQuery {
   query: string;
@@ -32,10 +31,6 @@ interface SearchLearningData {
   topDomains: TopDomain[];
   avgSuccessRate: number;
 }
-
-const dividerStyle = (index: number, total: number) => ({
-  borderBottom: index < total - 1 ? "1px solid var(--mantine-color-gray-2)" : "none",
-});
 
 export function SearchLearningPanel() {
   const [data, setData] = useState<SearchLearningData | null>(null);
@@ -125,37 +120,12 @@ export function SearchLearningPanel() {
         </Text>
       </Stack>
 
-      {/* Summary Stats */}
       <SimpleGrid cols={{ base: 1, sm: 3 }}>
-        <CardShell>
-          <Stack gap="xs">
-            <Text size="sm" c="dimmed">
-              Total Search Runs
-            </Text>
-            <Title order={1}>{data.totalRuns}</Title>
-          </Stack>
-        </CardShell>
-        <CardShell>
-          <Stack gap="xs">
-            <Text size="sm" c="dimmed">
-              Average Success Rate
-            </Text>
-            <Title order={1}>{Math.round(data.avgSuccessRate * 100)}%</Title>
-          </Stack>
-        </CardShell>
-        <CardShell>
-          <Stack gap="xs">
-            <Text size="sm" c="dimmed">
-              Last Updated
-            </Text>
-            <Text fw={600}>
-              {data.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : "Never"}
-            </Text>
-          </Stack>
-        </CardShell>
+        <InfoCard title="Total Search Runs" value={String(data.totalRuns)} />
+        <InfoCard title="Average Success Rate" value={`${Math.round(data.avgSuccessRate * 100)}%`} />
+        <InfoCard title="Last Updated" value={data.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : "Never"} />
       </SimpleGrid>
 
-      {/* Top Queries */}
       {data.topQueries.length > 0 && (
         <Stack gap="md">
           <Title order={3}>Top Queries</Title>
@@ -164,51 +134,22 @@ export function SearchLearningPanel() {
               const successRate = getSuccessRate(query);
 
               return (
-                <CardShell key={index} style={{ transition: "box-shadow 0.2s" }}>
-                  <Group justify="space-between" align="flex-start" mb="md">
-                    <Stack gap={4} style={{ flex: 1 }}>
-                      <Text fw={600} size="lg">
-                        {query.query}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {query.createdLeads} lead(s) created
-                      </Text>
-                    </Stack>
-                    <Badge color={getPerformanceColor(successRate)} variant="light" size="md">
-                      {successRate}% success
-                    </Badge>
-                  </Group>
-
-                  <SimpleGrid cols={2}>
-                    <Paper p="md" style={{ backgroundColor: "var(--mantine-color-green-0)" }}>
-                      <Stack gap={4}>
-                        <Title order={2} c="green">
-                          {query.accepted}
-                        </Title>
-                        <Text size="sm" c="green">
-                          Accepted
-                        </Text>
-                      </Stack>
-                    </Paper>
-                    <Paper p="md" style={{ backgroundColor: "var(--mantine-color-red-0)" }}>
-                      <Stack gap={4}>
-                        <Title order={2} c="red">
-                          {query.declined}
-                        </Title>
-                        <Text size="sm" c="red">
-                          Declined
-                        </Text>
-                      </Stack>
-                    </Paper>
-                  </SimpleGrid>
-                </CardShell>
+                <AdminResourceCard
+                  key={index}
+                  record={{
+                    id: String(index),
+                    title: query.query,
+                    description: `Accepted: ${query.accepted}, Declined: ${query.declined}, Success: ${successRate}%`,
+                    status: `${successRate}%`,
+                  } as any}
+                  actions={[]}
+                />
               );
             })}
           </Stack>
         </Stack>
       )}
 
-      {/* Top Terms */}
       {data.topTerms.length > 0 && (
         <Stack gap="md">
           <Title order={3}>Top Terms</Title>
@@ -231,7 +172,6 @@ export function SearchLearningPanel() {
         </Stack>
       )}
 
-      {/* Top Domains */}
       {data.topDomains.length > 0 && (
         <Stack gap="md">
           <Title order={3}>Top Domains</Title>
@@ -252,14 +192,13 @@ export function SearchLearningPanel() {
         </Stack>
       )}
 
-      {/* Recent Queries */}
       {data.lastQueries.length > 0 && (
         <Stack gap="md">
           <Title order={3}>Recent Queries</Title>
           <Paper p="md" withBorder>
             <Stack gap="xs">
               {data.lastQueries.slice(0, 10).map((query, index) => (
-                <Text key={index} size="sm" py={4} style={dividerStyle(index, data.lastQueries.length)}>
+                <Text key={index} size="sm" py={4} style={{ borderBottom: index < data.lastQueries.length - 1 ? "1px solid var(--mantine-color-gray-2)" : "none" }}>
                   {query}
                 </Text>
               ))}
@@ -267,22 +206,6 @@ export function SearchLearningPanel() {
           </Paper>
         </Stack>
       )}
-
-      <Paper p="md" style={{ backgroundColor: "var(--mantine-color-blue-0)", border: "1px solid var(--mantine-color-blue-2)" }}>
-        <Stack gap="xs">
-          <Text fw={600} c="blue">
-            💡 Tips
-          </Text>
-          <Text size="sm">
-            <ul style={{ margin: 0, paddingLeft: "1.5rem" }}>
-              <li>Focus on queries with high success rates (70%+)</li>
-              <li>Review queries with low success rates to refine your search strategy</li>
-              <li>Use successful query patterns to discover similar opportunities</li>
-              <li>Search learning data updates automatically as you accept or decline leads</li>
-            </ul>
-          </Text>
-        </Stack>
-      </Paper>
     </Stack>
   );
 }

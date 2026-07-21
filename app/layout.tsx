@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
-import { GDSProvider } from "./components/gds-provider";
+import { MantineProvider } from "@mantine/core";
 import "@mantine/core/styles.css";
+import "@doneisbetter/gds-theme/styles.css";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -18,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} data-gds-theme-preset="default">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
         <meta name="theme-color" content="#1a1a2e" />
@@ -30,7 +31,9 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body>
-        <GDSProvider>{children}</GDSProvider>
+        <MantineProvider>
+          {children}
+        </MantineProvider>
       </body>
     </html>
   );
