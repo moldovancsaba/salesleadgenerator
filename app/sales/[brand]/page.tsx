@@ -43,10 +43,9 @@ export default function BrandPipelinePage({ params, searchParams }: Props) {
     function computeMode() {
       const width = window.innerWidth;
       if (width >= breakpoints.desktopMin) return 'desktop';
-      if (width > breakpoints.tabletLandscapeMax) return 'desktop';
-      if (width > breakpoints.tabletPortraitMax) return 'tablet-landscape';
-      if (width > breakpoints.mobileLandscapeMax) return 'tablet-portrait';
-      if (width > breakpoints.mobileMax) return 'mobile-landscape';
+      if (width >= breakpoints.tabletLandscapeMin) return 'tablet-landscape';
+      if (width >= breakpoints.tabletPortraitMin) return 'tablet-portrait';
+      if (width >= breakpoints.mobileLandscapeMin) return 'mobile-landscape';
       return 'mobile-portrait';
     }
     setMode(computeMode());
