@@ -19,9 +19,9 @@ import {
   SimpleGrid,
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
-import { iceTone, qualityTone, regionTone } from './theme/semantic';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { semanticToneToMantineColor } from './utils/semantic-colors';
+import { iceTone, qualityTone, regionTone } from './theme/semantic';
 import {
   IconX,
   IconThumbUp,
@@ -34,6 +34,8 @@ import {
 import { OutreachComposeModal } from './outreach/compose-modal';
 import { tokens } from './theme/tokens';
 import { breakpoints } from './theme/breakpoints';
+import { SemanticBadge } from './components/ui/semantic-badge';
+import { CardShell } from './components/ui/card-shell';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -187,13 +189,9 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
                   <Badge variant="light" color="gray">
                     {lead.country || '—'}
                   </Badge>
-                  <Badge variant="light" color={regionToneValue}>
-                    {lead.region || '—'}
-                  </Badge>
+                  <SemanticBadge tone={regionToneValue === 'blue' ? 'ingress' : regionToneValue === 'indigo' ? 'synthesis' : 'tactical'} label={lead.region || '—'} />
                   <Text size="sm" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
-                  <Badge variant="light" color={qualityToneValue}>
-                    {qualityStatus}
-                  </Badge>
+                  <SemanticBadge tone={qualityToneValue === 'grape' ? 'review' : qualityToneValue === 'violet' ? 'strategy' : 'checklist'} label={qualityStatus} />
                 </Group>
               </Stack>
               <Button variant="subtle" color="gray" onClick={onClose} p={4}>
@@ -206,7 +204,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
           <Box p="md" style={{ flex: 1, overflowY: 'auto' }}>
             <Stack gap="md">
               {/* ICE Score */}
-              <Paper p="md" withBorder>
+              <CardShell>
                 <Stack gap="xs">
                   <Group justify="space-between">
                     <Text fw={600}>ICE Score</Text>
@@ -228,7 +226,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
                     </Box>
                   </SimpleGrid>
                 </Stack>
-              </Paper>
+              </CardShell>
 
               {/* Details */}
               <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
@@ -255,7 +253,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
               </SimpleGrid>
 
               {/* Contacts */}
-              <Paper p="md" withBorder>
+              <CardShell>
                 <Stack gap="xs">
                   <Text size="xs" c="dimmed" fw={600}>CONTACTS</Text>
                   {lead.decision_maker_name ? (
@@ -277,14 +275,14 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
                     </Box>
                   ))}
                 </Stack>
-              </Paper>
+              </CardShell>
 
               {/* Pros / Cons */}
               {((normalizedPro && normalizedPro.length > 0) ||
                 (normalizedCon && normalizedCon.length > 0)) && (
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                   {normalizedPro && normalizedPro.length > 0 && (
-                    <Paper p="md" withBorder>
+                    <CardShell>
                       <Stack gap="xs">
                         <Text size="xs" c="green" fw={600} tt="uppercase">Pros</Text>
                         <Stack gap={4}>
@@ -293,10 +291,10 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
                           ))}
                         </Stack>
                       </Stack>
-                    </Paper>
+                    </CardShell>
                   )}
                   {normalizedCon && normalizedCon.length > 0 && (
-                    <Paper p="md" withBorder>
+                    <CardShell>
                       <Stack gap="xs">
                         <Text size="xs" c="red" fw={600} tt="uppercase">Cons</Text>
                         <Stack gap={4}>
@@ -305,24 +303,24 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
                           ))}
                         </Stack>
                       </Stack>
-                    </Paper>
+                    </CardShell>
                   )}
                 </SimpleGrid>
               )}
 
               {/* Value Proposition */}
               {lead.value_proposition && (
-                <Paper p="md" withBorder>
+                <CardShell>
                   <Stack gap="xs">
                     <Text size="xs" c="blue" fw={600} tt="uppercase">Value Proposition</Text>
                     <Text size="sm">{lead.value_proposition}</Text>
                   </Stack>
-                </Paper>
+                </CardShell>
               )}
 
               {/* Feedback Summary */}
               {(lead.feedbackScore > 0 || lead.declineCount > 0 || lead.acceptanceCount > 0) && (
-                <Paper p="md" withBorder>
+                <CardShell>
                   <Stack gap="xs">
                     <Text size="xs" fw={600} tt="uppercase">Feedback History</Text>
                     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
@@ -345,7 +343,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
                       </Text>
                     )}
                   </Stack>
-                </Paper>
+                </CardShell>
               )}
 
               <Divider />
