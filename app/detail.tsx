@@ -71,16 +71,14 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
   const [fullScreen, setFullScreen] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      onUpdated?.();
-    }
+    if (typeof window === 'undefined') return;
 
     const mql = window.matchMedia(`(max-width: ${breakpoints.tabletLandscapeMax}px)`);
     setFullScreen(mql.matches);
     const handler = (event: MediaQueryListEvent) => setFullScreen(event.matches);
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
-  }, [lead._id, onUpdated]);
+  }, [lead._id]);
 
   const ice = lead.ice || { impact: 0, confidence: 0, ease: 0 };
   const iceScore = Math.round(ice.impact * ice.confidence * ice.ease);
@@ -171,13 +169,20 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
   return (
     <>
       <Modal
-        opened={true}
+        opened
         onClose={onClose}
         size={fullScreen ? 'full' : 'xl'}
         padding={0}
         withCloseButton={false}
         fullScreen={fullScreen}
-        centered={!fullScreen}
+        centered
+        withinPortal={false}
+        styles={{
+          body: { backgroundColor: 'transparent', padding: 0 },
+          content: { backgroundColor: 'transparent', padding: 0 },
+          inner: { padding: 0 },
+        }}
+        overlayProps={{ blur: 2, opacity: 0.2, zIndex: 2000 }}
       >
         <Paper radius="md" withBorder={false} style={{ height: '100%', display: 'flex', flexDirection: 'column' }} className="lead-detail-modal">
           {/* Header */}
