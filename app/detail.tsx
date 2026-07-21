@@ -33,11 +33,14 @@ import {
   IconMail,
 } from '@tabler/icons-react';
 import { OutreachComposeModal } from './outreach/compose-modal';
+import { tokens } from './theme/tokens';
+import { breakpoints } from './theme/breakpoints';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
 
 type Props = {
+  mode?: 'mobile-portrait' | 'mobile-landscape' | 'tablet-portrait' | 'tablet-landscape' | 'desktop';
   lead: Lead;
   brand?: string;
   onClose: () => void;
@@ -59,7 +62,7 @@ const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
   { value: "OTHER", label: "Other" },
 ];
 
-export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDelete }: Props) {
+export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDelete, onUpdated, mode }: Props) {
   const [annotation, setAnnotation] = useState("");
   const [declineReason, setDeclineReason] = useState<DeclineReason>("OTHER");
   const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
@@ -68,12 +71,16 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
   const [fullScreen, setFullScreen] = useState(false);
 
   useEffect(() => {
-    const mql = window.matchMedia('(max-width: 767px)');
+    if (typeof window !== 'undefined') {
+      onUpdated?.();
+    }
+
+    const mql = window.matchMedia(`(max-width: ${breakpoints.tabletLandscapeMax}px)`);
     setFullScreen(mql.matches);
     const handler = (event: MediaQueryListEvent) => setFullScreen(event.matches);
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
-  }, []);
+  }, [lead._id, onUpdated]);
 
   const ice = lead.ice || { impact: 0, confidence: 0, ease: 0 };
   const iceScore = Math.round(ice.impact * ice.confidence * ice.ease);
@@ -161,6 +168,9 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
     }
   }
 
+  const headerBorderStyle = { borderBottom: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 };
+  const footerBorderStyle = { borderTop: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 };
+
   return (
       <>
         <Modal
@@ -172,9 +182,9 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
           fullScreen={fullScreen}
           centered={!fullScreen}
         >
-      <Paper radius="md" withBorder={false} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Paper radius="md" withBorder={false} style={{ height: '100%', display: 'flex', flexDirection: 'column' }} className="lead-detail-modal">
         {/* Header */}
-        <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 }}>
+        <Box p="md" style={headerBorderStyle}>
           <Group justify="space-between" align="flex-start">
             <Stack gap="xs" style={{ flex: 1 }}>
               <Title order={2}>{lead.entity_name}</Title>
@@ -359,7 +369,7 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
         </Box>
 
         {/* Actions */}
-        <Box p="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)', flexShrink: 0 }}>
+        <Box p="md" style={footerBorderStyle}>
           {!actionMode ? (
             <Group gap="sm" wrap="wrap">
               <Button
