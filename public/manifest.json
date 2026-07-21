@@ -5,10 +5,10 @@
   "start_url": "/sales/cogmap",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#1a1a2e",
+  "background_color": "#ffffff",
   "theme_color": "#1a1a2e",
   "orientation": "any",
-  "version": "2026.07.20.2",
+  "version": "2026.07.21.1",
   "icons": [
     {
       "src": "/icon-192.png",

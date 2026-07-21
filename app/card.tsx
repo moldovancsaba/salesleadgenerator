@@ -1,8 +1,11 @@
 'use client';
 
 import type { Lead } from './types';
-import { iceTone, regionTone, qualityTone } from './theme/semantic';
-import { semanticToneToMantineColor } from './utils/semantic-colors';
+import { tokens } from './theme/tokens';
+import { CardShell } from './components/ui/card-shell';
+import { getIceScore } from './constants';
+
+type LayoutMode = 'mobile-portrait' | 'mobile-landscape' | 'tablet-portrait' | 'tablet-landscape' | 'desktop';
 
 interface LeadCardProps {
   lead: Lead;
@@ -11,59 +14,94 @@ interface LeadCardProps {
   onMove?: (e: React.PointerEvent) => void;
   onMoveEnd?: (e: React.PointerEvent) => void;
   isDragging?: boolean;
+  now?: number;
+  mode?: LayoutMode;
 }
 
-export function LeadCard({ lead, onOpen, onMoveStart, onMove, onMoveEnd, isDragging = false }: LeadCardProps) {
-  const cardRef = (lead as any)?._id || Math.random().toString(36).slice(2);
-  const ice = (lead.ice?.impact || 0) * (lead.ice?.confidence || 0) * (lead.ice?.ease || 0);
+function formatAge(ms: number): string {
+  const totalMinutes = Math.floor(ms / 60000);
+  if (totalMinutes < 1) return 'now';
+  if (totalMinutes < 60) return `${totalMinutes}m`;
+  const totalHours = Math.floor(totalMinutes / 60);
+  if (totalHours < 24) return `${totalHours}h`;
+  const totalDays = Math.floor(totalHours / 24);
+  if (totalDays < 7) return `${totalDays}d`;
+  const totalWeeks = Math.floor(totalDays / 7);
+  if (totalWeeks < 4) return `${totalWeeks}w`;
+  const totalMonths = Math.floor(totalDays / 30);
+  if (totalMonths < 12) return `${totalMonths}mo`;
+  return `${Math.floor(totalMonths / 12)}y`;
+}
+
+function formatTimestamp(value?: string): number | null {
+  if (!value) return null;
+  const time = Date.parse(value);
+  if (Number.isNaN(time)) return null;
+  return time;
+}
+
+function badgeStyle(base: Record<string, string>, extra: Record<string, string>) {
+  return {
+    padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
+    borderRadius: tokens.radii.sm,
+    fontSize: tokens.typography.xs,
+    fontWeight: 500,
+    display: 'inline-flex',
+    alignItems: 'center',
+    lineHeight: 1.2,
+    ...base,
+    ...extra,
+  };
+}
+
+export function LeadCard({ lead, onOpen, onMoveStart, onMove, onMoveEnd, isDragging = false, now = Date.now(), mode }: LeadCardProps) {
+  const effectiveMode = mode || 'desktop';
+  const ice = getIceScore(lead);
   const region = lead.region || 'US';
   const quality = lead.qualityStatus || 'DRAFT';
 
-  const iceColor = semanticToneToMantineColor(iceTone(ice));
-  const regionColor = semanticToneToMantineColor(regionTone[region]);
-  const qualityColor = semanticToneToMantineColor(qualityTone[quality] || 'neutral');
+  const qualifiedAt = formatTimestamp(lead.qualifiedAt || lead.lastStatusChangeAt);
+  const ageMs = qualifiedAt ? now - qualifiedAt : 0;
+  const ageText = ageMs > 0 ? formatAge(ageMs) : null;
+  const status = typeof lead.status === 'string' ? lead.status.toLowerCase() : null;
+  const statusLabel = status === 'live' ? 'LIVE' : status ? status.toUpperCase() : 'NEW';
+  const statusClassName = status === 'live' ? 'lead-card__status lead-card__status--live' : 'lead-card__status lead-card__status--draft';
+
+  const isMobilePortrait = effectiveMode === 'mobile-portrait';
+  const cardPadding = isMobilePortrait ? '0.75rem' : '0.5rem 0.75rem';
+
+  const iceTone = ice >= 700 ? 'success' : ice >= 400 ? 'warning' : 'danger';
+  const regionTone = region === 'USA' ? 'info' : 'neutral';
+  const qualityTone = quality === 'VERIFIED' ? 'success' : quality === 'CHECKED' ? 'info' : 'neutral';
 
   return (
-    <div
-      ref={(node) => {
-        if (!node) return;
-        if (isDragging) {
-          node.style.opacity = '0.4';
-        } else if (node.style.opacity === '0.4') {
-          node.style.opacity = '1';
-        }
-      }}
+    <CardShell
       onClick={onOpen}
-      onPointerDown={onMoveStart}
-      onPointerMove={onMove}
-      onPointerUp={onMoveEnd}
-      onPointerCancel={() => onMoveEnd?.(null as any)}
       style={{
         display: 'flex',
         alignItems: 'flex-start',
-        gap: '0.5rem',
-        padding: '0.7rem 0.75rem',
-        borderRadius: '0.5rem',
-        backgroundColor: 'var(--mantine-color-white)',
-        border: '1px solid var(--mantine-color-gray-3)',
-        cursor: 'grab',
-        touchAction: 'none',
+        gap: tokens.spacing.sm,
+        padding: cardPadding,
+        cursor: isMobilePortrait ? 'pointer' : 'grab',
+        touchAction: 'manipulation',
         userSelect: 'none',
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
         transition: 'transform 0.1s, box-shadow 0.1s',
+        minHeight: isMobilePortrait ? 56 : 48,
       }}
     >
-      {/* Larger drag handle / touch target */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          padding: '0.35rem',
+          padding: tokens.spacing.xs,
           color: 'var(--mantine-color-gray-5)',
           cursor: 'grab',
           flexShrink: 0,
-          borderRadius: '0.35rem',
+          borderRadius: tokens.radii.sm,
+          minHeight: 48,
+          minWidth: 48,
         }}
         aria-label="Drag handle"
       >
@@ -77,67 +115,70 @@ export function LeadCard({ lead, onOpen, onMoveStart, onMove, onMoveEnd, isDragg
         </svg>
       </div>
 
-      {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Name */}
         <div style={{
-          fontSize: '0.9rem',
+          fontSize: tokens.typography.base,
           fontWeight: 600,
           color: 'var(--mantine-color-gray-9)',
-          marginBottom: '0.4rem',
-          lineHeight: 1.3,
+          marginBottom: tokens.spacing.xs,
+          lineHeight: tokens.lineHeights.normal,
           wordBreak: 'break-word',
         }}>
           {lead.entity_name}
         </div>
 
-        {/* Badges */}
-        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{
-            padding: '0.18rem 0.45rem',
-            borderRadius: '0.25rem',
-            backgroundColor: `var(--mantine-color-${iceColor}-1)`,
-            color: `var(--mantine-color-${iceColor}-9)`,
-            fontSize: '0.72rem',
-            fontWeight: 700,
-          }}>
+        <div style={{ display: 'flex', gap: tokens.spacing.xs, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span
+            style={badgeStyle(
+              { backgroundColor: 'var(--mantine-color-gray-1)', color: 'var(--mantine-color-gray-9)' },
+              iceTone === 'success'
+                ? { backgroundColor: 'var(--mantine-color-green-1)', color: 'var(--mantine-color-green-9)' }
+                : iceTone === 'warning'
+                  ? { backgroundColor: 'var(--mantine-color-yellow-1)', color: 'var(--mantine-color-yellow-9)' }
+                  : { backgroundColor: 'var(--mantine-color-red-1)', color: 'var(--mantine-color-red-9)' }
+            )}
+          >
             {ice}
           </span>
-          <span style={{
-            padding: '0.18rem 0.45rem',
-            borderRadius: '0.25rem',
-            backgroundColor: `var(--mantine-color-${regionColor}-1)`,
-            color: `var(--mantine-color-${regionColor}-9)`,
-            fontSize: '0.72rem',
-            fontWeight: 500,
-          }}>
+          <span
+            style={badgeStyle(
+              { backgroundColor: 'var(--mantine-color-gray-1)', color: 'var(--mantine-color-gray-9)' },
+              regionTone === 'info'
+                ? { backgroundColor: 'var(--mantine-color-blue-1)', color: 'var(--mantine-color-blue-9)' }
+                : {}
+            )}
+          >
             {region}
           </span>
-          <span style={{
-            padding: '0.18rem 0.45rem',
-            borderRadius: '0.25rem',
-            backgroundColor: `var(--mantine-color-${qualityColor}-1)`,
-            color: `var(--mantine-color-${qualityColor}-9)`,
-            fontSize: '0.72rem',
-            fontWeight: 500,
-          }}>
+          <span
+            style={badgeStyle(
+              { backgroundColor: 'var(--mantine-color-gray-1)', color: 'var(--mantine-color-gray-9)' },
+              qualityTone === 'success'
+                ? { backgroundColor: 'var(--mantine-color-teal-1)', color: 'var(--mantine-color-teal-9)' }
+                : qualityTone === 'info'
+                  ? { backgroundColor: 'var(--mantine-color-cyan-1)', color: 'var(--mantine-color-cyan-9)' }
+                  : {}
+            )}
+          >
             {quality}
           </span>
+          <span className={statusClassName}>{statusLabel}</span>
+          {ageText && <span className="lead-card__age">{ageText}</span>}
+          {lead.autoMoved && <span className="lead-card__auto-move">{lead.autoMoveNote || 'Auto'}</span>}
         </div>
 
-        {/* DM if exists */}
         {lead.decision_maker_name && (
           <div style={{
-            marginTop: '0.35rem',
-            fontSize: '0.72rem',
+            marginTop: tokens.spacing.xs,
+            fontSize: tokens.typography.xs,
             color: 'var(--mantine-color-gray-6)',
-            lineHeight: 1.3,
+            lineHeight: tokens.lineHeights.normal,
           }}>
             {lead.decision_maker_name}
             {lead.decision_maker_title && <span style={{ opacity: 0.7 }}> — {lead.decision_maker_title}</span>}
           </div>
         )}
       </div>
-    </div>
+    </CardShell>
   );
 }
