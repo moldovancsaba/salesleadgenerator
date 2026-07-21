@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Stack, Group, Text, Card, Title, Loader, Alert, Paper, Badge, SimpleGrid } from "@mantine/core";
+import { Stack, Group, Text, Title, Loader, Alert, Paper, Badge, SimpleGrid } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
-import { semanticToneToMantineColor } from "./utils/semantic-colors";
+import { tokens } from "./theme/tokens";
+import { CardShell } from "./components/ui/card-shell";
 
 interface TopQuery {
   query: string;
@@ -32,6 +33,10 @@ interface SearchLearningData {
   avgSuccessRate: number;
 }
 
+const dividerStyle = (index: number, total: number) => ({
+  borderBottom: index < total - 1 ? "1px solid var(--mantine-color-gray-2)" : "none",
+});
+
 export function SearchLearningPanel() {
   const [data, setData] = useState<SearchLearningData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,7 +51,7 @@ export function SearchLearningPanel() {
       setLoading(true);
       const response = await fetch("/api/search-learning");
       if (!response.ok) throw new Error("Failed to fetch search learning data");
-      
+
       const result = await response.json();
       setData(result);
       setError(null);
@@ -64,13 +69,12 @@ export function SearchLearningPanel() {
   };
 
   const getPerformanceColor = (rate: number) => {
-    const tone = rate >= 70 ? "synthesis" : rate >= 40 ? "checklist" : "strategy";
-    return semanticToneToMantineColor(tone);
+    return rate >= 70 ? 'green' : rate >= 40 ? 'orange' : 'red';
   };
 
   if (loading) {
     return (
-      <Paper p="xl" style={{ backgroundColor: "var(--mantine-color-gray-0)" }}>
+      <Paper p="xl">
         <Stack gap="md">
           <Loader size="lg" />
           <Text size="md">Loading search learning data...</Text>
@@ -98,19 +102,15 @@ export function SearchLearningPanel() {
       <Stack gap="md" p="xl">
         <Title order={2}>Search Learning</Title>
         <Text>Track which search queries are producing the best results.</Text>
-        <Paper
-          p="xl"
-          style={{
-            backgroundColor: "var(--mantine-color-gray-0)",
-            border: "1px solid var(--mantine-color-gray-2)",
-          }}
-        >
-          <Text size="lg" c="dimmed" ta="center">
-            No search learning data available yet
-          </Text>
-          <Text size="sm" c="dimmed" ta="center">
-            Search queries will be tracked as you accept or decline leads in the pipeline
-          </Text>
+        <Paper p="xl" withBorder>
+          <Stack gap="xs">
+            <Text size="lg" c="dimmed" ta="center">
+              No search learning data available yet
+            </Text>
+            <Text size="sm" c="dimmed" ta="center">
+              Search queries will be tracked as you accept or decline leads in the pipeline
+            </Text>
+          </Stack>
         </Paper>
       </Stack>
     );
@@ -127,41 +127,23 @@ export function SearchLearningPanel() {
 
       {/* Summary Stats */}
       <SimpleGrid cols={{ base: 1, sm: 3 }}>
-        <Paper
-          p="md"
-          style={{
-            backgroundColor: "var(--mantine-color-gray-0)",
-            border: "1px solid var(--mantine-color-gray-2)",
-          }}
-        >
+        <CardShell>
           <Stack gap="xs">
             <Text size="sm" c="dimmed">
               Total Search Runs
             </Text>
             <Title order={1}>{data.totalRuns}</Title>
           </Stack>
-        </Paper>
-        <Paper
-          p="md"
-          style={{
-            backgroundColor: "var(--mantine-color-gray-0)",
-            border: "1px solid var(--mantine-color-gray-2)",
-          }}
-        >
+        </CardShell>
+        <CardShell>
           <Stack gap="xs">
             <Text size="sm" c="dimmed">
               Average Success Rate
             </Text>
             <Title order={1}>{Math.round(data.avgSuccessRate * 100)}%</Title>
           </Stack>
-        </Paper>
-        <Paper
-          p="md"
-          style={{
-            backgroundColor: "var(--mantine-color-gray-0)",
-            border: "1px solid var(--mantine-color-gray-2)",
-          }}
-        >
+        </CardShell>
+        <CardShell>
           <Stack gap="xs">
             <Text size="sm" c="dimmed">
               Last Updated
@@ -170,7 +152,7 @@ export function SearchLearningPanel() {
               {data.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : "Never"}
             </Text>
           </Stack>
-        </Paper>
+        </CardShell>
       </SimpleGrid>
 
       {/* Top Queries */}
@@ -180,23 +162,9 @@ export function SearchLearningPanel() {
           <Stack gap="md">
             {data.topQueries.map((query, index) => {
               const successRate = getSuccessRate(query);
-              const performanceColor = getPerformanceColor(successRate);
 
               return (
-                <Paper
-                  key={index}
-                  p="md"
-                  withBorder
-                  style={{
-                    transition: "box-shadow 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                >
+                <CardShell key={index} style={{ transition: "box-shadow 0.2s" }}>
                   <Group justify="space-between" align="flex-start" mb="md">
                     <Stack gap={4} style={{ flex: 1 }}>
                       <Text fw={600} size="lg">
@@ -206,18 +174,13 @@ export function SearchLearningPanel() {
                         {query.createdLeads} lead(s) created
                       </Text>
                     </Stack>
-                    <Badge color={performanceColor} variant="light" size="md">
+                    <Badge color={getPerformanceColor(successRate)} variant="light" size="md">
                       {successRate}% success
                     </Badge>
                   </Group>
 
                   <SimpleGrid cols={2}>
-                    <Paper
-                      p="md"
-                      style={{
-                        backgroundColor: "var(--mantine-color-green-0)",
-                      }}
-                    >
+                    <Paper p="md" style={{ backgroundColor: "var(--mantine-color-green-0)" }}>
                       <Stack gap={4}>
                         <Title order={2} c="green">
                           {query.accepted}
@@ -227,12 +190,7 @@ export function SearchLearningPanel() {
                         </Text>
                       </Stack>
                     </Paper>
-                    <Paper
-                      p="md"
-                      style={{
-                        backgroundColor: "var(--mantine-color-red-0)",
-                      }}
-                    >
+                    <Paper p="md" style={{ backgroundColor: "var(--mantine-color-red-0)" }}>
                       <Stack gap={4}>
                         <Title order={2} c="red">
                           {query.declined}
@@ -243,7 +201,7 @@ export function SearchLearningPanel() {
                       </Stack>
                     </Paper>
                   </SimpleGrid>
-                </Paper>
+                </CardShell>
               );
             })}
           </Stack>
@@ -257,8 +215,7 @@ export function SearchLearningPanel() {
           <Paper p="md" withBorder>
             <Group gap="xs" wrap="wrap">
               {data.topTerms.slice(0, 20).map((term, index) => {
-                const tone = term.score >= 0.7 ? "synthesis" : term.score >= 0.4 ? "checklist" : "neutral";
-                const color = semanticToneToMantineColor(tone);
+                const color = term.score >= 0.7 ? 'green' : term.score >= 0.4 ? 'orange' : 'gray';
 
                 return (
                   <Badge key={index} color={color} variant="light" size="md">
@@ -302,14 +259,7 @@ export function SearchLearningPanel() {
           <Paper p="md" withBorder>
             <Stack gap="xs">
               {data.lastQueries.slice(0, 10).map((query, index) => (
-                <Text
-                  key={index}
-                  size="sm"
-                  py={4}
-                  style={{
-                    borderBottom: index < data.lastQueries.length - 1 ? "1px solid var(--mantine-color-gray-2)" : "none",
-                  }}
-                >
+                <Text key={index} size="sm" py={4} style={dividerStyle(index, data.lastQueries.length)}>
                   {query}
                 </Text>
               ))}
@@ -318,13 +268,7 @@ export function SearchLearningPanel() {
         </Stack>
       )}
 
-      <Paper
-        p="md"
-        style={{
-          backgroundColor: "var(--mantine-color-blue-0)",
-          border: "1px solid var(--mantine-color-blue-2)",
-        }}
-      >
+      <Paper p="md" style={{ backgroundColor: "var(--mantine-color-blue-0)", border: "1px solid var(--mantine-color-blue-2)" }}>
         <Stack gap="xs">
           <Text fw={600} c="blue">
             💡 Tips

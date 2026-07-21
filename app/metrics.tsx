@@ -15,25 +15,24 @@ import {
   Grid,
   Progress,
   Badge,
-  RingProgress,
   Group,
   Title,
-  Card,
   SimpleGrid,
 } from "@mantine/core";
 import {
   IconTrendingUp,
   IconUsers,
-  IconWorld,
   IconCircleCheck,
-  IconAlertCircle,
-  IconClock,
 } from "@tabler/icons-react";
 import { semanticToneToMantineColor, qualityStatusToMantineColor, regionToMantineColor } from "./utils/semantic-colors";
+import { tokens } from "./theme/tokens";
+import { CardShell } from "./components/ui/card-shell";
 
 type Props = {
   leads: Lead[];
 };
+
+const dividerStyle = "1px solid var(--mantine-color-gray-2)";
 
 export function MetricsPanel({ leads }: Props) {
   const metrics = useMemo(() => {
@@ -41,7 +40,6 @@ export function MetricsPanel({ leads }: Props) {
     const regions = ['US', 'CEE', 'MENA'];
     const declineReasons: Record<string, number> = {};
 
-    // Column distribution
     const columnCounts = Object.fromEntries(columns.map(c => [c, 0]));
     leads.forEach(lead => {
       if (columnCounts[lead.kanbanColumn] !== undefined) {
@@ -49,7 +47,6 @@ export function MetricsPanel({ leads }: Props) {
       }
     });
 
-    // Regional distribution
     const regionCounts = Object.fromEntries(regions.map(r => [r, 0]));
     leads.forEach(lead => {
       const region = lead.region;
@@ -58,7 +55,6 @@ export function MetricsPanel({ leads }: Props) {
       }
     });
 
-    // ICE score distribution
     const iceScores = leads
       .map(lead => {
         if (!lead.ice) return null;
@@ -76,7 +72,6 @@ export function MetricsPanel({ leads }: Props) {
       ? iceScores[Math.floor(iceScores.length / 2)]
       : 0;
 
-    // ICE score buckets
     const buckets: Array<{ label: string; min: number; max: number; count: number; tone: import('./theme/semantic').SemanticTone }> = [
       { label: '0-200', min: 0, max: 200, count: 0, tone: 'ingress' },
       { label: '200-400', min: 200, max: 400, count: 0, tone: 'synthesis' },
@@ -90,7 +85,6 @@ export function MetricsPanel({ leads }: Props) {
       if (bucket) bucket.count++;
     });
 
-    // Decline reasons
     leads.forEach(lead => {
       if (lead.declineReason) {
         declineReasons[lead.declineReason] = (declineReasons[lead.declineReason] || 0) + 1;
@@ -100,7 +94,6 @@ export function MetricsPanel({ leads }: Props) {
     const sortedDeclineReasons = Object.entries(declineReasons)
       .sort(([, a], [, b]) => b - a);
 
-    // Quality distribution
     const qualityCounts = { VERIFIED: 0, CHECKED: 0, DRAFT: 0 };
     leads.forEach(lead => {
       const quality = lead.qualityStatus || 'DRAFT';
@@ -109,12 +102,12 @@ export function MetricsPanel({ leads }: Props) {
       else qualityCounts.DRAFT++;
     });
 
-    const totalWithFeedback = leads.filter(l => 
+    const totalWithFeedback = leads.filter(l =>
       l.acceptanceCount > 0 || l.declineCount > 0
     ).length;
 
-    const successRate = totalWithFeedback > 0 
-      ? (qualityCounts.VERIFIED + qualityCounts.CHECKED) / totalWithFeedback * 100 
+    const successRate = totalWithFeedback > 0
+      ? (qualityCounts.VERIFIED + qualityCounts.CHECKED) / totalWithFeedback * 100
       : 0;
 
     return {
@@ -141,7 +134,7 @@ export function MetricsPanel({ leads }: Props) {
       {/* Overview Cards */}
       <Grid>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-          <Card withBorder p="xl" radius="md">
+          <CardShell style={{ height: '100%' }}>
             <Stack gap="xs">
               <Group justify="space-between">
                 <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
@@ -151,11 +144,11 @@ export function MetricsPanel({ leads }: Props) {
               </Group>
               <Text size="xl" fw={700}>{metrics.total}</Text>
             </Stack>
-          </Card>
+          </CardShell>
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-          <Card withBorder p="xl" radius="md">
+          <CardShell style={{ height: '100%' }}>
             <Stack gap="xs">
               <Group justify="space-between">
                 <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
@@ -168,11 +161,11 @@ export function MetricsPanel({ leads }: Props) {
                 <Text size="xs" c="dimmed">Median: {metrics.medianIce}</Text>
               </Stack>
             </Stack>
-          </Card>
+          </CardShell>
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-          <Card withBorder p="xl" radius="md">
+          <CardShell style={{ height: '100%' }}>
             <Stack gap="xs">
               <Group justify="space-between">
                 <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
@@ -185,11 +178,11 @@ export function MetricsPanel({ leads }: Props) {
                 <Text size="xs" c="dimmed">Accepted leads</Text>
               </Stack>
             </Stack>
-          </Card>
+          </CardShell>
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-          <Card withBorder p="xl" radius="md">
+          <CardShell style={{ height: '100%' }}>
             <Stack gap="xs">
               <Text size="xs" c="dimmed" tt="uppercase" fw={700} mb={4}>
                 Regional Split
@@ -207,7 +200,7 @@ export function MetricsPanel({ leads }: Props) {
                 ))}
               </SimpleGrid>
             </Stack>
-          </Card>
+          </CardShell>
         </Grid.Col>
       </Grid>
 
@@ -245,7 +238,7 @@ export function MetricsPanel({ leads }: Props) {
               const percentage = metrics.total > 0 ? (count / metrics.total) * 100 : 0;
 
               return (
-                <Card key={column} withBorder p="md" radius="md">
+                <CardShell key={column} style={{ height: '100%' }}>
                   <Stack gap="xs">
                     <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
                       {column}
@@ -256,7 +249,7 @@ export function MetricsPanel({ leads }: Props) {
                     </Text>
                     <Progress value={percentage} color={color} size="sm" />
                   </Stack>
-                </Card>
+                </CardShell>
               );
             })}
           </SimpleGrid>
@@ -271,14 +264,14 @@ export function MetricsPanel({ leads }: Props) {
             {Object.entries(metrics.qualityCounts).map(([status, count]) => {
               const color = qualityStatusToMantineColor(status);
               return (
-                <Card key={status} withBorder p="md" radius="md">
+                <CardShell key={status} style={{ height: '100%' }}>
                   <Stack gap="xs" align="center">
                     <Badge color={color} variant="light" size="lg">
                       {status}
                     </Badge>
                     <Text size="xl" fw={700}>{count}</Text>
                   </Stack>
-                </Card>
+                </CardShell>
               );
             })}
           </SimpleGrid>
@@ -292,7 +285,7 @@ export function MetricsPanel({ leads }: Props) {
             <Title order={4}>Decline Reasons</Title>
             <Stack gap="xs">
               {metrics.sortedDeclineReasons.map(([reason, count]) => (
-                <Group key={reason} justify="space-between" py="xs" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
+                <Group key={reason} justify="space-between" py="xs" style={{ borderBottom: dividerStyle }}>
                   <Text size="sm">{reason.replace(/_/g, ' ')}</Text>
                   <Badge color="red" variant="light">
                     {count}
@@ -314,7 +307,7 @@ export function MetricsPanel({ leads }: Props) {
               const percentage = metrics.total > 0 ? (count / metrics.total) * 100 : 0;
 
               return (
-                <Card key={region} withBorder p="md" radius="md">
+                <CardShell key={region} style={{ height: '100%' }}>
                   <Stack gap="xs">
                     <Group justify="space-between">
                       <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
@@ -330,7 +323,7 @@ export function MetricsPanel({ leads }: Props) {
                     </Text>
                     <Progress value={percentage} color={color} size="sm" />
                   </Stack>
-                </Card>
+                </CardShell>
               );
             })}
           </SimpleGrid>
