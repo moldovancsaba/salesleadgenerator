@@ -42,12 +42,10 @@ export async function GET(request: Request) {
 
     if (format === 'csv') {
       const header = 'column,leads,participants,raw_revenue,probability,weighted_revenue\n'
-      const rows = pipeline.map((row) => `${row.column},${row.leads},${row.participants},${row.rawRevenue},${row.probability},${row.weightedRevenue}`).join('\n')
+      const rows = pipeline.map((row) => [row.column, row.leads, row.participants, row.rawRevenue, row.probability, row.weightedRevenue].join(',')).join('\n')
       const body = header + rows
-      return new NextResponse(body, {
-        status: 200,
-        headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="cogmap-forecast.csv" },
-      })
+      const csvHeaders = { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="cogmap-forecast.csv"' }
+      return new NextResponse(body, { status: 200, headers: csvHeaders })
     }
 
     return NextResponse.json({ pipeline, totals: { weighted: pipeline.reduce((sum, row) => sum + row.weightedRevenue, 0) } })
