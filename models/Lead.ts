@@ -68,6 +68,30 @@ const leadSchema = new mongoose.Schema({
     default: '',
   },
 
+  // ──── CogMap forecast / revenue planning ────
+  recommended_tier: {
+    type: String,
+    enum: ['essential', 'performance', 'elite', 'multiple'],
+    default: '',
+  },
+  estimated_participants: {
+    type: Number,
+    default: 0,
+  },
+  estimated_annual_revenue_usd: {
+    type: Number,
+    default: 0,
+  },
+  revenue_model: {
+    type: String,
+    enum: ['per_participant', 'revenue_share', 'hybrid'],
+    default: '',
+  },
+  product_fit_notes: {
+    type: String,
+    default: '',
+  },
+
   // ──── Check-inspired scoring ────
   priority: {
     type: String,

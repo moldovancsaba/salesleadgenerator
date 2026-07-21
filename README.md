@@ -51,15 +51,47 @@ All docs and release notes should reference this version until the next intentio
 
 ---
 
-## Docs
+## Documentation
 
-- `docs/ARCHITECTURE.md` — system overview, request flows, data flow, module map, and deployment diagram
-- `docs/OPERATOR_GUIDE.md` — daily workflow, filters, outreach, known issues, and admin usage
-- `CHANGELOG.md` — version history, shipped features, and known limitations
-- `PIPELINE_ARCHITECTURE.md` — pipeline stages, ICE scoring, dedup, and research agent behavior
-- `PROPOSAL.md` — improvement proposal with shipped/remaining workstreams
-- `roadmap.md` — phased roadmap and milestones
-- `documentationtasks.md` — documentation backlog and deliverables
+This README is the single source of truth for documentation paths and descriptions. All other docs should link back here rather than duplicating this index.
+
+### Primary Documentation
+
+| Path | Description |
+|------|-------------|
+| `README.md` | Onboarding, quick start, and documentation index |
+| `CHANGELOG.md` | Version history, shipped features, and known limitations |
+| `PIPELINE_ARCHITECTURE.md` | Pipeline stages, ICE scoring, dedup, and research agent behavior |
+| `development.md` | Current implementation state, remaining gaps, and next steps |
+| `developmentgaps.md` | Tech stack audit: unused dependencies, DB/auth/env risks, unification plan |
+| `developmentgds.md` | GDS integration audit, hard-coded CSS inventory, design token unification tasks |
+| `PROPOSAL.md` | Improvement proposal with completed and remaining workstreams |
+| `roadmap.md` | Phased roadmap with shipped, in-progress, and planned items |
+
+### Detailed Documentation
+
+| Path | Description |
+|------|-------------|
+| `docs/ARCHITECTURE.md` | System overview, request flows, data flow, module map, and deployment diagram |
+| `docs/OPERATOR_GUIDE.md` | Daily workflow, filters, outreach, known issues, and admin usage |
+| `docs/STACK_AND_DEPENDENCIES.md` | Runtime, framework, UI, DB, hosting, agent/runtime stack |
+| `docs/INDEX.md` | Documentation index |
+| `docs/DOC_LINT.md` | Doc lint checklist for maintaining documentation quality |
+
+### Backlog and Quality
+
+| Path | Description |
+|------|-------------|
+| `documentationtasks.md` | Documentation quality backlog and general maintenance tasks |
+
+### Archived Documentation
+
+| Path | Description |
+|------|-------------|
+| `_archived/BUILD_STATUS.md` | Historical build status |
+| `_archived/STACK_DECISION.md` | Historical stack decision |
+| `_archived/architecture.md` | Historical architecture doc |
+| `_archived/user-guide.md` | Historical user guide |
 
 ---
 

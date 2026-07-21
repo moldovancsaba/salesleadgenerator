@@ -133,7 +133,9 @@ export async function PUT(
       'sport_or_sector', 'level_league', 'decision_maker_name', 'decision_maker_title',
       'decision_maker_contact', 'contact_phone', 'value_proposition', 'notes', 'tags',
       'kanbanColumn', 'sortOrder', 'priority', 'status', 'ice', 'iceScore',
-      config.proField, config.conField, 'contacts', 'qualityStatus'
+      config.proField, config.conField, 'contacts', 'qualityStatus',
+      'recommended_tier', 'estimated_participants', 'estimated_annual_revenue_usd',
+      'revenue_model', 'product_fit_notes'
     ];
 
     for (const field of allowedFields) {
