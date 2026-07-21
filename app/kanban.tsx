@@ -29,8 +29,11 @@ type BoardProps = {
 type LayoutMode = 'mobile-portrait' | 'mobile-landscape' | 'tablet-portrait' | 'tablet-landscape' | 'desktop';
 
 const MOBILE_MAX = breakpoints.mobileMax;
+const MOBILE_LANDSCAPE_MIN = breakpoints.mobileLandscapeMin;
 const MOBILE_LANDSCAPE_MAX = breakpoints.mobileLandscapeMax;
+const TABLET_PORTRAIT_MIN = breakpoints.tabletPortraitMin;
 const TABLET_PORTRAIT_MAX = breakpoints.tabletPortraitMax;
+const TABLET_LANDSCAPE_MIN = breakpoints.tabletLandscapeMin;
 const TABLET_LANDSCAPE_MAX = breakpoints.tabletLandscapeMax;
 const DESKTOP_MIN = breakpoints.desktopMin;
 
@@ -42,10 +45,10 @@ function useBreakpoint() {
 
     function computeMode(): LayoutMode {
       const width = window.innerWidth;
-      if (width >= DESKTOP_MIN) return 'desktop';
-      if (width >= TABLET_LANDSCAPE_MIN) return 'tablet-landscape';
-      if (width >= TABLET_PORTRAIT_MIN) return 'tablet-portrait';
-      if (width >= MOBILE_LANDSCAPE_MIN) return 'mobile-landscape';
+      if (width >= breakpoints.desktopMin) return 'desktop';
+      if (width >= breakpoints.tabletLandscapeMin) return 'tablet-landscape';
+      if (width >= breakpoints.tabletPortraitMin) return 'tablet-portrait';
+      if (width >= breakpoints.mobileLandscapeMin) return 'mobile-landscape';
       return 'mobile-portrait';
     }
 
