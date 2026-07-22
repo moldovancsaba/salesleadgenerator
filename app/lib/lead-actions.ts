@@ -1,6 +1,7 @@
 import { BRAND_CONFIG } from './brand'
 import { normalizeLead } from './normalize-lead'
 import { validatePatchPayload } from '../../lib/validate-lead'
+import { isMongoConfigured } from '../../lib/mongodb'
 
 export type LeadActionInput = {
   brand: string
@@ -131,8 +132,4 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
   const normalizedLead = normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }, brand)
 
   return { success: true, lead: normalizedLead, requestId }
-}
-
-function isMongoConfigured(): boolean {
-  return Boolean(process.env.MONGODB_URI || process.env.MONGODB_URI_LEADS || process.env.MONGODB_URI_CLASSCOUT)
 }
