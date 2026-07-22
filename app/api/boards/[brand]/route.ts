@@ -1,30 +1,8 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
-
-async function getPipelineWeights(): Promise<Record<string, number>> {
-  try {
-    const client = await clientPromise
-    const db = client.db()
-    const doc = await db.collection('settings').findOne({ key: 'pipeline_weights' })
-    return doc?.weights || {
-      DISCOVERED: 0.01, QUALIFIED: 0.05, ENGAGED: 0.10,
-      PROPOSAL: 0.25, WON: 1.0, LOST: 0.0,
-    }
-  } catch {
-    return { DISCOVERED: 0.01, QUALIFIED: 0.05, ENGAGED: 0.10, PROPOSAL: 0.25, WON: 1.0, LOST: 0.0 }
-  }
-}
-
-function getTenantId(request: Request): string {
-  return (new URL(request.url).searchParams.get('tenantId') || 'default').trim() || 'default'
-}
-
-function tenantFilter(tenantId: string) {
-  return tenantId === 'default'
-    ? { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] }
-    : { tenantId }
-}
+import { getPipelineWeights } from '@/lib/pipeline-weights'
+import { getTenantId, tenantFilter } from '@/lib/tenant'
 
 export async function GET(request: Request, { params }: { params: Promise<{ brand: string }> }) {
   try {
@@ -81,7 +59,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
         },
       ]).toArray()
 
-      const closedRates = await getPipelineWeights()
+      const closedRates = await getPipelineWeights(db)
       const pipelineColumns = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST']
       const rawByColumn: Record<string, any> = {}
       for (const item of pipelineForecast) {
