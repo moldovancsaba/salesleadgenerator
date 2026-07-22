@@ -1,97 +1,199 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Box, Text, Group, ActionIcon, Button } from '@mantine/core';
-import { IconChevronDown, IconChevronRight, IconArrowsSort } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronRight, IconArrowsSort, IconLoader } from '@tabler/icons-react';
 import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
-import { COLUMNS, getIceScore } from './constants';
+import { COLUMNS } from './constants';
+
+type ColumnState = {
+  leads: Lead[];
+  count: number;
+  hasMore: boolean;
+  cursor: string | null;
+  loading: boolean;
+};
 
 type BoardProps = {
-  leads: Lead[];
-  onMove: (leadId: string, column: KanbanColumn, sortOrder: number) => Promise<void>;
+  brand: string;
+  tenantId?: string;
   onOpenLead: (lead: Lead) => void;
-  collapsedColumns?: Record<string, boolean>;
-  onToggleColumn?: (key: string) => void;
-  columnCounts?: Record<string, number>;
-  sortKey?: 'ice' | 'name';
-  sortOrder?: 'asc' | 'desc';
-  onSortKeyChange?: (key: 'ice' | 'name') => void;
-  onSortOrderChange?: (order: 'asc' | 'desc') => void;
   mode?: string;
 };
 
-export function KanbanBoard({ leads, onMove, onOpenLead, collapsedColumns = {}, onToggleColumn, columnCounts = {}, sortKey = 'ice', sortOrder = 'desc', onSortKeyChange, onSortOrderChange, mode: modeProp }: BoardProps) {
+export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, mode: modeProp }: BoardProps) {
   const [isMobile, setIsMobile] = useState(false);
   const mode = modeProp || 'desktop';
-  const boardRef = useRef<HTMLDivElement>(null);
+
+  const [columnStates, setColumnStates] = useState<Record<KanbanColumn, ColumnState>>(() => {
+    const init: Record<KanbanColumn, ColumnState> = {
+      DISCOVERED: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
+      QUALIFIED: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
+      ENGAGED: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
+      PROPOSAL: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
+      WON: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
+      LOST: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
+    }
+    return init
+  })
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mql = window.matchMedia('(max-width: 767px)');
-    setIsMobile(mql.matches);
-    const handler = (event: MediaQueryListEvent) => setIsMobile(event.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, []);
-  const showAdvancedControls = !isMobile;
-  const enableDrag = !isMobile;
+    if (typeof window === 'undefined') return
+    const mql = window.matchMedia('(max-width: 767px)')
+    setIsMobile(mql.matches)
+    const handler = (event: MediaQueryListEvent) => setIsMobile(event.matches)
+    mql.addEventListener('change', handler)
+    return () => mql.removeEventListener('change', handler)
+  }, [])
 
-  const visibleColumns = useMemo(() => COLUMNS, []);
-  const sortControls = showAdvancedControls && onSortKeyChange && onSortOrderChange ? (
-    <Group gap="xs" mb="xs">
-      <Button size="xs" variant={sortKey === 'ice' ? 'filled' : 'light'} color="gray" onClick={() => onSortKeyChange('ice')} rightSection={<IconArrowsSort size={14} />}>ICE {sortKey === 'ice' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}</Button>
-      <Button size="xs" variant={sortKey === 'name' ? 'filled' : 'light'} color="gray" onClick={() => onSortKeyChange('name')} rightSection={<IconArrowsSort size={14} />}>Name {sortKey === 'name' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}</Button>
-      <Button size="xs" variant="light" color="gray" onClick={() => onSortOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}>{sortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}</Button>
-    </Group>
-  ) : null;
+  const loadColumn = useCallback(async (colKey: KanbanColumn, cursor?: string | null) => {
+    setColumnStates((prev) => ({
+      ...prev,
+      [colKey]: { ...prev[colKey], loading: true },
+    }))
 
-  const boardContent = visibleColumns.map((col) => {
-    const colLeads = leads.filter((l) => l.kanbanColumn === col.key);
-    const sorted = [...colLeads];
-    sorted.sort((a, b) => {
-      if (sortKey === 'name') {
-        const an = (a.entity_name || '').toLowerCase();
-        const bn = (b.entity_name || '').toLowerCase();
-        return sortOrder === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an);
-      }
-      const ia = getIceScore(a);
-      const ib = getIceScore(b);
-      return sortOrder === 'asc' ? ia - ib : ib - ia;
-    });
-    const collapsed = Boolean(collapsedColumns[col.key]);
-    const toggleColumn = () => onToggleColumn?.(col.key);
+    try {
+      const url = new URL('/api/leads/columns', window.location.origin)
+      url.searchParams.set('brand', brand)
+      url.searchParams.set('tenantId', tenantId)
+      url.searchParams.set('column', colKey)
+      if (cursor) url.searchParams.set('cursor', cursor)
+
+      const res = await fetch(url.toString())
+      if (!res.ok) throw new Error(`Column load failed: ${res.status}`)
+
+      const data = await res.json()
+
+      setColumnStates((prev) => {
+        const current = prev[colKey]
+        const newLeads = cursor
+          ? [...current.leads, ...data.leads]
+          : [...data.leads]
+
+        return {
+          ...prev,
+          [colKey]: {
+            leads: newLeads,
+            count: data.count,
+            hasMore: data.hasMore,
+            cursor: data.nextCursor || null,
+            loading: false,
+          },
+        }
+      })
+    } catch (err) {
+      console.error(`Column ${colKey} load error:`, err)
+      setColumnStates((prev) => ({
+        ...prev,
+        [colKey]: { ...prev[colKey], loading: false },
+      }))
+    }
+  }, [brand, tenantId])
+
+  // Bootstrap all columns with their first chunk
+  useEffect(() => {
+    const initPromises = COLUMNS.map((col) => loadColumn(col.key))
+    Promise.all(initPromises)
+  }, [brand, tenantId, loadColumn])
+
+  const handleMove = useCallback(async (leadId: string, column: KanbanColumn) => {
+    try {
+      const url = new URL('/api/leads', window.location.origin)
+      url.searchParams.set('brand', brand)
+      url.searchParams.set('tenantId', tenantId)
+
+      const res = await fetch(url.toString(), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: leadId, action: 'COLUMN_MOVE', kanbanColumn: column, sortOrder: Date.now() }),
+      })
+
+      if (!res.ok) throw new Error(`Move failed: ${res.status}`)
+      await loadColumn(column)
+    } catch (err) {
+      console.error('Column move error:', err)
+    }
+  }, [brand, tenantId, loadColumn])
+
+  const boardContent = useMemo(() => COLUMNS.map((col) => {
+    const colState = columnStates[col.key]
+    const colLeads = colState.leads
 
     return (
-      <Box key={col.key} data-column={col.key} className={`kanban-column kanban-column--${mode}`} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'gray-0', borderRadius: 'md', border: '1px solid gray-3' }}>
+      <Box
+        key={col.key}
+        data-column={col.key}
+        className={`kanban-column kanban-column--${mode}`}
+        style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'gray-0', borderRadius: 'md', border: '1px solid gray-3', minHeight: '10rem' }}
+      >
         <Group justify="space-between" align="center" p="xs" style={{ borderBottom: '1px solid gray-2' }}>
           <Group gap="xs">
-            {toggleColumn && (
-              <ActionIcon variant="subtle" size="xs" onClick={toggleColumn}>
-                {collapsed ? <IconChevronRight size={14} /> : <IconChevronDown size={14} />}
-              </ActionIcon>
-            )}
             <Text size="sm" fw={600}>{col.label}</Text>
-            <Text size="xs" c="dimmed">({columnCounts[col.key] ?? sorted.length})</Text>
+            <Text size="xs" c="dimmed">({typeof colState.count === 'number' ? colState.count.toLocaleString() : colLeads.length})</Text>
           </Group>
         </Group>
 
-        {!collapsed && (
-          <Box style={{ flex: 1, overflowY: 'auto', padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: 0 }}>
-            {sorted.map((lead) => <LeadCard key={lead._id} lead={lead} onOpen={() => onOpenLead(lead)} />)}
-            {!sorted.length && <Text size="xs" c="dimmed" ta="center" py="md">No leads</Text>}
-          </Box>
-        )}
+        <Box style={{ flex: 1, overflowY: 'auto', padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: 0 }}>
+          {colLeads.map((lead) => (
+            <LeadCard key={lead._id} lead={lead} onOpen={() => onOpenLead(lead)} />
+          ))}
+          {colLeads.length === 0 && !colState.loading && (
+            <Text size="xs" c="dimmed" ta="center" py="md">No leads</Text>
+          )}
+          {colState.loading && (
+            <Group justify="center" py="md">
+              <IconLoader size={20} />
+            </Group>
+          )}
+          {colState.hasMore && !colState.loading && (
+            <ColumnSentinel brand={brand} tenantId={tenantId} columnKey={col.key} onLoadMore={() => loadColumn(col.key, colState.cursor)} />
+          )}
+        </Box>
       </Box>
-    );
-  });
+    )
+  }), [columnStates, brand, tenantId, onOpenLead, mode, loadColumn])
 
   return (
     <Box>
-      {showAdvancedControls && sortControls}
-      <Box ref={boardRef} className={`kanban-board kanban-board--${mode}`} style={{ flex: '1 1 auto', height: 'auto', minHeight: 0, display: 'flex', gap: '0.75rem', overflowX: 'auto', padding: '0.5rem' }}>
+      <Box
+        className={`kanban-board kanban-board--${mode}`}
+        style={{ flex: '1 1 auto', height: 'auto', minHeight: 0, display: 'flex', gap: '0.75rem', overflowX: 'auto', padding: '0.5rem' }}
+      >
         {boardContent}
       </Box>
     </Box>
-  );
+  )
+}
+
+// Small sentinel component that uses IntersectionObserver to trigger column load
+function ColumnSentinel({ brand, tenantId, columnKey, onLoadMore }: { brand: string; tenantId: string; columnKey: string; onLoadMore: () => void }) {
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          observer.disconnect()
+          onLoadMore()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [onLoadMore])
+
+  return (
+    <Box
+      ref={sentinelRef}
+      style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      <Text size="xs" c="dimmed">Loading more…</Text>
+    </Box>
+  )
 }

@@ -1,21 +1,19 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Group, Text, Button, SimpleGrid, Paper, Badge, Select } from '@mantine/core';
-import { IconArrowsSort } from '@tabler/icons-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Group, Text, Button, Paper, Select, Loader, Container } from '@mantine/core';
+import { IconLoader } from '@tabler/icons-react';
 import type { Lead } from '@/app/types';
-import { LeadCard } from '@/app/card';
 import { KanbanBoard } from '@/app/kanban';
 import { LeadDetailModal } from '@/app/detail';
 import { TableView } from '@/app/table';
-import { MetricsPanel } from '@/app/metrics';
 import { SearchLearningPanel } from '@/app/search-learning';
-import { COLUMNS, getIceScore } from '@/app/constants';
+import { MetricsPanel } from '@/app/metrics';
+import { COLUMNS } from '@/app/constants';
 
 type ViewMode = 'kanban' | 'table' | 'metrics' | 'search';
-type LayoutMode = 'mobile-portrait' | 'mobile-landscape' | 'tablet-portrait' | 'tablet-landscape' | 'desktop';
 
-const MODE_KEY = 'salesleadgenerator.layoutMode';
+const MODE_KEY = 'saleslayoutMode';
 
 const REGION_OPTIONS = [
   { value: 'all', label: 'All Regions' },
@@ -38,7 +36,6 @@ const VIEW_OPTIONS = [
 
 export default function SalesPage({ params }: { params: { brand: string } }) {
   const brand = params?.brand || 'cogmap';
-  const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [view, setView] = useState<ViewMode>('kanban');
   const [region, setRegion] = useState('all');
@@ -46,97 +43,143 @@ export default function SalesPage({ params }: { params: { brand: string } }) {
   const [sortKey, setSortKey] = useState<'ice' | 'name'>('ice');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isMobile, setIsMobile] = useState(true);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mql = window.matchMedia('(max-width: 1279px)');
-    setIsMobile(mql.matches);
-    const handler = (event: MediaQueryListEvent) => setIsMobile(event.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, []);
+  const [boardMeta, setBoardMeta] = useState<{
+    brand: string; label: string; totalLeads: number;
+    columnCounts: Record<string, number>; regionCounts: Record<string, number>;
+    forecast: any; updatedAt: string;
+  } | null>(null)
+  const [metaLoading, setMetaLoading] = useState(true)
+  const [tableLeads, setTableLeads] = useState<Lead[]>([])
+  const [tableLoading, setTableLoading] = useState(true)
 
+  // Load board metadata (header, counts, forecast) from DB
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const storedMode = localStorage.getItem(MODE_KEY);
-    if (storedMode === 'mobile-landscape' || storedMode === 'tablet-portrait' || storedMode === 'tablet-landscape' || storedMode === 'desktop') {
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(MODE_KEY, isMobile ? 'mobile' : 'desktop');
-  }, [isMobile]);
-
-  useEffect(() => {
-    const loadLeads = async () => {
-      try {
-        const response = await fetch(`/api/leads?limit=100`);
-        if (!response.ok) throw new Error('Failed to fetch leads');
-        const data = await response.json();
-        const mapped = (data.leads || []).map((lead: any) => ({
-          ...lead,
-          ice: lead.ice || { impact: 0, confidence: 0, ease: 0 },
-          region: lead.region || 'US',
-          qualityStatus: lead.qualityStatus || 'DRAFT',
-        }));
-        setLeads(mapped);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    loadLeads();
-  }, []);
-
-  const handleAction = async (leadId: string, action: string, payload?: any) => {
-    setLeads((prev) =>
-      prev.map((lead) => {
-        if (lead._id !== leadId) return lead;
-        if (action === 'ACCEPT') return { ...lead, status: 'QUALIFIED', kanbanColumn: 'QUALIFIED', qualifiedAt: new Date().toISOString() };
-        if (action === 'DECLINE') { return { ...lead, status: 'LOST', kanbanColumn: 'LOST', declinedAt: new Date().toISOString(), declineReason: payload?.declineReason, annotation: payload?.annotation }; }
-        if (action === 'PIN') { return { ...lead, status: 'ENGAGED', kanbanColumn: 'ENGAGED' }; }
-        if (action === 'REQUEST_REFRESH') { return { ...lead, annotation: payload?.annotation }; }
-        if (action === 'MODIFY') { return { ...lead, annotation: payload?.annotation }; }
-        return lead;
+    let cancelled = false
+    setMetaLoading(true)
+    fetch(`/api/boards/${encodeURIComponent(brand)}?tenantId=default`)
+      .then(r => r.json())
+      .then(data => {
+        if (!cancelled && !data.error) setBoardMeta(data)
       })
-    );
-    setSelectedLead(null);
-  };
+      .catch(console.error)
+      .finally(() => { if (!cancelled) setMetaLoading(false) })
+    return () => { cancelled = true }
+  }, [brand])
 
-  const handleDelete = async (leadId: string) => {
-    setLeads((prev) => prev.filter((lead) => lead._id !== leadId));
-    setSelectedLead(null);
-  };
+  // Load table data server-side when needed
+  useEffect(() => {
+    if (view !== 'table') return
+    let cancelled = false
+    setTableLoading(true)
+    fetch(`/api/leads?brand=${encodeURIComponent(brand)}&tenantId=default&limit=5000`)
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status}`)))
+      .then(data => {
+        if (!cancelled) setTableLeads((data.leads || []) as Lead[])
+      })
+      .catch(console.error)
+      .finally(() => { if (!cancelled) setTableLoading(false) })
+    return () => { cancelled = true }
+  }, [view, brand])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mql = window.matchMedia('(max-width: 1279px)')
+    setIsMobile(mql.matches)
+    const handler = (event: MediaQueryListEvent) => setIsMobile(event.matches)
+    mql.addEventListener('change', handler)
+    return () => mql.removeEventListener('change', handler)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(MODE_KEY, isMobile ? 'mobile' : 'desktop')
+  }, [isMobile])
+
+  const handleAction = useCallback(async (leadId: string, action: string, payload?: any) => {
+    try {
+      const url = new URL('/api/leads', window.location.origin)
+      url.searchParams.set('brand', brand)
+      url.searchParams.set('tenantId', 'default')
+
+      const res = await fetch(url.toString(), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: leadId, action, ...payload }),
+      })
+
+      if (!res.ok) {
+        console.error('Action failed:', await res.json().catch(() => ({ error: `${res.status}` })))
+        return
+      }
+
+      const { lead } = await res.json()
+      setTableLeads((prev) => prev.map((l) => (l._id === leadId ? { ...l, ...lead } : l)))
+      setSelectedLead(null)
+    } catch (err) {
+      console.error('Action error:', err)
+    }
+  }, [brand])
+
+  const handleDelete = useCallback(async (leadId: string) => {
+    try {
+      const url = new URL('/api/leads', window.location.origin)
+      const res = await fetch(`${url.toString()}?id=${encodeURIComponent(leadId)}&brand=${encodeURIComponent(brand)}&tenantId=default`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) throw new Error(`Delete failed: ${res.status}`)
+      setTableLeads((prev) => prev.filter((l) => l._id !== leadId))
+      setSelectedLead(null)
+    } catch (err) {
+      console.error('Delete error:', err)
+    }
+  }, [brand])
+
+  // Server-side filtered list ONLY for table view
+  // Kanban reads per-column directly from DB; metrics/search fetch their own data
   const filteredLeads = useMemo(() => {
-    const list = [...leads];
+    if (view !== 'table') return []
+    const list = tableLeads
     if (region !== 'all') {
-      for (let i = list.length - 1; i >= 0; i--) { const lead = list[i]; if (lead.region !== region) list.splice(i, 1); }
+      return list.filter((lead) => lead.region === region)
     }
     if (status !== 'all') {
-      for (let i = list.length - 1; i >= 0; i--) { const lead = list[i]; if (lead.kanbanColumn !== status) list.splice(i, 1); }
+      return list.filter((lead) => lead.kanbanColumn === status)
     }
-    list.sort((a, b) => {
-      if (sortKey === 'name') { return sortOrder === 'asc' ? (a.entity_name || '').localeCompare(b.entity_name || '') : (b.entity_name || '').localeCompare(a.entity_name || ''); }
-      const ia = getIceScore(a);
-      const ib = getIceScore(b);
-      return sortOrder === 'asc' ? ia - ib : ib - ia;
-    });
-    return list;
-  }, [leads, region, status, sortKey, sortOrder]);
+    return list
+  }, [tableLeads, region, status, view])
 
   return (
     <div data-theme="default" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <Paper radius="md" withBorder p="md" style={{ flexShrink: 0 }}>
         <Group justify="space-between" align="flex-start">
           <div>
-            <Text fw={700} size="xl">Sales Lead Generator</Text>
-            <Text size="sm" c="dimmed">Board: {brand}</Text>
+            <Text fw={700} size="xl">{boardMeta?.label || brand}</Text>
+            {metaLoading ? (
+              <Loader size="xs" />
+            ) : boardMeta ? (
+              <Text size="sm" c="dimmed">
+                {typeof boardMeta.totalLeads === 'number' ? boardMeta.totalLeads.toLocaleString() : '—'} leads
+                {boardMeta.updatedAt ? ` · updated ${new Date(boardMeta.updatedAt).toLocaleTimeString()}` : ''}
+              </Text>
+            ) : null}
+            {boardMeta?.forecast?.totalWeightedRevenue !== undefined && (
+              <Text size="sm" c="dimmed">
+                Forecast: ${boardMeta.forecast.totalWeightedRevenue.toLocaleString()} weighted
+              </Text>
+            )}
           </div>
           <Group gap="xs">
-            <Select size="xs" value={view} onChange={(value) => setView((value as ViewMode) || 'kanban')} data={VIEW_OPTIONS} />
-            <Select size="xs" value={region} onChange={(value) => setRegion((value as string) || 'all')} data={REGION_OPTIONS} />
-            <Select size="xs" value={status} onChange={(value) => setStatus((value as string) || 'all')} data={STATUS_OPTIONS} />
-            <Button size="xs" variant="light" color="gray" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>{sortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}</Button>
+            <Select
+              size="xs"
+              value={view}
+              onChange={(value) => setView(value as ViewMode)}
+              data={VIEW_OPTIONS}
+            />
+            <Select size="xs" value={region} onChange={(value) => setRegion(value || 'all')} data={REGION_OPTIONS} />
+            <Select size="xs" value={status} onChange={(value) => setStatus(value || 'all')} data={STATUS_OPTIONS} />
+            <Button size="xs" variant="light" color="gray" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
+              {sortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}
+            </Button>
           </Group>
         </Group>
       </Paper>
@@ -144,24 +187,31 @@ export default function SalesPage({ params }: { params: { brand: string } }) {
       <div style={{ flex: 1 }}>
         {view === 'kanban' && (
           <KanbanBoard
-            leads={filteredLeads}
+            brand={brand}
             onOpenLead={setSelectedLead}
-            onMove={async (leadId, column, sortOrder) => { setLeads((prev) => prev.map((lead) => (lead._id === leadId ? { ...lead, status: column, kanbanColumn: column, sortOrder } : lead))); }}
-            sortKey={sortKey}
-            sortOrder={sortOrder}
-            onSortKeyChange={setSortKey}
-            onSortOrderChange={setSortOrder}
             mode={isMobile ? 'mobile' : 'desktop'}
           />
         )}
 
-        {view === 'table' && <TableView leads={filteredLeads} />}
-        {view === 'metrics' && <MetricsPanel leads={filteredLeads} />}
+        {view === 'table' && (
+          tableLoading
+            ? <Container py="xl"><Group justify="center"><Loader /></Group></Container>
+            : <TableView leads={filteredLeads} />
+        )}
+
+        {view === 'metrics' && <MetricsPanel brand={brand} tenantId="default" />}
         {view === 'search' && <SearchLearningPanel />}
       </div>
 
       {selectedLead && (
-        <LeadDetailModal lead={selectedLead} brand={brand} onClose={() => setSelectedLead(null)} onAction={handleAction} onDelete={handleDelete} onUpdated={() => setSelectedLead(null)} />
+        <LeadDetailModal
+          lead={selectedLead}
+          brand={brand}
+          onClose={() => setSelectedLead(null)}
+          onAction={handleAction}
+          onDelete={handleDelete}
+          onUpdated={() => setSelectedLead(null)}
+        />
       )}
     </div>
   );
