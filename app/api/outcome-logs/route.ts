@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getClientPromise } from '../../../lib/mongodb';
+import { requireApiKey } from '../../../lib/api-auth';
 
 export async function GET(request: Request) {
   try {
@@ -26,6 +27,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const authError = requireApiKey(request);
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const { leadId, action, outcomeType, outcomeValue, teachingWeight, actorType, actedBy, beforeState, afterState } = body;
