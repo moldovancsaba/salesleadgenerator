@@ -204,15 +204,17 @@ export default function SalesPage({ params }: { params: { brand: string } }) {
         {view === 'search' && <SearchLearningPanel />}
       </div>
 
-      <LeadDetailModal
-        lead={selectedLead}
-        brand={brand}
-        opened={!!selectedLead}
-        onClose={() => setSelectedLead(null)}
-        onAction={handleAction}
-        onDelete={handleDelete}
-        onUpdated={() => setSelectedLead(null)}
-      />
+      {selectedLead && (
+        <LeadDetailModal
+          lead={selectedLead}
+          brand={brand}
+          opened
+          onClose={() => setSelectedLead(null)}
+          onAction={handleAction}
+          onDelete={handleDelete}
+          onUpdated={() => setSelectedLead(null)}
+        />
+      )}
     </div>
   );
 }
