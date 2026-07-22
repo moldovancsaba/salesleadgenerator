@@ -1,7 +1,7 @@
 import { Inter } from "next/font/google";
 import { MantineProvider, createTheme } from "@mantine/core";
 import "@mantine/core/styles.css";
-import "@doneisbetter/gds-theme/styles.css";
+import "@sovereignsquad/gds-theme/styles.css";
 
 const inter = Inter({
   subsets: ["latin"],

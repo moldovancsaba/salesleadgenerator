@@ -14,7 +14,7 @@ import {
   Badge,
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
-import { InfoCard } from '@doneisbetter/gds-admin/client';
+import { InfoCard } from '@sovereignsquad/gds-admin/client';
 
 type MetricsData = {
   total: number;

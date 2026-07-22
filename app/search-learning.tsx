@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Stack, Text, Title, Loader, Alert, Badge, SimpleGrid, Group } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
-import { AdminResourceCard, InfoCard } from "@doneisbetter/gds-admin/client";
+import { AdminResourceCard, InfoCard } from "@sovereignsquad/gds-admin/client";
 
 interface TopQuery {
   query: string;

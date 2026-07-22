@@ -1,5 +1,5 @@
 import { Container, Text, Button, Stack, Title } from '@mantine/core';
-import { InfoCard } from '@doneisbetter/gds-admin/client';
+import { InfoCard } from '@sovereignsquad/gds-admin/client';
 
 export default function LandingPage() {
   return (

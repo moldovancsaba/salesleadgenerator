@@ -1,6 +1,6 @@
 'use client';
 
-import { AdminDataTable } from '@doneisbetter/gds-admin/client';
+import { AdminDataTable } from '@sovereignsquad/gds-admin/client';
 import type { Lead } from './types';
 import { getIceScore } from './constants';
 

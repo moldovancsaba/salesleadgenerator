@@ -1,6 +1,6 @@
 'use client';
 
-import { AdminResourceCard } from '@doneisbetter/gds-admin/client';
+import { AdminResourceCard } from '@sovereignsquad/gds-admin/client';
 import type { Lead } from './types';
 import { getIceScore } from './constants';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
