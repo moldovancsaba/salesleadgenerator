@@ -26,9 +26,10 @@ function tenantFilter(tenantId: string) {
     : { tenantId }
 }
 
-export async function GET(request: Request, { params }: { params: { brand: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ brand: string }> }) {
   try {
-    const brand = resolveBrand(params.brand)
+    const { brand: brandParam } = await params
+    const brand = resolveBrand(brandParam)
     const config = BRAND_CONFIG[brand]
     const tenantId = getTenantId(request)
     const filter = tenantFilter(tenantId)

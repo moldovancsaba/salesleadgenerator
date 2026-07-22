@@ -44,10 +44,6 @@ const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
 ];
 
 export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, onAction, onDelete, onUpdated }: Props) {
-  if (!lead || !opened) {
-    return null;
-  }
-
   const [annotation, setAnnotation] = useState("");
   const [declineReason, setDeclineReason] = useState<DeclineReason>("OTHER");
   const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
@@ -63,6 +59,10 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
   }, []);
+
+  if (!lead || !opened) {
+    return null;
+  }
 
   const ice = lead.ice || { impact: 0, confidence: 0, ease: 0 };
   const iceScore = Math.round(ice.impact * ice.confidence * ice.ease);
