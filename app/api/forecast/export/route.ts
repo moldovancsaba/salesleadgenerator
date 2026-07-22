@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '../../../../lib/mongodb'
 import { BRAND_CONFIG } from '../../../../app/lib/brand'
+import { getPipelineWeights } from '../../../../lib/pipeline-weights'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,8 +27,7 @@ export async function GET(request: Request) {
       },
     ]).toArray()
 
-    const weightsDoc = await db.collection('settings').findOne({ key: 'pipeline_weights' })
-    const weights = weightsDoc?.weights || { DISCOVERED: 0.01, QUALIFIED: 0.05, ENGAGED: 0.10, PROPOSAL: 0.25, WON: 1.0, LOST: 0.0 }
+    const weights = await getPipelineWeights(db)
     const pipelineColumns = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST']
     const rawByColumn: Record<string, any> = {}
     for (const item of pipelineForecast) rawByColumn[(item._id || 'UNKNOWN') as string] = item
