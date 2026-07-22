@@ -21,7 +21,7 @@ type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
 
 type Props = {
-  lead?: Lead | null;
+  lead: Lead;
   brand?: string;
   opened?: boolean;
   onClose: () => void;
@@ -368,18 +368,14 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     </Stack>
   );
 
-  if (!lead || !opened) {
-    return null;
-  }
-
   return (
     <>
       {fullScreen ? (
-        <AdminModal opened={visible} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} size="full" actions={actions as any}>
+        <AdminModal opened={opened} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} size="full" actions={actions as any}>
           <Stack gap="md">{content}</Stack>
         </AdminModal>
       ) : (
-        <AdminDetailDrawer opened={visible} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} metadata={metadata} actions={actions as any} />
+        <AdminDetailDrawer opened={opened} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} metadata={metadata} actions={actions as any} />
       )}
       <OutreachComposeModal opened={outreachOpen} onClose={() => setOutreachOpen(false)} lead={lead} brand={brand} />
     </>
