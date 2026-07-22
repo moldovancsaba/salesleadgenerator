@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '../../../lib/mongodb'
+import clientPromise, { isMongoConfigured } from '../../../lib/mongodb'
 import { requireApiKey } from '../../../lib/api-auth'
 import { evaluateOutreachRouting } from '../../lib/outreach/routing-rules'
 
@@ -114,8 +114,4 @@ export async function POST(request: Request) {
     console.error('[API:outreach-logs] POST error:', error)
     return NextResponse.json({ error: 'Failed to create outreach log', details: error.message }, { status: 500 })
   }
-}
-
-function isMongoConfigured(): boolean {
-  return Boolean(process.env.MONGODB_URI || process.env.MONGODB_URI_LEADS || process.env.MONGODB_URI_CLASSCOUT)
 }

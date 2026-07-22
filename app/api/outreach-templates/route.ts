@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '../../../lib/mongodb'
+import clientPromise, { isMongoConfigured } from '../../../lib/mongodb'
 import { requireApiKey } from '../../../lib/api-auth'
 import { DEFAULT_OUTREACH_TEMPLATES } from '../../lib/outreach/default-templates'
 import type { OutreachTemplate } from '../../lib/outreach/default-templates'
@@ -17,10 +17,6 @@ function getBrand(request: Request): string {
   const url = new URL(request.url)
   const brand = (url.searchParams.get('brand') || '').trim()
   return brand || 'default'
-}
-
-function isMongoConfigured(): boolean {
-  return Boolean(process.env.MONGODB_URI || process.env.MONGODB_URI_LEADS || process.env.MONGODB_URI_CLASSCOUT)
 }
 
 export async function GET(request: Request) {
