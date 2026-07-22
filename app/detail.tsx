@@ -74,7 +74,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   const normalizedCon = ensureArrayField((normalized as any)[`con_for_${brand}`]);
 
   const iceToneValue = iceScore >= 700 ? 'teal' : iceScore >= 480 ? 'green' : iceScore >= 200 ? 'orange' : 'blue';
-  const regionToneValue = lead.region === 'USA' ? 'blue' : lead.region === 'CEE' ? 'indigo' : lead.region === 'MENA' ? 'green' : 'gray';
+  const regionToneValue = lead.region === 'US' ? 'blue' : lead.region === 'CEE' ? 'indigo' : lead.region === 'MENA' ? 'green' : 'gray';
   const qualityStatus: string = ((normalized.qualityStatus || 'DRAFT') as string);
   const qualityToneValue = qualityStatus === 'VERIFIED' ? 'teal' : qualityStatus === 'CHECKED' ? 'orange' : 'gray';
 
