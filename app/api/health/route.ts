@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
 import { BRAND_CONFIG } from '../../lib/brand'
+import { tenantFilter } from '../../../lib/tenant'
 
 function getTenantId(request: Request): string {
   const url = new URL(request.url);
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
         const tenantCounts: Record<string, number> = {}
         for (const [brandKey, config] of Object.entries(BRAND_CONFIG)) {
           try {
-            const count = await db.collection(config.dbCollection).countDocuments({ tenantId })
+            const count = await db.collection(config.dbCollection).countDocuments(tenantFilter(tenantId))
             tenantCounts[brandKey] = count
           } catch {
             tenantCounts[brandKey] = -1
