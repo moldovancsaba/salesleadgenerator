@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Lead } from './types';
-import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@doneisbetter/gds-admin/client';
+import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@sovereignsquad/gds-admin/client';
 import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
@@ -173,28 +173,28 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
 
   const actions = {
     primary: {
-      action: 'gds.action.approve',
+      action: 'approve',
       color: 'green',
       disabled: busy,
       onClick: handleAccept,
     },
     secondary: [
       {
-        action: 'gds.action.reject',
+        action: 'reject',
         color: 'red',
         variant: 'light',
         disabled: busy,
         onClick: () => setActionMode("decline"),
       },
       {
-        action: 'gds.action.pin',
+        action: 'pin',
         color: 'blue',
         variant: 'light',
         disabled: busy,
         onClick: handlePin,
       },
       {
-        action: 'gds.action.refresh',
+        action: 'refresh',
         color: 'gray',
         variant: 'light',
         disabled: busy,
@@ -203,7 +203,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     ],
     tertiary: [
       {
-        action: 'gds.action.edit',
+        action: 'edit',
         color: 'dark',
         variant: 'light',
         disabled: busy,
@@ -211,7 +211,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
       },
 
       {
-        action: 'gds.action.delete',
+        action: 'delete',
         color: 'red',
         variant: 'subtle',
         destructive: true,
@@ -371,11 +371,11 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   return (
     <>
       {fullScreen ? (
-        <AdminModal opened={opened} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} size="full" actions={actions as any}>
+        <AdminModal opened={opened} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} size="full">
           <Stack gap="md">{content}</Stack>
         </AdminModal>
       ) : (
-        <AdminDetailDrawer opened={opened} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} metadata={metadata} actions={actions as any} />
+        <AdminDetailDrawer opened={opened} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} metadata={metadata} />
       )}
       <OutreachComposeModal opened={outreachOpen} onClose={() => setOutreachOpen(false)} lead={lead} brand={brand} />
     </>
