@@ -173,9 +173,7 @@ HTTP handlers for leads, health, outreach, learning, search, stats, and boards.
 - `normalize-lead.ts` — lead normalization, warning extraction
 - `validate-lead.ts` — request validation for POST/PATCH
 - `lead-actions.ts` — canonical mutation logic and outcome logging
-- `lead-validator.ts` — pre-POST validation for research agent
 - `metrics.ts` — scoring and quality metrics
-- `ai-scoring/index.ts` — AI scoring integration
 - `outreach/routing-rules.ts` — channel routing enforcement
 - `outreach/default-templates.ts` — default template definitions
 - `request-id.ts` — request tracing
