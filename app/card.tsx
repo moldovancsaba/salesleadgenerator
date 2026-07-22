@@ -3,6 +3,7 @@
 import { AdminResourceCard } from '@doneisbetter/gds-admin/client';
 import type { Lead } from './types';
 import { getIceScore } from './constants';
+import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 
 type LeadCardProps = {
   lead: Lead;
@@ -27,9 +28,11 @@ export function LeadCard({ lead, onOpen }: LeadCardProps) {
   };
 
   return (
-    <AdminResourceCard
-      record={record}
-      onPreview={onOpen}
-    />
+    <ErrorBoundary>
+      <AdminResourceCard
+        record={record}
+        onPreview={onOpen}
+      />
+    </ErrorBoundary>
   );
 }
