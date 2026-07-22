@@ -116,6 +116,8 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, mode: mod
     }
   }, [brand, tenantId, loadColumn])
 
+  const columnWidth = mode === 'mobile' ? '85vw' : '18rem'
+
   const boardContent = useMemo(() => COLUMNS.map((col) => {
     const colState = columnStates[col.key]
     const colLeads = colState.leads
@@ -152,7 +154,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, mode: mod
         </Box>
       </Box>
     )
-  }), [columnStates, brand, tenantId, onOpenLead, mode, loadColumn])
+  }), [columnStates, brand, tenantId, onOpenLead, mode, columnWidth, loadColumn])
 
   return (
     <Box>
