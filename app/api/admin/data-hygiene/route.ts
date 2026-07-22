@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '../../../../lib/mongodb'
+import clientPromise, { isMongoConfigured } from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
 import { BRAND_CONFIG } from '../../../lib/brand'
 
@@ -72,8 +72,4 @@ export async function GET(request: Request) {
     console.error('[API:admin/data-hygiene] GET error:', error)
     return NextResponse.json({ error: 'Failed to fetch hygiene report', details: error.message }, { status: 500 })
   }
-}
-
-function isMongoConfigured(): boolean {
-  return Boolean(process.env.MONGODB_URI || process.env.MONGODB_URI_LEADS || process.env.MONGODB_URI_CLASSCOUT)
 }
