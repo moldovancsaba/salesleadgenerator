@@ -52,9 +52,10 @@ async function tryFindLead(db: any, config: any, tenantId: string, rawId: string
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
     const tenantId = getTenantId(request);
@@ -69,7 +70,7 @@ export async function GET(
     try {
       const client = await clientPromise
       const db = client.db()
-      lead = await tryFindLead(db, config, tenantId, params.id)
+      lead = await tryFindLead(db, config, tenantId, id)
       if (lead) {
         lead = normalizeLead({ ...lead, _id: lead._id.toString() }, brand);
       }
@@ -90,12 +91,13 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authError = requireApiKey(request);
   if (authError) return authError;
 
   try {
+    const { id } = await params;
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
     const tenantId = getTenantId(request);
@@ -109,7 +111,7 @@ export async function PUT(
     const db = clientPromise.then(client => client.db())
     const dbInstance = await db
 
-    const existing = await tryFindLead(dbInstance, config, tenantId, params.id)
+    const existing = await tryFindLead(dbInstance, config, tenantId, id)
     if (!existing) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
     }
@@ -175,12 +177,13 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authError = requireApiKey(request);
   if (authError) return authError;
 
   try {
+    const { id } = await params;
     const brand = getBrand(request);
     const config = BRAND_CONFIG[brand];
     const tenantId = getTenantId(request);
@@ -192,7 +195,7 @@ export async function DELETE(
     const clientPromise = getClientPromise()
     const db = await clientPromise.then(client => client.db())
 
-    const existing = await tryFindLead(db, config, tenantId, params.id)
+    const existing = await tryFindLead(db, config, tenantId, id)
     if (!existing) {
       return NextResponse.json(
         { error: 'Lead not found' },
