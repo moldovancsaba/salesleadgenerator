@@ -3,6 +3,7 @@ import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
 import { BRAND_CONFIG, resolveBrand } from '../../../lib/brand'
 import { normalizeLead } from '../../../lib/normalize-lead'
 import { requireApiKey } from '../../../../lib/api-auth'
+import { validateLeadPayload } from '../../../../lib/validate-lead'
 
 function getBrand(request: Request): 'cogmap' | 'seyu' {
   const url = new URL(request.url);
@@ -116,14 +117,9 @@ export async function PUT(
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
     }
 
-    const forbiddenFields: Record<string, string[]> = {
-      cogmap: ['pro_for_seyu', 'con_for_seyu'],
-      seyu: ['pro_for_cogmap', 'con_for_cogmap'],
-    };
-    const forbidden = forbiddenFields[brand] || [];
-    const badFields = forbidden.filter((f: string) => body[f] !== undefined);
-    if (badFields.length > 0) {
-      return NextResponse.json({ error: `Forbidden fields: ${badFields.join(', ')}` }, { status: 400 })
+    const validation = validateLeadPayload(body, brand, { partial: true });
+    if (!validation.valid) {
+      return NextResponse.json({ error: 'Validation failed', details: validation.errors }, { status: 400 })
     }
 
     const updateData: Record<string, any> = {

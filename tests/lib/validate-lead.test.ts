@@ -45,6 +45,38 @@ describe('validateLeadPayload', () => {
   });
 });
 
+describe('validateLeadPayload with { partial: true } (used by PUT /api/leads/:id)', () => {
+  it('allows a minimal partial update touching only one unrelated field', () => {
+    const result = validateLeadPayload({ notes: 'called back, interested' }, 'cogmap', { partial: true });
+    expect(result.valid).toBe(true);
+  });
+
+  it('still rejects a malformed url if url is included in the partial payload', () => {
+    const result = validateLeadPayload({ url: 'not-a-url' }, 'cogmap', { partial: true });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('url must be a valid HTTP(S) URL'))).toBe(true);
+  });
+
+  it('still rejects an out-of-range ICE value if ice is included in the partial payload', () => {
+    const result = validateLeadPayload({ ice: { impact: 0, confidence: 5, ease: 5 } }, 'cogmap', { partial: true });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('ice.impact must be a number between 1 and 10'))).toBe(true);
+  });
+
+  it('still blocks forbidden cross-brand fields on a partial update', () => {
+    const result = validateLeadPayload({ pro_for_seyu: ['x'] }, 'cogmap', { partial: true });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('Forbidden field for brand cogmap'))).toBe(true);
+  });
+
+  it('a full payload with { partial: true } behaves the same as without it', () => {
+    const withPartial = validateLeadPayload(basePayload, 'cogmap', { partial: true });
+    const withoutPartial = validateLeadPayload(basePayload, 'cogmap');
+    expect(withPartial.valid).toBe(true);
+    expect(withoutPartial.valid).toBe(true);
+  });
+});
+
 describe('validatePatchPayload', () => {
   it('rejects non-whitelisted action', () => {
     const result = validatePatchPayload({ action: 'UNKNOWN' }, 'cogmap');
