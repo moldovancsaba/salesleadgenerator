@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import crypto from 'crypto';
+import { buildFingerprint } from '../lib/fingerprint';
 
 const leadSchema = new mongoose.Schema({
   id: {
@@ -196,11 +196,6 @@ const leadSchema = new mongoose.Schema({
 });
 
 // ──── Fingerprint on save ────
-function buildFingerprint(name: string, url: string, region: string): string {
-  const data = `${(url || '').trim().toLowerCase()}|${(name || '').trim().toLowerCase()}|${(region || '').toUpperCase()}`;
-  return crypto.createHash('sha1').update(data).digest('hex');
-}
-
 leadSchema.pre('save', function (next) {
   this.updatedAt = new Date();
   if (
