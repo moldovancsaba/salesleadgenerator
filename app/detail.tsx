@@ -21,7 +21,7 @@ type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
 
 type Props = {
-  lead: Lead;
+  lead?: Lead | null;
   brand?: string;
   opened?: boolean;
   onClose: () => void;
