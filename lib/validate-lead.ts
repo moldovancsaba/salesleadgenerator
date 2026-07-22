@@ -30,14 +30,15 @@ export function bestContactConfidence(contacts: any[]): number {
   return Math.max(...contacts.map(contactConfidence));
 }
 
-export function validateLeadPayload(body: any, brand: string): ValidationResult {
+export function validateLeadPayload(body: any, brand: string, options?: { partial?: boolean }): ValidationResult {
   const errors: string[] = [];
+  const partial = options?.partial === true;
 
   if (!body || typeof body !== 'object') {
     return { valid: false, errors: ['Invalid payload'] };
   }
 
-  // Brand-field separation enforcement
+  // Brand-field separation enforcement — always applies, create or update.
   const brandUpper = String(brand || '').toUpperCase();
   const forbiddenBrandFields: Record<string, string[]> = {
     COGMAP: ['pro_for_seyu', 'con_for_seyu'],
@@ -64,44 +65,56 @@ export function validateLeadPayload(body: any, brand: string): ValidationResult 
     }
   }
 
-  if (!body.entity_name || typeof body.entity_name !== 'string' || !body.entity_name.trim()) {
-    errors.push('entity_name is required');
-  }
-
-  if (!body.url || typeof body.url !== 'string' || !URL_RE.test(body.url.trim())) {
-    errors.push('url must be a valid HTTP(S) URL');
-  }
-
-  if (!body.country || typeof body.country !== 'string' || !ISO_COUNTRY_RE.test(body.country)) {
-    errors.push('country must be a 2-letter ISO code');
-  }
-
-  const kanbanColumn = body.kanbanColumn;
-  if (!kanbanColumn || typeof kanbanColumn !== 'string' || !KANBAN_COLUMN_SET.has(kanbanColumn.toUpperCase())) {
-    errors.push('kanbanColumn must be one of: ' + KANBAN_COLUMNS.join(', '));
-  }
-
-  const ice = body.ice;
-  if (!ice || typeof ice !== 'object') {
-    errors.push('ice object is required');
-  } else {
-    const impact = Number(ice.impact);
-    const confidence = Number(ice.confidence);
-    const ease = Number(ice.ease);
-
-    if (!Number.isFinite(impact) || impact < 1 || impact > 10) {
-      errors.push('ice.impact must be a number between 1 and 10');
+  // entity_name / url / country / kanbanColumn / ice: required on create (partial=false);
+  // on a partial update (partial=true) they're only validated for FORMAT if present at all.
+  if (!partial || body.entity_name !== undefined) {
+    if (!body.entity_name || typeof body.entity_name !== 'string' || !body.entity_name.trim()) {
+      errors.push('entity_name is required');
     }
-    if (!Number.isFinite(confidence) || confidence < 1 || confidence > 10) {
-      errors.push('ice.confidence must be a number between 1 and 10');
-    }
-    if (!Number.isFinite(ease) || ease < 1 || ease > 10) {
-      errors.push('ice.ease must be a number between 1 and 10');
-    }
+  }
 
-    const expectedScore = impact * confidence * ease;
-    if (Number.isFinite(expectedScore) && body.iceScore != null && Number(body.iceScore) !== expectedScore) {
-      errors.push(`iceScore must equal impact×confidence×ease (${expectedScore})`);
+  if (!partial || body.url !== undefined) {
+    if (!body.url || typeof body.url !== 'string' || !URL_RE.test(body.url.trim())) {
+      errors.push('url must be a valid HTTP(S) URL');
+    }
+  }
+
+  if (!partial || body.country !== undefined) {
+    if (!body.country || typeof body.country !== 'string' || !ISO_COUNTRY_RE.test(body.country)) {
+      errors.push('country must be a 2-letter ISO code');
+    }
+  }
+
+  if (!partial || body.kanbanColumn !== undefined) {
+    const kanbanColumn = body.kanbanColumn;
+    if (!kanbanColumn || typeof kanbanColumn !== 'string' || !KANBAN_COLUMN_SET.has(kanbanColumn.toUpperCase())) {
+      errors.push('kanbanColumn must be one of: ' + KANBAN_COLUMNS.join(', '));
+    }
+  }
+
+  if (!partial || body.ice !== undefined) {
+    const ice = body.ice;
+    if (!ice || typeof ice !== 'object') {
+      errors.push('ice object is required');
+    } else {
+      const impact = Number(ice.impact);
+      const confidence = Number(ice.confidence);
+      const ease = Number(ice.ease);
+
+      if (!Number.isFinite(impact) || impact < 1 || impact > 10) {
+        errors.push('ice.impact must be a number between 1 and 10');
+      }
+      if (!Number.isFinite(confidence) || confidence < 1 || confidence > 10) {
+        errors.push('ice.confidence must be a number between 1 and 10');
+      }
+      if (!Number.isFinite(ease) || ease < 1 || ease > 10) {
+        errors.push('ice.ease must be a number between 1 and 10');
+      }
+
+      const expectedScore = impact * confidence * ease;
+      if (Number.isFinite(expectedScore) && body.iceScore != null && Number(body.iceScore) !== expectedScore) {
+        errors.push(`iceScore must equal impact×confidence×ease (${expectedScore})`);
+      }
     }
   }
 
