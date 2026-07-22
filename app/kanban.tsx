@@ -125,7 +125,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, mode: mod
         key={col.key}
         data-column={col.key}
         className={`kanban-column kanban-column--${mode}`}
-        style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'gray-0', borderRadius: 'md', border: '1px solid gray-3', minHeight: '10rem' }}
+        style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'gray-0', borderRadius: 'md', border: '1px solid gray-3', minHeight: '10rem', width: columnWidth }}
       >
         <Group justify="space-between" align="center" p="xs" style={{ borderBottom: '1px solid gray-2' }}>
           <Group gap="xs">
