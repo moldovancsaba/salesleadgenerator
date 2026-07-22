@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
 import { BRAND_CONFIG, resolveBrand } from '../../lib/brand'
 import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
-import crypto from 'crypto'
 import { requireApiKey } from '../../../lib/api-auth'
 import { validateLeadPayload, validatePatchPayload, bestContactConfidence } from '../../../lib/validate-lead'
 import { generateRequestId } from '../../lib/request-id'
 import { executeLeadAction } from '../../lib/lead-actions'
+import { deriveKanbanColumn } from '../../../lib/kanban-column'
+import { buildFingerprint } from '../../../lib/fingerprint'
 
 // Normalize phone to international format
 function normalizePhone(phone: string): string {
@@ -115,18 +116,6 @@ function dedupeContacts(contacts: any[], lead: any) {
 }
 
 type Brand = 'cogmap' | 'seyu';
-
-function buildFingerprint(name: string, url: string, region: string): string {
-  const data = `${(url || '').trim().toLowerCase()}|${(name || '').trim().toLowerCase()}|${(region || '').toUpperCase()}`
-  return crypto.createHash('sha1').update(data).digest('hex')
-}
-
-function deriveKanbanColumn(iceScore: number): string {
-  if (iceScore >= 720) return 'ENGAGED'
-  if (iceScore >= 480) return 'QUALIFIED'
-  if (iceScore >= 240) return 'DISCOVERED'
-  return 'DISCOVERED'
-}
 
 function computeEase(body: any): number {
   const hasNamed = !!body.decision_maker_name;
