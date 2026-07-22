@@ -77,7 +77,7 @@ export function normalizeLead(raw: LeadRaw, brand: string): NormalizedLead {
     warnings.push('Lead data is null or not an object');
     return {
       entity_name: '',
-      region: 'US',
+      region: 'NA',
       qualityStatus: 'DRAFT',
       contacts: [],
       tags: [],
@@ -116,7 +116,7 @@ export function normalizeLead(raw: LeadRaw, brand: string): NormalizedLead {
     contacts: Array.isArray(raw.contacts) ? raw.contacts : [],
     tags: Array.isArray(raw.tags) ? raw.tags : [],
     entity_name: ensureString(raw.entity_name || raw.name),
-    region: ensureString(raw.region || 'US').toUpperCase(),
+    region: ensureString(raw.region || 'NA').toUpperCase(),
     url: ensureString(raw.url),
     decision_maker_name: ensureString(raw.decision_maker_name),
     decision_maker_title: ensureString(raw.decision_maker_title),
