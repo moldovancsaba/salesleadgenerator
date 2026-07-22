@@ -23,6 +23,7 @@ type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
 type Props = {
   lead: Lead;
   brand?: string;
+  opened?: boolean;
   onClose: () => void;
   onAction: (leadId: string, action: string, payload?: any) => void;
   onDelete: (leadId: string) => void;
@@ -42,7 +43,7 @@ const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
   { value: "OTHER", label: "Other" },
 ];
 
-export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDelete, onUpdated }: Props) {
+export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, onAction, onDelete, onUpdated }: Props) {
   const [annotation, setAnnotation] = useState("");
   const [declineReason, setDeclineReason] = useState<DeclineReason>("OTHER");
   const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
@@ -133,6 +134,33 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
     }
   }
 
+  async function handleModify() {
+    setBusy(true);
+    try {
+      await onAction(lead._id, 'MODIFY', {
+        entity_name: lead.entity_name,
+        url: lead.url,
+        address: lead.address,
+        general_contact: lead.general_contact,
+        size: lead.size,
+        industry: lead.industry,
+        sport_or_sector: lead.sport_or_sector,
+        level_league: lead.level_league,
+        decision_maker_name: lead.decision_maker_name,
+        decision_maker_title: lead.decision_maker_title,
+        decision_maker_contact: lead.decision_maker_contact,
+        value_proposition: lead.value_proposition,
+        notes: lead.notes,
+        tags: lead.tags,
+      });
+      showNotification({ message: 'Lead updated', color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Modify failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const actions = {
     primary: {
       action: 'gds.action.approve',
@@ -170,6 +198,13 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
         variant: 'light',
         disabled: busy,
         onClick: () => setOutreachOpen(true),
+      },
+      {
+        action: 'gds.action.modify',
+        color: 'yellow',
+        variant: 'light',
+        disabled: busy,
+        onClick: handleModify,
       },
       {
         action: 'gds.action.delete',
@@ -329,14 +364,20 @@ export function LeadDetailModal({ lead, brand = 'slg', onClose, onAction, onDele
     </Stack>
   );
 
+  const visible = !!opened && !!lead;
+
+  if (!visible) {
+    return null;
+  }
+
   return (
     <>
       {fullScreen ? (
-        <AdminModal opened onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} size="full" actions={actions as any}>
+        <AdminModal opened={visible} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} size="full" actions={actions as any}>
           <Stack gap="md">{content}</Stack>
         </AdminModal>
       ) : (
-        <AdminDetailDrawer opened onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} metadata={metadata} actions={actions as any} />
+        <AdminDetailDrawer opened={visible} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} metadata={metadata} actions={actions as any} />
       )}
       <OutreachComposeModal opened={outreachOpen} onClose={() => setOutreachOpen(false)} lead={lead} brand={brand} />
     </>

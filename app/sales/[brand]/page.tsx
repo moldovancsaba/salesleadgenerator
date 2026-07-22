@@ -204,18 +204,15 @@ export default function SalesPage({ params }: { params: { brand: string } }) {
         {view === 'search' && <SearchLearningPanel />}
       </div>
 
-      {selectedLead && (
-        <ErrorBoundary fallback={<div style={{padding:'0.75rem'}}>Could not open lead preview.</div>}>
-          <LeadDetailModal
-            lead={selectedLead}
-            brand={brand}
-            onClose={() => setSelectedLead(null)}
-            onAction={handleAction}
-            onDelete={handleDelete}
-            onUpdated={() => setSelectedLead(null)}
-          />
-        </ErrorBoundary>
-      )}
+      <LeadDetailModal
+        lead={selectedLead}
+        brand={brand}
+        opened={!!selectedLead}
+        onClose={() => setSelectedLead(null)}
+        onAction={handleAction}
+        onDelete={handleDelete}
+        onUpdated={() => setSelectedLead(null)}
+      />
     </div>
   );
 }

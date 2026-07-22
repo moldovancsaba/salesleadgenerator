@@ -12,7 +12,7 @@ type LeadCardProps = {
 
 export function LeadCard({ lead, onOpen }: LeadCardProps) {
   const ice = getIceScore(lead);
-  const region = lead.region || 'US';
+  const region = lead.region || 'NA';
   const quality = lead.qualityStatus || 'DRAFT';
 
   const record = {
