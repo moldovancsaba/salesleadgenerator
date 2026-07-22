@@ -79,6 +79,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   const qualityToneValue = qualityStatus === 'VERIFIED' ? 'teal' : qualityStatus === 'CHECKED' ? 'orange' : 'gray';
 
   async function handleAccept() {
+    if (!lead) return;
     setBusy(true);
     try {
       await onAction(lead._id, "ACCEPT", { annotation: annotation || "Accepted" });
@@ -91,6 +92,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   }
 
   async function handleDecline() {
+    if (!lead) return;
     setBusy(true);
     try {
       await onAction(lead._id, "DECLINE", { declineReason, annotation });
@@ -103,6 +105,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   }
 
   async function handlePin() {
+    if (!lead) return;
     setBusy(true);
     try {
       await onAction(lead._id, "PIN", { annotation });
@@ -115,6 +118,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   }
 
   async function handleRefresh() {
+    if (!lead) return;
     setBusy(true);
     try {
       await onAction(lead._id, "REQUEST_REFRESH", { annotation });
@@ -127,6 +131,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   }
 
   async function handleDelete() {
+    if (!lead) return;
     setBusy(true);
     try {
       await onDelete(lead._id);
@@ -139,6 +144,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   }
 
   async function handleModify() {
+    if (!lead) return;
     setBusy(true);
     try {
       await onAction(lead._id, 'MODIFY', {
@@ -203,13 +209,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
         disabled: busy,
         onClick: () => setOutreachOpen(true),
       },
-      {
-        action: 'gds.action.modify',
-        color: 'yellow',
-        variant: 'light',
-        disabled: busy,
-        onClick: handleModify,
-      },
+
       {
         action: 'gds.action.delete',
         color: 'red',
