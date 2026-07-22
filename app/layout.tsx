@@ -1,5 +1,5 @@
 import { Inter } from "next/font/google";
-import { MantineProvider } from "@mantine/core";
+import { MantineProvider, createTheme } from "@mantine/core";
 import "@mantine/core/styles.css";
 import "@doneisbetter/gds-theme/styles.css";
 
@@ -10,8 +10,12 @@ const inter = Inter({
 
 export const metadata = {
   title: "Sales Lead Generator",
-  description: "AI-powered sales lead collection platform"
-};
+  description: "AI-powered sales lead collection platform" };
+
+const theme = createTheme({
+  defaultRadius: "md",
+  focusRing: "auto",
+  cursorType: "pointer" });
 
 export default function RootLayout({
   children,
@@ -26,13 +30,12 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <style data-mantine-ssr>{`html,body{margin:0;padding:0;overscroll-behavior-y:none;}html{height:100%;-webkit-overflow-scrolling:touch;}body{min-height:100%;-webkit-text-size-adjust:100%;overflow-wrap:break-word;}@media (max-width:767px){*{touch-action:manipulation;}}`}</style>
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/icon-192.png" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body>
-        <MantineProvider>
+        <MantineProvider theme={theme}>
           {children}
         </MantineProvider>
       </body>
