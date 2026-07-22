@@ -41,3 +41,12 @@ Before making a claim or a change:
 - Run the actual command and read its actual output, not an assumption of what it would say.
 - When a fact is externally verifiable (a CVE's patched version, a library's breaking-change list, a config's real current state), verify it — don't state it from general recollection.
 - When something is genuinely ambiguous or unverifiable in the current environment (e.g. a sandbox that can't reach a private dependency), say exactly that, plus what would need to happen to verify it for real — never paper over the gap with a plausible-sounding guess.
+
+## 6. Branch and push authorization
+
+The repo owner does not have terminal or `git`/`gh` CLI access — they work exclusively through Claude Code on iOS mobile. The following are standing authorizations recorded here in advance, per this repo's own rules on durable pre-authorization, so they never need to be re-confirmed per instance:
+
+- **Standing permission** to create, merge into, and pull/update branches named `dev` and `preview`, for any normal iterative or staging work, without asking for confirmation first.
+- When the owner says **"commit and push to main"** (or clearly equivalent phrasing), push directly to `main` immediately — do not ask "are you sure," do not stop to open a PR and wait instead. That instruction, given in the moment, is the confirmation.
+- This authorization does not extend to anything destructive or hard-to-reverse beyond a normal push: force-push, `git reset --hard`, deleting `main`/`dev`/`preview`, or rewriting already-pushed history still require explicit confirmation every time, exactly as for any other repo.
+- A direct push to `main` is still gated by Rule 1 (the zero-tolerance quality gate) — "push to main" is authorization to skip the PR ceremony, not authorization to skip verification. Run the checks, then push.
