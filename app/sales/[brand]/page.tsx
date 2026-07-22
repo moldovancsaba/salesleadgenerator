@@ -6,6 +6,7 @@ import { IconLoader } from '@tabler/icons-react';
 import type { Lead } from '@/app/types';
 import { KanbanBoard } from '@/app/kanban';
 import { LeadDetailModal } from '@/app/detail';
+import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { TableView } from '@/app/table';
 import { SearchLearningPanel } from '@/app/search-learning';
 import { MetricsPanel } from '@/app/metrics';
@@ -204,14 +205,16 @@ export default function SalesPage({ params }: { params: { brand: string } }) {
       </div>
 
       {selectedLead && (
-        <LeadDetailModal
-          lead={selectedLead}
-          brand={brand}
-          onClose={() => setSelectedLead(null)}
-          onAction={handleAction}
-          onDelete={handleDelete}
-          onUpdated={() => setSelectedLead(null)}
-        />
+        <ErrorBoundary fallback={<div style={{padding:'0.75rem'}}>Could not open lead preview.</div>}>
+          <LeadDetailModal
+            lead={selectedLead}
+            brand={brand}
+            onClose={() => setSelectedLead(null)}
+            onAction={handleAction}
+            onDelete={handleDelete}
+            onUpdated={() => setSelectedLead(null)}
+          />
+        </ErrorBoundary>
       )}
     </div>
   );
