@@ -44,6 +44,10 @@ const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
 ];
 
 export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, onAction, onDelete, onUpdated }: Props) {
+  if (!lead || !opened) {
+    return null;
+  }
+
   const [annotation, setAnnotation] = useState("");
   const [declineReason, setDeclineReason] = useState<DeclineReason>("OTHER");
   const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
@@ -60,17 +64,17 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     return () => mql.removeEventListener('change', handler);
   }, []);
 
-  const ice = (lead?.ice) || { impact: 0, confidence: 0, ease: 0 };
+  const ice = lead.ice || { impact: 0, confidence: 0, ease: 0 };
   const iceScore = Math.round(ice.impact * ice.confidence * ice.ease);
   const maxIce = 1000;
   const icePercent = Math.min(100, (iceScore / maxIce) * 100);
 
-  const normalized = normalizeLead(lead || {}, brand);
+  const normalized = normalizeLead(lead, brand);
   const normalizedPro = ensureArrayField((normalized as any)[`pro_for_${brand}`]);
   const normalizedCon = ensureArrayField((normalized as any)[`con_for_${brand}`]);
 
   const iceToneValue = iceScore >= 700 ? 'teal' : iceScore >= 480 ? 'green' : iceScore >= 200 ? 'orange' : 'blue';
-  const regionToneValue = (lead?.region || '') === 'USA' ? 'blue' : lead.region === 'CEE' ? 'indigo' : lead.region === 'MENA' ? 'green' : 'gray';
+  const regionToneValue = lead.region === 'USA' ? 'blue' : lead.region === 'CEE' ? 'indigo' : lead.region === 'MENA' ? 'green' : 'gray';
   const qualityStatus: string = ((normalized.qualityStatus || 'DRAFT') as string);
   const qualityToneValue = qualityStatus === 'VERIFIED' ? 'teal' : qualityStatus === 'CHECKED' ? 'orange' : 'gray';
 
