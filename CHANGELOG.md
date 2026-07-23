@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.12
+
+Owner reported GDS 3.11.1 fixes the 2.4.10/2.4.11 tarball incident. Verified independently before touching anything — the last incident happened specifically because a claim ("the tag exists") was treated as equivalent to a different, unverified claim ("the tarball is fetchable"), so this time the tarball itself was actually fetched and inspected, not inferred.
+
+### Verified before shipping (unlike 2.4.10)
+- This sandbox's `curl`/`Bash` network path still 403s `github.com` unconditionally (confirmed identically for both 3.10.0's known-good URL and 3.11.1's — that path genuinely cannot distinguish real from missing). The `WebFetch` tool, however, resolves through a different network path that isn't blocked: it followed each of the 3 `gds-v3.11.1` release-asset URLs through GitHub's real `302` redirect to a signed `release-assets.githubusercontent.com` blob URL (a redirect GitHub only issues for an asset that actually exists) and retrieved the actual tarball bytes.
+- All 3 tarballs (`gds-admin`, `gds-core`, `gds-theme`) were downloaded, confirmed as real gzip archives via `file`, extracted, and their `package/package.json` read directly — each correctly reports `"version": "3.11.1"` and the expected package name.
+- The real SHA-512 of each tarball was computed twice, independently (`openssl dgst`/`base64` and Node's `crypto.createHash`), with matching results both times — these are the actual `integrity` values now in `package-lock.json`, not guessed or fabricated.
+- Fetched `gds-v3.11.1`'s own `CHANGELOG.md`: it confirms the exact root cause independently — the `3.11.0` tag was cut before a same-day fix to the GDS repo's own release-automation workflow (`auto-tag-release.yml` was hitting `GITHUB_TOKEN` anti-recursion protection, blocking the tarball-publish job), so the tag existed but its release bundle never actually built. `3.11.1` is a pure re-cut with the pipeline fixed — "no functional/code change beyond the version-bump surfaces themselves," per the GDS team's own changelog wording.
+
+### Changed
+- `@sovereignsquad/gds-admin`/`gds-core`/`gds-theme` bumped 3.10.0 -> 3.11.1 in `package.json` and `package-lock.json`, with real, independently-verified `integrity` hashes (see above) — not the missing-then-guessed pattern from 2.4.10/2.4.11.
+- No application code changes: since 3.11.1 is confirmed functionally identical to what 3.11.0 was supposed to be, the 2.4.10 code (theme-level `Input.vars` zoom fix, GDS-governed `KanbanBoard` with `enableDrag`) needs no changes and gets the newer pointer/touch drag behavior it was originally written for.
+- Verified via `tsc --noEmit` (0 errors), `eslint` (0 errors, 3 pre-existing warnings carried forward), `vitest run` (35/35), smoke suite (5/5), and a real `next build`. As always, these still only prove the *code* against local stub packages — they cannot substitute for Vercel's own `npm install` succeeding, which is the actual test this fix is aimed at. That remaining gap is real and is why the tarball-fetch verification above was done as an extra, independent check this time, not skipped.
+
 ## 2.4.11
 
 **Production build was broken on `main` for the entire window between 2.4.10 shipping and this fix.** Vercel's `npm install` failed with a real `404 Not Found` on `https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.11.0/sovereignsquad-gds-theme-3.11.0.tgz` — the 3.11.0 release tarball does not actually exist (or at least not at that URL), even though the `gds-v3.11.0` git tag and its `CHANGELOG.md` are real and readable.

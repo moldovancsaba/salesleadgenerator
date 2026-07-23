@@ -1,10 +1,16 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.11
+**Version:** 2.4.12
 
 ---
 
 ## Shipped
+
+### GDS 3.11.1 — Verified Re-adoption After the 3.11.0 Incident (2.4.12)
+- ✅ Owner reported 3.11.1 fixes the tarball-publish bug. Verified independently before shipping, learning from the 2.4.10/2.4.11 mistake: `WebFetch` (a different network path than this sandbox's blocked `curl`/`Bash`) followed each of the 3 `gds-v3.11.1` release-asset URLs through GitHub's real `302` signed-redirect and downloaded the actual tarball bytes — not just confirmed a git tag exists.
+- ✅ All 3 tarballs confirmed as real gzip archives (`file`), extracted, and `package/package.json` read directly — each correctly reports `version: "3.11.1"`. SHA-512 `integrity` computed twice independently (OpenSSL, Node `crypto`) with matching results, now recorded for real in `package-lock.json`.
+- ✅ Fetched `gds-v3.11.1`'s own `CHANGELOG.md` for the root-cause confirmation: the `3.11.0` tag was cut before a same-day fix to GDS's own release-automation workflow (`GITHUB_TOKEN` anti-recursion protection blocking the tarball-publish job) — 3.11.1 is a pure re-cut, "no functional/code change beyond the version-bump surfaces."
+- ✅ No application code changes needed — 2.4.10's theme-level zoom fix and GDS-governed `KanbanBoard` (`enableDrag`) now get the newer pointer/touch drag behavior they were originally written for.
 
 ### Production Build Broken by an Unverified GDS 3.11.0 Tarball, Reverted (2.4.11)
 - 🔴 2.4.10 bumped the GDS dependency URLs to 3.11.0 on the strength of the `gds-v3.11.0` git tag being readable — but a git tag existing is not proof a GitHub Release with attached tarball assets was published. Vercel's real `npm install` hit a genuine `404` on the `gds-theme` tarball, breaking every deploy from `main` until this fix. This sandbox's `github.com`/`api.github.com` block returns the same 403 whether a resource is real or missing, so the tarball URL was never actually confirmed reachable before shipping — an assumption, not a verified fact, exactly what should have been caught.
