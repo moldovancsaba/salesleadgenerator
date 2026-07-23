@@ -264,7 +264,8 @@ export async function GET(request: Request) {
       }),
       brand,
       tenantId,
-      total: dedupedLeads.length,
+      returned: dedupedLeads.length,
+      total: totalCount,
       page,
       limit,
       totalPages: Math.ceil(totalCount / limit)

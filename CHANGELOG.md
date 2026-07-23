@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.2.2
+
+### Fixed
+- Fixed a misleading `total` field in `GET /api/leads`'s response: it previously held the count of leads returned on the current page (post-dedup), not the real total across all pages — a name that actively invites a wrong assumption, even though `totalPages` next to it was already computed from the real count. `total` now reflects the true grand total (matching `totalPages`); the per-page count is exposed separately as `returned`. Verified no existing frontend consumer read the old `total` field before renaming (fixes #21's low-risk sub-fix; the larger 3-endpoint pagination-shape unification remains out of scope, tracked in #21).
+
+### Known issues carried forward (unchanged, still open, still require owner input — not fixed in this release)
+- #11 — `outcomeLogs`/`outcomelogs` MongoDB collection-name split: still requires a direct production-database check before any code change, per the issue's own explicit non-goal. No `MONGODB_URI` credentials are available in the development environment to perform that check.
+- #20 — unused Mongoose models (`models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts`): still requires an owner decision (delete vs. repair) per the issue's own explicit non-goal.
+
 ## 2.2.1
 
 PWA and zoom-lock fix, reported live on `/sales/seyu` in production.
