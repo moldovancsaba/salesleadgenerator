@@ -57,16 +57,35 @@ export function SalesPageClient({ brand }: Props) {
     return () => { cancelled = true }
   }, [brand])
 
-  // Load table data server-side when needed
+  // Load table data server-side when needed. Cursor-paginated (not a single
+  // capped fetch) so a brand exceeding one page's worth of leads doesn't get
+  // silently truncated — loops until the server reports no more pages.
   useEffect(() => {
     if (view !== 'table') return
     let cancelled = false
     setTableLoading(true)
-    fetch(`/api/leads?brand=${encodeURIComponent(brand)}&tenantId=default&limit=5000`)
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status}`)))
-      .then(data => {
-        if (!cancelled) setTableLeads((data.leads || []) as Lead[])
-      })
+
+    async function loadAllPages() {
+      const collected: Lead[] = []
+      let cursor: string | undefined
+      for (;;) {
+        const url = new URL('/api/leads', window.location.origin)
+        url.searchParams.set('brand', brand)
+        url.searchParams.set('tenantId', 'default')
+        url.searchParams.set('limit', '500')
+        if (cursor) url.searchParams.set('cursor', cursor)
+
+        const res = await fetch(url.toString())
+        if (!res.ok) throw new Error(`${res.status}`)
+        const data = await res.json()
+        collected.push(...((data.leads || []) as Lead[]))
+        if (cancelled || !data.hasMore || !data.nextCursor) break
+        cursor = data.nextCursor
+      }
+      if (!cancelled) setTableLeads(collected)
+    }
+
+    loadAllPages()
       .catch(console.error)
       .finally(() => { if (!cancelled) setTableLoading(false) })
     return () => { cancelled = true }
@@ -151,7 +170,7 @@ export function SalesPageClient({ brand }: Props) {
         const res = await fetch(url.toString())
         if (!res.ok) throw new Error(`Search failed: ${res.status}`)
         const data = await res.json()
-        setSearchResults((data.results || []) as Lead[])
+        setSearchResults((data.leads || []) as Lead[])
       } catch (err) {
         console.error('Search error:', err)
         setSearchResults([])

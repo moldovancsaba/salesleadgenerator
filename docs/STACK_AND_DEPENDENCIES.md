@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.6
+**Version:** 2.4.7
 
 ---
 
@@ -31,8 +31,8 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 
 | Component | Version | Status | Role |
 |-----------|---------|--------|------|
-| Mongoose | ^8.0.0 | Declared, but unused | `models/*.ts` define schemas (`Lead`, `OutcomeLog`, `SearchLearning`) but none are imported anywhere in the app — all real reads/writes use the raw `mongodb` driver. `models/Lead.ts`'s pro/con fields were corrected to the generic `pro_for_organization`/`con_for_organization` naming in 2.3.0, matching the real schema. Whether to delete these unused files entirely or wire them into a future Mongoose migration path is still an open decision. |
-| mongodb driver | via mongoose's dependency, used directly | Active | Raw `MongoClient` used in `lib/mongodb.ts` and every API route handler |
+| Mongoose | ^8.0.0 | Ops-scripts only | Used only as a connection helper (`mongoose.connect()`, then dropped straight to `mongoose.connection.db.collection(...)`) in standalone maintenance scripts (`scripts/seed.js`, `scripts/check-db.js`, `scripts/audit-db.js`, `scripts/fix-*-region*.js`). The unused `models/Lead.ts`/`OutcomeLog.ts`/`SearchLearning.ts` schema files (never imported by the app itself, drifted from the real data shape) were deleted in 2.4.7 — the app's own reads/writes have exclusively used the raw driver since before this repo's own tracked history, and nothing anywhere signaled an intended future Mongoose migration path. |
+| mongodb driver | direct dependency | Active | Raw `MongoClient` used in `lib/mongodb.ts` and every API route handler |
 | MongoDB | Atlas hosted | Active | Persistence |
 | dotenv | ^17.4.2 | Scripts-only | Used in `scripts/*.js` and `scripts/*.mjs`; not used in app code |
 
