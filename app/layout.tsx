@@ -35,7 +35,11 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/icon-192.png" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
-      </head>
+          <script
+      dangerouslySetInnerHTML={{
+        __html: `if('serviceWorker'in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}`,
+      }}
+    /></head>
       <body>
         <MantineProvider theme={theme}>
           <PwaSetup />
