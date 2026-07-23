@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.3.0
+**Version:** 2.3.1
 
 ---
 
@@ -21,7 +21,7 @@
 |-----------|---------|--------|------|
 | Mantine (`@mantine/core`, `hooks`, `modals`, `notifications`) | 7.17.8 | Active | Component library |
 | @tabler/icons-react | 3.45.0 | Active | Icons |
-| @sovereignsquad/gds-admin, gds-core, gds-theme | 3.10.0 | Active | Private design-system components/theme, installed from GitHub release tarballs (not the npm registry) — required for all UI/UX work per project policy |
+| @sovereignsquad/gds-admin, gds-core, gds-theme | 3.10.0 | Active | Private design-system components/theme, installed from GitHub release tarballs (not the npm registry) — required for all UI/UX work per project policy. `gds-core` was a declared-but-unimported dependency until 2.3.1, when `app/card.tsx` started importing `ProductCard` from `@sovereignsquad/gds-core/client`. |
 
 There is no Framer Motion or Sonner dependency in this project — both were previously listed here in error; verified against `package.json`, neither package appears anywhere in it.
 

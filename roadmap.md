@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.3.0
+**Version:** 2.3.1
 
 ---
 
@@ -31,6 +31,9 @@
 
 ### Generic Organization Fields (2.3.0)
 - ✅ Resolved issue #20's organization-genericness complaint: `pro_for_cogmap`/`pro_for_seyu` (and the `con_` equivalents) replaced with one shared `pro_for_organization`/`con_for_organization` pair used by every brand — hard cutover, no fallback. All 900 existing production documents were migrated in place via a temporary endpoint before the code shipped, so there was no gap where pros/cons appeared empty.
+
+### Kanban Card Image Placeholder Fix (2.3.1)
+- ✅ Kanban cards no longer show an empty image placeholder — switched `LeadCard` from `AdminResourceCard` to `ProductCard` (`@sovereignsquad/gds-core`), whose media/icon slots render nothing when omitted, matching the fact that leads have no image field at all. Verified against the real design-system source rather than guessed.
 
 ### Outreach and Pipeline
 - ✅ One-click outreach templates with analytics (`/api/outreach-templates?mode=analytics`)

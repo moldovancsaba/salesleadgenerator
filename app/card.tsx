@@ -1,6 +1,7 @@
 'use client';
 
-import { AdminResourceCard } from '@sovereignsquad/gds-admin/client';
+import { Button } from '@mantine/core';
+import { ProductCard } from '@sovereignsquad/gds-core/client';
 import type { Lead } from './types';
 import { getIceScore } from './constants';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
@@ -15,28 +16,30 @@ export function LeadCard({ lead, onOpen }: LeadCardProps) {
   const region = lead.region || 'NA';
   const quality = lead.qualityStatus || 'DRAFT';
 
-  const record = {
-    id: lead._id,
-    title: lead.entity_name,
-    entity_name: lead.entity_name,
-    description: lead.industry || lead.sport_or_sector || '',
-    metadata: [
-      { label: 'Region', value: region },
-      ...(lead.size ? [{ label: 'Size', value: lead.size }] : []),
-    ],
-    ice,
-    region,
-    quality,
-    status: lead.status,
-    decision_maker_name: lead.decision_maker_name,
-    decision_maker_title: lead.decision_maker_title,
-  };
+  const metadata = [
+    { label: 'Region', value: region },
+    { label: 'ICE', value: ice },
+    ...(lead.size ? [{ label: 'Size', value: lead.size }] : []),
+    ...(lead.decision_maker_name ? [{ label: 'Contact', value: lead.decision_maker_name }] : []),
+  ];
 
   return (
     <ErrorBoundary>
-      <AdminResourceCard
-        record={record}
-        onPreview={onOpen}
+      <ProductCard
+        title={lead.entity_name}
+        description={lead.industry || lead.sport_or_sector || ''}
+        status={quality}
+        metadata={metadata}
+        primaryAction={
+          onOpen ? (
+            <Button variant="light" size="xs" onClick={onOpen}>
+              Preview
+            </Button>
+          ) : undefined
+        }
+        density="compact"
+        variant="compact"
+        size="sm"
       />
     </ErrorBoundary>
   );
