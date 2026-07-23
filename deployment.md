@@ -1,6 +1,13 @@
 # Deployment Log
 
 ## Latest Deployment
+- **Commit**: 59eb72f
+- **Message**: fix: force-zoom on input focus, wrong search component, duplicate search results
+- **Build Status**: Verified via `tsc --noEmit` (pre-existing GDS-stub artifact only), `eslint` clean repo-wide, `vitest run` (33/33), smoke suite (5/5), and a real `next build`.
+- **Context**: Owner reported 3 issues on a real device from the 2.4.0 search bar/kanban board, via screenshot: (1) the page force-zoomed on focusing the search input — a different iOS Safari mechanism than pinch-zoom, triggered by any focused input with computed font-size below 16px (Mantine's default sizes render below that); fixed with a global CSS floor. (2) "the input field is not the input field" — read GDS's `SearchableSelect` real source and confirmed it's a closed combobox picker (visible box is a button that only opens a dropdown; the real typing field is hidden inside, unstyled), the wrong component for a live search bar; replaced with a plain `TextInput` + custom debounced dropdown. (3) duplicate results in search (e.g. "Arsenal FC" appearing twice) — `/api/search` was missing the fingerprint-based dedup `/api/leads` already has; added it.
+- **Files Changed**: `app/globals.css`, `app/sales/[brand]/sales-page-client.tsx`, `app/api/search/route.ts`
+
+## Earlier Deployment 0
 - **Commit**: e5c5ac9
 - **Message**: feat: kanban board UX overhaul — header layout, search, drag-and-drop rebuild, forecast display (fixes #23)
 - **Build Status**: Verified via `tsc --noEmit` (pre-existing GDS-stub artifact only), `eslint` clean repo-wide, `vitest run` (33/33), smoke suite (5/5), and a real `next build` (fails only on the same pre-existing GDS-stub artifact, confirmed present with the change stashed out too).
