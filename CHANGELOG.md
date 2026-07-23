@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.3.0
+
+### Changed — Breaking API/data contract change
+- **Resolved issue #20's organization-genericness complaint**: the value-proposition fields were named per-brand (`pro_for_cogmap`/`con_for_cogmap` for CogMap, `pro_for_seyu`/`con_for_seyu` for Seyu), which doesn't generalize to onboarding a new organization without a code change. Both brands now read and write one shared, generic field pair: `pro_for_organization`/`con_for_organization`. This is a **hard cutover** — no fallback, no dual-read, old field names are no longer recognized anywhere in the app.
+- To avoid any window where existing leads' pros/cons would appear empty, a temporary one-time migration endpoint was deployed to production *before* the code change shipped, renaming the field in-place across both live collections via MongoDB's `$rename`: 408 documents in `leads`, 492 in `seyu_leads` (900 total), verified afterward to have zero documents left with the old field names. The endpoint was deleted once the migration was confirmed.
+- Removed the now-obsolete "forbidden cross-brand pro/con field" validation rule from `lib/validate-lead.ts` (`pro_for_seyu` was rejected on a `cogmap` payload and vice versa) — there's nothing left to forbid once both brands share the same field name. The separate, unrelated forbidden-vocabulary check on free-text `value_proposition` content is untouched.
+- `models/Lead.ts` (unused Mongoose model) had its pro/con field names corrected to match; the file remains unimported dead code — whether to delete it entirely or repair it fully as a future migration path is still an open decision.
+- Updated `tests/lib/validate-lead.test.ts` and `tests/smoke/validate-lead.smoke.ts`, which had asserted the old brand-forbidden behavior, to reflect the new generic-field reality.
+
 ## 2.2.3
 
 ### Fixed

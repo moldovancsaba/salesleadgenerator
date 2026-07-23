@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.2.3  
+**Version:** 2.3.0  
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -72,8 +72,8 @@ curl -X POST "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap" \
     "contact_phone": "+1 555 0100",
     "address": "New York, NY",
     "value_proposition": "SLG can help...",
-    "pro_for_cogmap": ["Benefit 1", "Benefit 2"],
-    "con_for_cogmap": ["Objection 1"],
+    "pro_for_organization": ["Benefit 1", "Benefit 2"],
+    "con_for_organization": ["Objection 1"],
     "kanbanColumn": "DISCOVERED",
     "ice": {"impact": 5, "confidence": 5, "ease": 5}
   }'
@@ -128,6 +128,7 @@ These require API key auth.
 - Test coverage has grown (33 unit tests + a 4-check smoke suite as of 2.2.0) but is still concentrated on shared validation/scoring/dedup logic; full API route integration tests remain TODO.
 - ~~The dedicated `/api/outcome-logs` endpoint currently reads/writes a different MongoDB collection than the rest of the outcome-logging system~~ **Fixed in 2.2.3**: a production database check (`outcomeLogs`: 0 docs vs `outcomelogs`: 2,276 docs, latest activity same day) confirmed `outcomelogs` is the real collection; `/api/outcome-logs` now reads/writes it.
 - Three lead-listing endpoints (`/api/leads`, `/api/search`, `/api/leads/columns`) use three different pagination shapes — a deliberate difference (full page-list, capped top-N search, cursor-paginated infinite column), not scheduled for unification without a dedicated design pass. As of 2.2.2, `/api/leads`'s `total` field is fixed to mean the real total across all pages (matching `totalPages`); the per-page count is now `returned`.
+- ~~The pro/con value-proposition fields were named per-brand (`pro_for_cogmap`/`pro_for_seyu`)~~ **Fixed in 2.3.0**: both brands now share one organization-agnostic field, `pro_for_organization`/`con_for_organization`. This is a breaking API contract change — old field names are no longer read or written anywhere, by design (no fallback). All 900 existing production documents were migrated in place before the code shipped.
 
 ---
 

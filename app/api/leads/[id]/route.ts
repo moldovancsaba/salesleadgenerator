@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
-import { BRAND_CONFIG, resolveBrand } from '../../../lib/brand'
+import { BRAND_CONFIG, resolveBrand, PRO_FIELD, CON_FIELD } from '../../../lib/brand'
 import { normalizeLead } from '../../../lib/normalize-lead'
 import { requireApiKey } from '../../../../lib/api-auth'
 import { validateLeadPayload } from '../../../../lib/validate-lead'
@@ -73,7 +73,7 @@ export async function GET(
       const db = client.db()
       lead = await tryFindLead(db, config, tenantId, id)
       if (lead) {
-        lead = normalizeLead({ ...lead, _id: lead._id.toString() }, brand);
+        lead = normalizeLead({ ...lead, _id: lead._id.toString() });
       }
     } catch {
       lead = null;
@@ -131,7 +131,7 @@ export async function PUT(
       'sport_or_sector', 'level_league', 'decision_maker_name', 'decision_maker_title',
       'decision_maker_contact', 'contact_phone', 'value_proposition', 'notes', 'tags',
       'kanbanColumn', 'sortOrder', 'priority', 'status', 'ice', 'iceScore',
-      config.proField, config.conField, 'contacts', 'qualityStatus',
+      PRO_FIELD, CON_FIELD, 'contacts', 'qualityStatus',
       'recommended_tier', 'estimated_participants', 'estimated_annual_revenue_usd',
       'revenue_model', 'product_fit_notes', 'pricingByCompany'
     ];
@@ -164,7 +164,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Lead not found after update' }, { status: 404 })
     }
 
-    return NextResponse.json(normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }, brand))
+    return NextResponse.json(normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }))
   } catch (error: any) {
     console.error('PUT lead/:id Error:', error)
     return NextResponse.json({ error: 'Failed to update lead', details: error.message }, { status: 500 })

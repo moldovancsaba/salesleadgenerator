@@ -14,20 +14,21 @@ const basePayload = {
 
 describe('validateLeadPayload', () => {
   it('allows valid cogmap payload', () => {
-    const result = validateLeadPayload({ ...basePayload, pro_for_cogmap: ['a'], con_for_cogmap: ['b'] }, 'cogmap');
+    const result = validateLeadPayload({ ...basePayload, pro_for_organization: ['a'], con_for_organization: ['b'] }, 'cogmap');
     expect(result.valid).toBe(true);
   });
 
-  it('blocks forbidden seyu fields on cogmap payload', () => {
-    const result = validateLeadPayload({ ...basePayload, pro_for_seyu: ['x'], con_for_seyu: ['y'] }, 'cogmap');
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes('Forbidden field for brand cogmap'))).toBe(true);
+  it('accepts the same generic pro/con field on both brands', () => {
+    const cogmapResult = validateLeadPayload({ ...basePayload, pro_for_organization: ['x'], con_for_organization: ['y'] }, 'cogmap');
+    const seyuResult = validateLeadPayload({ ...basePayload, pro_for_organization: ['x'], con_for_organization: ['y'] }, 'seyu');
+    expect(cogmapResult.valid).toBe(true);
+    expect(seyuResult.valid).toBe(true);
   });
 
-  it('blocks forbidden cogmap fields on seyu payload', () => {
-    const result = validateLeadPayload({ ...basePayload, pro_for_cogmap: ['x'], con_for_cogmap: ['y'] }, 'seyu');
+  it('rejects a non-array pro_for_organization value', () => {
+    const result = validateLeadPayload({ ...basePayload, pro_for_organization: 'not-an-array' }, 'cogmap');
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes('Forbidden field for brand seyu'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('pro_for_organization must be an array of strings'))).toBe(true);
   });
 
   it('rejects invalid country and bad URL', () => {
@@ -63,10 +64,10 @@ describe('validateLeadPayload with { partial: true } (used by PUT /api/leads/:id
     expect(result.errors.some((e) => e.includes('ice.impact must be a number between 1 and 10'))).toBe(true);
   });
 
-  it('still blocks forbidden cross-brand fields on a partial update', () => {
-    const result = validateLeadPayload({ pro_for_seyu: ['x'] }, 'cogmap', { partial: true });
+  it('still rejects a non-array pro_for_organization value on a partial update', () => {
+    const result = validateLeadPayload({ pro_for_organization: 'not-an-array' }, 'cogmap', { partial: true });
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes('Forbidden field for brand cogmap'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('pro_for_organization must be an array of strings'))).toBe(true);
   });
 
   it('a full payload with { partial: true } behaves the same as without it', () => {

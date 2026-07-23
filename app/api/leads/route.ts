@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
-import { BRAND_CONFIG, resolveBrand } from '../../lib/brand'
+import { BRAND_CONFIG, resolveBrand, PRO_FIELD, CON_FIELD } from '../../lib/brand'
 import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import { requireApiKey } from '../../../lib/api-auth'
 import { validateLeadPayload, validatePatchPayload, bestContactConfidence } from '../../../lib/validate-lead'
@@ -239,7 +239,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       leads: dedupedLeads.map((l) => {
-        const normalized = normalizeLead({ ...l, _id: l._id.toString() }, brand)
+        const normalized = normalizeLead({ ...l, _id: l._id.toString() })
         normalized.contacts = dedupeContacts(normalized.contacts || [], normalized)
         // Canonicalize response: contacts is the single source of truth for contact data
         const hasMainContact = Array.isArray(normalized.contacts) && normalized.contacts.some(c => c.role === 'main_contact')
@@ -320,7 +320,7 @@ export async function POST(request: Request) {
     const client = await getClientPromise()
     const db = client.db()
 
-    const normalizedBody = normalizeLead(body, brand)
+    const normalizedBody = normalizeLead(body)
     const normalizedWarnings = extractWarnings(normalizedBody)
 
     // Remove duplicate contacts and merge with top-level decision-maker info
@@ -423,8 +423,8 @@ export async function POST(request: Request) {
       decision_maker_name: '',
       decision_maker_title: '',
       decision_maker_contact: '',
-      [config.proField]: normalizedBody[config.proField] || [],
-      [config.conField]: normalizedBody[config.conField] || [],
+      [PRO_FIELD]: normalizedBody[PRO_FIELD] || [],
+      [CON_FIELD]: normalizedBody[CON_FIELD] || [],
       value_proposition: normalizedBody.value_proposition || '',
       recommended_tier: normalizedBody.recommended_tier || '',
       estimated_participants: Number(normalizedBody.estimated_participants) || 0,

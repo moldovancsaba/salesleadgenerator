@@ -1,3 +1,5 @@
+import { PRO_FIELD, CON_FIELD } from './brand';
+
 export type LeadRaw = Record<string, any>;
 
 type NormalizationWarnings = string[];
@@ -67,11 +69,8 @@ function validateObject(value: any): string[] {
   return warnings;
 }
 
-export function normalizeLead(raw: LeadRaw, brand: string): NormalizedLead {
+export function normalizeLead(raw: LeadRaw): NormalizedLead {
   const warnings: NormalizationWarnings = [];
-
-  const proKey = `pro_for_${brand}`;
-  const conKey = `con_for_${brand}`;
 
   if (!raw || typeof raw !== 'object') {
     warnings.push('Lead data is null or not an object');
@@ -81,14 +80,14 @@ export function normalizeLead(raw: LeadRaw, brand: string): NormalizedLead {
       qualityStatus: 'DRAFT',
       contacts: [],
       tags: [],
-      [proKey]: [],
-      [conKey]: [],
+      [PRO_FIELD]: [],
+      [CON_FIELD]: [],
       _warnings: warnings,
     };
   }
 
-  const proValue = raw[proKey];
-  const conValue = raw[conKey];
+  const proValue = raw[PRO_FIELD];
+  const conValue = raw[CON_FIELD];
 
   warnings.push(...validateObject(proValue));
   warnings.push(...validateObject(conValue));
@@ -110,8 +109,8 @@ export function normalizeLead(raw: LeadRaw, brand: string): NormalizedLead {
 
   const normalized: NormalizedLead = {
     ...raw,
-    [proKey]: pro,
-    [conKey]: con,
+    [PRO_FIELD]: pro,
+    [CON_FIELD]: con,
     qualityStatus: typeof raw.qualityStatus === 'string' ? raw.qualityStatus : 'DRAFT',
     contacts: Array.isArray(raw.contacts) ? raw.contacts : [],
     tags: Array.isArray(raw.tags) ? raw.tags : [],
