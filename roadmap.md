@@ -1,10 +1,16 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.12
+**Version:** 2.4.13
 
 ---
 
 ## Shipped
+
+### Missing @dnd-kit Transitive Dependencies, Fixed (2.4.13)
+- 🔴 2.4.12's GDS 3.11.1 bump fixed the tarball-404 problem — `npm install` succeeded on Vercel — but `next build` then failed on `Module not found: Can't resolve '@dnd-kit/core'` (and `sortable`/`utilities`), imported from `gds-core`'s compiled bundle via `app/kanban.tsx`.
+- ✅ Root cause: `gds-core@3.11.1` declares these as real `dependencies` (confirmed by reading its actual `package.json`), but this repo's `package-lock.json` has been out of sync with the true dependency tree for a long time — independent of anything this session's GDS work did (confirmed identical at a commit well before it) — so Vercel's `npm install` (trusting a restored build cache rather than fully re-resolving) never discovered the new transitive subtree.
+- ✅ Fixed by declaring `@dnd-kit/core`/`sortable`/`utilities` as direct dependencies, added via a **real `npm install`** against `registry.npmjs.org` (confirmed reachable from this sandbox) — real resolved URLs and `integrity` hashes, not hand-edited. This also incidentally expanded the lockfile from ~220 to ~530 tracked packages, closing a pre-existing gap.
+- ⚠️ **Disclosed limit**: this sandbox's local GDS packages remain hand-written stubs with no `dist/` bundle, so the specific failure class (webpack resolving imports inside the real compiled `gds-core`) can't be reproduced or re-verified locally — confidence rests on reading `gds-core`'s real `package.json` and matching Vercel's exact error, not on a local build passing (which it always would regardless).
 
 ### GDS 3.11.1 — Verified Re-adoption After the 3.11.0 Incident (2.4.12)
 - ✅ Owner reported 3.11.1 fixes the tarball-publish bug. Verified independently before shipping, learning from the 2.4.10/2.4.11 mistake: `WebFetch` (a different network path than this sandbox's blocked `curl`/`Bash`) followed each of the 3 `gds-v3.11.1` release-asset URLs through GitHub's real `302` signed-redirect and downloaded the actual tarball bytes — not just confirmed a git tag exists.

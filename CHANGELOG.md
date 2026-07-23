@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.13
+
+**2.4.12 fixed the tarball-404 problem but introduced a different real build failure** — Vercel's `npm install` succeeded this time (confirming the 3.11.1 tarball verification was correct), but `next build` then failed: `Module not found: Can't resolve '@dnd-kit/core'` (and `@dnd-kit/sortable`, `@dnd-kit/utilities`), imported from `@sovereignsquad/gds-core`'s compiled bundle via `app/kanban.tsx`.
+
+### Root cause
+`@sovereignsquad/gds-core@3.11.1`'s own `package.json` declares `@dnd-kit/core`/`sortable`/`utilities` as regular `dependencies` (confirmed by fetching `packages/gds-core/package.json` from the `gds-v3.11.1` tag) — they should install transitively. They didn't, because this repo's committed `package-lock.json` has been out of sync with the real dependency tree for a long time: it tracks only ~220 packages system-wide, independent of anything this session touched (confirmed identical at commit `138aca0`, well before any GDS work this session did). Vercel's `npm install` (not `npm ci` — a hard lockfile/package.json mismatch would have failed immediately rather than installing and only failing later at the webpack stage) mostly trusts a restored build-cache `node_modules` plus the checked-in lockfile rather than fully re-resolving from scratch, so the newly-required `@dnd-kit/*` transitive subtree of the *tarball-installed* `gds-core` package was never discovered or added.
+
+### Fixed
+- Declared `@dnd-kit/core@^6.3.1`, `@dnd-kit/sortable@^10.0.0`, `@dnd-kit/utilities@^3.2.2` as direct dependencies in `package.json` — matching the exact versions `gds-core`'s own `package.json` requires — so they're unambiguously present regardless of any lockfile-caching behavior around the private, tarball-installed GDS packages.
+- Added via a **real `npm install`** against the actual public `registry.npmjs.org` (confirmed reachable from this sandbox, unlike `github.com`/`api.github.com`) — not hand-edited. This pulled in the real resolved URLs and `integrity` hashes for `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, and their own transitive dependency (`@dnd-kit/accessibility`, `tslib`), verified for real by npm itself rather than computed by hand.
+- As a side effect, this same real `npm install` also expanded the previously-out-of-sync `package-lock.json` from ~220 to ~530 tracked packages, bringing it in line with the actual dependency tree for the first time — a pre-existing gap unrelated to this session's GDS work, now incidentally closed. 5 stale/platform-specific entries were dropped in the process (a Windows-only optional binary, a few unused transitive packages) — confirmed via diff, nothing the app uses.
+- All 3 `@sovereignsquad/gds-*` entries (versions, `resolved` URLs, `integrity` hashes verified in 2.4.12) were preserved untouched by this `npm install` — confirmed via diff before and after.
+
+### Disclosed limitation — still not fully verifiable from this sandbox
+This sandbox's local `@sovereignsquad/gds-*` packages remain hand-written `any`-typed stubs (the real tarballs still can't be installed here — `github.com` release-asset downloads are blocked). That means the specific failure class this fix addresses — Next.js's webpack bundler resolving `@dnd-kit/*` imports from *inside the real, compiled `gds-core` dist bundle* — cannot be reproduced or re-verified locally: the stub `gds-core` has no `dist/` bundle at all, so `next build` succeeds locally whether or not `@dnd-kit/*` are present, the same as before this fix. Confidence in this fix rests on: (a) directly reading `gds-core@3.11.1`'s real `package.json` `dependencies` field, and (b) the exact 3 missing-module names Vercel's own build log reported, both matched precisely by what was added — not on a local build passing, which it always would have regardless.
+
 ## 2.4.12
 
 Owner reported GDS 3.11.1 fixes the 2.4.10/2.4.11 tarball incident. Verified independently before touching anything — the last incident happened specifically because a claim ("the tag exists") was treated as equivalent to a different, unverified claim ("the tarball is fetchable"), so this time the tarball itself was actually fetched and inspected, not inferred.
