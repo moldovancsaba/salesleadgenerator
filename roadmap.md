@@ -1,17 +1,22 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.10
+**Version:** 2.4.11
 
 ---
 
 ## Shipped
+
+### Production Build Broken by an Unverified GDS 3.11.0 Tarball, Reverted (2.4.11)
+- 🔴 2.4.10 bumped the GDS dependency URLs to 3.11.0 on the strength of the `gds-v3.11.0` git tag being readable — but a git tag existing is not proof a GitHub Release with attached tarball assets was published. Vercel's real `npm install` hit a genuine `404` on the `gds-theme` tarball, breaking every deploy from `main` until this fix. This sandbox's `github.com`/`api.github.com` block returns the same 403 whether a resource is real or missing, so the tarball URL was never actually confirmed reachable before shipping — an assumption, not a verified fact, exactly what should have been caught.
+- ✅ Reverted `@sovereignsquad/gds-admin`/`gds-core`/`gds-theme` to 3.10.0 in `package.json`/`package-lock.json`, restored byte-for-byte (URLs, versions, `integrity` hashes) from the last commit confirmed to have deployed successfully.
+- ✅ All 2.4.10 code (theme-level `Input.vars` zoom fix, GDS-governed `KanbanBoard`) is kept — none of it requires a 3.11.0-only export; `KanbanBoard` and its keyboard move-menu are already in 3.10.0, only the newer pointer/touch `enableDrag` behavior is unavailable until a real 3.11.0 release is confirmed to exist from outside this sandbox.
 
 ### GDS 3.11.0 Adoption — Theme-Level Zoom Guard, Governed Accessible Kanban (2.4.10)
 - ✅ Replaced the `!important` CSS zoom-guard hack (2.4.6) with GDS 3.11.0's own theme-level fix: `gdsTheme`'s `Input.vars` component override, which floors Mantine input font-size to ≥16px via the `--input-fz` CSS variable Mantine's own size resolver reads — no specificity fight needed. Only this one override was extracted into this app's theme, not GDS's full `gdsTheme` object (which also carries color/Card/Button defaults this app doesn't want).
 - ✅ Replaced `app/kanban.tsx`'s hand-rolled pointer-events drag-and-drop with GDS's governed `KanbanBoard` (`enableDrag`), gaining accessible `@dnd-kit`-based pointer/touch/keyboard drag with a live-region-announced `DragOverlay` and an unconditional keyboard "Move to column" menu fallback per card — neither of which the old implementation had.
 - ✅ `useGdsKanbanOrientation` now handles stacked-vs-columns responsive layout automatically; removed the app's own `mode` prop and the `sales-page-client.tsx` `matchMedia`/`isMobile`/`saleslayoutMode` plumbing it made obsolete.
 - ⚠️ Two disclosed trade-offs from GDS's fixed `KanbanBoard` API: the per-column forecast subtitle is now a single-line string (`KanbanColumnData.title` isn't a `ReactNode`); the cursor-pagination "load more" sentinel is now nested inside the last card's render output (`KanbanColumn` has no footer slot).
-- ⚠️ `package-lock.json`'s `integrity` hashes for the 3 GDS packages couldn't be regenerated in this sandbox (blocked GitHub release-tarball download) — removed rather than left stale; needs a real `npm install` from a network-unblocked environment before/during the next deploy.
+- 🔴 **The GDS package version bump to 3.11.0 broke the production build** — see the 2.4.11 entry above. The `package-lock.json` `integrity`-hash gap flagged here was never actually the risk that materialized; the real problem was that 3.11.0 wasn't installable at all.
 
 ### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
 - ✅ Confirmed the ICE-score sort's architecture is correct as designed: sorting is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`), never re-sorted client-side; the client only computes ICE scores for display (a trivial per-card multiply), not for ordering.
