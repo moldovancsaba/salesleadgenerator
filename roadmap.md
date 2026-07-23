@@ -1,10 +1,14 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.5
+**Version:** 2.4.6
 
 ---
 
 ## Shipped
+
+### Mantine Inputs Still Force-Zooming on iOS Safari (2.4.6)
+- ✅ The 2.4.1 focus-zoom fix (`input, select, textarea { font-size: 16px }`) never actually applied to Mantine's own inputs — Mantine's compiled CSS sets font-size via a class selector with higher specificity than a bare type selector, so it silently won every time regardless of source order. The header's view-mode dropdown (and potentially the Mantine search `TextInput`) kept force-zooming as a result. Added `!important`, which unconditionally wins the cascade; widened the view-mode `Select` (132px → 168px) to fit its longest label at the now-enforced 16px font.
+- ⚠️ Real-device (iOS Safari) confirmation still recommended — this is a browser behavior with no headless/desktop equivalent to screenshot, so verification here was limited to confirming the compiled CSS and CSS-cascade semantics, not a live rendering.
 
 ### Header Overflow, Desktop Detail Panel, and Stuck Drag-Ghost Fixes (2.4.5)
 - ✅ Header no longer overflows the screen on narrow viewports — compacted to brand name + view selector on one row, then a single terse leads-count / weighted-forecast line, dropping the verbose "· updated HH:MM:SS" and "Forecast:"/"weighted" wording; added a global `overflow-x: hidden` safety net in `app/globals.css`.
@@ -106,6 +110,7 @@
 
 | Item | Notes |
 |------|-------|
+| iOS focus-zoom real-device confirmation (2.4.6) | The `!important` fix is confirmed correct by CSS-cascade semantics and by inspecting the actual compiled/served stylesheet, but this sandbox has no way to reproduce iOS Safari's zoom-on-focus behavior itself (no headless/desktop equivalent) — a real-device check is still recommended |
 | Available countries visibility | Country filter UI is implemented, but live lead data currently lacks populated `country` values, so the list may appear empty until data is backfilled or mapped from `region` |
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
 | Unused Mongoose models decision | `models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts` remain unused (no importers); `Lead.ts`'s pro/con field names were corrected to the generic scheme in 2.3.0, but the broader decision — delete the files, or repair them fully as a migration path — is still open |
