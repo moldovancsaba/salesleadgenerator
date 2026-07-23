@@ -1,6 +1,13 @@
 # Deployment Log
 
 ## Latest Deployment
+- **Commit**: c3a7140
+- **Message**: fix: PATCH /api/leads was silently failing for every action, not just drag-and-drop
+- **Build Status**: Verified via `tsc --noEmit` (pre-existing GDS-stub artifact only), `eslint` clean repo-wide, `vitest run` (33/33), smoke suite (5/5).
+- **Context**: Owner reported "drag and drop not permanent, looks like move but immediately refresh and stays in the original." Root cause was significantly bigger than drag-and-drop: `PATCH /api/leads`'s own documented contract (`docs/OPERATOR_GUIDE.md`) requires the lead `id` as a URL query param, matching exactly what the route reads (`searchParams.get('id')`) — but both client call sites (`handleAction` in `sales-page-client.tsx`, used by every detail-modal action: Accept/Decline/Pin/Refresh/Modify; and `handleMove` in `kanban.tsx`, drag-and-drop) only ever sent `id` in the JSON body, never the URL. Every PATCH action has been silently 400ing since these call sites existed. For drag-and-drop, the failed request's catch block reloads the source column from the server (unchanged), which is exactly why the card visually moved then snapped back. Fixed by adding the missing `?id=` param to both call sites — no server-side change needed, since the route already matched its own documented contract.
+- **Files Changed**: `app/kanban.tsx`, `app/sales/[brand]/sales-page-client.tsx`
+
+## Earlier Deployment 0a
 - **Commit**: 59eb72f
 - **Message**: fix: force-zoom on input focus, wrong search component, duplicate search results
 - **Build Status**: Verified via `tsc --noEmit` (pre-existing GDS-stub artifact only), `eslint` clean repo-wide, `vitest run` (33/33), smoke suite (5/5), and a real `next build`.
