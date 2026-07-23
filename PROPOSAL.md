@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.7
+**Version:** 2.4.8
 
 ## Purpose
 
@@ -49,6 +49,9 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ### Mantine Inputs Still Force-Zooming on iOS Safari (2.4.6)
 - The 2.4.1 focus-zoom fix (`input, select, textarea { font-size: 16px }`) never actually applied to Mantine's own components — Mantine's compiled CSS sets font-size via a class selector, which has higher specificity than a bare element selector and always won regardless of source order. Confirmed by inspecting Mantine's actual shipped stylesheet rather than guessing. Added `!important`, which unconditionally wins the cascade; widened the header's view-mode `Select` (132px → 168px) to fit its longest label at the now-correctly-enforced 16px font. Real-device confirmation still recommended — this is an iOS-Safari-only behavior with no headless/desktop equivalent to screenshot.
+
+### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
+- Owner reported the ICE-score kanban sort was "still not working" and asked where the computation runs, concerned about heavy client-side work. Confirmed the sort is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`) and the client never re-sorts — `getIceScore()` client-side is only a trivial per-card display value. Investigation found a real bug: `PUT /api/leads/[id]` stored `ice` fields straight from the request body with no numeric coercion (unlike `POST`, which runs through `normalizeLead()`), so a request with numerically-valid but string-typed values would pass validation yet get persisted as strings — which then made the sort aggregation's `$multiply` throw, failing the whole column's fetch silently. Fixed both the write path (coerce `ice` to numbers before storing) and the read path (`ICE_SCORE_AGGREGATION_EXPR` now uses `$convert` with a safe fallback instead of a bare `$multiply`, self-healing any already-corrupted historical document without a migration).
 
 ### Mongoose Models Deleted, Pagination Unified on Cursors (2.4.7)
 - Resolved the two remaining "flag only" decisions from the second audit pass. Issue #20: `models/Lead.ts`/`OutcomeLog.ts`/`SearchLearning.ts` deleted (zero importers, drifted schemas, no signal anywhere of an intended future Mongoose migration — `mongoose` itself stays as a dependency, used only as a connection helper in `scripts/*.js`). Issue #21: `/api/leads`, `/api/search`, and `/api/leads/columns` now share one pagination contract (`hasMore`/`nextCursor`). `/api/leads` added cursor support as a purely additive, opt-in mechanism — its legacy `page`/`limit`/`totalPages` fields and default sort are completely untouched, since the external research agent's one-shot `?limit=1000` listing call is a consumer this repo doesn't control and couldn't safely audit further. `/api/search` (frontend-only consumer, fully controlled) was changed more directly: `results` renamed to `leads`, a real `count` added, and cursor pagination wired for its single-brand mode. The table view's fetch was switched from one hard-capped `limit=5000` request to a cursor loop.
