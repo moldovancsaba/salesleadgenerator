@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.1
+**Version:** 2.4.2
 
 ---
 
@@ -47,6 +47,9 @@
 - ✅ Fixed page force-zoom on search-input focus (iOS Safari zooms below-16px focused inputs — separate from pinch-zoom) — global 16px minimum font-size for inputs/selects/textareas.
 - ✅ Replaced the search bar's `SearchableSelect` (a closed combobox picker, wrong fit — real typing field was hidden and didn't look like an input) with a plain always-editable text input and custom predictive dropdown.
 - ✅ Fixed duplicate results in `/api/search` — added the fingerprint-based dedup `/api/leads` already had.
+
+### PATCH /api/leads Actions Actually Working (2.4.2)
+- ✅ Found and fixed a serious bug affecting every kanban/detail-modal action, not just drag-and-drop: `PATCH /api/leads` requires `id` as a URL query param (matching its own documented contract), but the client only ever sent it in the JSON body — every action has been silently 400ing. Reported as "drag and drop looks like it moves, then snaps back"; root-caused and fixed in both `handleAction` and `handleMove`.
 
 ### Outreach and Pipeline
 - ✅ One-click outreach templates with analytics (`/api/outreach-templates?mode=analytics`)
