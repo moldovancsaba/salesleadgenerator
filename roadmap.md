@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.2.1
+**Version:** 2.2.2
 
 ---
 
@@ -20,7 +20,11 @@
 ### PWA and Zoom Fix (2.2.1)
 - ✅ Root-caused and fixed pinch-zoom still working despite 3 prior attempts: the viewport meta tag alone was never sufficient, since iOS Safari has ignored `user-scalable=no`/`maximum-scale` since iOS 10. Added `touch-action: manipulation` CSS plus a JS-level gesture/multi-touch guard, the layers iOS Safari actually respects.
 - ✅ Root-caused and fixed the app never behaving as an installable PWA: `manifest.json`'s referenced icon files (`icon-192.png`, `icon-512.png`) didn't exist at all. Added real icons plus a minimal service worker (precaches only the static shell — manifest/icons — never live lead data).
-- ⚠️ Real-device verification (actual iOS Safari pinch behavior, Android Chrome install prompt) still pending — not verifiable from the development environment.
+- ✅ Real-device zoom-lock verification: confirmed working on a real device (2026-07-23).
+- ⚠️ PWA installability: reported by the owner as still not behaving as expected on a real device (2026-07-23) — specifics not yet gathered, tracked as an open question.
+
+### Pagination Field Fix (2.2.2)
+- ✅ Fixed `/api/leads`'s misleadingly-named `total` field (issue #21's low-risk sub-fix) to reflect the real total across all pages instead of the current page's count; per-page count moved to a new `returned` field. No frontend consumer read the old field, so this shipped with zero UI changes needed.
 
 ### Outreach and Pipeline
 - ✅ One-click outreach templates with analytics (`/api/outreach-templates?mode=analytics`)
@@ -72,7 +76,8 @@
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
 | `outcomeLogs`/`outcomelogs` collection split | Needs a direct database check (which collection, if either, holds real data) before a code fix ships |
 | Unused Mongoose models decision | `models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts` are unused and schema-drifted; needs an owner decision — delete, or repair as a migration path |
-| Pagination shape unification | 3 lead-listing endpoints use 3 different pagination contracts; needs a coordinated frontend+backend design pass, not a drive-by fix |
+| Pagination shape unification | 3 lead-listing endpoints intentionally use 3 different pagination contracts (full page-list, capped search, cursor-paginated column); the misleading `total` field naming trap was fixed in 2.2.2, but full unification still needs a coordinated frontend+backend design pass, not a drive-by fix |
+| PWA installability real-device gap | Owner reports install behavior still not as expected on a real device; needs specifics (platform, symptom) before a further fix can be scoped |
 
 ---
 
