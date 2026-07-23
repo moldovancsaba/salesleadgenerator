@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.2.0
+**Version:** 2.2.1
 
 ## Purpose
 
@@ -19,6 +19,10 @@ This document tracks proposed improvements against the current shipped state. Co
 - Duplicated fingerprint, kanban-column-derivation, `isMongoConfigured()`, and pipeline-weight logic consolidated into shared `lib/*` modules
 - 3 orphaned/dead modules removed (a duplicate validator, an unwired-and-broken AI-scoring module, an agent-side validator disagreeing with the real one)
 - `Lead.region` frontend type corrected to match real backend values, fixing a live UI badge-color bug in the same change
+
+### PWA and Zoom Fix (2.2.1)
+- Fixed pinch-zoom still working despite 3 prior attempts, root-caused to the viewport meta tag alone never being sufficient (iOS Safari has ignored `user-scalable=no`/`maximum-scale` since iOS 10) — added `touch-action: manipulation` CSS plus a JS-level gesture/multi-touch guard
+- Fixed the app never behaving as an installable PWA, root-caused to referenced icon files (`icon-192.png`, `icon-512.png`) not existing at all — added real icons and a minimal service worker precaching only the static shell
 
 ### Kanban UX and Mobile Pipeline
 - Responsive kanban layout with vertical stacking on narrow screens
@@ -76,7 +80,7 @@ This document tracks proposed improvements against the current shipped state. Co
 - Tenant-aware indexes and migration path
 
 ### Mobile UX Polish
-- PWA zoom refinement
+- Real-device verification of the 2.2.1 PWA/zoom fix (actual iOS Safari pinch behavior, Android Chrome install prompt) — not verifiable from the development environment
 - Table view density/readability tuning
 - Country filter backfill/mapping from `region` when `country` is missing
 

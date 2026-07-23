@@ -1,6 +1,13 @@
 # Deployment Log
 
 ## Latest Deployment
+- **Commit**: 96b0bb0
+- **Message**: fix: add missing PWA icons + service worker, lock zoom via CSS/JS not just viewport meta (fixes #22)
+- **Build Status**: Verified locally via a real `next build` (compiled successfully, same single known GDS-stub sandbox artifact as always) prior to push; live Vercel confirmation pending.
+- **Context**: reported live on `/sales/seyu` — pinch-zoom still worked despite 3 prior fix attempts, and the app never behaved as an installable PWA. Root-caused: `manifest.json`/`layout.tsx` referenced `/icon-192.png` and `/icon-512.png`, neither of which existed in `public/` (fails installability outright); no service worker existed anywhere; and zoom lock relied solely on the viewport meta tag, which iOS Safari has ignored (`user-scalable=no`/`maximum-scale`) since iOS 10. Added real icons, a minimal shell-only service worker, CSS `touch-action: manipulation`, and a JS-level gesture/multi-touch guard. Real-device verification (actual iOS Safari, Android Chrome) still pending.
+- **Files Changed**: `app/layout.tsx`, `app/globals.css` (new), `app/components/PwaSetup.tsx` (new), `public/sw.js` (new), `public/icon-192.png` (new), `public/icon-512.png` (new)
+
+## Previous Deployment
 - **Commit**: 22312b4
 - **Message**: fix: split sales page into async Server Component + Client Component (fixes Vercel build failure)
 - **Vercel Build**: `iad1`, Node build machine (2 cores, 8 GB)
