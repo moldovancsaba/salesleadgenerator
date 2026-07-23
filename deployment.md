@@ -1,13 +1,20 @@
 # Deployment Log
 
 ## Latest Deployment
+- **Commit**: e5c5ac9
+- **Message**: feat: kanban board UX overhaul — header layout, search, drag-and-drop rebuild, forecast display (fixes #23)
+- **Build Status**: Verified via `tsc --noEmit` (pre-existing GDS-stub artifact only), `eslint` clean repo-wide, `vitest run` (33/33), smoke suite (5/5), and a real `next build` (fails only on the same pre-existing GDS-stub artifact, confirmed present with the change stashed out too).
+- **Context**: Owner screenshot review of the mobile pipeline header requested 5 changes, tracked as issue #23: (1) view-mode selector pinned to the header's top-right, Region/Status filter dropdowns removed entirely; (2) a new predictive search bar (GDS `SearchableSelect`, backed by the existing `/api/search`); (3) kanban drag-and-drop rebuilt from scratch — investigation found it wasn't buggy, it was completely absent from `app/kanban.tsx` despite changelog/roadmap history describing it as shipped (likely lost in an earlier rewrite to cursor-paginated columns); implemented with Pointer Events (long-press-to-arm, so scroll/tap keep working), ghost preview, drop-target highlight, optimistic UI; (4) ticket size (estimated deal value) on each card; (5) pipeline-weighted ("discounted") forecast per column header, extended to Seyu which had no per-column breakdown before. Real-device verification of the drag/search/layout interactions is flagged as outstanding in issue #23 — not verifiable from this environment.
+- **Files Changed**: `app/sales/[brand]/sales-page-client.tsx`, `app/kanban.tsx`, `app/card.tsx`, `app/constants.ts`, `app/types.ts`, `app/api/boards/[brand]/route.ts`
+
+## Earlier Deployment
 - **Commit**: 26c3ea1
 - **Message**: fix: add hideWhenNoMedia to the remaining AdminResourceCard usage in search-learning
 - **Build Status**: Verified via `tsc --noEmit` (pre-existing GDS-stub artifact only), `eslint` clean, `vitest run` (33/33), smoke suite (5/5).
 - **Context**: The owner reported the image placeholder was still showing after `4169b22` shipped. That commit only touched the kanban `LeadCard` (switched to `ProductCard`) — it never touched `app/search-learning.tsx`'s separate `AdminResourceCard` usage in its "Top Queries" cards, which is almost certainly what the owner was still seeing. Read `AdminResourceCard`'s real source (`packages/gds-admin/src/AdminResourceManager.tsx`, via the same `raw.githubusercontent.com` path used for `ProductCard`) instead of guessing: it wraps `MediaPreviewCard` and exposes `hideWhenNoMedia?: boolean`, documented inline as *"Omit the media area entirely for records with no media, instead of a placeholder block"* — defaulting to showing the placeholder unless a consumer opts in. Neither `AdminResourceCard` usage in this repo (the old `LeadCard`, now replaced, and `search-learning.tsx`) ever passed it. Added `hideWhenNoMedia` to `search-learning.tsx`'s usage. Also read `app/table.tsx`'s `AdminDataTable` source to rule it out as another source of the same symptom — confirmed its mobile-card path has no media/placeholder chrome around the fully custom `renderMobileCard` prop.
 - **Files Changed**: `app/search-learning.tsx`
 
-## Earlier Deployment
+## Earlier Deployment 2
 - **Commit**: 4169b22 — supersedes the partial fix in `96356f3`
 - **Message**: fix: switch LeadCard from AdminResourceCard to ProductCard, removing the image placeholder
 - **Build Status**: Verified via `tsc --noEmit` (pre-existing GDS-stub artifact only), `eslint` clean, `vitest run` (33/33), smoke suite (5/5).
