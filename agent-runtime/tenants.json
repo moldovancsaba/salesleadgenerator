@@ -1,0 +1,236 @@
+{
+  "tenants": {
+    "cogmap": {
+      "id": "cogmap",
+      "name": "CogMap",
+      "app": "salesleadgenerator",
+      "apiBase": "https://salesleadgenerator.vercel.app",
+      "board": "cogmap",
+      "discovery": {
+        "enabled": true,
+        "mode": "feeder",
+        "schedule": {
+          "kind": "cron",
+          "expr": "0,45 * * * *",
+          "tz": "Europe/Budapest"
+        }
+      },
+      "enrichment": {
+        "enabled": true,
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        }
+      },
+      "brandFields": {
+        "pro": "pro_for_cogmap",
+        "con": "con_for_cogmap",
+        "valuePropThemes": [
+          "cognitive assessment",
+          "player performance analytics",
+          "decision-making profiling",
+          "situational-awareness tools"
+        ]
+      },
+      "forbiddenFields": [
+        "pro_for_seyu",
+        "con_for_seyu"
+      ],
+      "enrichmentCriteria": {
+        "minContacts": 1,
+        "valuePropMinLength": 80,
+        "minPros": 2,
+        "minCons": 1,
+        "confidenceThreshold": 6
+      },
+      "qualityGate": {
+        "minFields": 6,
+        "requiredFields": [
+          "entity_name",
+          "url",
+          "country",
+          "industry",
+          "contacts",
+          "value_proposition",
+          "recommended_tier",
+          "estimated_participants",
+          "estimated_annual_revenue_usd",
+          "revenue_model",
+          "product_fit_notes"
+        ]
+      },
+      "scope": "ANY industry, ANY country",
+      "notes": "Primary tenant. Sports franchises, clubs, federations focus but accepts any industry.",
+      "forecastFields": {
+        "recommendedTier": "essential | performance | elite | multiple",
+        "estimatedParticipants": "number — players/members eligible for CogMap programs",
+        "estimatedAnnualRevenueUsd": "number — projected annual revenue from this lead at recommended tier",
+        "revenueModel": "per_participant | revenue_share | hybrid",
+        "productFitNotes": "string — why this tier/model fits this org, including squad size, development maturity, tournament structure, and any Athletence/cogLeague partnership context"
+      }
+    },
+    "seyu": {
+      "id": "seyu",
+      "name": "Seyu",
+      "app": "salesleadgenerator",
+      "apiBase": "https://salesleadgenerator.vercel.app",
+      "board": "seyu",
+      "discovery": {
+        "enabled": true,
+        "mode": "feeder",
+        "schedule": {
+          "kind": "every",
+          "everyMs": 1800000
+        }
+      },
+      "enrichment": {
+        "enabled": true,
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        }
+      },
+      "brandFields": {
+        "pro": "pro_for_seyu",
+        "con": "con_for_seyu",
+        "valuePropThemes": [
+          "fan selfie engagement",
+          "LED and screen activation",
+          "sponsor selfies",
+          "second-screen experiences",
+          "revenue-share models",
+          "fan data capture",
+          "brand partnership",
+          "sponsor inventory",
+          "digital engagement"
+        ]
+      },
+      "forecastFields": {
+        "pricingByCompany": "object — optional company-specific pricing blocks",
+        "companyPricingKeys": "upfront_eur, monthly_eur, annual_fee_eur, currency, pricing_model, discount_percent, revenue_share_percent, notes"
+      },
+      "forecastPricing": {
+        "examples": {
+          "default": { "upfront_eur": 0, "monthly_eur": 990, "pricing_model": "monthly_saas", "currency": "EUR", "notes": "SaaS baseline" },
+          "premium": { "upfront_eur": 6200, "monthly_eur": 2200, "pricing_model": "upfront_monthly", "currency": "EUR", "notes": "Premium client package baseline" },
+          "medium": { "upfront_eur": 3100, "monthly_eur": 1100, "pricing_model": "upfront_monthly", "currency": "EUR", "notes": "Medium client package baseline" }
+        },
+        "agencyRevenueShare": {
+          "enabled": true,
+          "percent": 15,
+          "role": "Agency and sponsor searching",
+          "note": "Use as alternative or add-on to upfront/monthly/annual pricing when the lead runs sponsored activations"
+        }
+      },
+      "qualityGate": {
+        "minFields": 7,
+        "requiredFields": [
+          "entity_name",
+          "url",
+          "country",
+          "industry",
+          "contacts",
+          "value_proposition",
+          "pro_for_seyu",
+          "con_for_seyu"
+        ]
+      },
+      "scope": "Sports clubs, leagues, federations with live events; entertainment venues and live-event promoters; sports media and broadcasters; sports-tech and fan-engagement vendors",
+      "notes": "Fan engagement and marketing agency. Not only LED/screen hardware. Seyu sells software programming, white-label microsites, premium event packages, and agency/sponsor revenue-share deals. Federations are valid if they run large spectator events or championships. Prefer partnership/marketing contacts. Pricing is company-specific and stored in `pricingByCompany` as optional blocks. Known examples: premium ~6200 EUR upfront + 2200 EUR monthly; medium ~3100 EUR upfront + 1100 EUR monthly; SaaS ~990 EUR monthly. Agency sponsor search can add 15% revenue share."
+    },
+    "classscout-api": {
+      "id": "classscout-api",
+      "name": "ClassScout API",
+      "app": "classscout-api",
+      "apiBase": "https://classscout-api.vercel.app",
+      "prefix": "classscout-api",
+      "discovery": {
+        "enabled": true,
+        "mode": "researcher",
+        "schedule": {
+          "kind": "every",
+          "everyMs": 2700000
+        }
+      },
+      "enrichment": {
+        "enabled": true,
+        "schedule": {
+          "kind": "every",
+          "everyMs": 1800000
+        }
+      },
+      "brandFields": {
+        "pro": null,
+        "con": null,
+        "valuePropThemes": []
+      },
+      "forbiddenFields": [],
+      "enrichmentCriteria": {
+        "minContacts": 0,
+        "valuePropMinLength": 0,
+        "minPros": 0,
+        "minCons": 0,
+        "confidenceThreshold": 0
+      },
+      "qualityGate": {
+        "minFields": 6,
+        "requiredFields": [
+          "name",
+          "provider",
+          "borough",
+          "category",
+          "age_min",
+          "age_max",
+          "phone_or_email",
+          "address",
+          "schedule",
+          "pricing",
+          "description"
+        ],
+        "contactRequired": true
+      },
+      "scope": "NYC classes, camps, programs for parents and kids (ages 0-17)",
+      "boroughs": [
+        "Manhattan",
+        "Brooklyn",
+        "Queens",
+        "Bronx",
+        "Staten Island"
+      ],
+      "categories": [
+        "Sports",
+        "Arts",
+        "STEM",
+        "Music",
+        "Dance",
+        "Language",
+        "Academic",
+        "Special Needs"
+      ],
+      "notes": "Research-only tenant. NEVER touch classscout.ai core system. Separate MongoDB Atlas database."
+    }
+  },
+  "defaults": {
+    "discovery": {
+      "entitiesPerRun": 3,
+      "webFetchResilience": true,
+      "verifyAfterPost": true
+    },
+    "enrichment": {
+      "candidatesPerRun": 5,
+      "verifyAfterPut": true,
+      "maxRetries": 1,
+      "contactEnrichmentPolicy": {
+        "continueAcrossSources": true,
+        "contactFields": ["contacts.email", "contacts.phone", "contacts.name", "contacts.title"],
+        "behavior": "Keep enriching contact-related fields even after one phone/email value is recorded. An organization or contact may have multiple valid addresses: mobile, office, general info, role-specific contacts, etc. A populated phone_or_email or single contacts[] entry does not mark the record complete for contact research."
+      }
+    },
+    "ice": {
+      "impactMax": 10,
+      "confidenceMax": 10,
+      "easeMax": 10,
+      "maxScore": 1000
+    }
+  }
+}
