@@ -23,8 +23,8 @@
         }
       },
       "brandFields": {
-        "pro": "pro_for_cogmap",
-        "con": "con_for_cogmap",
+        "pro": "pro_for_organization",
+        "con": "con_for_organization",
         "valuePropThemes": [
           "cognitive assessment",
           "player performance analytics",
@@ -32,10 +32,6 @@
           "situational-awareness tools"
         ]
       },
-      "forbiddenFields": [
-        "pro_for_seyu",
-        "con_for_seyu"
-      ],
       "enrichmentCriteria": {
         "minContacts": 1,
         "valuePropMinLength": 80,
@@ -91,8 +87,8 @@
         }
       },
       "brandFields": {
-        "pro": "pro_for_seyu",
-        "con": "con_for_seyu",
+        "pro": "pro_for_organization",
+        "con": "con_for_organization",
         "valuePropThemes": [
           "fan selfie engagement",
           "LED and screen activation",
@@ -131,8 +127,8 @@
           "industry",
           "contacts",
           "value_proposition",
-          "pro_for_seyu",
-          "con_for_seyu"
+          "pro_for_organization",
+          "con_for_organization"
         ]
       },
       "scope": "Sports clubs, leagues, federations with live events; entertainment venues and live-event promoters; sports media and broadcasters; sports-tech and fan-engagement vendors",
