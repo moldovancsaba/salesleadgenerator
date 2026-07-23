@@ -1,7 +1,7 @@
 # Deployment Log
 
 ## Latest Deployment
-- **Commit**: (this session's fix; hash recorded after push)
+- **Commit**: 26c3ea1
 - **Message**: fix: add hideWhenNoMedia to the remaining AdminResourceCard usage in search-learning
 - **Build Status**: Verified via `tsc --noEmit` (pre-existing GDS-stub artifact only), `eslint` clean, `vitest run` (33/33), smoke suite (5/5).
 - **Context**: The owner reported the image placeholder was still showing after `4169b22` shipped. That commit only touched the kanban `LeadCard` (switched to `ProductCard`) — it never touched `app/search-learning.tsx`'s separate `AdminResourceCard` usage in its "Top Queries" cards, which is almost certainly what the owner was still seeing. Read `AdminResourceCard`'s real source (`packages/gds-admin/src/AdminResourceManager.tsx`, via the same `raw.githubusercontent.com` path used for `ProductCard`) instead of guessing: it wraps `MediaPreviewCard` and exposes `hideWhenNoMedia?: boolean`, documented inline as *"Omit the media area entirely for records with no media, instead of a placeholder block"* — defaulting to showing the placeholder unless a consumer opts in. Neither `AdminResourceCard` usage in this repo (the old `LeadCard`, now replaced, and `search-learning.tsx`) ever passed it. Added `hideWhenNoMedia` to `search-learning.tsx`'s usage. Also read `app/table.tsx`'s `AdminDataTable` source to rule it out as another source of the same symptom — confirmed its mobile-card path has no media/placeholder chrome around the fully custom `renderMobileCard` prop.
