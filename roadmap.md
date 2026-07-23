@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.2.0
+**Version:** 2.2.1
 
 ---
 
@@ -16,6 +16,11 @@
 - ✅ Removed 3 orphaned/dead modules (`app/lib/validate-lead.ts` duplicate, `app/lib/ai-scoring/`, `lib/lead-validator.ts`)
 - ✅ Corrected `Lead.region`'s frontend type and a resulting live badge-color bug
 - ✅ `CLAUDE.md` operating rules recorded for future sessions
+
+### PWA and Zoom Fix (2.2.1)
+- ✅ Root-caused and fixed pinch-zoom still working despite 3 prior attempts: the viewport meta tag alone was never sufficient, since iOS Safari has ignored `user-scalable=no`/`maximum-scale` since iOS 10. Added `touch-action: manipulation` CSS plus a JS-level gesture/multi-touch guard, the layers iOS Safari actually respects.
+- ✅ Root-caused and fixed the app never behaving as an installable PWA: `manifest.json`'s referenced icon files (`icon-192.png`, `icon-512.png`) didn't exist at all. Added real icons plus a minimal service worker (precaches only the static shell — manifest/icons — never live lead data).
+- ⚠️ Real-device verification (actual iOS Safari pinch behavior, Android Chrome install prompt) still pending — not verifiable from the development environment.
 
 ### Outreach and Pipeline
 - ✅ One-click outreach templates with analytics (`/api/outreach-templates?mode=analytics`)
@@ -64,7 +69,6 @@
 | Item | Notes |
 |------|-------|
 | Available countries visibility | Country filter UI is implemented, but live lead data currently lacks populated `country` values, so the list may appear empty until data is backfilled or mapped from `region` |
-| Mobile zoom refinement | Zoom behavior tightened but may still need further PWA-specific tuning |
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
 | `outcomeLogs`/`outcomelogs` collection split | Needs a direct database check (which collection, if either, holds real data) before a code fix ships |
 | Unused Mongoose models decision | `models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts` are unused and schema-drifted; needs an owner decision — delete, or repair as a migration path |

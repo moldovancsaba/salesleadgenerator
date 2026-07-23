@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.2.0
+**Version:** 2.2.1
 
 ---
 
@@ -55,7 +55,7 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 |-----------|-------|
 | Vercel | Production hosting, preview deployments |
 | MongoDB Atlas | Managed database cluster |
-| PWA | Web app manifest, standalone mode |
+| PWA | Web app manifest, standalone mode, minimal shell-only service worker (`public/sw.js`), CSS + JS zoom lock (`app/globals.css`, `app/components/PwaSetup.tsx`) — see `docs/ARCHITECTURE.md`'s "PWA and Zoom Lock" section |
 
 ---
 
