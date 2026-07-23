@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.7
+
+Resolved the two "flag only" decisions left open from the second audit pass (GitHub issues #20 and #21) — both were closed previously with only their low-risk sub-fixes shipped, the actual decisions never made.
+
+### Removed
+- **`models/Lead.ts`, `models/OutcomeLog.ts`, `models/SearchLearning.ts` deleted** (issue #20, decision: delete). Re-verified zero importers anywhere in `app/`, `lib/`, or `scripts/`. Their schemas had drifted from reality (a `status` enum unrelated to the real `kanbanColumn` vocabulary, missing `seyu` field equivalents), and nothing in the codebase — no comment, no doc, no in-progress code — signaled an actual planned migration to Mongoose; the app has exclusively used the raw `mongodb` driver for all real reads/writes since before this repo's own tracked history. `mongoose` remains a legitimate direct dependency: several standalone maintenance scripts (`scripts/seed.js`, `scripts/check-db.js`, `scripts/audit-db.js`, `scripts/fix-*-region*.js`) use `mongoose.connect()` purely as a connection helper, then operate via the raw driver underneath (`mongoose.connection.db.collection(...)`) — none of them import the deleted model files. `docs/STACK_AND_DEPENDENCIES.md` updated to describe this accurately.
+
+### Changed
+- **Unified the three lead-listing endpoints' pagination shapes** (issue #21, decision: unify on cursor pagination). `/api/leads`, `/api/search`, and `/api/leads/columns` now all return `hasMore`/`nextCursor`.
+  - `/api/leads`: cursor support added **additively and opt-in** — a request without `cursor` behaves exactly as before (same `page`/`limit`/`totalPages`/`total`/`returned` fields, same default sort), because this endpoint has a real external consumer this repo doesn't fully control: the research agent's one-shot `GET /api/leads?brand=<tenantId>&limit=1000` listing call (referenced in `agent-runtime/schema-mapper.js` and both discovery/enrichment prompts). Sending `cursor=<value>` switches to a `createdAt desc, _id desc` sort and returns `hasMore`/`nextCursor` for that request only.
+  - `/api/search`: fully converted, since its only real consumer is this app's own predictive search bar (verified — no other in-repo or external caller found). `results` renamed to `leads`; the previous `total` field (which was actually just `results.length`, a smaller-scale version of the same naming trap `/api/leads` had before 2.2.2) replaced with a real `count` from `countDocuments`. Cursor pagination works when a specific `brand` is requested (the only mode the search bar uses); querying across every brand at once merges two independently-sorted collections with no single resumable cursor position, so that mode honestly stays a flat capped list (`hasMore` always `false`) rather than faking a cursor that couldn't actually resume correctly.
+  - `sales-page-client.tsx`'s table-view fetch switched from a single hard-capped `limit=5000` request to looping on `hasMore`/`nextCursor` — removes a silent-truncation risk for any brand that ever exceeds 5000 leads, and the predictive search handler updated to read `data.leads` instead of the now-renamed `data.results`.
+
+### Verification note
+Confirmed via direct grep across `app/`, `lib/`, `agent-runtime/`, and `scripts/` that no in-repo code reads `/api/leads`'s `page`/`total`/`totalPages` fields (only the external research-agent integration touches this endpoint outside the frontend, and only to build the request URL, not parse pagination metadata from the response) — this is why the additive, non-breaking approach was chosen for `/api/leads` specifically rather than a hard cutover.
+
 ## 2.4.6
 
 ### Fixed

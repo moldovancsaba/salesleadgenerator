@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.6
+**Version:** 2.4.7
 
 ---
 
@@ -36,13 +36,13 @@
 - Detail modal — lead actions, outreach compose, feedback
 
 ### Key client behavior
-- Fetches all pages from `GET /api/leads?brand=<brand>` and normalizes locally
+- Fetches all pages from `GET /api/leads?brand=<brand>` (cursor-paginated as of 2.4.7, looping on `hasMore`/`nextCursor` instead of a single capped fetch) and normalizes locally
 - Uses `handleAction` for mutations: ACCEPT, DECLINE, PIN, REQUEST_REFRESH, COLUMN_MOVE, DELETE
 - Uses `handleMove` for drag-to-column moves, invoked by kanban's pointer-based drag-and-drop (see below) — as of 2.4.0, `handleMove` is genuinely wired to a UI gesture; previously the function existed but nothing called it
 - Shows Mantine notifications for success/failure
 - No manual sort control exists in the UI (the header's Asc/Desc button was removed in 2.4.3 — it never actually sorted anything). DISCOVERED/QUALIFIED sort by ICE score server-side (2.4.4); ENGAGED/PROPOSAL/WON/LOST sort by `sortOrder`
 - Detail modal is full-screen on mobile via `matchMedia`
-- Predictive search bar (top-center, under the header): an always-editable `TextInput` with a debounced dropdown of matches from `GET /api/search?q=&brand=`; selecting a result opens the detail modal directly. Originally built with GDS's `SearchableSelect`, but that component is a closed combobox picker (a button that only reveals its real typing field once opened) rather than a search bar, and was confusing to use — replaced with a plain input in 2.4.1
+- Predictive search bar (top-center, under the header): an always-editable `TextInput` with a debounced dropdown of matches from `GET /api/search?q=&brand=`; selecting a result opens the detail modal directly. Originally built with GDS's `SearchableSelect`, but that component is a closed combobox picker (a button that only reveals its real typing field once opened) rather than a search bar, and was confusing to use — replaced with a plain input in 2.4.1. Reads the response's `leads` array (renamed from `results` in 2.4.7)
 
 ### Kanban Lead Card
 `app/card.tsx`'s `LeadCard` renders each kanban card via `ProductCard` from `@sovereignsquad/gds-core/client` (compact `density`/`variant`, `size="sm"`) — switched from `AdminResourceCard` (`@sovereignsquad/gds-admin/client`) in 2.3.1, because `AdminResourceCard` always reserved a media/thumbnail placeholder area even when a lead has no image (the `Lead` data model has no image/logo field at all — there is currently no case where a lead has one). `ProductCard`'s `media`/`icon` props are genuine optional `ReactNode`s rendered bare (`{media}`), so omitting them entirely renders nothing — no placeholder box. Verified against the real component source in `sovereignsquad/general-design-system` (not guessed). Cards show a "ticket size" metadata row (`getTicketSize()` in `app/constants.ts`) — the estimated deal value, direct for CogMap (`estimated_annual_revenue_usd`), summed from per-lead pricing blocks for Seyu (`pricingByCompany`).
@@ -62,7 +62,7 @@
 ## API Layer
 
 ### Leads
-- `GET /api/leads?brand=<brand>` — list leads with pagination, region/column filters, tenant-aware queries, UI dedup by fingerprint
+- `GET /api/leads?brand=<brand>` — list leads with region/column filters, tenant-aware queries, UI dedup by fingerprint. Two pagination modes: legacy `page`/`limit` (default, unchanged since before 2.4.7 — still what the external research-agent's one-shot `?limit=1000` listing call uses) and opt-in cursor pagination (`?cursor=<value>`, added 2.4.7) returning `hasMore`/`nextCursor`; both modes are present in every response so existing callers ignoring the new fields are unaffected
 - `POST /api/leads?brand=<brand>` — create lead with normalization, dedup, quality gate, ICE scoring, and outcome logging
 - `PATCH /api/leads?brand=<brand>&id=<id>` — action lead via shared `lead-actions` helper
 - `GET /api/leads/[id]?brand=<brand>` — fetch single lead
@@ -92,7 +92,7 @@
 ### Learning
 - `GET /api/search-learning` — search memory and success metrics
 - `POST /api/search-learning` — update search memory from operator feedback
-- `GET /api/search?q=<query>` — full-text search across leads, deduped by fingerprint (newest wins) as of 2.4.1, matching `/api/leads`'s existing dedup
+- `GET /api/search?q=<query>` — full-text search across leads, deduped by fingerprint (newest wins) as of 2.4.1, matching `/api/leads`'s existing dedup. Response shape unified with `/api/leads`/`/api/leads/columns` as of 2.4.7: `leads` (renamed from `results`), a real `count`, and `hasMore`/`nextCursor` — cursor pagination works when a specific `brand` is given (the only mode the app's own search bar uses); querying across every brand at once has no single resumable cursor across the independently-sorted collections, so that mode stays a flat capped list (`hasMore` always `false`)
 
 ### Feedback / Audit
 - `GET /api/outcome-logs` — outcome-log history
@@ -147,9 +147,9 @@ Tracks query success, accepted/declined counts, top terms, and top domains.
 ## Request and Response Flows
 
 ### List Leads
-1. Frontend calls `GET /api/leads?brand=<brand>&limit=500&page=<n>`
+1. Frontend calls `GET /api/leads?brand=<brand>&limit=500` — as of 2.4.7, with `cursor=<nextCursor>` on subsequent requests, looping until `hasMore` is `false` (no more hard-capped single fetch)
 2. Route builds tenant-aware filter; legacy docs without `tenantId` are included for `default`
-3. MongoDB query sorts by `kanbanColumn`, `sortOrder`, `createdAt`
+3. Without `cursor`: legacy path, sorts by `kanbanColumn`, `sortOrder`, `createdAt`, paginated via `page`/`skip`. With `cursor`: sorts by `createdAt desc, _id desc` (matching the dedup step's final order below) and paginates via the cursor instead
 4. Response dedups by fingerprint client-side and strips top-level contact fields
 5. Frontend normalizes and renders kanban or table view
 
@@ -212,18 +212,11 @@ HTTP handlers for leads, health, outreach, learning, search, stats, and boards.
 - `request-id.ts` — request tracing
 - `request-retry.ts` — retry utility for transient failures
 
-### `models/*`
-- `Lead.ts` — Mongoose schema, indexes (fingerprint logic imported from `lib/fingerprint.ts`)
-- `OutcomeLog.ts` — outcome log schema
-- `SearchLearning.ts` — search learning schema
-
-**Status: none of these 3 models are imported anywhere in the app** — all real reads/writes go through the raw `mongodb` driver (`lib/mongodb.ts`). Their schemas have drifted from reality in places (e.g. `Lead.ts`'s `status` enum doesn't match the real `kanbanColumn` vocabulary). Whether to delete them or bring them in line with reality as a future migration path is an open decision — see the repo's GitHub issue tracker (issue #20).
-
 ### `lib/*`
 - `mongodb.ts` — MongoDB client promise, `isMongoConfigured()`
 - `api-auth.ts` — API key enforcement
 - `validate-lead.ts` — shared validation (`validateLeadPayload`, with a `{ partial: true }` mode for updates; `validatePatchPayload` for action-envelope patches)
-- `fingerprint.ts` — dedup hash (`SHA1(url + entity_name + region)`), shared by `models/Lead.ts`'s pre-save hook and `app/api/leads/route.ts`
+- `fingerprint.ts` — dedup hash (`SHA1(url + entity_name + region)`), used by `app/api/leads/route.ts`
 - `kanban-column.ts` — ICE-score → kanban-column mapping (2-tier, 500 threshold), `isAutoManagedColumn()`, and `ICE_SCORE_AGGREGATION_EXPR` (Mongo aggregation mirroring `getIceScore()`); shared by `app/api/leads/route.ts` (creation), `app/api/leads/[id]/route.ts` (reclassify-on-update), and `app/api/leads/columns/route.ts` (ICE-based column sort)
 - `pipeline-weights.ts` — pipeline-weight forecast defaults + `settings`-collection lookup, shared by `stats`, `boards/[brand]`, and `forecast/export` routes
 - `tenant.ts` — `getTenantId()`/`tenantFilter()`, shared by `stats`, `boards/[brand]`, and `health` routes

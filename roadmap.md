@@ -1,10 +1,14 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.6
+**Version:** 2.4.7
 
 ---
 
 ## Shipped
+
+### Mongoose Models Deleted, Pagination Unified on Cursors (2.4.7)
+- ✅ Resolved issue #20: `models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts` deleted — zero importers anywhere (re-verified), schemas had drifted from reality, and nothing in the codebase signaled an intended future Mongoose migration path (`mongoose` itself remains a real dependency, used only as a connection helper in `scripts/*.js` maintenance scripts). `docs/STACK_AND_DEPENDENCIES.md` updated to match.
+- ✅ Resolved issue #21: `/api/leads`, `/api/search`, and `/api/leads/columns` now share one pagination contract (`hasMore`/`nextCursor`, cursor-paginated). `/api/leads` keeps its legacy `page`/`limit`/`totalPages` fields working exactly as before — `cursor` is opt-in, so the research agent's existing one-shot `?limit=1000` listing call (a consumer this repo doesn't control) is completely unaffected. `/api/search` renamed `results` → `leads` and added a real `count`; cursor pagination applies when a specific `brand` is given (the only mode the app's own search bar uses), and stays an honest flat capped list when searching every brand at once (no single resumable cursor across independently-sorted collections). The table view's frontend fetch switched from a single hard-capped `limit=5000` request to looping on `hasMore`/`nextCursor`, removing a silent-truncation risk for any brand that ever exceeds 5000 leads.
 
 ### Mantine Inputs Still Force-Zooming on iOS Safari (2.4.6)
 - ✅ The 2.4.1 focus-zoom fix (`input, select, textarea { font-size: 16px }`) never actually applied to Mantine's own inputs — Mantine's compiled CSS sets font-size via a class selector with higher specificity than a bare type selector, so it silently won every time regardless of source order. The header's view-mode dropdown (and potentially the Mantine search `TextInput`) kept force-zooming as a result. Added `!important`, which unconditionally wins the cascade; widened the view-mode `Select` (132px → 168px) to fit its longest label at the now-enforced 16px font.
@@ -113,9 +117,7 @@
 | iOS focus-zoom real-device confirmation (2.4.6) | The `!important` fix is confirmed correct by CSS-cascade semantics and by inspecting the actual compiled/served stylesheet, but this sandbox has no way to reproduce iOS Safari's zoom-on-focus behavior itself (no headless/desktop equivalent) — a real-device check is still recommended |
 | Available countries visibility | Country filter UI is implemented, but live lead data currently lacks populated `country` values, so the list may appear empty until data is backfilled or mapped from `region` |
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
-| Unused Mongoose models decision | `models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts` remain unused (no importers); `Lead.ts`'s pro/con field names were corrected to the generic scheme in 2.3.0, but the broader decision — delete the files, or repair them fully as a migration path — is still open |
-| Orphaned standalone scripts with drifted kanban-column logic | `lead-feeder-agent.js` and `scripts/migrate-check-schema.js` each contain their own, separate ICE→column derivation with different (older) thresholds than the real `lib/kanban-column.ts`; neither is wired into any `npm` script or the running app — same unused/orphaned status as the Mongoose models above, flagged as of 2.4.4 rather than left as a silent inconsistency |
-| Pagination shape unification | 3 lead-listing endpoints intentionally use 3 different pagination contracts (full page-list, capped search, cursor-paginated column); the misleading `total` field naming trap was fixed in 2.2.2, but full unification still needs a coordinated frontend+backend design pass, not a drive-by fix |
+| Orphaned standalone scripts with drifted kanban-column logic | `lead-feeder-agent.js` and `scripts/migrate-check-schema.js` each contain their own, separate ICE→column derivation with different (older) thresholds than the real `lib/kanban-column.ts`; neither is wired into any `npm` script or the running app — flagged as of 2.4.4, not yet resolved |
 | PWA installability real-device gap | Owner reports install behavior still not as expected on a real device; needs specifics (platform, symptom) before a further fix can be scoped |
 
 ---

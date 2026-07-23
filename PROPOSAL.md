@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.6
+**Version:** 2.4.7
 
 ## Purpose
 
@@ -46,6 +46,12 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ### Kanban Auto-Classification and ICE Sort Rule (2.4.4)
 - Owner specified an exact business rule: `DISCOVERED`/`QUALIFIED` are auto-managed purely by ICE score (500 threshold, always sorted high to low, no other sort); every other column is exclusively user-managed once a lead is moved there. `lib/kanban-column.ts` was rewritten from a 3-tier 480/720 rule (which also auto-promoted to `ENGAGED`) to the correct 2-tier rule. `PUT /api/leads/[id]` now reclassifies a lead's column on ICE-score change, but only while it's still in an auto-managed column. `GET /api/leads/columns` now sorts the two auto-managed columns by a computed-ICE aggregation instead of `sortOrder`, with cursor pagination re-encoded around the score. The already-declared-but-unused `ICE_QUALIFIED_THRESHOLD` constant and the incorrect 480/720 test fixtures were both cleaned up in the same change.
+
+### Mantine Inputs Still Force-Zooming on iOS Safari (2.4.6)
+- The 2.4.1 focus-zoom fix (`input, select, textarea { font-size: 16px }`) never actually applied to Mantine's own components — Mantine's compiled CSS sets font-size via a class selector, which has higher specificity than a bare element selector and always won regardless of source order. Confirmed by inspecting Mantine's actual shipped stylesheet rather than guessing. Added `!important`, which unconditionally wins the cascade; widened the header's view-mode `Select` (132px → 168px) to fit its longest label at the now-correctly-enforced 16px font. Real-device confirmation still recommended — this is an iOS-Safari-only behavior with no headless/desktop equivalent to screenshot.
+
+### Mongoose Models Deleted, Pagination Unified on Cursors (2.4.7)
+- Resolved the two remaining "flag only" decisions from the second audit pass. Issue #20: `models/Lead.ts`/`OutcomeLog.ts`/`SearchLearning.ts` deleted (zero importers, drifted schemas, no signal anywhere of an intended future Mongoose migration — `mongoose` itself stays as a dependency, used only as a connection helper in `scripts/*.js`). Issue #21: `/api/leads`, `/api/search`, and `/api/leads/columns` now share one pagination contract (`hasMore`/`nextCursor`). `/api/leads` added cursor support as a purely additive, opt-in mechanism — its legacy `page`/`limit`/`totalPages` fields and default sort are completely untouched, since the external research agent's one-shot `?limit=1000` listing call is a consumer this repo doesn't control and couldn't safely audit further. `/api/search` (frontend-only consumer, fully controlled) was changed more directly: `results` renamed to `leads`, a real `count` added, and cursor pagination wired for its single-brand mode. The table view's fetch was switched from one hard-capped `limit=5000` request to a cursor loop.
 
 ### Header Overflow, Desktop Detail Panel, and Stuck Drag-Ghost Fixes (2.4.5)
 - A live device screenshot review surfaced 3 real bugs. (1) The header/search bar overflowed the screen on narrow viewports: a `wrap="nowrap"` row combining verbose 3-line header text with the view-mode selector was wider than the viewport with nothing able to shrink or wrap, so the selector (and potentially content below it) rendered off-screen instead of clipping. Compacted the header to two rows and dropped the verbose timestamp/"weighted" wording per the owner's requested terse format; added a global `overflow-x: hidden` CSS safety net. (2) The desktop/tablet-width (≥1280px) lead detail panel — `AdminDetailDrawer` in `app/detail.tsx` — was missing its entire body (ICE score, contacts, pros/cons, every action button) because the call site only ever passed `metadata`, never `content`, unlike the mobile `AdminModal` branch; confirmed against `AdminDetailDrawer`'s real source (`packages/gds-admin/src/AdminOverlays.tsx`) that it renders `{media}`, `{metadata}`, `{children}` and simply never received the last one. Fixed by passing `{content}` as children. (3) A quick tap on a kanban card could leave a permanently stuck drag-ghost and dimmed card: the drag-arm timer in `app/kanban.tsx` was cancelled only on excess pointer movement, never on `pointerup`/`pointercancel`, so an ordinary quick tap still let the 200ms timer fire after the pointer had already lifted, with no future `pointerup` on that pointerId ever arriving to clear it. Fixed by cancelling the timer on release too.
@@ -120,15 +126,10 @@ This document tracks proposed improvements against the current shipped state. Co
 ### Test Coverage
 - API/route tests beyond validation smoke tests (unit coverage of shared `lib/*` logic has grown substantially in 2.2.0, but full route-level integration tests remain TODO)
 
-### Data Integrity Decisions Needed
-- Unused Mongoose models (`models/*`) — needs an owner decision: delete, or repair as a migration path
-- Pagination-shape unification across `/api/leads`, `/api/search`, `/api/leads/columns` — API-contract change requiring a coordinated frontend update (note: the misleading `total` field naming trap within `/api/leads` was fixed in 2.2.2; the broader 3-shape unification is still open)
-
 ---
 
 ## Priority Order
 
-1. Data integrity decisions (collection-name split, Mongoose models)
-2. Mobile UX polish
-3. Research agent reliability
-4. Multi-tenant hardening
+1. Mobile UX polish
+2. Research agent reliability
+3. Multi-tenant hardening

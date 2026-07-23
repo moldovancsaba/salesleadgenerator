@@ -195,6 +195,7 @@ export async function GET(request: Request) {
     const limit = Math.max(1, Math.min(5000, parseInt(searchParams.get('limit') || '5000') || 5000))
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
     const skip = (page - 1) * limit
+    const cursor = searchParams.get('cursor') || undefined
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
@@ -214,12 +215,52 @@ export async function GET(request: Request) {
     if (kanbanColumn) filter.kanbanColumn = kanbanColumn
 
     const totalCount = await db.collection(config.dbCollection).countDocuments(filter)
-    const rawLeads = await db.collection(config.dbCollection)
-      .find(filter)
-      .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
-      .limit(limit)
-      .skip(skip)
-      .toArray()
+
+    let rawLeads: any[]
+    let hasMore = false
+    let nextCursor: string | undefined
+
+    if (cursor !== undefined) {
+      // Opt-in cursor pagination (the same shape /api/leads/columns and
+      // /api/search use): sorts by createdAt desc, _id desc as a tie-break —
+      // matching the createdAt-desc order the dedup step below already
+      // produces regardless of the legacy sort. This path only activates
+      // when a caller actually sends `cursor`, so the legacy page/skip path
+      // — still used by the research agent's one-shot `?limit=1000` listing
+      // call, an external consumer this repo doesn't control — is completely
+      // untouched for anyone who doesn't opt in.
+      let cursorFilter: Record<string, any> = {}
+      const [createdAtStr, id] = cursor.split('|')
+      const createdAtMs = Number(createdAtStr)
+      const { ObjectId } = await import('mongodb')
+      const idObj = ObjectId.isValid(id) ? new ObjectId(id) : undefined
+      if (Number.isFinite(createdAtMs) && idObj) {
+        cursorFilter = {
+          $or: [
+            { createdAt: { $lt: new Date(createdAtMs) } },
+            { createdAt: new Date(createdAtMs), _id: { $lt: idObj } },
+          ],
+        }
+      }
+
+      rawLeads = await db.collection(config.dbCollection)
+        .find({ $and: [filter, cursorFilter] })
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(limit)
+        .toArray()
+
+      hasMore = rawLeads.length >= limit
+      const last = rawLeads[rawLeads.length - 1]
+      nextCursor = hasMore && last ? `${new Date(last.createdAt).getTime()}|${last._id.toString()}` : undefined
+    } else {
+      rawLeads = await db.collection(config.dbCollection)
+        .find(filter)
+        .sort({ kanbanColumn: 1, sortOrder: 1, createdAt: -1 })
+        .limit(limit)
+        .skip(skip)
+        .toArray()
+      hasMore = skip + rawLeads.length < totalCount
+    }
 
     // UI dedup: collapse duplicate fingerprints to the newest document per fingerprint
     const byFingerprint = new Map<string, any>()
@@ -268,7 +309,9 @@ export async function GET(request: Request) {
       total: totalCount,
       page,
       limit,
-      totalPages: Math.ceil(totalCount / limit)
+      totalPages: Math.ceil(totalCount / limit),
+      hasMore,
+      nextCursor,
     })
   } catch (error: any) {
     console.error('GET Error:', error)
