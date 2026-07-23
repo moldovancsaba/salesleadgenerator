@@ -48,8 +48,8 @@ export type Lead = {
     linkedin?: string;
     role?: string;
   }>;
-  pro_for_cogmap?: string | string[];
-  con_for_cogmap?: string | string[];
+  pro_for_organization?: string | string[];
+  con_for_organization?: string | string[];
   value_proposition?: string;
   priority?: "high" | "medium" | "low";
   status?: string;

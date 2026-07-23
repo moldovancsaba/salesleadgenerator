@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.2.3
+**Version:** 2.3.0
 
 ---
 
@@ -105,7 +105,7 @@ Canonical contact storage is `contacts[]`. Top-level contact fields are merged i
 Key fields:
 - `entity_name`, `url`, `region`, `country`
 - `contacts[]` with `name`, `title`, `email`, `phone`, `linkedin`, `role`
-- Brand-aware pros/cons: `pro_for_cogmap`, `con_for_cogmap`, `pro_for_seyu`, `con_for_seyu`
+- Organization-agnostic pros/cons (as of 2.3.0): `pro_for_organization`, `con_for_organization` — one shared field name across every brand/tenant, not brand-specific (`PRO_FIELD`/`CON_FIELD` in `app/lib/brand.ts`)
 - `kanbanColumn`, `sortOrder`
 - `fingerprint` — SHA1 of `url + entity_name + region`
 - `ice.impact`, `ice.confidence`, `ice.ease`
@@ -171,7 +171,7 @@ Tracks query success, accepted/declined counts, top terms, and top domains.
 ### Update Lead
 1. Frontend or agent calls `PUT /api/leads/[id]?brand=<brand>` with field updates
 2. `requireApiKey` enforces auth
-3. Request body is validated via `validateLeadPayload(body, brand, { partial: true })` — the same rules `POST` enforces (URL format, ICE range, forbidden cross-brand fields/vocabulary), but only for whichever fields are actually present in the partial update, not required unconditionally
+3. Request body is validated via `validateLeadPayload(body, brand, { partial: true })` — the same rules `POST` enforces (URL format, ICE range, forbidden cross-brand vocabulary), but only for whichever fields are actually present in the partial update, not required unconditionally
 4. Route updates allowed fields without requiring the ACCEPT/DECLINE/etc. action workflow
 5. Response returns updated lead
 
@@ -237,7 +237,7 @@ HTTP handlers for leads, health, outreach, learning, search, stats, and boards.
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)
 - Brand-aware field normalization prevents cross-tenant writes
-- Schema mapper/validator blocks forbidden fields and forbidden cross-brand vocabulary in free-text fields
+- Schema mapper/validator blocks forbidden cross-brand vocabulary in free-text fields (e.g. `value_proposition`). The pro/con fields themselves stopped being brand-specific in 2.3.0 — there's nothing left to forbid cross-brand there, since every brand shares one generic field
 
 ---
 
@@ -254,5 +254,5 @@ HTTP handlers for leads, health, outreach, learning, search, stats, and boards.
 
 - Each brand maps to its own MongoDB collection
 - `tenantId` scopes queries; default includes legacy docs without `tenantId`
-- Brand-aware pros/cons fields prevent cross-brand writes
+- Pros/cons fields are generic and shared across brands (2.3.0) — isolation between brands comes from the separate `leads`/`seyu_leads` collections, not from field naming
 - Outreach templates and logs are tenant-scoped

@@ -6,6 +6,7 @@ import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } f
 import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
+import { PRO_FIELD, CON_FIELD } from './lib/brand';
 import {
   IconX,
   IconThumbUp,
@@ -69,9 +70,9 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   const maxIce = 1000;
   const icePercent = Math.min(100, (iceScore / maxIce) * 100);
 
-  const normalized = normalizeLead(lead, brand);
-  const normalizedPro = ensureArrayField((normalized as any)[`pro_for_${brand}`]);
-  const normalizedCon = ensureArrayField((normalized as any)[`con_for_${brand}`]);
+  const normalized = normalizeLead(lead);
+  const normalizedPro = ensureArrayField((normalized as any)[PRO_FIELD]);
+  const normalizedCon = ensureArrayField((normalized as any)[CON_FIELD]);
 
   const iceToneValue = iceScore >= 700 ? 'teal' : iceScore >= 480 ? 'green' : iceScore >= 200 ? 'orange' : 'blue';
   const regionToneValue = lead.region === 'US' ? 'blue' : lead.region === 'CEE' ? 'indigo' : lead.region === 'MENA' ? 'green' : 'gray';

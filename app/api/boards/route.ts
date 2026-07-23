@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { BRAND_CONFIG } from '../../lib/brand'
+import { BRAND_CONFIG, PRO_FIELD, CON_FIELD } from '../../lib/brand'
 
 function getTenantId(request: Request): string {
   const url = new URL(request.url)
@@ -22,8 +22,8 @@ export async function GET(request: Request) {
       label: config.label,
       apiPrefix: config.apiPrefix,
       dbCollection: config.dbCollection,
-      proField: config.proField,
-      conField: config.conField,
+      proField: PRO_FIELD,
+      conField: CON_FIELD,
     }))
 
     return NextResponse.json({

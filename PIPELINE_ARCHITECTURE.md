@@ -109,10 +109,8 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
   decision_maker_title: string
   decision_maker_contact: string
   contacts: Array<{ name, title, email, phone, linkedin }>
-  pro_for_cogmap: string[]
-  con_for_cogmap: string[]
-  pro_for_seyu: string[]
-  con_for_seyu: string[]
+  pro_for_organization: string[]  // generic since 2.3.0 — shared across every brand, not brand-specific
+  con_for_organization: string[]
   value_proposition: string
   ice: { impact: number, confidence: number, ease: number }
   fingerprint: string (SHA1, indexed)

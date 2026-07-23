@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import clientPromise, { isMongoConfigured } from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
-import { BRAND_CONFIG } from '../../../lib/brand'
+import { BRAND_CONFIG, PRO_FIELD, CON_FIELD } from '../../../lib/brand'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,12 +39,12 @@ export async function GET(request: Request) {
 
         const malformedWithProFor = await db.collection(config.dbCollection).countDocuments({
           ...tenantFilter,
-          [config.proField]: { $type: 'object' },
+          [PRO_FIELD]: { $type: 'object' },
         })
 
         const malformedWithConFor = await db.collection(config.dbCollection).countDocuments({
           ...tenantFilter,
-          [config.conField]: { $type: 'object' },
+          [CON_FIELD]: { $type: 'object' },
         })
 
         const malformedIce = await db.collection(config.dbCollection).countDocuments({

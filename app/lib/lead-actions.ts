@@ -1,4 +1,4 @@
-import { BRAND_CONFIG } from './brand'
+import { BRAND_CONFIG, PRO_FIELD, CON_FIELD } from './brand'
 import { normalizeLead } from './normalize-lead'
 import { validatePatchPayload } from '../../lib/validate-lead'
 import { isMongoConfigured } from '../../lib/mongodb'
@@ -40,7 +40,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
   const validation = validatePatchPayload({ action, ...payload }, brand)
   if (!validation.valid) return { success: false, error: validation.errors.join('; '), requestId }
 
-  const normalizedBody = normalizeLead({ ...existing, ...payload, action }, brand)
+  const normalizedBody = normalizeLead({ ...existing, ...payload, action })
   const updateData: Record<string, any> = { updatedAt: new Date() }
   let outcomeValue: string = action
 
@@ -78,8 +78,8 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     fields.forEach(field => {
       if (normalizedBody[field] !== undefined) updateData[field] = normalizedBody[field]
     })
-    if (normalizedBody[config.proField]) updateData[config.proField] = normalizedBody[config.proField]
-    if (normalizedBody[config.conField]) updateData[config.conField] = normalizedBody[config.conField]
+    if (normalizedBody[PRO_FIELD]) updateData[PRO_FIELD] = normalizedBody[PRO_FIELD]
+    if (normalizedBody[CON_FIELD]) updateData[CON_FIELD] = normalizedBody[CON_FIELD]
     if (normalizedBody.qualityStatus) {
       const { enforceQualityCeiling } = await import('../../lib/quality-registry')
       const upstreamQuality = normalizedBody.upstreamQualityStatuses || ['DRAFT']
@@ -129,7 +129,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     tenantId,
   })
 
-  const normalizedLead = normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }, brand)
+  const normalizedLead = normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() })
 
   return { success: true, lead: normalizedLead, requestId }
 }

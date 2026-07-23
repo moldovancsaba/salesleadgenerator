@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.2.3  
+**Version:** 2.3.0  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -49,7 +49,7 @@ Required environment variable: `MONGODB_URI`
 
 ## Versioning
 
-Current app version is **2.2.3**.
+Current app version is **2.3.0**.
 
 Single source of truth: `package.json`
 
