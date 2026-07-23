@@ -1,7 +1,7 @@
 # Deployment Log
 
 ## Latest Deployment
-- **Commit**: (pending — see below)
+- **Commit**: 3b513d5
 - **Message**: fix: correct misleading `total` field in GET /api/leads (fixes #21 sub-fix)
 - **Build Status**: Verified via `tsc --noEmit` (only the pre-existing, unrelated GDS-stub sandbox artifact remains — confirmed present identically with this change stashed out), `eslint`, `vitest run` (33/33), and the smoke suite (4/4), all clean.
 - **Context**: Issue #21 documented `/api/leads`'s `total` field as actively misleading — it held the count of leads returned on the current page (post-dedup), not the real total across all pages, even though the adjacent `totalPages` field was already computed correctly from the real total. Checked every frontend consumer (`app/sales/[brand]/sales-page-client.tsx`, `app/kanban.tsx`, `app/table.tsx`, `app/search-learning.tsx`, `app/metrics.tsx`) before changing the field — none read `.total` from this endpoint's response, so the rename is a safe, zero-impact fix. `total` now holds the real grand total; the per-page count moved to a new `returned` field.
