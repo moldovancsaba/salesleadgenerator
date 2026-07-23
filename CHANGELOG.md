@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.2.1
+
+PWA and zoom-lock fix, reported live on `/sales/seyu` in production.
+
+### Fixed
+- **PWA installability**: `manifest.json` and `app/layout.tsx` referenced `/icon-192.png` and `/icon-512.png`, but neither file existed in `public/` — a manifest with 404ing icons fails browser installability checks outright, which alone explains why the app never behaved as an installable PWA regardless of prior PWA-hardening work. Added real, valid PNG icons at both sizes (placeholder design: dark-navy background matching `theme_color`, centered accent shape within the maskable safe zone).
+- **No service worker existed anywhere in the codebase.** Added a minimal one (`public/sw.js`) that only precaches the static app-shell assets (manifest, icons) and passes everything else — all page navigations and all `/api/*` calls — straight through to the network, so there's no risk of serving stale kanban/lead data from a cache.
+- **Pinch-zoom still worked despite three prior fix attempts** (`8f97f44`, `396ea1e`, and earlier), because all of them relied solely on the `<meta name="viewport">` tag's `maximum-scale`/`user-scalable=no`. **iOS Safari has ignored those two viewport properties since iOS 10**, as a deliberate Apple accessibility decision — no amount of retuning that one meta tag was ever going to fully prevent pinch-zoom on iPhone. Added two additional layers that iOS Safari does respect: a global CSS `touch-action: manipulation` rule (`app/globals.css`), and a JS-level `gesturestart`/`gesturechange` + multi-touch `touchmove` guard (`app/components/PwaSetup.tsx`) for older/edge-case Safari behavior.
+
+### Known limitation
+Real-device verification (iOS Safari pinch behavior, Android Chrome install prompt) could not be performed from this environment — verified via `next build` + a manual Lighthouse/DevTools installability check only. Flagged explicitly rather than claimed as fully proven (tracked in issue #22).
+
 ## 2.2.0
 
 Security, dependency, and code-quality remediation following a two-pass engineering audit (tracked in GitHub issues #1–#21). No breaking API/UI changes.
