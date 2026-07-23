@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.2.1
+**Version:** 2.2.2
 
 ## Purpose
 
@@ -23,6 +23,10 @@ This document tracks proposed improvements against the current shipped state. Co
 ### PWA and Zoom Fix (2.2.1)
 - Fixed pinch-zoom still working despite 3 prior attempts, root-caused to the viewport meta tag alone never being sufficient (iOS Safari has ignored `user-scalable=no`/`maximum-scale` since iOS 10) — added `touch-action: manipulation` CSS plus a JS-level gesture/multi-touch guard
 - Fixed the app never behaving as an installable PWA, root-caused to referenced icon files (`icon-192.png`, `icon-512.png`) not existing at all — added real icons and a minimal service worker precaching only the static shell
+- Confirmed fixed on a real device (2026-07-23): pinch-zoom lock verified working live
+
+### Pagination Field Fix (2.2.2)
+- Fixed the misleading `total` field in `GET /api/leads` (issue #21's low-risk sub-fix): now the real grand total across all pages, matching `totalPages`; per-page count moved to a new `returned` field. The larger 3-endpoint pagination-shape unification remains explicitly out of scope pending a dedicated design pass.
 
 ### Kanban UX and Mobile Pipeline
 - Responsive kanban layout with vertical stacking on narrow screens
@@ -80,7 +84,8 @@ This document tracks proposed improvements against the current shipped state. Co
 - Tenant-aware indexes and migration path
 
 ### Mobile UX Polish
-- Real-device verification of the 2.2.1 PWA/zoom fix (actual iOS Safari pinch behavior, Android Chrome install prompt) — not verifiable from the development environment
+- Real-device zoom-lock verification: **confirmed fixed** (2026-07-23) on a real device.
+- Real-device PWA-installability verification: owner reports it's still not behaving as expected as of 2026-07-23; specifics (which platform, which symptom) not yet gathered — see open question in `deployment.md`.
 - Table view density/readability tuning
 - Country filter backfill/mapping from `region` when `country` is missing
 
@@ -90,7 +95,7 @@ This document tracks proposed improvements against the current shipped state. Co
 ### Data Integrity Decisions Needed
 - `outcomeLogs`/`outcomelogs` MongoDB collection-name split — needs a database check before a code fix ships
 - Unused Mongoose models (`models/*`) — needs an owner decision: delete, or repair as a migration path
-- Pagination-shape unification across `/api/leads`, `/api/search`, `/api/leads/columns` — API-contract change requiring a coordinated frontend update
+- Pagination-shape unification across `/api/leads`, `/api/search`, `/api/leads/columns` — API-contract change requiring a coordinated frontend update (note: the misleading `total` field naming trap within `/api/leads` was fixed in 2.2.2; the broader 3-shape unification is still open)
 
 ---
 

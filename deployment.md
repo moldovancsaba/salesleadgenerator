@@ -1,13 +1,23 @@
 # Deployment Log
 
 ## Latest Deployment
+- **Commit**: (pending — see below)
+- **Message**: fix: correct misleading `total` field in GET /api/leads (fixes #21 sub-fix)
+- **Build Status**: Verified via `tsc --noEmit` (only the pre-existing, unrelated GDS-stub sandbox artifact remains — confirmed present identically with this change stashed out), `eslint`, `vitest run` (33/33), and the smoke suite (4/4), all clean.
+- **Context**: Issue #21 documented `/api/leads`'s `total` field as actively misleading — it held the count of leads returned on the current page (post-dedup), not the real total across all pages, even though the adjacent `totalPages` field was already computed correctly from the real total. Checked every frontend consumer (`app/sales/[brand]/sales-page-client.tsx`, `app/kanban.tsx`, `app/table.tsx`, `app/search-learning.tsx`, `app/metrics.tsx`) before changing the field — none read `.total` from this endpoint's response, so the rename is a safe, zero-impact fix. `total` now holds the real grand total; the per-page count moved to a new `returned` field.
+- **Files Changed**: `app/api/leads/route.ts`
+
+## Open question raised by the owner (2026-07-23, not yet resolved)
+Zoom-lock fix (2.2.1) confirmed working on a real device. However, the owner reports the app is "not available as I expected" as a PWA — meaning some install/PWA behavior still isn't matching expectations, but the specific symptom (no install prompt at all on Android? no "Add to Home Screen" option? installs but doesn't launch standalone? testing on iOS, which has no automatic prompt by design?) hasn't been gathered yet. `manifest.json`, `app/layout.tsx`, `public/sw.js`, and both icon files were re-verified in this session (valid PNGs at correct dimensions, no manifest/service-worker collisions in `next.config.js` or `middleware.ts`) and show no structural defect. Needs specifics from the owner before further code changes are justified — flagged rather than guessed at.
+
+## Previous Deployment
 - **Commit**: 96b0bb0
 - **Message**: fix: add missing PWA icons + service worker, lock zoom via CSS/JS not just viewport meta (fixes #22)
 - **Build Status**: Verified locally via a real `next build` (compiled successfully, same single known GDS-stub sandbox artifact as always) prior to push; live Vercel confirmation pending.
 - **Context**: reported live on `/sales/seyu` — pinch-zoom still worked despite 3 prior fix attempts, and the app never behaved as an installable PWA. Root-caused: `manifest.json`/`layout.tsx` referenced `/icon-192.png` and `/icon-512.png`, neither of which existed in `public/` (fails installability outright); no service worker existed anywhere; and zoom lock relied solely on the viewport meta tag, which iOS Safari has ignored (`user-scalable=no`/`maximum-scale`) since iOS 10. Added real icons, a minimal shell-only service worker, CSS `touch-action: manipulation`, and a JS-level gesture/multi-touch guard. Real-device verification (actual iOS Safari, Android Chrome) still pending.
 - **Files Changed**: `app/layout.tsx`, `app/globals.css` (new), `app/components/PwaSetup.tsx` (new), `public/sw.js` (new), `public/icon-192.png` (new), `public/icon-512.png` (new)
 
-## Previous Deployment
+## Earlier Deployment
 - **Commit**: 22312b4
 - **Message**: fix: split sales page into async Server Component + Client Component (fixes Vercel build failure)
 - **Vercel Build**: `iad1`, Node build machine (2 cores, 8 GB)
