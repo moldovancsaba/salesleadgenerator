@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.1
+
+Three real bugs found on the freshly-shipped 2.4.0 search bar and kanban board, reported live from a device screenshot.
+
+### Fixed
+- **The whole page force-zoomed on focusing the search input.** A different mechanism from the pinch/double-tap zoom fixed in 2.2.1: iOS Safari zooms the entire viewport in when a focused input's computed font-size is below 16px, regardless of `touch-action` or the viewport meta tag. Mantine's default input sizes render below that threshold. Added a global `input, select, textarea { font-size: 16px }` rule in `app/globals.css` — the standard, root-cause fix for this specific iOS behavior.
+- **"The input field is not the input field."** The 2.4.0 search bar used GDS's `SearchableSelect` (`@sovereignsquad/gds-core`), which turned out to be the wrong component for this job: reading its real source shows it's a closed combobox *picker* — the visible box is a button (`InputBase component="button"`) that only opens a dropdown, and the actual typing field is a separate, plain `Combobox.Search` element that only appears once the dropdown is open and doesn't look like an input (no visible border). This is correct for a "select one item from a searchable list" UI, not for an always-visible live search bar. Replaced with a plain, always-editable Mantine `TextInput` bound directly to the query, with a custom dropdown of results rendered below it as the user types — matching what was actually asked for.
+- **Duplicate results in search** (e.g. "Arsenal FC — Sports" appearing twice). `GET /api/search` never applied the fingerprint-based dedup (`/api/leads`'s GET handler already does this — the underlying collections can contain duplicate-fingerprint documents). Added the identical dedup-by-fingerprint-newest-wins logic to `/api/search`.
+
+### Documentation
+`docs/ARCHITECTURE.md` updated to describe the new plain-input search bar (correcting the stale `SearchableSelect` reference from 2.4.0) and the new focus-zoom CSS fix.
+
 ## 2.4.0
 
 Kanban board UX overhaul (issue #23), from an owner screenshot review of the pipeline header and mobile filter bar.

@@ -11,3 +11,17 @@ body {
   -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
 }
+
+/*
+  iOS Safari force-zooms the whole page in when a focused input's computed
+  font-size is below 16px — a separate mechanism from the pinch/double-tap
+  zoom handled above, and not affected by touch-action or the viewport meta
+  tag. Mantine's default input sizes (e.g. "xs"/"sm") render below 16px, so
+  any text input/select/textarea in this app can trigger it on focus. Fixing
+  the font-size globally is the standard, root-cause fix.
+*/
+input,
+select,
+textarea {
+  font-size: 16px;
+}

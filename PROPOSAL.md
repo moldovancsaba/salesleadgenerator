@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.0
+**Version:** 2.4.1
 
 ## Purpose
 
@@ -43,6 +43,11 @@ This document tracks proposed improvements against the current shipped state. Co
 - New predictive search bar (top-center under the header) using GDS's `SearchableSelect`, backed by the existing `/api/search` endpoint; selecting a result opens the lead detail modal.
 - Kanban drag-and-drop between columns rebuilt entirely — it was fully absent from the code (not merely buggy) despite changelog/roadmap history describing it as shipped. Pointer-events-based with a long-press arm gesture (so scrolling/tapping still work), ghost preview, drop-target highlight, optimistic removal from the source column, and cleanup on cancel.
 - Ticket size (estimated deal value) shown on each lead card, and a pipeline-weighted ("discounted") forecast shown on each kanban column header — extended to Seyu, which previously had no per-column forecast breakdown at all.
+
+### Search Bar and Focus-Zoom Fixes (2.4.1)
+- Fixed the page force-zooming on search-input focus — a separate iOS Safari mechanism from pinch-zoom (zooms when a focused input's font-size is below 16px); added a global 16px minimum for all inputs/selects/textareas.
+- Replaced the 2.4.0 search bar's `SearchableSelect` (a closed combobox picker whose real typing field was hidden and didn't look like an input) with a plain always-editable text input and a custom predictive dropdown — the component was simply the wrong fit for a live search bar.
+- Fixed duplicate results in `/api/search` — it never applied the fingerprint-based dedup `/api/leads` already uses; added it.
 
 ### Kanban UX and Mobile Pipeline
 - Responsive kanban layout with vertical stacking on narrow screens
