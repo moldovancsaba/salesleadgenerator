@@ -1,10 +1,15 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.7
+**Version:** 2.4.8
 
 ---
 
 ## Shipped
+
+### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
+- ✅ Confirmed the ICE-score sort's architecture is correct as designed: sorting is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`), never re-sorted client-side; the client only computes ICE scores for display (a trivial per-card multiply), not for ordering.
+- ✅ Found and fixed the real bug behind "sort still not working": `PUT /api/leads/[id]` stored `ice.impact`/`confidence`/`ease` straight from the request body with no numeric coercion (unlike `POST`, which runs through `normalizeLead()`'s `ensureNumber()`). A request with numerically-valid but string-typed ICE values would pass validation and get persisted as strings, which then made MongoDB's `$multiply` throw during the sort aggregation — failing the *entire* column's fetch (not just the one bad document), silently, with no visible error. Fixed by coercing `ice` to real numbers before storing.
+- ✅ Made `ICE_SCORE_AGGREGATION_EXPR` resilient regardless: reads each field via `$convert` (numeric-string recovery, safe fallback to 0 instead of throwing) — self-heals any already-corrupted historical document without a data migration.
 
 ### Mongoose Models Deleted, Pagination Unified on Cursors (2.4.7)
 - ✅ Resolved issue #20: `models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts` deleted — zero importers anywhere (re-verified), schemas had drifted from reality, and nothing in the codebase signaled an intended future Mongoose migration path (`mongoose` itself remains a real dependency, used only as a connection helper in `scripts/*.js` maintenance scripts). `docs/STACK_AND_DEPENDENCIES.md` updated to match.
