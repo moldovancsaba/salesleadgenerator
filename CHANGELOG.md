@@ -1,5 +1,13 @@
 # Changelog — Sales Lead Generator
 
+## 2.2.3
+
+### Fixed
+- **Resolved issue #11**: `/api/outcome-logs` (both GET and POST) read/wrote the `outcomeLogs` (camelCase) MongoDB collection, while every other outcome-logging call site (`app/api/leads/route.ts`, `app/lib/lead-actions.ts`, `app/api/admin/cron-status/route.ts`, `scripts/pipeline-monitor.js`) used `outcomelogs` (lowercase). Confirmed via a temporary, unauthenticated, read-only diagnostic endpoint deployed to production (`GET /api/admin/diag-outcome-logs`, removed immediately after use) that `outcomeLogs` held 0 documents while `outcomelogs` held 2,276 with same-day activity. `/api/outcome-logs` now points at `outcomelogs`, matching the rest of the codebase; its GET response will now reflect the real outcome history for the first time.
+
+### Known issues carried forward (still open, still requires an owner decision — not fixed in this release)
+- #20 — unused Mongoose models (`models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts`): still requires an owner decision (delete vs. repair).
+
 ## 2.2.2
 
 ### Fixed
