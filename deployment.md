@@ -1,6 +1,14 @@
 # Deployment Log
 
 ## Latest Deployment
+- **Commit**: 14dad33
+- **Message**: docs: fix widespread inconsistencies and stale claims across all docs
+- **Build Status**: Verified via `tsc --noEmit` (0 errors), `eslint` (0 errors, 3 pre-existing warnings in untouched files), `vitest run` (35/35), smoke suite (5/5), and a real `next build`. No application code changed in this pass.
+- **Context**: Owner reported the documentation was inconsistent and incomplete. Ran two independent audits in parallel (core narrative docs cross-consistency; technical docs cross-checked against actual code) and fixed every concrete finding: README's stale 2.4.3 version claim, a false "issue #20" attribution repeated across 3 files for unrelated 2.3.0 work, a "Country filter UI" claimed shipped in 3 places that doesn't exist, a wrong "Accept promotes to QUALIFIED" claim, a stale test count, `PIPELINE_ARCHITECTURE.md` being substantially out of date (deleted `models/Lead.ts` referenced as live, wrong QUALIFIED criteria, Next.js 14 vs 15, fake filter UI, missing routes — fully rewritten), duplicate/wrong module listings in `docs/ARCHITECTURE.md`, wrong archived-file paths in `docs/DOC_LINT.md`, `PROPOSAL.md`'s out-of-order and duplicated/missing changelog sections, `roadmap.md`'s missing 2.4.3 entry, `CHANGELOG.md`'s misplaced "Unreleased" section and dropped pre-existing-warning carryforward notes, plus deleting the empty unreferenced `development.md` and adding ARCHIVED banners to all 4 `_archived/*.md` files.
+- **Files Changed**: `README.md`, `CHANGELOG.md`, `roadmap.md`, `PROPOSAL.md`, `PIPELINE_ARCHITECTURE.md`, `docs/ARCHITECTURE.md`, `docs/OPERATOR_GUIDE.md`, `docs/STACK_AND_DEPENDENCIES.md`, `docs/DOC_LINT.md`, `_archived/*.md` (4 files), `development.md` (deleted)
+- **Note**: pushed to `claude/project-overview-kvj36v` (this session's designated branch) — not pushed to `main` yet, pending explicit instruction.
+
+## Earlier Deployment 0g
 - **Commit**: a22ca74
 - **Message**: fix: PUT /api/leads/[id] silently corrupted ice fields, breaking sort
 - **Build Status**: Verified via `tsc --noEmit` (0 errors), `eslint` (0 errors, 3 pre-existing warnings in untouched files carried forward), `vitest run` (35/35), smoke suite (5/5), and a real `next build`.
