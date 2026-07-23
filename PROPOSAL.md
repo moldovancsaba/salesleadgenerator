@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.3.1
+**Version:** 2.3.2
 
 ## Purpose
 
@@ -34,8 +34,9 @@ This document tracks proposed improvements against the current shipped state. Co
 ### Generic Organization Fields (2.3.0)
 - Resolved issue #20's organization-genericness complaint: the value-proposition fields were brand-specific (`pro_for_cogmap`/`pro_for_seyu`), which doesn't scale to onboarding a new organization without a code change. Replaced with one shared, organization-agnostic field pair (`pro_for_organization`/`con_for_organization`) used identically by every brand — hard cutover, no fallback, no dual-read. All 900 existing production documents (408 in `leads`, 492 in `seyu_leads`) were migrated to the new field names via a temporary one-time endpoint before the code shipped, so there was no window where any lead's pros/cons appeared empty. The obsolete "forbidden cross-brand pro/con field" validation rule was removed (nothing left to forbid — there's only one field name now); the separate forbidden-vocabulary check on `value_proposition` text is untouched. `models/Lead.ts`'s field names were also corrected to match, though the model remains unused/dead code — that separate delete-vs-repair decision is still open. The `agent-runtime/` artifacts (the OpenClaw research agent's own config, added to this repo) were updated to match the same generic fields: `tenants.json`'s `brandFields`, `qualityGate.requiredFields`, and the now-obsolete `forbiddenFields` cross-brand pair; `schema-mapper.js`'s field-remapping logic simplified since there's no longer a per-tenant name mismatch to reconcile; `unified-enrichment-prompt.md`'s Seyu priority list.
 
-### Kanban Card Image Placeholder Fix (2.3.1)
+### Kanban Card Image Placeholder Fix (2.3.1 / 2.3.2)
 - Kanban cards previously always reserved an empty media/thumbnail box (`AdminResourceCard`), even though `Lead` has no image/logo field at all — there's currently no case where a lead has one. Switched `LeadCard` to `ProductCard` (`@sovereignsquad/gds-core`), whose `media`/`icon` props are optional `ReactNode`s rendered bare — omitted entirely, they render nothing. The real component source was read directly from `sovereignsquad/general-design-system` (this sandbox can't install the real package, but `raw.githubusercontent.com` was reachable) to confirm the contract before writing the fix, rather than guessing at prop names.
+- The placeholder was still visible afterward on `app/search-learning.tsx`'s "Top Queries" cards — a second, separate `AdminResourceCard` usage the first fix never touched. Reading `AdminResourceCard`'s real source revealed a `hideWhenNoMedia?: boolean` prop, explicitly documented as omitting the placeholder for no-media records and defaulting to `false`. Added it.
 
 ### Kanban UX and Mobile Pipeline
 - Responsive kanban layout with vertical stacking on narrow screens

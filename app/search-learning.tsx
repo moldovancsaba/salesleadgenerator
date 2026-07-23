@@ -128,6 +128,7 @@ export function SearchLearningPanel() {
                     status: `${successRate}%`,
                   } as any}
                   actions={[]}
+                  hideWhenNoMedia
                 />
               );
             })}
