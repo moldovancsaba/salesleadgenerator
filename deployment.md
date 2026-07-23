@@ -1,6 +1,14 @@
 # Deployment Log
 
 ## Latest Deployment
+- **Commit**: 3723432
+- **Message**: fix: header overflow, missing desktop detail-panel body, stuck drag-ghost
+- **Build Status**: Verified via `tsc --noEmit` (0 errors), `eslint` (0 errors, 3 pre-existing warnings in untouched `app/outreach/*` files carried forward as recorded), `vitest run` (35/35), smoke suite (5/5), and a real `next build`.
+- **Context**: Live device screenshot review surfaced 3 real bugs. (1) Header/search bar overflowed the screen on narrow viewports — a `wrap="nowrap"` row combining 3 lines of verbose header text with the view-mode selector was wider than the viewport with nothing able to shrink/wrap, so the selector rendered off-screen; compacted to 2 rows and dropped the "· updated HH:MM:SS"/"Forecast:...weighted" wording per the owner's requested terse "N leads / $amount" format, plus a global `overflow-x: hidden` CSS safety net. (2) The desktop/tablet-width (>=1280px) `AdminDetailDrawer` lead-detail panel was missing its entire body — only `metadata` (name + 3 badges) was ever passed, never `content` (ICE score, contacts, pros/cons, every action button); confirmed against `AdminDetailDrawer`'s real source (`packages/gds-admin/src/AdminOverlays.tsx`) that it renders `{media}`/`{metadata}`/`{children}` and simply never received the last one — fixed by passing `{content}`. (3) A quick tap on a kanban card could leave a permanently stuck drag-ghost and dimmed card — the drag-arm timer in `app/kanban.tsx` was cancelled only on excess movement, never on `pointerup`/`pointercancel`, so an ordinary tap still let the 200ms timer fire after the pointer already lifted, with no future pointerup on that pointerId ever arriving to clear it.
+- **Files Changed**: `app/sales/[brand]/sales-page-client.tsx`, `app/detail.tsx`, `app/kanban.tsx`, `app/globals.css`
+- **Note**: pushed to `claude/project-overview-kvj36v` (this session's designated branch); not yet merged into `main`.
+
+## Earlier Deployment 0c
 - **Commit**: 2ca7879
 - **Message**: feat: kanban auto-classification/sort rule — 500 ICE threshold, 2 tiers only
 - **Build Status**: Verified via `tsc --noEmit` (0 errors — also fixed 4 pre-existing implicit-`any` errors in `app/detail.tsx`/`app/table.tsx` unrelated to this change), `eslint` (0 errors, 3 pre-existing warnings in untouched `app/outreach/*` files carried forward as recorded), `vitest run` (35/35), smoke suite (5/5), and a real `next build`.
