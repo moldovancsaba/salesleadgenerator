@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Group, Text, Button, Paper, Select, Loader, Container, Box, TextInput, UnstyledButton } from '@mantine/core';
+import { Group, Text, Paper, Select, Loader, Container, Box, TextInput, UnstyledButton } from '@mantine/core';
 import type { Lead } from '@/app/types';
 import { KanbanBoard } from '@/app/kanban';
 import { LeadDetailModal } from '@/app/detail';
@@ -27,8 +27,6 @@ type Props = {
 export function SalesPageClient({ brand }: Props) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [view, setView] = useState<ViewMode>('kanban');
-  const [sortKey, setSortKey] = useState<'ice' | 'name'>('ice');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isMobile, setIsMobile] = useState(true);
   const [boardMeta, setBoardMeta] = useState<{
     brand: string; label: string; totalLeads: number;
@@ -205,9 +203,6 @@ export function SalesPageClient({ brand }: Props) {
               onChange={(value) => setView(value as ViewMode)}
               data={VIEW_OPTIONS}
             />
-            <Button size="xs" variant="light" color="gray" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
-              {sortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}
-            </Button>
           </Group>
         </Group>
       </Paper>
