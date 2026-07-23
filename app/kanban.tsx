@@ -136,6 +136,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, mode: mod
       const url = new URL('/api/leads', window.location.origin)
       url.searchParams.set('brand', brand)
       url.searchParams.set('tenantId', tenantId)
+      url.searchParams.set('id', leadId)
 
       const res = await fetch(url.toString(), {
         method: 'PATCH',

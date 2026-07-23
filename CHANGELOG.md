@@ -1,5 +1,11 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.2
+
+### Fixed
+- **Every `PATCH /api/leads` action — not just drag-and-drop — was silently failing.** Reported as "drag and drop not permanent, looks like move but immediately refreshes and stays in the original." Root cause: `PATCH /api/leads`'s documented contract (`docs/OPERATOR_GUIDE.md`) expects the lead `id` as a URL query parameter (`?id=<id>`), matching what the route handler actually reads (`searchParams.get('id')`) — but both client call sites, `handleAction` (`sales-page-client.tsx`, used by every detail-modal action: Accept, Decline, Pin, Refresh, Modify, Delete) and `handleMove` (`kanban.tsx`, drag-and-drop), only ever sent `id` in the JSON body, never the URL. Every PATCH request has been returning 400 "Missing id" since these call sites existed. For drag-and-drop specifically, the failed request's `catch` block reloads the source column from the server (where nothing had changed), which is exactly why the card visually moved (optimistic UI) then snapped back. Added `url.searchParams.set('id', leadId)` to both call sites, matching the route's actual, documented contract.
+- Corrected the "Lead Actions and Feedback" section of `PROPOSAL.md`, which claimed "Actions verified: ACCEPT, DECLINE, PIN, REQUEST_REFRESH, COLUMN_MOVE, DELETE" — they were not actually working given the bug above; removed the false claim.
+
 ## 2.4.1
 
 Three real bugs found on the freshly-shipped 2.4.0 search bar and kanban board, reported live from a device screenshot.
