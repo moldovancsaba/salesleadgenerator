@@ -1,6 +1,18 @@
 # Deployment Log
 
 ## Latest Deployment
+- **Commit**: (this session's fix; hash recorded after push) — supersedes the partial fix in `96356f3`
+- **Message**: fix: switch LeadCard from AdminResourceCard to ProductCard, removing the image placeholder
+- **Build Status**: Verified via `tsc --noEmit` (pre-existing GDS-stub artifact only), `eslint` clean, `vitest run` (33/33), smoke suite (5/5).
+- **Context**: The owner asked for kanban cards to stop showing an image placeholder when a lead has no image (which is always — `Lead` has no image field in the data model at all). An earlier attempt (`96356f3`) just stopped passing empty `mediaSrc`/`thumbnailSrc` props to the existing `AdminResourceCard` component, but that component's real source isn't accessible from this sandbox (`@sovereignsquad/gds-admin` is a private, GitHub-tarball-installed package), so there was no way to confirm whether it still reserved placeholder space regardless. The owner pointed at `ProductCard` from `@sovereignsquad/gds-core` instead. This sandbox couldn't reach the design-system's docs site (`sovereignsquad.github.io`, blocked) or the release tarball (blocked, same constraint as always) or add the repo to the session (declined), but `raw.githubusercontent.com` turned out to be reachable — the real `ProductCard.tsx` source was read directly from `sovereignsquad/general-design-system` to confirm its contract: `media`/`icon` are optional `ReactNode` props rendered bare (`{media}`), so omitting them renders nothing at all, no placeholder. `app/card.tsx` rewritten to use `ProductCard` with `density="compact"`, `variant="compact"`, `size="sm"` (the design system's dedicated tight-list contract), no `media`/`icon` props, and a plain Mantine `Button` for the preview action (not `SemanticButton`, since that hook depends on `GdsProvider`/theme context this app doesn't wrap itself in). A local stub for `@sovereignsquad/gds-core`/`gds-core/client` was added under `node_modules/` (gitignored, sandbox-only, matching the existing `gds-admin` stub pattern) so this environment's `tsc`/`eslint`/`vitest` can run — Vercel installs the real package.
+- **Files Changed**: `app/card.tsx`
+
+## Previous Deployment (not separately logged until now)
+- **Commit**: 481e287
+- **Message**: fix: update agent-runtime prompts/config for the generic organization fields
+- **Context**: Updated the OpenClaw research agent's `agent-runtime/tenants.json` and `schema-mapper.js` (added to this repo by KiloClaw's earlier direct push to `main`) to use the same `pro_for_organization`/`con_for_organization` fields shipped in 2.3.0, since the agent's config still referenced the removed brand-specific field names.
+
+## Earlier Deployment
 - **Commit**: 55efdba (field-rename cutover), c7d2029 (merged in KiloClaw's agent-runtime/ addition, de-duplicated a redundant service-worker registration it introduced in `app/layout.tsx`)
 - **Message**: fix: generic pro_for_organization/con_for_organization fields, hard cutover (fixes #20)
 - **Build Status**: Verified via `tsc --noEmit` (pre-existing GDS-stub artifact only, confirmed identical with this change stashed out), `eslint` clean on every touched file, `vitest run` (33/33, including 2 tests rewritten to match the new generic-field behavior), smoke suite (5/5). A real `next build` was also attempted; it fails on the same pre-existing GDS-stub artifact confirmed present identically with this change stashed out (unrelated to this change).

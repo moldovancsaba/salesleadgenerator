@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.3.0
+**Version:** 2.3.1
 
 ---
 
@@ -43,6 +43,9 @@
 - Filters by country and search text client-side
 - Sort state is kept in page state and passed into kanban and table view
 - Detail modal is full-screen on mobile via `matchMedia`
+
+### Kanban Lead Card
+`app/card.tsx`'s `LeadCard` renders each kanban card via `ProductCard` from `@sovereignsquad/gds-core/client` (compact `density`/`variant`, `size="sm"`) — switched from `AdminResourceCard` (`@sovereignsquad/gds-admin/client`) in 2.3.1, because `AdminResourceCard` always reserved a media/thumbnail placeholder area even when a lead has no image (the `Lead` data model has no image/logo field at all — there is currently no case where a lead has one). `ProductCard`'s `media`/`icon` props are genuine optional `ReactNode`s rendered bare (`{media}`), so omitting them entirely renders nothing — no placeholder box. Verified against the real component source in `sovereignsquad/general-design-system` (not guessed).
 
 ### PWA and Zoom Lock
 - `app/globals.css` — `touch-action: manipulation` on `html`/`body`, the CSS layer iOS Safari respects for zoom prevention (unlike the viewport meta tag's `maximum-scale`/`user-scalable`, which iOS Safari has ignored since iOS 10)
@@ -88,7 +91,7 @@
 - `GET /api/search?q=<query>` — full-text search across leads
 
 ### Feedback / Audit
-- `GET /api/outcome-logs` — outcome-log history (see the Outcome Log data-model note below re: a known collection-name inconsistency)
+- `GET /api/outcome-logs` — outcome-log history
 - `POST /api/outcome-logs` — record an outcome log entry
 
 ---
@@ -121,9 +124,7 @@ Indexes:
 - Text index on `entity_name`, `industry`, `sport_or_sector`
 
 ### Outcome Log
-Collection: `outcomelogs` (lowercase) — used by `app/api/leads/route.ts`, `app/lib/lead-actions.ts`, and `app/api/admin/cron-status/route.ts`.
-
-**Known issue:** `app/api/outcome-logs/route.ts` (the dedicated outcome-log API) currently reads/writes a differently-cased collection, `outcomeLogs`, and is therefore reading/writing a physically separate collection from every other outcome-log writer. This needs a direct database check before fixing, in case production data already exists in the wrong collection — do not blind-rename (tracked as issue #11).
+Collection: `outcomelogs` (lowercase) — used by `app/api/leads/route.ts`, `app/lib/lead-actions.ts`, `app/api/admin/cron-status/route.ts`, and (as of 2.2.3) `app/api/outcome-logs/route.ts`. All outcome-log readers/writers now agree on this one collection.
 
 Records mutations with before/after state, actor, teaching weight, and tenant.
 
