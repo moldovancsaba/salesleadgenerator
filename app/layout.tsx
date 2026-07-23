@@ -2,6 +2,8 @@ import { Inter } from "next/font/google";
 import { MantineProvider, createTheme } from "@mantine/core";
 import "@mantine/core/styles.css";
 import "@sovereignsquad/gds-theme/styles.css";
+import "./globals.css";
+import { PwaSetup } from "./components/PwaSetup";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -36,6 +38,7 @@ export default function RootLayout({
       </head>
       <body>
         <MantineProvider theme={theme}>
+          <PwaSetup />
           {children}
         </MantineProvider>
       </body>

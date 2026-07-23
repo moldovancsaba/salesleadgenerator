@@ -1,0 +1,13 @@
+/*
+  touch-action: manipulation disables pinch-zoom and double-tap-zoom while
+  preserving normal single-finger scroll/pan. This is required in addition
+  to the viewport meta tag's maximum-scale/user-scalable, since iOS Safari
+  has ignored those two viewport properties since iOS 10 for accessibility
+  reasons — touch-action is the layer Safari actually respects.
+*/
+html,
+body {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
