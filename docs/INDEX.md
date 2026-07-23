@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Version:** 2.1.0
+**Version:** 2.2.0
 
 ---
 
@@ -21,14 +21,12 @@
 
 ## Supporting Documentation
 
+- `CLAUDE.md` — mandatory operating rules for any Claude session working in this repo
 - `PIPELINE_ARCHITECTURE.md` — pipeline stages, ICE scoring, dedup, research agent behavior
-- `development.md` — current implementation state, remaining gaps, and next steps
-- `developmentgaps.md` — tech stack audit: unused dependencies, DB/auth/env risks, unification plan
-- `developmentgds.md` — GDS integration audit, hard-coded CSS inventory, design token unification tasks
 - `PROPOSAL.md` — improvement proposal with completed and remaining workstreams
 - `roadmap.md` — phased roadmap with shipped/in-progress/planned items
 - `CHANGELOG.md` — version history and feature baselines
-- `documentationtasks.md` — documentation quality backlog and general maintenance tasks
+- `deployment.md` — deployment log — recent commits, build status, files changed
 
 ---
 

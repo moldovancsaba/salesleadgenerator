@@ -1,10 +1,21 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.1.0
+**Version:** 2.2.0
 
 ---
 
 ## Shipped
+
+### Security and Dependency Hardening (2.2.0)
+- ✅ Fixed API-key auth bypass (missing `x-api-key` header was previously treated as success)
+- ✅ Added missing API-key check to `/api/outcome-logs` POST
+- ✅ Upgraded Next.js 14.2.18 (14 open CVEs) → 15.5.13+
+- ✅ Migrated ESLint from no working config to a real, working ESLint 9 flat config
+- ✅ Fixed `PUT /api/leads/:id` silently skipping validation that `POST` enforces
+- ✅ De-duplicated fingerprint, kanban-column, `isMongoConfigured()`, and pipeline-weight logic into shared `lib/*` modules
+- ✅ Removed 3 orphaned/dead modules (`app/lib/validate-lead.ts` duplicate, `app/lib/ai-scoring/`, `lib/lead-validator.ts`)
+- ✅ Corrected `Lead.region`'s frontend type and a resulting live badge-color bug
+- ✅ `CLAUDE.md` operating rules recorded for future sessions
 
 ### Outreach and Pipeline
 - ✅ One-click outreach templates with analytics (`/api/outreach-templates?mode=analytics`)
@@ -55,6 +66,9 @@
 | Available countries visibility | Country filter UI is implemented, but live lead data currently lacks populated `country` values, so the list may appear empty until data is backfilled or mapped from `region` |
 | Mobile zoom refinement | Zoom behavior tightened but may still need further PWA-specific tuning |
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
+| `outcomeLogs`/`outcomelogs` collection split | Needs a direct database check (which collection, if either, holds real data) before a code fix ships |
+| Unused Mongoose models decision | `models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts` are unused and schema-drifted; needs an owner decision — delete, or repair as a migration path |
+| Pagination shape unification | 3 lead-listing endpoints use 3 different pagination contracts; needs a coordinated frontend+backend design pass, not a drive-by fix |
 
 ---
 
@@ -79,4 +93,4 @@
 - Architecture and data flow: `docs/ARCHITECTURE.md`
 - Operator workflows: `docs/OPERATOR_GUIDE.md`
 - Stack and dependencies: `docs/STACK_AND_DEPENDENCIES.md`
-- Documentation backlog: `documentationtasks.md`
+- Operating rules for Claude sessions: `CLAUDE.md`

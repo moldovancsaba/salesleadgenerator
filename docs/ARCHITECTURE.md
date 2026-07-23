@@ -1,36 +1,37 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.1.0
+**Version:** 2.2.0
 
 ---
 
 ## System Context
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                     Frontend                         │
-│  /sales/[brand]  /outreach/templates  detail modal  │
-└───────────────────────┬─────────────────────────────┘
-                        │ HTTPS
-                        ▼
-┌─────────────────────────────────────────────────────┐
-│                   API Routes                         │
-│  /api/leads  /api/health  /api/admin/*  outreach*   │
-└───────────────────────┬─────────────────────────────┘
-                        │
-          ┌─────────────┼─────────────┐
-          ▼             ▼             ▼
-┌──────────────┐ ┌──────────────┐ ┌───────────────────┐
-│   MongoDB    │ │  Outcome +   │ │  Research Agent   │
-│   Atlas      │ │  Outreach    │ │  OpenClaw cron    │
-│              │ │  Logs        │ │                   │\�──────────────┘ └──────────────┘ └───────────────────┘
+┌───────────────────────────────────────────────────────┐
+│                       Frontend                         │
+│   /sales/[brand]   /outreach/templates   detail modal  │
+└─────────────────────────┬───────────────────────────────┘
+                          │ HTTPS
+                          ▼
+┌───────────────────────────────────────────────────────┐
+│                     API Routes                         │
+│   /api/leads   /api/health   /api/admin/*   outreach*   │
+└─────────────────────────┬───────────────────────────────┘
+                          │
+            ┌─────────────┼─────────────┐
+            ▼             ▼             ▼
+   ┌──────────────┐ ┌──────────────┐ ┌───────────────────┐
+   │   MongoDB    │ │  Outcome +   │ │  Research Agent   │
+   │   Atlas      │ │  Outreach    │ │  OpenClaw cron    │
+   │              │ │  Logs        │ │                   │
+   └──────────────┘ └──────────────┘ └───────────────────┘
 ```
 
 ---
 
 ## Frontend
 
-- `/sales/[brand]` — pipeline page with kanban and table view
+- `/sales/[brand]` — pipeline page with kanban and table view. Implemented as a thin `async` Server Component (`app/sales/[brand]/page.tsx`) that awaits the Next.js 15 `params` Promise and resolves `brand`, rendering a Client Component (`app/sales/[brand]/sales-page-client.tsx`) that holds all interactive state and data fetching. This split exists specifically because Next 15's generated `PageProps` type requires `params: Promise<{...}>` on the page's exported component regardless of client/server boundary, and this repo's pinned React 18.3 has no `use()` hook to unwrap a Promise inside a Client Component — the Server Component wrapper resolves it once and passes a plain string prop down instead.
 - `/outreach/templates` — template management UI
 - Detail modal — lead actions, outreach compose, feedback
 
@@ -53,14 +54,21 @@
 - `PATCH /api/leads?brand=<brand>&id=<id>` — action lead via shared `lead-actions` helper
 - `GET /api/leads/[id]?brand=<brand>` — fetch single lead
 - `DELETE /api/leads/[id]?brand=<brand>` — delete lead
-- `PUT /api/leads/[id]?brand=<brand>` — update lead fields for enrichment without requiring action workflow
+- `PUT /api/leads/[id]?brand=<brand>` — update lead fields for enrichment without requiring action workflow; validated the same as `POST`, but only for fields present in the request
+- `GET /api/leads/columns?brand=<brand>&column=<col>` — cursor-paginated (`cursor`/`hasMore`) per-column lead loading, used by the kanban board's lazy column loading
+
+### Boards and Metrics
+- `GET /api/boards` — available brand boards and config (brand-agnostic)
+- `GET /api/boards/[brand]?tenantId=<id>` — single board's metadata: counts, region breakdown, and (for `cogmap`) revenue forecast
+- `GET /api/metrics?brand=<brand>&tenantId=<id>` — per-column and per-region lead counts for a brand
+- `GET /api/settings` — pipeline-weight settings (the `pipeline_weights` document, or defaults) used by forecast calculations
+- `GET /api/forecast/export?format=csv|json` — CogMap revenue forecast, exportable as CSV
 
 ### Health and Observability
-- `GET /api/health` — database connectivity, latency, brand counts, last error
+- `GET /api/health` — database connectivity, latency, brand counts, last error; `?tenantId=<id>` adds an opt-in per-tenant breakdown
 - `GET /api/admin/cron-status` — cron observability
 - `GET /api/admin/data-hygiene` — malformed lead counts by brand
 - `GET /api/stats` — totals and breakdowns by column and region
-- `GET /api/boards` — available brand boards and config
 
 ### Outreach
 - `GET /api/outreach-templates?mode=analytics` — template analytics
@@ -72,6 +80,10 @@
 - `GET /api/search-learning` — search memory and success metrics
 - `POST /api/search-learning` — update search memory from operator feedback
 - `GET /api/search?q=<query>` — full-text search across leads
+
+### Feedback / Audit
+- `GET /api/outcome-logs` — outcome-log history (see the Outcome Log data-model note below re: a known collection-name inconsistency)
+- `POST /api/outcome-logs` — record an outcome log entry
 
 ---
 
@@ -103,7 +115,9 @@ Indexes:
 - Text index on `entity_name`, `industry`, `sport_or_sector`
 
 ### Outcome Log
-Collection: `outcomelogs`
+Collection: `outcomelogs` (lowercase) — used by `app/api/leads/route.ts`, `app/lib/lead-actions.ts`, and `app/api/admin/cron-status/route.ts`.
+
+**Known issue:** `app/api/outcome-logs/route.ts` (the dedicated outcome-log API) currently reads/writes a differently-cased collection, `outcomeLogs`, and is therefore reading/writing a physically separate collection from every other outcome-log writer. This needs a direct database check before fixing, in case production data already exists in the wrong collection — do not blind-rename (tracked as issue #11).
 
 Records mutations with before/after state, actor, teaching weight, and tenant.
 
@@ -151,8 +165,8 @@ Tracks query success, accepted/declined counts, top terms, and top domains.
 ### Update Lead
 1. Frontend or agent calls `PUT /api/leads/[id]?brand=<brand>` with field updates
 2. `requireApiKey` enforces auth
-3. Route updates allowed fields without requiring action workflow
-4. Forbidden brand fields are blocked by schema mapper
+3. Request body is validated via `validateLeadPayload(body, brand, { partial: true })` — the same rules `POST` enforces (URL format, ICE range, forbidden cross-brand fields/vocabulary), but only for whichever fields are actually present in the partial update, not required unconditionally
+4. Route updates allowed fields without requiring the ACCEPT/DECLINE/etc. action workflow
 5. Response returns updated lead
 
 ### Outreach
@@ -180,15 +194,20 @@ HTTP handlers for leads, health, outreach, learning, search, stats, and boards.
 - `request-retry.ts` — retry utility for transient failures
 
 ### `models/*`
-- `Lead.ts` — Mongoose schema, fingerprint helper, indexes
+- `Lead.ts` — Mongoose schema, indexes (fingerprint logic imported from `lib/fingerprint.ts`)
 - `OutcomeLog.ts` — outcome log schema
 - `SearchLearning.ts` — search learning schema
 
+**Status: none of these 3 models are imported anywhere in the app** — all real reads/writes go through the raw `mongodb` driver (`lib/mongodb.ts`). Their schemas have drifted from reality in places (e.g. `Lead.ts`'s `status` enum doesn't match the real `kanbanColumn` vocabulary). Whether to delete them or bring them in line with reality as a future migration path is an open decision — see the repo's GitHub issue tracker (issue #20).
+
 ### `lib/*`
-- `mongodb.ts` — MongoDB client promise
+- `mongodb.ts` — MongoDB client promise, `isMongoConfigured()`
 - `api-auth.ts` — API key enforcement
-- `validate-lead.ts` — shared validation
-- `lead-validator.ts` — agent-side validation
+- `validate-lead.ts` — shared validation (`validateLeadPayload`, with a `{ partial: true }` mode for updates; `validatePatchPayload` for action-envelope patches)
+- `fingerprint.ts` — dedup hash (`SHA1(url + entity_name + region)`), shared by `models/Lead.ts`'s pre-save hook and `app/api/leads/route.ts`
+- `kanban-column.ts` — ICE-score → kanban-column mapping, shared by `app/api/leads/route.ts`
+- `pipeline-weights.ts` — pipeline-weight forecast defaults + `settings`-collection lookup, shared by `stats`, `boards/[brand]`, and `forecast/export` routes
+- `tenant.ts` — `getTenantId()`/`tenantFilter()`, shared by `stats`, `boards/[brand]`, and `health` routes
 - `public-data.ts` — fallback public data
 - `quality-registry.ts` — quality ceiling enforcement
 - `request-retry.ts` — retry helper
@@ -207,11 +226,12 @@ HTTP handlers for leads, health, outreach, learning, search, stats, and boards.
 - `requireApiKey` guards write and admin endpoints
 - Read endpoints are public
 - Key is passed via `x-api-key` header
+- When `SLG_API_KEY` is set, a request is rejected (401) unless it sends the exact matching header — a missing header is rejected identically to a wrong one. When `SLG_API_KEY` is unset entirely, all requests are allowed through (documented fail-open behavior for local/dev use)
 
 ### Input Validation
-- POST and PATCH payloads are validated before processing
+- POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)
 - Brand-aware field normalization prevents cross-tenant writes
-- Schema mapper/validator blocks forbidden fields
+- Schema mapper/validator blocks forbidden fields and forbidden cross-brand vocabulary in free-text fields
 
 ---
 
