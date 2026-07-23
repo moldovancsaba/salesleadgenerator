@@ -179,32 +179,30 @@ export function SalesPageClient({ brand }: Props) {
   return (
     <div data-theme="default" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <Paper radius="md" withBorder p="md" style={{ flexShrink: 0 }}>
-        <Group justify="space-between" align="flex-start" wrap="nowrap">
-          <div>
-            <Text fw={700} size="xl">{boardMeta?.label || brand}</Text>
-            {metaLoading ? (
-              <Loader size="xs" />
-            ) : boardMeta ? (
-              <Text size="sm" c="dimmed">
-                {typeof boardMeta.totalLeads === 'number' ? boardMeta.totalLeads.toLocaleString() : '—'} leads
-                {boardMeta.updatedAt ? ` · updated ${new Date(boardMeta.updatedAt).toLocaleTimeString()}` : ''}
-              </Text>
-            ) : null}
+        <Group justify="space-between" align="center" wrap="nowrap" gap="xs">
+          <Text fw={700} size="lg" truncate style={{ minWidth: 0 }}>{boardMeta?.label || brand}</Text>
+          <Select
+            size="xs"
+            value={view}
+            onChange={(value) => setView(value as ViewMode)}
+            data={VIEW_OPTIONS}
+            style={{ width: 132, flexShrink: 0 }}
+          />
+        </Group>
+        {metaLoading ? (
+          <Loader size="xs" mt={4} />
+        ) : boardMeta ? (
+          <Group justify="space-between" align="center" mt={4} wrap="nowrap" gap="xs">
+            <Text size="sm" c="dimmed" truncate style={{ minWidth: 0 }}>
+              {typeof boardMeta.totalLeads === 'number' ? boardMeta.totalLeads.toLocaleString() : '—'} leads
+            </Text>
             {boardMeta?.forecast?.totalWeightedRevenue !== undefined && (
-              <Text size="sm" c="dimmed">
-                Forecast: {boardMeta.forecast.currency === 'EUR' ? '€' : '$'}{boardMeta.forecast.totalWeightedRevenue.toLocaleString()} weighted
+              <Text size="sm" c="dimmed" fw={600} style={{ flexShrink: 0 }}>
+                {boardMeta.forecast.currency === 'EUR' ? '€' : '$'}{Math.round(boardMeta.forecast.totalWeightedRevenue).toLocaleString()}
               </Text>
             )}
-          </div>
-          <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
-            <Select
-              size="xs"
-              value={view}
-              onChange={(value) => setView(value as ViewMode)}
-              data={VIEW_OPTIONS}
-            />
           </Group>
-        </Group>
+        ) : null}
       </Paper>
 
       <Group justify="center" p="sm" style={{ flexShrink: 0 }}>

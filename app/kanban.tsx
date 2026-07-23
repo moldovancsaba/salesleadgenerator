@@ -222,14 +222,26 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, mode: mod
         armStartRef.current = null
       }
     }
+    // A quick tap-and-release (tapping a card or its Preview button, the
+    // common case) must cancel the still-pending arm timer here — otherwise
+    // it fires ~200ms after the finger has already lifted, with no future
+    // pointerup left to arrive and clear it via handlePointerUpWhileDragging,
+    // leaving the ghost label and the dimmed source card stuck on screen
+    // until an unrelated drag on the same pointerId happens to clear it.
+    const cancelArm = (releaseEvent: PointerEvent) => {
+      if (releaseEvent.pointerId !== pointerId) return
+      clearTimeout(armTimerRef.current)
+      armStartRef.current = null
+      cleanupArmWatchers()
+    }
     const cleanupArmWatchers = () => {
       window.removeEventListener('pointermove', cancelIfMoved)
-      window.removeEventListener('pointerup', cleanupArmWatchers)
-      window.removeEventListener('pointercancel', cleanupArmWatchers)
+      window.removeEventListener('pointerup', cancelArm)
+      window.removeEventListener('pointercancel', cancelArm)
     }
     window.addEventListener('pointermove', cancelIfMoved)
-    window.addEventListener('pointerup', cleanupArmWatchers)
-    window.addEventListener('pointercancel', cleanupArmWatchers)
+    window.addEventListener('pointerup', cancelArm)
+    window.addEventListener('pointercancel', cancelArm)
   }, [])
 
   const columnWidth = mode === 'mobile' ? '85vw' : '18rem'
