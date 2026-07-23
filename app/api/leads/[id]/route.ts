@@ -4,6 +4,7 @@ import { BRAND_CONFIG, resolveBrand, PRO_FIELD, CON_FIELD } from '../../../lib/b
 import { normalizeLead } from '../../../lib/normalize-lead'
 import { requireApiKey } from '../../../../lib/api-auth'
 import { validateLeadPayload } from '../../../../lib/validate-lead'
+import { deriveKanbanColumn, isAutoManagedColumn } from '../../../../lib/kanban-column'
 
 function getBrand(request: Request): 'cogmap' | 'seyu' {
   const url = new URL(request.url);
@@ -151,6 +152,15 @@ export async function PUT(
         linkedin: typeof c.linkedin === 'string' ? c.linkedin.trim() : '',
         role: typeof c.role === 'string' ? c.role.trim() : '',
       }));
+    }
+
+    // Discovered/Qualified are auto-managed by ICE score alone: a score change
+    // re-derives the column. Every other column is exclusively user-managed —
+    // once a lead has been moved out (or an explicit kanbanColumn is sent in
+    // the same request), it's never auto-reclassified again.
+    if (body.ice !== undefined && body.kanbanColumn === undefined && isAutoManagedColumn(existing.kanbanColumn)) {
+      const newIceScore = Number(body.ice.impact) * Number(body.ice.confidence) * Number(body.ice.ease);
+      updateData.kanbanColumn = deriveKanbanColumn(newIceScore);
     }
 
     const result = await dbInstance.collection(config.dbCollection).findOneAndUpdate(

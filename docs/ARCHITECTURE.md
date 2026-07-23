@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.3
+**Version:** 2.4.4
 
 ---
 
@@ -177,7 +177,15 @@ Tracks query success, accepted/declined counts, top terms, and top domains.
 2. `requireApiKey` enforces auth
 3. Request body is validated via `validateLeadPayload(body, brand, { partial: true })` — the same rules `POST` enforces (URL format, ICE range, forbidden cross-brand vocabulary), but only for whichever fields are actually present in the partial update, not required unconditionally
 4. Route updates allowed fields without requiring the ACCEPT/DECLINE/etc. action workflow
-5. Response returns updated lead
+5. **Auto-reclassification (2.4.4):** if the update includes `ice` and does *not* also explicitly include `kanbanColumn`, and the lead's current `kanbanColumn` is `DISCOVERED` or `QUALIFIED` (`isAutoManagedColumn()`), the route recomputes the ICE score from the new `ice` values and sets `kanbanColumn = deriveKanbanColumn(newIceScore)`. A lead that has been moved to `ENGAGED`/`PROPOSAL`/`WON`/`LOST` (by drag-and-drop or an action) is never auto-moved again regardless of later score changes.
+6. Response returns updated lead
+
+### Kanban Column Chunk (auto-classification and sort rule, 2.4.4)
+`GET /api/leads/columns?column=<COLUMN>` is the kanban board's sole read path (cursor-paginated, `CHUNK_SIZE = 50`). Its sort behavior now branches by column:
+- **`DISCOVERED`** (ICE < 500) and **`QUALIFIED`** (ICE ≥ 500) are auto-managed: leads are placed here purely by computed ICE score, and the column always sorts high → low by that score. There is no stored, denormalized sort field for these two columns — the route runs an aggregation pipeline (`$addFields` using `ICE_SCORE_AGGREGATION_EXPR`, then `$sort: { _iceScore: -1, _id: -1 }`), and cursor pagination is encoded as `<iceScore>|<id>` instead of `sortOrder`.
+- **`ENGAGED`, `PROPOSAL`, `WON`, `LOST`** remain exclusively user-managed: unchanged `sortOrder`-based sort (`{ sortOrder: -1, createdAt: -1 }`), cursor encoded as `<sortOrder>|<id>`. A lead only reaches one of these columns via an explicit action (drag-and-drop `COLUMN_MOVE`, `ACCEPT`, `PIN`, etc.) and is never auto-moved out of it by a score change.
+
+Placement rule: a lead moves between `DISCOVERED`/`QUALIFIED` automatically whenever its `ice` score is updated (see "Update Lead" above) or at creation (`deriveKanbanColumn` in `POST /api/leads`). Moving a card out to any of the 4 manual columns (drag-and-drop or an action) changes `kanbanColumn` explicitly, which permanently opts that lead out of auto-classification.
 
 ### Outreach
 1. Frontend posts to `/api/outreach-logs` with lead context and channel
@@ -215,7 +223,7 @@ HTTP handlers for leads, health, outreach, learning, search, stats, and boards.
 - `api-auth.ts` — API key enforcement
 - `validate-lead.ts` — shared validation (`validateLeadPayload`, with a `{ partial: true }` mode for updates; `validatePatchPayload` for action-envelope patches)
 - `fingerprint.ts` — dedup hash (`SHA1(url + entity_name + region)`), shared by `models/Lead.ts`'s pre-save hook and `app/api/leads/route.ts`
-- `kanban-column.ts` — ICE-score → kanban-column mapping, shared by `app/api/leads/route.ts`
+- `kanban-column.ts` — ICE-score → kanban-column mapping (2-tier, 500 threshold), `isAutoManagedColumn()`, and `ICE_SCORE_AGGREGATION_EXPR` (Mongo aggregation mirroring `getIceScore()`); shared by `app/api/leads/route.ts` (creation), `app/api/leads/[id]/route.ts` (reclassify-on-update), and `app/api/leads/columns/route.ts` (ICE-based column sort)
 - `pipeline-weights.ts` — pipeline-weight forecast defaults + `settings`-collection lookup, shared by `stats`, `boards/[brand]`, and `forecast/export` routes
 - `tenant.ts` — `getTenantId()`/`tenantFilter()`, shared by `stats`, `boards/[brand]`, and `health` routes
 - `public-data.ts` — fallback public data

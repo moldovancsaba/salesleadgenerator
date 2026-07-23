@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.3  
+**Version:** 2.4.4  
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -12,6 +12,8 @@ Pipeline operators and sales researchers who manage leads in the kanban board or
 ---
 
 ## Daily Workflow
+
+DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted purely by its ICE score (QUALIFIED at 500+, otherwise DISCOVERED; always high to low). Dragging a card out to ENGAGED/PROPOSAL/WON/LOST (or an Accept/Decline/Pin action) hands that lead to manual, user-controlled placement and ordering permanently — it's never auto-moved again even if its score later changes.
 
 1. Open `/sales/<brand>` on mobile or desktop.
 2. Review new cards in DISCOVERED.
@@ -30,8 +32,8 @@ Pipeline operators and sales researchers who manage leads in the kanban board or
 ## Filters and Search
 
 - Country filters are available in the pipeline UI and are visible by default.
-- Search matches entity name, sector, and contact name.
-- Sort by ICE score or name, with asc/desc order.
+- Search matches entity name, sector, and contact name (predictive dropdown under the header).
+- No manual sort control exists (the 2.4.3 header's Asc/Desc button was removed — it never actually sorted anything). DISCOVERED and QUALIFIED always sort by ICE score, high to low; ENGAGED/PROPOSAL/WON/LOST sort by the order the user has arranged them in.
 - Tenant filter exists in the API; current UI focus is on brand and country.
 
 ---
