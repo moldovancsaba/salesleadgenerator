@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.7
+**Version:** 2.4.8
 
 ---
 
@@ -179,11 +179,12 @@ Tracks query success, accepted/declined counts, top terms, and top domains.
 3. Request body is validated via `validateLeadPayload(body, brand, { partial: true })` — the same rules `POST` enforces (URL format, ICE range, forbidden cross-brand vocabulary), but only for whichever fields are actually present in the partial update, not required unconditionally
 4. Route updates allowed fields without requiring the ACCEPT/DECLINE/etc. action workflow
 5. **Auto-reclassification (2.4.4):** if the update includes `ice` and does *not* also explicitly include `kanbanColumn`, and the lead's current `kanbanColumn` is `DISCOVERED` or `QUALIFIED` (`isAutoManagedColumn()`), the route recomputes the ICE score from the new `ice` values and sets `kanbanColumn = deriveKanbanColumn(newIceScore)`. A lead that has been moved to `ENGAGED`/`PROPOSAL`/`WON`/`LOST` (by drag-and-drop or an action) is never auto-moved again regardless of later score changes.
-6. Response returns updated lead
+6. **`ice` is coerced to real numbers before storing (2.4.8):** unlike `POST` (which runs the whole body through `normalizeLead()`'s `ensureNumber()`), this route previously copied `body.ice` verbatim — `validateLeadPayload` only range-checks it via `Number()`, it never mutates the stored value. A request with numerically valid but string-typed ICE fields would pass validation yet persist as strings, which then broke the sort aggregation below (`$multiply` throws on a string operand). Fixed to match `POST`'s guarantee.
+7. Response returns updated lead
 
 ### Kanban Column Chunk (auto-classification and sort rule, 2.4.4)
-`GET /api/leads/columns?column=<COLUMN>` is the kanban board's sole read path (cursor-paginated, `CHUNK_SIZE = 50`). Its sort behavior now branches by column:
-- **`DISCOVERED`** (ICE < 500) and **`QUALIFIED`** (ICE ≥ 500) are auto-managed: leads are placed here purely by computed ICE score, and the column always sorts high → low by that score. There is no stored, denormalized sort field for these two columns — the route runs an aggregation pipeline (`$addFields` using `ICE_SCORE_AGGREGATION_EXPR`, then `$sort: { _iceScore: -1, _id: -1 }`), and cursor pagination is encoded as `<iceScore>|<id>` instead of `sortOrder`.
+`GET /api/leads/columns?column=<COLUMN>` is the kanban board's sole read path (cursor-paginated, `CHUNK_SIZE = 50`) — sorting happens entirely in this server-side aggregation, never client-side; the frontend renders whatever order the response returns. Its sort behavior branches by column:
+- **`DISCOVERED`** (ICE < 500) and **`QUALIFIED`** (ICE ≥ 500) are auto-managed: leads are placed here purely by computed ICE score, and the column always sorts high → low by that score. There is no stored, denormalized sort field for these two columns — the route runs an aggregation pipeline (`$addFields` using `ICE_SCORE_AGGREGATION_EXPR`, then `$sort: { _iceScore: -1, _id: -1 }`), and cursor pagination is encoded as `<iceScore>|<id>` instead of `sortOrder`. As of 2.4.8, the expression reads each ICE field via `$convert` (`to: 'double'`, safe `onError`/`onNull` fallback to 0) rather than a bare `$multiply` on the raw stored value — this recovers the real number from an already-corrupted numeric-string field instead of throwing and failing the whole column fetch.
 - **`ENGAGED`, `PROPOSAL`, `WON`, `LOST`** remain exclusively user-managed: unchanged `sortOrder`-based sort (`{ sortOrder: -1, createdAt: -1 }`), cursor encoded as `<sortOrder>|<id>`. A lead only reaches one of these columns via an explicit action (drag-and-drop `COLUMN_MOVE`, `ACCEPT`, `PIN`, etc.) and is never auto-moved out of it by a score change.
 
 Placement rule: a lead moves between `DISCOVERED`/`QUALIFIED` automatically whenever its `ice` score is updated (see "Update Lead" above) or at creation (`deriveKanbanColumn` in `POST /api/leads`). Moving a card out to any of the 4 manual columns (drag-and-drop or an action) changes `kanbanColumn` explicitly, which permanently opts that lead out of auto-classification.

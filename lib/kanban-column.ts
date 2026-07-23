@@ -20,21 +20,33 @@ export function isAutoManagedColumn(column: string): column is AutoManagedColumn
 // app/constants.ts's getIceScore(): direct impact*confidence*ease when all
 // three are truthy, else scoreProfile.finalBlended.ice, else 0. Used to sort
 // DISCOVERED/QUALIFIED columns by score without a stored, denormalized field.
+//
+// $convert (not a bare $gt/$multiply on the raw fields) is deliberate: a
+// stored ice.impact/confidence/ease can be a numeric-looking string instead
+// of a real number (a write path that skips normalizeLead()'s coercion would
+// persist one) — $multiply throws on a string operand, which would fail the
+// whole aggregation for every document in the column, not just the bad one.
+// $convert with onError/onNull:0 recovers the real numeric value from a
+// numeric string, and falls back to 0 (routing to the scoreProfile fallback
+// below) for anything genuinely non-numeric or missing — self-healing
+// against already-corrupted historical data with no migration required.
 export const ICE_SCORE_AGGREGATION_EXPR = {
   $let: {
     vars: {
-      hasDirect: {
-        $and: [
-          { $gt: [{ $ifNull: ['$ice.impact', 0] }, 0] },
-          { $gt: [{ $ifNull: ['$ice.confidence', 0] }, 0] },
-          { $gt: [{ $ifNull: ['$ice.ease', 0] }, 0] },
-        ],
-      },
+      impact: { $convert: { input: '$ice.impact', to: 'double', onError: 0, onNull: 0 } },
+      confidence: { $convert: { input: '$ice.confidence', to: 'double', onError: 0, onNull: 0 } },
+      ease: { $convert: { input: '$ice.ease', to: 'double', onError: 0, onNull: 0 } },
     },
     in: {
       $cond: [
-        '$$hasDirect',
-        { $multiply: ['$ice.impact', '$ice.confidence', '$ice.ease'] },
+        {
+          $and: [
+            { $gt: ['$$impact', 0] },
+            { $gt: ['$$confidence', 0] },
+            { $gt: ['$$ease', 0] },
+          ],
+        },
+        { $multiply: ['$$impact', '$$confidence', '$$ease'] },
         { $ifNull: ['$scoreProfile.finalBlended.ice', 0] },
       ],
     },

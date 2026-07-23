@@ -143,6 +143,22 @@ export async function PUT(
       }
     }
 
+    // Unlike POST (which runs the whole body through normalizeLead()'s
+    // ensureNumber() coercion), this loop copies `ice` from the request
+    // body verbatim. validateLeadPayload only range-checks via Number(),
+    // it never mutates the stored value — so a request with numerically
+    // valid but string-typed ice fields (e.g. "8" instead of 8) would pass
+    // validation and get persisted as strings, which then breaks the
+    // ICE-score sort aggregation ($multiply requires numeric types).
+    // Coerce here so every write path stores real numbers.
+    if (body.ice !== undefined && typeof body.ice === 'object' && body.ice !== null) {
+      updateData.ice = {
+        impact: Number(body.ice.impact),
+        confidence: Number(body.ice.confidence),
+        ease: Number(body.ice.ease),
+      };
+    }
+
     if (body.contacts && Array.isArray(body.contacts)) {
       updateData.contacts = body.contacts.map((c: any) => ({
         name: typeof c.name === 'string' ? c.name.trim() : '',

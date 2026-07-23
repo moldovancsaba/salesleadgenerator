@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.8
+
+Owner reported the kanban ICE-score sort (2.4.4) was "still not working" and asked where the sort computation actually runs, concerned about heavy client-side work.
+
+### Architecture confirmation (not a bug)
+The sort itself is entirely server-side: `GET /api/leads/columns` sorts DISCOVERED/QUALIFIED via a MongoDB aggregation (`ICE_SCORE_AGGREGATION_EXPR` in `lib/kanban-column.ts`), and the frontend (`app/kanban.tsx`) renders whatever order the server returns without ever re-sorting client-side. `app/constants.ts`'s `getIceScore()` is the only client-side ICE computation, and it's a trivial per-card multiply used purely for the displayed badge — not for ordering anything.
+
+### Fixed
+- **Found a real, concrete bug while investigating: `PUT /api/leads/[id]` could silently corrupt a lead's stored `ice` field, breaking the sort for that document.** `POST /api/leads` runs the whole request body through `normalizeLead()`, which coerces `ice.impact`/`confidence`/`ease` to real numbers via `ensureNumber()`. `PUT /api/leads/[id]` — the enrichment/update path — does not: it copies `body.ice` straight into the update document (`updateData.ice = body.ice`), and `validateLeadPayload`'s range check (`Number(ice.impact)` between 1 and 10) only *validates* the value, it never *coerces* the stored one. A request with numerically-valid but string-typed ICE values (e.g. `"8"` instead of `8`) — plausible from any caller that serializes numbers as strings somewhere in its own pipeline — would pass validation and get persisted as strings. MongoDB's `$multiply` throws on a string operand, which fails the *entire* aggregation for that column (not just the one bad document), returning a 500 that the frontend's `catch` block silently logs to console — leaving the column showing stale or unsorted data with no visible error. Fixed by coercing `ice` to real numbers in the PUT handler before storing, matching what `POST` already does.
+- **Made the sort aggregation itself resilient regardless**, so it can't be broken this way again even by some other write path or already-corrupted historical data: `ICE_SCORE_AGGREGATION_EXPR` now reads each ICE field through `$convert` (`to: 'double', onError: 0, onNull: 0'`) instead of a bare `$gt`/`$multiply` on the raw stored value. This recovers the real number from a numeric-string field (self-healing any already-corrupted document without a migration) and falls back to 0 for anything genuinely non-numeric or missing, routing to the existing `scoreProfile.finalBlended.ice` fallback instead of throwing.
+
+### Verification note
+This sandbox has no MongoDB credentials configured, so the exact shape of any already-live corrupted documents (if any exist) couldn't be directly inspected before or after this fix — the root cause was identified by tracing the actual code paths (validation vs. normalization vs. storage), not by guessing. The fix is self-healing on the read side regardless of whether this specific corruption is what the owner hit, so it resolves the symptom either way. Full quality gate (`tsc`, `eslint`, `vitest` 35/35, smoke 5/5) passes; a live device/production check of the kanban sort is the way to get 100% confirmation.
+
 ## 2.4.7
 
 Resolved the two "flag only" decisions left open from the second audit pass (GitHub issues #20 and #21) — both were closed previously with only their low-risk sub-fixes shipped, the actual decisions never made.
