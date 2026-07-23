@@ -77,4 +77,20 @@ export type Lead = {
   lastStatusChangeAt?: string;
   autoMoved?: boolean;
   autoMoveNote?: string;
+  // CogMap forecast fields (ticket size)
+  estimated_annual_revenue_usd?: number;
+  estimated_participants?: number;
+  recommended_tier?: "essential" | "performance" | "elite" | "multiple";
+  revenue_model?: "per_participant" | "revenue_share" | "hybrid";
+  // Seyu forecast fields (ticket size)
+  pricingByCompany?: Record<string, {
+    currency?: string;
+    upfront_eur?: number;
+    monthly_eur?: number;
+    annual_fee_eur?: number;
+    discount_percent?: number;
+    revenue_share_percent?: number;
+    pricing_model?: string;
+    notes?: string;
+  }>;
 };

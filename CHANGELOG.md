@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.0
+
+Kanban board UX overhaul (issue #23), from an owner screenshot review of the pipeline header and mobile filter bar.
+
+### Added
+- **Predictive lead search**: a new search bar, centered directly under the page header, using GDS's `SearchableSelect` (`@sovereignsquad/gds-core`) — debounced, async-loaded against the existing `GET /api/search?q=&brand=` endpoint, with loading/empty/error states built in. Selecting a result opens the lead detail modal directly.
+- **Drag-and-drop between kanban columns, rebuilt from scratch.** It did not exist in the code prior to this release — `handleMove()` was already correctly wired to `PATCH /api/leads` with `action: COLUMN_MOVE`, but nothing ever called it; no `draggable`, drag events, or pointer handlers were present anywhere in `app/kanban.tsx`. (Changelog/roadmap history describes "pointer-based drag-and-drop" as previously shipped; it isn't present in the code as it stood before this release, likely lost in an earlier rewrite to cursor-paginated columns.) Implemented with Pointer Events (not native HTML5 drag-and-drop, for touch support) using a 200ms long-press-to-arm gesture so normal scrolling and tap-to-preview keep working — only a deliberate hold-then-move starts a drag. Includes a floating ghost label following the pointer, a dashed-highlight drop-target column, optimistic card removal from the source column on drop, and full cleanup on pointer cancel/interrupt.
+- **Ticket size on each lead card**: a new `getTicketSize()` helper (`app/constants.ts`) surfaces the estimated deal value — CogMap leads use `estimated_annual_revenue_usd` directly (USD); Seyu leads don't have a single per-lead figure in the schema, so it's derived by summing each of that lead's own `pricingByCompany` entries using the same `max(annual_fee_eur, monthly_eur*12 + upfront_eur)` formula the forecast endpoint already used server-side (EUR). Shown in the card's metadata row alongside Region/ICE/Size/Contact.
+- **Discounted (pipeline-weighted) forecast per kanban column header**: `GET /api/boards/[brand]` already computed this for CogMap (`forecast.pipeline[COLUMN].weightedRevenue = rawRevenue × probability`, where probability comes from `lib/pipeline-weights.ts`) but only ever surfaced the aggregate total in the page header. Now shown per-column. Extended the same computation to Seyu, which previously had no per-column breakdown at all (only per-company) — a new aggregation groups each lead's own pricing-block value by `kanbanColumn` before applying the same weight table.
+
+### Changed
+- **Header layout**: the view-mode selector (Kanban/Table/Metrics/Search Learning) is now pinned to the header's top-right (`wrap="nowrap"`, so it can no longer wrap below the title on narrow viewports as it did before). The Region and Status filter dropdowns are removed entirely, from the UI and from the `filteredLeads` logic in `sales-page-client.tsx` that depended on them — the kanban board already groups by status via its columns, and the region filter had no other consumer.
+- The page header's forecast text now shows `€` for Seyu (previously hardcoded `$` regardless of brand, which was wrong once Seyu forecasts existed).
+
+### Documentation
+`docs/ARCHITECTURE.md`, `roadmap.md`, `PROPOSAL.md` updated. Full deliverable breakdown and the CogMap/Seyu ticket-size ambiguity this shipped a default answer for: issue #23.
+
 ## 2.3.2
 
 ### Fixed
