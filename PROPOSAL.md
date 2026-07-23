@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.3
+**Version:** 2.4.4
 
 ## Purpose
 
@@ -43,6 +43,9 @@ This document tracks proposed improvements against the current shipped state. Co
 - New predictive search bar (top-center under the header) using GDS's `SearchableSelect`, backed by the existing `/api/search` endpoint; selecting a result opens the lead detail modal.
 - Kanban drag-and-drop between columns rebuilt entirely — it was fully absent from the code (not merely buggy) despite changelog/roadmap history describing it as shipped. Pointer-events-based with a long-press arm gesture (so scrolling/tapping still work), ghost preview, drop-target highlight, optimistic removal from the source column, and cleanup on cancel.
 - Ticket size (estimated deal value) shown on each lead card, and a pipeline-weighted ("discounted") forecast shown on each kanban column header — extended to Seyu, which previously had no per-column forecast breakdown at all.
+
+### Kanban Auto-Classification and ICE Sort Rule (2.4.4)
+- Owner specified an exact business rule: `DISCOVERED`/`QUALIFIED` are auto-managed purely by ICE score (500 threshold, always sorted high to low, no other sort); every other column is exclusively user-managed once a lead is moved there. `lib/kanban-column.ts` was rewritten from a 3-tier 480/720 rule (which also auto-promoted to `ENGAGED`) to the correct 2-tier rule. `PUT /api/leads/[id]` now reclassifies a lead's column on ICE-score change, but only while it's still in an auto-managed column. `GET /api/leads/columns` now sorts the two auto-managed columns by a computed-ICE aggregation instead of `sortOrder`, with cursor pagination re-encoded around the score. The already-declared-but-unused `ICE_QUALIFIED_THRESHOLD` constant and the incorrect 480/720 test fixtures were both cleaned up in the same change.
 
 ### Search Bar and Focus-Zoom Fixes (2.4.1)
 - Fixed the page force-zooming on search-input focus — a separate iOS Safari mechanism from pinch-zoom (zooms when a focused input's font-size is below 16px); added a global 16px minimum for all inputs/selects/textareas.

@@ -8,8 +8,10 @@ type TableViewProps = {
   leads: Lead[];
 };
 
+type TableRow = Lead & { score: number };
+
 export function TableView({ leads }: TableViewProps) {
-  const rows = leads.map((lead) => ({
+  const rows: TableRow[] = leads.map((lead) => ({
     ...lead,
     score: getIceScore(lead),
   }));
@@ -25,8 +27,8 @@ export function TableView({ leads }: TableViewProps) {
         { key: 'qualityStatus', header: 'Quality', sortable: true },
         { key: 'kanbanColumn', header: 'Status', sortable: true },
       ]}
-      getRowKey={(row) => row._id}
-      renderMobileCard={(row) => (
+      getRowKey={(row: TableRow) => row._id}
+      renderMobileCard={(row: TableRow) => (
         <div>
           <div style={{ fontWeight: 600 }}>{row.entity_name}</div>
           <div style={{ color: 'gray-6' }}>

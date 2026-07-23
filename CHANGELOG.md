@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.4
+
+Owner-specified kanban auto-classification/sort business rule, previously only partially wired (a `deriveKanbanColumn` existed with the wrong thresholds and 3 tiers including an auto-`ENGAGED` promotion; `ICE_QUALIFIED_THRESHOLD = 500` was declared in `app/constants.ts` but never referenced anywhere — strong evidence this 500-threshold rule was the original intended design that never got finished).
+
+### Changed
+- **`lib/kanban-column.ts` rewritten to a strict 2-tier rule.** `DISCOVERED` = ICE score < 500, `QUALIFIED` = ICE score ≥ 500. The old 3-tier version (480/720 thresholds, auto-promoting to `ENGAGED`) is gone — `ENGAGED`/`PROPOSAL`/`WON`/`LOST` are never reached by automatic classification, only by an explicit user action (drag-and-drop, Accept, Pin, etc.). Added `AUTO_MANAGED_COLUMNS`/`isAutoManagedColumn()` and `ICE_SCORE_AGGREGATION_EXPR` (a Mongo aggregation expression computing the same score as `app/constants.ts`'s `getIceScore()`, for server-side sorting without a stored, denormalized field).
+- **`PUT /api/leads/[id]` now auto-reclassifies on score change.** If a partial update includes `ice` and does not also explicitly set `kanbanColumn`, and the lead is currently in `DISCOVERED` or `QUALIFIED`, the route recomputes the ICE score and derives the new column. Leads already moved to any of the 4 manual columns are never touched by this — moving a lead out of the auto-managed pair is a one-way door, matching the owner's spec ("If a card scores changes in Discovery and Qualified columns they change sort and even columns automatically by the rules. All other columns are manually sorted by the user").
+- **`GET /api/leads/columns` now sorts `DISCOVERED`/`QUALIFIED` by computed ICE score, high to low — no other sort.** Previously all 6 columns used the same `{ sortOrder: -1, createdAt: -1 }` sort, which meant the two auto-managed columns weren't actually score-ordered at all despite the intent. The route now branches: the two auto-managed columns run an aggregation (`$addFields` + `$sort` on the computed score) with cursor pagination re-encoded as `<iceScore>|<id>`; the 4 manual columns keep their original `sortOrder`-based query and `<sortOrder>|<id>` cursor, unchanged.
+- `app/constants.ts`'s `COLUMNS` metadata descriptions rewritten to state the rule directly ("Auto-managed: ICE < 500, sorted high to low", etc.); the now-superseded, always-unused `ICE_QUALIFIED_THRESHOLD` constant was removed in favor of `lib/kanban-column.ts`'s `QUALIFIED_ICE_THRESHOLD`.
+- `tests/lib/kanban-column.test.ts` rewritten for the new 2-tier thresholds (was still asserting the old 480/720/`ENGAGED` behavior) plus new coverage for `isAutoManagedColumn()`.
+
+### Fixed (pre-existing, unrelated to this task, caught by the quality gate before pushing)
+- `app/detail.tsx` (2 call sites) and `app/table.tsx` (2 call sites): implicit-`any` `tsc` errors on GDS admin-component callback parameters (`AdminSelect`/`AdminTextarea`/`AdminDataTable` are typed `any` in this sandbox's local stub packages, so inline callback parameters had no contextual type). Added explicit parameter types; no behavior change. These were already present on `main` prior to this change — not introduced by this task, but fixed here since the zero-tolerance gate covers whatever this push adds to `main`.
+
+### Note
+3 pre-existing ESLint warnings (`react-hooks/exhaustive-deps` in `app/outreach/compose-modal.tsx` and `app/outreach/templates/page.tsx`) remain, in files untouched by this change — carried forward as recorded, not fixed in this pass.
+
+### Not in scope
+`lead-feeder-agent.js` and `scripts/migrate-check-schema.js` contain their own, separate, older kanban-column-derivation logic (different thresholds, including direct writes to `ENGAGED`/`PROPOSAL`). Neither is wired into any `npm` script or the running app — same unused/orphaned status as the Mongoose models already tracked as an open decision in `roadmap.md`. Left untouched; flagging here so the drift is a recorded fact, not a silent gap.
+
 ## 2.4.3
 
 ### Fixed

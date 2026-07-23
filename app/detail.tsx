@@ -355,7 +355,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
         label="Decline Reason"
         description="Only used when declining"
         value={declineReason}
-        onChange={(value) => setDeclineReason(value as DeclineReason)}
+        onChange={(value: string) => setDeclineReason(value as DeclineReason)}
         data={DECLINE_REASONS.map((r) => ({ value: r.value, label: r.label }))}
       />
       <AdminTextarea
@@ -363,7 +363,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
         label="Annotation"
         description="Add notes, reasoning, or context for your action…"
         value={annotation}
-        onChange={(value) => setAnnotation(value)}
+        onChange={(value: string) => setAnnotation(value)}
         rows={3}
       />
     </Stack>

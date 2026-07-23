@@ -1,10 +1,16 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.3
+**Version:** 2.4.4
 
 ---
 
 ## Shipped
+
+### Kanban Auto-Classification and ICE Sort Rule (2.4.4)
+- ✅ `DISCOVERED` (ICE < 500) and `QUALIFIED` (ICE ≥ 500) are the only two auto-managed columns — placement and sort order both driven purely by computed ICE score, always high to low, no other sort. Replaces the old, never-quite-matching 3-tier 480/720 logic that also auto-promoted to `ENGAGED`.
+- ✅ `PUT /api/leads/[id]` auto-reclassifies a lead still sitting in `DISCOVERED`/`QUALIFIED` whenever its `ice` score changes (and the request doesn't also explicitly set `kanbanColumn`).
+- ✅ `GET /api/leads/columns` sorts the two auto-managed columns by a computed-ICE-score aggregation instead of `sortOrder`; the 4 manual columns (`ENGAGED`/`PROPOSAL`/`WON`/`LOST`) are untouched — a lead moved there via drag-and-drop or an action is never auto-reclassified again, and stays on its existing user-controlled `sortOrder`.
+- ✅ Removed the now-superseded, always-unreferenced `ICE_QUALIFIED_THRESHOLD` constant from `app/constants.ts`.
 
 ### Security and Dependency Hardening (2.2.0)
 - ✅ Fixed API-key auth bypass (missing `x-api-key` header was previously treated as success)
@@ -98,6 +104,7 @@
 | Available countries visibility | Country filter UI is implemented, but live lead data currently lacks populated `country` values, so the list may appear empty until data is backfilled or mapped from `region` |
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
 | Unused Mongoose models decision | `models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts` remain unused (no importers); `Lead.ts`'s pro/con field names were corrected to the generic scheme in 2.3.0, but the broader decision — delete the files, or repair them fully as a migration path — is still open |
+| Orphaned standalone scripts with drifted kanban-column logic | `lead-feeder-agent.js` and `scripts/migrate-check-schema.js` each contain their own, separate ICE→column derivation with different (older) thresholds than the real `lib/kanban-column.ts`; neither is wired into any `npm` script or the running app — same unused/orphaned status as the Mongoose models above, flagged as of 2.4.4 rather than left as a silent inconsistency |
 | Pagination shape unification | 3 lead-listing endpoints intentionally use 3 different pagination contracts (full page-list, capped search, cursor-paginated column); the misleading `total` field naming trap was fixed in 2.2.2, but full unification still needs a coordinated frontend+backend design pass, not a drive-by fix |
 | PWA installability real-device gap | Owner reports install behavior still not as expected on a real device; needs specifics (platform, symptom) before a further fix can be scoped |
 
