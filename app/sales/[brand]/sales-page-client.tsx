@@ -1,30 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Group, Text, Button, Paper, Select, Loader, Container } from '@mantine/core';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Group, Text, Button, Paper, Select, Loader, Container, Box } from '@mantine/core';
+import { SearchableSelect } from '@sovereignsquad/gds-core/client';
 import type { Lead } from '@/app/types';
 import { KanbanBoard } from '@/app/kanban';
 import { LeadDetailModal } from '@/app/detail';
 import { TableView } from '@/app/table';
 import { SearchLearningPanel } from '@/app/search-learning';
 import { MetricsPanel } from '@/app/metrics';
-import { COLUMNS } from '@/app/constants';
 
 type ViewMode = 'kanban' | 'table' | 'metrics' | 'search';
 
 const MODE_KEY = 'saleslayoutMode';
-
-const REGION_OPTIONS = [
-  { value: 'all', label: 'All Regions' },
-  { value: 'US', label: 'US' },
-  { value: 'CEE', label: 'CEE' },
-  { value: 'MENA', label: 'MENA' },
-];
-
-const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: 'all', label: 'All Statuses' },
-  ...COLUMNS.map((col) => ({ value: col.key, label: col.label })),
-];
 
 const VIEW_OPTIONS = [
   { value: 'kanban', label: 'Kanban' },
@@ -40,8 +28,6 @@ type Props = {
 export function SalesPageClient({ brand }: Props) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [view, setView] = useState<ViewMode>('kanban');
-  const [region, setRegion] = useState('all');
-  const [status, setStatus] = useState('all');
   const [sortKey, setSortKey] = useState<'ice' | 'name'>('ice');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isMobile, setIsMobile] = useState(true);
@@ -53,6 +39,8 @@ export function SalesPageClient({ brand }: Props) {
   const [metaLoading, setMetaLoading] = useState(true)
   const [tableLeads, setTableLeads] = useState<Lead[]>([])
   const [tableLoading, setTableLoading] = useState(true)
+  const [searchSelection, setSearchSelection] = useState<string | null>(null)
+  const searchResultsRef = useRef<Record<string, Lead>>({})
 
   // Load board metadata (header, counts, forecast) from DB
   useEffect(() => {
@@ -136,24 +124,41 @@ export function SalesPageClient({ brand }: Props) {
     }
   }, [brand])
 
-  // Server-side filtered list ONLY for table view
-  // Kanban reads per-column directly from DB; metrics/search fetch their own data
-  const filteredLeads = useMemo(() => {
-    if (view !== 'table') return []
-    const list = tableLeads
-    if (region !== 'all') {
-      return list.filter((lead) => lead.region === region)
+  // Table view shows the full brand list server-fetched above; no client-side
+  // region/status filtering (removed — the kanban board's columns already
+  // group by status, and cross-brand region filters weren't in use).
+  const filteredLeads = useMemo(() => (view === 'table' ? tableLeads : []), [tableLeads, view])
+
+  const loadSearchOptions = useCallback(async (query: string) => {
+    if (!query.trim()) return []
+    const url = new URL('/api/search', window.location.origin)
+    url.searchParams.set('q', query)
+    url.searchParams.set('brand', brand)
+    url.searchParams.set('limit', '8')
+    const res = await fetch(url.toString())
+    if (!res.ok) throw new Error(`Search failed: ${res.status}`)
+    const data = await res.json()
+    const leads: Lead[] = data.results || []
+    searchResultsRef.current = Object.fromEntries(leads.map((lead) => [lead._id, lead]))
+    return leads.map((lead) => ({
+      value: lead._id,
+      label: lead.industry || lead.sport_or_sector
+        ? `${lead.entity_name} — ${lead.industry || lead.sport_or_sector}`
+        : lead.entity_name,
+    }))
+  }, [brand])
+
+  const handleSearchSelect = useCallback((leadId: string | null) => {
+    if (leadId && searchResultsRef.current[leadId]) {
+      setSelectedLead(searchResultsRef.current[leadId])
     }
-    if (status !== 'all') {
-      return list.filter((lead) => lead.kanbanColumn === status)
-    }
-    return list
-  }, [tableLeads, region, status, view])
+    setSearchSelection(null)
+  }, [])
 
   return (
     <div data-theme="default" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <Paper radius="md" withBorder p="md" style={{ flexShrink: 0 }}>
-        <Group justify="space-between" align="flex-start">
+        <Group justify="space-between" align="flex-start" wrap="nowrap">
           <div>
             <Text fw={700} size="xl">{boardMeta?.label || brand}</Text>
             {metaLoading ? (
@@ -166,19 +171,17 @@ export function SalesPageClient({ brand }: Props) {
             ) : null}
             {boardMeta?.forecast?.totalWeightedRevenue !== undefined && (
               <Text size="sm" c="dimmed">
-                Forecast: ${boardMeta.forecast.totalWeightedRevenue.toLocaleString()} weighted
+                Forecast: {boardMeta.forecast.currency === 'EUR' ? '€' : '$'}{boardMeta.forecast.totalWeightedRevenue.toLocaleString()} weighted
               </Text>
             )}
           </div>
-          <Group gap="xs">
+          <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
             <Select
               size="xs"
               value={view}
               onChange={(value) => setView(value as ViewMode)}
               data={VIEW_OPTIONS}
             />
-            <Select size="xs" value={region} onChange={(value) => setRegion(value || 'all')} data={REGION_OPTIONS} />
-            <Select size="xs" value={status} onChange={(value) => setStatus(value || 'all')} data={STATUS_OPTIONS} />
             <Button size="xs" variant="light" color="gray" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
               {sortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}
             </Button>
@@ -186,12 +189,27 @@ export function SalesPageClient({ brand }: Props) {
         </Group>
       </Paper>
 
+      <Group justify="center" p="sm" style={{ flexShrink: 0 }}>
+        <Box style={{ width: '100%', maxWidth: 480 }}>
+          <SearchableSelect
+            value={searchSelection}
+            onChange={handleSearchSelect}
+            loadOptions={loadSearchOptions}
+            placeholder="Search leads by name, industry…"
+            clearable
+            ariaLabel="Search leads"
+          />
+        </Box>
+      </Group>
+
       <div style={{ flex: 1 }}>
         {view === 'kanban' && (
           <KanbanBoard
             brand={brand}
             onOpenLead={setSelectedLead}
             mode={isMobile ? 'mobile' : 'desktop'}
+            forecast={boardMeta?.forecast?.pipeline || null}
+            forecastCurrency={boardMeta?.forecast?.currency === 'EUR' ? 'EUR' : 'USD'}
           />
         )}
 

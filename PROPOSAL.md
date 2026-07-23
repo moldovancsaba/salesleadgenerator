@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.3.2
+**Version:** 2.4.0
 
 ## Purpose
 
@@ -37,6 +37,12 @@ This document tracks proposed improvements against the current shipped state. Co
 ### Kanban Card Image Placeholder Fix (2.3.1 / 2.3.2)
 - Kanban cards previously always reserved an empty media/thumbnail box (`AdminResourceCard`), even though `Lead` has no image/logo field at all — there's currently no case where a lead has one. Switched `LeadCard` to `ProductCard` (`@sovereignsquad/gds-core`), whose `media`/`icon` props are optional `ReactNode`s rendered bare — omitted entirely, they render nothing. The real component source was read directly from `sovereignsquad/general-design-system` (this sandbox can't install the real package, but `raw.githubusercontent.com` was reachable) to confirm the contract before writing the fix, rather than guessing at prop names.
 - The placeholder was still visible afterward on `app/search-learning.tsx`'s "Top Queries" cards — a second, separate `AdminResourceCard` usage the first fix never touched. Reading `AdminResourceCard`'s real source revealed a `hideWhenNoMedia?: boolean` prop, explicitly documented as omitting the placeholder for no-media records and defaulting to `false`. Added it.
+
+### Kanban Board UX Overhaul (2.4.0)
+- View-mode selector pinned to the header's top-right (no longer wraps below the title); Region/Status filter dropdowns removed from the UI and dead-code-cleaned from `sales-page-client.tsx`.
+- New predictive search bar (top-center under the header) using GDS's `SearchableSelect`, backed by the existing `/api/search` endpoint; selecting a result opens the lead detail modal.
+- Kanban drag-and-drop between columns rebuilt entirely — it was fully absent from the code (not merely buggy) despite changelog/roadmap history describing it as shipped. Pointer-events-based with a long-press arm gesture (so scrolling/tapping still work), ghost preview, drop-target highlight, optimistic removal from the source column, and cleanup on cancel.
+- Ticket size (estimated deal value) shown on each lead card, and a pipeline-weighted ("discounted") forecast shown on each kanban column header — extended to Seyu, which previously had no per-column forecast breakdown at all.
 
 ### Kanban UX and Mobile Pipeline
 - Responsive kanban layout with vertical stacking on narrow screens
