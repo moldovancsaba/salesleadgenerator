@@ -1,6 +1,14 @@
 # Deployment Log
 
 ## Latest Deployment
+- **Commit**: d18e981
+- **Message**: fix: iOS focus-zoom fix never applied to Mantine inputs — add !important
+- **Build Status**: Verified via `tsc --noEmit` (0 errors), `eslint` (0 errors, 3 pre-existing warnings in untouched files carried forward), `vitest run` (35/35), smoke suite (5/5), and a real `next build`.
+- **Context**: Owner reported the header's view-mode dropdown was still force-zooming the whole PWA on iOS Safari despite the 2.4.1 fix. Root-caused by reading Mantine's actual compiled stylesheet (`node_modules/@mantine/core/styles.css`) rather than guessing: the 2.4.1 rule (`input, select, textarea { font-size: 16px }`) is a bare element selector (specificity 0-0-1), but Mantine sets each input's font-size via a class selector (`.m_8fb7ebe7 { font-size: var(--input-fz, ...) }`, specificity 0-1-0), which always wins the cascade regardless of source order — so the fix silently never applied to any Mantine input, only to plain native ones outside Mantine. Added `!important`, confirmed no competing `!important` rule exists in Mantine's CSS that could out-rank it. Also widened the view-mode Select (132px -> 168px) to fit its longest label at the now-correctly-enforced 16px font. This is an iOS-Safari-only rendering behavior with no headless/desktop equivalent, and Playwright itself couldn't be installed in this sandbox (re-triggers `npm install`, which fails on the private GDS tarballs) — verification was limited to confirming the compiled CSS served by a real `next dev`/`next build` contains the `!important` rule exactly as written; per the CSS spec this deterministically wins regardless of specificity, so no live-device render was needed to confirm the mechanism, but real-device confirmation is still recommended.
+- **Files Changed**: `app/globals.css`, `app/sales/[brand]/sales-page-client.tsx`
+- **Note**: merged cleanly and pushed directly to `main` (`d18e981`) per the owner's explicit "commit everything and push to origin main" instruction; `claude/project-overview-kvj36v` kept in sync at the same commit.
+
+## Earlier Deployment 0d
 - **Commit**: 3723432
 - **Message**: fix: header overflow, missing desktop detail-panel body, stuck drag-ghost
 - **Build Status**: Verified via `tsc --noEmit` (0 errors), `eslint` (0 errors, 3 pre-existing warnings in untouched `app/outreach/*` files carried forward as recorded), `vitest run` (35/35), smoke suite (5/5), and a real `next build`.
