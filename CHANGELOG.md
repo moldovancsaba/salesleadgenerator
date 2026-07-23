@@ -1,5 +1,10 @@
 # Changelog — Sales Lead Generator
 
+## 2.3.2
+
+### Fixed
+- **The image placeholder was still showing** on the "Top Queries" cards in `app/search-learning.tsx` after the 2.3.1 kanban-card fix, because that's a *second, separate* `AdminResourceCard` usage the 2.3.1 fix never touched (only the kanban `LeadCard` was switched to `ProductCard`). Investigated `AdminResourceCard`'s real source directly (`packages/gds-admin/src/AdminResourceManager.tsx`) rather than guessing why the earlier fix wasn't enough: it wraps `MediaPreviewCard` and has an explicit `hideWhenNoMedia?: boolean` prop, documented inline as *"Omit the media area entirely for records with no media, instead of a placeholder block"* — defaulting to showing the placeholder unless a consumer explicitly opts in. Neither `AdminResourceCard` usage in this repo ever passed it. Added `hideWhenNoMedia` to the `search-learning.tsx` card. Also verified `app/table.tsx`'s `AdminDataTable` mobile-card path has no media/placeholder chrome of its own around its fully custom `renderMobileCard` render prop — confirmed clean, not a source of this issue.
+
 ## 2.3.1
 
 ### Fixed
