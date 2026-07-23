@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.11
+
+**Production build was broken on `main` for the entire window between 2.4.10 shipping and this fix.** Vercel's `npm install` failed with a real `404 Not Found` on `https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.11.0/sovereignsquad-gds-theme-3.11.0.tgz` — the 3.11.0 release tarball does not actually exist (or at least not at that URL), even though the `gds-v3.11.0` git tag and its `CHANGELOG.md` are real and readable.
+
+### Root cause — a verification gap, not a typo
+2.4.10 bumped the GDS dependency URLs to 3.11.0 based on: (a) the `gds-v3.11.0` git tag existing and being readable via `raw.githubusercontent.com` (this sandbox's only unblocked path to the GDS repo), and (b) that tag's own `CHANGELOG.md` describing an "automatic release-bundle workflow" that attaches tarballs on release. Neither of those actually confirms a GitHub Release with attached binary assets was published — a git tag and a GitHub Release are different objects, and the sandbox's `github.com`/`api.github.com` block (a permanent 403 regardless of whether the target resource is real) meant the tarball URL itself was never actually checked, only assumed to be "the same known sandbox block" as always. It wasn't — Vercel's real network access hit a genuine 404. Locally, `next build` succeeded against this app's own hand-written `any`-typed stub packages under `node_modules/@sovereignsquad/*` (necessary since the real packages can't be installed in this sandbox at all) — that verifies the *code* compiles and runs, never that `npm install` can actually fetch the real dependency. That gap was not disclosed clearly enough before shipping.
+
+### Fixed
+- Reverted `@sovereignsquad/gds-admin`/`gds-core`/`gds-theme` in `package.json` and `package-lock.json` back to 3.10.0 — the exact URLs, versions, and `integrity` hashes restored byte-for-byte from the last commit (`138aca0`) known to have deployed successfully, not re-derived or guessed.
+- All 2.4.10 code changes (GDS theme-level `Input.vars` zoom fix via `app/components/Providers.tsx`, GDS-governed `KanbanBoard` in `app/kanban.tsx`) are kept as-is — none of them depend on a 3.11.0-only export. `KanbanBoard` itself (including the keyboard "Move to column" menu) is already present in 3.10.0's `gds-core`; only the newer `enableDrag` pointer/touch drag behavior described in the 3.11.0 changelog is unavailable until a real 3.11.0 release is confirmed to exist — passing `enableDrag` to a 3.10.0 `KanbanBoard` that doesn't recognize the prop is a no-op, not a crash (the accessible move-menu fallback still works either way).
+- Version bumped 2.4.10 -> 2.4.11.
+
+### Still open
+- Whether GDS 3.11.0 will ever actually be published as a real, fetchable release is now an open question for the GDS team, not something to re-attempt from this sandbox — this sandbox has no way to distinguish "blocked" from "doesn't exist" for `github.com`/`api.github.com`, which is exactly what caused this incident. Any future GDS version bump needs confirmation from outside this sandbox (e.g., the owner or CI fetching the tarball URL directly) before it ships, not an inference from the git tag alone.
+
 ## 2.4.10
 
 Owner reported GDS 3.11.0 shipped, built to this app's own earlier requests, and asked us to adopt its new Kanban pattern and zoom-to-focus fix.
