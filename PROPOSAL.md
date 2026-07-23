@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.4
+**Version:** 2.4.5
 
 ## Purpose
 
@@ -46,6 +46,9 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ### Kanban Auto-Classification and ICE Sort Rule (2.4.4)
 - Owner specified an exact business rule: `DISCOVERED`/`QUALIFIED` are auto-managed purely by ICE score (500 threshold, always sorted high to low, no other sort); every other column is exclusively user-managed once a lead is moved there. `lib/kanban-column.ts` was rewritten from a 3-tier 480/720 rule (which also auto-promoted to `ENGAGED`) to the correct 2-tier rule. `PUT /api/leads/[id]` now reclassifies a lead's column on ICE-score change, but only while it's still in an auto-managed column. `GET /api/leads/columns` now sorts the two auto-managed columns by a computed-ICE aggregation instead of `sortOrder`, with cursor pagination re-encoded around the score. The already-declared-but-unused `ICE_QUALIFIED_THRESHOLD` constant and the incorrect 480/720 test fixtures were both cleaned up in the same change.
+
+### Header Overflow, Desktop Detail Panel, and Stuck Drag-Ghost Fixes (2.4.5)
+- A live device screenshot review surfaced 3 real bugs. (1) The header/search bar overflowed the screen on narrow viewports: a `wrap="nowrap"` row combining verbose 3-line header text with the view-mode selector was wider than the viewport with nothing able to shrink or wrap, so the selector (and potentially content below it) rendered off-screen instead of clipping. Compacted the header to two rows and dropped the verbose timestamp/"weighted" wording per the owner's requested terse format; added a global `overflow-x: hidden` CSS safety net. (2) The desktop/tablet-width (≥1280px) lead detail panel — `AdminDetailDrawer` in `app/detail.tsx` — was missing its entire body (ICE score, contacts, pros/cons, every action button) because the call site only ever passed `metadata`, never `content`, unlike the mobile `AdminModal` branch; confirmed against `AdminDetailDrawer`'s real source (`packages/gds-admin/src/AdminOverlays.tsx`) that it renders `{media}`, `{metadata}`, `{children}` and simply never received the last one. Fixed by passing `{content}` as children. (3) A quick tap on a kanban card could leave a permanently stuck drag-ghost and dimmed card: the drag-arm timer in `app/kanban.tsx` was cancelled only on excess pointer movement, never on `pointerup`/`pointercancel`, so an ordinary quick tap still let the 200ms timer fire after the pointer had already lifted, with no future `pointerup` on that pointerId ever arriving to clear it. Fixed by cancelling the timer on release too.
 
 ### Search Bar and Focus-Zoom Fixes (2.4.1)
 - Fixed the page force-zooming on search-input focus — a separate iOS Safari mechanism from pinch-zoom (zooms when a focused input's font-size is below 16px); added a global 16px minimum for all inputs/selects/textareas.

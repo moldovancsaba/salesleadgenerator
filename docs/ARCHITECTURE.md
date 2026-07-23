@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.4
+**Version:** 2.4.5
 
 ---
 
@@ -40,7 +40,7 @@
 - Uses `handleAction` for mutations: ACCEPT, DECLINE, PIN, REQUEST_REFRESH, COLUMN_MOVE, DELETE
 - Uses `handleMove` for drag-to-column moves, invoked by kanban's pointer-based drag-and-drop (see below) — as of 2.4.0, `handleMove` is genuinely wired to a UI gesture; previously the function existed but nothing called it
 - Shows Mantine notifications for success/failure
-- Sort state is kept in page state and passed into kanban and table view
+- No manual sort control exists in the UI (the header's Asc/Desc button was removed in 2.4.3 — it never actually sorted anything). DISCOVERED/QUALIFIED sort by ICE score server-side (2.4.4); ENGAGED/PROPOSAL/WON/LOST sort by `sortOrder`
 - Detail modal is full-screen on mobile via `matchMedia`
 - Predictive search bar (top-center, under the header): an always-editable `TextInput` with a debounced dropdown of matches from `GET /api/search?q=&brand=`; selecting a result opens the detail modal directly. Originally built with GDS's `SearchableSelect`, but that component is a closed combobox picker (a button that only reveals its real typing field once opened) rather than a search bar, and was confusing to use — replaced with a plain input in 2.4.1
 

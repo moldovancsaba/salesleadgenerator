@@ -10,6 +10,14 @@ body {
   touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
+  /*
+    Safety net against any single element (a fixed-width control, an
+    unwrapped long text run, etc.) pushing the page wider than the
+    viewport on narrow screens — clips instead of creating a horizontal
+    scroll the user has to discover by accident.
+  */
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /*

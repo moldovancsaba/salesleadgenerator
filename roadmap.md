@@ -1,10 +1,15 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.4
+**Version:** 2.4.5
 
 ---
 
 ## Shipped
+
+### Header Overflow, Desktop Detail Panel, and Stuck Drag-Ghost Fixes (2.4.5)
+- ✅ Header no longer overflows the screen on narrow viewports — compacted to brand name + view selector on one row, then a single terse leads-count / weighted-forecast line, dropping the verbose "· updated HH:MM:SS" and "Forecast:"/"weighted" wording; added a global `overflow-x: hidden` safety net in `app/globals.css`.
+- ✅ Fixed the desktop/tablet-width (≥1280px) lead detail panel silently missing its entire body — `AdminDetailDrawer` (`app/detail.tsx`) was only ever given `metadata` (name + 3 badges), never `content` (ICE score, contacts, pros/cons, value proposition, feedback history, and every action button), unlike the mobile `AdminModal` branch which always had it.
+- ✅ Fixed a stuck drag-ghost and permanently-dimmed source card after an ordinary quick tap on a kanban card — `app/kanban.tsx`'s drag-arm timer was only cancelled on excess pointer movement, never on `pointerup`/`pointercancel`, so a normal tap-and-release still activated a "drag" ~200ms later with no matching pointerup left to clear it.
 
 ### Kanban Auto-Classification and ICE Sort Rule (2.4.4)
 - ✅ `DISCOVERED` (ICE < 500) and `QUALIFIED` (ICE ≥ 500) are the only two auto-managed columns — placement and sort order both driven purely by computed ICE score, always high to low, no other sort. Replaces the old, never-quite-matching 3-tier 480/720 logic that also auto-promoted to `ENGAGED`.
