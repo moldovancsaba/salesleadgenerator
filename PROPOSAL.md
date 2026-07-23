@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.11
+**Version:** 2.4.12
 
 ## Purpose
 
@@ -69,6 +69,9 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
 - Owner reported the ICE-score kanban sort was "still not working" and asked where the computation runs, concerned about heavy client-side work. Confirmed the sort is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`) and the client never re-sorts — `getIceScore()` client-side is only a trivial per-card display value. Investigation found a real bug: `PUT /api/leads/[id]` stored `ice` fields straight from the request body with no numeric coercion (unlike `POST`, which runs through `normalizeLead()`), so a request with numerically-valid but string-typed values would pass validation yet get persisted as strings — which then made the sort aggregation's `$multiply` throw, failing the whole column's fetch silently. Fixed both the write path (coerce `ice` to numbers before storing) and the read path (`ICE_SCORE_AGGREGATION_EXPR` now uses `$convert` with a safe fallback instead of a bare `$multiply`, self-healing any already-corrupted historical document without a migration).
+
+### GDS 3.11.1 — Verified Re-adoption After the 3.11.0 Incident (2.4.12)
+- Owner reported 3.11.1 fixes the tarball-publish bug behind 2.4.11's revert. This time, before touching any config, the release tarballs were independently verified rather than inferred from a git tag: `WebFetch` (which resolves through a different network path than this sandbox's blocked `curl`/`Bash`) followed each of the 3 `gds-v3.11.1` release-asset URLs through GitHub's real signed redirect and retrieved the actual bytes; each was confirmed as a genuine gzip archive whose extracted `package.json` reports the correct name and `version: "3.11.1"`; SHA-512 hashes were computed twice independently (OpenSSL and Node's `crypto`, matching) and recorded as the real `integrity` values in `package-lock.json`. Also fetched GDS's own `gds-v3.11.1` `CHANGELOG.md`, which independently confirms the root cause: the `3.11.0` tag was cut before a same-day fix to their release-automation workflow, so its tarball never actually published; `3.11.1` is a pure re-cut with no functional change. No application code changes were needed.
 
 ### Production Build Broken by an Unverified GDS 3.11.0 Tarball, Reverted (2.4.11)
 - 2.4.10's GDS version bump to 3.11.0 broke every deploy from `main`: Vercel's `npm install` returned a real `404` on the `gds-theme` release tarball. The bump had been made on the strength of the `gds-v3.11.0` git tag being readable via `raw.githubusercontent.com` — but a readable git tag does not prove a GitHub Release with attached binary assets was ever published; that distinction was missed, and the sandbox's blanket 403 on `github.com`/`api.github.com` (identical whether a resource is real or missing) made it impossible to tell the difference from inside this sandbox. Reverted `gds-admin`/`gds-core`/`gds-theme` to 3.10.0 in `package.json`/`package-lock.json`, restored byte-for-byte from the last commit confirmed to have deployed successfully — not re-derived. All 2.4.10 application code (the theme-level zoom fix, the GDS-governed `KanbanBoard` adoption) was kept, since none of it depends on a 3.11.0-only export.

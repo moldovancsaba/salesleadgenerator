@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.11
+**Version:** 2.4.12
 
 ---
 
@@ -21,7 +21,7 @@
 |-----------|---------|--------|------|
 | Mantine (`@mantine/core`, `hooks`, `modals`, `notifications`) | 7.17.8 | Active | Component library |
 | @tabler/icons-react | 3.45.0 | Active | Icons |
-| @sovereignsquad/gds-admin, gds-core, gds-theme | 3.10.0 | Active | Private design-system components/theme, installed from GitHub release tarballs (not the npm registry) — required for all UI/UX work per project policy. `gds-core` was a declared-but-unimported dependency until 2.3.1, when `app/card.tsx` started importing `ProductCard` from `@sovereignsquad/gds-core/client`. As of 2.4.10, `app/kanban.tsx` also imports `KanbanBoard` from `@sovereignsquad/gds-core/client`, and `app/components/Providers.tsx`'s theme adopts an `Input.vars` mobile-zoom-guard override modeled on GDS's own theme. **A 2.4.10 attempt to bump this to 3.11.0 was reverted in 2.4.11**: the `gds-v3.11.0` git tag exists and is readable, but the corresponding release *tarball* returned a real `404` from Vercel's `npm install` (not a sandbox artifact) — confirm any future GDS version bump actually resolves via a real, unblocked network fetch before shipping it, not just via the git tag being readable. |
+| @sovereignsquad/gds-admin, gds-core, gds-theme | 3.11.1 | Active | Private design-system components/theme, installed from GitHub release tarballs (not the npm registry) — required for all UI/UX work per project policy. `gds-core` was a declared-but-unimported dependency until 2.3.1, when `app/card.tsx` started importing `ProductCard` from `@sovereignsquad/gds-core/client`. As of 2.4.10, `app/kanban.tsx` also imports `KanbanBoard` from `@sovereignsquad/gds-core/client` (with `enableDrag`), and `app/components/Providers.tsx`'s theme adopts an `Input.vars` mobile-zoom-guard override modeled on GDS's own theme. **A 2.4.10 attempt to bump this to 3.11.0 was reverted in 2.4.11** after Vercel's `npm install` hit a real `404` (the `3.11.0` git tag existed, but its release tarball was never actually published — a bug in GDS's own release-automation workflow). **2.4.12 re-bumped to 3.11.1**, GDS's re-cut of the same release with the pipeline fixed; this time the tarballs were independently verified before shipping — fetched directly via `WebFetch` (a network path this sandbox's blocked `curl`/`Bash` can't reach), confirmed as real gzip archives containing the expected `package.json` `version`/`name`, and their SHA-512 `integrity` hashes computed twice independently (OpenSSL and Node `crypto`, matching) rather than guessed. |
 
 There is no Framer Motion or Sonner dependency in this project — both were previously listed here in error; verified against `package.json`, neither package appears anywhere in it.
 
