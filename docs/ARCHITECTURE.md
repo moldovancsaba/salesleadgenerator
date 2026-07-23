@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.0
+**Version:** 2.4.1
 
 ---
 
@@ -42,7 +42,7 @@
 - Shows Mantine notifications for success/failure
 - Sort state is kept in page state and passed into kanban and table view
 - Detail modal is full-screen on mobile via `matchMedia`
-- Predictive search bar (top-center, under the header) via GDS's `SearchableSelect`, backed by `GET /api/search?q=&brand=`; selecting a result opens the detail modal directly
+- Predictive search bar (top-center, under the header): an always-editable `TextInput` with a debounced dropdown of matches from `GET /api/search?q=&brand=`; selecting a result opens the detail modal directly. Originally built with GDS's `SearchableSelect`, but that component is a closed combobox picker (a button that only reveals its real typing field once opened) rather than a search bar, and was confusing to use — replaced with a plain input in 2.4.1
 
 ### Kanban Lead Card
 `app/card.tsx`'s `LeadCard` renders each kanban card via `ProductCard` from `@sovereignsquad/gds-core/client` (compact `density`/`variant`, `size="sm"`) — switched from `AdminResourceCard` (`@sovereignsquad/gds-admin/client`) in 2.3.1, because `AdminResourceCard` always reserved a media/thumbnail placeholder area even when a lead has no image (the `Lead` data model has no image/logo field at all — there is currently no case where a lead has one). `ProductCard`'s `media`/`icon` props are genuine optional `ReactNode`s rendered bare (`{media}`), so omitting them entirely renders nothing — no placeholder box. Verified against the real component source in `sovereignsquad/general-design-system` (not guessed). Cards show a "ticket size" metadata row (`getTicketSize()` in `app/constants.ts`) — the estimated deal value, direct for CogMap (`estimated_annual_revenue_usd`), summed from per-lead pricing blocks for Seyu (`pricingByCompany`).
@@ -51,7 +51,7 @@
 `app/kanban.tsx` implements cross-column drag-and-drop with raw Pointer Events (not native HTML5 DnD, for touch-device support): a 200ms long-press-to-arm gesture distinguishes a drag from a scroll or tap (movement past a small tolerance before the timer fires cancels arming). Once armed, a floating ghost label follows the pointer and the column under the pointer (found via `document.elementFromPoint` + `closest('[data-column]')`) is highlighted as the drop target; releasing over a different column calls the existing `handleMove()`, which optimistically removes the card from its source column before reconciling with the server. Each kanban column header also shows a pipeline-weighted ("discounted") forecast for that column, sourced from `GET /api/boards/[brand]`'s `forecast.pipeline[COLUMN]`.
 
 ### PWA and Zoom Lock
-- `app/globals.css` — `touch-action: manipulation` on `html`/`body`, the CSS layer iOS Safari respects for zoom prevention (unlike the viewport meta tag's `maximum-scale`/`user-scalable`, which iOS Safari has ignored since iOS 10)
+- `app/globals.css` — `touch-action: manipulation` on `html`/`body`, the CSS layer iOS Safari respects for pinch/double-tap zoom prevention (unlike the viewport meta tag's `maximum-scale`/`user-scalable`, which iOS Safari has ignored since iOS 10). Separately, as of 2.4.1: a global `input, select, textarea { font-size: 16px }` rule prevents iOS Safari's *other* zoom mechanism — force-zooming the whole page on focus of any input whose computed font-size is below 16px (Mantine's default small/xs input sizes render below that threshold) — a distinct behavior from pinch-zoom, unaffected by `touch-action` or the viewport meta tag
 - `app/components/PwaSetup.tsx` — client component mounted in `app/layout.tsx`; adds a JS-level `gesturestart`/`gesturechange` + multi-touch `touchmove` guard as a last-resort zoom-prevention layer, and registers `public/sw.js`
 - `public/sw.js` — minimal service worker; precaches only the static app-shell assets (`manifest.json`, `icon-192.png`, `icon-512.png`) and passes every page navigation and every `/api/*` request straight through to the network — deliberately never caches live lead/pipeline data
 - `public/manifest.json` + `public/icon-192.png`/`icon-512.png` — PWA manifest and icons (the icon files are a functional placeholder pending real brand assets)
@@ -91,7 +91,7 @@
 ### Learning
 - `GET /api/search-learning` — search memory and success metrics
 - `POST /api/search-learning` — update search memory from operator feedback
-- `GET /api/search?q=<query>` — full-text search across leads
+- `GET /api/search?q=<query>` — full-text search across leads, deduped by fingerprint (newest wins) as of 2.4.1, matching `/api/leads`'s existing dedup
 
 ### Feedback / Audit
 - `GET /api/outcome-logs` — outcome-log history
