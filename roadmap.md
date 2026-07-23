@@ -1,10 +1,17 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.9
+**Version:** 2.4.10
 
 ---
 
 ## Shipped
+
+### GDS 3.11.0 Adoption — Theme-Level Zoom Guard, Governed Accessible Kanban (2.4.10)
+- ✅ Replaced the `!important` CSS zoom-guard hack (2.4.6) with GDS 3.11.0's own theme-level fix: `gdsTheme`'s `Input.vars` component override, which floors Mantine input font-size to ≥16px via the `--input-fz` CSS variable Mantine's own size resolver reads — no specificity fight needed. Only this one override was extracted into this app's theme, not GDS's full `gdsTheme` object (which also carries color/Card/Button defaults this app doesn't want).
+- ✅ Replaced `app/kanban.tsx`'s hand-rolled pointer-events drag-and-drop with GDS's governed `KanbanBoard` (`enableDrag`), gaining accessible `@dnd-kit`-based pointer/touch/keyboard drag with a live-region-announced `DragOverlay` and an unconditional keyboard "Move to column" menu fallback per card — neither of which the old implementation had.
+- ✅ `useGdsKanbanOrientation` now handles stacked-vs-columns responsive layout automatically; removed the app's own `mode` prop and the `sales-page-client.tsx` `matchMedia`/`isMobile`/`saleslayoutMode` plumbing it made obsolete.
+- ⚠️ Two disclosed trade-offs from GDS's fixed `KanbanBoard` API: the per-column forecast subtitle is now a single-line string (`KanbanColumnData.title` isn't a `ReactNode`); the cursor-pagination "load more" sentinel is now nested inside the last card's render output (`KanbanColumn` has no footer slot).
+- ⚠️ `package-lock.json`'s `integrity` hashes for the 3 GDS packages couldn't be regenerated in this sandbox (blocked GitHub release-tarball download) — removed rather than left stale; needs a real `npm install` from a network-unblocked environment before/during the next deploy.
 
 ### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
 - ✅ Confirmed the ICE-score sort's architecture is correct as designed: sorting is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`), never re-sorted client-side; the client only computes ICE scores for display (a trivial per-card multiply), not for ordering.
