@@ -19,9 +19,6 @@ export function LeadCard({ lead, onOpen }: LeadCardProps) {
     id: lead._id,
     title: lead.entity_name,
     entity_name: lead.entity_name,
-    mediaSrc: undefined,
-    thumbnailSrc: undefined,
-    mediaAlt: lead.entity_name || 'Lead',
     description: lead.industry || lead.sport_or_sector || '',
     metadata: [
       { label: 'Region', value: region },
