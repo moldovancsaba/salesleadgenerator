@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.1.0
+**Version:** 2.2.0
 
 ---
 
@@ -9,7 +9,7 @@
 | Component | Version | Role |
 |-----------|---------|------|
 | Node.js | 24.x on Vercel | Runtime |
-| Next.js | 14.2.x | App framework and API routes |
+| Next.js | ^15.5.13 (resolves 15.5.21) | App framework and API routes |
 | React | 18.3.0 | UI runtime |
 | TypeScript | 5.x | Type safety |
 
@@ -18,23 +18,34 @@
 ## Frontend
 
 | Component | Version | Status | Role |
-|-----------|---------|--------|
-| Mantine | 7.17.8 | Active | Component library |
-| @tabler/icons-react | 3.42.0 | Active | Icons |
-| Framer Motion | 12.38.0 | Unused | Declared but no application usage found |
-| Sonner | 2.0.7 | Unused | Declared but no application usage found |
-| @doneisbetter/gds | 3.4.3 | Underused | Provider wired; no GDS UI components composed in app code |
+|-----------|---------|--------|------|
+| Mantine (`@mantine/core`, `hooks`, `modals`, `notifications`) | 7.17.8 | Active | Component library |
+| @tabler/icons-react | 3.45.0 | Active | Icons |
+| @sovereignsquad/gds-admin, gds-core, gds-theme | 3.10.0 | Active | Private design-system components/theme, installed from GitHub release tarballs (not the npm registry) — required for all UI/UX work per project policy |
+
+There is no Framer Motion or Sonner dependency in this project — both were previously listed here in error; verified against `package.json`, neither package appears anywhere in it.
 
 ---
 
 ## Backend
 
 | Component | Version | Status | Role |
-|-----------|---------|--------|
-| Mongoose | 8.x | Active | Schema/index management in `models/*.ts` |
-| mongodb driver | 8.x | Active | Raw `MongoClient` used in `lib/mongodb.ts` and `scripts/*.js` |
+|-----------|---------|--------|------|
+| Mongoose | ^8.0.0 | Declared, but unused | `models/*.ts` define schemas (`Lead`, `OutcomeLog`, `SearchLearning`) but none are imported anywhere in the app — all real reads/writes use the raw `mongodb` driver. Whether to delete these models or repair them as a future migration path is an open decision (tracked as a GitHub issue). |
+| mongodb driver | via mongoose's dependency, used directly | Active | Raw `MongoClient` used in `lib/mongodb.ts` and every API route handler |
 | MongoDB | Atlas hosted | Active | Persistence |
-| dotenv | 17.4.2 | Scripts-only | Used in `scripts/*.js` and `scripts/*.mjs`; not used in app code |
+| dotenv | ^17.4.2 | Scripts-only | Used in `scripts/*.js` and `scripts/*.mjs`; not used in app code |
+
+---
+
+## Tooling
+
+| Component | Version | Status | Role |
+|-----------|---------|--------|------|
+| ESLint | ^9.17.0 | Active | Flat config (`eslint.config.mjs`), bridging `eslint-config-next`'s legacy-format `next/core-web-vitals` preset via `@eslint/eslintrc`'s `FlatCompat` (that package doesn't yet ship a native flat-config export). Run via the plain `eslint .` CLI (`npm run lint`), not the deprecated `next lint` wrapper. |
+| eslint-config-next | ^15.5.13 | Active | Next.js's recommended ESLint ruleset |
+| Vitest | ^4.1.10 | Active | Unit tests (`tests/lib/*.test.ts`) |
+| tsx | ^4.7.0 | Active | Runs the smoke test (`tests/smoke/*.smoke.ts`) directly |
 
 ---
 
@@ -63,5 +74,13 @@
 |-----------|----------|----------|
 | CORS/security headers | Applied in `middleware.ts` for `/api/*` | `middleware.ts` |
 | API key auth | `requireApiKey` in `lib/api-auth.ts` guards write/admin routes | `lib/api-auth.ts` |
-| API key fallback | Allows request through if `SLG_API_KEY` is unset or header is missing | `lib/api-auth.ts` |
+| API key fail-open | If `SLG_API_KEY` is unset entirely, all requests are allowed through (documented, intentional trade-off for local/dev use) | `lib/api-auth.ts` |
 | Read access | Public for listings and health | Route handlers |
+
+**Note:** as of 2.2.0, when `SLG_API_KEY` *is* set, a request must send the exact matching `x-api-key` header — a missing header is rejected (401) identically to a wrong one. Earlier versions incorrectly allowed a missing header through even when a key was configured; this was fixed as a security patch.
+
+---
+
+## Known Package-Manager Constraint
+
+`@sovereignsquad/gds-admin`, `gds-core`, and `gds-theme` are installed directly from GitHub release-asset URLs (not the npm registry). Any CI/build environment whose network egress policy blocks `github.com` release-asset downloads cannot run `npm install` against the real `package.json` — Vercel's build environment is unaffected and installs them normally.
