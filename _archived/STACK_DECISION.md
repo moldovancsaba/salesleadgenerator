@@ -1,4 +1,6 @@
-# Stack Decision — SLG v2.0
+# Stack Decision — SLG v2.0 (ARCHIVED)
+
+> **⚠️ ARCHIVED — historical snapshot, not current.** Superseded by `docs/STACK_AND_DEPENDENCIES.md`. The rationale below (e.g. "Why Mongoose over Prisma") reflects the stack as it stood at v2.0; several choices have since changed (Next.js 14→15, Mongoose demoted to ops-scripts-only as of 2.4.7). Kept only for historical reference. See `README.md`'s "Archived Documentation" table.
 
 ## Tech Stack
 

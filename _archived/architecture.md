@@ -1,4 +1,6 @@
-# Architecture — Sales Lead Generator
+# Architecture — Sales Lead Generator (ARCHIVED)
+
+> **⚠️ ARCHIVED — historical snapshot, not current.** This file is superseded by `docs/ARCHITECTURE.md`. Do not use this for current system behavior; it is kept only for historical reference. See `README.md`'s "Archived Documentation" table.
 
 ## System Overview
 

@@ -1,5 +1,7 @@
 # Sales Lead Generator Pipeline Architecture
 
+**Version:** 2.4.9
+
 ## Overview
 
 SLG is a sales intelligence pipeline. Leads are discovered by an automated research agent, enriched with contact data and ICE scores, and managed on a kanban board.
@@ -12,14 +14,16 @@ DISCOVERED → QUALIFIED → ENGAGED → PROPOSAL → WON / LOST
 
 | Stage | Managed By | Criteria |
 |-------|-----------|---------|
-| **DISCOVERED** | Agent | Newly discovered, awaiting enrichment |
-| **QUALIFIED** | Agent | Has decision maker email (name + title + email) OR name + title + value proposition (>20 chars) |
-| **ENGAGED** | User only | Manual move |
+| **DISCOVERED** | Auto (ICE score) | ICE score < 500 |
+| **QUALIFIED** | Auto (ICE score) | ICE score ≥ 500 |
+| **ENGAGED** | User only | Manual move (drag-and-drop or an action) |
 | **PROPOSAL** | User only | Manual move |
 | **WON** | User only | Closed deal |
 | **LOST** | User only | Declined or no longer viable |
 
-**Cards within each column are sorted by `sortOrder` ascending (server assigns `count * 100` on creation; frontend drag assigns incrementing integers).** ICE score is not used for display ordering.
+DISCOVERED and QUALIFIED are auto-managed columns (`lib/kanban-column.ts`'s `deriveKanbanColumn`): a lead's placement is derived purely from its ICE score, both at creation (`POST /api/leads`) and whenever the score changes afterward (`PUT /api/leads/[id]`). Once a lead reaches ENGAGED/PROPOSAL/WON/LOST via an explicit user action, it is never auto-reclassified again regardless of later score changes — moving out of the auto-managed pair is a one-way door.
+
+**Sort order also differs by column type.** DISCOVERED and QUALIFIED always sort by computed ICE score, high to low — there is no stored, denormalized sort field for these two; `GET /api/leads/columns` computes the score via a MongoDB aggregation (`ICE_SCORE_AGGREGATION_EXPR`) at read time. ENGAGED, PROPOSAL, WON, and LOST sort by `sortOrder` descending (server assigns `count * 100` on creation; drag-and-drop assigns `Date.now()` on move) — these 4 columns are exclusively user-ordered.
 
 ## ICE Scoring
 
@@ -61,7 +65,7 @@ Max: 1000
 
 Fingerprint = SHA1(`url` + `entity_name` + `region`)
 
-Computed by a single shared function, `lib/fingerprint.ts`, imported by both the Mongoose pre-save hook (`models/Lead.ts`) and the POST/dedup-collapse logic (`app/api/leads/route.ts`) — previously hand-duplicated in both places.
+Computed by a single shared function, `lib/fingerprint.ts`, used by `POST /api/leads` (dedup-on-write) and by `GET /api/leads`/`GET /api/search`'s response-time dedup (collapsing duplicate-fingerprint documents to the newest one).
 
 The API enforces duplicate prevention with `findOne` + 409 responses. The schema defines an index on `fingerprint`, not a unique constraint.
 
@@ -69,25 +73,34 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 
 - **Schedule:** Configurable via OpenClaw cron
 - **Scope:** Depends on configured brand pipeline
-- **Output:** Leads POSTed to `/api/leads?brand=...`
-- **Qualification:** Agent promotes to QUALIFIED when criteria are met
+- **Output:** Leads POSTed to `/api/leads?brand=...` with `ice: { impact, confidence, ease }`
+- **Qualification:** Not an agent judgment call — `kanbanColumn` is derived server-side purely from the resulting ICE score (see "Pipeline Stages" above); the agent's research quality feeds into the score, but doesn't decide placement directly
 - **Learning:** Agent reads kanban feedback to improve search queries
 
 ## API Endpoints
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| GET | `/api/leads?brand=<brand>` | Fetch leads |
-| POST | `/api/leads?brand=<brand>` | Create lead |
-| PATCH | `/api/leads?brand=<brand>&id=<id>` | Update lead/actions |
+| GET | `/api/leads?brand=<brand>` | List leads — legacy `page`/`limit` pagination by default, opt-in cursor pagination via `?cursor=` (`hasMore`/`nextCursor`) |
+| POST | `/api/leads?brand=<brand>` | Create lead with normalization, dedup, quality gate, ICE scoring |
+| PATCH | `/api/leads?brand=<brand>&id=<id>` | Action lead (ACCEPT, DECLINE, PIN, REQUEST_REFRESH, MODIFY, COLUMN_MOVE) |
 | GET | `/api/leads/[id]?brand=<brand>` | Fetch single lead |
+| PUT | `/api/leads/[id]?brand=<brand>` | Update lead fields for enrichment; auto-reclassifies `kanbanColumn` on `ice` change while still in an auto-managed column |
 | DELETE | `/api/leads/[id]?brand=<brand>` | Delete lead |
+| GET | `/api/leads/columns?brand=<brand>&column=<col>` | Cursor-paginated per-column kanban loading; ICE-score sorted for DISCOVERED/QUALIFIED, `sortOrder` sorted for the other 4 |
+| GET | `/api/search?q=<query>&brand=<brand>` | Predictive lead search, deduped by fingerprint; cursor pagination when a specific `brand` is given |
+| GET | `/api/boards` | Available brand boards and config |
+| GET | `/api/boards/[brand]?tenantId=<id>` | Board metadata: counts, region breakdown, pipeline-weighted forecast |
+| GET | `/api/metrics?brand=<brand>&tenantId=<id>` | Per-column and per-region lead counts |
+| GET | `/api/settings` | Pipeline-weight settings used by forecast calculations |
+| GET | `/api/forecast/export?format=csv\|json` | CogMap revenue forecast export |
 | GET | `/api/health` | Health check |
 | GET | `/api/admin/cron-status` | Cron observability |
 | GET | `/api/admin/data-hygiene` | Malformed lead counts by brand |
 | GET/POST | `/api/outreach-templates` | Template CRUD and analytics |
 | GET | `/api/outreach-logs` | Outreach activity logs |
 | GET/POST | `/api/outcome-logs` | Outcome logs for feedback learning |
+| GET/POST | `/api/search-learning` | Search memory and success metrics |
 
 ## Database Schema
 
@@ -132,6 +145,8 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 }
 ```
 
+There is no Mongoose schema for this shape — `models/Lead.ts` (and `OutcomeLog.ts`/`SearchLearning.ts`) were deleted in 2.4.7 after being confirmed unused (zero importers, drifted from reality). All reads/writes go through the raw `mongodb` driver (`lib/mongodb.ts`); this typescript block is a plain reference shape, not a live schema definition.
+
 ### Outcome Log Model
 
 ```typescript
@@ -154,13 +169,13 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 
 ## Frontend
 
-- **Framework:** Next.js 14 (App Router)
-- **UI:** Mantine 7
+- **Framework:** Next.js 15 (App Router)
+- **UI:** Mantine 7, plus a private GDS component library for admin surfaces (`@sovereignsquad/gds-admin`/`gds-core`)
 - **PWA:** Web app manifest, standalone display, touch-optimized
 - **Board:** Horizontal scroll between columns, vertical scroll within columns
-- **Cards:** Minimal (name + ICE + region), tap for detail modal
+- **Cards:** Compact (`ProductCard`) — entity name, ICE score, ticket size, region, contact — tap for full detail modal
 - **Drag:** Long-press + pointer events for cross-column moves
-- **Filters:** Collapsible (region chips + search + tenantId)
+- **Filters:** None currently — the Region/Status filter dropdowns were removed entirely in 2.4.0. The header has only the view-mode selector (Kanban/Table/Metrics/Search Learning) and a predictive search bar; there is no region/country/tenantId filter UI in the current frontend
 
 ## Observability
 
@@ -178,8 +193,6 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 - Input validation enforced before database writes, including partial updates (`PUT`)
 - CORS restricted to configured origins via `middleware.ts`
 - Security headers set in middleware: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`
-
-**Known gap:** `/api/outcome-logs` currently targets a different-cased MongoDB collection (`outcomeLogs`) than every other outcome-logging write path (`outcomelogs`), so its GET response does not currently reflect the real outcome-log history. Resolving this requires a database check first, in case production data already exists in both collections.
 
 ## Hosting
 

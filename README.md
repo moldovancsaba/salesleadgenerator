@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.8  
+**Version:** 2.4.9  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -10,7 +10,7 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 ## What This Repo Contains
 
 - Next.js 15 app with API routes
-- Mobile-first kanban board and table view
+- Mobile-first kanban board, table view, metrics dashboard, and search-learning panel
 - Lead detail actions and outreach compose flow
 - Outreach template management UI
 - Research agent integration via OpenClaw cron
@@ -37,6 +37,13 @@ Lint:
 npm run lint
 ```
 
+Run tests (required before any change ships, per `CLAUDE.md`'s quality gate):
+
+```bash
+npx vitest run
+npm run test:smoke
+```
+
 Deploy to Vercel:
 
 ```bash
@@ -49,7 +56,7 @@ Required environment variable: `MONGODB_URI`
 
 ## Versioning
 
-Current app version is **2.4.3**.
+Current app version is **2.4.8**.
 
 Single source of truth: `package.json`
 
@@ -99,9 +106,12 @@ This README is the single source of truth for documentation paths and descriptio
 Public read access is available for listings and health. Write and admin endpoints require API key auth.
 
 Key endpoints:
-- `GET /api/leads?brand=<brand>` — list leads
+- `GET /api/leads?brand=<brand>` — list leads (page-based by default; cursor pagination via `?cursor=`)
+- `GET /api/leads/columns?brand=<brand>&column=<col>` — cursor-paginated per-column kanban loading, ICE-score sorted for DISCOVERED/QUALIFIED
 - `POST /api/leads?brand=<brand>` — create lead
+- `PUT /api/leads/[id]?brand=<brand>` — update lead fields (enrichment)
 - `PATCH /api/leads?brand=<brand>&id=<id>` — action lead
+- `GET /api/search?q=<query>&brand=<brand>` — predictive lead search
 - `GET /api/health` — service health
 - `GET /api/admin/cron-status` — cron observability
 - `GET /api/outreach-templates?mode=analytics` — outreach analytics
