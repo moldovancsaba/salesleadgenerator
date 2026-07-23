@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.6
+
+### Fixed
+- **The header's view-mode dropdown (and, latently, every other Mantine input in the app) still force-zoomed on iOS Safari despite the 2.4.1 fix.** Root cause: the 2.4.1 fix added `input, select, textarea { font-size: 16px }` (a bare element selector, CSS specificity 0-0-1), but Mantine's own compiled stylesheet sets each input's font-size via a hashed class selector (`.m_8fb7ebe7 { font-size: var(--input-fz, ...) }`, specificity 0-1-0) — which always outranks a type selector regardless of source order. That rule silently never applied to any Mantine `Select`/`TextInput`/etc., only to plain native inputs outside Mantine, which is why the search bar (added later, also Mantine) may have been just as affected and the dropdown specifically was reported. Confirmed by inspecting Mantine's actual shipped CSS (`node_modules/@mantine/core/styles.css`) rather than guessing, and confirmed no existing `!important` font-size rule in Mantine's stylesheet that could out-rank a fix. Added `!important` to the global rule, which unconditionally wins the cascade.
+- Widened the header's view-mode `Select` from 132px to 168px to comfortably fit "Search Learning" at the now-correctly-enforced 16px font (it was previously rendering at Mantine's much smaller "xs" font size, ~12px, before this fix took effect).
+
+### Verification note
+This is an iOS Safari-only rendering behavior with no equivalent in desktop/headless Chromium, so it cannot be visually screenshotted from this sandbox even with a working browser-automation setup (Playwright itself couldn't be installed here either — it re-triggers `npm install`, which fails on this repo's private GDS package tarballs, the same longstanding sandbox constraint noted elsewhere in this changelog). What *was* verified directly: the compiled CSS served by a real `next dev`/`next build` run contains the `!important` rule exactly as written, and per the CSS specification `!important` unconditionally overrides any non-`!important` declaration regardless of selector specificity or source order — this is deterministic, not something that requires a live device to confirm. Real-device (iOS Safari) confirmation is still recommended before considering this closed.
+
 ## 2.4.5
 
 Three real bugs from a live device screenshot review of the header/search bar and a desktop-width lead detail panel.

@@ -27,9 +27,18 @@ body {
   tag. Mantine's default input sizes (e.g. "xs"/"sm") render below 16px, so
   any text input/select/textarea in this app can trigger it on focus. Fixing
   the font-size globally is the standard, root-cause fix.
+
+  !important is required here, not stylistic: Mantine's own compiled CSS
+  sets each input's font-size via a hashed class selector (e.g. `.m_8fb7ebe7
+  { font-size: var(--input-fz, ...) }`), which has higher specificity than
+  a bare element selector and always wins the cascade regardless of source
+  order. Without !important this rule silently never applied to any Mantine
+  Select/TextInput/etc — only to plain native inputs outside Mantine — which
+  is exactly why the header's view-mode Select kept force-zooming after the
+  first attempt at this fix.
 */
 input,
 select,
 textarea {
-  font-size: 16px;
+  font-size: 16px !important;
 }
