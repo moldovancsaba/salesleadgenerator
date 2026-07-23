@@ -1,6 +1,14 @@
 # Deployment Log
 
 ## Latest Deployment
+- **Commit**: 2ca7879
+- **Message**: feat: kanban auto-classification/sort rule — 500 ICE threshold, 2 tiers only
+- **Build Status**: Verified via `tsc --noEmit` (0 errors — also fixed 4 pre-existing implicit-`any` errors in `app/detail.tsx`/`app/table.tsx` unrelated to this change), `eslint` (0 errors, 3 pre-existing warnings in untouched `app/outreach/*` files carried forward as recorded), `vitest run` (35/35), smoke suite (5/5), and a real `next build`.
+- **Context**: Owner specified an exact business rule verbatim: DISCOVERED/QUALIFIED are auto-managed purely by ICE score (500 threshold, always sorted high to low, no other sort); every other column is exclusively user-managed once a lead is moved there, permanently. `lib/kanban-column.ts`'s `deriveKanbanColumn` was rewritten from an incorrect 3-tier 480/720 rule (which also auto-promoted to `ENGAGED`) to the correct 2-tier rule — corroborated by finding `ICE_QUALIFIED_THRESHOLD = 500` already declared in `app/constants.ts` but never referenced anywhere, strong evidence this was the original intended design that was never finished. `PUT /api/leads/[id]` now auto-reclassifies a lead still in DISCOVERED/QUALIFIED whenever its `ice` changes (unless `kanbanColumn` is also explicitly set in the same request). `GET /api/leads/columns` now sorts the two auto-managed columns via a Mongo aggregation on computed ICE score (`ICE_SCORE_AGGREGATION_EXPR`), cursor-paginated on that score; the 4 manual columns are untouched, still `sortOrder`-based. Flagged but not touched: `lead-feeder-agent.js` and `scripts/migrate-check-schema.js` contain their own older, now-drifted column logic, but neither is wired into the running app (same orphaned status as the already-tracked unused Mongoose models).
+- **Files Changed**: `lib/kanban-column.ts`, `app/constants.ts`, `app/api/leads/[id]/route.ts`, `app/api/leads/columns/route.ts`, `app/detail.tsx`, `app/table.tsx`, `tests/lib/kanban-column.test.ts`
+- **Note**: pushed to `claude/project-overview-kvj36v` (this session's designated branch) — `origin/main` has since moved to a separate, unrelated commit (`dfe9b4c`, "Add CogMap ICP guidance to discovery prompt") pushed outside this session; no PR exists yet for this branch, so it has not been merged into `main`.
+
+## Earlier Deployment 0b
 - **Commit**: c3a7140
 - **Message**: fix: PATCH /api/leads was silently failing for every action, not just drag-and-drop
 - **Build Status**: Verified via `tsc --noEmit` (pre-existing GDS-stub artifact only), `eslint` clean repo-wide, `vitest run` (33/33), smoke suite (5/5).
