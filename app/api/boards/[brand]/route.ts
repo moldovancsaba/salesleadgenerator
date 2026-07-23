@@ -157,9 +157,78 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
 
       const totalAnnualized = annualizedByCompany.reduce((sum: number, item: { estimatedAnnualValueEur: number }) => sum + (item.estimatedAnnualValueEur || 0), 0)
 
+      // Per-column pipeline-weighted ("discounted") forecast, mirroring cogmap's
+      // shape: each lead's own pricingByCompany entries are summed per-lead
+      // (max(annual, monthly*12+upfront) per entry) before grouping by column,
+      // so a lead with multiple company blocks isn't double counted per entry.
+      const seyuColumnForecast = await collection.aggregate([
+        { $match: filter },
+        {
+          $project: {
+            kanbanColumn: 1,
+            companyPricing: { $objectToArray: { $ifNull: ['$pricingByCompany', {}] } },
+          },
+        },
+        {
+          $addFields: {
+            leadValue: {
+              $sum: {
+                $map: {
+                  input: '$companyPricing',
+                  as: 'entry',
+                  in: {
+                    $max: [
+                      { $ifNull: ['$$entry.v.annual_fee_eur', 0] },
+                      {
+                        $add: [
+                          { $multiply: [{ $ifNull: ['$$entry.v.monthly_eur', 0] }, 12] },
+                          { $ifNull: ['$$entry.v.upfront_eur', 0] },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: '$kanbanColumn',
+            leads: { $sum: 1 },
+            revenue: { $sum: '$leadValue' },
+          },
+        },
+      ]).toArray()
+
+      const closedRatesSeyu = await getPipelineWeights(db)
+      const pipelineColumnsSeyu = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST']
+      const rawByColumnSeyu: Record<string, any> = {}
+      for (const item of seyuColumnForecast) {
+        rawByColumnSeyu[(item._id || 'UNKNOWN') as string] = item
+      }
+
+      const pipelineSeyu: Record<string, any> = {}
+      for (const col of pipelineColumnsSeyu) {
+        const item = rawByColumnSeyu[col] || { leads: 0, revenue: 0 }
+        const rate = closedRatesSeyu[col] ?? 0
+        pipelineSeyu[col] = {
+          leads: item.leads,
+          rawRevenue: item.revenue,
+          probability: rate,
+          weightedRevenue: Math.round(item.revenue * rate),
+        }
+      }
+
+      const totalWeightedSeyu = Object.values(pipelineSeyu as Record<string, { weightedRevenue: number }>)
+        .reduce((sum: number, col) => sum + (col.weightedRevenue || 0), 0)
+
       forecast = {
         byCompany: annualizedByCompany,
         totalEstimatedAnnualValueEur: totalAnnualized,
+        pipeline: pipelineSeyu,
+        totalWeightedRevenue: totalWeightedSeyu,
+        currency: 'EUR',
       }
     }
 

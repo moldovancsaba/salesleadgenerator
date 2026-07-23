@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.3.2
+**Version:** 2.4.0
 
 ---
 
@@ -38,14 +38,17 @@
 ### Key client behavior
 - Fetches all pages from `GET /api/leads?brand=<brand>` and normalizes locally
 - Uses `handleAction` for mutations: ACCEPT, DECLINE, PIN, REQUEST_REFRESH, COLUMN_MOVE, DELETE
-- Uses `handleMove` for drag-to-column moves
+- Uses `handleMove` for drag-to-column moves, invoked by kanban's pointer-based drag-and-drop (see below) — as of 2.4.0, `handleMove` is genuinely wired to a UI gesture; previously the function existed but nothing called it
 - Shows Mantine notifications for success/failure
-- Filters by country and search text client-side
 - Sort state is kept in page state and passed into kanban and table view
 - Detail modal is full-screen on mobile via `matchMedia`
+- Predictive search bar (top-center, under the header) via GDS's `SearchableSelect`, backed by `GET /api/search?q=&brand=`; selecting a result opens the detail modal directly
 
 ### Kanban Lead Card
-`app/card.tsx`'s `LeadCard` renders each kanban card via `ProductCard` from `@sovereignsquad/gds-core/client` (compact `density`/`variant`, `size="sm"`) — switched from `AdminResourceCard` (`@sovereignsquad/gds-admin/client`) in 2.3.1, because `AdminResourceCard` always reserved a media/thumbnail placeholder area even when a lead has no image (the `Lead` data model has no image/logo field at all — there is currently no case where a lead has one). `ProductCard`'s `media`/`icon` props are genuine optional `ReactNode`s rendered bare (`{media}`), so omitting them entirely renders nothing — no placeholder box. Verified against the real component source in `sovereignsquad/general-design-system` (not guessed).
+`app/card.tsx`'s `LeadCard` renders each kanban card via `ProductCard` from `@sovereignsquad/gds-core/client` (compact `density`/`variant`, `size="sm"`) — switched from `AdminResourceCard` (`@sovereignsquad/gds-admin/client`) in 2.3.1, because `AdminResourceCard` always reserved a media/thumbnail placeholder area even when a lead has no image (the `Lead` data model has no image/logo field at all — there is currently no case where a lead has one). `ProductCard`'s `media`/`icon` props are genuine optional `ReactNode`s rendered bare (`{media}`), so omitting them entirely renders nothing — no placeholder box. Verified against the real component source in `sovereignsquad/general-design-system` (not guessed). Cards show a "ticket size" metadata row (`getTicketSize()` in `app/constants.ts`) — the estimated deal value, direct for CogMap (`estimated_annual_revenue_usd`), summed from per-lead pricing blocks for Seyu (`pricingByCompany`).
+
+### Kanban Drag-and-Drop
+`app/kanban.tsx` implements cross-column drag-and-drop with raw Pointer Events (not native HTML5 DnD, for touch-device support): a 200ms long-press-to-arm gesture distinguishes a drag from a scroll or tap (movement past a small tolerance before the timer fires cancels arming). Once armed, a floating ghost label follows the pointer and the column under the pointer (found via `document.elementFromPoint` + `closest('[data-column]')`) is highlighted as the drop target; releasing over a different column calls the existing `handleMove()`, which optimistically removes the card from its source column before reconciling with the server. Each kanban column header also shows a pipeline-weighted ("discounted") forecast for that column, sourced from `GET /api/boards/[brand]`'s `forecast.pipeline[COLUMN]`.
 
 ### PWA and Zoom Lock
 - `app/globals.css` — `touch-action: manipulation` on `html`/`body`, the CSS layer iOS Safari respects for zoom prevention (unlike the viewport meta tag's `maximum-scale`/`user-scalable`, which iOS Safari has ignored since iOS 10)
@@ -68,7 +71,7 @@
 
 ### Boards and Metrics
 - `GET /api/boards` — available brand boards and config (brand-agnostic)
-- `GET /api/boards/[brand]?tenantId=<id>` — single board's metadata: counts, region breakdown, and (for `cogmap`) revenue forecast
+- `GET /api/boards/[brand]?tenantId=<id>` — single board's metadata: counts, region breakdown, and a revenue forecast including a per-column, pipeline-weighted breakdown (`forecast.pipeline[COLUMN]`) for both `cogmap` (direct revenue estimates) and, as of 2.4.0, `seyu` (summed per-lead pricing blocks)
 - `GET /api/metrics?brand=<brand>&tenantId=<id>` — per-column and per-region lead counts for a brand
 - `GET /api/settings` — pipeline-weight settings (the `pipeline_weights` document, or defaults) used by forecast calculations
 - `GET /api/forecast/export?format=csv|json` — CogMap revenue forecast, exportable as CSV

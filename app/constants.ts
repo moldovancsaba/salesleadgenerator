@@ -30,3 +30,28 @@ export function getIceScore(lead: { ice?: { impact: number; confidence: number; 
   if (typeof blended === 'number') return blended;
   return 0;
 }
+
+// Ticket size — the estimated deal value for a lead. CogMap leads carry a
+// direct annual-revenue estimate (USD); Seyu leads carry per-company pricing
+// blocks (EUR) instead, summed using the same max(annual, monthly*12+upfront)
+// formula the /api/boards/[brand] forecast already uses server-side.
+export function getTicketSize(lead: {
+  estimated_annual_revenue_usd?: number;
+  pricingByCompany?: Record<string, { upfront_eur?: number; monthly_eur?: number; annual_fee_eur?: number }>;
+}): { value: number; currency: 'USD' | 'EUR' } | null {
+  if (typeof lead.estimated_annual_revenue_usd === 'number' && lead.estimated_annual_revenue_usd > 0) {
+    return { value: lead.estimated_annual_revenue_usd, currency: 'USD' };
+  }
+
+  if (lead.pricingByCompany && typeof lead.pricingByCompany === 'object') {
+    const total = Object.values(lead.pricingByCompany).reduce((sum, entry) => {
+      const upfront = entry?.upfront_eur || 0;
+      const monthly = entry?.monthly_eur || 0;
+      const annual = entry?.annual_fee_eur || 0;
+      return sum + Math.max(annual, monthly * 12 + upfront);
+    }, 0);
+    if (total > 0) return { value: total, currency: 'EUR' };
+  }
+
+  return null;
+}

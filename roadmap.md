@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.3.2
+**Version:** 2.4.0
 
 ---
 
@@ -35,6 +35,13 @@
 ### Kanban Card Image Placeholder Fix (2.3.1 / 2.3.2)
 - ✅ Kanban cards no longer show an empty image placeholder — switched `LeadCard` from `AdminResourceCard` to `ProductCard` (`@sovereignsquad/gds-core`), whose media/icon slots render nothing when omitted, matching the fact that leads have no image field at all. Verified against the real design-system source rather than guessed.
 - ✅ Found and fixed a second, separate `AdminResourceCard` usage in `app/search-learning.tsx`'s "Top Queries" cards, which the 2.3.1 fix didn't touch: `AdminResourceCard` has a `hideWhenNoMedia` prop (documented as omitting the placeholder for no-media records) that neither usage in this repo ever set, defaulting to showing it. Added the prop.
+
+### Kanban Board UX Overhaul (2.4.0)
+- ✅ Header layout: view selector pinned top-right; Region/Status filter dropdowns removed entirely.
+- ✅ Predictive lead search bar (top-center, under the header), backed by the existing `/api/search` endpoint via GDS's `SearchableSelect`.
+- ✅ Rebuilt kanban drag-and-drop from scratch — it was completely absent from the code despite being listed as historically shipped. Pointer-events-based, long-press-to-arm, ghost preview, drop-target highlight, optimistic UI, full cleanup on cancel.
+- ✅ Ticket size shown on each lead card (CogMap: direct revenue estimate; Seyu: summed from per-lead pricing blocks).
+- ✅ Discounted (pipeline-weighted) forecast shown on each kanban column header, for both brands.
 
 ### Outreach and Pipeline
 - ✅ One-click outreach templates with analytics (`/api/outreach-templates?mode=analytics`)

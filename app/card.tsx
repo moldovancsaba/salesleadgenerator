@@ -3,7 +3,7 @@
 import { Button } from '@mantine/core';
 import { ProductCard } from '@sovereignsquad/gds-core/client';
 import type { Lead } from './types';
-import { getIceScore } from './constants';
+import { getIceScore, getTicketSize } from './constants';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 
 type LeadCardProps = {
@@ -15,10 +15,15 @@ export function LeadCard({ lead, onOpen }: LeadCardProps) {
   const ice = getIceScore(lead);
   const region = lead.region || 'NA';
   const quality = lead.qualityStatus || 'DRAFT';
+  const ticketSize = getTicketSize(lead);
+  const ticketSizeLabel = ticketSize
+    ? `${ticketSize.currency === 'USD' ? '$' : '€'}${Math.round(ticketSize.value).toLocaleString()}`
+    : null;
 
   const metadata = [
     { label: 'Region', value: region },
     { label: 'ICE', value: ice },
+    ...(ticketSizeLabel ? [{ label: 'Ticket size', value: ticketSizeLabel }] : []),
     ...(lead.size ? [{ label: 'Size', value: lead.size }] : []),
     ...(lead.decision_maker_name ? [{ label: 'Contact', value: lead.decision_maker_name }] : []),
   ];
