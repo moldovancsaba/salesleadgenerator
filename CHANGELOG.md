@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.3
+
+### Fixed
+- **Removed the header's "Asc ↑"/"Desc ↓" sort button — it never sorted anything.** Owner flagged it directly after the header decluttering made it more visible. Investigation confirmed `sortOrder` state only toggled the button's own label; it was never passed to `KanbanBoard` or `TableView`, and `sortKey` was set once and never read anywhere. This predates the 2.4.0 rework (it was already non-functional in the original header) — it was preserved rather than audited when the two filter dropdowns were removed. Removed the button and the dead `sortKey`/`sortOrder` state entirely, along with the now-unused `Button` import.
+- Corrected two more false "shipped" claims in `roadmap.md`'s UX history ("ICE-score sort controls for kanban and list view", "Kanban ICE/name ascending/descending sort behavior") — same non-functional button, never actually true.
+
+### Clarified (not a bug)
+- Owner asked whether an "Arsenal FC" lead had been deleted, comparing a screenshot search result on Seyu's board against a later one on CogMap's board where it didn't appear. These are two different brands with entirely separate MongoDB collections (`leads` vs `seyu_leads`) — a lead existing for one brand and not the other is expected, not data loss. Confirmed the 2.4.1 dedup fix in `/api/search` is scoped per-brand (inside the per-`brandKey` loop) and is read-only regardless — it cannot delete or cross-contaminate data between brands.
+
 ## 2.4.2
 
 ### Fixed

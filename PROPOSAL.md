@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.2
+**Version:** 2.4.3
 
 ## Purpose
 
@@ -66,6 +66,7 @@ This document tracks proposed improvements against the current shipped state. Co
 - Canonical PATCH mutation path extracted to `app/lib/lead-actions.ts`
 - Frontend uses loading/disabled states and toast feedback
 - All `PATCH /api/leads` actions (ACCEPT, DECLINE, PIN, REQUEST_REFRESH, MODIFY, COLUMN_MOVE) were silently failing until 2.4.2 — the client never sent the `id` the route's documented contract requires as a URL param, only in the JSON body; fixed in both call sites (`handleAction`, `handleMove`)
+- The header's Asc/Desc sort button (2.4.3): removed — it never actually sorted anything, in the current code or historically; the state it toggled was never read by the kanban board or table view
 - Shared retry utility for transient API failures
 - Validation smoke tests via `npm run test:smoke`
 

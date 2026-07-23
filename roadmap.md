@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.2
+**Version:** 2.4.3
 
 ---
 
@@ -78,12 +78,10 @@
 - ✅ Enlarged kanban drag affordance
 - ✅ Collapsible kanban columns
 - ✅ Country-based filters
-- ✅ ICE-score sort controls for kanban and list view
 - ✅ Live kanban column lead counts
 - ✅ Removed tenantId/default input field from pipeline UI
 - ✅ Won column header = green
 - ✅ Lost column header = red
-- ✅ Kanban ICE/name ascending/descending sort behavior
 - ✅ Kanban card drag-and-drop interaction with pointer events
 - ✅ Card selection/drag state cleanup after drag
 - ✅ Pointer-capture cleanup and ghost removal on cancel/interrupt
