@@ -1,5 +1,11 @@
 # Changelog — Sales Lead Generator
 
+## 2.3.1
+
+### Fixed
+- **Kanban cards no longer show an empty image placeholder.** `LeadCard` (`app/card.tsx`) used `AdminResourceCard` (`@sovereignsquad/gds-admin/client`), which always reserved a media/thumbnail box even though `Lead` has no image/logo field anywhere in the data model — there is currently no case where a lead actually has an image. Switched to `ProductCard` (`@sovereignsquad/gds-core/client`), whose `media`/`icon` props are genuine optional `ReactNode`s rendered bare — omitting them renders nothing, no placeholder. Verified against the real component source (`packages/gds-core/src/ProductCard.tsx` in `sovereignsquad/general-design-system`), not guessed: this sandbox can't install the real `@sovereignsquad/gds-*` packages (same GitHub release-tarball network constraint documented elsewhere), but `raw.githubusercontent.com` was reachable, so the actual source was read directly to confirm the prop contract before writing this fix. Card density/variant set to `compact`/`sm` per the design system's dedicated tight-list contract.
+- Fixed stale documentation in `docs/ARCHITECTURE.md`'s Outcome Log section, which still described issue #11 (the `outcomeLogs`/`outcomelogs` collection split) as an open known issue — it was actually resolved in 2.2.3 and the doc was never updated to say so.
+
 ## 2.3.0
 
 ### Changed — Breaking API/data contract change
