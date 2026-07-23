@@ -75,44 +75,11 @@ class SchemaMapper {
   }
 
   /**
-   * CogMap and Seyu share the same lead schema, but with different brand fields.
+   * CogMap and Seyu share the same lead schema, including the same generic
+   * pro_for_organization/con_for_organization brand fields (as of
+   * SalesLeadGenerator 2.3.0) -- no per-tenant field-name remapping needed.
    */
   _mapCogmapSeyu(tenant, payload) {
-    const proField = tenant.brandFields?.pro;
-    const conField = tenant.brandFields?.con;
-
-    // Ensure brand fields use correct names
-    if (proField && payload.pro_for_cogmap && proField !== 'pro_for_cogmap') {
-      payload[proField] = payload.pro_for_cogmap;
-      delete payload.pro_for_cogmap;
-    }
-    if (proField && payload.pro_for_seyu && proField !== 'pro_for_seyu') {
-      payload[proField] = payload.pro_for_seyu;
-      delete payload.pro_for_seyu;
-    }
-    if (conField && payload.con_for_cogmap && conField !== 'con_for_cogmap') {
-      payload[conField] = payload.con_for_cogmap;
-      delete payload.con_for_cogmap;
-    }
-    if (conField && payload.con_for_seyu && conField !== 'con_for_seyu') {
-      payload[conField] = payload.con_for_seyu;
-      delete payload.con_for_seyu;
-    }
-
-    // Remove the wrong brand field if both exist
-    if (proField === 'pro_for_cogmap') {
-      delete payload.pro_for_seyu;
-    }
-    if (proField === 'pro_for_seyu') {
-      delete payload.pro_for_cogmap;
-    }
-    if (conField === 'con_for_cogmap') {
-      delete payload.con_for_seyu;
-    }
-    if (conField === 'con_for_seyu') {
-      delete payload.con_for_cogmap;
-    }
-
     // Do NOT force a board field for cogmap/seyu.
     // The SalesLeadGenerator API routes via `brand`, not `board`.
 
@@ -189,7 +156,7 @@ class SchemaMapper {
   _mapClassScout(tenant, payload) {
     // Remove any lead-specific fields that shouldn't be in programs
     const leadOnlyFields = [
-      'pro_for_cogmap', 'con_for_cogmap', 'pro_for_seyu', 'con_for_seyu',
+      'pro_for_organization', 'con_for_organization',
       'decision_maker_name', 'decision_maker_title', 'decision_maker_contact',
       'contact_phone', 'iceScore', 'sortOrder', 'ice', 'kanbanColumn',
       'entity_name', 'name', 'board'
