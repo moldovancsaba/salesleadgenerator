@@ -1,4 +1,6 @@
-# Build Status
+# Build Status (ARCHIVED)
+
+> **⚠️ ARCHIVED — historical snapshot, not current.** Superseded by `deployment.md`'s live deployment log. Kept only for historical reference. See `README.md`'s "Archived Documentation" table.
 
 ## Current State: ✅ Production Ready
 

@@ -1,4 +1,6 @@
-# User Guide — Sales Lead Generator
+# User Guide — Sales Lead Generator (ARCHIVED)
+
+> **⚠️ ARCHIVED — historical snapshot, not current.** This file is superseded by `docs/OPERATOR_GUIDE.md`. Do not use this for current workflow guidance; it is kept only for historical reference. See `README.md`'s "Archived Documentation" table.
 
 ## Audience
 

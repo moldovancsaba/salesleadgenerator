@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.8
+**Version:** 2.4.9
 
 ---
 
@@ -121,11 +121,12 @@ Key fields:
 - `feedbackScore`, `declineCount`, `acceptanceCount`
 - `manualLaneOverrideAt`, `manualLaneCooldownUntil`, `manualLaneFloorColumn`
 
-Indexes:
+Indexes (created by `scripts/migrate-check-schema.js`, not verified against the live Atlas cluster from this environment):
 - `fingerprint`
 - `kanbanColumn`, `sortOrder`
 - `region`, `kanbanColumn`
-- Text index on `entity_name`, `industry`, `sport_or_sector`
+
+Note: a text index on `entity_name`/`industry`/`sport_or_sector` was previously listed here but no `createIndex` call for one exists anywhere in this repo, and current search (`GET /api/search`) implements matching via `$regex`, not `$text` — removed rather than stated as fact without a way to verify it against Atlas from this environment.
 
 ### Outcome Log
 Collection: `outcomelogs` (lowercase) — used by `app/api/leads/route.ts`, `app/lib/lead-actions.ts`, `app/api/admin/cron-status/route.ts`, and (as of 2.2.3) `app/api/outcome-logs/route.ts`. All outcome-log readers/writers now agree on this one collection.
@@ -205,13 +206,11 @@ HTTP handlers for leads, health, outreach, learning, search, stats, and boards.
 ### `app/lib/*`
 - `brand.ts` — brand config and resolver
 - `normalize-lead.ts` — lead normalization, warning extraction
-- `validate-lead.ts` — request validation for POST/PATCH
 - `lead-actions.ts` — canonical mutation logic and outcome logging
 - `metrics.ts` — scoring and quality metrics
 - `outreach/routing-rules.ts` — channel routing enforcement
 - `outreach/default-templates.ts` — default template definitions
 - `request-id.ts` — request tracing
-- `request-retry.ts` — retry utility for transient failures
 
 ### `lib/*`
 - `mongodb.ts` — MongoDB client promise, `isMongoConfigured()`

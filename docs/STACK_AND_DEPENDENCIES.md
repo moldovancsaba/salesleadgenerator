@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.8
+**Version:** 2.4.9
 
 ---
 
@@ -31,7 +31,7 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 
 | Component | Version | Status | Role |
 |-----------|---------|--------|------|
-| Mongoose | ^8.0.0 | Ops-scripts only | Used only as a connection helper (`mongoose.connect()`, then dropped straight to `mongoose.connection.db.collection(...)`) in standalone maintenance scripts (`scripts/seed.js`, `scripts/check-db.js`, `scripts/audit-db.js`, `scripts/fix-*-region*.js`). The unused `models/Lead.ts`/`OutcomeLog.ts`/`SearchLearning.ts` schema files (never imported by the app itself, drifted from the real data shape) were deleted in 2.4.7 — the app's own reads/writes have exclusively used the raw driver since before this repo's own tracked history, and nothing anywhere signaled an intended future Mongoose migration path. |
+| Mongoose | ^8.0.0 | Ops-scripts only | Used only as a connection helper (`mongoose.connect()`, then dropped straight to `mongoose.connection.db.collection(...)`) in standalone maintenance scripts (`scripts/seed.js`, `scripts/check-db.js`, `scripts/audit-db.js`, `scripts/fix-*-region*.js`). The unused `models/Lead.ts`/`OutcomeLog.ts`/`SearchLearning.ts` schema files (never imported by the app itself, drifted from the real data shape) were deleted in 2.4.7 — the app's own reads/writes have exclusively used the raw driver since before this repo's own tracked history, and nothing anywhere signaled an intended future Mongoose migration path. The original rationale for choosing Mongoose/MongoDB at all (`_archived/STACK_DECISION.md` — historical, several of its specifics are now out of date) is preserved there rather than repeated here. |
 | mongodb driver | direct dependency | Active | Raw `MongoClient` used in `lib/mongodb.ts` and every API route handler |
 | MongoDB | Atlas hosted | Active | Persistence |
 | dotenv | ^17.4.2 | Scripts-only | Used in `scripts/*.js` and `scripts/*.mjs`; not used in app code |

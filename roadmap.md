@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.8
+**Version:** 2.4.9
 
 ---
 
@@ -23,6 +23,10 @@
 - ✅ Header no longer overflows the screen on narrow viewports — compacted to brand name + view selector on one row, then a single terse leads-count / weighted-forecast line, dropping the verbose "· updated HH:MM:SS" and "Forecast:"/"weighted" wording; added a global `overflow-x: hidden` safety net in `app/globals.css`.
 - ✅ Fixed the desktop/tablet-width (≥1280px) lead detail panel silently missing its entire body — `AdminDetailDrawer` (`app/detail.tsx`) was only ever given `metadata` (name + 3 badges), never `content` (ICE score, contacts, pros/cons, value proposition, feedback history, and every action button), unlike the mobile `AdminModal` branch which always had it.
 - ✅ Fixed a stuck drag-ghost and permanently-dimmed source card after an ordinary quick tap on a kanban card — `app/kanban.tsx`'s drag-arm timer was only cancelled on excess pointer movement, never on `pointerup`/`pointercancel`, so a normal tap-and-release still activated a "drag" ~200ms later with no matching pointerup left to clear it.
+
+### Dead Sort Button Removed (2.4.3)
+- ✅ Removed the header's "Asc ↑"/"Desc ↓" sort button — investigation confirmed it never sorted anything: `sortOrder` state only toggled the button's own label, never passed to `KanbanBoard` or `TableView`, and `sortKey` was set once and never read anywhere. This predated the 2.4.0 header rework (already non-functional in the original header) and was carried forward unaudited when the two filter dropdowns were removed. Removed the button and the dead `sortKey`/`sortOrder` state.
+- **Note**: `CHANGELOG.md`'s 2.4.3 entry states "Corrected two more false 'shipped' claims in `roadmap.md`'s UX history ('ICE-score sort controls for kanban and list view', 'Kanban ICE/name ascending/descending sort behavior')" — but this document never actually got that correction (nor a 2.4.3 entry of any kind) until now; this entry closes that gap. The unversioned "UX" list below currently contains no such claims.
 
 ### Kanban Auto-Classification and ICE Sort Rule (2.4.4)
 - ✅ `DISCOVERED` (ICE < 500) and `QUALIFIED` (ICE ≥ 500) are the only two auto-managed columns — placement and sort order both driven purely by computed ICE score, always high to low, no other sort. Replaces the old, never-quite-matching 3-tier 480/720 logic that also auto-promoted to `ENGAGED`.
@@ -54,7 +58,7 @@
 - ✅ Resolved issue #11 via a temporary production diagnostic endpoint: `outcomeLogs` (camelCase) held 0 documents, `outcomelogs` (lowercase) held 2,276 with same-day activity. `/api/outcome-logs` now reads/writes `outcomelogs`, matching every other call site. Diagnostic endpoint deleted after use.
 
 ### Generic Organization Fields (2.3.0)
-- ✅ Resolved issue #20's organization-genericness complaint: `pro_for_cogmap`/`pro_for_seyu` (and the `con_` equivalents) replaced with one shared `pro_for_organization`/`con_for_organization` pair used by every brand — hard cutover, no fallback. All 900 existing production documents were migrated in place via a temporary endpoint before the code shipped, so there was no gap where pros/cons appeared empty.
+- ✅ Resolved the organization-genericness complaint (owner-requested, not a tracked GitHub issue — this predates the audit-remediation epic's #20/#21 numbering, which is unrelated): `pro_for_cogmap`/`pro_for_seyu` (and the `con_` equivalents) replaced with one shared `pro_for_organization`/`con_for_organization` pair used by every brand — hard cutover, no fallback. All 900 existing production documents were migrated in place via a temporary endpoint before the code shipped, so there was no gap where pros/cons appeared empty.
 
 ### Kanban Card Image Placeholder Fix (2.3.1 / 2.3.2)
 - ✅ Kanban cards no longer show an empty image placeholder — switched `LeadCard` from `AdminResourceCard` to `ProductCard` (`@sovereignsquad/gds-core`), whose media/icon slots render nothing when omitted, matching the fact that leads have no image field at all. Verified against the real design-system source rather than guessed.
@@ -101,7 +105,6 @@
 - ✅ Responsive list/table view for mobile
 - ✅ Enlarged kanban drag affordance
 - ✅ Collapsible kanban columns
-- ✅ Country-based filters
 - ✅ Live kanban column lead counts
 - ✅ Removed tenantId/default input field from pipeline UI
 - ✅ Won column header = green
@@ -120,7 +123,7 @@
 | Item | Notes |
 |------|-------|
 | iOS focus-zoom real-device confirmation (2.4.6) | The `!important` fix is confirmed correct by CSS-cascade semantics and by inspecting the actual compiled/served stylesheet, but this sandbox has no way to reproduce iOS Safari's zoom-on-focus behavior itself (no headless/desktop equivalent) — a real-device check is still recommended |
-| Available countries visibility | Country filter UI is implemented, but live lead data currently lacks populated `country` values, so the list may appear empty until data is backfilled or mapped from `region` |
+| Country filter | No country/region filter UI currently exists in the frontend (the Region/Status dropdowns were removed entirely in 2.4.0 — see `CHANGELOG.md`); `country` is only ever shown as a display badge (`app/detail.tsx`) and a table column (`app/table.tsx`), never as something a user can filter by. Earlier entries in this doc describing a "country filter" as shipped were incorrect and have been removed. If country-based filtering is still wanted, it needs to be built as new work, not assumed present |
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
 | Orphaned standalone scripts with drifted kanban-column logic | `lead-feeder-agent.js` and `scripts/migrate-check-schema.js` each contain their own, separate ICE→column derivation with different (older) thresholds than the real `lib/kanban-column.ts`; neither is wired into any `npm` script or the running app — flagged as of 2.4.4, not yet resolved |
 | PWA installability real-device gap | Owner reports install behavior still not as expected on a real device; needs specifics (platform, symptom) before a further fix can be scoped |

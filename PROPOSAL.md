@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.8
+**Version:** 2.4.9
 
 ## Purpose
 
@@ -32,7 +32,7 @@ This document tracks proposed improvements against the current shipped state. Co
 - Resolved issue #11: a temporary, unauthenticated read-only diagnostic endpoint deployed to production confirmed `outcomeLogs` (camelCase) held 0 documents while `outcomelogs` (lowercase) held 2,276 documents with same-day activity — settling which collection is real. `/api/outcome-logs`'s GET and POST handlers now point at `outcomelogs`, matching the other 4 call sites across the codebase. Diagnostic endpoint removed after use.
 
 ### Generic Organization Fields (2.3.0)
-- Resolved issue #20's organization-genericness complaint: the value-proposition fields were brand-specific (`pro_for_cogmap`/`pro_for_seyu`), which doesn't scale to onboarding a new organization without a code change. Replaced with one shared, organization-agnostic field pair (`pro_for_organization`/`con_for_organization`) used identically by every brand — hard cutover, no fallback, no dual-read. All 900 existing production documents (408 in `leads`, 492 in `seyu_leads`) were migrated to the new field names via a temporary one-time endpoint before the code shipped, so there was no window where any lead's pros/cons appeared empty. The obsolete "forbidden cross-brand pro/con field" validation rule was removed (nothing left to forbid — there's only one field name now); the separate forbidden-vocabulary check on `value_proposition` text is untouched. `models/Lead.ts`'s field names were also corrected to match, though the model remains unused/dead code — that separate delete-vs-repair decision is still open. The `agent-runtime/` artifacts (the OpenClaw research agent's own config, added to this repo) were updated to match the same generic fields: `tenants.json`'s `brandFields`, `qualityGate.requiredFields`, and the now-obsolete `forbiddenFields` cross-brand pair; `schema-mapper.js`'s field-remapping logic simplified since there's no longer a per-tenant name mismatch to reconcile; `unified-enrichment-prompt.md`'s Seyu priority list.
+- Resolved the organization-genericness complaint (owner-requested, not a tracked GitHub issue — this predates the audit-remediation epic's #20/#21 numbering, which covers unrelated topics): the value-proposition fields were brand-specific (`pro_for_cogmap`/`pro_for_seyu`), which doesn't scale to onboarding a new organization without a code change. Replaced with one shared, organization-agnostic field pair (`pro_for_organization`/`con_for_organization`) used identically by every brand — hard cutover, no fallback, no dual-read. All 900 existing production documents (408 in `leads`, 492 in `seyu_leads`) were migrated to the new field names via a temporary one-time endpoint before the code shipped, so there was no window where any lead's pros/cons appeared empty. The obsolete "forbidden cross-brand pro/con field" validation rule was removed (nothing left to forbid — there's only one field name now); the separate forbidden-vocabulary check on `value_proposition` text is untouched. `models/Lead.ts`'s field names were also corrected to match at the time (that file — along with `OutcomeLog.ts`/`SearchLearning.ts` — was later deleted entirely in 2.4.7, see issue #20). The `agent-runtime/` artifacts (the OpenClaw research agent's own config, added to this repo) were updated to match the same generic fields: `tenants.json`'s `brandFields`, `qualityGate.requiredFields`, and the now-obsolete `forbiddenFields` cross-brand pair; `schema-mapper.js`'s field-remapping logic simplified since there's no longer a per-tenant name mismatch to reconcile; `unified-enrichment-prompt.md`'s Seyu priority list.
 
 ### Kanban Card Image Placeholder Fix (2.3.1 / 2.3.2)
 - Kanban cards previously always reserved an empty media/thumbnail box (`AdminResourceCard`), even though `Lead` has no image/logo field at all — there's currently no case where a lead has one. Switched `LeadCard` to `ProductCard` (`@sovereignsquad/gds-core`), whose `media`/`icon` props are optional `ReactNode`s rendered bare — omitted entirely, they render nothing. The real component source was read directly from `sovereignsquad/general-design-system` (this sandbox can't install the real package, but `raw.githubusercontent.com` was reachable) to confirm the contract before writing the fix, rather than guessing at prop names.
@@ -44,34 +44,38 @@ This document tracks proposed improvements against the current shipped state. Co
 - Kanban drag-and-drop between columns rebuilt entirely — it was fully absent from the code (not merely buggy) despite changelog/roadmap history describing it as shipped. Pointer-events-based with a long-press arm gesture (so scrolling/tapping still work), ghost preview, drop-target highlight, optimistic removal from the source column, and cleanup on cancel.
 - Ticket size (estimated deal value) shown on each lead card, and a pipeline-weighted ("discounted") forecast shown on each kanban column header — extended to Seyu, which previously had no per-column forecast breakdown at all.
 
-### Kanban Auto-Classification and ICE Sort Rule (2.4.4)
-- Owner specified an exact business rule: `DISCOVERED`/`QUALIFIED` are auto-managed purely by ICE score (500 threshold, always sorted high to low, no other sort); every other column is exclusively user-managed once a lead is moved there. `lib/kanban-column.ts` was rewritten from a 3-tier 480/720 rule (which also auto-promoted to `ENGAGED`) to the correct 2-tier rule. `PUT /api/leads/[id]` now reclassifies a lead's column on ICE-score change, but only while it's still in an auto-managed column. `GET /api/leads/columns` now sorts the two auto-managed columns by a computed-ICE aggregation instead of `sortOrder`, with cursor pagination re-encoded around the score. The already-declared-but-unused `ICE_QUALIFIED_THRESHOLD` constant and the incorrect 480/720 test fixtures were both cleaned up in the same change.
-
-### Mantine Inputs Still Force-Zooming on iOS Safari (2.4.6)
-- The 2.4.1 focus-zoom fix (`input, select, textarea { font-size: 16px }`) never actually applied to Mantine's own components — Mantine's compiled CSS sets font-size via a class selector, which has higher specificity than a bare element selector and always won regardless of source order. Confirmed by inspecting Mantine's actual shipped stylesheet rather than guessing. Added `!important`, which unconditionally wins the cascade; widened the header's view-mode `Select` (132px → 168px) to fit its longest label at the now-correctly-enforced 16px font. Real-device confirmation still recommended — this is an iOS-Safari-only behavior with no headless/desktop equivalent to screenshot.
-
-### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
-- Owner reported the ICE-score kanban sort was "still not working" and asked where the computation runs, concerned about heavy client-side work. Confirmed the sort is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`) and the client never re-sorts — `getIceScore()` client-side is only a trivial per-card display value. Investigation found a real bug: `PUT /api/leads/[id]` stored `ice` fields straight from the request body with no numeric coercion (unlike `POST`, which runs through `normalizeLead()`), so a request with numerically-valid but string-typed values would pass validation yet get persisted as strings — which then made the sort aggregation's `$multiply` throw, failing the whole column's fetch silently. Fixed both the write path (coerce `ice` to numbers before storing) and the read path (`ICE_SCORE_AGGREGATION_EXPR` now uses `$convert` with a safe fallback instead of a bare `$multiply`, self-healing any already-corrupted historical document without a migration).
-
-### Mongoose Models Deleted, Pagination Unified on Cursors (2.4.7)
-- Resolved the two remaining "flag only" decisions from the second audit pass. Issue #20: `models/Lead.ts`/`OutcomeLog.ts`/`SearchLearning.ts` deleted (zero importers, drifted schemas, no signal anywhere of an intended future Mongoose migration — `mongoose` itself stays as a dependency, used only as a connection helper in `scripts/*.js`). Issue #21: `/api/leads`, `/api/search`, and `/api/leads/columns` now share one pagination contract (`hasMore`/`nextCursor`). `/api/leads` added cursor support as a purely additive, opt-in mechanism — its legacy `page`/`limit`/`totalPages` fields and default sort are completely untouched, since the external research agent's one-shot `?limit=1000` listing call is a consumer this repo doesn't control and couldn't safely audit further. `/api/search` (frontend-only consumer, fully controlled) was changed more directly: `results` renamed to `leads`, a real `count` added, and cursor pagination wired for its single-brand mode. The table view's fetch was switched from one hard-capped `limit=5000` request to a cursor loop.
-
-### Header Overflow, Desktop Detail Panel, and Stuck Drag-Ghost Fixes (2.4.5)
-- A live device screenshot review surfaced 3 real bugs. (1) The header/search bar overflowed the screen on narrow viewports: a `wrap="nowrap"` row combining verbose 3-line header text with the view-mode selector was wider than the viewport with nothing able to shrink or wrap, so the selector (and potentially content below it) rendered off-screen instead of clipping. Compacted the header to two rows and dropped the verbose timestamp/"weighted" wording per the owner's requested terse format; added a global `overflow-x: hidden` CSS safety net. (2) The desktop/tablet-width (≥1280px) lead detail panel — `AdminDetailDrawer` in `app/detail.tsx` — was missing its entire body (ICE score, contacts, pros/cons, every action button) because the call site only ever passed `metadata`, never `content`, unlike the mobile `AdminModal` branch; confirmed against `AdminDetailDrawer`'s real source (`packages/gds-admin/src/AdminOverlays.tsx`) that it renders `{media}`, `{metadata}`, `{children}` and simply never received the last one. Fixed by passing `{content}` as children. (3) A quick tap on a kanban card could leave a permanently stuck drag-ghost and dimmed card: the drag-arm timer in `app/kanban.tsx` was cancelled only on excess pointer movement, never on `pointerup`/`pointercancel`, so an ordinary quick tap still let the 200ms timer fire after the pointer had already lifted, with no future `pointerup` on that pointerId ever arriving to clear it. Fixed by cancelling the timer on release too.
-
 ### Search Bar and Focus-Zoom Fixes (2.4.1)
 - Fixed the page force-zooming on search-input focus — a separate iOS Safari mechanism from pinch-zoom (zooms when a focused input's font-size is below 16px); added a global 16px minimum for all inputs/selects/textareas.
 - Replaced the 2.4.0 search bar's `SearchableSelect` (a closed combobox picker whose real typing field was hidden and didn't look like an input) with a plain always-editable text input and a custom predictive dropdown — the component was simply the wrong fit for a live search bar.
 - Fixed duplicate results in `/api/search` — it never applied the fingerprint-based dedup `/api/leads` already uses; added it.
 
+### PATCH /api/leads Actions Actually Working (2.4.2)
+- All `PATCH /api/leads` actions (ACCEPT, DECLINE, PIN, REQUEST_REFRESH, MODIFY, COLUMN_MOVE) were silently failing until this release — the client never sent the `id` the route's documented contract requires as a URL param, only in the JSON body. Reported as "drag and drop looks like it moves, then snaps back"; fixed in both call sites (`handleAction`, `handleMove`).
+
+### Dead Sort Button Removed (2.4.3)
+- The header's Asc/Desc sort button: removed — it never actually sorted anything, in the current code or historically; the state it toggled was never read by the kanban board or table view. Corrected the same false "shipped" claim in `roadmap.md`'s own UX history.
+
+### Kanban Auto-Classification and ICE Sort Rule (2.4.4)
+- Owner specified an exact business rule: `DISCOVERED`/`QUALIFIED` are auto-managed purely by ICE score (500 threshold, always sorted high to low, no other sort); every other column is exclusively user-managed once a lead is moved there. `lib/kanban-column.ts` was rewritten from a 3-tier 480/720 rule (which also auto-promoted to `ENGAGED`) to the correct 2-tier rule. `PUT /api/leads/[id]` now reclassifies a lead's column on ICE-score change, but only while it's still in an auto-managed column. `GET /api/leads/columns` now sorts the two auto-managed columns by a computed-ICE aggregation instead of `sortOrder`, with cursor pagination re-encoded around the score. The already-declared-but-unused `ICE_QUALIFIED_THRESHOLD` constant and the incorrect 480/720 test fixtures were both cleaned up in the same change.
+
+### Header Overflow, Desktop Detail Panel, and Stuck Drag-Ghost Fixes (2.4.5)
+- A live device screenshot review surfaced 3 real bugs. (1) The header/search bar overflowed the screen on narrow viewports: a `wrap="nowrap"` row combining verbose 3-line header text with the view-mode selector was wider than the viewport with nothing able to shrink or wrap, so the selector (and potentially content below it) rendered off-screen instead of clipping. Compacted the header to two rows and dropped the verbose timestamp/"weighted" wording per the owner's requested terse format; added a global `overflow-x: hidden` CSS safety net. (2) The desktop/tablet-width (≥1280px) lead detail panel — `AdminDetailDrawer` in `app/detail.tsx` — was missing its entire body (ICE score, contacts, pros/cons, every action button) because the call site only ever passed `metadata`, never `content`, unlike the mobile `AdminModal` branch; confirmed against `AdminDetailDrawer`'s real source (`packages/gds-admin/src/AdminOverlays.tsx`) that it renders `{media}`, `{metadata}`, `{children}` and simply never received the last one. Fixed by passing `{content}` as children. (3) A quick tap on a kanban card could leave a permanently stuck drag-ghost and dimmed card: the drag-arm timer in `app/kanban.tsx` was cancelled only on excess pointer movement, never on `pointerup`/`pointercancel`, so an ordinary quick tap still let the 200ms timer fire after the pointer had already lifted, with no future `pointerup` on that pointerId ever arriving to clear it. Fixed by cancelling the timer on release too.
+
+### Mantine Inputs Still Force-Zooming on iOS Safari (2.4.6)
+- The 2.4.1 focus-zoom fix (`input, select, textarea { font-size: 16px }`) never actually applied to Mantine's own components — Mantine's compiled CSS sets font-size via a class selector, which has higher specificity than a bare element selector and always won regardless of source order. Confirmed by inspecting Mantine's actual shipped stylesheet rather than guessing. Added `!important`, which unconditionally wins the cascade; widened the header's view-mode `Select` (132px → 168px) to fit its longest label at the now-correctly-enforced 16px font. Real-device confirmation still recommended — this is an iOS-Safari-only behavior with no headless/desktop equivalent to screenshot.
+
+### Mongoose Models Deleted, Pagination Unified on Cursors (2.4.7)
+- Resolved the two remaining "flag only" decisions from the second audit pass. Issue #20: `models/Lead.ts`/`OutcomeLog.ts`/`SearchLearning.ts` deleted (zero importers, drifted schemas, no signal anywhere of an intended future Mongoose migration — `mongoose` itself stays as a dependency, used only as a connection helper in `scripts/*.js`). Issue #21: `/api/leads`, `/api/search`, and `/api/leads/columns` now share one pagination contract (`hasMore`/`nextCursor`). `/api/leads` added cursor support as a purely additive, opt-in mechanism — its legacy `page`/`limit`/`totalPages` fields and default sort are completely untouched, since the external research agent's one-shot `?limit=1000` listing call is a consumer this repo doesn't control and couldn't safely audit further. `/api/search` (frontend-only consumer, fully controlled) was changed more directly: `results` renamed to `leads`, a real `count` added, and cursor pagination wired for its single-brand mode. The table view's fetch was switched from one hard-capped `limit=5000` request to a cursor loop.
+
+### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
+- Owner reported the ICE-score kanban sort was "still not working" and asked where the computation runs, concerned about heavy client-side work. Confirmed the sort is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`) and the client never re-sorts — `getIceScore()` client-side is only a trivial per-card display value. Investigation found a real bug: `PUT /api/leads/[id]` stored `ice` fields straight from the request body with no numeric coercion (unlike `POST`, which runs through `normalizeLead()`), so a request with numerically-valid but string-typed values would pass validation yet get persisted as strings — which then made the sort aggregation's `$multiply` throw, failing the whole column's fetch silently. Fixed both the write path (coerce `ice` to numbers before storing) and the read path (`ICE_SCORE_AGGREGATION_EXPR` now uses `$convert` with a safe fallback instead of a bare `$multiply`, self-healing any already-corrupted historical document without a migration).
+
 ### Kanban UX and Mobile Pipeline
 - Responsive kanban layout with vertical stacking on narrow screens
-- Pointer-based drag-and-drop with ghost preview and cleanup
+- Pointer-based drag-and-drop with ghost preview and cleanup — note: an earlier version of this doc's history claimed this shipped well before 2.4.0, but per `CHANGELOG.md`'s 2.4.0 entry, the gesture was entirely absent from the code at that point and had to be rebuilt from scratch; what's described here is the 2.4.0 rebuild, still current
 - Collapsible kanban columns
 - Live column lead counts in headers
 - Won/Lost header color treatment
-- Country-based filter UI in pipeline
-- ICE/name sort controls with asc/desc in kanban and table view
 - Table view mobile simplification and contrast fix
 - Detail modal full-screen on mobile
 - Header/filter wrapping for narrow viewports
@@ -80,8 +84,6 @@ This document tracks proposed improvements against the current shipped state. Co
 ### Lead Actions and Feedback
 - Canonical PATCH mutation path extracted to `app/lib/lead-actions.ts`
 - Frontend uses loading/disabled states and toast feedback
-- All `PATCH /api/leads` actions (ACCEPT, DECLINE, PIN, REQUEST_REFRESH, MODIFY, COLUMN_MOVE) were silently failing until 2.4.2 — the client never sent the `id` the route's documented contract requires as a URL param, only in the JSON body; fixed in both call sites (`handleAction`, `handleMove`)
-- The header's Asc/Desc sort button (2.4.3): removed — it never actually sorted anything, in the current code or historically; the state it toggled was never read by the kanban board or table view
 - Shared retry utility for transient API failures
 - Validation smoke tests via `npm run test:smoke`
 
@@ -121,13 +123,16 @@ This document tracks proposed improvements against the current shipped state. Co
 - Tenant-aware indexes and migration path
 
 ### Mobile UX Polish
-- Real-device zoom-lock verification: **confirmed fixed** (2026-07-23) on a real device.
 - Real-device PWA-installability verification: owner reports it's still not behaving as expected as of 2026-07-23; specifics (which platform, which symptom) not yet gathered — see open question in `deployment.md`.
+- Real-device confirmation of the 2.4.6 iOS focus-zoom `!important` fix — could not be verified from this sandbox (no headless/desktop equivalent to screenshot); see the "Mantine Inputs Still Force-Zooming" workstream above.
 - Table view density/readability tuning
-- Country filter backfill/mapping from `region` when `country` is missing
+- No country/region filter UI currently exists at all (see roadmap.md) — if this is still wanted, it needs to be built as new work, including backfill/mapping `country` from `region` where missing, not assumed to already be partially built
 
 ### Test Coverage
-- API/route tests beyond validation smoke tests (unit coverage of shared `lib/*` logic has grown substantially in 2.2.0, but full route-level integration tests remain TODO)
+- API/route tests beyond validation smoke tests (unit coverage of shared `lib/*` logic has grown substantially since 2.2.0 and continued growing through 2.4.4's kanban-column rewrite, but full route-level integration tests remain TODO)
+
+### Orphaned Standalone Scripts
+- `lead-feeder-agent.js` and `scripts/migrate-check-schema.js` each contain their own, separate ICE→column derivation with different (older) thresholds than the real `lib/kanban-column.ts`; neither is wired into any `npm` script or the running app — flagged as of 2.4.4, not yet resolved (see `roadmap.md`)
 
 ---
 
@@ -136,3 +141,6 @@ This document tracks proposed improvements against the current shipped state. Co
 1. Mobile UX polish
 2. Research agent reliability
 3. Multi-tenant hardening
+4. Orphaned standalone scripts cleanup
+
+This priority order covers only the near-term items above. Longer-horizon, larger-scope features (auto-enrichment pipeline, team workspaces, AI scoring calibration, CRM sync, attribution, analytics dashboard, client API/webhooks, advanced enrichment) are tracked separately in `roadmap.md`'s phased "Planned" table and aren't repeated here.
