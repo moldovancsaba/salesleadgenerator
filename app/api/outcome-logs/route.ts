@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const filter: any = {};
     if (leadId) filter.leadId = leadId;
 
-    const logs = await db.collection('outcomeLogs')
+    const logs = await db.collection('outcomelogs')
       .find(filter)
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       createdAt: new Date(),
     };
 
-    const result = await db.collection('outcomeLogs').insertOne(log);
+    const result = await db.collection('outcomelogs').insertOne(log);
 
     // Update lead feedback counters if outcomeType is set
     if (outcomeType && leadId) {

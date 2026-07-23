@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.2.2  
+**Version:** 2.2.3  
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -126,7 +126,7 @@ These require API key auth.
 - Table view mobile density/readability may still need additional tuning.
 - Country filter population depends on lead `country` data; some datasets may need backfill from `region`.
 - Test coverage has grown (33 unit tests + a 4-check smoke suite as of 2.2.0) but is still concentrated on shared validation/scoring/dedup logic; full API route integration tests remain TODO.
-- The dedicated `/api/outcome-logs` endpoint currently reads/writes a different MongoDB collection than the rest of the outcome-logging system due to a case-sensitivity mismatch (`outcomeLogs` vs `outcomelogs`) — its GET response may not reflect the real outcome history until this is resolved (requires a database check before fixing; do not assume it's safe to just rename).
+- ~~The dedicated `/api/outcome-logs` endpoint currently reads/writes a different MongoDB collection than the rest of the outcome-logging system~~ **Fixed in 2.2.3**: a production database check (`outcomeLogs`: 0 docs vs `outcomelogs`: 2,276 docs, latest activity same day) confirmed `outcomelogs` is the real collection; `/api/outcome-logs` now reads/writes it.
 - Three lead-listing endpoints (`/api/leads`, `/api/search`, `/api/leads/columns`) use three different pagination shapes — a deliberate difference (full page-list, capped top-N search, cursor-paginated infinite column), not scheduled for unification without a dedicated design pass. As of 2.2.2, `/api/leads`'s `total` field is fixed to mean the real total across all pages (matching `totalPages`); the per-page count is now `returned`.
 
 ---
