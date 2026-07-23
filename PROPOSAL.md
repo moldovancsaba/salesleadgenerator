@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.1
+**Version:** 2.4.2
 
 ## Purpose
 
@@ -65,7 +65,7 @@ This document tracks proposed improvements against the current shipped state. Co
 ### Lead Actions and Feedback
 - Canonical PATCH mutation path extracted to `app/lib/lead-actions.ts`
 - Frontend uses loading/disabled states and toast feedback
-- Actions verified: ACCEPT, DECLINE, PIN, REQUEST_REFRESH, COLUMN_MOVE, DELETE
+- All `PATCH /api/leads` actions (ACCEPT, DECLINE, PIN, REQUEST_REFRESH, MODIFY, COLUMN_MOVE) were silently failing until 2.4.2 — the client never sent the `id` the route's documented contract requires as a URL param, only in the JSON body; fixed in both call sites (`handleAction`, `handleMove`)
 - Shared retry utility for transient API failures
 - Validation smoke tests via `npm run test:smoke`
 
