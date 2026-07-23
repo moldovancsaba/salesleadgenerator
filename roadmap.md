@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.2.2
+**Version:** 2.2.3
 
 ---
 
@@ -25,6 +25,9 @@
 
 ### Pagination Field Fix (2.2.2)
 - ✅ Fixed `/api/leads`'s misleadingly-named `total` field (issue #21's low-risk sub-fix) to reflect the real total across all pages instead of the current page's count; per-page count moved to a new `returned` field. No frontend consumer read the old field, so this shipped with zero UI changes needed.
+
+### Outcome-Logs Collection Fix (2.2.3)
+- ✅ Resolved issue #11 via a temporary production diagnostic endpoint: `outcomeLogs` (camelCase) held 0 documents, `outcomelogs` (lowercase) held 2,276 with same-day activity. `/api/outcome-logs` now reads/writes `outcomelogs`, matching every other call site. Diagnostic endpoint deleted after use.
 
 ### Outreach and Pipeline
 - ✅ One-click outreach templates with analytics (`/api/outreach-templates?mode=analytics`)
@@ -74,7 +77,6 @@
 |------|-------|
 | Available countries visibility | Country filter UI is implemented, but live lead data currently lacks populated `country` values, so the list may appear empty until data is backfilled or mapped from `region` |
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
-| `outcomeLogs`/`outcomelogs` collection split | Needs a direct database check (which collection, if either, holds real data) before a code fix ships |
 | Unused Mongoose models decision | `models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts` are unused and schema-drifted; needs an owner decision — delete, or repair as a migration path |
 | Pagination shape unification | 3 lead-listing endpoints intentionally use 3 different pagination contracts (full page-list, capped search, cursor-paginated column); the misleading `total` field naming trap was fixed in 2.2.2, but full unification still needs a coordinated frontend+backend design pass, not a drive-by fix |
 | PWA installability real-device gap | Owner reports install behavior still not as expected on a real device; needs specifics (platform, symptom) before a further fix can be scoped |

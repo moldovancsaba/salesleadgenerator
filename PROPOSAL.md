@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.2.2
+**Version:** 2.2.3
 
 ## Purpose
 
@@ -27,6 +27,9 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ### Pagination Field Fix (2.2.2)
 - Fixed the misleading `total` field in `GET /api/leads` (issue #21's low-risk sub-fix): now the real grand total across all pages, matching `totalPages`; per-page count moved to a new `returned` field. The larger 3-endpoint pagination-shape unification remains explicitly out of scope pending a dedicated design pass.
+
+### Outcome-Logs Collection Fix (2.2.3)
+- Resolved issue #11: a temporary, unauthenticated read-only diagnostic endpoint deployed to production confirmed `outcomeLogs` (camelCase) held 0 documents while `outcomelogs` (lowercase) held 2,276 documents with same-day activity — settling which collection is real. `/api/outcome-logs`'s GET and POST handlers now point at `outcomelogs`, matching the other 4 call sites across the codebase. Diagnostic endpoint removed after use.
 
 ### Kanban UX and Mobile Pipeline
 - Responsive kanban layout with vertical stacking on narrow screens
@@ -93,7 +96,6 @@ This document tracks proposed improvements against the current shipped state. Co
 - API/route tests beyond validation smoke tests (unit coverage of shared `lib/*` logic has grown substantially in 2.2.0, but full route-level integration tests remain TODO)
 
 ### Data Integrity Decisions Needed
-- `outcomeLogs`/`outcomelogs` MongoDB collection-name split — needs a database check before a code fix ships
 - Unused Mongoose models (`models/*`) — needs an owner decision: delete, or repair as a migration path
 - Pagination-shape unification across `/api/leads`, `/api/search`, `/api/leads/columns` — API-contract change requiring a coordinated frontend update (note: the misleading `total` field naming trap within `/api/leads` was fixed in 2.2.2; the broader 3-shape unification is still open)
 
