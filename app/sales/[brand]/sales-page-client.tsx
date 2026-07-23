@@ -186,7 +186,7 @@ export function SalesPageClient({ brand }: Props) {
             value={view}
             onChange={(value) => setView(value as ViewMode)}
             data={VIEW_OPTIONS}
-            style={{ width: 132, flexShrink: 0 }}
+            style={{ width: 168, flexShrink: 0 }}
           />
         </Group>
         {metaLoading ? (

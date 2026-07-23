@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.5
+**Version:** 2.4.6
 
 ---
 
@@ -51,7 +51,8 @@
 `app/kanban.tsx` implements cross-column drag-and-drop with raw Pointer Events (not native HTML5 DnD, for touch-device support): a 200ms long-press-to-arm gesture distinguishes a drag from a scroll or tap (movement past a small tolerance before the timer fires cancels arming). Once armed, a floating ghost label follows the pointer and the column under the pointer (found via `document.elementFromPoint` + `closest('[data-column]')`) is highlighted as the drop target; releasing over a different column calls the existing `handleMove()`, which optimistically removes the card from its source column before reconciling with the server. Each kanban column header also shows a pipeline-weighted ("discounted") forecast for that column, sourced from `GET /api/boards/[brand]`'s `forecast.pipeline[COLUMN]`.
 
 ### PWA and Zoom Lock
-- `app/globals.css` — `touch-action: manipulation` on `html`/`body`, the CSS layer iOS Safari respects for pinch/double-tap zoom prevention (unlike the viewport meta tag's `maximum-scale`/`user-scalable`, which iOS Safari has ignored since iOS 10). Separately, as of 2.4.1: a global `input, select, textarea { font-size: 16px }` rule prevents iOS Safari's *other* zoom mechanism — force-zooming the whole page on focus of any input whose computed font-size is below 16px (Mantine's default small/xs input sizes render below that threshold) — a distinct behavior from pinch-zoom, unaffected by `touch-action` or the viewport meta tag
+- `app/globals.css` — `touch-action: manipulation` on `html`/`body`, the CSS layer iOS Safari respects for pinch/double-tap zoom prevention (unlike the viewport meta tag's `maximum-scale`/`user-scalable`, which iOS Safari has ignored since iOS 10). Separately, as of 2.4.1: a global `input, select, textarea { font-size: 16px }` rule prevents iOS Safari's *other* zoom mechanism — force-zooming the whole page on focus of any input whose computed font-size is below 16px (Mantine's default small/xs input sizes render below that threshold) — a distinct behavior from pinch-zoom, unaffected by `touch-action` or the viewport meta tag. That rule didn't actually apply to Mantine's own inputs until 2.4.6: Mantine's compiled CSS sets font-size via a class selector (higher specificity than a bare element selector), so it always won regardless of source order — `!important` was added to force the override
+- `app/globals.css` — `overflow-x: hidden` / `max-width: 100vw` on `html`/`body` (2.4.5): a safety net against any single element pushing the page wider than the viewport on narrow screens
 - `app/components/PwaSetup.tsx` — client component mounted in `app/layout.tsx`; adds a JS-level `gesturestart`/`gesturechange` + multi-touch `touchmove` guard as a last-resort zoom-prevention layer, and registers `public/sw.js`
 - `public/sw.js` — minimal service worker; precaches only the static app-shell assets (`manifest.json`, `icon-192.png`, `icon-512.png`) and passes every page navigation and every `/api/*` request straight through to the network — deliberately never caches live lead/pipeline data
 - `public/manifest.json` + `public/icon-192.png`/`icon-512.png` — PWA manifest and icons (the icon files are a functional placeholder pending real brand assets)
