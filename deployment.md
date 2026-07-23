@@ -1,7 +1,7 @@
 # Deployment Log
 
 ## Latest Deployment
-- **Commit**: (this session's fix; hash recorded after push — see git log for `fix: point /api/outcome-logs at the real outcomelogs collection`)
+- **Commit**: f83bc1d
 - **Message**: fix: point /api/outcome-logs at the real outcomelogs collection (fixes #11)
 - **Build Status**: Verified via `tsc --noEmit` (pre-existing GDS-stub artifact only), `eslint` clean, `vitest run` (33/33), smoke suite (4/4).
 - **Context**: Issue #11 required a real production-database check before any fix, since `outcomeLogs` (camelCase) and `outcomelogs` (lowercase) both existed as MongoDB collections and no code path proved which was authoritative. This sandbox cannot reach MongoDB Atlas directly (DNS resolution for `*.mongodb.net` fails under this environment's egress policy) nor reach the live Vercel deployment (proxy returns a 403 policy denial for `salesleadgenerator.vercel.app`). Deployed a temporary, unauthenticated, read-only diagnostic endpoint (`GET /api/admin/diag-outcome-logs`) to production instead; the owner opened it once from their phone and reported: `outcomeLogs` = 0 documents, `outcomelogs` = 2,276 documents with same-day activity. That settled it. `/api/outcome-logs`'s GET and POST handlers now use `outcomelogs`, matching every other call site. The diagnostic endpoint was deleted in the same change.
