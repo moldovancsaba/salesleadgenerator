@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.0
+**Version:** 2.4.1
 
 ---
 
@@ -38,10 +38,15 @@
 
 ### Kanban Board UX Overhaul (2.4.0)
 - ✅ Header layout: view selector pinned top-right; Region/Status filter dropdowns removed entirely.
-- ✅ Predictive lead search bar (top-center, under the header), backed by the existing `/api/search` endpoint via GDS's `SearchableSelect`.
+- ✅ Predictive lead search bar (top-center, under the header), backed by the existing `/api/search` endpoint.
 - ✅ Rebuilt kanban drag-and-drop from scratch — it was completely absent from the code despite being listed as historically shipped. Pointer-events-based, long-press-to-arm, ghost preview, drop-target highlight, optimistic UI, full cleanup on cancel.
 - ✅ Ticket size shown on each lead card (CogMap: direct revenue estimate; Seyu: summed from per-lead pricing blocks).
 - ✅ Discounted (pipeline-weighted) forecast shown on each kanban column header, for both brands.
+
+### Search Bar and Focus-Zoom Fixes (2.4.1)
+- ✅ Fixed page force-zoom on search-input focus (iOS Safari zooms below-16px focused inputs — separate from pinch-zoom) — global 16px minimum font-size for inputs/selects/textareas.
+- ✅ Replaced the search bar's `SearchableSelect` (a closed combobox picker, wrong fit — real typing field was hidden and didn't look like an input) with a plain always-editable text input and custom predictive dropdown.
+- ✅ Fixed duplicate results in `/api/search` — added the fingerprint-based dedup `/api/leads` already had.
 
 ### Outreach and Pipeline
 - ✅ One-click outreach templates with analytics (`/api/outreach-templates?mode=analytics`)

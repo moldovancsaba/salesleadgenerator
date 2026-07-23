@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Group, Text, Button, Paper, Select, Loader, Container, Box } from '@mantine/core';
-import { SearchableSelect } from '@sovereignsquad/gds-core/client';
+import { Group, Text, Button, Paper, Select, Loader, Container, Box, TextInput, UnstyledButton } from '@mantine/core';
 import type { Lead } from '@/app/types';
 import { KanbanBoard } from '@/app/kanban';
 import { LeadDetailModal } from '@/app/detail';
@@ -39,8 +38,12 @@ export function SalesPageClient({ brand }: Props) {
   const [metaLoading, setMetaLoading] = useState(true)
   const [tableLeads, setTableLeads] = useState<Lead[]>([])
   const [tableLoading, setTableLoading] = useState(true)
-  const [searchSelection, setSearchSelection] = useState<string | null>(null)
-  const searchResultsRef = useRef<Record<string, Lead>>({})
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<Lead[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const searchBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Load board metadata (header, counts, forecast) from DB
   useEffect(() => {
@@ -129,30 +132,49 @@ export function SalesPageClient({ brand }: Props) {
   // group by status, and cross-brand region filters weren't in use).
   const filteredLeads = useMemo(() => (view === 'table' ? tableLeads : []), [tableLeads, view])
 
-  const loadSearchOptions = useCallback(async (query: string) => {
-    if (!query.trim()) return []
-    const url = new URL('/api/search', window.location.origin)
-    url.searchParams.set('q', query)
-    url.searchParams.set('brand', brand)
-    url.searchParams.set('limit', '8')
-    const res = await fetch(url.toString())
-    if (!res.ok) throw new Error(`Search failed: ${res.status}`)
-    const data = await res.json()
-    const leads: Lead[] = data.results || []
-    searchResultsRef.current = Object.fromEntries(leads.map((lead) => [lead._id, lead]))
-    return leads.map((lead) => ({
-      value: lead._id,
-      label: lead.industry || lead.sport_or_sector
-        ? `${lead.entity_name} — ${lead.industry || lead.sport_or_sector}`
-        : lead.entity_name,
-    }))
-  }, [brand])
-
-  const handleSearchSelect = useCallback((leadId: string | null) => {
-    if (leadId && searchResultsRef.current[leadId]) {
-      setSelectedLead(searchResultsRef.current[leadId])
+  // Live predictive search: debounced fetch against /api/search as the user
+  // types, results shown in a plain dropdown below an always-editable input.
+  useEffect(() => {
+    clearTimeout(searchDebounceRef.current)
+    const query = searchQuery.trim()
+    if (!query) {
+      setSearchResults([])
+      setSearchLoading(false)
+      return
     }
-    setSearchSelection(null)
+    setSearchLoading(true)
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const url = new URL('/api/search', window.location.origin)
+        url.searchParams.set('q', query)
+        url.searchParams.set('brand', brand)
+        url.searchParams.set('limit', '8')
+        const res = await fetch(url.toString())
+        if (!res.ok) throw new Error(`Search failed: ${res.status}`)
+        const data = await res.json()
+        setSearchResults((data.results || []) as Lead[])
+      } catch (err) {
+        console.error('Search error:', err)
+        setSearchResults([])
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 250)
+    return () => clearTimeout(searchDebounceRef.current)
+  }, [searchQuery, brand])
+
+  const handleSearchResultClick = useCallback((lead: Lead) => {
+    clearTimeout(searchBlurTimeoutRef.current)
+    setSelectedLead(lead)
+    setSearchQuery('')
+    setSearchResults([])
+    setSearchOpen(false)
+  }, [])
+
+  const handleSearchBlur = useCallback(() => {
+    // Delay closing so a click on a dropdown result registers before the
+    // dropdown unmounts (blur fires before click otherwise).
+    searchBlurTimeoutRef.current = setTimeout(() => setSearchOpen(false), 150)
   }, [])
 
   return (
@@ -190,15 +212,44 @@ export function SalesPageClient({ brand }: Props) {
       </Paper>
 
       <Group justify="center" p="sm" style={{ flexShrink: 0 }}>
-        <Box style={{ width: '100%', maxWidth: 480 }}>
-          <SearchableSelect
-            value={searchSelection}
-            onChange={handleSearchSelect}
-            loadOptions={loadSearchOptions}
+        <Box style={{ width: '100%', maxWidth: 480, position: 'relative' }}>
+          <TextInput
+            value={searchQuery}
+            onChange={(event) => {
+              setSearchQuery(event.currentTarget.value)
+              setSearchOpen(true)
+            }}
+            onFocus={() => { if (searchQuery.trim()) setSearchOpen(true) }}
+            onBlur={handleSearchBlur}
             placeholder="Search leads by name, industry…"
-            clearable
-            ariaLabel="Search leads"
+            aria-label="Search leads"
           />
+          {searchOpen && searchQuery.trim() && (
+            <Paper
+              withBorder
+              shadow="md"
+              style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, maxHeight: 320, overflowY: 'auto', zIndex: 1000 }}
+            >
+              {searchLoading ? (
+                <Group justify="center" p="sm"><Loader size="xs" /></Group>
+              ) : searchResults.length === 0 ? (
+                <Text size="sm" c="dimmed" p="sm">No matching leads</Text>
+              ) : (
+                searchResults.map((lead) => (
+                  <UnstyledButton
+                    key={lead._id}
+                    onClick={() => handleSearchResultClick(lead)}
+                    style={{ display: 'block', width: '100%', padding: '0.5rem 0.75rem', textAlign: 'left' }}
+                  >
+                    <Text size="sm" fw={500}>{lead.entity_name}</Text>
+                    {(lead.industry || lead.sport_or_sector) && (
+                      <Text size="xs" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
+                    )}
+                  </UnstyledButton>
+                ))
+              )}
+            </Paper>
+          )}
         </Box>
       </Group>
 

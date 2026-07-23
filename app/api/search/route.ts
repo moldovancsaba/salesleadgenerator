@@ -48,13 +48,24 @@ export async function GET(request: Request) {
       }
       if (region) filter.region = region
 
-      const leads = await db.collection(config.dbCollection)
+      const rawLeads = await db.collection(config.dbCollection)
         .find(filter)
         .sort({ createdAt: -1 })
         .limit(limit)
         .toArray()
 
-      results.push(...leads.map((l) => ({ ...l, brand: brandKey })))
+      // Dedup by fingerprint (newest wins), matching /api/leads' GET handler —
+      // the underlying collections can contain duplicate-fingerprint documents.
+      const byFingerprint = new Map<string, any>()
+      for (const lead of rawLeads) {
+        const fp = lead.fingerprint || lead._id.toString()
+        const existing = byFingerprint.get(fp)
+        if (!existing || new Date(lead.createdAt) > new Date(existing.createdAt)) {
+          byFingerprint.set(fp, lead)
+        }
+      }
+
+      results.push(...Array.from(byFingerprint.values()).map((l) => ({ ...l, brand: brandKey })))
     }
 
     return NextResponse.json({
