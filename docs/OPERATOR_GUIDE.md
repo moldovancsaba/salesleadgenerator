@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.6  
+**Version:** 2.4.7  
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -129,7 +129,7 @@ These require API key auth.
 - Country filter population depends on lead `country` data; some datasets may need backfill from `region`.
 - Test coverage has grown (33 unit tests + a 4-check smoke suite as of 2.2.0) but is still concentrated on shared validation/scoring/dedup logic; full API route integration tests remain TODO.
 - ~~The dedicated `/api/outcome-logs` endpoint currently reads/writes a different MongoDB collection than the rest of the outcome-logging system~~ **Fixed in 2.2.3**: a production database check (`outcomeLogs`: 0 docs vs `outcomelogs`: 2,276 docs, latest activity same day) confirmed `outcomelogs` is the real collection; `/api/outcome-logs` now reads/writes it.
-- Three lead-listing endpoints (`/api/leads`, `/api/search`, `/api/leads/columns`) use three different pagination shapes — a deliberate difference (full page-list, capped top-N search, cursor-paginated infinite column), not scheduled for unification without a dedicated design pass. As of 2.2.2, `/api/leads`'s `total` field is fixed to mean the real total across all pages (matching `totalPages`); the per-page count is now `returned`.
+- ~~Three lead-listing endpoints (`/api/leads`, `/api/search`, `/api/leads/columns`) use three different pagination shapes~~ **Unified in 2.4.7**: all three now return `hasMore`/`nextCursor` and support cursor pagination. `/api/leads` keeps its legacy `page`/`limit`/`totalPages` fields alongside the new ones — `cursor` is opt-in, so the research agent's existing one-shot `?limit=1000` listing call is unaffected. `/api/search` renamed `results` to `leads` and added a real `count`; cursor pagination works when a specific `brand` is given, and stays a flat capped list when searching all brands at once (no single resumable cursor across independently-sorted collections). As of 2.2.2, `/api/leads`'s `total` field means the real total across all pages (matching `totalPages`); the per-page count is `returned`.
 - ~~The pro/con value-proposition fields were named per-brand (`pro_for_cogmap`/`pro_for_seyu`)~~ **Fixed in 2.3.0**: both brands now share one organization-agnostic field, `pro_for_organization`/`con_for_organization`. This is a breaking API contract change — old field names are no longer read or written anywhere, by design (no fallback). All 900 existing production documents were migrated in place before the code shipped.
 
 ---
