@@ -1,9 +1,9 @@
 import { Inter } from "next/font/google";
-import { MantineProvider, createTheme } from "@mantine/core";
 import "@mantine/core/styles.css";
 import "@sovereignsquad/gds-theme/styles.css";
 import "./globals.css";
 import { PwaSetup } from "./components/PwaSetup";
+import { Providers } from "./components/Providers";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -13,11 +13,6 @@ const inter = Inter({
 export const metadata = {
   title: "Sales Lead Generator",
   description: "AI-powered sales lead collection platform" };
-
-const theme = createTheme({
-  defaultRadius: "md",
-  focusRing: "auto",
-  cursorType: "pointer" });
 
 export default function RootLayout({
   children,
@@ -37,10 +32,10 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body>
-        <MantineProvider theme={theme}>
+        <Providers>
           <PwaSetup />
           {children}
-        </MantineProvider>
+        </Providers>
       </body>
     </html>
   );

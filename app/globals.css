@@ -24,21 +24,18 @@ body {
   iOS Safari force-zooms the whole page in when a focused input's computed
   font-size is below 16px — a separate mechanism from the pinch/double-tap
   zoom handled above, and not affected by touch-action or the viewport meta
-  tag. Mantine's default input sizes (e.g. "xs"/"sm") render below 16px, so
-  any text input/select/textarea in this app can trigger it on focus. Fixing
-  the font-size globally is the standard, root-cause fix.
-
-  !important is required here, not stylistic: Mantine's own compiled CSS
-  sets each input's font-size via a hashed class selector (e.g. `.m_8fb7ebe7
-  { font-size: var(--input-fz, ...) }`), which has higher specificity than
-  a bare element selector and always wins the cascade regardless of source
-  order. Without !important this rule silently never applied to any Mantine
-  Select/TextInput/etc — only to plain native inputs outside Mantine — which
-  is exactly why the header's view-mode Select kept force-zooming after the
-  first attempt at this fix.
+  tag. As of GDS 3.11.0, every Mantine input in this app (TextInput, Select,
+  AdminSelect/AdminTextarea, etc.) is floored to 16px at the theme level via
+  `components.Input.vars` in app/layout.tsx's createTheme() — the same
+  CSS-variable channel Mantine's own size resolver uses, so it wins with no
+  specificity contest and no !important. This bare rule is now just a safety
+  net for any hypothetical raw native input/select/textarea outside Mantine's
+  control (there are none in this app today) — it never conflicts with the
+  theme-level fix above, since Mantine's own class-based rule still wins for
+  Mantine's own components either way.
 */
 input,
 select,
 textarea {
-  font-size: 16px !important;
+  font-size: 16px;
 }
