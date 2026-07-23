@@ -1,5 +1,35 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.9
+
+Owner reported the documentation was "hardly [sic — highly] inconsistent and incomplete." Ran two independent audits in parallel (one over README/CHANGELOG/roadmap/PROPOSAL for cross-file consistency, one over the technical reference docs cross-checked against the actual current code) and fixed every concrete finding from both — no vague impressions, only file:line-cited problems.
+
+### Fixed — factual errors and stale claims
+- **README.md's Versioning section said 2.4.3** while its own header, `package.json`, and every other doc said 2.4.8 (now 2.4.9 everywhere).
+- **The 2.3.0 organization-generic-fields work was wrongly attributed to "issue #20"** in `CHANGELOG.md`, `roadmap.md`, and `PROPOSAL.md` — issue #20 has only ever been the Mongoose-models issue (confirmed by searching GitHub); no separate issue exists for the 2.3.0 work, so the false citation was removed from all 3 files rather than guessing a replacement number.
+- **A "Country-based filter UI" was claimed shipped** in `roadmap.md` and `PROPOSAL.md`, and `docs/OPERATOR_GUIDE.md` claimed "Country filters are available in the pipeline UI and are visible by default" — none of this exists; the Region/Status dropdowns were removed entirely in 2.4.0 and `country` only ever appears as a display badge/table column. Corrected in all 3 files.
+- **`docs/OPERATOR_GUIDE.md` said "Accept → promote toward QUALIFIED"** — false; `ACCEPT` only sets `status: 'qualified'` and bumps feedback counters, it never touches `kanbanColumn`. Corrected to describe the actual behavior.
+- **`docs/OPERATOR_GUIDE.md`'s test-coverage figure was stale** ("33 unit tests + a 4-check smoke suite as of 2.2.0") against the real current count (35 unit tests, 5-check smoke suite as of 2.4.8).
+- **`PIPELINE_ARCHITECTURE.md` was the most out-of-date file in the repo**: described a deleted `models/Lead.ts` as live, described QUALIFIED as agent-contact-criteria rather than the real ICE≥500 rule, claimed ICE score isn't used for column ordering (it is, for DISCOVERED/QUALIFIED, since 2.4.4), said Next.js 14 instead of 15, described a region-chip/tenantId filter UI that doesn't exist, and was missing ~9 real API routes. Rewritten to match the current codebase, with a version header added (it had none).
+- **`docs/ARCHITECTURE.md` duplicated `validate-lead.ts` and `request-retry.ts` under both `app/lib/*` and `lib/*`** — both files only exist in root `lib/`; removed from the wrong section. Also removed an unverifiable "text index" claim (no `createIndex` call for one exists anywhere in the repo, and current search uses `$regex`, not `$text`).
+- **`docs/DOC_LINT.md`'s own archived-file checklist pointed at the wrong paths** (`docs/architecture.md`/`docs/user-guide.md` instead of the real `_archived/architecture.md`/`_archived/user-guide.md`) — a grep run against this checklist as written would never find the real files.
+
+### Fixed — structural issues
+- **`PROPOSAL.md`'s "Completed Workstreams" section was out of chronological order** past 2.4.0 (2.4.8 appeared before 2.4.7; 2.4.5 and 2.4.1 appeared even later) — reordered to a single consistent oldest-to-newest sequence, and gave 2.4.2/2.4.3 their own dedicated headings (previously folded into an unversioned "Lead Actions and Feedback" section, inconsistent with every other version getting its own heading).
+- **`roadmap.md` had no 2.4.3 entry at all**, despite `CHANGELOG.md`'s own 2.4.3 entry claiming a `roadmap.md` correction had already been made there — it hadn't been. Added the missing entry.
+- **A resolved item (real-device zoom-lock verification) appeared twice in `PROPOSAL.md`** — once correctly under "Completed Workstreams," once incorrectly still listed under "Remaining Work." Removed the stale duplicate.
+- **`PROPOSAL.md`'s "Remaining Work" was missing two items `roadmap.md` tracks as open** (orphaned standalone scripts with drifted kanban-column logic; real-device confirmation of the 2.4.6 zoom fix) — added both, plus a cross-reference note so `PROPOSAL.md`'s "Priority Order" doesn't silently omit `roadmap.md`'s longer-horizon "Planned" phases.
+- **`CHANGELOG.md`'s "Unreleased" section sat at the very bottom**, after the oldest entry (2.1.0) — conventionally it belongs above the newest, but since nothing is actually unreleased right now, removed rather than relocated (an empty placeholder adds no value).
+- **`CHANGELOG.md`'s 2.1.0 entry said "Current production version"** — hasn't been true since 2.2.0 shipped, 8 versions ago. Reworded to describe it as this changelog's baseline, not a status claim.
+- **A "known issues carried forward" list inside the 2.2.0 entry named 3 items as still-open** (outcome-logs collection split, Mongoose models, pagination shapes) that are all now resolved (2.2.3, 2.4.7, 2.4.7 respectively) — added strikethrough + resolution pointers, matching the pattern already used elsewhere in this file.
+- **The last 3 changelog entries (2.4.6, 2.4.7, 2.4.8) stopped mentioning the 3 pre-existing ESLint warnings** that every entry since 2.4.4 had explicitly carried forward per `CLAUDE.md`'s record-don't-drop rule — added the note back to each.
+
+### Housekeeping
+- Deleted `development.md` — 0 bytes, no doc anywhere described its intended purpose, and it was only ever referenced (incorrectly, as an "archived" file) in `docs/DOC_LINT.md`'s now-fixed checklist.
+- Added explicit "⚠️ ARCHIVED" banners to all 4 `_archived/*.md` files — `_archived/architecture.md` and `_archived/user-guide.md` previously had no internal marker at all and carried the exact same titles as their live counterparts, making them easy to mistake for current docs if reached via search rather than the README's index.
+- Added a one-line pointer from `docs/STACK_AND_DEPENDENCIES.md`'s Mongoose row to `_archived/STACK_DECISION.md`'s original "why Mongoose" rationale, which existed only in the archived file and was never migrated to the live stack doc.
+- `README.md`: added the Metrics/Search Learning view modes and several missing key endpoints (`/api/leads/columns`, `PUT /api/leads/[id]`, `/api/search`) to the feature/endpoint lists, and added `vitest`/`test:smoke` to Quick Start (previously only `tsc`/`lint` were documented, despite both being part of `CLAUDE.md`'s mandatory gate).
+
 ## 2.4.8
 
 Owner reported the kanban ICE-score sort (2.4.4) was "still not working" and asked where the sort computation actually runs, concerned about heavy client-side work.
@@ -12,7 +42,7 @@ The sort itself is entirely server-side: `GET /api/leads/columns` sorts DISCOVER
 - **Made the sort aggregation itself resilient regardless**, so it can't be broken this way again even by some other write path or already-corrupted historical data: `ICE_SCORE_AGGREGATION_EXPR` now reads each ICE field through `$convert` (`to: 'double', onError: 0, onNull: 0'`) instead of a bare `$gt`/`$multiply` on the raw stored value. This recovers the real number from a numeric-string field (self-healing any already-corrupted document without a migration) and falls back to 0 for anything genuinely non-numeric or missing, routing to the existing `scoreProfile.finalBlended.ice` fallback instead of throwing.
 
 ### Verification note
-This sandbox has no MongoDB credentials configured, so the exact shape of any already-live corrupted documents (if any exist) couldn't be directly inspected before or after this fix — the root cause was identified by tracing the actual code paths (validation vs. normalization vs. storage), not by guessing. The fix is self-healing on the read side regardless of whether this specific corruption is what the owner hit, so it resolves the symptom either way. Full quality gate (`tsc`, `eslint`, `vitest` 35/35, smoke 5/5) passes; a live device/production check of the kanban sort is the way to get 100% confirmation.
+This sandbox has no MongoDB credentials configured, so the exact shape of any already-live corrupted documents (if any exist) couldn't be directly inspected before or after this fix — the root cause was identified by tracing the actual code paths (validation vs. normalization vs. storage), not by guessing. The fix is self-healing on the read side regardless of whether this specific corruption is what the owner hit, so it resolves the symptom either way. Full quality gate (`tsc`, `eslint`, `vitest` 35/35, smoke 5/5) passes; a live device/production check of the kanban sort is the way to get 100% confirmation. The same 3 pre-existing `react-hooks/exhaustive-deps` ESLint warnings (`app/outreach/compose-modal.tsx`, `app/outreach/templates/page.tsx`, first recorded in 2.4.4) remain, in files untouched by this or any subsequent change through 2.4.7.
 
 ## 2.4.7
 
@@ -28,7 +58,7 @@ Resolved the two "flag only" decisions left open from the second audit pass (Git
   - `sales-page-client.tsx`'s table-view fetch switched from a single hard-capped `limit=5000` request to looping on `hasMore`/`nextCursor` — removes a silent-truncation risk for any brand that ever exceeds 5000 leads, and the predictive search handler updated to read `data.leads` instead of the now-renamed `data.results`.
 
 ### Verification note
-Confirmed via direct grep across `app/`, `lib/`, `agent-runtime/`, and `scripts/` that no in-repo code reads `/api/leads`'s `page`/`total`/`totalPages` fields (only the external research-agent integration touches this endpoint outside the frontend, and only to build the request URL, not parse pagination metadata from the response) — this is why the additive, non-breaking approach was chosen for `/api/leads` specifically rather than a hard cutover.
+Confirmed via direct grep across `app/`, `lib/`, `agent-runtime/`, and `scripts/` that no in-repo code reads `/api/leads`'s `page`/`total`/`totalPages` fields (only the external research-agent integration touches this endpoint outside the frontend, and only to build the request URL, not parse pagination metadata from the response) — this is why the additive, non-breaking approach was chosen for `/api/leads` specifically rather than a hard cutover. The same 3 pre-existing `react-hooks/exhaustive-deps` ESLint warnings noted since 2.4.4 remain, in files untouched by this change.
 
 ## 2.4.6
 
@@ -37,7 +67,7 @@ Confirmed via direct grep across `app/`, `lib/`, `agent-runtime/`, and `scripts/
 - Widened the header's view-mode `Select` from 132px to 168px to comfortably fit "Search Learning" at the now-correctly-enforced 16px font (it was previously rendering at Mantine's much smaller "xs" font size, ~12px, before this fix took effect).
 
 ### Verification note
-This is an iOS Safari-only rendering behavior with no equivalent in desktop/headless Chromium, so it cannot be visually screenshotted from this sandbox even with a working browser-automation setup (Playwright itself couldn't be installed here either — it re-triggers `npm install`, which fails on this repo's private GDS package tarballs, the same longstanding sandbox constraint noted elsewhere in this changelog). What *was* verified directly: the compiled CSS served by a real `next dev`/`next build` run contains the `!important` rule exactly as written, and per the CSS specification `!important` unconditionally overrides any non-`!important` declaration regardless of selector specificity or source order — this is deterministic, not something that requires a live device to confirm. Real-device (iOS Safari) confirmation is still recommended before considering this closed.
+This is an iOS Safari-only rendering behavior with no equivalent in desktop/headless Chromium, so it cannot be visually screenshotted from this sandbox even with a working browser-automation setup (Playwright itself couldn't be installed here either — it re-triggers `npm install`, which fails on this repo's private GDS package tarballs, the same longstanding sandbox constraint noted elsewhere in this changelog). What *was* verified directly: the compiled CSS served by a real `next dev`/`next build` run contains the `!important` rule exactly as written, and per the CSS specification `!important` unconditionally overrides any non-`!important` declaration regardless of selector specificity or source order — this is deterministic, not something that requires a live device to confirm. Real-device (iOS Safari) confirmation is still recommended before considering this closed. The same 3 pre-existing `react-hooks/exhaustive-deps` ESLint warnings noted since 2.4.4 remain, in files untouched by this change.
 
 ## 2.4.5
 
@@ -129,7 +159,7 @@ Kanban board UX overhaul (issue #23), from an owner screenshot review of the pip
 ## 2.3.0
 
 ### Changed — Breaking API/data contract change
-- **Resolved issue #20's organization-genericness complaint**: the value-proposition fields were named per-brand (`pro_for_cogmap`/`con_for_cogmap` for CogMap, `pro_for_seyu`/`con_for_seyu` for Seyu), which doesn't generalize to onboarding a new organization without a code change. Both brands now read and write one shared, generic field pair: `pro_for_organization`/`con_for_organization`. This is a **hard cutover** — no fallback, no dual-read, old field names are no longer recognized anywhere in the app.
+- **Resolved the organization-genericness complaint** (owner-requested, no tracked GitHub issue — this predates the audit-remediation epic's issue numbering): the value-proposition fields were named per-brand (`pro_for_cogmap`/`con_for_cogmap` for CogMap, `pro_for_seyu`/`con_for_seyu` for Seyu), which doesn't generalize to onboarding a new organization without a code change. Both brands now read and write one shared, generic field pair: `pro_for_organization`/`con_for_organization`. This is a **hard cutover** — no fallback, no dual-read, old field names are no longer recognized anywhere in the app.
 - To avoid any window where existing leads' pros/cons would appear empty, a temporary one-time migration endpoint was deployed to production *before* the code change shipped, renaming the field in-place across both live collections via MongoDB's `$rename`: 408 documents in `leads`, 492 in `seyu_leads` (900 total), verified afterward to have zero documents left with the old field names. The endpoint was deleted once the migration was confirmed.
 - Removed the now-obsolete "forbidden cross-brand pro/con field" validation rule from `lib/validate-lead.ts` (`pro_for_seyu` was rejected on a `cogmap` payload and vice versa) — there's nothing left to forbid once both brands share the same field name. The separate, unrelated forbidden-vocabulary check on free-text `value_proposition` content is untouched.
 - `models/Lead.ts` (unused Mongoose model) had its pro/con field names corrected to match; the file remains unimported dead code — whether to delete it entirely or repair it fully as a future migration path is still an open decision.
@@ -195,14 +225,14 @@ Security, dependency, and code-quality remediation following a two-pass engineer
 - Added `CLAUDE.md`, recording mandatory operating rules for any Claude session working in this repo (zero-tolerance quality gate, work-from-issues, documentation-mandatory, DoD, verify-don't-guess, and branch/push authorization for `dev`/`preview`/`main`).
 - Updated `README.md`, `docs/ARCHITECTURE.md`, `docs/STACK_AND_DEPENDENCIES.md`, `docs/OPERATOR_GUIDE.md`, `PIPELINE_ARCHITECTURE.md`, `roadmap.md`, `PROPOSAL.md`, and `deployment.md` to reflect the above and correct several pre-existing documentation/reality drifts found along the way (stale package references, a corrupted architecture diagram, broken cross-links to non-existent files, and a security description matching the pre-fix auth-bypass behavior).
 
-### Known issues carried forward (tracked, not fixed — need owner/data input, not guessable)
-- `outcomeLogs` vs `outcomelogs`: the dedicated `/api/outcome-logs` endpoint reads/writes a different-cased MongoDB collection than every other outcome-logging call site. Needs a direct database check before merging a fix, in case production data already exists in the wrong collection (tracked in issue #11).
-- Three Mongoose models (`models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts`) are unused (the app exclusively uses the raw `mongodb` driver) and have schemas drifted from reality. Needs an owner decision: delete, or repair as a future migration path (issue #20).
-- Three lead-listing endpoints (`/api/leads`, `/api/search`, `/api/leads/columns`) use three incompatible pagination shapes, one with a misleadingly-named `total` field. Unifying this is an API-contract change requiring a coordinated frontend update, not a drive-by fix (issue #21).
+### Known issues carried forward as of 2.2.0 (all since resolved — kept here as the historical record, not current status)
+- ~~`outcomeLogs` vs `outcomelogs`: the dedicated `/api/outcome-logs` endpoint reads/writes a different-cased MongoDB collection than every other outcome-logging call site.~~ **Fixed in 2.2.3** (issue #11).
+- ~~Three Mongoose models (`models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts`) are unused and have schemas drifted from reality. Needs an owner decision: delete, or repair as a future migration path.~~ **Resolved in 2.4.7** (issue #20, decision: delete).
+- ~~Three lead-listing endpoints (`/api/leads`, `/api/search`, `/api/leads/columns`) use three incompatible pagination shapes, one with a misleadingly-named `total` field.~~ **Resolved in 2.4.7** (issue #21, decision: unify on cursor pagination).
 
 ## 2.1.0
 
-Current production version. Baseline for this documentation set.
+Baseline for this documentation set — the oldest version this changelog covers. Superseded by every version above; kept only as the starting point of the recorded history, not a claim about current status.
 
 ### Added
 - Brand-parameterized API: `/api/leads?brand=cogmap|seyu`
@@ -236,9 +266,3 @@ Current production version. Baseline for this documentation set.
 - Table view mobile density/readability may still need additional tuning
 - Country filter population depends on lead `country` data; sample data may be missing populated values
 - Test coverage is limited to validation smoke tests; API route tests remain TODO
-
----
-
-## Unreleased
-
-Future work is tracked in `roadmap.md` and `PROPOSAL.md`.
