@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.2.3
+**Version:** 2.3.0
 
 ---
 
@@ -28,6 +28,9 @@
 
 ### Outcome-Logs Collection Fix (2.2.3)
 - ✅ Resolved issue #11 via a temporary production diagnostic endpoint: `outcomeLogs` (camelCase) held 0 documents, `outcomelogs` (lowercase) held 2,276 with same-day activity. `/api/outcome-logs` now reads/writes `outcomelogs`, matching every other call site. Diagnostic endpoint deleted after use.
+
+### Generic Organization Fields (2.3.0)
+- ✅ Resolved issue #20's organization-genericness complaint: `pro_for_cogmap`/`pro_for_seyu` (and the `con_` equivalents) replaced with one shared `pro_for_organization`/`con_for_organization` pair used by every brand — hard cutover, no fallback. All 900 existing production documents were migrated in place via a temporary endpoint before the code shipped, so there was no gap where pros/cons appeared empty.
 
 ### Outreach and Pipeline
 - ✅ One-click outreach templates with analytics (`/api/outreach-templates?mode=analytics`)
@@ -77,7 +80,7 @@
 |------|-------|
 | Available countries visibility | Country filter UI is implemented, but live lead data currently lacks populated `country` values, so the list may appear empty until data is backfilled or mapped from `region` |
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
-| Unused Mongoose models decision | `models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts` are unused and schema-drifted; needs an owner decision — delete, or repair as a migration path |
+| Unused Mongoose models decision | `models/Lead.ts`, `OutcomeLog.ts`, `SearchLearning.ts` remain unused (no importers); `Lead.ts`'s pro/con field names were corrected to the generic scheme in 2.3.0, but the broader decision — delete the files, or repair them fully as a migration path — is still open |
 | Pagination shape unification | 3 lead-listing endpoints intentionally use 3 different pagination contracts (full page-list, capped search, cursor-paginated column); the misleading `total` field naming trap was fixed in 2.2.2, but full unification still needs a coordinated frontend+backend design pass, not a drive-by fix |
 | PWA installability real-device gap | Owner reports install behavior still not as expected on a real device; needs specifics (platform, symptom) before a further fix can be scoped |
 

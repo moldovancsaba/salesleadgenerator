@@ -55,11 +55,11 @@ const leadSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
-  pro_for_cogmap: {
+  pro_for_organization: {
     type: [String],
     default: [],
   },
-  con_for_cogmap: {
+  con_for_organization: {
     type: [String],
     default: [],
   },

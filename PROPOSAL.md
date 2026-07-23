@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.2.3
+**Version:** 2.3.0
 
 ## Purpose
 
@@ -31,6 +31,9 @@ This document tracks proposed improvements against the current shipped state. Co
 ### Outcome-Logs Collection Fix (2.2.3)
 - Resolved issue #11: a temporary, unauthenticated read-only diagnostic endpoint deployed to production confirmed `outcomeLogs` (camelCase) held 0 documents while `outcomelogs` (lowercase) held 2,276 documents with same-day activity — settling which collection is real. `/api/outcome-logs`'s GET and POST handlers now point at `outcomelogs`, matching the other 4 call sites across the codebase. Diagnostic endpoint removed after use.
 
+### Generic Organization Fields (2.3.0)
+- Resolved issue #20's organization-genericness complaint: the value-proposition fields were brand-specific (`pro_for_cogmap`/`pro_for_seyu`), which doesn't scale to onboarding a new organization without a code change. Replaced with one shared, organization-agnostic field pair (`pro_for_organization`/`con_for_organization`) used identically by every brand — hard cutover, no fallback, no dual-read. All 900 existing production documents (408 in `leads`, 492 in `seyu_leads`) were migrated to the new field names via a temporary one-time endpoint before the code shipped, so there was no window where any lead's pros/cons appeared empty. The obsolete "forbidden cross-brand pro/con field" validation rule was removed (nothing left to forbid — there's only one field name now); the separate forbidden-vocabulary check on `value_proposition` text is untouched. `models/Lead.ts`'s field names were also corrected to match, though the model remains unused/dead code — that separate delete-vs-repair decision is still open.
+
 ### Kanban UX and Mobile Pipeline
 - Responsive kanban layout with vertical stacking on narrow screens
 - Pointer-based drag-and-drop with ghost preview and cleanup
@@ -53,7 +56,7 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ### Lead Data Normalization
 - Server-side normalization in `POST /api/leads`
-- Brand-aware normalization for `pro_for_*` and `con_for_*`
+- Generic normalization for `pro_for_organization`/`con_for_organization` (shared across brands as of 2.3.0)
 - Duplicate fingerprint prevention on write
 - Quality gate enforcement for low-confidence leads
 

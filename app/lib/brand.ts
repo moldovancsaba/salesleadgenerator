@@ -1,24 +1,24 @@
 export type Brand = 'cogmap' | 'seyu';
 
+// Generic, organization-agnostic value-proposition fields — shared across every
+// brand/tenant. Not brand-specific: any organization onboarded onto this
+// pipeline reads and writes these two field names.
+export const PRO_FIELD = 'pro_for_organization';
+export const CON_FIELD = 'con_for_organization';
+
 export const BRAND_CONFIG: Record<string, {
   label: string;
   dbCollection: string;
-  proField: string;
-  conField: string;
   apiPrefix: string;
 }> = {
   cogmap: {
     label: 'CogMap',
     dbCollection: 'leads',
-    proField: 'pro_for_cogmap',
-    conField: 'con_for_cogmap',
     apiPrefix: '/api/leads',
   },
   seyu: {
     label: 'Seyu',
     dbCollection: 'seyu_leads',
-    proField: 'pro_for_seyu',
-    conField: 'con_for_seyu',
     apiPrefix: '/api/leads',
   },
 };

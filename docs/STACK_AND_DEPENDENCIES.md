@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.2.3
+**Version:** 2.3.0
 
 ---
 
@@ -31,7 +31,7 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 
 | Component | Version | Status | Role |
 |-----------|---------|--------|------|
-| Mongoose | ^8.0.0 | Declared, but unused | `models/*.ts` define schemas (`Lead`, `OutcomeLog`, `SearchLearning`) but none are imported anywhere in the app — all real reads/writes use the raw `mongodb` driver. Whether to delete these models or repair them as a future migration path is an open decision (tracked as a GitHub issue). |
+| Mongoose | ^8.0.0 | Declared, but unused | `models/*.ts` define schemas (`Lead`, `OutcomeLog`, `SearchLearning`) but none are imported anywhere in the app — all real reads/writes use the raw `mongodb` driver. `models/Lead.ts`'s pro/con fields were corrected to the generic `pro_for_organization`/`con_for_organization` naming in 2.3.0, matching the real schema. Whether to delete these unused files entirely or wire them into a future Mongoose migration path is still an open decision. |
 | mongodb driver | via mongoose's dependency, used directly | Active | Raw `MongoClient` used in `lib/mongodb.ts` and every API route handler |
 | MongoDB | Atlas hosted | Active | Persistence |
 | dotenv | ^17.4.2 | Scripts-only | Used in `scripts/*.js` and `scripts/*.mjs`; not used in app code |

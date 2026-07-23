@@ -1,3 +1,5 @@
+import { PRO_FIELD, CON_FIELD } from '../app/lib/brand';
+
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
@@ -38,19 +40,7 @@ export function validateLeadPayload(body: any, brand: string, options?: { partia
     return { valid: false, errors: ['Invalid payload'] };
   }
 
-  // Brand-field separation enforcement — always applies, create or update.
   const brandUpper = String(brand || '').toUpperCase();
-  const forbiddenBrandFields: Record<string, string[]> = {
-    COGMAP: ['pro_for_seyu', 'con_for_seyu'],
-    SEYU: ['pro_for_cogmap', 'con_for_cogmap'],
-  };
-
-  const forbiddenFields = forbiddenBrandFields[brandUpper] || [];
-  for (const field of forbiddenFields) {
-    if (body[field] !== undefined) {
-      errors.push(`Forbidden field for brand ${brand}: ${field}`);
-    }
-  }
 
   const vp = typeof body.value_proposition === 'string' ? body.value_proposition.toLowerCase() : '';
   const forbiddenValueTerms: Record<string, string[]> = {
@@ -118,15 +108,12 @@ export function validateLeadPayload(body: any, brand: string, options?: { partia
     }
   }
 
-  const proField = `pro_for_${brand}`;
-  const conField = `con_for_${brand}`;
-
-  if (body[proField] !== undefined && (!Array.isArray(body[proField]) || !body[proField].every((item: any) => typeof item === 'string'))) {
-    errors.push(`${proField} must be an array of strings`);
+  if (body[PRO_FIELD] !== undefined && (!Array.isArray(body[PRO_FIELD]) || !body[PRO_FIELD].every((item: any) => typeof item === 'string'))) {
+    errors.push(`${PRO_FIELD} must be an array of strings`);
   }
 
-  if (body[conField] !== undefined && (!Array.isArray(body[conField]) || !body[conField].every((item: any) => typeof item === 'string'))) {
-    errors.push(`${conField} must be an array of strings`);
+  if (body[CON_FIELD] !== undefined && (!Array.isArray(body[CON_FIELD]) || !body[CON_FIELD].every((item: any) => typeof item === 'string'))) {
+    errors.push(`${CON_FIELD} must be an array of strings`);
   }
 
   if (body.decision_maker_contact && typeof body.decision_maker_contact === 'string' && body.decision_maker_contact !== body.decision_maker_contact.toLowerCase().trim()) {
