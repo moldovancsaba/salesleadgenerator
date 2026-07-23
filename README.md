@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.1.0  
+**Version:** 2.2.0  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -9,7 +9,7 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 
 ## What This Repo Contains
 
-- Next.js 14 app with API routes
+- Next.js 15 app with API routes
 - Mobile-first kanban board and table view
 - Lead detail actions and outreach compose flow
 - Outreach template management UI
@@ -31,6 +31,12 @@ Type check without building:
 npx tsc --noEmit
 ```
 
+Lint:
+
+```bash
+npm run lint
+```
+
 Deploy to Vercel:
 
 ```bash
@@ -43,7 +49,7 @@ Required environment variable: `MONGODB_URI`
 
 ## Versioning
 
-Current app version is **2.1.0**.
+Current app version is **2.2.0**.
 
 Single source of truth: `package.json`
 
@@ -60,11 +66,9 @@ This README is the single source of truth for documentation paths and descriptio
 | Path | Description |
 |------|-------------|
 | `README.md` | Onboarding, quick start, and documentation index |
+| `CLAUDE.md` | Mandatory operating rules for any Claude session working in this repo (quality gate, issue-driven workflow, DoD, branch/push authorization) |
 | `CHANGELOG.md` | Version history, shipped features, and known limitations |
 | `PIPELINE_ARCHITECTURE.md` | Pipeline stages, ICE scoring, dedup, and research agent behavior |
-| `development.md` | Current implementation state, remaining gaps, and next steps |
-| `developmentgaps.md` | Tech stack audit: unused dependencies, DB/auth/env risks, unification plan |
-| `developmentgds.md` | GDS integration audit, hard-coded CSS inventory, design token unification tasks |
 | `PROPOSAL.md` | Improvement proposal with completed and remaining workstreams |
 | `roadmap.md` | Phased roadmap with shipped, in-progress, and planned items |
 
@@ -77,12 +81,7 @@ This README is the single source of truth for documentation paths and descriptio
 | `docs/STACK_AND_DEPENDENCIES.md` | Runtime, framework, UI, DB, hosting, agent/runtime stack |
 | `docs/INDEX.md` | Documentation index |
 | `docs/DOC_LINT.md` | Doc lint checklist for maintaining documentation quality |
-
-### Backlog and Quality
-
-| Path | Description |
-|------|-------------|
-| `documentationtasks.md` | Documentation quality backlog and general maintenance tasks |
+| `deployment.md` | Deployment log — recent commits, build status, files changed |
 
 ### Archived Documentation
 

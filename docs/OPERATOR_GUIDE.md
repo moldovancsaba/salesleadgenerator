@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.1.0  
+**Version:** 2.2.0  
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -121,11 +121,13 @@ These require API key auth.
 
 ## Known Issues and Limitations
 
-- Full `next build` may OOM in limited local environments; use `tsc --noEmit` for type verification.
+- Full `next build` may OOM in limited local/sandboxed environments; use `tsc --noEmit` for type verification there. Vercel's production build environment is unaffected.
 - PWA pinch-zoom behavior is tightened but may still need further refinement.
 - Table view mobile density/readability may still need additional tuning.
 - Country filter population depends on lead `country` data; some datasets may need backfill from `region`.
-- Test coverage is limited to validation smoke tests; API route tests remain TODO.
+- Test coverage has grown (33 unit tests + a 4-check smoke suite as of 2.2.0) but is still concentrated on shared validation/scoring/dedup logic; full API route integration tests remain TODO.
+- The dedicated `/api/outcome-logs` endpoint currently reads/writes a different MongoDB collection than the rest of the outcome-logging system due to a case-sensitivity mismatch (`outcomeLogs` vs `outcomelogs`) — its GET response may not reflect the real outcome history until this is resolved (requires a database check before fixing; do not assume it's safe to just rename).
+- Three lead-listing endpoints (`/api/leads`, `/api/search`, `/api/leads/columns`) use three different pagination shapes; `/api/leads`'s `total` field means "count on this page," not the real total across all pages.
 
 ---
 

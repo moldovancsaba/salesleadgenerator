@@ -61,6 +61,8 @@ Max: 1000
 
 Fingerprint = SHA1(`url` + `entity_name` + `region`)
 
+Computed by a single shared function, `lib/fingerprint.ts`, imported by both the Mongoose pre-save hook (`models/Lead.ts`) and the POST/dedup-collapse logic (`app/api/leads/route.ts`) — previously hand-duplicated in both places.
+
 The API enforces duplicate prevention with `findOne` + 409 responses. The schema defines an index on `fingerprint`, not a unique constraint.
 
 ## Research Agent
@@ -174,10 +176,12 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 ## Security
 
 - Public read access for lead listings and health checks
-- Write and admin endpoints require API key auth via `x-api-key`
-- Input validation enforced before database writes
+- Write and admin endpoints require API key auth via `x-api-key` — when `SLG_API_KEY` is set, a request missing the header is rejected (401) the same as one with a wrong value; when `SLG_API_KEY` is unset entirely, requests are allowed through (documented fail-open behavior for local/dev use)
+- Input validation enforced before database writes, including partial updates (`PUT`)
 - CORS restricted to configured origins via `middleware.ts`
 - Security headers set in middleware: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`
+
+**Known gap:** `/api/outcome-logs` currently targets a different-cased MongoDB collection (`outcomeLogs`) than every other outcome-logging write path (`outcomelogs`), so its GET response does not currently reflect the real outcome-log history. Resolving this requires a database check first, in case production data already exists in both collections.
 
 ## Hosting
 
