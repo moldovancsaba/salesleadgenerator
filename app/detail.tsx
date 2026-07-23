@@ -376,7 +376,9 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
           <Stack gap="md">{content}</Stack>
         </AdminModal>
       ) : (
-        <AdminDetailDrawer opened={opened} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} metadata={metadata} />
+        <AdminDetailDrawer opened={opened} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} metadata={metadata}>
+          {content}
+        </AdminDetailDrawer>
       )}
       <OutreachComposeModal opened={outreachOpen} onClose={() => setOutreachOpen(false)} lead={lead} brand={brand} />
     </>
