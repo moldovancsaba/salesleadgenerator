@@ -48,7 +48,7 @@ This file is the canonical enrichment prompt template for ContentCreator. Each f
 ## SEYU ENRICHMENT PRIORITY
 1. Optional `pricingByCompany` blocks by company name, using keys: upfront_eur, monthly_eur, annual_fee_eur, currency, pricing_model, discount_percent, revenue_share_percent, notes. Keep them evidence-based and optional.
 2. Contacts / decision-maker fields / address / phone
-3. pro_for_seyu / con_for_seyu
+3. pro_for_organization / con_for_organization
 4. value_proposition
 5. ICE score / notes
 ```
