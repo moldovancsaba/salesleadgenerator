@@ -11,8 +11,6 @@ import { MetricsPanel } from '@/app/metrics';
 
 type ViewMode = 'kanban' | 'table' | 'metrics' | 'search';
 
-const MODE_KEY = 'saleslayoutMode';
-
 const VIEW_OPTIONS = [
   { value: 'kanban', label: 'Kanban' },
   { value: 'table', label: 'Table' },
@@ -27,7 +25,6 @@ type Props = {
 export function SalesPageClient({ brand }: Props) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [view, setView] = useState<ViewMode>('kanban');
-  const [isMobile, setIsMobile] = useState(true);
   const [boardMeta, setBoardMeta] = useState<{
     brand: string; label: string; totalLeads: number;
     columnCounts: Record<string, number>; regionCounts: Record<string, number>;
@@ -90,20 +87,6 @@ export function SalesPageClient({ brand }: Props) {
       .finally(() => { if (!cancelled) setTableLoading(false) })
     return () => { cancelled = true }
   }, [view, brand])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const mql = window.matchMedia('(max-width: 1279px)')
-    setIsMobile(mql.matches)
-    const handler = (event: MediaQueryListEvent) => setIsMobile(event.matches)
-    mql.addEventListener('change', handler)
-    return () => mql.removeEventListener('change', handler)
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    localStorage.setItem(MODE_KEY, isMobile ? 'mobile' : 'desktop')
-  }, [isMobile])
 
   const handleAction = useCallback(async (leadId: string, action: string, payload?: any) => {
     try {
@@ -271,7 +254,6 @@ export function SalesPageClient({ brand }: Props) {
           <KanbanBoard
             brand={brand}
             onOpenLead={setSelectedLead}
-            mode={isMobile ? 'mobile' : 'desktop'}
             forecast={boardMeta?.forecast?.pipeline || null}
             forecastCurrency={boardMeta?.forecast?.currency === 'EUR' ? 'EUR' : 'USD'}
           />

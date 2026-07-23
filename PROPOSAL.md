@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.9
+**Version:** 2.4.10
 
 ## Purpose
 
@@ -70,6 +70,9 @@ This document tracks proposed improvements against the current shipped state. Co
 ### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
 - Owner reported the ICE-score kanban sort was "still not working" and asked where the computation runs, concerned about heavy client-side work. Confirmed the sort is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`) and the client never re-sorts — `getIceScore()` client-side is only a trivial per-card display value. Investigation found a real bug: `PUT /api/leads/[id]` stored `ice` fields straight from the request body with no numeric coercion (unlike `POST`, which runs through `normalizeLead()`), so a request with numerically-valid but string-typed values would pass validation yet get persisted as strings — which then made the sort aggregation's `$multiply` throw, failing the whole column's fetch silently. Fixed both the write path (coerce `ice` to numbers before storing) and the read path (`ICE_SCORE_AGGREGATION_EXPR` now uses `$convert` with a safe fallback instead of a bare `$multiply`, self-healing any already-corrupted historical document without a migration).
 
+### GDS 3.11.0 Adoption — Theme-Level Zoom Guard, Governed Accessible Kanban (2.4.10)
+- Adopted GDS 3.11.0's theme-level `Input.vars` zoom-guard override (replacing the 2.4.6 `!important` CSS hack) and its new `KanbanBoard` (`enableDrag`), which provides accessible `@dnd-kit`-based pointer/touch/keyboard drag-and-drop with a keyboard "Move to column" menu fallback, replacing the hand-rolled pointer-events implementation in `app/kanban.tsx` entirely. `useGdsKanbanOrientation` now handles the stacked-vs-columns responsive layout that `sales-page-client.tsx`'s own `mode`/`isMobile`/`matchMedia` plumbing previously did (removed as dead code). Trade-offs: the per-column forecast subtitle is now a single-line string (`KanbanColumnData.title` isn't a `ReactNode`); the "load more" pagination sentinel is nested inside the last card's render output (`KanbanColumn` has no footer slot). `package-lock.json`'s `integrity` hashes for the 3 GDS packages could not be regenerated in this sandbox (blocked tarball download) and were removed rather than left stale — needs a real `npm install` from an unblocked environment before/during the next deploy.
+
 ### Kanban UX and Mobile Pipeline
 - Responsive kanban layout with vertical stacking on narrow screens
 - Pointer-based drag-and-drop with ghost preview and cleanup — note: an earlier version of this doc's history claimed this shipped well before 2.4.0, but per `CHANGELOG.md`'s 2.4.0 entry, the gesture was entirely absent from the code at that point and had to be rebuilt from scratch; what's described here is the 2.4.0 rebuild, still current
@@ -124,7 +127,7 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ### Mobile UX Polish
 - Real-device PWA-installability verification: owner reports it's still not behaving as expected as of 2026-07-23; specifics (which platform, which symptom) not yet gathered — see open question in `deployment.md`.
-- Real-device confirmation of the 2.4.6 iOS focus-zoom `!important` fix — could not be verified from this sandbox (no headless/desktop equivalent to screenshot); see the "Mantine Inputs Still Force-Zooming" workstream above.
+- Real-device confirmation of the iOS focus-zoom fix — now GDS 3.11.0's theme-level `Input.vars` mechanism (2.4.10), superseding the 2.4.6 `!important` CSS hack — could not be verified from this sandbox (no headless/desktop equivalent to screenshot); see the "GDS 3.11.0 Adoption" workstream above.
 - Table view density/readability tuning
 - No country/region filter UI currently exists at all (see roadmap.md) — if this is still wanted, it needs to be built as new work, including backfill/mapping `country` from `region` where missing, not assumed to already be partially built
 
