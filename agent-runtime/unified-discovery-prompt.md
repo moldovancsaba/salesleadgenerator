@@ -44,6 +44,29 @@ This file is the canonical discovery prompt template for ContentCreator. Each fi
 5. product_fit_notes — why this tier/model fits this org
 ```
 
+## CogMap ICP Guidance
+
+```text
+## COGMAP DISCOVERY FOCUS
+Target large youth soccer clubs and professional club academies in US large cities and neighborhoods.
+
+Priority segments:
+1. Large youth soccer clubs — 500+ players, multiple teams, academy programs, directors of coaching.
+2. Professional club academies — MLS, USL, NWSL, CPL, and European pro club academies.
+3. US large cities and neighborhoods — concentrated youth soccer markets with localized delivery opportunity.
+
+Fit signals:
+- team-wide testing
+- coach insights
+- parent-facing reports
+- talent ID
+- player development
+- cognitive profiling
+- academy differentiation
+
+Skip small recreational-only programs unless one of these signals is clearly present.
+```
+
 ## Seyu Positioning Template
 
 ```text
