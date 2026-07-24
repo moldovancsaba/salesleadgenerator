@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.31
+**Version:** 2.4.32
 
 ## Overview
 
@@ -117,11 +117,11 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
   size: 'Small' | 'Medium' | 'Large' | 'Enterprise'
   address: string
   general_contact: string
-  contact_phone: string
-  decision_maker_name: string
-  decision_maker_title: string
-  decision_maker_contact: string
-  contacts: Array<{ name, title, email, phone, linkedin }>
+  // Decision-maker status is a flag on a contact, not a separate set of
+  // top-level fields (decision_maker_name/title/contact, contact_phone —
+  // retired in the 2.4.32 hard cutover, issue #45; no longer recognized
+  // anywhere, a request that still sends them has those values ignored)
+  contacts: Array<{ name, title, email, phone, linkedin, role, isDecisionMaker }>
   pro_for_organization: string[]  // generic since 2.3.0 — shared across every brand, not brand-specific
   con_for_organization: string[]
   value_proposition: string

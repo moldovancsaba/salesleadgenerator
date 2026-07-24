@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.31  
+**Version:** 2.4.32  
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -68,10 +68,9 @@ curl -X POST "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap" \
     "region": "US",
     "sport_or_sector": "Soccer",
     "size": "Medium",
-    "decision_maker_name": "Jordan Smith",
-    "decision_maker_title": "Academy Director",
-    "decision_maker_contact": "jordan@example.com",
-    "contact_phone": "+1 555 0100",
+    "contacts": [
+      {"name": "Jordan Smith", "title": "Academy Director", "email": "jordan@example.com", "phone": "+1 555 0100", "isDecisionMaker": true}
+    ],
     "address": "New York, NY",
     "value_proposition": "SLG can help...",
     "pro_for_organization": ["Benefit 1", "Benefit 2"],
@@ -94,7 +93,7 @@ curl -X PATCH "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap&id=<
 curl -X PUT "https://salesleadgenerator.vercel.app/api/leads/<LEAD_ID>?brand=cogmap" \
   -H "Content-Type: application/json" \
   -H "x-api-key: YOUR_API_KEY" \
-  -d '{"decision_maker_name": "New Name"}'
+  -d '{"contacts": [{"name": "New Name", "isDecisionMaker": true}]}'
 ```
 
 ### Health Check

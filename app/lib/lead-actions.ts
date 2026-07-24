@@ -3,6 +3,7 @@ import { normalizeLead } from './normalize-lead'
 import { validatePatchPayload } from '../../lib/validate-lead'
 import { isMongoConfigured } from '../../lib/mongodb'
 import { tenantFilter as buildTenantFilter } from '../../lib/tenant'
+import { dedupeContacts } from '../../lib/contacts'
 
 export type LeadActionInput = {
   brand: string
@@ -77,11 +78,17 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
 
   if (action === 'MODIFY') {
     const fields = ['entity_name', 'url', 'address', 'general_contact', 'size', 'industry',
-                    'sport_or_sector', 'level_league', 'decision_maker_name', 'decision_maker_title',
-                    'decision_maker_contact', 'value_proposition', 'notes', 'tags']
+                    'sport_or_sector', 'level_league', 'value_proposition', 'notes', 'tags']
     fields.forEach(field => {
       if (normalizedBody[field] !== undefined) updateData[field] = normalizedBody[field]
     })
+    // Previously MODIFY had no way to touch contacts[] at all — the only path
+    // that could write it was PUT. Added so decision-maker status (a flag on a
+    // contact, not a top-level field — see lib/contacts.ts, issue #45) can
+    // actually be edited via the same action the detail modal already uses.
+    if (Array.isArray(normalizedBody.contacts)) {
+      updateData.contacts = dedupeContacts(normalizedBody.contacts)
+    }
     if (normalizedBody[PRO_FIELD]) updateData[PRO_FIELD] = normalizedBody[PRO_FIELD]
     if (normalizedBody[CON_FIELD]) updateData[CON_FIELD] = normalizedBody[CON_FIELD]
     if (normalizedBody.qualityStatus) {

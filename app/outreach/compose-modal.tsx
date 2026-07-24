@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title } from '@mantine/core';
 import { IconX } from '@tabler/icons-react';
 import { evaluateOutreachRouting } from '../lib/outreach/routing-rules';
+import { getDecisionMakerContact } from '../../lib/contacts';
 
 type Props = {
   opened: boolean;
@@ -11,9 +12,7 @@ type Props = {
   lead: {
     _id: string;
     entity_name?: string;
-    decision_maker_name?: string;
-    decision_maker_title?: string;
-    decision_maker_contact?: string;
+    contacts?: Array<{ name?: string; email?: string; isDecisionMaker?: boolean }>;
     value_proposition?: string;
     sport_or_sector?: string;
     industry?: string;
@@ -36,7 +35,7 @@ type Template = {
   variables: string[];
 };
 
-function interpolate(template: string, values: Record<string, string>): string {
+function interpolate(template: string, values: Record<string, any>): string {
   return Object.entries(values).reduce((text, [key, value]) => {
     const safeValue = typeof value === 'string' ? value : String(value ?? '');
     return text.replace(new RegExp(`\\{${key}\\}`, 'g'), safeValue);
@@ -53,6 +52,16 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   const [sending, setSending] = useState(false);
 
   const industry = lead.industry || lead.sport_or_sector || '';
+  // Template placeholder {contact_name} resolves from the contact flagged
+  // isDecisionMaker (lib/contacts.ts) — templates no longer reference a
+  // top-level decision_maker_name field, which doesn't exist (issue #45).
+  // Memoized so its identity is stable across renders where `lead` itself
+  // hasn't changed — a fresh object every render would make the effects
+  // below that depend on it re-fire every render (setState -> re-render loop).
+  const interpolationValues = useMemo(
+    () => ({ ...lead, contact_name: getDecisionMakerContact(lead.contacts)?.name || '' }),
+    [lead]
+  );
   const routeResult = evaluateOutreachRouting(channel, lead, body);
   const channelBlockReason = routeResult.allowed ? undefined : routeResult.reason;
   const canSendEmail = channel === 'email' && routeResult.allowed && body.trim().length > 0 && (channel === 'email' ? subject.trim().length > 0 : true);
@@ -74,7 +83,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           setTemplateId(first.id)
           setChannel(first.channel)
           setSubject(first.subject || '')
-          setBody(interpolate(first.body, lead))
+          setBody(interpolate(first.body, interpolationValues))
         }
       })
       .catch(() => {
@@ -88,15 +97,15 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
     return () => {
       cancelled = true;
     }
-  }, [opened, brand, lead, industry])
+  }, [opened, brand, industry, interpolationValues])
 
   useEffect(() => {
     const found = templates.find((t) => t.id === templateId)
     if (!found) return;
     setChannel(found.channel)
     setSubject(found.subject || '')
-    setBody(interpolate(found.body, lead))
-  }, [templateId, lead, templates])
+    setBody(interpolate(found.body, interpolationValues))
+  }, [templateId, templates, interpolationValues])
 
   async function handleSend() {
     if (!body.trim()) return;
@@ -115,8 +124,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           channel,
           subject: channel === 'email' ? subject : undefined,
           body,
-          decision_maker_contact: lead.decision_maker_contact,
-          decision_maker_name: lead.decision_maker_name,
+          contacts: lead.contacts,
           url: lead.url,
           industry: lead.industry,
           sport_or_sector: lead.sport_or_sector,

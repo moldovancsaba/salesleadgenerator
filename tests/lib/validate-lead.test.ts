@@ -7,9 +7,7 @@ const basePayload = {
   country: 'US',
   kanbanColumn: 'DISCOVERED',
   ice: { impact: 5, confidence: 5, ease: 5 },
-  decision_maker_contact: 'john@example.com',
-  contact_phone: '+1-555-555-5555',
-  contacts: [{ name: 'John Doe', email: 'john@example.com' }],
+  contacts: [{ name: 'John Doe', email: 'john@example.com', phone: '+1-555-555-5555', isDecisionMaker: true }],
 };
 
 describe('validateLeadPayload', () => {
@@ -61,6 +59,16 @@ describe('validateLeadPayload', () => {
     const result = validateLeadPayload({ ...basePayload, size: 'Pan-European league' }, 'cogmap');
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('size must be one of: Small, Medium, Large, Enterprise'))).toBe(true);
+  });
+
+  it('ignores legacy decision_maker_*/contact_phone fields rather than erroring (hard cutover, issue #45)', () => {
+    const result = validateLeadPayload({
+      ...basePayload,
+      decision_maker_name: 'Jane Doe',
+      decision_maker_contact: 'jane@example.com',
+      contact_phone: '+1-555-000-0000',
+    }, 'cogmap');
+    expect(result.valid).toBe(true);
   });
 });
 
