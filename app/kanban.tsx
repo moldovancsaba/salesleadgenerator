@@ -201,7 +201,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     const colForecast = forecast?.[col.key]
     const countLabel = typeof colState.count === 'number' ? colState.count.toLocaleString() : colState.leads.length
     const forecastLabel = colForecast && colForecast.rawRevenue > 0
-      ? ` · ${formatForecast(colForecast.weightedRevenue)} wtd`
+      ? ` · ${formatForecast(colForecast.weightedRevenue)}`
       : ''
 
     return {
