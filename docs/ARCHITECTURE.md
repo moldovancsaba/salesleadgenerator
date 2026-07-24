@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.20
+**Version:** 2.4.21
 
 ---
 
@@ -101,9 +101,9 @@ As of 2.4.10, `app/kanban.tsx` renders via GDS's governed `KanbanBoard` (`@sover
 - `GET /api/outcome-logs` — outcome-log history
 - `POST /api/outcome-logs` — record an outcome log entry
 
-### Sales Settings (2.4.20)
+### Sales Settings (2.4.20, auth corrected 2.4.21)
 - `GET /api/sales-settings/[brand]?tenantId=<id>` — public; returns the stored `company_settings` document for `{brand, tenantId}`, or `emptySalesSettings()` with `source: 'default'` on first visit; `503` if `MONGODB_URI` is unset
-- `PUT /api/sales-settings/[brand]?tenantId=<id>` — protected via `requireApiKey`; runs the body through `sanitizeSalesSettings()` (`app/lib/sales-settings.ts`) and upserts `{brand, tenantId, ...sanitized fields, updatedAt}` keyed by `{brand, tenantId}`
+- `PUT /api/sales-settings/[brand]?tenantId=<id>` — runs the body through `sanitizeSalesSettings()` (`app/lib/sales-settings.ts`) and upserts `{brand, tenantId, ...sanitized fields, updatedAt}` keyed by `{brand, tenantId}`. **Not** protected via `requireApiKey` (corrected in 2.4.21 — it originally was, which meant the browser Save button on `/salessettings/[client]` had no way to authenticate and got a hard `401` in any environment with `SLG_API_KEY` set, since there's no login/session system in this app to hold the secret safely client-side). Matches the same precedent `/api/settings`'s PUT already established for its own browser-edited document; company settings carry no lead/contact PII, so an anonymous write's blast radius is limited to a company's own sales-context text.
 
 ---
 
