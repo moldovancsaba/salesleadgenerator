@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.17
+
+Owner reported (screenshot) every kanban card showing a visible "box within a box," plus a drag-handle icon and a second icon flanking each card — on top of an unrelated "client-side exception" crash report on the live production URL. Root-caused the visual issue precisely via GDS's real source; treated the crash as a strong signal to roll back the one genuinely new, never-before-executed-in-production code path from this whole GDS 3.11.x bump.
+
+### Fixed — double-bordered kanban cards
+- Confirmed via GDS's real source (`packages/gds-core/src/KanbanBoard.client.tsx`, `ProductCard.tsx` at `gds-v3.11.1`): `KanbanCard` always wraps whatever `renderItem` returns inside its own `Paper withBorder radius="md" p="sm"` shell (alongside the drag-handle and Move-menu icons), and `ProductCard` *always* renders with `withBorder` too — no variant removes it. `app/card.tsx`'s `LeadCard` was rendering `ProductCard` (its own bordered shell) *inside* `KanbanCard`'s already-bordered shell, producing exactly the nested-box look in the screenshot.
+- Rewrote `LeadCard` to render flat, borderless content (plain `Stack`/`Group`/`Text`/`Badge`/`Button`, no `ProductCard`) — GDS's own `KanbanCard` `Paper` is now the only visible border around each card. `LeadCard` is only ever used inside the kanban board's `renderItem`, so this has no other call sites to consider.
+
+### Rolled back — kanban `enableDrag`
+- Turned off `enableDrag` on `GdsKanbanBoard` (was on since 2.4.10). This removes the per-card drag-handle icon — one of the "boxes" in the screenshot — and, more importantly, deactivates the one genuinely new runtime code path in this entire GDS 3.11.x bump: real `@dnd-kit` `DndContext`/sensors, which had never actually executed in a successful production build before a "client-side exception" was reported live (every prior build attempt failed before this code path could even run). The keyboard/tap-accessible "Move to column" menu is unconditional (not gated by `enableDrag`) and still provides full move functionality without it.
+- **Disclosed limitation**: I could not reproduce or visually confirm either fix locally. GDS packages are hand-written `any`-typed stubs in this sandbox that render `null` — the kanban board area is blank in a local dev server, so neither the double-border nor the drag-handle removal can be screenshotted here. I also could not reach the live production URL directly (`vercel.app` is blocked by this sandbox's network policy, the same as `github.com`) to confirm the crash's actual stack trace. Confidence in the double-border fix rests on GDS's real, fetched source; confidence that disabling `enableDrag` addresses the crash is a reasoned hypothesis (the only genuinely new, never-proven-in-production code path), not a confirmed root cause — real-device/production confirmation is still needed.
+
 ## 2.4.16
 
 Owner asked for a proactive sweep for similar errors, rather than waiting for a fifth Vercel build to find the next one.

@@ -235,13 +235,19 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     )
   }, [columnStates, onOpenLead, loadColumn])
 
+  // enableDrag deliberately omitted (default false): it renders a
+  // drag-handle icon per card and activates GDS's real @dnd-kit
+  // DndContext/sensors — the one genuinely new code path in this whole GDS
+  // 3.11.x bump that had never actually executed in production before a
+  // client-side exception was reported live. The keyboard/tap-accessible
+  // "Move to column" menu (unconditional, not gated by enableDrag) still
+  // provides full move functionality without it.
   return (
     <GdsKanbanBoard
       columns={columns}
       onMoveItem={handleMoveItem}
       renderItem={renderItem}
       emptyColumnLabel={bootstrapped ? 'No leads' : 'Loading…'}
-      enableDrag
     />
   )
 }

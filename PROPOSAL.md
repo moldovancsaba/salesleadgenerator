@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.16
+**Version:** 2.4.17
 
 ## Purpose
 
@@ -69,6 +69,9 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
 - Owner reported the ICE-score kanban sort was "still not working" and asked where the computation runs, concerned about heavy client-side work. Confirmed the sort is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`) and the client never re-sorts — `getIceScore()` client-side is only a trivial per-card display value. Investigation found a real bug: `PUT /api/leads/[id]` stored `ice` fields straight from the request body with no numeric coercion (unlike `POST`, which runs through `normalizeLead()`), so a request with numerically-valid but string-typed values would pass validation yet get persisted as strings — which then made the sort aggregation's `$multiply` throw, failing the whole column's fetch silently. Fixed both the write path (coerce `ice` to numbers before storing) and the read path (`ICE_SCORE_AGGREGATION_EXPR` now uses `$convert` with a safe fallback instead of a bare `$multiply`, self-healing any already-corrupted historical document without a migration).
+
+### Double-Bordered Kanban Cards + Drag-Handle Chrome Rolled Back (2.4.17)
+- Owner reported (screenshot) a visible "box within a box" around every kanban card plus a drag-handle icon and a second icon flanking each card, alongside an unrelated "client-side exception" crash report on the live production URL. Root-caused via GDS's real source: `KanbanCard` always wraps `renderItem`'s output in its own bordered `Paper`, and `ProductCard` always renders `withBorder` too (no variant removes it) — `LeadCard` was nesting one inside the other. Rewrote `LeadCard` to render flat, borderless content so GDS's own card border is the only one. Also turned off `enableDrag` on the kanban board — removes the drag-handle icon and deactivates the one genuinely new runtime code path in this whole GDS 3.11.x bump (real `@dnd-kit`), which had never actually executed in a successful production build before the crash appeared; the keyboard/tap "Move to column" menu remains fully functional regardless. Neither fix could be visually confirmed locally (GDS is stubbed to render `null` in this sandbox, and the live production URL is unreachable from here) — the border fix rests on real GDS source, the `enableDrag` rollback is a reasoned hypothesis about the crash pending real confirmation.
 
 ### Proactive Sweep for Similar GDS Type Gaps (2.4.16)
 - Owner asked to check for similar errors rather than wait for a fifth Vercel failure. Grepped every `@sovereignsquad/*` import in the repo (8 usages) and checked each remaining one against real 3.11.1 source: `AdminModal`/`AdminDetailDrawer`/`AdminTextarea`/`InfoCard`/`ProductCard` all match; `AdminDataTable` is generic over `T`, structurally immune to the contravariance bug that broke `KanbanBoard`. Found one more real gap: `app/search-learning.tsx`'s `AdminResourceCard` call had an unnecessary `record={{...} as any}` cast fully suppressing type-checking — the object already matched the real `AdminResourceRecord` shape exactly, so the cast was removed and the local stub upgraded with the real type, confirmed clean via `tsc` without it. Every other `as any` in `app/` was checked and left alone — unrelated to GDS (MongoDB driver quirks, dynamic field access, an action-string cast).
