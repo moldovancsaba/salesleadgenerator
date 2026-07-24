@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.18
+**Version:** 2.4.19
 
 ---
 
@@ -31,7 +31,7 @@
 
 ## Frontend
 
-- `/sales/[brand]` — pipeline page with kanban and table view. Implemented as a thin `async` Server Component (`app/sales/[brand]/page.tsx`) that awaits the Next.js 15 `params` Promise and resolves `brand`, rendering a Client Component (`app/sales/[brand]/sales-page-client.tsx`) that holds all interactive state and data fetching. This split exists specifically because Next 15's generated `PageProps` type requires `params: Promise<{...}>` on the page's exported component regardless of client/server boundary, and this repo's pinned React 18.3 has no `use()` hook to unwrap a Promise inside a Client Component — the Server Component wrapper resolves it once and passes a plain string prop down instead.
+- `/sales/[brand]` — pipeline page with kanban and table view. Implemented as a thin `async` Server Component (`app/sales/[brand]/page.tsx`) that awaits the Next.js 15 `params` Promise and resolves `brand`, rendering a Client Component (`app/sales/[brand]/sales-page-client.tsx`) that holds all interactive state and data fetching. This split exists specifically because Next 15's generated `PageProps` type requires `params: Promise<{...}>` on the page's exported component regardless of client/server boundary, and this repo's pinned React 18.3 has no `use()` hook to unwrap a Promise inside a Client Component — the Server Component wrapper resolves it once and passes a plain string prop down instead. As of 2.4.19, `page.tsx` also exports `generateMetadata()` returning the brand's display label (from `BRAND_CONFIG`/`resolveBrand()` in `app/lib/brand.ts`); the root layout's `metadata.title` is a `{ template: "%s · Sales Lead Generator", default: "Sales Lead Generator" }` object, so the browser tab reads `CogMap · Sales Lead Generator` / `Seyu · Sales Lead Generator` — brand name first, for scanning between tabs.
 - `/outreach/templates` — template management UI
 - Detail modal — lead actions, outreach compose, feedback
 

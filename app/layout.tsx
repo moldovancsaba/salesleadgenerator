@@ -11,7 +11,14 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "Sales Lead Generator",
+  // Brand-specific pages (e.g. /sales/[brand]) set `title` to just the
+  // brand label via generateMetadata(); Next.js substitutes it into this
+  // template so browser tabs show the brand name first — easier to tell
+  // apart when multiple brand tabs are open side by side.
+  title: {
+    template: "%s · Sales Lead Generator",
+    default: "Sales Lead Generator",
+  },
   description: "AI-powered sales lead collection platform" };
 
 export default function RootLayout({
