@@ -336,7 +336,6 @@ export async function POST(request: Request) {
       revenue_model: normalizedBody.revenue_model || '',
       product_fit_notes: normalizedBody.product_fit_notes || '',
       pricingByCompany: normalizedBody.pricingByCompany || {},
-      priority: normalizedBody.priority || 'medium',
       status: normalizedBody.status || 'new',
       notes: normalizedBody.notes || '',
       tags: normalizedBody.tags || [],
