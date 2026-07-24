@@ -1,10 +1,14 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.18
+**Version:** 2.4.19
 
 ---
 
 ## Shipped
+
+### Brand-Specific Browser Tab Titles (2.4.19)
+- ✅ Owner asked for CogMap's and Seyu's pages to have distinguishable browser tab titles to tell them apart between tabs. `/sales/[brand]/page.tsx` now exports `generateMetadata()` returning the brand's display label from the existing `BRAND_CONFIG`; the root layout's title became a `{ template, default }` object so Next.js composes them as `"CogMap · Sales Lead Generator"` / `"Seyu · Sales Lead Generator"` — brand name first, since browser tabs truncate from the end.
+- ✅ Verified with the real rendered `<title>` tag from a running dev server, not just inferred from code.
 
 ### Real-Device Confirmation: 2.4.17 Fixes All Verified Working (2.4.18)
 - ✅ Owner confirmed on a real device (production, mobile portrait): PWA works, the lead detail modal works, the double-bordered kanban cards are fixed, and the iOS zoom-on-focus problem is fixed.

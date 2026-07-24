@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.18
+**Version:** 2.4.19
 
 ## Purpose
 
@@ -69,6 +69,9 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
 - Owner reported the ICE-score kanban sort was "still not working" and asked where the computation runs, concerned about heavy client-side work. Confirmed the sort is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`) and the client never re-sorts — `getIceScore()` client-side is only a trivial per-card display value. Investigation found a real bug: `PUT /api/leads/[id]` stored `ice` fields straight from the request body with no numeric coercion (unlike `POST`, which runs through `normalizeLead()`), so a request with numerically-valid but string-typed values would pass validation yet get persisted as strings — which then made the sort aggregation's `$multiply` throw, failing the whole column's fetch silently. Fixed both the write path (coerce `ice` to numbers before storing) and the read path (`ICE_SCORE_AGGREGATION_EXPR` now uses `$convert` with a safe fallback instead of a bare `$multiply`, self-healing any already-corrupted historical document without a migration).
+
+### Brand-Specific Browser Tab Titles (2.4.19)
+- Owner asked for CogMap's and Seyu's pages to have distinguishable browser tab titles. `/sales/[brand]/page.tsx` now exports `generateMetadata()` returning the brand's display label from `BRAND_CONFIG`; the root layout composes it via Next.js's `title.template` mechanism into `"CogMap · Sales Lead Generator"` / `"Seyu · Sales Lead Generator"`, brand name first so it survives tab-title truncation. Verified against the real rendered `<title>` tag from a running dev server.
 
 ### Real-Device Confirmation: 2.4.17 Fixes All Verified Working (2.4.18)
 - Owner confirmed on a real device (production, mobile portrait): PWA works, the lead detail modal works, the double-bordered kanban cards are fixed, and the iOS zoom-on-focus problem is fixed. Confirms `enableDrag: false` was the actual fix for the "client-side exception" crash (not just a hypothesis) and that GDS's theme-level `Input.vars` zoom guard genuinely works on real iOS Safari. Drag-and-drop being off on mobile portrait is confirmed acceptable — owner explicitly does not want `enableDrag` re-enabled.
