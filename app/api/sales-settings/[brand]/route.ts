@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { resolveBrand } from '@/app/lib/brand'
-import { requireApiKey } from '@/lib/api-auth'
 import { getTenantId } from '@/lib/tenant'
 import { sanitizeSalesSettings, emptySalesSettings } from '@/app/lib/sales-settings'
 
@@ -35,10 +34,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
   }
 }
 
+// No requireApiKey guard here, deliberately: this route is meant to be written
+// directly from the browser Save button (app/salessettings/[client]), which has
+// no way to safely carry a server-side secret without a login system — the
+// same reasoning /api/settings's PUT already follows for its own browser-edited
+// document. Company settings are not lead/contact data, so the blast radius of
+// an anonymous write is limited to a company's own sales-context text.
 export async function PUT(request: Request, { params }: { params: Promise<{ brand: string }> }) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
   try {
     const { brand: brandParam } = await params
     const brand = resolveBrand(brandParam)

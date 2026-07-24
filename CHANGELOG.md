@@ -1,5 +1,13 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.21
+
+### Fixed — Sales Settings Save button returning "Unauthorized"
+- Owner reported the new Company Setup / Sales Settings page's Save button failing with "Unauthorized" in production. Root cause: 2.4.20's `PUT /api/sales-settings/[brand]` was protected via `requireApiKey`, but the browser Save button (`app/salessettings/[client]/sales-settings-client.tsx`) has no way to safely hold that server-side secret — this app has no login/session system at all, so any client-side code embedding the key would expose it to every visitor. Whenever `SLG_API_KEY` is actually set in the deployment environment, every save was guaranteed to be rejected with a `401`, regardless of who was using the form.
+- Removed `requireApiKey` from the PUT handler, matching the precedent `/api/settings`'s own PUT already established for its browser-edited `pipeline_weights` document: this route carries no lead/contact PII, so an anonymous write's blast radius is limited to a company's own sales-context text, not customer data.
+- Also fixed a related latent gap while touching this: `middleware.ts`'s `Access-Control-Allow-Methods` CORS header never included `PUT` (only `GET, POST, PATCH, DELETE, OPTIONS`) — harmless for same-origin browser calls (which don't go through CORS preflight at all), but would have silently blocked any cross-origin `PUT` caller. Added `PUT` to the allow-list.
+- Verified by starting a real dev server with `SLG_API_KEY` set and calling `PUT /api/sales-settings/cogmap` with no `x-api-key` header at all (reproducing exactly the browser's request): before the fix this returned `401 Unauthorized`; after, it correctly proceeds past the auth check to the `503 Database not configured` branch (this sandbox has no `MONGODB_URI`, so the real Mongo write itself still couldn't be exercised here).
+
 ## 2.4.20
 
 ### Added — Company Setup / Sales Settings page

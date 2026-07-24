@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.20
+**Version:** 2.4.21
 
 ## Purpose
 
@@ -9,6 +9,9 @@ This document tracks proposed improvements against the current shipped state. Co
 ---
 
 ## Completed Workstreams
+
+### Sales Settings Save Button 401 Fix (2.4.21)
+- Fixed the Company Setup / Sales Settings Save button (shipped 2.4.20) returning "Unauthorized": its `PUT` route required `requireApiKey`, but the browser form has no way to hold that secret safely (no login system in this app), so it was guaranteed to 401 whenever `SLG_API_KEY` was set in the deployment. Removed the guard, matching `/api/settings`'s existing precedent for its own browser-edited document. Also added the missing `PUT` entry to `middleware.ts`'s CORS allow-list.
 
 ### Company Setup / Sales Settings Page (2.4.20)
 - New per-brand page (`/salessettings/[client]`) where a company records what it sells, who buys it, and how — a twelve-section plain-language questionnaire deliberately avoiding financial/accounting terminology (ACV/ARR/MRR), so the OpenClaw/KiloClaw research agent can refine lead scoring and revenue forecasts from data expressed the way a small company actually thinks about its own business. Tracked in GitHub issue #24.

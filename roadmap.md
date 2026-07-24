@@ -1,10 +1,16 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.20
+**Version:** 2.4.21
 
 ---
 
 ## Shipped
+
+### Sales Settings Save Button 401 Fix (2.4.21)
+- 🔴 Owner reported the new Save button (2.4.20) failing with "Unauthorized" in production. Root cause: `PUT /api/sales-settings/[brand]` required `requireApiKey`, but the browser form has no way to safely hold that secret (no login system exists in this app) — guaranteed to fail whenever `SLG_API_KEY` is set in the deployment environment.
+- ✅ Removed the `requireApiKey` guard from this route, matching `/api/settings`'s existing precedent for its own browser-edited document — no lead/contact PII is at risk here, only a company's own sales-context text.
+- ✅ Also added the missing `PUT` entry to `middleware.ts`'s CORS `Access-Control-Allow-Methods` allow-list, a related latent gap (harmless for same-origin calls, but would silently block a cross-origin `PUT`).
+- ✅ Verified with a real dev server running with `SLG_API_KEY` set: a header-less `PUT` (matching the browser's actual request) now passes the auth check and reaches the `503`-when-unconfigured branch instead of `401`.
 
 ### Company Setup / Sales Settings Page (2.4.20)
 - ✅ Owner asked for a per-brand page where a company can record what it sells and how customers buy it, so the research agent (OpenClaw/KiloClaw) can refine lead scoring and revenue forecasts — with an explicit constraint to avoid financial/accounting terminology and instead follow how a small company already thinks about its business. Full spec tracked in GitHub issue #24.
