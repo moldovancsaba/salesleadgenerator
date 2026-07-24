@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.24
+
+Migration Step 3 of "deliver the rest": TypeScript 5 → 6 (7 explicitly blocked, see below). Also corrects the plan's own sequencing for ESLint 10, discovered via real verification.
+
+### Changed — TypeScript 5.9.3 → 6.0.3
+- Followed TS7's own official migration guidance: TS6 first, as a stepping stone that surfaces every TS7 breaking change as a warning before the real jump. `npx tsc --noEmit` under TS6 surfaced exactly one issue: `target: "es5"` is deprecated and being removed entirely in TS7.
+- Fixed `tsconfig.json`: `target` moved from `es5` to `es2017` (safe — `noEmit: true` means this only affects `tsc`'s own type-checking assumptions about available lib features, never emitted JS, which Next.js's own bundler controls separately). Added an explicit `types: ["node", "react", "react-dom"]` array, since TS7 changes an omitted `types` field's default from "auto-include every `@types/*` package" to an empty array — confirmed via `ls node_modules/@types/` which of the 3 ambient-global packages this repo actually needs, rather than guessing.
+- Found and fixed a second, TS6-specific issue while re-running the gate: Next.js's own ambient type declarations (`next/types/global.d.ts`) only declare `*.module.css` (CSS Modules) — never a plain `*.css` side-effect import like `globals.css` or `@mantine/core/styles.css`. TS6 introduces a new diagnostic (`TS2882`) that now enforces a type declaration even for side-effect-only imports, which this repo never had. Added `css.d.ts` (`declare module '*.css';`) — a standard, well-established pattern, not a workaround.
+- Full quality gate re-verified clean on TS6: `tsc --noEmit` (0 errors), `eslint` (0 errors, 0 warnings), `vitest run` (49/49), smoke suite (5/5), a real `next build`.
+
+### Blocked — TypeScript 7.0.2, explicitly not adopted
+- Attempted the final jump to TS7.0.2 per the plan. `tsc --noEmit` passed clean (0 errors — TS6 had already surfaced everything), but `npm run lint` failed outright: `@typescript-eslint/parser` (loaded transitively via `eslint-config-next`) has a hard, intentional runtime rejection of TypeScript 7.0, with its own error message pointing to an open upstream tracking issue for TS ≥7.1 support. TypeScript 7.0 only reached GA on 2026-07-08 — its own linting ecosystem hasn't caught up yet. Reverted to 6.0.3 (the actual point where the full gate passes end-to-end) rather than force a fragile "run typescript-eslint against a different TS version" workaround for a two-week-old release. Documented in `docs/STACK_AND_DEPENDENCIES.md`'s Dependency Audit table as explicitly blocked, with the exact failure and the tracking issue to watch, not silently left at TS6 unexplained.
+
+### Corrected — ESLint 10's real sequencing (found via verification, not the original plan's assumption)
+- The original migration plan sequenced ESLint 9→10 as an independent, low-risk step before Next.js 16. Real verification (`npm view eslint-config-next@15.5.21 peerDependencies`) found `eslint-config-next@15.5.21`'s own `peerDependencies` caps `eslint` at `^7.23.0 || ^8.0.0 || ^9.0.0` — no `^10.0.0`. `eslint-config-next` is versioned in lockstep with Next.js; only its `16.x` line (confirmed via `npm view eslint-config-next@16.2.11 peerDependencies`) declares `eslint: >=9.0.0` (i.e. includes 10.x). ESLint 10 is therefore gated behind the Next.js 16 migration, not independent of it — corrected in the plan and in `docs/STACK_AND_DEPENDENCIES.md`.
+
+Version bumped 2.4.23 -> 2.4.24.
+
 ## 2.4.23
 
 Step 1 of the "deliver the rest" migration plan (follow-on to 2.4.22's housecleaning pass): real route-level API integration tests, the long-standing 3-doc TODO. Deliberately sequenced first, ahead of the 6 dependency-major migrations that follow, so each of those gets a genuine regression net instead of relying on manual spot-checks alone.
