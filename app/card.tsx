@@ -1,7 +1,6 @@
 'use client';
 
-import { Button } from '@mantine/core';
-import { ProductCard } from '@sovereignsquad/gds-core/client';
+import { Badge, Button, Group, Stack, Text } from '@mantine/core';
 import type { Lead } from './types';
 import { getIceScore, getTicketSize } from './constants';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
@@ -11,6 +10,11 @@ type LeadCardProps = {
   onOpen?: () => void;
 };
 
+// Deliberately flat, borderless content — no ProductCard/Paper wrapper here.
+// GDS's own KanbanCard already renders a bordered Paper shell around whatever
+// renderItem returns (plus its drag handle and Move menu icons); nesting
+// ProductCard's own `withBorder` shell inside that produced a visible
+// "box within a box" around every kanban card.
 export function LeadCard({ lead, onOpen }: LeadCardProps) {
   const ice = getIceScore(lead);
   const region = lead.region || 'NA';
@@ -30,22 +34,28 @@ export function LeadCard({ lead, onOpen }: LeadCardProps) {
 
   return (
     <ErrorBoundary>
-      <ProductCard
-        title={lead.entity_name}
-        description={lead.industry || lead.sport_or_sector || ''}
-        status={quality}
-        metadata={metadata}
-        primaryAction={
-          onOpen ? (
-            <Button variant="light" size="xs" onClick={onOpen}>
-              Preview
-            </Button>
-          ) : undefined
-        }
-        density="compact"
-        variant="compact"
-        size="sm"
-      />
+      <Stack gap={4}>
+        <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
+          <Text fw={700} size="sm" truncate style={{ minWidth: 0 }}>{lead.entity_name}</Text>
+          <Badge variant="light" size="sm" style={{ flexShrink: 0 }}>{quality}</Badge>
+        </Group>
+        {(lead.industry || lead.sport_or_sector) && (
+          <Text size="xs" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
+        )}
+        <Stack gap={2}>
+          {metadata.map((m) => (
+            <Group key={m.label} justify="space-between" gap="xs" wrap="nowrap">
+              <Text size="xs" c="dimmed">{m.label}</Text>
+              <Text size="xs" fw={500} truncate style={{ minWidth: 0 }}>{m.value}</Text>
+            </Group>
+          ))}
+        </Stack>
+        {onOpen && (
+          <Button variant="light" size="xs" onClick={onOpen} mt={4}>
+            Preview
+          </Button>
+        )}
+      </Stack>
     </ErrorBoundary>
   );
 }
