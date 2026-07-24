@@ -30,8 +30,6 @@ export const DEFAULT_ROUTING_RULES: Record<Channel, OutreachRoutingRule> = {
 export type LeadFieldSnapshot = {
   contacts?: Array<{ name?: string; email?: string; isDecisionMaker?: boolean }>;
   url?: string;
-  industry?: string;
-  sport_or_sector?: string;
 };
 
 export type OutreachRoutingResult = {
