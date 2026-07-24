@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.22
+**Version:** 2.4.28
 
 ## Purpose
 
@@ -165,7 +165,7 @@ This document tracks proposed improvements against the current shipped state. Co
 - No country/region filter UI currently exists at all (see roadmap.md) — if this is still wanted, it needs to be built as new work, including backfill/mapping `country` from `region` where missing, not assumed to already be partially built
 
 ### Test Coverage
-- API/route tests beyond validation smoke tests (unit coverage of shared `lib/*` logic has grown substantially since 2.2.0 and continued growing through 2.4.4's kanban-column rewrite, but full route-level integration tests remain TODO)
+- API/route tests beyond validation smoke tests (unit coverage of shared `lib/*` logic has grown substantially since 2.2.0 and continued growing through 2.4.4's kanban-column rewrite). As of 2.4.23, real route-level integration tests exist (`tests/integration/`, run via `npm run test:integration`) covering `/api/leads` (GET/POST, dedup, quality gate), `/api/leads/[id]` (GET/PUT/DELETE, ICE-string coercion, auto-reclassification), `/api/leads/columns` (ICE-score vs. sortOrder sort), `/api/health`, `/api/sales-settings/[brand]` (real Mongo round trip — closing the exact gap disclosed when that feature shipped in 2.4.20/2.4.21), and `/api/boards/[brand]` (forecast math). The remaining ~12 routes (`/api/search`, `/api/search-learning`, `/api/outreach-templates`, `/api/outreach-logs`, `/api/outcome-logs`, `/api/metrics`, `/api/stats`, `/api/settings`, `/api/admin/*`, `/api/forecast/export`) are not yet covered — a deliberate scope boundary (highest-risk/most-complex routes first), not silently dropped.
 
 ---
 
