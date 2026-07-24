@@ -8,6 +8,17 @@
 // isDecisionMaker: true, then clears the old fields. Idempotent: a document
 // with those fields already empty has nothing to do.
 
+// Legacy top-level fields were never guaranteed to be strings — PUT/PATCH
+// MODIFY wrote body[field] verbatim with no coercion before this hard
+// cutover (see issue #45), so a caller that ever sent e.g. an object for
+// decision_maker_contact would have stored it as-is. Confirmed in real
+// production data: a document threw "trim is not a function" here before
+// this guard was added. Treat anything non-string as empty rather than
+// assume the stored shape matches what the app itself would have written.
+function asString(value: any): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 export function looksLikeEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
@@ -52,10 +63,10 @@ function contactKey(c: NormalizedMigrationContact): string {
 // — see PIPELINE_ARCHITECTURE.md's historical schema note), so it's only
 // assigned to email/phone when it's recognizably one of those.
 function buildLegacyContact(doc: Record<string, any>): NormalizedMigrationContact | null {
-  const name = (doc.decision_maker_name || '').trim();
-  const title = (doc.decision_maker_title || '').trim();
-  const rawContact = (doc.decision_maker_contact || '').trim();
-  const phone = (doc.contact_phone || '').trim();
+  const name = asString(doc.decision_maker_name);
+  const title = asString(doc.decision_maker_title);
+  const rawContact = asString(doc.decision_maker_contact);
+  const phone = asString(doc.contact_phone);
 
   const email = looksLikeEmail(rawContact) ? rawContact : '';
   const resolvedPhone = phone || (looksLikePhone(rawContact) ? rawContact : '');

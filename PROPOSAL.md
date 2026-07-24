@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.33
+**Version:** 2.4.34
 
 ## Purpose
 
