@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.34
+
+Fixed a real production error surfaced by the owner running the 2.4.33 migration endpoint's dry run: `"(a.decision_maker_contact || \"\").trim is not a function"`.
+
+### Fixed — `lib/migrate-decision-maker.ts` assumed legacy fields were always strings
+Root cause: before this hard cutover (issue #45), `PUT /api/leads/[id]` and `PATCH ... MODIFY` wrote `decision_maker_name`/`decision_maker_title`/`decision_maker_contact`/`contact_phone` straight from the request body with no type coercion — unlike `POST`, which always ran the whole payload through `normalizeLead()`'s `ensureString()`. A caller that ever sent a non-string value (an object, a number, an array) for one of these fields via `PUT`/`MODIFY` would have had it stored as-is. The migration script's `buildLegacyContact()` assumed `(value || '').trim()` was always safe — true for a string, but `{}.trim` and `(12345).trim` are both `undefined`, so calling either throws exactly the error reported. Confirmed against real production data, not a hypothetical.
+
+Added an `asString()` guard (treats anything non-string as empty, matching the defensive pattern `normalizeContact()` already used for `contacts[]` items in this same file) and 6 new unit tests in `tests/lib/migrate-decision-maker.test.ts`, including the exact object/number/array cases that broke production.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors, 0 warnings), `vitest run` (73/73, 6 new), smoke suite (5/5), `next build --webpack` (all 24 routes).
+
+Version bumped 2.4.33 -> 2.4.34.
+
 ## 2.4.33
 
 Temporary migration trigger for issue #45's still-unexecuted production data migration, since this session confirmed it has no way to run it directly.
