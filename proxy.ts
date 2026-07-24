@@ -5,7 +5,7 @@ export const config = {
   matcher: ['/api/:path*'],
 };
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const response = NextResponse.next({
     request: {
       headers: request.headers,
