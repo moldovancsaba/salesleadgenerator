@@ -6,9 +6,7 @@ const basePayload = {
   country: 'US',
   kanbanColumn: 'DISCOVERED',
   ice: { impact: 5, confidence: 5, ease: 5 },
-  decision_maker_contact: 'john@example.com',
-  contact_phone: '+1-555-555-5555',
-  contacts: [{ name: 'John Doe', email: 'john@example.com' }],
+  contacts: [{ name: 'John Doe', email: 'john@example.com', phone: '+1-555-555-5555', isDecisionMaker: true }],
 };
 
 let passed = 0;

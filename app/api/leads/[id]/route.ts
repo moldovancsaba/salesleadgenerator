@@ -5,6 +5,7 @@ import { normalizeLead } from '../../../lib/normalize-lead'
 import { requireApiKey } from '../../../../lib/api-auth'
 import { validateLeadPayload } from '../../../../lib/validate-lead'
 import { deriveKanbanColumn, isAutoManagedColumn } from '../../../../lib/kanban-column'
+import { dedupeContacts } from '../../../../lib/contacts'
 
 function getBrand(request: Request): 'cogmap' | 'seyu' {
   const url = new URL(request.url);
@@ -129,8 +130,7 @@ export async function PUT(
 
     const allowedFields = [
       'entity_name', 'url', 'region', 'address', 'general_contact', 'size', 'industry',
-      'sport_or_sector', 'level_league', 'decision_maker_name', 'decision_maker_title',
-      'decision_maker_contact', 'contact_phone', 'value_proposition', 'notes', 'tags',
+      'sport_or_sector', 'level_league', 'value_proposition', 'notes', 'tags',
       'kanbanColumn', 'sortOrder', 'priority', 'status', 'ice', 'iceScore',
       PRO_FIELD, CON_FIELD, 'contacts', 'qualityStatus',
       'recommended_tier', 'estimated_participants', 'estimated_annual_revenue_usd',
@@ -159,15 +159,11 @@ export async function PUT(
       };
     }
 
+    // Shared with POST and PATCH MODIFY (lib/contacts.ts) — previously this route
+    // had its own inline normalization and never deduped, unlike POST. Using the
+    // same dedupeContacts() here closes that divergence (issue #45).
     if (body.contacts && Array.isArray(body.contacts)) {
-      updateData.contacts = body.contacts.map((c: any) => ({
-        name: typeof c.name === 'string' ? c.name.trim() : '',
-        title: typeof c.title === 'string' ? c.title.trim() : '',
-        email: typeof c.email === 'string' ? c.email.trim() : '',
-        phone: typeof c.phone === 'string' ? c.phone.trim() : (c.contact_phone || '').trim(),
-        linkedin: typeof c.linkedin === 'string' ? c.linkedin.trim() : '',
-        role: typeof c.role === 'string' ? c.role.trim() : '',
-      }));
+      updateData.contacts = dedupeContacts(body.contacts);
     }
 
     // Discovered/Qualified are auto-managed by ICE score alone: a score change

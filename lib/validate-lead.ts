@@ -118,22 +118,14 @@ export function validateLeadPayload(body: any, brand: string, options?: { partia
     errors.push(`${CON_FIELD} must be an array of strings`);
   }
 
-  // Not required (matches contact_phone/decision_maker_contact below: format-checked
-  // only when present, not mandated) — the documented schema names a fixed 4-tier
-  // enum, but nothing enforced it at the write boundary, letting free text like
-  // "Pan-European league" (a scope description, not a size tier) get stored as-is.
+  // Not required — format-checked only when present, not mandated. The documented
+  // schema names a fixed 4-tier enum, but nothing enforced it at the write boundary,
+  // letting free text like "Pan-European league" (a scope description, not a size
+  // tier) get stored as-is.
   if (body.size !== undefined && body.size !== null && body.size !== '') {
     if (typeof body.size !== 'string' || !ORG_SIZE_SET.has(body.size)) {
       errors.push('size must be one of: ' + ORG_SIZES.join(', '));
     }
-  }
-
-  if (body.decision_maker_contact && typeof body.decision_maker_contact === 'string' && body.decision_maker_contact !== body.decision_maker_contact.toLowerCase().trim()) {
-    errors.push('decision_maker_contact must be lowercase');
-  }
-
-  if (body.contact_phone && typeof body.contact_phone === 'string' && !PHONE_RE.test(body.contact_phone.trim())) {
-    errors.push('contact_phone must be in international format starting with +');
   }
 
   return {

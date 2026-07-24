@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.31
+**Version:** 2.4.32
 
 ---
 
@@ -114,11 +114,11 @@ Stored in brand-aware collections:
 - `leads` for `cogmap`
 - `seyu_leads` for `seyu`
 
-Canonical contact storage is `contacts[]`. Top-level contact fields are merged into `contacts[]` on write and cleared from responses where possible.
+Canonical contact storage is `contacts[]` — the sole source of truth as of 2.4.32 (issue #45's hard cutover). There is no longer a separate `decision_maker_name`/`decision_maker_title`/`decision_maker_contact`/`contact_phone` set of top-level fields; decision-maker status is a flag (`isDecisionMaker: boolean`) on a `contacts[]` entry instead, matching how any other contact-level fact is modeled. `POST`, `PUT /api/leads/[id]`, and `PATCH ... MODIFY` all normalize and dedupe `contacts[]` identically via `lib/contacts.ts`, closing a prior bug where `PUT`/`MODIFY` bypassed the merge logic `POST`/`GET` used and could silently diverge from it.
 
 Key fields:
 - `entity_name`, `url`, `region`, `country`
-- `contacts[]` with `name`, `title`, `email`, `phone`, `linkedin`, `role`
+- `contacts[]` with `name`, `title`, `email`, `phone`, `linkedin`, `role`, `isDecisionMaker`
 - Organization-agnostic pros/cons (as of 2.3.0): `pro_for_organization`, `con_for_organization` — one shared field name across every brand/tenant, not brand-specific (`PRO_FIELD`/`CON_FIELD` in `app/lib/brand.ts`)
 - `kanbanColumn`, `sortOrder`
 - `fingerprint` — SHA1 of `url + entity_name + region`
@@ -255,6 +255,7 @@ HTTP handlers for leads, health, outreach, learning, search, stats, and boards.
 - Brand-aware field normalization prevents cross-tenant writes
 - Schema mapper/validator blocks forbidden cross-brand vocabulary in free-text fields (e.g. `value_proposition`). The pro/con fields themselves stopped being brand-specific in 2.3.0 — there's nothing left to forbid cross-brand there, since every brand shares one generic field
 - `size` is enum-checked against `Small`/`Medium`/`Large`/`Enterprise` when present (not required) — previously documented in this schema but never actually enforced, which let free text describing scope rather than size tier (e.g. "Pan-European league") get stored and displayed as if it were a valid value. Existing out-of-enum production documents are not retroactively fixed by this — the check only gates new writes
+- `decision_maker_name`/`decision_maker_title`/`decision_maker_contact`/`contact_phone` (as of 2.4.32, issue #45): no longer recognized fields anywhere — a request that still sends them has those specific values silently ignored, not stored. Decision-maker status is set via `contacts[].isDecisionMaker` instead. `scripts/migrate-decision-maker-to-contacts.js` migrates already-stored production documents; it was written but not executed from this environment (no `MONGODB_URI`) — must be run before/with deploying this change, see the script's own header and issue #45
 
 ---
 

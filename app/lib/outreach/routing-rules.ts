@@ -1,3 +1,5 @@
+import { getDecisionMakerContact } from '../../../lib/contacts';
+
 export type Channel = 'email' | 'linkedin';
 
 export type OutreachRoutingRule = {
@@ -26,8 +28,7 @@ export const DEFAULT_ROUTING_RULES: Record<Channel, OutreachRoutingRule> = {
 };
 
 export type LeadFieldSnapshot = {
-  decision_maker_contact?: string;
-  decision_maker_name?: string;
+  contacts?: Array<{ name?: string; email?: string; isDecisionMaker?: boolean }>;
   url?: string;
   industry?: string;
   sport_or_sector?: string;
@@ -45,17 +46,22 @@ export function evaluateOutreachRouting(
   body: string = ''
 ): OutreachRoutingResult {
   const rule = DEFAULT_ROUTING_RULES[channel];
+  // Decision-maker status is a flag on a contact (isDecisionMaker), not a
+  // top-level field — see lib/contacts.ts, issue #45. Previously this checked
+  // decision_maker_contact/decision_maker_name directly, which meant a lead
+  // whose contact data lived only in contacts[] (the canonical store) was
+  // wrongly blocked from outreach.
+  const decisionMaker = getDecisionMakerContact(lead.contacts);
 
   if (rule.requireEmail) {
-    const email = typeof lead.decision_maker_contact === 'string' ? lead.decision_maker_contact.trim() : '';
+    const email = decisionMaker?.email || '';
     if (!email.includes('@')) {
       return { allowed: false, channel, reason: 'Missing decision maker email for email outreach.' };
     }
   }
 
   if (rule.requireDecisionMaker) {
-    const name = typeof lead.decision_maker_name === 'string' ? lead.decision_maker_name.trim() : '';
-    if (!name) {
+    if (!decisionMaker?.name) {
       return { allowed: false, channel, reason: 'Missing decision maker name for outreach.' };
     }
   }

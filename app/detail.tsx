@@ -22,18 +22,6 @@ import { TABLET_LANDSCAPE_MAX } from './constants';
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
 
-// decision_maker_contact has no dedicated type (per PIPELINE_ARCHITECTURE.md's schema
-// it's free-form) — it may hold an email, a phone number, or neither. Only linkify
-// it when it's recognizably one or the other, rather than emitting a broken
-// mailto:/tel: link for arbitrary text.
-function looksLikeEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
-function looksLikePhone(value: string): boolean {
-  const trimmed = value.trim();
-  return /^[+\d][\d\-\s()]{6,}$/.test(trimmed);
-}
-
 type Props = {
   lead: Lead;
   brand?: string;
@@ -172,9 +160,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
         industry: lead.industry,
         sport_or_sector: lead.sport_or_sector,
         level_league: lead.level_league,
-        decision_maker_name: lead.decision_maker_name,
-        decision_maker_title: lead.decision_maker_title,
-        decision_maker_contact: lead.decision_maker_contact,
+        contacts: lead.contacts,
         value_proposition: lead.value_proposition,
         notes: lead.notes,
         tags: lead.tags,
@@ -296,28 +282,16 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
 
       <Stack gap="xs">
         <Text size="xs" c="dimmed" fw={600}>CONTACTS</Text>
-        {lead.decision_maker_name ? (
-          <Box>
-            <Text fw={600}>{lead.decision_maker_name}</Text>
-            {lead.decision_maker_title && <Text size="sm" c="dimmed">{lead.decision_maker_title}</Text>}
-            {lead.decision_maker_contact && looksLikeEmail(lead.decision_maker_contact) ? (
-              <Text size="sm" c="dimmed" component="a" href={`mailto:${lead.decision_maker_contact.trim()}`}>{lead.decision_maker_contact}</Text>
-            ) : lead.decision_maker_contact && looksLikePhone(lead.decision_maker_contact) ? (
-              <Text size="sm" c="dimmed" component="a" href={`tel:${lead.decision_maker_contact.trim()}`}>{lead.decision_maker_contact}</Text>
-            ) : lead.decision_maker_contact ? (
-              <Text size="sm" c="dimmed">{lead.decision_maker_contact}</Text>
-            ) : null}
-            {/* contact_phone is a separate, dedicated schema field from decision_maker_contact
-                (validated independently in lib/validate-lead.ts) — previously never rendered here,
-                so a lead with both an email and a phone only ever showed one contact line. */}
-            {lead.contact_phone && (
-              <Text size="sm" c="dimmed" component="a" href={`tel:${lead.contact_phone.trim()}`}>{lead.contact_phone}</Text>
-            )}
-          </Box>
-        ) : null}
+        {/* Decision-maker status is a flag on a contact (isDecisionMaker), not a
+            separate top-level block — see lib/contacts.ts, issue #45. Every
+            contact renders the same way; the flag only adds a badge. */}
+        {(lead.contacts || []).length === 0 && <Text size="sm" c="dimmed">—</Text>}
         {(lead.contacts || []).map((contact, i) => (
           <Box key={i}>
-            <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
+            <Group gap="xs">
+              <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
+              {contact.isDecisionMaker && <Badge variant="light" size="xs" color="blue">Decision Maker</Badge>}
+            </Group>
             {contact.title && <Text size="sm" c="dimmed">{contact.title}</Text>}
             {contact.email && <Text size="sm" c="dimmed" component="a" href={`mailto:${contact.email.trim()}`}>{contact.email}</Text>}
             {contact.phone && <Text size="sm" c="dimmed" component="a" href={`tel:${contact.phone.trim()}`}>{contact.phone}</Text>}

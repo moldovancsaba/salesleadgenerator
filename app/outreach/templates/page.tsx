@@ -175,7 +175,7 @@ export default function OutreachTemplatesPage() {
               value={form.body}
               onChange={(e) => setForm((f) => ({ ...f, body: e.currentTarget.value }))}
               minRows={5}
-              placeholder="Hi {decision_maker_name}, ..."
+              placeholder="Hi {contact_name}, ..."
             />
 
             <Group justify="space-between">
