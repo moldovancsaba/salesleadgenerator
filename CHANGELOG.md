@@ -1,5 +1,28 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.28
+
+Migration Step 7 (final) of "deliver the rest": Mongoose 8 → 9. Uncovered and fixed a real, previously-undeclared risk in the process: this bump would have silently upgraded the *entire app's* live MongoDB driver as an undocumented side effect, directly contradicting this step's own "ops-scripts only, zero blast radius" premise.
+
+### Changed — mongoose 8.24.1 → 9.8.0
+- Mongoose is used in this repo only as a thin connection helper in 5 standalone maintenance scripts (`scripts/seed.js`, `check-db.js`, `audit-db.js`, `fix-all-regions.js`, `fix-mena-region.js`) — never for Schemas/Models (deleted as unused in 2.4.7). Every script's usage is exactly `mongoose.connect(uri)` → `mongoose.connection.db.collection(name)`/`connection.collection(name)` → `mongoose.disconnect()`.
+- Researched Mongoose's real official v8→v9 migration guide and full changelog before bumping: diffed `connect`/`disconnect`/`connection.db`/`connection.collection` source between the two versions directly — byte-for-byte identical behavior for this narrow usage. Every actual v9 breaking change (pre-hook callback removal, update-pipeline-array opt-in, `background` index option removal, `isValidObjectId` number handling, TypeScript type renames, etc.) is scoped to Schemas/Models/Documents/plugins, none of which exist anywhere in this codebase.
+- Confirmed Mongoose 9's `engines.node: >=20.19.0` floor is satisfied by this repo's Node 22.22.2 (local) / 24.x (Vercel) runtime, and that 8→9 is a supported direct single-hop migration (no stepping-stone version required, unlike TypeScript 6→7 in Step 3).
+
+### Found and fixed — an undeclared side effect that would have silently upgraded the live app's real database driver
+- Mongoose 8.x bundles `mongodb@~6.20` as a dependency; Mongoose 9.x bundles `mongodb@~7.5`. This repo's own `lib/mongodb.ts` (used by all 19+ API routes — the actual live database access path, entirely separate from Mongoose) does `import { MongoClient } from 'mongodb'`, but **`mongodb` was never declared as this repo's own direct dependency in `package.json`** — it was only ever present in `node_modules` as a hoisted transitive dependency of `mongoose`. After bumping `mongoose` to 9.8.0 and running `npm install`, `node_modules/mongodb` resolved to **7.5.0** — a major-version bump of the app's real, live-traffic-serving database driver, entirely as a side effect of an "ops-scripts only" dependency change nobody had reviewed for the other 19 call sites.
+- Confirmed via `git diff` against the pre-bump lockfile that `mongodb` was previously hoisted at `6.20.0` — the exact version this session's earlier `findOneAndUpdate` return-shape fixes (2.4.22, 2.4.23) were verified against.
+- **Fixed** by adding `mongodb` as an explicit direct dependency pinned to `^6.20.0` in `package.json` — the same "declare it directly so it's not at the mercy of another package's own nested version, transitive-hoisting quirks, or lockfile drift" precedent already established for `@dnd-kit/*` in 2.4.13. After this fix, `mongodb` resolves to `6.21.0` (a safe in-range patch release) at the root, while `mongoose` keeps its own independent nested copy at `7.5.0` (`node_modules/mongoose/node_modules/mongodb`) — two separate driver installations, which is normal and doesn't affect either consumer.
+- This is exactly the class of hidden, non-obvious risk this migration effort has repeatedly found by verifying rather than assuming (Next 16's false CVE-fix claim, ESLint 10's real blocker, TypeScript 7's real blocker) — recorded here in full rather than shipped silently.
+
+### Verification
+- Full quality gate re-run after the `mongodb` pin: `tsc --noEmit` (0 errors), `eslint` (0 errors, 0 warnings), `vitest run` (49/49), smoke suite (5/5), `next build --webpack` (all 23 routes).
+- Additionally verified `mongoose@9.8.0` itself loads correctly and exposes the exact API surface these scripts use (`node -e` checking `typeof mongoose.connect`/`disconnect`/`connection.collection`, all functions as expected) and ran `node --check` against all 5 scripts (syntax-valid). The scripts themselves could not be executed end-to-end against a real MongoDB from this sandbox (no `MONGODB_URI` configured here, consistent with every other MongoDB-touching limitation already documented this session) — this is the same disclosed constraint as the 2.4.23 integration-test suite, not new.
+
+This closes the "deliver the rest" migration plan's full 9-package backlog: integration tests (2.4.23), TypeScript 6 (2.4.24, 7 blocked), React 19 (2.4.25), Next.js 16 (2.4.26, ESLint 10 blocked), Mantine 9 (2.4.27), Mongoose 9 (2.4.28).
+
+Version bumped 2.4.27 -> 2.4.28.
+
 ## 2.4.27
 
 Migration Step 6 of "deliver the rest": Mantine 7 → 9 (a single jump, since a real research pass found the 7→8 leg touches nothing this codebase uses, and the 8→9 leg was already confirmed inapplicable in the original plan).
