@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.19
+**Version:** 2.4.20
 
 ## Purpose
 
@@ -9,6 +9,11 @@ This document tracks proposed improvements against the current shipped state. Co
 ---
 
 ## Completed Workstreams
+
+### Company Setup / Sales Settings Page (2.4.20)
+- New per-brand page (`/salessettings/[client]`) where a company records what it sells, who buys it, and how — a twelve-section plain-language questionnaire deliberately avoiding financial/accounting terminology (ACV/ARR/MRR), so the OpenClaw/KiloClaw research agent can refine lead scoring and revenue forecasts from data expressed the way a small company actually thinks about its own business. Tracked in GitHub issue #24.
+- New `company_settings` MongoDB collection keyed by `{brand, tenantId}`, served via `GET`/`PUT /api/sales-settings/[brand]` (public `GET` with a safe empty default; `PUT` protected via `requireApiKey`), and a `sanitizeSalesSettings()` normalizer (`app/lib/sales-settings.ts`) guarding against the same numeric-string corruption class the 2.4.8 ICE-field fix addressed for leads.
+- Built with plain Mantine primitives, not GDS Admin form wrappers — GDS has no equivalent for the repeatable product rows or checkbox groups this form needs, and this avoids more GDS integration surface area after this session's 3.11.x type-contract incidents.
 
 ### Security, Dependency, and Code-Quality Remediation (2.2.0)
 - API-key auth bypass fixed: a missing `x-api-key` header is now rejected identically to a wrong one when `SLG_API_KEY` is set
