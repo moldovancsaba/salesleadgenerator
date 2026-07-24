@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.29
+
+Follow-up to #30: finished its explicitly-deferred comment-consistency scope, plus one restating-JSDoc file it never covered, plus one duplicated-magic-number fix found in the process. See #38.
+
+### Fixed — comment consistency
+- `lib/quality-registry.ts`: trimmed 4 JSDoc blocks that only restated the function name they sat above (`calculateQualityScore`, `validateModification`, `determineQualityStatus`, `validateQualityDimensions`) — the exact pattern #30 already fixed in `app/lib/metrics.ts`, missed here. The file header and `enforceQualityCeiling`'s JSDoc stay — both genuinely explain non-obvious behavior.
+- `app/lib/lead-actions.ts`: added the two why-comments #30's own body named as needed here but never added (it only got as far as `normalize-lead.ts`). Explains why `PIN`'s `manualLaneCooldownUntil` is 48h vs `COLUMN_MOVE`'s 24h, and what the `teachingWeight` values (95/100/70) per action represent — including the correction that nothing in this codebase currently reads `teachingWeight` back for scoring (verified via a repo-wide grep of the `outcomelogs` collection's readers before writing the comment, not assumed).
+- `app/detail.tsx`: #30's own body named this file's zero-comment status as deferred. Added a why-comment on the `matchMedia` effect explaining the AdminModal-vs-AdminDetailDrawer split it drives, and replaced the hardcoded `1279` breakpoint literal with the already-existing `TABLET_LANDSCAPE_MAX` constant from `app/constants.ts` — the two were independent literals that could silently drift, the same duplication class #28 already fixed once for `tenantFilter`.
+- Verified and explicitly ruled out during the audit rather than left ambiguous: `app/salessettings/[client]/sales-settings-client.tsx` initially looked like a new zero-comment file under a line-anchored `//`/`/*` grep, but actually carries 9 JSX-style `{/* N. Section */}` comments tying back to the questionnaire's spec numbering (issue #24) — a grep blind spot, not a real gap. No change made there.
+
+### Verification
+Comment-only changes plus one literal-to-constant swap — no behavior change. Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors, 0 warnings), `vitest run` (49/49), smoke suite (5/5), `next build --webpack` (all 23 routes).
+
+Version bumped 2.4.28 -> 2.4.29.
+
 ## 2.4.28
 
 Migration Step 7 (final) of "deliver the rest": Mongoose 8 → 9. Uncovered and fixed a real, previously-undeclared risk in the process: this bump would have silently upgraded the *entire app's* live MongoDB driver as an undocumented side effect, directly contradicting this step's own "ops-scripts only, zero blast radius" premise.

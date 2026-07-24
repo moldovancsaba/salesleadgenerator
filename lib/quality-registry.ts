@@ -78,9 +78,6 @@ export function enforceQualityCeiling(
   return proposedStatus;
 }
 
-/**
- * Calculate overall quality score from dimensions (0-100)
- */
 export function calculateQualityScore(dimensions: QualityDimensions): number {
   const avg = (
     dimensions.evidenceQuality +
@@ -91,9 +88,6 @@ export function calculateQualityScore(dimensions: QualityDimensions): number {
   return Math.round(avg * 100);
 }
 
-/**
- * Validate if a modification is allowed based on current quality status
- */
 export function validateModification(
   currentStatus: 'DRAFT' | 'CHECKED' | 'VERIFIED',
   currentQuality: QualityDimensions | undefined,
@@ -130,9 +124,6 @@ export function validateModification(
   return { valid: true };
 }
 
-/**
- * Determine appropriate quality status based on dimensions
- */
 export function determineQualityStatus(
   dimensions: QualityDimensions
 ): 'DRAFT' | 'CHECKED' | 'VERIFIED' {
@@ -143,9 +134,6 @@ export function determineQualityStatus(
   return 'DRAFT';
 }
 
-/**
- * Validate quality dimensions are within valid ranges (0-1)
- */
 export function validateQualityDimensions(dimensions: QualityDimensions): boolean {
   return (
     dimensions.evidenceQuality >= 0 &&
