@@ -50,3 +50,11 @@ The repo owner does not have terminal or `git`/`gh` CLI access — they work exc
 - When the owner says **"commit and push to main"** (or clearly equivalent phrasing), push directly to `main` immediately — do not ask "are you sure," do not stop to open a PR and wait instead. That instruction, given in the moment, is the confirmation.
 - This authorization does not extend to anything destructive or hard-to-reverse beyond a normal push: force-push, `git reset --hard`, deleting `main`/`dev`/`preview`, or rewriting already-pushed history still require explicit confirmation every time, exactly as for any other repo.
 - A direct push to `main` is still gated by Rule 1 (the zero-tolerance quality gate) — "push to main" is authorization to skip the PR ceremony, not authorization to skip verification. Run the checks, then push.
+
+## 7. UI affordances must match real capability
+
+No interactive element may visually imply a capability that isn't actually functional in that state. This covers two distinct failure modes, both forbidden:
+- A control that is genuinely disabled/non-functional must not be rendered as if it were live (the literal case: a disabled button, a dead toggle).
+- A control that *is* functional must not use an icon, label, or visual language that implies a *different* interaction than the one it actually performs (e.g. a 4-way "drag me" arrows icon on a control that only opens a tap menu, never actually supports dragging).
+
+When a violation is found in code this repo owns, fix it directly. When it's found in a governed external dependency this repo can't override (e.g. a private design-system package's locked-down chrome), don't attempt a local workaround that fights the dependency's own contract — record it as a known limitation (in the relevant doc and/or a tracking issue) and, where there's a channel to do so, raise it with that dependency's own maintainers instead.

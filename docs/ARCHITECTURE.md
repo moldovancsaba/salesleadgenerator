@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.29
+**Version:** 2.4.30
 
 ---
 
@@ -254,6 +254,7 @@ HTTP handlers for leads, health, outreach, learning, search, stats, and boards.
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)
 - Brand-aware field normalization prevents cross-tenant writes
 - Schema mapper/validator blocks forbidden cross-brand vocabulary in free-text fields (e.g. `value_proposition`). The pro/con fields themselves stopped being brand-specific in 2.3.0 — there's nothing left to forbid cross-brand there, since every brand shares one generic field
+- `size` is enum-checked against `Small`/`Medium`/`Large`/`Enterprise` when present (not required) — previously documented in this schema but never actually enforced, which let free text describing scope rather than size tier (e.g. "Pan-European league") get stored and displayed as if it were a valid value. Existing out-of-enum production documents are not retroactively fixed by this — the check only gates new writes
 
 ---
 
