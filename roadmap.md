@@ -1,10 +1,17 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.19
+**Version:** 2.4.20
 
 ---
 
 ## Shipped
+
+### Company Setup / Sales Settings Page (2.4.20)
+- ✅ Owner asked for a per-brand page where a company can record what it sells and how customers buy it, so the research agent (OpenClaw/KiloClaw) can refine lead scoring and revenue forecasts — with an explicit constraint to avoid financial/accounting terminology and instead follow how a small company already thinks about its business. Full spec tracked in GitHub issue #24.
+- ✅ New route `/salessettings/[client]`, twelve-section questionnaire (company basics; repeatable products with per-product buyer/customer-size/pricing-model/predictability fields; deal size; purchase frequency; upsell; sales cycle; example customer; seasonality; notes), built with plain Mantine primitives rather than GDS Admin wrappers (no equivalent there for repeatable rows/checkbox groups, and avoids more GDS integration surface area after this session's 3.11.x issues).
+- ✅ New `company_settings` MongoDB collection keyed by `{brand, tenantId}`, served via `GET`/`PUT /api/sales-settings/[brand]` (`GET` public with a safe empty default on first visit, `PUT` protected via `requireApiKey`).
+- ✅ `sanitizeSalesSettings()` normalizes every field before it's written — enum filtering, string trimming, and numeric-string coercion for price/quantity fields, the same defensive pattern already proven for leads (2.4.8's ICE-field fix).
+- ⚠️ **Disclosed limitation**: this sandbox has no `MONGODB_URI`, so the route's actual Mongo upsert/read-back could not be integration-tested here — verified as far as the `503`-when-unconfigured path (real dev server) and the sanitizer's unit tests.
 
 ### Brand-Specific Browser Tab Titles (2.4.19)
 - ✅ Owner asked for CogMap's and Seyu's pages to have distinguishable browser tab titles to tell them apart between tabs. `/sales/[brand]/page.tsx` now exports `generateMetadata()` returning the brand's display label from the existing `BRAND_CONFIG`; the root layout's title became a `{ template, default }` object so Next.js composes them as `"CogMap · Sales Lead Generator"` / `"Seyu · Sales Lead Generator"` — brand name first, since browser tabs truncate from the end.
