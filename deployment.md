@@ -1,6 +1,13 @@
 # Deployment Log
 
-## Latest Deployment — double-bordered cards fixed, enableDrag rolled back after prod crash
+## Latest Deployment — real-device confirmation: 2.4.17 fixes all verified working
+- **Commit**: (pending — real-device confirmation doc update)
+- **Message**: docs: real-device confirmation that 2.4.17 fixes resolved PWA/modal/border/zoom
+- **Build Status**: Documentation-only change (no code touched). Verified via `tsc --noEmit` (0 errors), `eslint` (0 errors, 3 pre-existing warnings carried forward), `vitest run` (35/35), smoke suite (5/5), and a real `next build`, all unaffected as expected.
+- **Context**: Owner confirmed directly, on a real device viewing production (mobile, portrait): PWA works, the lead detail modal works, the double-bordered kanban cards are fixed, and the iOS zoom-on-focus problem is fixed. Drag-and-drop is confirmed off on mobile portrait (matching the deliberate `enableDrag: false` rollback from the previous deployment) — owner explicitly said they can live with that rather than wanting `enableDrag` re-enabled. This closes out every item this sandbox couldn't verify itself in the previous deployment: the double-border fix (couldn't render GDS locally), the `enableDrag` rollback as the actual crash fix (couldn't reach the live URL or get a console error), and the iOS focus-zoom fix (Chromium emulation can't reproduce WebKit's real auto-zoom behavior) — an open question dating back to 2.2.1/2026-07-23 for the PWA-installability piece specifically. Updated `CHANGELOG.md`, `roadmap.md`, `PROPOSAL.md`, `docs/ARCHITECTURE.md`, `docs/OPERATOR_GUIDE.md` to mark all of these confirmed rather than "reasoned hypothesis pending confirmation."
+- **Files Changed**: `CHANGELOG.md`, `roadmap.md`, `PROPOSAL.md`, `docs/ARCHITECTURE.md`, `docs/OPERATOR_GUIDE.md`, `docs/STACK_AND_DEPENDENCIES.md`, `README.md` (no application code changed)
+
+## Earlier Deployment — double-bordered cards fixed, enableDrag rolled back after prod crash
 - **Commit**: 95501e5
 - **Message**: fix: double-bordered kanban cards, roll back enableDrag after prod crash report
 - **Build Status**: Verified via `tsc --noEmit` (0 errors), `eslint` (0 errors, 3 pre-existing warnings carried forward), `vitest run` (35/35), smoke suite (5/5), and a real `next build`. **Neither fix could be visually confirmed** — this sandbox's GDS packages are hand-written stubs that render `null` (the kanban board area is blank in a local dev server, confirmed via a real Playwright screenshot), and the live production URL (`vercel.app`) is unreachable from this sandbox's network policy, same as `github.com`.
@@ -177,8 +184,8 @@
 - **Context**: Issue #21 documented `/api/leads`'s `total` field as actively misleading — it held the count of leads returned on the current page (post-dedup), not the real total across all pages, even though the adjacent `totalPages` field was already computed correctly from the real total. Checked every frontend consumer (`app/sales/[brand]/sales-page-client.tsx`, `app/kanban.tsx`, `app/table.tsx`, `app/search-learning.tsx`, `app/metrics.tsx`) before changing the field — none read `.total` from this endpoint's response, so the rename is a safe, zero-impact fix. `total` now holds the real grand total; the per-page count moved to a new `returned` field.
 - **Files Changed**: `app/api/leads/route.ts`
 
-## Open question raised by the owner (2026-07-23, not yet resolved)
-Zoom-lock fix (2.2.1) confirmed working on a real device. However, the owner reports the app is "not available as I expected" as a PWA — meaning some install/PWA behavior still isn't matching expectations, but the specific symptom (no install prompt at all on Android? no "Add to Home Screen" option? installs but doesn't launch standalone? testing on iOS, which has no automatic prompt by design?) hasn't been gathered yet. `manifest.json`, `app/layout.tsx`, `public/sw.js`, and both icon files were re-verified in this session (valid PNGs at correct dimensions, no manifest/service-worker collisions in `next.config.js` or `middleware.ts`) and show no structural defect. Needs specifics from the owner before further code changes are justified — flagged rather than guessed at.
+## Resolved: PWA installability (was an open question from 2026-07-23)
+Zoom-lock fix (2.2.1) confirmed working on a real device on 2026-07-23. The separate PWA-installability question raised the same day ("not available as I expected") — never fully root-caused with specifics at the time — is now closed: as of 2.4.18, the owner confirmed on a real device (production, mobile) that PWA installability works, alongside the double-bordered-card fix, the iOS focus-zoom fix, and the lead detail modal, all from the 2.4.17 GDS-incident fixes.
 
 ## Previous Deployment
 - **Commit**: 96b0bb0

@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.18
+
+Real-device confirmation from the owner on production (mobile, portrait): PWA works, the lead detail modal works, the double-bordered kanban cards are fixed, and the iOS zoom-on-focus problem is fixed. This closes out every open item from the 2.4.17 fix that this sandbox couldn't verify itself (no local GDS rendering, no live-URL access, no real device). Drag-and-drop is confirmed off (as intended — `enableDrag` was deliberately disabled in 2.4.17); owner is fine leaving it off rather than re-enabling it.
+
+### Confirmed working (real device, production)
+- ✅ Double-bordered kanban cards — fixed. `LeadCard`'s flat, borderless rewrite (2.4.17) resolved the nested-`Paper` visual issue as intended.
+- ✅ "Client-side exception" crash — no longer occurring. Disabling `enableDrag` (2.4.17) is now a confirmed fix, not just a reasoned hypothesis; the real `@dnd-kit` code path was the actual cause.
+- ✅ iOS zoom-on-focus — fixed. GDS's theme-level `Input.vars` mechanism (adopted 2.4.10) genuinely floors every affected input's font-size on a real device, not just in this sandbox's Chromium-based emulation (which can't reproduce WebKit's actual zoom heuristic).
+- ✅ PWA installability — works. Closes the "owner reports it's still not behaving as expected" open item that had been outstanding since 2.2.1/2026-07-23.
+- ✅ Mobile portrait: drag-and-drop is off, as expected (matching the 2.4.17 rollback) — owner has explicitly accepted this trade-off rather than asking for `enableDrag` to be re-enabled.
+
 ## 2.4.17
 
 Owner reported (screenshot) every kanban card showing a visible "box within a box," plus a drag-handle icon and a second icon flanking each card — on top of an unrelated "client-side exception" crash report on the live production URL. Root-caused the visual issue precisely via GDS's real source; treated the crash as a strong signal to roll back the one genuinely new, never-before-executed-in-production code path from this whole GDS 3.11.x bump.

@@ -124,7 +124,7 @@ These require API key auth.
 ## Known Issues and Limitations
 
 - Full `next build` may OOM in limited local/sandboxed environments; use `tsc --noEmit` for type verification there. Vercel's production build environment is unaffected.
-- As of 2.2.1, pinch-zoom prevention and PWA installability were fixed at the root cause (missing icon files, viewport-meta-only zoom lock, no service worker — see `CHANGELOG.md`). Real-device verification (actual iOS Safari pinch behavior, Android Chrome install prompt) is still pending — this could not be verified from the development environment.
+- As of 2.2.1, pinch-zoom prevention and PWA installability were fixed at the root cause (missing icon files, viewport-meta-only zoom lock, no service worker — see `CHANGELOG.md`). Pinch-zoom lock was confirmed working on a real device on 2026-07-23; PWA installability and the separate iOS focus-zoom mechanism (GDS's theme-level `Input.vars` fix, 2.4.10) were both confirmed working on a real device as of 2.4.18.
 - Table view mobile density/readability may still need additional tuning.
 - Country filter population depends on lead `country` data; some datasets may need backfill from `region`.
 - Test coverage has grown (35 unit tests + a 5-check smoke suite as of 2.4.8, up from 33/4 at 2.2.0) but is still concentrated on shared validation/scoring/dedup logic; full API route integration tests remain TODO.
