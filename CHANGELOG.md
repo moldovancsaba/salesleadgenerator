@@ -1,5 +1,31 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.30
+
+Owner-reported UX/data-quality pass: misleading kanban move icon (root-caused, deferred to GDS), inconsistent kanban card fields, unenforced `size` enum, and non-clickable contact info. See #40 (deferred), #41, #42, #43. Also adds CLAUDE.md Rule 7.
+
+### Added — CLAUDE.md Rule 7: UI affordances must match real capability
+- New standing rule: no interactive element may imply a capability it doesn't actually have in that state — covers both a literal disabled-but-visible control and a functional control whose icon/label implies a *different* interaction than what it performs. Added directly in response to the kanban move-icon finding below.
+
+### Root-caused, not fixable in this repo — deferred (#40)
+- Owner reported a "4-direction arrow" on kanban cards that looks like a drag handle but doesn't drag. Read the real installed `@sovereignsquad/gds-core` compiled source (not the local stub): the drag-handle grip icon is correctly gated by `enableDrag` (hidden, since this app keeps it off) — that part already follows Rule 7. The always-visible icon is GDS's own "Move to column" menu trigger (`IconArrowsMove`), which GDS's own type declarations document as intentionally "governed" — no prop exists to override or relabel it. The icon is functional (opens a working move menu) but visually implies free drag, which isn't available. Not fixable from this repo without either losing move functionality entirely or reimplementing GDS's own locked-down card chrome. A request describing the defect and a proposed fix was drafted for delivery to the GDS team; tracked as deferred in #40 pending an upstream release.
+
+### Fixed — kanban card field layout (#41)
+- `app/card.tsx`: the 5 metadata rows (Region, ICE, Ticket size, Size, Contact) were presence-conditional — a card only showed a row if that lead happened to have the underlying field populated, so different leads' cards had visibly different shapes (reported as "random data"). Made all 5 rows unconditional with a `'—'` fallback, matching the placeholder convention `app/detail.tsx` already established for the same problem.
+
+### Fixed — `size` field had a documented enum that was never enforced (#42)
+- `PIPELINE_ARCHITECTURE.md` has documented `size: 'Small' | 'Medium' | 'Large' | 'Enterprise'` since this schema was written, but `lib/validate-lead.ts` never checked it (unlike `region`/`kanbanColumn`, which are validated against fixed sets) and `app/lib/normalize-lead.ts` passed it through as a plain string. Net effect: any free text (e.g. "Pan-European league" — a scope description, not a size tier) could be written and would display as if it were a valid value. Added an enum check to `validateLeadPayload` (optional field, format-checked only when present, matching the existing `contact_phone`/`decision_maker_contact` pattern) plus unit test coverage for both full and partial-update payloads.
+- **Only partially fixable from this repo**: `agent-runtime/`'s prompt files are an explicit mirror of a separate, canonical repo (`Agents/contentcreator/`) this session has no access to — and on inspection, contrary to this issue's original plan, those mirrored files don't contain a `size`-field output instruction anywhere to tighten in the first place (confirmed via grep across all of `agent-runtime/`). This repo's own write-path validation is now a real safety net regardless of what any writer sends, but the source of already-bad data (whatever produces free text like "Pan-European league") can't be addressed from here. Existing out-of-enum production documents are not retroactively fixed by this change — validation only gates new writes.
+- `docs/ARCHITECTURE.md`'s Input Validation section updated to document the new rule.
+
+### Added — clickable email/phone contact links (#43)
+- `app/detail.tsx`: `contact.email`/`contact.phone` now render as `mailto:`/`tel:` links instead of plain text, so tapping opens the device's mail client or dialer. `decision_maker_contact` has no dedicated type (free-form per the schema) — linkified only when it's recognizably an email or phone value via a lightweight local heuristic, left as plain text otherwise rather than emitting a broken link.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors, 0 warnings), `vitest run` (53/53, 4 new), smoke suite (5/5), `next build --webpack` (all 23 routes).
+
+Version bumped 2.4.29 -> 2.4.30.
+
 ## 2.4.29
 
 Follow-up to #30: finished its explicitly-deferred comment-consistency scope, plus one restating-JSDoc file it never covered, plus one duplicated-magic-number fix found in the process. See #38.

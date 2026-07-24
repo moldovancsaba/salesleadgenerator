@@ -22,6 +22,18 @@ import { TABLET_LANDSCAPE_MAX } from './constants';
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
 
+// decision_maker_contact has no dedicated type (per PIPELINE_ARCHITECTURE.md's schema
+// it's free-form) — it may hold an email, a phone number, or neither. Only linkify
+// it when it's recognizably one or the other, rather than emitting a broken
+// mailto:/tel: link for arbitrary text.
+function looksLikeEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+function looksLikePhone(value: string): boolean {
+  const trimmed = value.trim();
+  return /^[+\d][\d\-\s()]{6,}$/.test(trimmed);
+}
+
 type Props = {
   lead: Lead;
   brand?: string;
@@ -288,15 +300,21 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
           <Box>
             <Text fw={600}>{lead.decision_maker_name}</Text>
             {lead.decision_maker_title && <Text size="sm" c="dimmed">{lead.decision_maker_title}</Text>}
-            <Text size="sm" c="dimmed">{lead.decision_maker_contact || ''}</Text>
+            {lead.decision_maker_contact && looksLikeEmail(lead.decision_maker_contact) ? (
+              <Text size="sm" c="dimmed" component="a" href={`mailto:${lead.decision_maker_contact.trim()}`}>{lead.decision_maker_contact}</Text>
+            ) : lead.decision_maker_contact && looksLikePhone(lead.decision_maker_contact) ? (
+              <Text size="sm" c="dimmed" component="a" href={`tel:${lead.decision_maker_contact.trim()}`}>{lead.decision_maker_contact}</Text>
+            ) : (
+              <Text size="sm" c="dimmed">{lead.decision_maker_contact || ''}</Text>
+            )}
           </Box>
         ) : null}
         {(lead.contacts || []).map((contact, i) => (
           <Box key={i}>
             <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
             {contact.title && <Text size="sm" c="dimmed">{contact.title}</Text>}
-            {contact.email && <Text size="sm" c="dimmed">{contact.email}</Text>}
-            {contact.phone && <Text size="sm" c="dimmed">{contact.phone}</Text>}
+            {contact.email && <Text size="sm" c="dimmed" component="a" href={`mailto:${contact.email.trim()}`}>{contact.email}</Text>}
+            {contact.phone && <Text size="sm" c="dimmed" component="a" href={`tel:${contact.phone.trim()}`}>{contact.phone}</Text>}
             {contact.linkedin && <Text size="sm" c="blue">{contact.linkedin}</Text>}
           </Box>
         ))}

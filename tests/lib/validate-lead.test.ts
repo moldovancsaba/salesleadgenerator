@@ -44,6 +44,24 @@ describe('validateLeadPayload', () => {
     expect(result.errors.some((e) => e.includes('ice.impact must be a number between 1 and 10'))).toBe(true);
     expect(result.errors.some((e) => e.includes('ice.confidence must be a number between 1 and 10'))).toBe(true);
   });
+
+  it('allows a payload with no size field at all (not required)', () => {
+    const result = validateLeadPayload(basePayload, 'cogmap');
+    expect(result.valid).toBe(true);
+  });
+
+  it('allows each of the 4 documented size values', () => {
+    for (const size of ['Small', 'Medium', 'Large', 'Enterprise']) {
+      const result = validateLeadPayload({ ...basePayload, size }, 'cogmap');
+      expect(result.valid).toBe(true);
+    }
+  });
+
+  it('rejects a free-text size value outside the documented enum', () => {
+    const result = validateLeadPayload({ ...basePayload, size: 'Pan-European league' }, 'cogmap');
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('size must be one of: Small, Medium, Large, Enterprise'))).toBe(true);
+  });
 });
 
 describe('validateLeadPayload with { partial: true } (used by PUT /api/leads/:id)', () => {
@@ -75,6 +93,12 @@ describe('validateLeadPayload with { partial: true } (used by PUT /api/leads/:id
     const withoutPartial = validateLeadPayload(basePayload, 'cogmap');
     expect(withPartial.valid).toBe(true);
     expect(withoutPartial.valid).toBe(true);
+  });
+
+  it('rejects an out-of-enum size on a partial update that only touches size', () => {
+    const result = validateLeadPayload({ size: 'Pan-European league' }, 'cogmap', { partial: true });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('size must be one of'))).toBe(true);
   });
 });
 
