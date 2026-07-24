@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.31
+
+Owner screenshot feedback from a real-device mobile PWA session. See #44.
+
+### Changed — removed confusing "wtd" jargon from kanban column headers
+- `app/kanban.tsx`: the per-column pipeline-weighted forecast label read e.g. "€2,969 wtd" — same figure, dropped the abbreviation. `docs/ARCHITECTURE.md`'s matching example string updated.
+
+### Fixed — decision maker's phone number was never rendered in the detail modal
+- `app/types.ts` has always defined `decision_maker_contact` and `contact_phone` as two separate, independently-validated fields, but `app/detail.tsx`'s CONTACTS block only ever rendered `decision_maker_contact` — a lead with both an email and a phone showed only one contact line, with the phone silently absent (not merged onto the same row — genuinely never displayed). Added `contact_phone` as its own row, linkified via `tel:`.
+
+### Fixed — Table view had no way to open the lead detail modal
+- `AdminDataTable` (`@sovereignsquad/gds-admin`) has no built-in row-click prop (confirmed against the real installed type declarations) — this was never wired, not a regression. Used the column `accessor` (desktop Name cell) and `renderMobileCard` (mobile) — both already under this app's control — to make rows tappable via `UnstyledButton`, wired to the same `onOpenLead`/`setSelectedLead` callback the kanban board already uses.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors, 0 warnings), `vitest run` (53/53), smoke suite (5/5), `next build --webpack` (all 23 routes).
+
+Version bumped 2.4.30 -> 2.4.31.
+
 ## 2.4.30
 
 Owner-reported UX/data-quality pass: misleading kanban move icon (root-caused, deferred to GDS), inconsistent kanban card fields, unenforced `size` enum, and non-clickable contact info. See #40 (deferred), #41, #42, #43. Also adds CLAUDE.md Rule 7.

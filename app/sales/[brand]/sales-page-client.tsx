@@ -262,7 +262,7 @@ export function SalesPageClient({ brand }: Props) {
         {view === 'table' && (
           tableLoading
             ? <Container py="xl"><Group justify="center"><Loader /></Group></Container>
-            : <TableView leads={filteredLeads} />
+            : <TableView leads={filteredLeads} onOpenLead={setSelectedLead} />
         )}
 
         {view === 'metrics' && <MetricsPanel brand={brand} tenantId="default" />}
