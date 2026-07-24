@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.24
+**Version:** 2.4.25
 
 ---
 
@@ -10,7 +10,7 @@
 |-----------|---------|------|
 | Node.js | 24.x on Vercel | Runtime |
 | Next.js | ^15.5.13 (resolves 15.5.21) | App framework and API routes |
-| React | 18.3.0 | UI runtime |
+| React | ^19.2.8 (was 18.3.0) | UI runtime — bumped in 2.4.25, see Dependency Audit below |
 | TypeScript | ^6.0.3 | Type safety (bumped from 5.x in 2.4.24 — see Dependency Audit below) |
 
 ---
@@ -83,7 +83,7 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 
 ---
 
-## Dependency Audit (2.4.22, updated 2.4.24)
+## Dependency Audit (2.4.22, updated 2.4.25)
 
 `npm outdated` confirms every installed package satisfies its own declared semver range (no drift). Sequenced migration in progress ("deliver the rest," follow-on to 2.4.22's housecleaning pass) — real dependency constraints discovered via verification, not assumed:
 
@@ -91,13 +91,13 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 |---------|---------|--------|--------|
 | typescript | **6.0.3** (was 5.9.3) | 7.0.2 | **Bumped to 6 in 2.4.24. 7 is explicitly blocked**: `@typescript-eslint/parser` (used transitively by `eslint-config-next`) has a hard runtime rejection of TS 7.0 — confirmed via a real `npm run lint` failure, not assumed. TS 7.0 GA'd 2026-07-08; its own ecosystem hasn't caught up yet (tracked upstream: see typescript-eslint issue #10940 for TS ≥7.1 support). Revisit once that lands. |
 | eslint | 9.39.5 | 10.7.0 | **Reordered — depends on `next`/`eslint-config-next` below, not independent.** `eslint-config-next@15.5.21`'s own `peerDependencies` caps `eslint` at `^9.0.0`; only `eslint-config-next@16.x` (tracks Next.js 16) declares `eslint: >=9.0.0` (i.e. includes 10.x). Confirmed via `npm view ... peerDependencies`, not assumed from ESLint's own changelog alone. |
-| @mantine/core, hooks, modals, notifications | 7.17.8 | 9.4.2 | Pending. Mantine 9.x requires React 19.2+ — must follow the React bump below. |
-| react, react-dom | 18.3.1 | 19.2.x | Pending. |
+| react, react-dom | **19.2.8** (was 18.3.1) | — | **Bumped in 2.4.25.** All direct dependencies verified peer-compatible before bumping (`npm view <pkg> peerDependencies` for `@mantine/core@7.17.8`: `^18.x \|\| ^19.x`; `@dnd-kit/*`, `@tabler/icons-react`: open lower bounds; `@sovereignsquad/gds-theme` — the only GDS package declaring peers — explicitly supports `react: ^18.2.0 \|\| ^19.0.0`). `tsc`/`eslint`/`vitest`/smoke/build all clean; real-browser check (Playwright against the pre-installed Chromium) on the kanban board, outreach templates page, and landing page found no React-specific console errors (no hydration warnings, no ref/prop-type issues) — only the expected `503`s from this sandbox's missing `MONGODB_URI`, unrelated to this bump. |
+| @types/react, @types/react-dom | **19.2.17 / 19.2.3** (was 18.3.x) | — | **Bumped alongside `react`/`react-dom` in 2.4.25** — kept in lockstep so the type definitions match the installed runtime. |
+| @mantine/core, hooks, modals, notifications | 7.17.8 | 9.4.2 | Pending. Mantine 9.x requires React 19.2+ — now satisfied by the row above. |
 | next | 15.5.21 | 16.2.11 | Pending. Resolves 3 high-severity CVEs (PostCSS/`sharp`, both bundled inside `next`'s own `node_modules`) as a side effect. `middleware.ts` must become `proxy.ts` — a real, mandatory rename since this file gates every write endpoint's auth/CORS. |
 | eslint-config-next | 15.5.21 | 16.2.11 | Pending, tied to the `next` row above. |
 | mongoose | 8.24.1 | 9.8.0 | Pending. Ops-scripts only (see Backend table above) — lowest blast radius, independent of everything else in this table. |
 | @types/node | 20.19.43 | 26.1.1 | Pending. |
-| @types/react, @types/react-dom | 18.3.x | 19.2.x | Pending, tied to the `react`/`react-dom` row above. |
 
 `npm audit` (read-only) surfaces 3 high-severity advisories — PostCSS XSS/arbitrary-file-read and `sharp`'s bundled `libvips` CVEs — both confirmed via `npm ls` to live **inside `next@15.5.21`'s own `node_modules`** (`next → postcss@8.4.31`, `next → sharp@0.34.5`), not this app's own top-level `postcss` (already current). There is no newer 15.x patch that resolves this — 15.5.21 is already the ceiling of the pinned `^15.5.13` range — so the only real fix is the Next.js 16 major upgrade already listed above. `npm audit fix --force`'s auto-suggested resolution is a downgrade to `next@9.3.3`, which is nonsensical and was not applied. Recorded here explicitly, per this repo's own rule that an unavoidable transitive issue must be named rather than silently carried forward.
 
