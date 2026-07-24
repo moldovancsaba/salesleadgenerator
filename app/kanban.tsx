@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Box, Group, Loader } from '@mantine/core';
+import { Box, Chip, Group, Loader } from '@mantine/core';
 import { KanbanBoard as GdsKanbanBoard } from '@sovereignsquad/gds-core/client';
 import type { KanbanItem as GdsKanbanItem, KanbanColumnData as GdsKanbanColumnData } from '@sovereignsquad/gds-core/client';
 import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
 import { COLUMNS } from './constants';
+import { toggleColumnVisibility as toggleColumnVisibilityInSet } from '../lib/kanban-column-visibility';
 
 type ColumnState = {
   leads: Lead[];
@@ -89,6 +90,20 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     return init
   })
   const [bootstrapped, setBootstrapped] = useState(false)
+
+  // GDS's KanbanColumn renders its own header (title + item-count Badge) as
+  // one opaque unit — there's no render prop to split header from body, so
+  // an in-place "tap the header to collapse that column" accordion isn't
+  // buildable without reimplementing GDS's own governed column chrome
+  // (against this project's GDS-required-for-kanban-UI policy). This toggle
+  // row achieves the same PWA navigation goal — fewer visible columns, less
+  // horizontal scroll — by hiding/showing whole columns from the board
+  // instead, entirely in this app's own code.
+  const [hiddenColumns, setHiddenColumns] = useState<Set<KanbanColumn>>(() => new Set())
+
+  const toggleColumnVisibility = useCallback((key: KanbanColumn) => {
+    setHiddenColumns((prev) => toggleColumnVisibilityInSet(prev, key, COLUMNS.length))
+  }, [])
 
   const loadColumn = useCallback(async (colKey: KanbanColumn, cursor?: string | null) => {
     setColumnStates((prev) => ({
@@ -216,6 +231,11 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     }
   }), [columnStates, forecast, formatForecast])
 
+  const visibleColumns = useMemo(
+    () => columns.filter((col) => !hiddenColumns.has(col.id as KanbanColumn)),
+    [columns, hiddenColumns]
+  )
+
   // GDS's KanbanItem/KanbanColumnData are fixed, non-generic interfaces — the
   // real renderItem prop is checked contravariantly against exactly that
   // shape, so the callback's own parameter types must match it, not our
@@ -243,11 +263,29 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // "Move to column" menu (unconditional, not gated by enableDrag) still
   // provides full move functionality without it.
   return (
-    <GdsKanbanBoard
-      columns={columns}
-      onMoveItem={handleMoveItem}
-      renderItem={renderItem}
-      emptyColumnLabel={bootstrapped ? 'No leads' : 'Loading…'}
-    />
+    <>
+      <Group gap="xs" wrap="wrap" mb="sm" role="group" aria-label="Show or hide kanban columns">
+        {COLUMNS.map((col) => {
+          const colState = columnStates[col.key]
+          const countLabel = typeof colState.count === 'number' ? colState.count.toLocaleString() : colState.leads.length
+          return (
+            <Chip
+              key={col.key}
+              size="xs"
+              checked={!hiddenColumns.has(col.key)}
+              onChange={() => toggleColumnVisibility(col.key)}
+            >
+              {col.label} ({countLabel})
+            </Chip>
+          )
+        })}
+      </Group>
+      <GdsKanbanBoard
+        columns={visibleColumns}
+        onMoveItem={handleMoveItem}
+        renderItem={renderItem}
+        emptyColumnLabel={bootstrapped ? 'No leads' : 'Loading…'}
+      />
+    </>
   )
 }

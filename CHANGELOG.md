@@ -1,5 +1,28 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.38
+
+Three owner requests: check whether a fresh GDS release fixes the misleading drag-icon (issue #40), make kanban columns easier to navigate on the PWA, and fix the duplicated/incorrect card-count indicator in column headers.
+
+### Fixed — GDS 3.13.0 adopted, closes issue #40
+Bumped `@sovereignsquad/gds-admin`/`gds-core`/`gds-theme` 3.11.1 → 3.13.0. GDS's own `f876497` commit (released as 3.13.0) replaced `KanbanColumn`'s default "Move to column" icon — the 4-way `IconArrowsMove` glyph that always rendered whenever `onMoveItem` was set (this app always sets it) and misleadingly implied free drag when `enableDrag` is off — with `IconDotsVertical`, a standard "tap for menu" affordance. This app sets neither of the new `moveMenuIcon`/`moveMenuLabel` props, so it picked up the corrected default automatically — zero code change. Verified against GDS's real published commit history and CHANGELOG.md (`WebFetch`), not assumed.
+
+The bump surfaced two real, previously-undeclared peer-dependency gaps in `gds-theme@3.13.0` (its compiled CSS now unconditionally imports `@mantine/dates/styles.css`, which in turn requires `dayjs`) — both added as direct dependencies; see `docs/STACK_AND_DEPENDENCIES.md` for details. Neither is imported by this app's own code; both exist solely to satisfy GDS's theme CSS.
+
+### Investigated, not fixable here — column header duplicate/wrong count (issue #48)
+GDS's `KanbanColumn` renders its own item-count `Badge` showing `column.items.length` — the number of leads currently loaded into that column (this app paginates columns), not the column's real total. This app's own title text already shows the real total (`"Qualified (365)"`), so the two numbers can visibly disagree for any column with more leads than one page (e.g. "Qualified (365) ... 50"). Confirmed via the real installed 3.13.0 source and type definitions: no prop exists to hide, override, or feed a separate total into that Badge. Not fixable from this repo without reimplementing GDS's own governed column header (against project policy) or a CSS/DOM workaround (against CLAUDE.md Rule 7's guidance). Filed as a GDS feature request (issue #48) with a suggested fix; mitigated in-app by the column-visibility toggle below.
+
+### Added — kanban column visibility toggle (issue #49)
+`app/kanban.tsx` gains a row of toggle chips (one per column, live count) above the board; unchecking a chip hides that column entirely, reducing horizontal scroll on narrow PWA viewports. This is not a true in-place header-collapse — GDS's `KanbanColumn` bundles header and card list as one opaque render with no header render-prop, so an accordion-style "tap the header to collapse" control isn't buildable without reimplementing GDS's own chrome. The toggle-guard logic ("always leave at least one column visible") lives in a new pure, unit-tested module, `lib/kanban-column-visibility.ts`.
+
+### Testing
+`tests/lib/kanban-column-visibility.test.ts` (4 new tests: hide, show, last-column guard, no-mutation). Interactive verification via headless Chromium against the real dev server (390×844 mobile viewport) — toggling a chip correctly adds/removes the column from the rendered board, the guard holds when attempting to hide all 6, and no console/hydration errors beyond the expected `503`s from this sandbox's missing `MONGODB_URI`.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (81/81), smoke suite (5/5), `next build --webpack` (23 routes).
+
+Version bumped 2.4.37 -> 2.4.38.
+
 ## 2.4.37
 
 Follow-up to 2.4.36's deferred `industry`/`sport_or_sector` item. Direct audit of the real data (100% of 50 sampled seed records) disproves the premise stated in the 2.4.36 entry: the two fields are **not** redundant duplicates. `industry` is a broad category ("Financial Services"); `sport_or_sector` is a specific sub-classification ("Quantitative Hedge Fund") — genuinely distinct information. Merging or renaming them the way #45 merged `decision_maker_*` would destroy real data, so that is explicitly **not** done here. Correcting the record: this is not a rename candidate.
