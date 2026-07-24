@@ -185,10 +185,10 @@ export async function PUT(
       { returnDocument: 'after' }
     );
 
-    const updatedLead = result?.value || result;
-    if (!updatedLead) {
+    if (!result) {
       return NextResponse.json({ error: 'Lead not found after update' }, { status: 404 })
     }
+    const updatedLead = result;
 
     return NextResponse.json(normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }))
   } catch (error: any) {
