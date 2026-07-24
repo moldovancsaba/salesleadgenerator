@@ -1,6 +1,13 @@
 # Deployment Log
 
-## Latest Deployment — real-device confirmation: 2.4.17 fixes all verified working
+## Latest Deployment — brand-specific browser tab titles
+- **Commit**: cc481a0
+- **Message**: feat: brand-specific browser tab titles for CogMap/Seyu pages
+- **Build Status**: Verified via `tsc --noEmit` (0 errors), `eslint` (0 errors, 3 pre-existing warnings carried forward), `vitest run` (35/35), smoke suite (5/5), and a real `next build`. Additionally confirmed with the real rendered `<title>` tag from a running local dev server (`curl` against `/sales/cogmap`, `/sales/seyu`, `/`) — not just inferred from the code.
+- **Context**: Owner asked for CogMap's and Seyu's pages to have distinguishable browser tab titles, to tell them apart when both are open in separate tabs, instead of every tab reading the generic "Sales Lead Generator". `app/sales/[brand]/page.tsx` now exports `generateMetadata()` returning just the brand's display label (from the existing `BRAND_CONFIG`/`resolveBrand()` in `app/lib/brand.ts`, no new mapping introduced). The root layout's `metadata.title` changed from a plain string to a `{ template: "%s · Sales Lead Generator", default: "Sales Lead Generator" }` object — Next.js's standard per-route title composition mechanism. Brand name comes first (`CogMap · Sales Lead Generator`) rather than last, since browser tabs truncate long titles from the end. Confirmed via real `<title>` output: `CogMap · Sales Lead Generator`, `Seyu · Sales Lead Generator`, and the unchanged default `Sales Lead Generator` for `/`. Only `/sales/[brand]` was touched — the landing page, `/forecast`, and `/outreach/templates` keep the default title, out of scope for this specific request.
+- **Files Changed**: `app/layout.tsx`, `app/sales/[brand]/page.tsx`, `CHANGELOG.md`, `roadmap.md`, `PROPOSAL.md`, `docs/ARCHITECTURE.md`
+
+## Earlier Deployment — real-device confirmation: 2.4.17 fixes all verified working
 - **Commit**: 16b37cf
 - **Message**: docs: real-device confirmation that 2.4.17 fixes resolved PWA/modal/border/zoom
 - **Build Status**: Documentation-only change (no code touched). Verified via `tsc --noEmit` (0 errors), `eslint` (0 errors, 3 pre-existing warnings carried forward), `vitest run` (35/35), smoke suite (5/5), and a real `next build`, all unaffected as expected.
