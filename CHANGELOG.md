@@ -1,5 +1,12 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.19
+
+### Added — brand-specific browser tab titles
+- Owner asked for CogMap's and Seyu's pages to have distinguishable browser tab titles, to tell them apart when both are open in separate tabs. `/sales/[brand]/page.tsx` now exports `generateMetadata()`, returning just the brand's display label (`CogMap`/`Seyu`, from the existing `BRAND_CONFIG`/`resolveBrand()` in `app/lib/brand.ts` — no new brand-name mapping introduced). The root layout's `metadata.title` was changed from a plain string to a `{ template, default }` object (`"%s · Sales Lead Generator"` / `"Sales Lead Generator"`), Next.js's standard mechanism for per-route title composition — child pages set just their own piece, the root supplies the shared suffix.
+- Brand name comes first in the tab title (`CogMap · Sales Lead Generator`, `Seyu · Sales Lead Generator`) rather than last, since browser tabs truncate long titles from the end — the distinguishing part needs to be visible first to actually help scanning between tabs.
+- Verified with the real rendered `<title>` tag from a running dev server (`curl` against `/sales/cogmap`, `/sales/seyu`, and `/`), not just inferred from the code — confirmed `CogMap · Sales Lead Generator`, `Seyu · Sales Lead Generator`, and the unchanged `Sales Lead Generator` default respectively. Only `/sales/[brand]` was touched; the public landing page (`/`), `/forecast`, and `/outreach/templates` keep the default title (out of scope — the request was specifically about the client/brand pages).
+
 ## 2.4.18
 
 Real-device confirmation from the owner on production (mobile, portrait): PWA works, the lead detail modal works, the double-bordered kanban cards are fixed, and the iOS zoom-on-focus problem is fixed. This closes out every open item from the 2.4.17 fix that this sandbox couldn't verify itself (no local GDS rendering, no live-URL access, no real device). Drag-and-drop is confirmed off (as intended — `enableDrag` was deliberately disabled in 2.4.17); owner is fine leaving it off rather than re-enabling it.
