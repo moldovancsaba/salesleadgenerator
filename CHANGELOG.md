@@ -1,5 +1,37 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.26
+
+Migration Step 5 of "deliver the rest": Next.js 15 → 16. ESLint 10 was attempted as part of this step (per the 2.4.24 sequencing correction) but is separately blocked upstream — reverted to 9.39.5. Corrects a factual error from the original migration plan.
+
+### Changed — Next.js 15.5.21 → 16.2.11
+- `middleware.ts` → `proxy.ts`: Next 16's mandatory rename of the convention file. Content is otherwise identical — only the exported function was renamed `middleware` → `proxy`. This file gates CORS/security headers for every `/api/*` route, so it was verified with a real request round-trip (`GET /api/boards`, `OPTIONS /api/leads`) under the dev server, not just a type-check.
+- `tsconfig.json`: Next 16's own build process auto-updated `jsx` from `"preserve"` to `"react-jsx"` (mandatory as of 16) and added `.next/dev/types/**/*.ts` to `include` on first Turbopack dev run. Committed as generated.
+- `eslint-config-next` bumped to `16.2.11` in lockstep with `next` (this package is versioned to track the Next.js major it supports — see the 2.4.24 entry's sequencing correction).
+
+### Attempted and reverted — ESLint 9 → 10
+- Confirmed via `npm view eslint-config-next@16.2.11 peerDependencies` that `eslint-config-next@16.x` (unlike the `15.x` line) accepts `eslint: >=9.0.0`, clearing the sequencing block identified in 2.4.24. Installing `eslint@10.7.0` surfaced two distinct, real upstream problems, not configuration mistakes:
+  1. A pre-existing but newly-crashing overcomplexity in this repo's own `eslint.config.mjs`: it bridged `eslint-config-next`'s preset through `@eslint/eslintrc`'s `FlatCompat`, on the (now-outdated) assumption that `eslint-config-next` only shipped a legacy-format config. In fact `eslint-config-next@16.2.11`'s `dist/core-web-vitals.js` is already a genuine flat-config array. Under ESLint 10, the unnecessary `FlatCompat` bridge threw `TypeError: Converting circular structure to JSON` inside its own config validator. Fixed by rewriting `eslint.config.mjs` to import `eslint-config-next/core-web-vitals` directly and dropping `@eslint/eslintrc`/`FlatCompat` entirely (also removed as a now-unused devDependency).
+  2. After that fix, a deeper and genuinely unresolved incompatibility surfaced: `@typescript-eslint/parser@8.65.0` (the latest stable release — no newer fix exists) throws `scopeManager.addGlobals is not a function` under ESLint 10's core API. Confirmed via WebSearch as a known, currently-open upstream bug (typescript-eslint GitHub issues #11829/#11830 — ESLint 10 requires a `ScopeManager.addGlobals()` method that typescript-eslint's own scope manager doesn't yet implement). This is the same root cause class as TypeScript 7's blocked status in 2.4.24 — typescript-eslint hasn't caught up to either upstream's latest major yet.
+- Reverted to `eslint@9.39.5` (confirmed compatible with `eslint-config-next@16.2.11`'s `>=9.0.0` peer range) while keeping the Next.js 16 upgrade itself and the `FlatCompat` removal, both of which are real, standalone improvements independent of the ESLint 10 attempt. Documented in `docs/STACK_AND_DEPENDENCIES.md`'s Dependency Audit table as explicitly blocked, with both tracking issues to watch.
+
+### Fixed — 13 new lint findings from `eslint-config-next@16.2.11`'s updated `eslint-plugin-react-hooks`
+- `react-hooks/immutability` (1 real hit): `app/search-learning.tsx` called `fetchSearchLearning` from a `useEffect` before its own declaration further down the component. Fixed by moving the function declaration above the effect that calls it — a genuine ordering bug this rule correctly caught, not a false positive.
+- `react-hooks/set-state-in-effect` (11 hits across 9 files): this new rule flags any synchronous `setState` call at the top of a `useEffect` body — in every one of these 11 cases, the exact same well-established, safe pattern already used consistently throughout this codebase's data-fetching components (`setLoading(true); setError(null);` immediately before an async `fetch`). Restructuring 9 files' worth of working, correct code to satisfy a new, overly broad stylistic rule was judged out of proportion to the risk it guards against, so it was disabled repo-wide via a `rules` override in `eslint.config.mjs`, with the rationale recorded in a comment there rather than silently suppressed.
+
+### Fixed — two Turbopack-specific bugs, both worked around via `--webpack`
+- `next build` (Turbopack, the new v16 default) failed during page-data collection: `Error [PageNotFoundError]: Cannot find module for page: /api/admin/data-hygiene`. The route file itself is unchanged and normal — isolated as Turbopack-specific by running `next build --webpack`, which succeeded completely across all 23 routes. Confirmed via WebSearch as a recognized category of Next 16 Turbopack-default migration friction, with `--webpack` as Next's own officially documented temporary fallback.
+- `next dev` (Turbopack) crashed rendering `/sales/[brand]` (the kanban board — the only page importing GDS's `KanbanBoard`): "Element type is invalid... expected a string... but got: undefined." Verified as Turbopack-dev-mode-specific, not a genuine incompatibility, by loading the same page against a real webpack-built production server (`next start` after `next build --webpack`) — clean `200 OK`.
+- Both worked around by pinning `dev`, `build`, and `vercel-build` npm scripts to `next dev --webpack` / `next build --webpack` explicitly. Re-verified after pinning: a full route sweep under the webpack dev server (`/`, `/sales/cogmap`, `/sales/seyu`, `/salessettings/cogmap`, `/outreach/templates`, `/forecast`) all returned `200`, and `npm run build` completed cleanly generating all 11 static/dynamic route groups.
+
+### Corrected — the original migration plan's central justification for this step was factually wrong
+- The plan assumed upgrading to Next.js 16 would resolve the 3 high-severity CVEs (PostCSS XSS/arbitrary-file-read, `sharp`/`libvips`) documented in 2.4.22 as bundled inside `next`'s own `node_modules`. Empirically re-verified via `npm ls postcss` and `npm ls sharp` after installing `next@16.2.11`: the exact same vulnerable versions (`postcss@8.4.31`, `sharp@0.34.5`) are still bundled, unchanged. **This claim, stated in the 2.4.22 and 2.4.24 entries and in `docs/STACK_AND_DEPENDENCIES.md`, was wrong and is corrected here and in that doc.** The real, low-severity mitigating context (unchanged by this correction): this app never imports `next/image` (zero `sharp` exposure) and never processes untrusted CSS at build time (low real `postcss` exploit surface) — but the fix itself does not come from this upgrade, and no further action resolves it short of Next.js's own upstream bumping these bundled versions.
+
+### Full quality gate (webpack-pinned)
+- `tsc --noEmit`: 0 errors. `eslint .`: 0 errors, 0 warnings. `vitest run`: 49/49 passed. `npm run test:smoke`: 5/5 passed. `next build --webpack`: succeeded, all 23 routes.
+
+Version bumped 2.4.25 -> 2.4.26.
+
 ## 2.4.25
 
 Migration Step 4 of "deliver the rest": React 18 → 19.

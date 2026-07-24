@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.25
+**Version:** 2.4.26
 
 ---
 
@@ -9,7 +9,7 @@
 | Component | Version | Role |
 |-----------|---------|------|
 | Node.js | 24.x on Vercel | Runtime |
-| Next.js | ^15.5.13 (resolves 15.5.21) | App framework and API routes |
+| Next.js | ^16.2.11 (was 15.5.21) | App framework and API routes — bumped in 2.4.26, see Dependency Audit below. Convention file is `proxy.ts` (was `middleware.ts` pre-16). `dev`/`build`/`vercel-build` npm scripts are pinned to `--webpack` (see Tooling table). |
 | React | ^19.2.8 (was 18.3.0) | UI runtime — bumped in 2.4.25, see Dependency Audit below |
 | TypeScript | ^6.0.3 | Type safety (bumped from 5.x in 2.4.24 — see Dependency Audit below) |
 
@@ -43,8 +43,8 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 
 | Component | Version | Status | Role |
 |-----------|---------|--------|------|
-| ESLint | ^9.17.0 | Active | Flat config (`eslint.config.mjs`), bridging `eslint-config-next`'s legacy-format `next/core-web-vitals` preset via `@eslint/eslintrc`'s `FlatCompat` (that package doesn't yet ship a native flat-config export). Run via the plain `eslint .` CLI (`npm run lint`), not the deprecated `next lint` wrapper. |
-| eslint-config-next | ^15.5.13 | Active | Next.js's recommended ESLint ruleset |
+| ESLint | ^9.39.5 | Active | Flat config (`eslint.config.mjs`), importing `eslint-config-next/core-web-vitals`'s own native flat-config array directly (the repo's prior `@eslint/eslintrc` `FlatCompat` bridge was removed in 2.4.26 — `eslint-config-next` has shipped genuine flat config for a while; the bridge was unneeded and became a real crash source under ESLint 10, see below). Run via the plain `eslint .` CLI (`npm run lint`), not the deprecated `next lint` wrapper. **ESLint 10.7.0 was attempted in 2.4.26 and reverted** — `@typescript-eslint/parser@8.65.0` throws `scopeManager.addGlobals is not a function` under ESLint 10's core API, a confirmed open upstream bug (typescript-eslint issues #11829/#11830). Revisit once typescript-eslint ships `ScopeManager.addGlobals()` support. |
+| eslint-config-next | ^16.2.11 (was 15.5.13) | Active | Next.js's recommended ESLint ruleset — bumped alongside `next` in 2.4.26 (versioned in lockstep with the Next.js major it supports). `react-hooks/set-state-in-effect`, a new rule in this version's bundled `eslint-plugin-react-hooks`, is disabled repo-wide in `eslint.config.mjs` — see that file's comment for the rationale (a deliberate, safe, pervasive pattern, not a real bug). |
 | Vitest | ^4.1.10 | Active | Unit tests (`tests/lib/*.test.ts`, `vitest.config.ts`) — deliberately excludes `tests/integration/**` from the default run |
 | tsx | ^4.7.0 | Active | Runs the smoke test (`tests/smoke/*.smoke.ts`) directly |
 | mongodb-memory-server | ^11.2.0 | Active (2.4.23) | Real in-process MongoDB for `tests/integration/*` (`npm run test:integration`, `vitest.integration.config.ts`), so route handlers are tested against genuine Mongo query/aggregation behavior rather than a mock. Downloads a real `mongod` binary from `fastdl.mongodb.org` on first use — **confirmed blocked by this development sandbox's own network policy** (verified via its proxy status endpoint: a policy-level `403` on `CONNECT`, the same restriction class as GitHub release-asset downloads, not a version/mirror mismatch). Works normally in environments where that host is reachable (a developer's own machine, most CI runners). |
@@ -74,7 +74,7 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 
 | Component | Behavior | Evidence |
 |-----------|----------|----------|
-| CORS/security headers | Applied in `middleware.ts` for `/api/*` | `middleware.ts` |
+| CORS/security headers | Applied in `proxy.ts` (was `middleware.ts` pre-Next.js-16 — renamed in 2.4.26, Next 16's mandatory convention-file rename; content and behavior unchanged, only the exported function renamed `middleware` → `proxy`) for `/api/*` | `proxy.ts` |
 | API key auth | `requireApiKey` in `lib/api-auth.ts` guards write/admin routes | `lib/api-auth.ts` |
 | API key fail-open | If `SLG_API_KEY` is unset entirely, all requests are allowed through (documented, intentional trade-off for local/dev use) | `lib/api-auth.ts` |
 | Read access | Public for listings and health | Route handlers |
@@ -83,23 +83,23 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 
 ---
 
-## Dependency Audit (2.4.22, updated 2.4.25)
+## Dependency Audit (2.4.22, updated 2.4.26)
 
 `npm outdated` confirms every installed package satisfies its own declared semver range (no drift). Sequenced migration in progress ("deliver the rest," follow-on to 2.4.22's housecleaning pass) — real dependency constraints discovered via verification, not assumed:
 
 | Package | Current | Target | Status |
 |---------|---------|--------|--------|
 | typescript | **6.0.3** (was 5.9.3) | 7.0.2 | **Bumped to 6 in 2.4.24. 7 is explicitly blocked**: `@typescript-eslint/parser` (used transitively by `eslint-config-next`) has a hard runtime rejection of TS 7.0 — confirmed via a real `npm run lint` failure, not assumed. TS 7.0 GA'd 2026-07-08; its own ecosystem hasn't caught up yet (tracked upstream: see typescript-eslint issue #10940 for TS ≥7.1 support). Revisit once that lands. |
-| eslint | 9.39.5 | 10.7.0 | **Reordered — depends on `next`/`eslint-config-next` below, not independent.** `eslint-config-next@15.5.21`'s own `peerDependencies` caps `eslint` at `^9.0.0`; only `eslint-config-next@16.x` (tracks Next.js 16) declares `eslint: >=9.0.0` (i.e. includes 10.x). Confirmed via `npm view ... peerDependencies`, not assumed from ESLint's own changelog alone. |
+| eslint | **9.39.5** (attempted 10.7.0, reverted) | 10.7.0 | **Attempted in 2.4.26 after the sequencing block above cleared** (`eslint-config-next@16.2.11` accepts `eslint: >=9.0.0`). Blocked by a *different*, genuinely open upstream issue: `@typescript-eslint/parser@8.65.0` throws `scopeManager.addGlobals is not a function` under ESLint 10's core API (typescript-eslint issues #11829/#11830 — no fix released yet). Reverted to 9.39.5. Revisit once typescript-eslint ships support. |
 | react, react-dom | **19.2.8** (was 18.3.1) | — | **Bumped in 2.4.25.** All direct dependencies verified peer-compatible before bumping (`npm view <pkg> peerDependencies` for `@mantine/core@7.17.8`: `^18.x \|\| ^19.x`; `@dnd-kit/*`, `@tabler/icons-react`: open lower bounds; `@sovereignsquad/gds-theme` — the only GDS package declaring peers — explicitly supports `react: ^18.2.0 \|\| ^19.0.0`). `tsc`/`eslint`/`vitest`/smoke/build all clean; real-browser check (Playwright against the pre-installed Chromium) on the kanban board, outreach templates page, and landing page found no React-specific console errors (no hydration warnings, no ref/prop-type issues) — only the expected `503`s from this sandbox's missing `MONGODB_URI`, unrelated to this bump. |
 | @types/react, @types/react-dom | **19.2.17 / 19.2.3** (was 18.3.x) | — | **Bumped alongside `react`/`react-dom` in 2.4.25** — kept in lockstep so the type definitions match the installed runtime. |
-| @mantine/core, hooks, modals, notifications | 7.17.8 | 9.4.2 | Pending. Mantine 9.x requires React 19.2+ — now satisfied by the row above. |
-| next | 15.5.21 | 16.2.11 | Pending. Resolves 3 high-severity CVEs (PostCSS/`sharp`, both bundled inside `next`'s own `node_modules`) as a side effect. `middleware.ts` must become `proxy.ts` — a real, mandatory rename since this file gates every write endpoint's auth/CORS. |
-| eslint-config-next | 15.5.21 | 16.2.11 | Pending, tied to the `next` row above. |
+| @mantine/core, hooks, modals, notifications | 7.17.8 | 9.4.2 | Pending. Mantine 9.x requires React 19.2+ — now satisfied by the row above. Needs its own 7→8 breaking-change research (only 8→9 changes were researched so far). |
+| next | **16.2.11** (was 15.5.21) | — | **Bumped in 2.4.26.** `middleware.ts` renamed to `proxy.ts` (mandatory convention-file rename, content unchanged). `dev`/`build`/`vercel-build` pinned to `--webpack` after finding two distinct, confirmed Turbopack-specific bugs in this release: a production-build page-collection failure on `/api/admin/data-hygiene`, and a dev-mode rendering crash on the kanban board (`/sales/[brand]`) — both resolved cleanly under webpack, neither reproducible there. **Does NOT resolve the 3 CVEs below, contrary to what this table previously stated** — empirically re-verified via `npm ls postcss`/`npm ls sharp` after the bump: identical vulnerable versions still bundled. Full gate clean: `tsc`/`eslint`/`vitest` (49/49)/smoke (5/5)/`next build --webpack` (all 23 routes). |
+| eslint-config-next | **16.2.11** (was 15.5.21) | — | **Bumped alongside `next` in 2.4.26.** |
 | mongoose | 8.24.1 | 9.8.0 | Pending. Ops-scripts only (see Backend table above) — lowest blast radius, independent of everything else in this table. |
 | @types/node | 20.19.43 | 26.1.1 | Pending. |
 
-`npm audit` (read-only) surfaces 3 high-severity advisories — PostCSS XSS/arbitrary-file-read and `sharp`'s bundled `libvips` CVEs — both confirmed via `npm ls` to live **inside `next@15.5.21`'s own `node_modules`** (`next → postcss@8.4.31`, `next → sharp@0.34.5`), not this app's own top-level `postcss` (already current). There is no newer 15.x patch that resolves this — 15.5.21 is already the ceiling of the pinned `^15.5.13` range — so the only real fix is the Next.js 16 major upgrade already listed above. `npm audit fix --force`'s auto-suggested resolution is a downgrade to `next@9.3.3`, which is nonsensical and was not applied. Recorded here explicitly, per this repo's own rule that an unavoidable transitive issue must be named rather than silently carried forward.
+`npm audit` (read-only) surfaces 3 high-severity advisories — PostCSS XSS/arbitrary-file-read and `sharp`'s bundled `libvips` CVEs — both confirmed via `npm ls` to live **inside `next`'s own `node_modules`** (`next → postcss@8.4.31`, `next → sharp@0.34.5`). **Corrected in 2.4.26**: this table previously claimed the pending Next.js 16 upgrade would resolve these as a side effect. That was wrong — empirically re-verified via `npm ls postcss`/`npm ls sharp` after installing `next@16.2.11`: the identical vulnerable versions are still bundled, unchanged, in Next.js's own dependency tree. There is currently no available fix short of Next.js's own upstream bumping these bundled versions in a future release; this is not this app's own top-level `postcss` (already current). `npm audit fix --force`'s auto-suggested resolution is a downgrade to `next@9.3.3`, which is nonsensical and was not applied. The real, low-severity mitigating context: this app never imports `next/image` (zero `sharp` exposure) and never processes untrusted CSS at build time (low real `postcss` exploit surface). Recorded here explicitly, per this repo's own rule that an unavoidable transitive issue must be named rather than silently carried forward.
 
 ---
 

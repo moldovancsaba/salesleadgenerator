@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.25
+**Version:** 2.4.26
 
 ## Overview
 
@@ -191,7 +191,7 @@ There is no Mongoose schema for this shape — `models/Lead.ts` (and `OutcomeLog
 - Public read access for lead listings and health checks
 - Write and admin endpoints require API key auth via `x-api-key` — when `SLG_API_KEY` is set, a request missing the header is rejected (401) the same as one with a wrong value; when `SLG_API_KEY` is unset entirely, requests are allowed through (documented fail-open behavior for local/dev use)
 - Input validation enforced before database writes, including partial updates (`PUT`)
-- CORS restricted to configured origins via `middleware.ts`
+- CORS restricted to configured origins via `proxy.ts` (renamed from `middleware.ts` in 2.4.26's Next.js 16 upgrade — same logic, mandatory convention-file rename)
 - Security headers set in middleware: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`
 
 ## Hosting

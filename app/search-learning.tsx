@@ -36,10 +36,6 @@ export function SearchLearningPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchSearchLearning();
-  }, []);
-
   const fetchSearchLearning = async () => {
     try {
       setLoading(true);
@@ -55,6 +51,10 @@ export function SearchLearningPanel() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchSearchLearning();
+  }, []);
 
   const getSuccessRate = (query: TopQuery) => {
     const total = query.accepted + query.declined;
