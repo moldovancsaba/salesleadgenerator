@@ -24,7 +24,7 @@ For {entity_name}, I see real potential in using our assessment + live second-sc
 Would you be open to a short call to see how this could fit your academy program?
 
 Best,`,
-    variables: ['entity_name', 'contact_name', 'value_proposition', 'sport_or_sector'],
+    variables: ['entity_name', 'contact_name', 'value_proposition'],
   },
   {
     id: 'academy-linkedin-connect',
@@ -49,7 +49,7 @@ We provide a centralized cognitive assessment layer plus live second-screen feed
 If that sounds useful for your program, I’d love to walk you through it.
 
 Best,`,
-    variables: ['entity_name', 'contact_name', 'value_proposition', 'sport_or_sector'],
+    variables: ['entity_name', 'contact_name', 'value_proposition'],
   },
   {
     id: 'club-email-intro',
@@ -64,7 +64,7 @@ Performance isn’t just physical. We give clubs like {entity_name} a cognitive 
 I’d love to show you how this could integrate with what you’re already doing.
 
 Best,`,
-    variables: ['entity_name', 'contact_name', 'value_proposition', 'sport_or_sector'],
+    variables: ['entity_name', 'contact_name', 'value_proposition'],
   },
   {
     id: 'club-linkedin-connect',

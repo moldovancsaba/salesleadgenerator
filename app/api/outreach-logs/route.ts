@@ -74,8 +74,6 @@ export async function POST(request: Request) {
     const routing = evaluateOutreachRouting(channel, {
       contacts: Array.isArray(body.contacts) ? body.contacts : [],
       url: body.url,
-      industry: body.industry,
-      sport_or_sector: body.sport_or_sector,
     }, bodyText)
 
     if (!routing.allowed) {
