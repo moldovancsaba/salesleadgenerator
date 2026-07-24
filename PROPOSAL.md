@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.13
+**Version:** 2.4.14
 
 ## Purpose
 
@@ -69,6 +69,9 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
 - Owner reported the ICE-score kanban sort was "still not working" and asked where the computation runs, concerned about heavy client-side work. Confirmed the sort is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`) and the client never re-sorts — `getIceScore()` client-side is only a trivial per-card display value. Investigation found a real bug: `PUT /api/leads/[id]` stored `ice` fields straight from the request body with no numeric coercion (unlike `POST`, which runs through `normalizeLead()`), so a request with numerically-valid but string-typed values would pass validation yet get persisted as strings — which then made the sort aggregation's `$multiply` throw, failing the whole column's fetch silently. Fixed both the write path (coerce `ice` to numbers before storing) and the read path (`ICE_SCORE_AGGREGATION_EXPR` now uses `$convert` with a safe fallback instead of a bare `$multiply`, self-healing any already-corrupted historical document without a migration).
+
+### AdminSelect onChange Type Mismatch, Fixed (2.4.14)
+- The 2.4.13 `@dnd-kit` fix let `npm install`/webpack resolution succeed, but a third real failure surfaced: `AdminSelect`'s real `onChange` prop is typed `(value: string | null) => void` (matching Mantine's `Select`), while `app/detail.tsx`'s handler was typed `(value: string) => void` — invisible locally since this sandbox's `gds-admin` stub is `any`-typed, so this was the first time this call was ever type-checked against the real package. Fixed the handler signature, confirmed against `gds-admin`'s real source, and upgraded the local stub's `AdminSelect` type to the real, verified contract (confirmed effective by reverting the fix and re-running `tsc`, which correctly re-flagged it). Three different real production failures came out of one GDS bump (2.4.12/13/14), each catchable only by a real `npm install`/type-check this sandbox can't fully perform — a limit now made explicit rather than re-discovered a fourth time.
 
 ### Missing @dnd-kit Transitive Dependencies, Fixed (2.4.13)
 - 2.4.12's GDS 3.11.1 bump fixed the tarball-404 problem, but `next build` then failed on Vercel with `Module not found: Can't resolve '@dnd-kit/core'` (and `sortable`/`utilities`) — `gds-core`'s own real `package.json` declares these as regular dependencies, but this repo's `package-lock.json` had been out of sync with the true dependency tree for a long time (confirmed pre-dating this session's GDS work), so Vercel's `npm install` never discovered the new transitive subtree the tarball-installed `gds-core` actually needs. Fixed by declaring `@dnd-kit/core`/`sortable`/`utilities` as direct dependencies via a real `npm install` against the public npm registry (confirmed reachable from this sandbox), which also incidentally expanded the lockfile from ~220 to ~530 tracked packages. Disclosed limit: this sandbox's local GDS packages are stubs with no real `dist/` bundle, so the specific webpack-resolution failure can't be reproduced locally — confidence rests on matching `gds-core`'s real `package.json` dependencies against Vercel's exact error, not a local build (which always passes regardless of whether `@dnd-kit` is present).
