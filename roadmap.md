@@ -1,10 +1,17 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.16
+**Version:** 2.4.17
 
 ---
 
 ## Shipped
+
+### Double-Bordered Kanban Cards + Drag-Handle Chrome Rolled Back (2.4.17)
+- 🔴 Owner reported (screenshot) every kanban card showing a visible "box within a box," plus a drag-handle icon and a second icon flanking each card — separately from a "client-side exception" crash report on the live production URL.
+- ✅ Root-caused precisely via GDS's real source: `KanbanCard` always wraps `renderItem`'s output in its own bordered `Paper` (alongside the drag-handle and Move-menu icons); `ProductCard` *always* renders `withBorder` too, no variant removes it. `app/card.tsx`'s `LeadCard` was nesting `ProductCard`'s own border inside `KanbanCard`'s already-bordered shell.
+- ✅ Rewrote `LeadCard` to render flat, borderless content (no `ProductCard`) — GDS's `KanbanCard` `Paper` is now the only border per card.
+- ✅ Turned off `enableDrag` on the kanban board — removes the drag-handle icon (one of the "boxes"), and deactivates the one genuinely new runtime code path in this whole GDS 3.11.x bump (real `@dnd-kit`) that had never actually executed in a successful production build before the crash was reported. The keyboard/tap "Move to column" menu still works unconditionally.
+- ⚠️ Neither fix could be visually confirmed locally — GDS packages are `any`-typed stubs here that render `null`, and the live production URL is unreachable from this sandbox (same network policy blocking `github.com`). The double-border fix rests on GDS's real fetched source; the `enableDrag` rollback is a reasoned hypothesis about the crash, not a confirmed root cause.
 
 ### Proactive Sweep for Similar GDS Type Gaps (2.4.16)
 - ✅ Owner asked to check for similar errors rather than wait for a fifth Vercel build. Grepped every `@sovereignsquad/*` import across the whole repo (8 usages) and checked each one not already fixed this incident against real 3.11.1 source: `AdminModal`/`AdminDetailDrawer`/`AdminTextarea`/`InfoCard`/`ProductCard` all match what's actually passed; `AdminDataTable` is generic over `T` (unlike `KanbanBoard`'s fixed interfaces), so it's structurally immune to the same contravariance bug.
