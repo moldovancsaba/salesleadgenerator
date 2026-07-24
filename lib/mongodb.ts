@@ -24,6 +24,11 @@ if (uri) {
     clientPromise = client.connect()
   }
 } else {
+  // clientPromise is typed Promise<MongoClient> but actually resolves to null
+  // here when MONGODB_URI is unset, so TypeScript can never catch a missing
+  // guard. Every caller must check isMongoConfigured() / MONGODB_URI BEFORE
+  // awaiting this promise, never by testing the awaited client's truthiness —
+  // that pattern doesn't type-narrow and the branch silently never fires.
   clientPromise = Promise.resolve(null as any)
 }
 
