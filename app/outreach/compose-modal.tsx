@@ -88,7 +88,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
     return () => {
       cancelled = true;
     }
-  }, [opened, brand, lead.entity_name, industry])
+  }, [opened, brand, lead, industry])
 
   useEffect(() => {
     const found = templates.find((t) => t.id === templateId)
@@ -96,7 +96,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
     setChannel(found.channel)
     setSubject(found.subject || '')
     setBody(interpolate(found.body, lead))
-  }, [templateId])
+  }, [templateId, lead, templates])
 
   async function handleSend() {
     if (!body.trim()) return;

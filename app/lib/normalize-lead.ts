@@ -22,6 +22,11 @@ function ensureString(value: any, maxLength = 5000): string {
   return sanitizeString(value, maxLength);
 }
 
+// The shared guarantee that ICE fields become real, clamped numbers rather
+// than passing through as numeric-looking strings — a caller that writes ICE
+// values without routing them through this (as PUT /api/leads/[id] once did)
+// risks the exact corruption class fixed in 2.4.8: a string operand silently
+// breaks the Mongo aggregation that sorts DISCOVERED/QUALIFIED by score.
 function ensureNumber(value: any, min = 0, max = 10): number {
   const num = typeof value === 'number' ? value : parseFloat(value);
   if (Number.isNaN(num)) return 0;
@@ -52,6 +57,10 @@ export function ensureArrayField(value: any): string[] {
   return [];
 }
 
+// ensureArrayField/ensureNumber below coerce bad input silently (an object
+// becomes [], an out-of-range number gets clamped) with no way for the caller
+// to know something was actually wrong. This surfaces exactly those two cases
+// as warnings instead, which extractWarnings() later exposes to the caller.
 function validateObject(value: any): string[] {
   const warnings: string[] = [];
 

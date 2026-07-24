@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.19
+**Version:** 2.4.22
 
 ---
 
@@ -79,6 +79,26 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 | Read access | Public for listings and health | Route handlers |
 
 **Note:** as of 2.2.0, when `SLG_API_KEY` *is* set, a request must send the exact matching `x-api-key` header — a missing header is rejected (401) identically to a wrong one. Earlier versions incorrectly allowed a missing header through even when a key was configured; this was fixed as a security patch.
+
+---
+
+## Dependency Audit (2.4.22)
+
+`npm outdated` confirms every installed package satisfies its own declared semver range (no drift). A major version is available for 9 packages — each a deliberate, scoped migration project, not attempted here:
+
+| Package | Current | Latest major |
+|---------|---------|--------------|
+| @mantine/core, hooks, modals, notifications | 7.17.8 | 9.4.2 |
+| react, react-dom | 18.3.1 | 19.2.x |
+| next | 15.5.21 | 16.2.11 |
+| eslint | 9.39.5 | 10.7.0 |
+| eslint-config-next | 15.5.21 | 16.2.11 |
+| typescript | 5.9.3 | 7.0.2 |
+| mongoose | 8.24.1 | 9.8.0 |
+| @types/node | 20.19.43 | 26.1.1 |
+| @types/react, @types/react-dom | 18.3.x | 19.2.x |
+
+`npm audit` (read-only) surfaces 3 high-severity advisories — PostCSS XSS/arbitrary-file-read and `sharp`'s bundled `libvips` CVEs — both confirmed via `npm ls` to live **inside `next@15.5.21`'s own `node_modules`** (`next → postcss@8.4.31`, `next → sharp@0.34.5`), not this app's own top-level `postcss` (already current). There is no newer 15.x patch that resolves this — 15.5.21 is already the ceiling of the pinned `^15.5.13` range — so the only real fix is the Next.js 16 major upgrade already listed above. `npm audit fix --force`'s auto-suggested resolution is a downgrade to `next@9.3.3`, which is nonsensical and was not applied. Recorded here explicitly, per this repo's own rule that an unavoidable transitive issue must be named rather than silently carried forward.
 
 ---
 

@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.21
+**Version:** 2.4.22
 
 ---
 
@@ -196,9 +196,8 @@
 |------|-------|
 | Country filter | No country/region filter UI currently exists in the frontend (the Region/Status dropdowns were removed entirely in 2.4.0 — see `CHANGELOG.md`); `country` is only ever shown as a display badge (`app/detail.tsx`) and a table column (`app/table.tsx`), never as something a user can filter by. Earlier entries in this doc describing a "country filter" as shipped were incorrect and have been removed. If country-based filtering is still wanted, it needs to be built as new work, not assumed present |
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
-| Orphaned standalone scripts with drifted kanban-column logic | `lead-feeder-agent.js` and `scripts/migrate-check-schema.js` each contain their own, separate ICE→column derivation with different (older) thresholds than the real `lib/kanban-column.ts`; neither is wired into any `npm` script or the running app — flagged as of 2.4.4, not yet resolved |
 
-Real-device confirmation for the iOS focus-zoom fix and PWA installability both landed in 2.4.18 (see "Shipped" above) — removed from this table as no longer open.
+Real-device confirmation for the iOS focus-zoom fix and PWA installability both landed in 2.4.18 (see "Shipped" above) — removed from this table as no longer open. The orphaned `lead-feeder-agent.js`/`scripts/migrate-check-schema.js` drift, flagged here since 2.4.4, was resolved in 2.4.22 by deleting both files — see "Shipped" above.
 
 ---
 
