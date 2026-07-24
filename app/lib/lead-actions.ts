@@ -50,6 +50,9 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     updateData.kanbanColumn = normalizedBody.kanbanColumn
     updateData.sortOrder = normalizedBody.sortOrder || 0
     updateData.manualLaneOverrideAt = now
+    // 24h cooldown: a drag-and-drop move to an arbitrary column is a lighter-weight
+    // signal than an explicit PIN below, so it protects the lead from auto-reclassification
+    // for a shorter window.
     updateData.manualLaneCooldownUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000)
     updateData.manualLaneFloorColumn = normalizedBody.kanbanColumn
     updateData.manualLaneOverrideBy = normalizedBody.manualLaneOverrideBy || 'webapp-user'
@@ -92,6 +95,8 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     updateData.kanbanColumn = 'ENGAGED'
     const now = new Date()
     updateData.manualLaneOverrideAt = now
+    // 48h cooldown: PIN is a deliberate "I'm actively working this lead" signal
+    // (vs. an incidental drag), so it earns double COLUMN_MOVE's protection window.
     updateData.manualLaneCooldownUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000)
     outcomeValue = 'Pinned to ENGAGED'
   }
@@ -115,6 +120,11 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     outcomeType: action,
     outcomeValue,
     annotation: payload.annotation || payload.notes || '',
+    // Relative confidence recorded in the outcome-log audit trail for this action
+    // type: DECLINE is the strongest signal (explicit rejection), MODIFY is a close
+    // second (a human corrected the record), everything else is weaker/implicit.
+    // Not currently read back by any scoring or learning code in this repo — see
+    // docs/ARCHITECTURE.md's Outcome Log section.
     teachingWeight: action === 'MODIFY' ? 95 : action === 'DECLINE' ? 100 : 70,
     actorType: 'USER',
     actedBy: 'webapp-user',

@@ -17,6 +17,7 @@ import {
   IconMail,
 } from '@tabler/icons-react';
 import { OutreachComposeModal } from './outreach/compose-modal';
+import { TABLET_LANDSCAPE_MAX } from './constants';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -54,7 +55,9 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mql = window.matchMedia('(max-width: 1279px)');
+    // Below desktop width, render as a full-screen AdminModal instead of the
+    // side AdminDetailDrawer — a drawer is too cramped on tablet/mobile viewports.
+    const mql = window.matchMedia(`(max-width: ${TABLET_LANDSCAPE_MAX}px)`);
     setFullScreen(mql.matches);
     const handler = (event: MediaQueryListEvent) => setFullScreen(event.matches);
     mql.addEventListener('change', handler);
