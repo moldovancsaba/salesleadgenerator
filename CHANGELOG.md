@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.16
+
+Owner asked for a proactive sweep for similar errors, rather than waiting for a fifth Vercel build to find the next one.
+
+### Audited every GDS import in the codebase against real 3.11.1 source
+- Grepped for all `@sovereignsquad/*` imports across the entire repo (not just the files already touched this incident) — found 8 usages across `app/detail.tsx`, `app/search-learning.tsx`, `app/page.tsx`, `app/kanban.tsx`, `app/metrics.tsx`, `app/card.tsx`, `app/layout.tsx`, `app/table.tsx`.
+- Fetched and checked the real prop contracts for every one not already fixed this incident: `AdminModal`, `AdminDetailDrawer` (props match, `onClose`'s narrower arity is safely assignable), `AdminTextarea` (unchanged, already checked), `InfoCard` (plain string/number props, no function-typed props, no risk), `ProductCard` (`metadata`/`title`/`description`/`status`/`primaryAction` all match), `AdminDataTable` (generic over `T`, so `rows`/`getRowKey`/`renderMobileCard` correctly parametrize against this app's own row type — structurally immune to the same contravariance issue that broke `KanbanBoard`, since `KanbanBoard`'s `KanbanItem`/`KanbanColumnData` are fixed, non-generic interfaces).
+
+### Found and fixed one more real gap: `AdminResourceCard`
+- `app/search-learning.tsx`'s "Top Queries" card passed its `record` prop with an explicit `as any` cast — found by grepping for `as any` across `app/`. Fetched `AdminResourceCard`'s real prop type (`AdminResourceCardProps<T extends AdminResourceRecord>`, generic like `AdminDataTable`) and its `AdminResourceRecord` shape (`id: string; title: ReactNode;` required, everything else optional) — the object literal already being passed (`{id, title, description, status}`) satisfies this exactly, no cast needed. Removed the unnecessary `as any`, confirmed clean via `tsc --noEmit` without it. This wasn't causing a runtime bug, but the cast fully suppressed type-checking for this call site — exactly the kind of silent gap that let the other four bugs in this incident ship undetected, now closed before it caused a fifth.
+- Upgraded the local stub (`node_modules/@sovereignsquad/gds-admin/client/index.d.ts`, gitignored) with `AdminResourceCard`'s real, verified prop type and the `AdminResourceRecord` interface, alongside the `AdminSelect` type already added in 2.4.14.
+
+### Other `as any` casts checked and left alone
+Grepped every `as any` in `app/` — the remaining ones (`app/detail.tsx`'s dynamic `PRO_FIELD`/`CON_FIELD` lookups, `app/api/search-learning/route.ts`'s MongoDB `$each`/`$slice` update operators, `app/api/leads/route.ts`'s action-string cast, `app/lib/lead-actions.ts`'s `findOneAndUpdate` result shape) are unrelated to any GDS package's type contract — internal dynamic-field access and known MongoDB-driver typing quirks, not an unverified assumption about an external package. Left as-is.
+
 ## 2.4.15
 
 **A fourth real failure from the same GDS bump** — `app/kanban.tsx:235` — `Type '(item: LeadKanbanItem, column: LeadKanbanColumn) => JSX.Element' is not assignable to type '(item: KanbanItem, column: KanbanColumnData) => ReactNode'. Property 'lead' is missing in type 'KanbanItem' but required in type 'LeadKanbanItem'.`

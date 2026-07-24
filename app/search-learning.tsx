@@ -126,7 +126,7 @@ export function SearchLearningPanel() {
                     title: query.query,
                     description: `Accepted: ${query.accepted}, Declined: ${query.declined}, Success: ${successRate}%`,
                     status: `${successRate}%`,
-                  } as any}
+                  }}
                   actions={[]}
                   hideWhenNoMedia
                 />
