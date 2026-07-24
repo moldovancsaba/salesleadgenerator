@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.34
+**Version:** 2.4.35
 
 ---
 
@@ -255,7 +255,7 @@ HTTP handlers for leads, health, outreach, learning, search, stats, and boards.
 - Brand-aware field normalization prevents cross-tenant writes
 - Schema mapper/validator blocks forbidden cross-brand vocabulary in free-text fields (e.g. `value_proposition`). The pro/con fields themselves stopped being brand-specific in 2.3.0 — there's nothing left to forbid cross-brand there, since every brand shares one generic field
 - `size` is enum-checked against `Small`/`Medium`/`Large`/`Enterprise` when present (not required) — previously documented in this schema but never actually enforced, which let free text describing scope rather than size tier (e.g. "Pan-European league") get stored and displayed as if it were a valid value. Existing out-of-enum production documents are not retroactively fixed by this — the check only gates new writes
-- `decision_maker_name`/`decision_maker_title`/`decision_maker_contact`/`contact_phone` (as of 2.4.32, issue #45): no longer recognized fields anywhere — a request that still sends them has those specific values silently ignored, not stored. Decision-maker status is set via `contacts[].isDecisionMaker` instead. `scripts/migrate-decision-maker-to-contacts.js` migrates already-stored production documents; it was written but not executed from this environment (no `MONGODB_URI`) — must be run before/with deploying this change, see the script's own header and issue #45
+- `decision_maker_name`/`decision_maker_title`/`decision_maker_contact`/`contact_phone` (as of 2.4.32, issue #45): no longer recognized fields anywhere — a request that still sends them has those specific values silently ignored, not stored. Decision-maker status is set via `contacts[].isDecisionMaker` instead. Production data was migrated on 2026-07-24 via a temporary admin endpoint (515 documents, confirmed via a follow-up dry run finding nothing left to migrate) — see `lib/migrate-decision-maker.ts`'s header and issue #45 for the full record; `scripts/migrate-decision-maker-to-contacts.ts` remains available for any future environment that needs the same migration
 
 ---
 

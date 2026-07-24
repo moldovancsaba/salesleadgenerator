@@ -1,12 +1,16 @@
-// Shared migration logic for issue #45's hard cutover, used by both the
-// standalone script (scripts/migrate-decision-maker-to-contacts.js) and the
-// temporary admin endpoint (app/api/admin/migrate-decision-maker/route.ts) —
-// one algorithm, not two copies that can drift.
-//
-// Folds legacy decision_maker_name/decision_maker_title/decision_maker_contact/
+// Migration logic for issue #45's hard cutover. Folds legacy
+// decision_maker_name/decision_maker_title/decision_maker_contact/
 // contact_phone top-level fields into a contacts[] entry with
 // isDecisionMaker: true, then clears the old fields. Idempotent: a document
 // with those fields already empty has nothing to do.
+//
+// Successfully run against production on 2026-07-24 via a temporary admin
+// endpoint (app/api/admin/migrate-decision-maker, since removed — the repo
+// owner has no terminal/DB access and needed a URL they could open on a
+// phone). 515 documents migrated (234 new contacts[] entries merged, 281
+// already represented), confirmed via a follow-up dry run finding nothing
+// left to migrate. Kept here — still used by scripts/migrate-decision-maker-to-contacts.ts
+// for any future environment (e.g. staging) that needs the same migration.
 
 // Legacy top-level fields were never guaranteed to be strings — PUT/PATCH
 // MODIFY wrote body[field] verbatim with no coercion before this hard

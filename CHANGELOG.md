@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.35
+
+Issue #45's production migration confirmed complete. Removed the temporary admin endpoint that ran it.
+
+### Migration confirmed successful
+Owner ran the fixed 2.4.34 endpoint against production: 515 documents scanned across `leads`/`seyu_leads` (234 new `contacts[]` entries merged, 281 already represented, 0 errors). A follow-up dry run found `scanned: 0` for both collections, confirming nothing was left to migrate.
+
+### Removed — `app/api/admin/migrate-decision-maker` (TEMPORARY, as documented)
+Deleted now that its one job is done, per its own header comment and the 2.4.33 entry's stated intent. `lib/migrate-decision-maker.ts` and `scripts/migrate-decision-maker-to-contacts.ts` are kept — the algorithm may still be needed for another environment (e.g. staging) — with their comments updated to record the confirmed production result instead of referencing the now-deleted endpoint.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors, 0 warnings), `vitest run` (73/73), smoke suite (5/5), `next build --webpack` (back to 23 routes, the temporary 24th removed).
+
+Version bumped 2.4.34 -> 2.4.35.
+
 ## 2.4.34
 
 Fixed a real production error surfaced by the owner running the 2.4.33 migration endpoint's dry run: `"(a.decision_maker_contact || \"\").trim is not a function"`.

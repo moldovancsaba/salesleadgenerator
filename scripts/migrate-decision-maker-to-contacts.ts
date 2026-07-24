@@ -1,25 +1,21 @@
 #!/usr/bin/env npx tsx
-// One-time production migration for issue #45's hard cutover. Imports the
-// real algorithm from lib/migrate-decision-maker.ts directly (run via tsx,
+// Production migration for issue #45's hard cutover. Imports the real
+// algorithm from lib/migrate-decision-maker.ts directly (run via tsx,
 // already a devDependency — see tests/smoke/*.smoke.ts for the same
 // pattern) rather than re-implementing it, so there's exactly one copy of
-// this logic, shared with the temporary admin endpoint
-// (app/api/admin/migrate-decision-maker/route.ts).
+// this logic.
 //
-// MUST be run against real production data before (or atomically with)
-// deploying the code in this change — see GitHub issue #45's "Production
-// data migration" section. Skipping it means any lead whose decision-maker
-// data lives ONLY in the top-level fields (anything edited via PUT or
-// PATCH MODIFY since creation, per the bypass bug this change fixes) will
-// have that data become invisible the moment the new code ships, with no
-// error or warning.
+// Already run successfully against production on 2026-07-24 (515 documents
+// migrated) via a temporary admin endpoint, since removed — see
+// lib/migrate-decision-maker.ts's header for the confirmed result. This
+// script is kept for any future environment (e.g. staging) that needs the
+// same migration; it's a no-op against a database that's already been
+// migrated (idempotent — see below).
 //
-// This sandbox has no MONGODB_URI and — separately, confirmed by direct
-// test — no network path to MongoDB Atlas (TCP to port 27017 times out) or
-// to the deployed app itself (HTTPS CONNECT to salesleadgenerator.vercel.app
-// returns 403, same policy class as github.com). Could not run this
-// directly; the admin endpoint is the alternative that actually reaches
-// production, since it runs inside Vercel's own network.
+// Requires a real MONGODB_URI in .env.local — this sandbox never had
+// direct network access to MongoDB Atlas or the deployed app itself, both
+// confirmed blocked by direct test, which is why the temporary admin
+// endpoint was used instead of running this script directly.
 //
 // Usage:
 //   npx tsx scripts/migrate-decision-maker-to-contacts.ts            # dry run (default)
