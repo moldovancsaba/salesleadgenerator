@@ -52,7 +52,6 @@ export type Lead = {
   pro_for_organization?: string | string[];
   con_for_organization?: string | string[];
   value_proposition?: string;
-  priority?: "high" | "medium" | "low";
   status?: string;
   notes?: string;
   // Written by POST and required by the agent's quality gate (agent-runtime/tenants.json)
@@ -63,7 +62,26 @@ export type Lead = {
   sortOrder: number;
   fingerprint?: string;
   ice?: { impact: number; confidence: number; ease: number };
-  scoreProfile?: any;
+  // Matches buildScoreProfile()'s real return shape (app/api/leads/route.ts) —
+  // previously `any`, the only field on this whole type with no shape at all.
+  scoreProfile?: {
+    agentProposal: { impact: number; confidence: number; effort: number };
+    calibratedHeuristic: { impact: number; confidence: number; effort: number };
+    finalBlended: {
+      ice: number;
+      quality: number;
+      urgency: number;
+      freshness: number;
+      humanSignal: number;
+      risk: number;
+    };
+    qualityDimensions: {
+      evidenceQuality: number;
+      linguisticQuality: number;
+      actionabilityQuality: number;
+      strategicValue: number;
+    };
+  };
   qualityStatus: QualityStatus;
   feedbackScore: number;
   declineCount: number;
@@ -74,13 +92,8 @@ export type Lead = {
   manualLaneCooldownUntil?: string;
   manualLaneFloorColumn?: string;
   manualLaneOverrideBy?: string;
-  lastActionAt?: string;
   createdAt?: string;
   updatedAt?: string;
-  qualifiedAt?: string;
-  lastStatusChangeAt?: string;
-  autoMoved?: boolean;
-  autoMoveNote?: string;
   // CogMap forecast fields (ticket size)
   estimated_annual_revenue_usd?: number;
   estimated_participants?: number;

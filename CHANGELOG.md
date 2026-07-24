@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.36
+
+Continuation of issue #45's data-model audit, scoped to the confirmed-dead fields. See #46.
+
+### Removed — confirmed-dead `Lead` fields
+- `autoMoved`, `autoMoveNote`, `lastActionAt`, `qualifiedAt`, `lastStatusChangeAt`: zero references anywhere in `app/`/`lib/` outside the type declaration itself — never written, never read. Removed from `app/types.ts`.
+- `priority`: written on every lead creation (`POST /api/leads`, defaulting `'medium'`) and accepted by `PUT`'s `allowedFields`, but never read back anywhere — no UI display, no sort/filter/scoring logic. Retired the write in `POST`, removed from `PUT`'s allow-list, removed from the type and `PIPELINE_ARCHITECTURE.md`'s schema reference, and dropped the now-pointless debug print in `scripts/verify-migration.js`. Matches the precedent already set twice in this repo (unused Mongoose models deleted 2.4.7, orphaned scripts deleted 2.4.22) for confirmed-dead code.
+
+No production data migration needed — unlike issue #45's fields, nothing here is read from storage and displayed, so there's no risk of losing visible data. Existing documents keep whatever `priority` value they already have; it's simply never read.
+
+### Changed — `scoreProfile` properly typed
+Was the only field on the whole `Lead` type with no shape at all (`any`). Now matches `buildScoreProfile()`'s real, already-well-defined return shape (`agentProposal`/`calibratedHeuristic`/`finalBlended`/`qualityDimensions`, each with real numeric sub-keys) — a pure type addition, no behavior change.
+
+### Explicitly deferred, not fixed here
+Two other findings from the same audit are real but larger, riskier items that need their own separate design pass: `industry` vs `sport_or_sector` (redundant but both actively read with fallback logic throughout the UI — a rename with the same production-migration profile as #45), and `pricingByCompany` vs CogMap's flat forecast fields (a genuine, understood business difference between the two brands' pricing models, not redundant naming).
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors, 0 warnings), `vitest run` (73/73), smoke suite (5/5), `next build --webpack` (23 routes).
+
+Version bumped 2.4.35 -> 2.4.36.
+
 ## 2.4.35
 
 Issue #45's production migration confirmed complete. Removed the temporary admin endpoint that ran it.
