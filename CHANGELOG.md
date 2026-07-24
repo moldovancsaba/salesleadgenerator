@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.23
+
+Step 1 of the "deliver the rest" migration plan (follow-on to 2.4.22's housecleaning pass): real route-level API integration tests, the long-standing 3-doc TODO. Deliberately sequenced first, ahead of the 6 dependency-major migrations that follow, so each of those gets a genuine regression net instead of relying on manual spot-checks alone.
+
+### Added — route-level integration test suite
+- `tests/integration/` (6 files) using `mongodb-memory-server` for a real in-process MongoDB — route handlers are exercised against genuine Mongo query/update/aggregation behavior, not a mock, catching the exact class of bug this app has hit before (aggregation `$convert`/`$multiply` type mismatches, cursor sort-order correctness).
+- Coverage: `/api/leads` (GET/POST — dedup via fingerprint, the quality gate, validation rejection), `/api/leads/[id]` (GET/PUT/DELETE — ICE string-to-number coercion, auto-reclassification across the DISCOVERED/QUALIFIED boundary, and that a lead moved to a manual column like WON is never auto-reclassified again), `/api/leads/columns` (ICE-score sort for DISCOVERED vs. `sortOrder` sort for WON), `/api/health` (both the real-ping and the 503-when-unconfigured paths — a direct regression guard for 2.4.22's dead-code fix), `/api/sales-settings/[brand]` (a real PUT-then-GET Mongo round trip, finally closing the gap disclosed when that feature shipped in 2.4.20/2.4.21 — this sandbox had no `MONGODB_URI` at the time, so only the sanitizer's unit tests existed), and `/api/boards/[brand]` (forecast math against the real default pipeline weights). The remaining ~12 routes are not yet covered — named explicitly in `PROPOSAL.md`, not silently dropped.
+- New `vitest.config.ts` (didn't exist before — vitest was running on defaults) adds a `@/` path alias matching `tsconfig.json`'s own `paths`, since some route files import via `@/...` and vitest/vite don't read tsconfig paths automatically; without it, dynamically importing those routes in a test fails with `Cannot find package '@/...'`. Also excludes `tests/integration/**` from the default `vitest run`.
+- New `vitest.integration.config.ts` + `npm run test:integration` script specifically target `tests/integration/`, kept separate from the default gate for the reason below.
+
+### Fixed — the same dead-code pattern from 2.4.22, found in a second file
+- While writing tests against `app/api/leads/[id]/route.ts`, found `result?.value || result` at its `PUT` handler — the identical dead-code pattern already fixed in `app/lib/lead-actions.ts` in 2.4.22 (the real installed `mongodb@6.20.0` driver never returns the `.value`-wrapped shape without `includeResultMetadata: true`, which this call never passes). Fixed the same way: a direct null check against `result`.
+
+### Disclosed limitation — this sandbox cannot run the new tests to completion
+- `mongodb-memory-server` downloads a real `mongod` binary from `fastdl.mongodb.org` on first use. Confirmed via this sandbox's own proxy status endpoint that this host is policy-blocked (`403` on `CONNECT`, not a version/mirror mismatch — tried an explicit known-good pinned version too, same result) — the same class of restriction already documented for GitHub release-asset downloads earlier in this repo's history. The integration test suite is therefore **written and type-checked, but not executed to completion from this environment**; it needs to run for real in CI or a developer machine with unrestricted network before being trusted. This is exactly why `npm run test:integration` is a separate script from the always-on `vitest run` gate — the main quality gate stays clean and honest while this genuinely-untested-here suite is clearly marked as such.
+
 ## 2.4.22
 
 General housecleaning pass, owner-requested: eliminate code-comment inconsistencies, fix hidden/non-tracked errors, sync stale docs, collect every warning/deprecation, and maintain the roadmap. Preceded by a full 8-part audit (comment style, doc currency, hidden errors, roadmap state, GitHub issues, dependencies, warnings, SWOT precedent) before any change was made, per this repo's own "never guess" rule.
