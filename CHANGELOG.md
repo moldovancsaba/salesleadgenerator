@@ -1,5 +1,31 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.37
+
+Follow-up to 2.4.36's deferred `industry`/`sport_or_sector` item. Direct audit of the real data (100% of 50 sampled seed records) disproves the premise stated in the 2.4.36 entry: the two fields are **not** redundant duplicates. `industry` is a broad category ("Financial Services"); `sport_or_sector` is a specific sub-classification ("Quantitative Hedge Fund") — genuinely distinct information. Merging or renaming them the way #45 merged `decision_maker_*` would destroy real data, so that is explicitly **not** done here. Correcting the record: this is not a rename candidate.
+
+What the same audit found instead were narrowly-scoped, safe bugs, all fixed in this release with no data-model or migration risk:
+
+### Fixed — sanitization asymmetry
+`app/lib/normalize-lead.ts`: `industry` was always run through `ensureString()` (strips control chars, trims, caps length); `sport_or_sector` only survived via the raw `...raw` spread, completely unsanitized. Now sanitized the same way. Added regression tests in `tests/lib/normalize-lead.test.ts`.
+
+### Removed — dead plumbing in outreach routing
+`app/lib/outreach/routing-rules.ts`: `LeadFieldSnapshot` declared `industry`/`sport_or_sector` and callers (`app/api/outreach-logs/route.ts`) populated them on every call, but `evaluateOutreachRouting()` never read either field. Removed from the type and the one caller that passed them.
+
+### Fixed — stale template variable metadata
+`app/lib/outreach/default-templates.ts`: three templates (`academy-email-intro`, `federation-email-intro`, `club-email-intro`) listed `sport_or_sector` in their `variables` array — shown to users in the templates admin UI as an available placeholder — but no template `body` ever contains a `{sport_or_sector}` placeholder to interpolate. Removed the stale entries.
+
+### Fixed — documentation vs. reality
+`PIPELINE_ARCHITECTURE.md`'s Impact scoring section documented a "+2 if federation or national body" bonus with no corresponding implementation anywhere in the codebase — Impact is entirely agent-supplied (`normalizedBody.ice?.impact || normalizedBody.impact || 5`), there is no `computeImpact()`. Added a note clarifying the scale is agent guidance, not an implemented formula.
+
+### Explicitly still not done
+Server-side validation requiring `industry` (as `agent-runtime/tenants.json`'s `requiredFields` already does for the research agent) was considered and deliberately not added here — this sandbox cannot query production data to confirm no existing documents have a blank `industry`, and adding a hard-required check without that confirmation risks rejecting legitimate updates to pre-existing records. Needs a production data check before it can be safely added.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors, 0 warnings), `vitest run` (77/77), smoke suite (5/5), `next build --webpack` (23 routes).
+
+Version bumped 2.4.36 -> 2.4.37.
+
 ## 2.4.36
 
 Continuation of issue #45's data-model audit, scoped to the confirmed-dead fields. See #46.

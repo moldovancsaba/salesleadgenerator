@@ -130,6 +130,7 @@ export function normalizeLead(raw: LeadRaw): NormalizedLead {
     general_contact: ensureString(raw.general_contact),
     size: ensureString(raw.size),
     industry: ensureString(raw.industry || raw.sport_or_sector),
+    sport_or_sector: ensureString(raw.sport_or_sector),
     value_proposition: ensureString(raw.value_proposition),
     notes: ensureString(raw.notes),
     kanbanColumn: normalizedColumn,

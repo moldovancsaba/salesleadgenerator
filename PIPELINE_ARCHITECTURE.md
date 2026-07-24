@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.36
+**Version:** 2.4.37
 
 ## Overview
 
@@ -33,6 +33,7 @@ Max: 1000
 ```
 
 ### Impact (organization potential, 1–10)
+Impact is entirely agent-supplied (`normalizedBody.ice?.impact || normalizedBody.impact || 5` in `POST /api/leads`) — there is no `computeImpact()` in this repo. The scale below is guidance given to the research agent, not a formula implemented in code:
 - Enterprise = 10, Large = 8, Medium = 5, Small = 3
 - +2 if federation or national body
 - +1 if first-team/elite squad focus
