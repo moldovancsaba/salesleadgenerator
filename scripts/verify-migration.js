@@ -31,7 +31,6 @@ async function verify() {
     sample.forEach((lead, i) => {
       console.log(`[${i + 1}] ${lead.entity_name || lead.name}`);
       console.log(`   Region: ${lead.region}`);
-      console.log(`   Priority: ${lead.priority}`);
       console.log(`   Fingerprint: ${lead.fingerprint || 'MISSING'}`);
       console.log(`   Ice: ${lead.ice || 'MISSING'}`);
 

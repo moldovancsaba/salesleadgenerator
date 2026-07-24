@@ -131,7 +131,7 @@ export async function PUT(
     const allowedFields = [
       'entity_name', 'url', 'region', 'address', 'general_contact', 'size', 'industry',
       'sport_or_sector', 'level_league', 'value_proposition', 'notes', 'tags',
-      'kanbanColumn', 'sortOrder', 'priority', 'status', 'ice', 'iceScore',
+      'kanbanColumn', 'sortOrder', 'status', 'ice', 'iceScore',
       PRO_FIELD, CON_FIELD, 'contacts', 'qualityStatus',
       'recommended_tier', 'estimated_participants', 'estimated_annual_revenue_usd',
       'revenue_model', 'product_fit_notes', 'pricingByCompany'

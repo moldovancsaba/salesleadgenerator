@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.35
+**Version:** 2.4.36
 
 ## Overview
 
@@ -129,7 +129,6 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
   fingerprint: string (SHA1, indexed)
   kanbanColumn: 'DISCOVERED' | 'QUALIFIED' | 'ENGAGED' | 'PROPOSAL' | 'WON' | 'LOST'
   sortOrder: number
-  priority: 'high' | 'medium' | 'low'
   status: string
   qualityStatus?: 'DRAFT' | 'CHECKED' | 'VERIFIED'
   feedbackScore: number
