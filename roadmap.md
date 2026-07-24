@@ -1,10 +1,15 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.15
+**Version:** 2.4.16
 
 ---
 
 ## Shipped
+
+### Proactive Sweep for Similar GDS Type Gaps (2.4.16)
+- ✅ Owner asked to check for similar errors rather than wait for a fifth Vercel build. Grepped every `@sovereignsquad/*` import across the whole repo (8 usages) and checked each one not already fixed this incident against real 3.11.1 source: `AdminModal`/`AdminDetailDrawer`/`AdminTextarea`/`InfoCard`/`ProductCard` all match what's actually passed; `AdminDataTable` is generic over `T` (unlike `KanbanBoard`'s fixed interfaces), so it's structurally immune to the same contravariance bug.
+- ✅ Found one more real gap: `app/search-learning.tsx`'s `AdminResourceCard` usage had an explicit `record={{...} as any}` cast that fully suppressed type-checking for that call. The object already satisfied the real `AdminResourceRecord` shape exactly — removed the unnecessary cast, upgraded the local stub with `AdminResourceCard`'s real, verified type, confirmed clean via `tsc` without the cast.
+- ✅ Grepped every remaining `as any` in `app/` — the rest are unrelated to GDS (MongoDB driver typing quirks, dynamic field access, an action-string cast), not the same class of unverified-external-contract bug. Left alone.
 
 ### KanbanBoard renderItem Type Mismatch, Fixed (2.4.15)
 - 🔴 A fourth real failure from the same GDS bump: `app/kanban.tsx:235` — `renderItem`'s parameter types (`LeadKanbanItem`/`LeadKanbanColumn`, which require a `lead` field) don't satisfy the real, fixed `KanbanItem`/`KanbanColumnData` contract `KanbanBoard` actually calls it with — a genuine contravariant function-parameter mismatch, correctly rejected by real `gds-core` types but invisible against the local `any`-typed stub.
