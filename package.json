@@ -1,6 +1,6 @@
 {
   "name": "slg-leads",
-  "version": "2.4.23",
+  "version": "2.4.24",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -43,7 +43,7 @@
     "eslint-config-next": "^15.5.13",
     "mongodb-memory-server": "^11.2.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.0.0",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }
 }
