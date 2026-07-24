@@ -1,10 +1,16 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.22
+**Version:** 2.4.28
 
 ---
 
 ## Shipped
+
+### "Deliver the Rest" Dependency Migration (2.4.23–2.4.28) — complete
+- ✅ Sequenced 7-step migration covering the 9-package major-version backlog flagged in 2.4.22's housecleaning pass: route-level integration test suite (2.4.23) → TypeScript 5→6.0.3, with 7 explicitly blocked on an open upstream `typescript-eslint` compatibility gap (2.4.24) → React 18→19 (2.4.25) → Next.js 15→16, with ESLint 10 attempted and reverted on a *separate* open `typescript-eslint`/ESLint-10 gap (2.4.26) → Mantine 7→9 in a single jump after real 7→8 breaking-change research found nothing applicable to this codebase (2.4.27) → Mongoose 8→9, the final step (2.4.28).
+- ⚠️ Every step was verified against real sources before shipping, not assumed: `npm view`/registry metadata for peer compatibility, official migration guides fetched directly, real quality-gate runs, and real-browser checks for anything touching rendering. Two genuine upstream blockers (TypeScript 7, ESLint 10) were found and explicitly deferred rather than forced; one factual error in the original plan (Next.js 16 does **not** resolve the 3 bundled PostCSS/`sharp` CVEs, contrary to what was originally claimed) was corrected once empirically disproven.
+- 🔴 The Mongoose 8→9 step (2.4.28) uncovered a real hidden risk: `mongodb` — the app's own live database driver, used by every API route — had never been declared as a direct dependency, only ever hoisted transitively from Mongoose. Bumping Mongoose alone would have silently promoted the app's real driver from 6.20.0 to 7.5.0 as an undeclared side effect, contradicting the step's own "ops-scripts only" scope. Fixed by declaring `mongodb` as an explicit direct dependency pinned to `^6.20.0`.
+- See `docs/STACK_AND_DEPENDENCIES.md`'s Dependency Audit table and each version's `CHANGELOG.md` entry for the full detail on every step. GitHub issues #31–#35 track each step individually.
 
 ### Sales Settings Save Button 401 Fix (2.4.21)
 - 🔴 Owner reported the new Save button (2.4.20) failing with "Unauthorized" in production. Root cause: `PUT /api/sales-settings/[brand]` required `requireApiKey`, but the browser form has no way to safely hold that secret (no login system exists in this app) — guaranteed to fail whenever `SLG_API_KEY` is set in the deployment environment.
@@ -197,7 +203,7 @@
 | Country filter | No country/region filter UI currently exists in the frontend (the Region/Status dropdowns were removed entirely in 2.4.0 — see `CHANGELOG.md`); `country` is only ever shown as a display badge (`app/detail.tsx`) and a table column (`app/table.tsx`), never as something a user can filter by. Earlier entries in this doc describing a "country filter" as shipped were incorrect and have been removed. If country-based filtering is still wanted, it needs to be built as new work, not assumed present |
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
 
-Real-device confirmation for the iOS focus-zoom fix and PWA installability both landed in 2.4.18 (see "Shipped" above) — removed from this table as no longer open. The orphaned `lead-feeder-agent.js`/`scripts/migrate-check-schema.js` drift, flagged here since 2.4.4, was resolved in 2.4.22 by deleting both files — see "Shipped" above.
+Real-device confirmation for the iOS focus-zoom fix and PWA installability both landed in 2.4.18 (see "Shipped" above) — removed from this table as no longer open. The orphaned `lead-feeder-agent.js`/`scripts/migrate-check-schema.js` drift, flagged here since 2.4.4, was resolved in 2.4.22 by deleting both files — see "Shipped" above. The "deliver the rest" dependency migration (below, 2.4.23–2.4.28) is complete and moved to "Shipped."
 
 ---
 
