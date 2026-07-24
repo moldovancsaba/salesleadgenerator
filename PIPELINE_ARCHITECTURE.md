@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.26
+**Version:** 2.4.27
 
 ## Overview
 
@@ -170,7 +170,7 @@ There is no Mongoose schema for this shape — `models/Lead.ts` (and `OutcomeLog
 ## Frontend
 
 - **Framework:** Next.js 15 (App Router)
-- **UI:** Mantine 7, plus a private GDS component library for admin surfaces (`@sovereignsquad/gds-admin`/`gds-core`)
+- **UI:** Mantine 9, plus a private GDS component library for admin surfaces (`@sovereignsquad/gds-admin`/`gds-core`)
 - **PWA:** Web app manifest, standalone display, touch-optimized
 - **Board:** Horizontal scroll between columns, vertical scroll within columns
 - **Cards:** Compact (`ProductCard`) — entity name, ICE score, ticket size, region, contact — tap for full detail modal
