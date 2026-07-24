@@ -1,7 +1,7 @@
 # Deployment Log
 
 ## Latest Deployment — real-device confirmation: 2.4.17 fixes all verified working
-- **Commit**: (pending — real-device confirmation doc update)
+- **Commit**: 16b37cf
 - **Message**: docs: real-device confirmation that 2.4.17 fixes resolved PWA/modal/border/zoom
 - **Build Status**: Documentation-only change (no code touched). Verified via `tsc --noEmit` (0 errors), `eslint` (0 errors, 3 pre-existing warnings carried forward), `vitest run` (35/35), smoke suite (5/5), and a real `next build`, all unaffected as expected.
 - **Context**: Owner confirmed directly, on a real device viewing production (mobile, portrait): PWA works, the lead detail modal works, the double-bordered kanban cards are fixed, and the iOS zoom-on-focus problem is fixed. Drag-and-drop is confirmed off on mobile portrait (matching the deliberate `enableDrag: false` rollback from the previous deployment) — owner explicitly said they can live with that rather than wanting `enableDrag` re-enabled. This closes out every item this sandbox couldn't verify itself in the previous deployment: the double-border fix (couldn't render GDS locally), the `enableDrag` rollback as the actual crash fix (couldn't reach the live URL or get a console error), and the iOS focus-zoom fix (Chromium emulation can't reproduce WebKit's real auto-zoom behavior) — an open question dating back to 2.2.1/2026-07-23 for the PWA-installability piece specifically. Updated `CHANGELOG.md`, `roadmap.md`, `PROPOSAL.md`, `docs/ARCHITECTURE.md`, `docs/OPERATOR_GUIDE.md` to mark all of these confirmed rather than "reasoned hypothesis pending confirmation."
