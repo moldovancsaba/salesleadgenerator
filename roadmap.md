@@ -1,10 +1,17 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.13
+**Version:** 2.4.14
 
 ---
 
 ## Shipped
+
+### AdminSelect onChange Type Mismatch, Fixed (2.4.14)
+- 🔴 2.4.13's `@dnd-kit` fix let `npm install` and webpack module resolution succeed, but a third real failure surfaced on Vercel: a genuine `tsc` type error in `app/detail.tsx` — `AdminSelect`'s real `onChange` is typed `(value: string | null) => void` (matching Mantine's own `Select`), but the app's handler was typed `(value: string) => void`.
+- ✅ Root cause: invisible to every local check all along, since this sandbox's local `gds-admin` is an `any`-typed stub — this was the first time this code path was ever type-checked against the real package, because it's the first time in this bump cycle `npm install` actually succeeded end-to-end in production.
+- ✅ Fixed the handler to accept `string | null`, confirmed the real signature by fetching `packages/gds-admin/src/AdminForms.tsx` from `gds-v3.11.1` directly.
+- ✅ Closed part of the underlying gap: the local stub's `AdminSelect` now carries its real, verified prop type instead of `any` — confirmed by reverting the fix and re-running `tsc`, which correctly re-flagged the same error locally this time.
+- ⚠️ Three real, different production failures surfaced back-to-back from one GDS version bump (2.4.12/2.4.13/2.4.14), each only catchable by an actual successful `npm install`/type-check against the real package — something this sandbox cannot fully do. Every "verified" claim this session proves the code against stub types, never the real compiled package's actual contract; that limit is now explicit in-repo.
 
 ### Missing @dnd-kit Transitive Dependencies, Fixed (2.4.13)
 - 🔴 2.4.12's GDS 3.11.1 bump fixed the tarball-404 problem — `npm install` succeeded on Vercel — but `next build` then failed on `Module not found: Can't resolve '@dnd-kit/core'` (and `sortable`/`utilities`), imported from `gds-core`'s compiled bundle via `app/kanban.tsx`.

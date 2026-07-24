@@ -355,7 +355,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
         label="Decline Reason"
         description="Only used when declining"
         value={declineReason}
-        onChange={(value: string) => setDeclineReason(value as DeclineReason)}
+        onChange={(value: string | null) => value && setDeclineReason(value as DeclineReason)}
         data={DECLINE_REASONS.map((r) => ({ value: r.value, label: r.label }))}
       />
       <AdminTextarea

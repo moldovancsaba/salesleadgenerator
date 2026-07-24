@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.14
+
+**2.4.13's `@dnd-kit` fix let `npm install` and webpack module resolution succeed, but a third real failure surfaced** — a genuine TypeScript type error: `app/detail.tsx:358` — `AdminSelect`'s `onChange` prop is typed `(value: string | null) => void` (matching Mantine's own `Select`, which can emit `null` on a cleared/no-match selection), but the app's handler was typed `(value: string) => void`.
+
+### Root cause
+This mismatch was invisible to every local check all along: this sandbox's local `@sovereignsquad/gds-admin` is a hand-written `any`-typed stub (the real package can't be installed here at all), so `tsc --noEmit` and `next build` locally never actually type-checked this call against the real `AdminSelect` prop contract — only against `any`, which accepts anything. This was the first time this exact code path was type-checked against the real, compiled package, because it's the first time `npm install` actually succeeded end-to-end in production this bump cycle.
+
+### Fixed
+- `app/detail.tsx`: `onChange={(value: string) => setDeclineReason(value as DeclineReason)}` → `onChange={(value: string | null) => value && setDeclineReason(value as DeclineReason)}` — matches the real contract, ignores a `null` (cleared) selection rather than crashing type-wise (this field isn't rendered as clearable, so `null` shouldn't fire in practice, but the type must still account for it).
+- Confirmed the real `onChange` signature by fetching `packages/gds-admin/src/AdminForms.tsx` from the `gds-v3.11.1` tag directly — not guessed. `AdminTextarea`'s signature (`(value: string) => void`, no `null`) was checked too and is unchanged; no other call site in this file needed a change.
+- **Closed part of the underlying gap**: `node_modules/@sovereignsquad/gds-admin/client/index.d.ts` (the local sandbox stub) now types `AdminSelect` with its real, verified prop signature instead of `any` — confirmed by reverting the code fix and re-running `tsc`, which now correctly re-flags the exact same error locally. `AdminModal`/`AdminDetailDrawer`/`InfoCard`/`AdminResourceCard`/`AdminDataTable` remain `any`-typed for now (not exhaustively re-typed in this pass) — their usages in this codebase are basic modal-shell props (booleans, strings, `ReactNode` children) at comparatively low risk, but the same class of drift is still possible there and wouldn't be caught locally.
+
+### Disclosed pattern across 2.4.12/2.4.13/2.4.14
+Three real, different production failures surfaced back-to-back from one GDS version bump, each only catchable by an actual successful `npm install` against the real package — something this sandbox cannot do at all for the private GDS tarballs. Every local "verified" claim this session has had an asterisk: it proves the code compiles against stub types, never that the real compiled package's actual contract matches. That asterisk is now made explicit in-repo (this entry, plus the improved `AdminSelect` stub type) rather than re-discovered the hard way a fourth time.
+
 ## 2.4.13
 
 **2.4.12 fixed the tarball-404 problem but introduced a different real build failure** — Vercel's `npm install` succeeded this time (confirming the 3.11.1 tarball verification was correct), but `next build` then failed: `Module not found: Can't resolve '@dnd-kit/core'` (and `@dnd-kit/sortable`, `@dnd-kit/utilities`), imported from `@sovereignsquad/gds-core`'s compiled bundle via `app/kanban.tsx`.
