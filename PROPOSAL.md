@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.17
+**Version:** 2.4.18
 
 ## Purpose
 
@@ -69,6 +69,9 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
 - Owner reported the ICE-score kanban sort was "still not working" and asked where the computation runs, concerned about heavy client-side work. Confirmed the sort is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`) and the client never re-sorts — `getIceScore()` client-side is only a trivial per-card display value. Investigation found a real bug: `PUT /api/leads/[id]` stored `ice` fields straight from the request body with no numeric coercion (unlike `POST`, which runs through `normalizeLead()`), so a request with numerically-valid but string-typed values would pass validation yet get persisted as strings — which then made the sort aggregation's `$multiply` throw, failing the whole column's fetch silently. Fixed both the write path (coerce `ice` to numbers before storing) and the read path (`ICE_SCORE_AGGREGATION_EXPR` now uses `$convert` with a safe fallback instead of a bare `$multiply`, self-healing any already-corrupted historical document without a migration).
+
+### Real-Device Confirmation: 2.4.17 Fixes All Verified Working (2.4.18)
+- Owner confirmed on a real device (production, mobile portrait): PWA works, the lead detail modal works, the double-bordered kanban cards are fixed, and the iOS zoom-on-focus problem is fixed. Confirms `enableDrag: false` was the actual fix for the "client-side exception" crash (not just a hypothesis) and that GDS's theme-level `Input.vars` zoom guard genuinely works on real iOS Safari. Drag-and-drop being off on mobile portrait is confirmed acceptable — owner explicitly does not want `enableDrag` re-enabled.
 
 ### Double-Bordered Kanban Cards + Drag-Handle Chrome Rolled Back (2.4.17)
 - Owner reported (screenshot) a visible "box within a box" around every kanban card plus a drag-handle icon and a second icon flanking each card, alongside an unrelated "client-side exception" crash report on the live production URL. Root-caused via GDS's real source: `KanbanCard` always wraps `renderItem`'s output in its own bordered `Paper`, and `ProductCard` always renders `withBorder` too (no variant removes it) — `LeadCard` was nesting one inside the other. Rewrote `LeadCard` to render flat, borderless content so GDS's own card border is the only one. Also turned off `enableDrag` on the kanban board — removes the drag-handle icon and deactivates the one genuinely new runtime code path in this whole GDS 3.11.x bump (real `@dnd-kit`), which had never actually executed in a successful production build before the crash appeared; the keyboard/tap "Move to column" menu remains fully functional regardless. Neither fix could be visually confirmed locally (GDS is stubbed to render `null` in this sandbox, and the live production URL is unreachable from here) — the border fix rests on real GDS source, the `enableDrag` rollback is a reasoned hypothesis about the crash pending real confirmation.
@@ -147,8 +150,6 @@ This document tracks proposed improvements against the current shipped state. Co
 - Tenant-aware indexes and migration path
 
 ### Mobile UX Polish
-- Real-device PWA-installability verification: owner reports it's still not behaving as expected as of 2026-07-23; specifics (which platform, which symptom) not yet gathered — see open question in `deployment.md`.
-- Real-device confirmation of the iOS focus-zoom fix — now GDS 3.11.0's theme-level `Input.vars` mechanism (2.4.10), superseding the 2.4.6 `!important` CSS hack — could not be verified from this sandbox (no headless/desktop equivalent to screenshot); see the "GDS 3.11.0 Adoption" workstream above.
 - Table view density/readability tuning
 - No country/region filter UI currently exists at all (see roadmap.md) — if this is still wanted, it needs to be built as new work, including backfill/mapping `country` from `region` where missing, not assumed to already be partially built
 
