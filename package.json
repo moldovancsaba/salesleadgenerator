@@ -1,6 +1,6 @@
 {
   "name": "slg-leads",
-  "version": "2.4.27",
+  "version": "2.4.28",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -25,7 +25,8 @@
     "@sovereignsquad/gds-theme": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.11.1/sovereignsquad-gds-theme-3.11.1.tgz",
     "@tabler/icons-react": "^3.45.0",
     "dotenv": "^17.4.2",
-    "mongoose": "^8.0.0",
+    "mongodb": "^6.20.0",
+    "mongoose": "^9.8.0",
     "next": "^16.2.11",
     "postcss": "^8.4.0",
     "postcss-preset-mantine": "^1.18.0",
