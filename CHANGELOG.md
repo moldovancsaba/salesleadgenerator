@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.27
+
+Migration Step 6 of "deliver the rest": Mantine 7 → 9 (a single jump, since a real research pass found the 7→8 leg touches nothing this codebase uses, and the 8→9 leg was already confirmed inapplicable in the original plan).
+
+### Changed — @mantine/core, hooks, modals, notifications 7.17.8 → 9.4.2
+- Researched the previously-unresearched 7→8 breaking-change set before touching anything: Mantine's official v7→v8 migration guide changes `@mantine/dates` (Date → string values), `@mantine/carousel` (prop removals), `@mantine/code-highlight` (dropped highlight.js default), and default-prop behavior on `Portal`/`Switch`/`Popover`/`Menu.Item` — none of these packages or components are used anywhere in this codebase (confirmed via grep across `app/`). The only touchpoint the guide calls out — a global-CSS file split — doesn't apply either, since this app imports the bundled `@mantine/core/styles.css`, not individual style files.
+- Confirmed `@sovereignsquad/gds-theme`'s own `peerDependencies` already declare `@mantine/core: ^7.9.0 || ^8.3.0 || ^9.0.0` (checked when React 19 landed in 2.4.25) — no GDS-side blocker for this jump.
+- Confirmed via the npm registry that Mantine 9.x's own peer range (`react: ^18.x || ^19.x`) is satisfied by this repo's already-installed React 19.2.8, and that `postcss-preset-mantine@1.18.0`/`postcss-simple-vars@7.0.1` (both already pinned here) declare only generic PostCSS peers, not a Mantine-version-specific one — no bump needed for either.
+- `showNotification` (imported from `@mantine/notifications` in `app/detail.tsx`) — the only direct Mantine-notifications API this app calls — is still exported in 9.4.2 (confirmed against the real installed type declarations), so no code change was needed there.
+- Full quality gate: `tsc --noEmit` (0 errors), `eslint` (0 errors, 0 warnings), `vitest run` (49/49), smoke suite (5/5), `next build --webpack` (all 23 routes).
+- Real-browser verification (ephemeral Playwright against this environment's pre-installed Chromium) across the 6 highest-traffic pages (`/`, `/sales/cogmap`, `/sales/seyu`, `/salessettings/cogmap`, `/outreach/templates`, `/forecast`): all returned `200`, zero Mantine- or React-specific console errors on any of them. The only console error present anywhere was a pre-existing, unrelated one (`/api/settings` throwing on a null `clientPromise` due to this sandbox's missing `MONGODB_URI` — the same root-cause class documented for other routes throughout this session, not a regression from this bump).
+
+Version bumped 2.4.26 -> 2.4.27.
+
 ## 2.4.26
 
 Migration Step 5 of "deliver the rest": Next.js 15 → 16. ESLint 10 was attempted as part of this step (per the 2.4.24 sequencing correction) but is separately blocked upstream — reverted to 9.39.5. Corrects a factual error from the original migration plan.

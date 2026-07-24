@@ -1,6 +1,6 @@
 {
   "name": "slg-leads",
-  "version": "2.4.26",
+  "version": "2.4.27",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -16,10 +16,10 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@mantine/core": "^7.17.8",
-    "@mantine/hooks": "^7.17.8",
-    "@mantine/modals": "^7.17.8",
-    "@mantine/notifications": "^7.17.8",
+    "@mantine/core": "^9.4.2",
+    "@mantine/hooks": "^9.4.2",
+    "@mantine/modals": "^9.4.2",
+    "@mantine/notifications": "^9.4.2",
     "@sovereignsquad/gds-admin": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.11.1/sovereignsquad-gds-admin-3.11.1.tgz",
     "@sovereignsquad/gds-core": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.11.1/sovereignsquad-gds-core-3.11.1.tgz",
     "@sovereignsquad/gds-theme": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.11.1/sovereignsquad-gds-theme-3.11.1.tgz",
