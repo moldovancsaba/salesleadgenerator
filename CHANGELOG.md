@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.25
+
+Migration Step 4 of "deliver the rest": React 18 → 19.
+
+### Changed — React 18.3.1 → 19.2.8
+- Verified every direct dependency's peer compatibility *before* bumping, having just learned the hard way (2.4.24's ESLint/Next.js coupling) that changelogs alone aren't enough: `npm view @mantine/core@7.17.8 peerDependencies` → `react: ^18.x || ^19.x`; `@tabler/icons-react` and `@dnd-kit/*` both have open-ended lower bounds; `@sovereignsquad/gds-theme` (the only GDS package declaring peers) explicitly supports `react: ^18.2.0 || ^19.0.0` — already fully ready for this bump.
+- Bumped `react`, `react-dom`, `@types/react`, `@types/react-dom` together, kept in lockstep so type definitions match the installed runtime.
+- `tsc --noEmit` passed clean with zero changes needed anywhere in the codebase — no direct usage anywhere of the legacy `ReactDOM.render`/`hydrate` APIs React 19 removes (Next.js's own render path abstracts that away).
+- Full gate: `tsc --noEmit` (0 errors), `eslint` (0 errors, 0 warnings), `vitest run` (49/49), smoke suite (5/5), a real `next build`.
+- Additionally verified in a real browser (Playwright against this environment's pre-installed Chromium — not part of this repo's own dependencies, used ephemerally for this one verification and removed afterward) on the 3 most interaction-heavy surfaces: the kanban board, the outreach templates page, and the landing page. No React-specific console errors on any of them — no hydration mismatches, no ref or prop-type warnings. The only console errors present were the expected `503`s from this sandbox's missing `MONGODB_URI` (present throughout this entire session, unrelated to this bump).
+
+Version bumped 2.4.24 -> 2.4.25.
+
 ## 2.4.24
 
 Migration Step 3 of "deliver the rest": TypeScript 5 → 6 (7 explicitly blocked, see below). Also corrects the plan's own sequencing for ESLint 10, discovered via real verification.
