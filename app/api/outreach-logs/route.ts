@@ -72,8 +72,7 @@ export async function POST(request: Request) {
     }
 
     const routing = evaluateOutreachRouting(channel, {
-      decision_maker_contact: body.decision_maker_contact,
-      decision_maker_name: body.decision_maker_name,
+      contacts: Array.isArray(body.contacts) ? body.contacts : [],
       url: body.url,
       industry: body.industry,
       sport_or_sector: body.sport_or_sector,

@@ -1,5 +1,40 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.32
+
+Owner-requested full audit and refactor: `decision_maker_name`/`decision_maker_title`/`decision_maker_contact`/`contact_phone` retired as top-level `Lead` fields. Decision-maker status is now `isDecisionMaker: boolean` on a `contacts[]` entry — a flag, not a parallel set of fields. Hard cutover (matching the 2.3.0 `pro_for_cogmap→pro_for_organization` precedent), shipped as one coordinated change per owner decision. See issue #45.
+
+### Found during audit — this was an active bug, not just naming
+`app/api/leads/route.ts`'s `dedupeContacts()` already tried folding the top-level fields into a synthetic `contacts[]` entry (`role: 'main_contact'`), but only `POST`/`GET` ran it. `PUT /api/leads/[id]` and `PATCH ... MODIFY` (`app/lib/lead-actions.ts`) wrote the top-level fields directly with zero reconciliation against `contacts[]` — the two representations could silently diverge depending which write path touched a lead last. Two confirmed downstream bugs from the same root cause, both fixed here:
+- `app/lib/outreach/routing-rules.ts` gated email/LinkedIn outreach on the top-level fields only — a lead whose contact info lived only in `contacts[]` (the canonical store) was wrongly blocked from outreach.
+- `computeEase()` checked `contacts.some(c => c.address...)`, a field `contacts[]` has never had — dead code, harmless only because it already reduced to the org-level `address` check; removed rather than left confusing.
+
+### Changed — new shared `lib/contacts.ts`
+`normalizeContact`, `dedupeContacts`, `getDecisionMakerContact`, plus `normalizePhone`/`normalizeEmail` (moved from `app/api/leads/route.ts`). Consolidates 3 previously near-duplicate implementations — `POST`'s private `dedupeContacts`, `PUT`'s inline `.map()`, and `PATCH MODIFY`'s complete absence of one — into a single module every write path now calls identically, closing the divergence bug at its root. `PATCH MODIFY` can now edit `contacts[]` at all, which it never could before.
+
+### Removed — `decision_maker_name`/`decision_maker_title`/`decision_maker_contact`/`contact_phone`
+No longer declared on `app/types.ts`'s `Lead` type, no longer read or written anywhere in the app. A request that still sends them has those specific values silently ignored (not stored), matching the hard-cutover semantics already established by the 2.3.0 precedent. Updated: `lib/validate-lead.ts`, `app/lib/normalize-lead.ts`, `app/api/leads/route.ts`, `app/api/leads/[id]/route.ts`, `app/lib/lead-actions.ts`, `app/lib/outreach/routing-rules.ts` and `default-templates.ts` (template placeholder renamed `{decision_maker_name}` → `{contact_name}`), `app/outreach/compose-modal.tsx`, `app/api/outreach-logs/route.ts`, `app/outreach/templates/page.tsx`, `app/detail.tsx` (CONTACTS block now renders every contact uniformly with a "Decision Maker" badge instead of a separate top-level block), `app/card.tsx`.
+
+### Added
+- `contacts[]` items gain `isDecisionMaker?: boolean`.
+- `app/types.ts` gained `product_fit_notes?: string` — written by the API and required by the agent's quality gate, but missing from the type entirely until now (found during the same audit).
+- `scripts/migrate-decision-maker-to-contacts.js` — production data migration, dry-run by default. **Written but not executed from this sandbox (no `MONGODB_URI`, consistent with every other DB-touching limitation disclosed throughout this repo's history).** Must be run against real production data before or with deploying this change — see the script's own header and issue #45's "Production data migration" section for exactly why and what happens if it's skipped.
+- Unit tests for `lib/contacts.ts` (`tests/lib/contacts.test.ts`).
+
+### Migrated — seed fixtures
+All 50 entries across `public/us-leads.json`/`mena-leads.json`/`cee-leads.json` transformed from `decision_maker_*` to `contacts[]` with `isDecisionMaker: true`, via a one-time local script (not a DB operation). Addresses the exact gap the 2.3.0 precedent left open — its own seed files were never migrated and still don't reflect that rename either, a pre-existing, separate issue not fixed here.
+
+### External dependency — explicitly disclosed operational consequence
+`agent-runtime/schema-mapper.js` (a mirror of a separate repo, `Agents/contentcreator/`, this session can't reach) had these exact field names hardcoded — stale references removed here. **This does not update the real running research agent.** After this ships, the live agent's real POST payloads will stop having decision-maker data recognized until its own repo starts sending a `contacts[]` entry with `isDecisionMaker: true` instead of the old top-level fields. Disclosed, not silently accepted.
+
+### Known gap surfaced, not fixed here
+No UI exists anywhere in this app to add/edit/remove `contacts[]` entries or toggle `isDecisionMaker` — the detail modal is display-only for contacts. A genuinely separate, larger feature; flagged explicitly rather than left to be rediscovered.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors, 0 warnings), `vitest run`, smoke suite, `next build --webpack`. New regression tests confirm legacy `decision_maker_*`/`contact_phone` values in a request are accepted (no validation error) but ignored (not stored) — the exact hard-cutover behavior this change intends.
+
+Version bumped 2.4.31 -> 2.4.32.
+
 ## 2.4.31
 
 Owner screenshot feedback from a real-device mobile PWA session. See #44.

@@ -154,11 +154,15 @@ class SchemaMapper {
    * ClassScout API uses a completely different schema (programs vs leads).
    */
   _mapClassScout(tenant, payload) {
-    // Remove any lead-specific fields that shouldn't be in programs
+    // Remove any lead-specific fields that shouldn't be in programs.
+    // decision_maker_name/title/contact and contact_phone retired from the
+    // real lead schema — decision-maker status is now a flag on a contacts[]
+    // entry (isDecisionMaker), not a set of top-level fields. This mirror
+    // reflects that; the canonical agent repo needs the equivalent update
+    // separately (out of band — see SalesLeadGenerator issue #45).
     const leadOnlyFields = [
       'pro_for_organization', 'con_for_organization',
-      'decision_maker_name', 'decision_maker_title', 'decision_maker_contact',
-      'contact_phone', 'iceScore', 'sortOrder', 'ice', 'kanbanColumn',
+      'iceScore', 'sortOrder', 'ice', 'kanbanColumn',
       'entity_name', 'name', 'board'
     ];
 
@@ -229,11 +233,6 @@ class SchemaMapper {
           errors.push(`Email not lowercase: ${contact.email}`);
         }
       }
-    }
-
-    // Validate phone format
-    if (payload.contact_phone && !payload.contact_phone.startsWith('+')) {
-      errors.push(`Phone not in international format: ${payload.contact_phone}`);
     }
 
     // Validate brand field exists
@@ -310,11 +309,6 @@ class SchemaMapper {
           contact.email = contact.email.toLowerCase();
         }
       }
-    }
-
-    // Standardize main contact fields
-    if (payload.decision_maker_contact && typeof payload.decision_maker_contact === 'string') {
-      payload.decision_maker_contact = payload.decision_maker_contact.toLowerCase();
     }
   }
 

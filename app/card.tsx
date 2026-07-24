@@ -4,6 +4,7 @@ import { Badge, Button, Group, Stack, Text } from '@mantine/core';
 import type { Lead } from './types';
 import { getIceScore, getTicketSize } from './constants';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
+import { getDecisionMakerContact } from '@/lib/contacts';
 
 type LeadCardProps = {
   lead: Lead;
@@ -24,6 +25,10 @@ export function LeadCard({ lead, onOpen }: LeadCardProps) {
     ? `${ticketSize.currency === 'USD' ? '$' : '€'}${Math.round(ticketSize.value).toLocaleString()}`
     : null;
 
+  // Prefer the contact flagged isDecisionMaker (lib/contacts.ts); fall back to
+  // the first contact so the row isn't always '—' before data gets flagged.
+  const contactName = getDecisionMakerContact(lead.contacts)?.name || lead.contacts?.[0]?.name || '—';
+
   // Fixed field set, every row always rendered ('—' when absent) — matches
   // app/detail.tsx's existing placeholder convention, so every card has the
   // same shape instead of the row set varying by which fields a lead happens
@@ -33,7 +38,7 @@ export function LeadCard({ lead, onOpen }: LeadCardProps) {
     { label: 'ICE', value: ice },
     { label: 'Ticket size', value: ticketSizeLabel || '—' },
     { label: 'Size', value: lead.size || '—' },
-    { label: 'Contact', value: lead.decision_maker_name || '—' },
+    { label: 'Contact', value: contactName },
   ];
 
   return (

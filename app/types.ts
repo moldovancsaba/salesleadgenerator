@@ -36,10 +36,10 @@ export type Lead = {
   industry?: string;
   sport_or_sector?: string;
   level_league?: string;
-  decision_maker_name?: string;
-  decision_maker_title?: string;
-  decision_maker_contact?: string;
-  contact_phone?: string;
+  // Decision-maker status is a flag on a contact (isDecisionMaker), not a
+  // separate set of top-level fields — see lib/contacts.ts. Retired top-level
+  // decision_maker_name/title/contact and contact_phone in the hard cutover
+  // tracked in issue #45; those field names are no longer read anywhere.
   contacts?: Array<{
     name?: string;
     title?: string;
@@ -47,6 +47,7 @@ export type Lead = {
     phone?: string;
     linkedin?: string;
     role?: string;
+    isDecisionMaker?: boolean;
   }>;
   pro_for_organization?: string | string[];
   con_for_organization?: string | string[];
@@ -54,6 +55,9 @@ export type Lead = {
   priority?: "high" | "medium" | "low";
   status?: string;
   notes?: string;
+  // Written by POST and required by the agent's quality gate (agent-runtime/tenants.json)
+  // but previously missing from this type entirely.
+  product_fit_notes?: string;
   tags?: string[];
   kanbanColumn: KanbanColumn;
   sortOrder: number;

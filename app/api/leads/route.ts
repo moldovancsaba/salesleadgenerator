@@ -8,26 +8,7 @@ import { generateRequestId } from '../../lib/request-id'
 import { executeLeadAction } from '../../lib/lead-actions'
 import { deriveKanbanColumn } from '../../../lib/kanban-column'
 import { buildFingerprint } from '../../../lib/fingerprint'
-
-// Normalize phone to international format
-function normalizePhone(phone: string): string {
-  if (!phone) return phone
-  const cleaned = phone.replace(/[^\d+]/g, '')
-  if (cleaned.startsWith('+')) return cleaned
-  if (cleaned.length === 10 && /^\d{10}$/.test(cleaned)) {
-    return '+1' + cleaned  // Assume US
-  }
-  if (cleaned.startsWith('1') && cleaned.length === 11) {
-    return '+' + cleaned
-  }
-  return '+' + cleaned
-}
-
-// Normalize email to lowercase, trim
-function normalizeEmail(email: string): string {
-  if (!email) return email
-  return email.toLowerCase().trim()
-}
+import { dedupeContacts } from '../../../lib/contacts'
 
 // Normalize address - ensure country is included if missing
 function normalizeAddress(address: string, country: string): string {
@@ -53,87 +34,21 @@ async function readBody(request: Request) {
   return request.json()
 }
 
-// Deduplicate contacts within a single lead and against top-level decision-maker fields
-function dedupeContacts(contacts: any[], lead: any) {
-  if (!Array.isArray(contacts)) return [];
-
-  const seen = new Set<string>()
-  const deduped: any[] = []
-
-  // Build top-level contact info as a baseline
-  const dmName = (lead.decision_maker_name || '').trim().toLowerCase()
-  const dmEmail = (lead.decision_maker_contact || '').trim().toLowerCase()
-  const dmPhone = (lead.contact_phone || '').trim()
-  const dmTitle = (lead.decision_maker_title || '').trim().toLowerCase()
-
-  // Helper: make a stable key from contact fields
-  const contactKey = (c: any) => {
-    const name = (c.name || '').trim().toLowerCase()
-    const email = (c.email || '').trim().toLowerCase()
-    const phone = (c.phone || c.contact_phone || '').trim()
-    const title = (c.title || '').trim().toLowerCase()
-    // Use name + phone as primary key, fallback to name + email
-    const primary = name && phone ? `${name}|${phone}` : name && email ? `${name}|${email}` : name
-    return primary
-  }
-
-  const normalize = (c: any) => ({
-    name: typeof c.name === 'string' ? c.name.trim() : '',
-    title: typeof c.title === 'string' ? c.title.trim() : '',
-    email: typeof c.email === 'string' ? c.email.trim() : '',
-    phone: typeof c.phone === 'string' ? c.phone.trim() : (c.contact_phone || '').trim(),
-    linkedin: typeof c.linkedin === 'string' ? c.linkedin.trim() : '',
-    role: typeof c.role === 'string' ? c.role.trim() : '',
-  })
-
-  // If top-level decision maker info exists and is not already represented in contacts, add as main contact
-  const topLevelKey = dmName && dmPhone ? `${dmName}|${dmPhone}` : dmName && dmEmail ? `${dmName}|${dmEmail}` : dmName
-  const hasTopLevel = dmName || dmEmail || dmPhone
-
-  if (hasTopLevel && topLevelKey && !seen.has(topLevelKey)) {
-    seen.add(topLevelKey)
-    deduped.push({
-      name: dmName,
-      title: dmTitle || 'Decision Maker',
-      email: dmEmail,
-      phone: dmPhone,
-      linkedin: '',
-      role: 'main_contact',
-    })
-  }
-
-  for (const raw of contacts) {
-    const c = normalize(raw)
-    if (!c.name && !c.email && !c.phone) continue
-    const key = contactKey(c)
-    if (!key) continue
-    if (seen.has(key)) continue
-    seen.add(key)
-    deduped.push(c)
-  }
-
-  return deduped
-}
-
 type Brand = 'cogmap' | 'seyu';
 
+// Ease scoring reads contacts[] only (no more top-level decision-maker
+// fields — see lib/contacts.ts and issue #45). effectiveAddress is the
+// organization-level address (contacts[] has never had a per-contact
+// address field; a prior version of this function read one anyway, always
+// false since dedup strips unknown keys — removed rather than kept as dead
+// code with no behavioral difference).
 function computeEase(body: any): number {
-  const hasNamed = !!body.decision_maker_name;
-  const hasEmail = !!body.decision_maker_contact;
-  const hasPhone = !!body.contact_phone;
-  const hasAddress = !!body.address;
-  const hasGeneral = !!body.general_contact;
-
   const contacts: any[] = Array.isArray(body.contacts) ? body.contacts : [];
-  const contactEmail = contacts.some((c: any) => typeof c?.email === 'string' && c.email.trim().length > 0);
-  const contactPhone = contacts.some((c: any) => typeof c?.phone === 'string' && c.phone.trim().length > 0);
-  const contactName = contacts.some((c: any) => typeof c?.name === 'string' && c.name.trim().length > 0);
-  const contactAddress = contacts.some((c: any) => typeof c?.address === 'string' && c.address.trim().length > 0);
-
-  const effectiveNamed = hasNamed || contactName;
-  const effectiveEmail = hasEmail || contactEmail;
-  const effectivePhone = hasPhone || contactPhone;
-  const effectiveAddress = hasAddress || contactAddress;
+  const effectiveNamed = contacts.some((c: any) => typeof c?.name === 'string' && c.name.trim().length > 0);
+  const effectiveEmail = contacts.some((c: any) => typeof c?.email === 'string' && c.email.trim().length > 0);
+  const effectivePhone = contacts.some((c: any) => typeof c?.phone === 'string' && c.phone.trim().length > 0);
+  const effectiveAddress = !!body.address;
+  const hasGeneral = !!body.general_contact;
 
   if (!effectiveNamed && !hasGeneral) return 1;
   if (!effectiveNamed && hasGeneral) return 2;
@@ -279,28 +194,13 @@ export async function GET(request: Request) {
       })
 
     return NextResponse.json({
+      // contacts[] is the single source of truth for contact data — no more
+      // top-level decision-maker fields to reconcile/blank (see lib/contacts.ts,
+      // issue #45). A legacy stored document that still has the old fields
+      // (pre-migration) simply has them ignored here, not read into the response.
       leads: dedupedLeads.map((l) => {
         const normalized = normalizeLead({ ...l, _id: l._id.toString() })
-        normalized.contacts = dedupeContacts(normalized.contacts || [], normalized)
-        // Canonicalize response: contacts is the single source of truth for contact data
-        const hasMainContact = Array.isArray(normalized.contacts) && normalized.contacts.some(c => c.role === 'main_contact')
-        const hasTopLevelContact = normalized.decision_maker_name || normalized.decision_maker_contact || normalized.contact_phone
-        if (!hasMainContact && hasTopLevelContact) {
-          const main = {
-            name: normalized.decision_maker_name || '',
-            title: normalized.decision_maker_title || 'Contact',
-            email: normalized.decision_maker_contact || '',
-            phone: normalized.contact_phone || '',
-            linkedin: '',
-            role: 'main_contact',
-          }
-          normalized.contacts = [main, ...(Array.isArray(normalized.contacts) ? normalized.contacts : [])]
-        }
-        // Strip redundant top-level contact fields from response; contacts array is canonical
-        normalized.decision_maker_name = ''
-        normalized.decision_maker_title = ''
-        normalized.decision_maker_contact = ''
-        normalized.contact_phone = ''
+        normalized.contacts = dedupeContacts(normalized.contacts || [])
         return normalized
       }),
       brand,
@@ -339,25 +239,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Validation failed', details: validation.errors }, { status: 400 });
     }
 
-    // Normalize contact fields
-    if (body.decision_maker_contact) {
-      body.decision_maker_contact = normalizeEmail(body.decision_maker_contact)
-    }
-    if (body.contact_phone) {
-      body.contact_phone = normalizePhone(body.contact_phone)
-    }
+    // Normalize address (org-level, unrelated to contacts[])
     if (body.address) {
       body.address = normalizeAddress(body.address, body.country || 'US')
-    }
-    if (body.general_email) {
-      body.general_email = normalizeEmail(body.general_email)
-    }
-    if (body.contacts && Array.isArray(body.contacts)) {
-      body.contacts = body.contacts.map((c: any) => ({
-        ...c,
-        email: c.email ? normalizeEmail(c.email) : c.email,
-        phone: c.phone ? normalizePhone(c.phone) : c.phone,
-      }))
     }
 
     const client = await getClientPromise()
@@ -366,28 +250,9 @@ export async function POST(request: Request) {
     const normalizedBody = normalizeLead(body)
     const normalizedWarnings = extractWarnings(normalizedBody)
 
-    // Remove duplicate contacts and merge with top-level decision-maker info
-    normalizedBody.contacts = dedupeContacts(normalizedBody.contacts || [], normalizedBody)
-
-    // Canonicalize contact storage: contacts is the single source of truth
-    // Merge any top-level decision-maker fields into contacts, then clear top-level duplicates
-    const topLevelContact = {
-      name: normalizedBody.decision_maker_name || '',
-      title: normalizedBody.decision_maker_title || 'Contact',
-      email: normalizedBody.decision_maker_contact || '',
-      phone: normalizedBody.contact_phone || '',
-      linkedin: '',
-      role: 'main_contact',
-    }
-    if (topLevelContact.name || topLevelContact.email || topLevelContact.phone) {
-      normalizedBody.contacts = dedupeContacts([topLevelContact, ...(normalizedBody.contacts || [])], normalizedBody)
-    } else {
-      normalizedBody.contacts = dedupeContacts(normalizedBody.contacts || [], normalizedBody)
-    }
-    normalizedBody.decision_maker_name = ''
-    normalizedBody.decision_maker_title = ''
-    normalizedBody.decision_maker_contact = ''
-    normalizedBody.contact_phone = ''
+    // contacts[] is the single source of truth for contact data — dedupeContacts
+    // also applies per-contact phone/email formatting (lib/contacts.ts).
+    normalizedBody.contacts = dedupeContacts(normalizedBody.contacts || [])
 
     const fingerprint = buildFingerprint(
       normalizedBody.entity_name || normalizedBody.name || '',
@@ -455,7 +320,6 @@ export async function POST(request: Request) {
       region: normalizedBody.region || 'US',
       entity_name: normalizedBody.entity_name || normalizedBody.name,
       url: normalizedBody.url || '',
-      contact_phone: '',
       contacts: normalizedBody.contacts || [],
       address: normalizedBody.address || '',
       general_contact: normalizedBody.general_contact || '',
@@ -463,9 +327,6 @@ export async function POST(request: Request) {
       industry: normalizedBody.industry || '',
       sport_or_sector: normalizedBody.sport_or_sector || '',
       level_league: normalizedBody.level_league || '',
-      decision_maker_name: '',
-      decision_maker_title: '',
-      decision_maker_contact: '',
       [PRO_FIELD]: normalizedBody[PRO_FIELD] || [],
       [CON_FIELD]: normalizedBody[CON_FIELD] || [],
       value_proposition: normalizedBody.value_proposition || '',
