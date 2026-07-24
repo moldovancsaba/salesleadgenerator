@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.15
+
+**A fourth real failure from the same GDS bump** — `app/kanban.tsx:235` — `Type '(item: LeadKanbanItem, column: LeadKanbanColumn) => JSX.Element' is not assignable to type '(item: KanbanItem, column: KanbanColumnData) => ReactNode'. Property 'lead' is missing in type 'KanbanItem' but required in type 'LeadKanbanItem'.`
+
+### Root cause
+`KanbanBoard`'s real `KanbanItem`/`KanbanColumnData` interfaces are fixed, non-generic shapes (`{ id, title, description?, status?, ariaLabel? }` / `{ id, title, items }`) — they carry no `lead` field, since GDS has no idea what domain data a consumer attaches. This app's `renderItem` callback was typed to require its own richer `LeadKanbanItem`/`LeadKanbanColumn` (which do carry `lead: Lead`, since that's what's actually constructed at runtime) as its parameters. TypeScript checks a function prop's parameter types contravariantly: `KanbanBoard` will call `renderItem` with a plain `KanbanItem`, so a `renderItem` that *requires* a `LeadKanbanItem` is unsound and correctly rejected — real `gds-core` types enforce this; this sandbox's local stub (`KanbanBoard: any`) didn't, so it went undetected until the fourth real Vercel build in this bump cycle.
+
+### Fixed
+- `app/kanban.tsx`'s `renderItem` now takes `(item: GdsKanbanItem, column: GdsKanbanColumnData)` — the real, base contract — and casts internally (`const leadItem = item as LeadKanbanItem`) to reach `.lead`, which the constructed objects genuinely carry at runtime (the same pattern already used elsewhere in this file for `column.id as KanbanColumn`).
+- **Upgraded the local stub for real this time**: `node_modules/@sovereignsquad/gds-core/client/index.d.ts` (gitignored) now declares the real `KanbanItem`/`KanbanColumnData`/`KanbanOrientation`/`OnMoveItem` types and a properly-typed `KanbanBoard` component, transcribed from `packages/gds-core/src/KanbanBoard.client.tsx` at `gds-v3.11.1` (read in full earlier this session, not re-guessed). Confirmed effective the same way as 2.4.14's `AdminSelect` fix: reverted the code change, re-ran `tsc --noEmit`, watched it correctly re-flag the exact same error, then restored the fix and confirmed clean.
+- `KanbanColumn`/`KanbanCard` (GDS's own sub-components, not directly used by this app) remain `any`-typed; `useGdsKanbanOrientation` now has a real return type.
+
+### Pattern across four consecutive deployments (2.4.12–2.4.15)
+One GDS version bump has now surfaced four distinct real production failures — a 404 tarball, a missing transitive dependency, and two genuine type-contract mismatches — each only catchable by an actual `npm install` + `tsc` run against the real, compiled package. This sandbox cannot run that end-to-end for the privately-tarball-installed GDS packages, so every "verified" claim this session made had an inherent gap. Rather than re-discover it a fifth time, the two GDS components this app actually imports (`AdminSelect`, `KanbanBoard`) now carry real, verified local stub types instead of `any` — closing the gap for exactly the surface area this app touches, though anything else imported from GDS in the future will need the same treatment before it can be trusted locally.
+
 ## 2.4.14
 
 **2.4.13's `@dnd-kit` fix let `npm install` and webpack module resolution succeed, but a third real failure surfaced** — a genuine TypeScript type error: `app/detail.tsx:358` — `AdminSelect`'s `onChange` prop is typed `(value: string | null) => void` (matching Mantine's own `Select`, which can emit `null` on a cleared/no-match selection), but the app's handler was typed `(value: string) => void`.

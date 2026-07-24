@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.14
+**Version:** 2.4.15
 
 ---
 
