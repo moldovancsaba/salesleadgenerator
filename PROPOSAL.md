@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.15
+**Version:** 2.4.16
 
 ## Purpose
 
@@ -69,6 +69,9 @@ This document tracks proposed improvements against the current shipped state. Co
 
 ### PUT /api/leads/[id] Silently Corrupting ICE Fields, Breaking the Sort (2.4.8)
 - Owner reported the ICE-score kanban sort was "still not working" and asked where the computation runs, concerned about heavy client-side work. Confirmed the sort is entirely server-side (a MongoDB aggregation in `GET /api/leads/columns`) and the client never re-sorts — `getIceScore()` client-side is only a trivial per-card display value. Investigation found a real bug: `PUT /api/leads/[id]` stored `ice` fields straight from the request body with no numeric coercion (unlike `POST`, which runs through `normalizeLead()`), so a request with numerically-valid but string-typed values would pass validation yet get persisted as strings — which then made the sort aggregation's `$multiply` throw, failing the whole column's fetch silently. Fixed both the write path (coerce `ice` to numbers before storing) and the read path (`ICE_SCORE_AGGREGATION_EXPR` now uses `$convert` with a safe fallback instead of a bare `$multiply`, self-healing any already-corrupted historical document without a migration).
+
+### Proactive Sweep for Similar GDS Type Gaps (2.4.16)
+- Owner asked to check for similar errors rather than wait for a fifth Vercel failure. Grepped every `@sovereignsquad/*` import in the repo (8 usages) and checked each remaining one against real 3.11.1 source: `AdminModal`/`AdminDetailDrawer`/`AdminTextarea`/`InfoCard`/`ProductCard` all match; `AdminDataTable` is generic over `T`, structurally immune to the contravariance bug that broke `KanbanBoard`. Found one more real gap: `app/search-learning.tsx`'s `AdminResourceCard` call had an unnecessary `record={{...} as any}` cast fully suppressing type-checking — the object already matched the real `AdminResourceRecord` shape exactly, so the cast was removed and the local stub upgraded with the real type, confirmed clean via `tsc` without it. Every other `as any` in `app/` was checked and left alone — unrelated to GDS (MongoDB driver quirks, dynamic field access, an action-string cast).
 
 ### KanbanBoard renderItem Type Mismatch, Fixed (2.4.15)
 - A fourth real failure from the same GDS bump: `app/kanban.tsx`'s `renderItem` was typed to require its own richer `LeadKanbanItem`/`LeadKanbanColumn` (carrying a `lead` field), but `KanbanBoard`'s real `KanbanItem`/`KanbanColumnData` are fixed, non-generic shapes with no such field — a genuine contravariant function-parameter mismatch real `gds-core` types correctly reject, invisible against the local `any`-typed stub. Fixed by typing `renderItem`'s parameters to the real base contract and casting internally to reach `.lead` (which the constructed objects genuinely carry at runtime). Upgraded the local `gds-core` stub with the real `KanbanItem`/`KanbanColumnData`/`KanbanOrientation`/`OnMoveItem` types and a properly-typed `KanbanBoard`, transcribed from source already read this session; confirmed effective by reverting and re-running `tsc`. Four distinct real production failures have now come from one GDS bump (2.4.12–2.4.15) — the two GDS components this app actually imports (`AdminSelect`, `KanbanBoard`) now carry real, verified stub types, closing the gap for this app's current surface area.
