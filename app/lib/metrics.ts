@@ -10,9 +10,6 @@ export type LeadMetrics = {
   ice?: { total: number };
 };
 
-/**
- * Calculate leads count by pipeline stage
- */
 export function metricsByStage(leads: LeadMetrics[]): Record<string, number> {
   const stages = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST'];
   return stages.reduce((acc, stage) => {
@@ -21,9 +18,6 @@ export function metricsByStage(leads: LeadMetrics[]): Record<string, number> {
   }, {} as Record<string, number>);
 }
 
-/**
- * Calculate leads count by region
- */
 export function metricsByRegion(leads: LeadMetrics[]): Record<string, number> {
   return leads.reduce((acc, lead) => {
     acc[lead.region] = (acc[lead.region] || 0) + 1;
@@ -31,9 +25,6 @@ export function metricsByRegion(leads: LeadMetrics[]): Record<string, number> {
   }, {} as Record<string, number>);
 }
 
-/**
- * Calculate leads count by quality status
- */
 export function metricsByQuality(leads: LeadMetrics[]): Record<string, number> {
   const statuses = ['DRAFT', 'CHECKED', 'VERIFIED'];
   return statuses.reduce((acc, status) => {
@@ -42,9 +33,6 @@ export function metricsByQuality(leads: LeadMetrics[]): Record<string, number> {
   }, {} as Record<string, number>);
 }
 
-/**
- * Calculate leads count by ICE score level
- */
 export function metricsByIceLevel(leads: LeadMetrics[]): Record<string, number> {
   const levels = {
     'High (800+)': 0,

@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Version:** 2.4.9
+**Version:** 2.4.22
 
 ---
 

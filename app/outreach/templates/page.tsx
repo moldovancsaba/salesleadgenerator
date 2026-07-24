@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 
@@ -42,7 +42,7 @@ export default function OutreachTemplatesPage() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  async function loadTemplates() {
+  const loadTemplates = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -55,11 +55,11 @@ export default function OutreachTemplatesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [brand, tenantId])
 
   useEffect(() => {
     loadTemplates()
-  }, [brand, tenantId])
+  }, [loadTemplates])
 
   function resetForm() {
     setForm(EMPTY_TEMPLATE)

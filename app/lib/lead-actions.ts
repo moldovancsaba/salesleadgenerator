@@ -2,6 +2,7 @@ import { BRAND_CONFIG, PRO_FIELD, CON_FIELD } from './brand'
 import { normalizeLead } from './normalize-lead'
 import { validatePatchPayload } from '../../lib/validate-lead'
 import { isMongoConfigured } from '../../lib/mongodb'
+import { tenantFilter as buildTenantFilter } from '../../lib/tenant'
 
 export type LeadActionInput = {
   brand: string
@@ -32,7 +33,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
   const db = client.db()
   const { ObjectId } = await import('mongodb')
 
-  const tenantFilter = tenantId === 'default' ? { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] } : { tenantId }
+  const tenantFilter = buildTenantFilter(tenantId)
 
   const existing = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(leadId), ...tenantFilter })
   if (!existing) return { success: false, error: 'Lead not found', requestId }
@@ -105,8 +106,8 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     { returnDocument: 'after' }
   )
 
-  const updatedLead = (result as any)?.value || (result as any)
-  if (!updatedLead) return { success: false, error: 'Lead not found after update', requestId }
+  if (!result) return { success: false, error: 'Lead not found after update', requestId }
+  const updatedLead = result
 
   await db.collection('outcomelogs').insertOne({
     leadId,

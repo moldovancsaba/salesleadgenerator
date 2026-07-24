@@ -1,6 +1,6 @@
 # SLG App — Improvement Proposal
 
-**Version:** 2.4.21
+**Version:** 2.4.22
 
 ## Purpose
 
@@ -167,9 +167,6 @@ This document tracks proposed improvements against the current shipped state. Co
 ### Test Coverage
 - API/route tests beyond validation smoke tests (unit coverage of shared `lib/*` logic has grown substantially since 2.2.0 and continued growing through 2.4.4's kanban-column rewrite, but full route-level integration tests remain TODO)
 
-### Orphaned Standalone Scripts
-- `lead-feeder-agent.js` and `scripts/migrate-check-schema.js` each contain their own, separate ICE→column derivation with different (older) thresholds than the real `lib/kanban-column.ts`; neither is wired into any `npm` script or the running app — flagged as of 2.4.4, not yet resolved (see `roadmap.md`)
-
 ---
 
 ## Priority Order
@@ -177,6 +174,5 @@ This document tracks proposed improvements against the current shipped state. Co
 1. Mobile UX polish
 2. Research agent reliability
 3. Multi-tenant hardening
-4. Orphaned standalone scripts cleanup
 
 This priority order covers only the near-term items above. Longer-horizon, larger-scope features (auto-enrichment pipeline, team workspaces, AI scoring calibration, CRM sync, attribution, analytics dashboard, client API/webhooks, advanced enrichment) are tracked separately in `roadmap.md`'s phased "Planned" table and aren't repeated here.

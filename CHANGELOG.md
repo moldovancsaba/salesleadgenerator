@@ -1,5 +1,36 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.22
+
+General housecleaning pass, owner-requested: eliminate code-comment inconsistencies, fix hidden/non-tracked errors, sync stale docs, collect every warning/deprecation, and maintain the roadmap. Preceded by a full 8-part audit (comment style, doc currency, hidden errors, roadmap state, GitHub issues, dependencies, warnings, SWOT precedent) before any change was made, per this repo's own "never guess" rule.
+
+### Fixed — dead code in the health endpoint, traced to one `any` cast
+- `lib/mongodb.ts:27` resolves a statically-typed `Promise<MongoClient>` to `null` via `as any` when `MONGODB_URI` is unset. `app/api/health/route.ts`'s `if (!clientPromise)` check was consequently dead/unreachable code — the promise is always a truthy object, so the real null-guard only ever fired 16 lines later, at `if (!client)` after awaiting. Every other route in the app guards correctly (checks `isMongoConfigured()`/`process.env.MONGODB_URI` *before* awaiting the promise, never the promise's own truthiness afterward), so this never caused a production incident — but it's a real, traceable bug.
+- Fixed by bringing `health/route.ts` in line with the established pattern used everywhere else: guard on `!process.env.MONGODB_URI` before awaiting, removing the dead branch entirely rather than widening `getClientPromise()`'s return type to `Promise<MongoClient | null>` — the latter would cascade "possibly null" errors across all 19 call sites of `clientPromise`/`getClientPromise()` in the codebase, a far larger change than this fix warrants.
+- Added a comment to `lib/mongodb.ts` documenting the real contract (check before awaiting, never test the resolved value's truthiness) so this doesn't get rediscovered as a fresh bug later.
+
+### Fixed — ambiguous MongoDB return-shape cast in `lead-actions.ts`
+- `app/lib/lead-actions.ts:108` had `(result as any)?.value || (result as any)`, straddling two different possible `findOneAndUpdate` return shapes without ever checking which one the installed driver actually returns. Confirmed against the real installed `mongodb@6.20.0` type definitions: with `{ returnDocument: 'after' }` (no `includeResultMetadata`), the resolved overload is `Promise<WithId<TSchema> | null>` — a direct document, never the older `{ value: doc }` wrapper. Replaced the cast with a plain null check against `result` directly.
+- While in this file: `tenantFilter` was being rebuilt inline (duplicating `lib/tenant.ts`'s exact logic) instead of importing the existing helper — the same "duplicated logic that can silently drift" pattern already fixed elsewhere in this app's history (pipeline-weight math, `isMongoConfigured()`). Now imports and calls `tenantFilter` from `lib/tenant.ts`.
+
+### Removed — two orphaned scripts with drifted ICE-column logic
+- `lead-feeder-agent.js` (a synthetic fake-lead generator that would insert random garbage companies into the real `leads` collection if ever run — and would immediately crash anyway, since it `require()`s a `.ts` file with no register step) and `scripts/migrate-check-schema.js` (a completed, one-time historical migration for a `lead.priority`-based schema no longer produced anywhere in the current codebase) both contained their own independent ICE→column derivation, drifted from the real `lib/kanban-column.ts` two-tier rule. Flagged as unresolved since 2.4.4 (`roadmap.md`, `PROPOSAL.md`) — confirmed via a fresh audit that neither is wired into any `npm` script or the running app, exactly the same orphaned status already resolved once before for the unused Mongoose models (2.4.7). Deleted both, closing the drift permanently rather than patching logic that serves no purpose.
+
+### Fixed — 2 untracked pre-existing lint warnings
+- `app/outreach/compose-modal.tsx` (2 warnings) and `app/outreach/templates/page.tsx` (1 warning), both `react-hooks/exhaustive-deps`, existed only as live `eslint` output — never enumerated anywhere in `CHANGELOG.md`/`roadmap.md`/`PROPOSAL.md` despite this repo's own Rule 1 requiring pre-existing warnings to be explicitly tracked. Traced `lead`'s real origin in `compose-modal.tsx` to a genuine `useState` in `sales-page-client.tsx` (stable reference, only changes on a real selection/update) before adding it to both effects' dependency arrays — safe, not an infinite-loop risk. `templates/page.tsx`'s `loadTemplates` was a plain function redefined every render; wrapped it in `useCallback` first (naively adding an unmemoized function to a dependency array would have caused a real re-render loop) before including it in the effect's deps.
+
+### Comment-consistency pass
+- Audited comment density and accuracy across `app/`, `lib/`, `agent-runtime/`, `tests/` — found no comments that were actually wrong or stale (a genuine positive), but density was applied unevenly relative to this repo's own stated rule (comment only for non-obvious *why*). Trimmed 4 restating-the-obvious JSDoc blocks from `app/lib/metrics.ts` (e.g. `/** Calculate leads count by pipeline stage */` directly above `metricsByStage`, adding nothing the name doesn't already say). Added the missing *why* to `app/lib/normalize-lead.ts`'s two genuinely non-obvious spots: `ensureNumber`'s role as the shared guarantee against the exact ICE-field string-corruption class fixed in 2.4.8, and `validateObject`'s purpose of surfacing two silently-coerced bad-input cases as warnings instead of letting them vanish.
+
+### Documentation currency sweep
+- `docs/OPERATOR_GUIDE.md`, `PIPELINE_ARCHITECTURE.md`, and `docs/INDEX.md` all still headered `2.4.9` — 13 versions stale. `docs/STACK_AND_DEPENDENCIES.md` headered `2.4.19` — 3 versions stale. Content itself was verified accurate in spot checks (this was a header-sync gap, not a factual one); all 4 bumped to match `package.json`.
+- Ran `docs/DOC_LINT.md`'s own checklist against every doc for real: no broken archived-file references, API-route listings match the actual `app/api/**/route.ts` tree 1:1, no broken cross-links.
+
+### Dependency and warning audit
+- `npx tsc --noEmit`: 0 errors. `npm run lint`: 0 errors, 0 warnings (both pre-existing warnings fixed above). `npm outdated`: every installed package satisfies its declared semver range; 9 packages (Mantine, React, Next.js, ESLint, TypeScript, Mongoose, and matching `@types/*`) have a major version available (7→9, 18→19, 15→16, 9→10, 5→7, 8→9) — each is a deliberate, scoped migration project, explicitly **not** attempted as part of this pass.
+- `npm audit` (read-only): 3 high-severity advisories — PostCSS XSS/arbitrary-file-read and `sharp`'s bundled `libvips` CVEs. Both are versions bundled **inside `next@15.5.21`'s own `node_modules`** (confirmed via `npm ls`), not this app's own top-level `postcss` (already current at 8.5.20/8.5.22). `npm audit fix --force`'s suggested resolution is a downgrade to `next@9.3.3` — nonsensical, not applied. The only real fix is the Next.js 16 major upgrade already named above as deliberately deferred; recorded here explicitly rather than left as a silent gap, per this repo's own deprecation-disclosure rule.
+- No open GitHub issues existed before this pass, so every finding above was genuinely new signal, not duplicate tracked work.
+
 ## 2.4.21
 
 ### Fixed — Sales Settings Save button returning "Unauthorized"
