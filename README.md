@@ -57,7 +57,7 @@ Required environment variable: `MONGODB_URI`
 
 ## Versioning
 
-Current app version is **2.4.22**.
+Current app version is **2.4.29**.
 
 Single source of truth: `package.json`
 
