@@ -1,10 +1,16 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.17
+**Version:** 2.4.18
 
 ---
 
 ## Shipped
+
+### Real-Device Confirmation: 2.4.17 Fixes All Verified Working (2.4.18)
+- ✅ Owner confirmed on a real device (production, mobile portrait): PWA works, the lead detail modal works, the double-bordered kanban cards are fixed, and the iOS zoom-on-focus problem is fixed.
+- ✅ Confirms `enableDrag: false` was the actual fix for the "client-side exception" crash, not just a reasoned hypothesis — the real `@dnd-kit` code path was the real cause.
+- ✅ Confirms GDS's theme-level `Input.vars` zoom-guard genuinely works on real iOS Safari, not just in this sandbox's Chromium-based emulation (which can't reproduce WebKit's actual auto-zoom heuristic).
+- ✅ Drag-and-drop is confirmed off on mobile portrait, as expected — owner explicitly accepts this trade-off rather than requesting `enableDrag` be re-enabled.
 
 ### Double-Bordered Kanban Cards + Drag-Handle Chrome Rolled Back (2.4.17)
 - 🔴 Owner reported (screenshot) every kanban card showing a visible "box within a box," plus a drag-handle icon and a second icon flanking each card — separately from a "client-side exception" crash report on the live production URL.
@@ -98,7 +104,7 @@
 - ✅ Root-caused and fixed pinch-zoom still working despite 3 prior attempts: the viewport meta tag alone was never sufficient, since iOS Safari has ignored `user-scalable=no`/`maximum-scale` since iOS 10. Added `touch-action: manipulation` CSS plus a JS-level gesture/multi-touch guard, the layers iOS Safari actually respects.
 - ✅ Root-caused and fixed the app never behaving as an installable PWA: `manifest.json`'s referenced icon files (`icon-192.png`, `icon-512.png`) didn't exist at all. Added real icons plus a minimal service worker (precaches only the static shell — manifest/icons — never live lead data).
 - ✅ Real-device zoom-lock verification: confirmed working on a real device (2026-07-23).
-- ⚠️ PWA installability: reported by the owner as still not behaving as expected on a real device (2026-07-23) — specifics not yet gathered, tracked as an open question.
+- ✅ PWA installability: confirmed working on a real device (production, mobile) as of 2.4.18 — closes the open question raised the same day.
 
 ### Pagination Field Fix (2.2.2)
 - ✅ Fixed `/api/leads`'s misleadingly-named `total` field (issue #21's low-risk sub-fix) to reflect the real total across all pages instead of the current page's count; per-page count moved to a new `returned` field. No frontend consumer read the old field, so this shipped with zero UI changes needed.
@@ -171,11 +177,11 @@
 
 | Item | Notes |
 |------|-------|
-| iOS focus-zoom real-device confirmation (2.4.6) | The `!important` fix is confirmed correct by CSS-cascade semantics and by inspecting the actual compiled/served stylesheet, but this sandbox has no way to reproduce iOS Safari's zoom-on-focus behavior itself (no headless/desktop equivalent) — a real-device check is still recommended |
 | Country filter | No country/region filter UI currently exists in the frontend (the Region/Status dropdowns were removed entirely in 2.4.0 — see `CHANGELOG.md`); `country` is only ever shown as a display badge (`app/detail.tsx`) and a table column (`app/table.tsx`), never as something a user can filter by. Earlier entries in this doc describing a "country filter" as shipped were incorrect and have been removed. If country-based filtering is still wanted, it needs to be built as new work, not assumed present |
 | Table view PWA polish | Core mobile table implemented; additional density/readability tuning may be needed |
 | Orphaned standalone scripts with drifted kanban-column logic | `lead-feeder-agent.js` and `scripts/migrate-check-schema.js` each contain their own, separate ICE→column derivation with different (older) thresholds than the real `lib/kanban-column.ts`; neither is wired into any `npm` script or the running app — flagged as of 2.4.4, not yet resolved |
-| PWA installability real-device gap | Owner reports install behavior still not as expected on a real device; needs specifics (platform, symptom) before a further fix can be scoped |
+
+Real-device confirmation for the iOS focus-zoom fix and PWA installability both landed in 2.4.18 (see "Shipped" above) — removed from this table as no longer open.
 
 ---
 
