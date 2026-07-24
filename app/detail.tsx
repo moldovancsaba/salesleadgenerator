@@ -304,8 +304,14 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
               <Text size="sm" c="dimmed" component="a" href={`mailto:${lead.decision_maker_contact.trim()}`}>{lead.decision_maker_contact}</Text>
             ) : lead.decision_maker_contact && looksLikePhone(lead.decision_maker_contact) ? (
               <Text size="sm" c="dimmed" component="a" href={`tel:${lead.decision_maker_contact.trim()}`}>{lead.decision_maker_contact}</Text>
-            ) : (
-              <Text size="sm" c="dimmed">{lead.decision_maker_contact || ''}</Text>
+            ) : lead.decision_maker_contact ? (
+              <Text size="sm" c="dimmed">{lead.decision_maker_contact}</Text>
+            ) : null}
+            {/* contact_phone is a separate, dedicated schema field from decision_maker_contact
+                (validated independently in lib/validate-lead.ts) — previously never rendered here,
+                so a lead with both an email and a phone only ever showed one contact line. */}
+            {lead.contact_phone && (
+              <Text size="sm" c="dimmed" component="a" href={`tel:${lead.contact_phone.trim()}`}>{lead.contact_phone}</Text>
             )}
           </Box>
         ) : null}
