@@ -14,6 +14,8 @@ const CONTACT_CONFIDENCE_RE = /[A-Za-z]{2,}/;
 
 const KANBAN_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST'];
 const KANBAN_COLUMN_SET = new Set(KANBAN_COLUMNS);
+const ORG_SIZES = ['Small', 'Medium', 'Large', 'Enterprise'];
+const ORG_SIZE_SET = new Set(ORG_SIZES);
 const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE']);
 
 function contactConfidence(contact: any): number {
@@ -114,6 +116,16 @@ export function validateLeadPayload(body: any, brand: string, options?: { partia
 
   if (body[CON_FIELD] !== undefined && (!Array.isArray(body[CON_FIELD]) || !body[CON_FIELD].every((item: any) => typeof item === 'string'))) {
     errors.push(`${CON_FIELD} must be an array of strings`);
+  }
+
+  // Not required (matches contact_phone/decision_maker_contact below: format-checked
+  // only when present, not mandated) — the documented schema names a fixed 4-tier
+  // enum, but nothing enforced it at the write boundary, letting free text like
+  // "Pan-European league" (a scope description, not a size tier) get stored as-is.
+  if (body.size !== undefined && body.size !== null && body.size !== '') {
+    if (typeof body.size !== 'string' || !ORG_SIZE_SET.has(body.size)) {
+      errors.push('size must be one of: ' + ORG_SIZES.join(', '));
+    }
   }
 
   if (body.decision_maker_contact && typeof body.decision_maker_contact === 'string' && body.decision_maker_contact !== body.decision_maker_contact.toLowerCase().trim()) {

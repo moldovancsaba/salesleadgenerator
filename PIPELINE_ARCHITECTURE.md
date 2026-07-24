@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.29
+**Version:** 2.4.30
 
 ## Overview
 

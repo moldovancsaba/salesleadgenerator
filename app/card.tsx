@@ -24,12 +24,16 @@ export function LeadCard({ lead, onOpen }: LeadCardProps) {
     ? `${ticketSize.currency === 'USD' ? '$' : '€'}${Math.round(ticketSize.value).toLocaleString()}`
     : null;
 
+  // Fixed field set, every row always rendered ('—' when absent) — matches
+  // app/detail.tsx's existing placeholder convention, so every card has the
+  // same shape instead of the row set varying by which fields a lead happens
+  // to have populated.
   const metadata = [
     { label: 'Region', value: region },
     { label: 'ICE', value: ice },
-    ...(ticketSizeLabel ? [{ label: 'Ticket size', value: ticketSizeLabel }] : []),
-    ...(lead.size ? [{ label: 'Size', value: lead.size }] : []),
-    ...(lead.decision_maker_name ? [{ label: 'Contact', value: lead.decision_maker_name }] : []),
+    { label: 'Ticket size', value: ticketSizeLabel || '—' },
+    { label: 'Size', value: lead.size || '—' },
+    { label: 'Contact', value: lead.decision_maker_name || '—' },
   ];
 
   return (
