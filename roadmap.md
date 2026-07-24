@@ -1,10 +1,16 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.14
+**Version:** 2.4.15
 
 ---
 
 ## Shipped
+
+### KanbanBoard renderItem Type Mismatch, Fixed (2.4.15)
+- 🔴 A fourth real failure from the same GDS bump: `app/kanban.tsx:235` — `renderItem`'s parameter types (`LeadKanbanItem`/`LeadKanbanColumn`, which require a `lead` field) don't satisfy the real, fixed `KanbanItem`/`KanbanColumnData` contract `KanbanBoard` actually calls it with — a genuine contravariant function-parameter mismatch, correctly rejected by real `gds-core` types but invisible against the local `any`-typed stub.
+- ✅ Fixed `renderItem` to accept the real base types and cast internally (`item as LeadKanbanItem`) to reach `.lead`, which the constructed objects genuinely carry at runtime.
+- ✅ Upgraded the local `gds-core` stub for real: `KanbanItem`/`KanbanColumnData`/`KanbanOrientation`/`OnMoveItem` and a properly-typed `KanbanBoard`, transcribed from the real source already read this session. Confirmed effective the same way as 2.4.14 — reverted, re-ran `tsc`, watched it correctly re-flag the same error, restored the fix.
+- ⚠️ Four distinct real production failures from one GDS bump (2.4.12–2.4.15), each only catchable by a real `npm install` + `tsc` against the real package. The two GDS components this app actually imports (`AdminSelect`, `KanbanBoard`) now carry real, verified stub types — closing the gap for this app's actual surface area, though anything newly imported from GDS in the future needs the same treatment before it can be trusted locally.
 
 ### AdminSelect onChange Type Mismatch, Fixed (2.4.14)
 - 🔴 2.4.13's `@dnd-kit` fix let `npm install` and webpack module resolution succeed, but a third real failure surfaced on Vercel: a genuine `tsc` type error in `app/detail.tsx` — `AdminSelect`'s real `onChange` is typed `(value: string | null) => void` (matching Mantine's own `Select`), but the app's handler was typed `(value: string) => void`.

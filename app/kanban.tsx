@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Box, Group, Loader } from '@mantine/core';
 import { KanbanBoard as GdsKanbanBoard } from '@sovereignsquad/gds-core/client';
+import type { KanbanItem as GdsKanbanItem, KanbanColumnData as GdsKanbanColumnData } from '@sovereignsquad/gds-core/client';
 import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
 import { COLUMNS } from './constants';
@@ -215,12 +216,18 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     }
   }), [columnStates, forecast, formatForecast])
 
-  const renderItem = useCallback((item: LeadKanbanItem, column: LeadKanbanColumn) => {
+  // GDS's KanbanItem/KanbanColumnData are fixed, non-generic interfaces — the
+  // real renderItem prop is checked contravariantly against exactly that
+  // shape, so the callback's own parameter types must match it, not our
+  // richer LeadKanbanItem/LeadKanbanColumn (which we know these objects
+  // actually are at runtime, since we built them in `columns` above).
+  const renderItem = useCallback((item: GdsKanbanItem, column: GdsKanbanColumnData) => {
+    const leadItem = item as LeadKanbanItem
     const colState = columnStates[column.id as KanbanColumn]
     const isLast = column.items[column.items.length - 1]?.id === item.id
     return (
       <>
-        <LeadCard lead={item.lead} onOpen={() => onOpenLead(item.lead)} />
+        <LeadCard lead={leadItem.lead} onOpen={() => onOpenLead(leadItem.lead)} />
         {isLast && colState.hasMore && !colState.loading && (
           <LoadMoreSentinel onLoadMore={() => loadColumn(column.id as KanbanColumn, colState.cursor)} />
         )}
