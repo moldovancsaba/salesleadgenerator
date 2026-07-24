@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.33
+
+Temporary migration trigger for issue #45's still-unexecuted production data migration, since this session confirmed it has no way to run it directly.
+
+### Added — confirmed this sandbox cannot reach production at all, not just the database
+Direct TCP to MongoDB Atlas (port 27017) times out; separately, HTTPS `CONNECT` to `https://salesleadgenerator.vercel.app` itself returns `403` (same network-policy class that blocks `github.com`). Both verified by direct test, not assumed. This means the real production `MONGODB_URI` would not have helped either — the block is at the network layer, not the credential layer.
+
+### Added — `app/api/admin/migrate-decision-maker` (TEMPORARY)
+A GET-triggerable endpoint running the same migration inside Vercel's own network, which has real DB access this sandbox doesn't. Owner has no terminal — this can be triggered by opening a URL on a phone. Gated by the existing `SLG_API_KEY` secret passed as a `?key=` query param (a plain URL tap can't send custom headers, so the header-based `requireApiKey` mechanism doesn't apply here) rather than a freshly-generated token — reuses a secret the owner already controls. Fails closed (403) if `SLG_API_KEY` is unset, unlike this repo's general fail-open default for unset `SLG_API_KEY` — this route performs a bulk production write, not an ordinary lead mutation, so the usual local/dev convenience trade-off doesn't apply. Dry run by default (`?apply=true` to write). **Delete this route once the migration has been confirmed run successfully** — it's recorded here and in the route's own comment so it isn't forgotten.
+
+### Changed — migration logic deduplicated
+`lib/migrate-decision-maker.ts` is now the single implementation of the migration algorithm, imported directly by both the admin route above and `scripts/migrate-decision-maker-to-contacts.ts` (converted from `.js`, run via `tsx` — already a devDependency, same pattern as `tests/smoke/*.smoke.ts` — specifically so it could import the real shared module instead of maintaining a hand-synced duplicate).
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors, 0 warnings), `vitest run` (67/67), smoke suite (5/5), `next build --webpack` (all 24 routes, including the new admin endpoint).
+
+Version bumped 2.4.32 -> 2.4.33.
+
 ## 2.4.32
 
 Owner-requested full audit and refactor: `decision_maker_name`/`decision_maker_title`/`decision_maker_contact`/`contact_phone` retired as top-level `Lead` fields. Decision-maker status is now `isDecisionMaker: boolean` on a `contacts[]` entry — a flag, not a parallel set of fields. Hard cutover (matching the 2.3.0 `pro_for_cogmap→pro_for_organization` precedent), shipped as one coordinated change per owner decision. See issue #45.
