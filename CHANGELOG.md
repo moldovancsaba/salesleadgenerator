@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.46
+
+Eighth delivery of the sales-tooling roadmap (tracking issue #76), completing the forecasting cluster: pipeline coverage ratio.
+
+### Added — pipeline coverage ratio (fixes #60)
+`SalesSettings` gains a `revenueTarget: {amount?, currency: 'USD'|'EUR', period: 'monthly'|'quarterly'|'annual'}` field, editable via a new plain-Mantine "Revenue Target" section on `/salessettings/[client]` — kept in the same all-Mantine surface as the rest of that page's repeatable-row/checkbox-group fields, since GDS Admin has no equivalent for those needs there. `amount` defaults unset; `currency` defaults to the brand's own real forecast currency (USD for cogmap, EUR for seyu) but stays freely editable; a negative amount is clamped to 0 by the existing `sanitizeOptionalNumber`, which then collapses to the same "no target" state as genuinely unset.
+
+`app/lib/forecast.ts`'s `computeForecast()` looks the target up under the exact `{brand, tenantId}` key `app/api/sales-settings/[brand]/route.ts`'s own GET/PUT already use, and feeds it into a new pure module, `lib/pipeline-coverage.ts`'s `computeCoverage()`, alongside the already-computed weighted pipeline total. Returns `null` — never a false `0%` — when no target is configured or the amount is 0/negative; returns an explicit `ratio: 0`/`'below'` for a real zero-pipeline-with-a-target case, never hidden. Benchmark bands are boundary-inclusive (`ratio < 3` → `'below'`, `3–5` → `'in_range'`, `> 5` → `'above'`). Currency is explicit and user-set — a mismatch between the target's currency and the brand's own forecast currency is never silently FX-converted (no rate source exists in this app); it surfaces as `benchmark: 'unset'` plus `currencyMismatch: true`, with `app/forecast/page.tsx` rendering an explicit warning line instead of a misleading ratio.
+
+`forecast.coverage` is attached for both brands. The forecast page renders a GDS `MetricCard` (coverage ratio with a tone-colored trend label — the label text and color are always paired, never color-only) when a target is set, or GDS `MissingDataPrompt` when it isn't — both from `@sovereignsquad/gds-core/client`.
+
+### Testing
+`tests/lib/pipeline-coverage.test.ts` — 10 new tests: no target returns `null` not `0`, a `0`/negative target treated as no-target, the 3x/5x boundaries both inclusive, just-under/just-over each boundary, an explicit zero-pipeline `ratio: 0`/`'below'`, a currency mismatch never auto-converting (flags `unset`/`currencyMismatch: true` but still computes the raw ratio), and target metadata passthrough. `tests/lib/sales-settings.test.ts` — 5 new tests covering `revenueTarget` sanitize/empty defaults (brand-matched currency, numeric-string coercion, invalid-value fallback, negative clamping, absent-field defaulting). Interactive verification via headless Chromium against the real dev server: the Revenue Target form section renders with the correct brand-default currency/period, and (via a mocked `/api/boards/cogmap` response, since this sandbox has no `MONGODB_URI`) all three coverage states — no target (`MissingDataPrompt`), a healthy ratio (`MetricCard` with a "Healthy coverage" trend), and a currency mismatch (warning text) — render correctly with no console/hydration errors.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s "Company Settings" section (new "Revenue target / pipeline coverage ratio" subsection); `PIPELINE_ARCHITECTURE.md`'s board API table entry.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (179/179), smoke suite (5/5), `next build --webpack` (26 routes).
+
+Version bumped 2.4.45 -> 2.4.46.
+
 ## 2.4.45
 
 Seventh delivery of the sales-tooling roadmap (tracking issue #76): forecast concentration-risk flag.

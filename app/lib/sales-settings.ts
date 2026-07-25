@@ -112,6 +112,18 @@ export interface Seasonality {
   specificMonths: string;
 }
 
+export type RevenueTargetCurrency = 'USD' | 'EUR';
+export type RevenueTargetPeriod = 'monthly' | 'quarterly' | 'annual';
+
+// Pipeline coverage ratio (issue #60) reads this against the brand's own
+// weighted forecast — currency is explicit and user-set, never auto-detected
+// or auto-converted (no FX rate source exists in this app).
+export interface RevenueTarget {
+  amount?: number;
+  currency: RevenueTargetCurrency;
+  period: RevenueTargetPeriod;
+}
+
 export interface SalesSettings {
   brand: string;
   tenantId: string;
@@ -131,6 +143,7 @@ export interface SalesSettings {
   exampleCustomer: ExampleCustomer;
   seasonality: Seasonality;
   notes: string;
+  revenueTarget: RevenueTarget;
   updatedAt?: string;
 }
 
@@ -147,6 +160,13 @@ export function emptyProductLine(id: string): ProductLine {
     pricing: {},
     revenuePredictability: '',
   };
+}
+
+// CogMap forecasts in USD, Seyu in EUR (see app/lib/forecast.ts) — the
+// default currency here matches that brand's real forecast currency, though
+// it remains freely editable and is never auto-converted.
+function defaultRevenueTargetCurrency(brand: string): RevenueTargetCurrency {
+  return brand === 'seyu' ? 'EUR' : 'USD';
 }
 
 export function emptySalesSettings(brand: string, tenantId = 'default'): SalesSettings {
@@ -169,6 +189,7 @@ export function emptySalesSettings(brand: string, tenantId = 'default'): SalesSe
     exampleCustomer: { name: '', productsPurchased: '', contractLength: '' },
     seasonality: { quarters: [], specificMonths: '' },
     notes: '',
+    revenueTarget: { currency: defaultRevenueTargetCurrency(brand), period: 'annual' },
   };
 }
 
@@ -195,6 +216,8 @@ const REVENUE_PREDICTABILITY: RevenuePredictability[] = [
   'very_predictable', 'predictable', 'medium', 'difficult',
 ];
 const QUARTERS: Quarter[] = ['Q1', 'Q2', 'Q3', 'Q4'];
+const REVENUE_TARGET_CURRENCIES: RevenueTargetCurrency[] = ['USD', 'EUR'];
+const REVENUE_TARGET_PERIODS: RevenueTargetPeriod[] = ['monthly', 'quarterly', 'annual'];
 
 function sanitizeString(value: unknown, maxLength = 2000): string {
   if (typeof value !== 'string') return '';
@@ -236,6 +259,24 @@ function sanitizeProductPricing(value: unknown): ProductPricing {
     perProductPrice: sanitizeOptionalNumber(raw.perProductPrice),
     perEventPrice: sanitizeOptionalNumber(raw.perEventPrice),
     customQuotationTypicalValue: sanitizeOptionalNumber(raw.customQuotationTypicalValue),
+  };
+}
+
+// A negative amount is clamped to 0 by sanitizeOptionalNumber (never
+// rejected outright), and computeCoverage() in lib/pipeline-coverage.ts
+// treats a 0-or-unset amount identically as "no target" — so a negative
+// input safely collapses to the same "not configured" state, not a false
+// $0-target alarm.
+function sanitizeRevenueTarget(value: unknown, brand: string): RevenueTarget {
+  const raw = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
+  return {
+    amount: sanitizeOptionalNumber(raw.amount),
+    currency: typeof raw.currency === 'string' && (REVENUE_TARGET_CURRENCIES as string[]).includes(raw.currency)
+      ? (raw.currency as RevenueTargetCurrency)
+      : defaultRevenueTargetCurrency(brand),
+    period: typeof raw.period === 'string' && (REVENUE_TARGET_PERIODS as string[]).includes(raw.period)
+      ? (raw.period as RevenueTargetPeriod)
+      : 'annual',
   };
 }
 
@@ -300,6 +341,7 @@ export function sanitizeSalesSettings(body: unknown, brand: string, tenantId: st
       specificMonths: sanitizeString(seasonalityRaw.specificMonths, 300),
     },
     notes: sanitizeString(raw.notes, 4000),
+    revenueTarget: sanitizeRevenueTarget(raw.revenueTarget, brand),
   };
 }
 
@@ -377,4 +419,15 @@ export const QUARTER_OPTIONS: { value: Quarter; label: string }[] = [
   { value: 'Q2', label: 'Q2' },
   { value: 'Q3', label: 'Q3' },
   { value: 'Q4', label: 'Q4' },
+];
+
+export const REVENUE_TARGET_CURRENCY_OPTIONS: { value: RevenueTargetCurrency; label: string }[] = [
+  { value: 'USD', label: 'USD' },
+  { value: 'EUR', label: 'EUR' },
+];
+
+export const REVENUE_TARGET_PERIOD_OPTIONS: { value: RevenueTargetPeriod; label: string }[] = [
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'annual', label: 'Annual' },
 ];

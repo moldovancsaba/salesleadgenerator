@@ -4,6 +4,27 @@ import { getPipelineWeights } from '../../lib/pipeline-weights'
 import { tenantFilter } from '../../lib/tenant'
 import { computeConcentration, getConcentrationRiskSettings } from '../../lib/forecast-concentration'
 import type { LeadValue, ConcentrationRiskSettings } from '../../lib/forecast-concentration'
+import { computeCoverage } from '../../lib/pipeline-coverage'
+import type { RevenueTargetInput } from '../../lib/pipeline-coverage'
+
+// CogMap forecasts in USD, Seyu in EUR — matches app/lib/sales-settings.ts's
+// defaultRevenueTargetCurrency(), the source of truth this mirrors.
+const FORECAST_CURRENCY: Record<'cogmap' | 'seyu', 'USD' | 'EUR'> = { cogmap: 'USD', seyu: 'EUR' }
+
+// Coverage is looked up under the exact same {brand, tenantId} key
+// app/api/sales-settings/[brand]/route.ts's own GET/PUT already use — not
+// lib/tenant.ts's tenantFilter() $or-default special-casing, an exact match
+// against whatever tenantId this computeForecast() call itself received.
+async function fetchRevenueTarget(db: Db, brand: string, tenantId: string): Promise<RevenueTargetInput | null> {
+  try {
+    const doc = await db.collection('company_settings').findOne({ brand, tenantId })
+    if (!doc?.revenueTarget) return null
+    return doc.revenueTarget as RevenueTargetInput
+  } catch (error) {
+    console.error('[app/lib/forecast] revenue target lookup failed', { brand, tenantId, error })
+    return null
+  }
+}
 
 const PIPELINE_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST']
 
@@ -162,11 +183,14 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
     ]).toArray()
     const concentrationSettings = await getConcentrationRiskSettings(db)
     const brandConcentrationRisk = attachConcentrationRisk(perLeadValues, pipeline, totalWeighted, weightsUsed, concentrationSettings)
+    const revenueTarget = await fetchRevenueTarget(db, brand, tenantId)
+    const coverage = computeCoverage(revenueTarget, totalWeighted, FORECAST_CURRENCY[brand])
 
     forecast = {
       pipeline,
       totalWeightedRevenue: totalWeighted,
       concentrationRisk: brandConcentrationRisk,
+      coverage,
       byTier: pipelineForecast.reduce((acc: Record<string, { leads: number; participants: number; revenue: number }>, item: any) => {
         acc[item._id || 'UNSET'] = { leads: item.leads, participants: item.participants, revenue: item.revenue }
         return acc
@@ -321,6 +345,8 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
     ]).toArray()
     const concentrationSettingsSeyu = await getConcentrationRiskSettings(db)
     const brandConcentrationRiskSeyu = attachConcentrationRisk(perLeadValuesSeyu, pipelineSeyu, totalWeightedSeyu, weightsUsed, concentrationSettingsSeyu)
+    const revenueTargetSeyu = await fetchRevenueTarget(db, brand, tenantId)
+    const coverageSeyu = computeCoverage(revenueTargetSeyu, totalWeightedSeyu, FORECAST_CURRENCY[brand])
 
     forecast = {
       byCompany: annualizedByCompany,
@@ -328,6 +354,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
       pipeline: pipelineSeyu,
       totalWeightedRevenue: totalWeightedSeyu,
       concentrationRisk: brandConcentrationRiskSeyu,
+      coverage: coverageSeyu,
       currency: 'EUR',
     }
   }
