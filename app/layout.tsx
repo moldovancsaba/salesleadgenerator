@@ -45,9 +45,13 @@ export default function RootLayout({
           <PwaSetup />
           {/* Issue #95: the only persistent, always-reachable nav surface
               in the app — every other page previously had no link to any
-              other page at all, including Sales Settings. */}
-          <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--mantine-color-body)', borderBottom: '1px solid var(--mantine-color-gray-3)', padding: '8px 12px' }}>
+              other page at all, including Sales Settings. A bare icon with
+              no label read as decorative and was missed entirely in real
+              use; pairing it with the app name makes the whole bar
+              unambiguously a header/nav, not a stray floating icon. */}
+          <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--mantine-color-body)', borderBottom: '1px solid var(--mantine-color-gray-3)', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <AppNav />
+            <span style={{ fontWeight: 700, fontSize: '15px' }}>Sales Lead Generator</span>
           </div>
           {children}
         </Providers>

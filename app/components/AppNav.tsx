@@ -40,14 +40,21 @@ export function AppNav() {
 
   return (
     <>
+      {/* A bare "subtle" icon button (no fill, no border) reads as
+          decorative rather than tappable — confirmed by real user report,
+          it was invisible enough to be missed entirely next to the much
+          more visually prominent view-mode Select ("Kanban ▾") that sits
+          right below it. Filled + a real color gives it the same visual
+          weight as every other real button in this app. */}
       <ActionIcon
-        variant="subtle"
-        color="gray"
-        size="lg"
+        variant="filled"
+        color="indigo"
+        size={40}
+        radius="md"
         aria-label="Open navigation menu"
         onClick={() => setOpened(true)}
       >
-        <IconMenu2 size={22} />
+        <IconMenu2 size={24} />
       </ActionIcon>
       <Drawer
         opened={opened}
