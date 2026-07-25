@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.65
+
+### Fixed — hamburger nav mixed clients (correction to 2.4.64's issue #95 delivery)
+Owner-reported immediately after 2.4.64 shipped: `app/components/AppNav.tsx`'s first version listed every configured brand side by side under "Pipeline" and "Sales Settings" — CogMap and Seyu as sibling menu options in the same view. **This is forbidden in this app**, the same principle already enforced server-side (cross-brand vocabulary/field isolation — see `docs/ARCHITECTURE.md`'s Input Validation section), and was corrected immediately.
+
+The menu now derives the current client strictly from the URL (`currentBrandFromPath()`, matching `/sales/[brand]` or `/salessettings/[client]` against `BRAND_CONFIG`) and shows only that one client's own Pipeline/Sales Settings links — never the other client's name, anywhere, under any circumstance. On a page with no client context (the brand-agnostic Reporting pages, the root landing page), the client-specific section is omitted entirely rather than guessing which client to show or showing both.
+
+Verified via a real browser check at both a client page (`/sales/cogmap` — confirmed "Seyu" does not appear anywhere) and a brand-agnostic page (`/forecast` — confirmed neither client's name appears). Full gate clean (tsc/lint/vitest 345/345/smoke/build).
+
 ## 2.4.64
 
 Delivers the mobile bug/UX batch tracked under issue #89 (#90–#96) plus #94's newly-found sanity-cap gap. Investigating #91 surfaced two much larger, previously-undisclosed defects that explain several of these reports at once — documented in detail below rather than folded silently into the smaller fixes.
