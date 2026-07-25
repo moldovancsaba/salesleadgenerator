@@ -4,12 +4,13 @@ import { validatePatchPayload } from '../../lib/validate-lead'
 import { isMongoConfigured } from '../../lib/mongodb'
 import { tenantFilter as buildTenantFilter } from '../../lib/tenant'
 import { dedupeContacts, normalizeContact, contactKey, verifiableFieldsDiffer } from '../../lib/contacts'
+import { scanTechStack } from '../../lib/tech-stack-scan'
 
 export type LeadActionInput = {
   brand: string
   tenantId: string
   leadId: string
-  action: 'ACCEPT' | 'DECLINE' | 'MODIFY' | 'PIN' | 'REQUEST_REFRESH' | 'COLUMN_MOVE'
+  action: 'ACCEPT' | 'DECLINE' | 'MODIFY' | 'PIN' | 'REQUEST_REFRESH' | 'COLUMN_MOVE' | 'RESCAN_TECH'
   payload: Record<string, any>
 }
 
@@ -127,6 +128,23 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
 
   if (action === 'REQUEST_REFRESH') {
     outcomeValue = 'Refresh requested'
+  }
+
+  if (action === 'RESCAN_TECH') {
+    // Deliberately scans existing.url (the lead's own stored homepage), never
+    // a URL from the request payload — this action is not a general-purpose
+    // "fetch any URL" endpoint, per issue #69's own requirement. Awaited
+    // (unlike the POST-time scan) because this is an explicit user-triggered
+    // action expecting an immediate result; scanTechStack() itself enforces a
+    // 5s ceiling and never throws, so this can't hang the request.
+    if (!existing.url || typeof existing.url !== 'string') {
+      return { success: false, error: 'Lead has no url to scan', requestId }
+    }
+    const scan = await scanTechStack(existing.url)
+    updateData.techSignals = scan.signals
+    updateData.techSignalsScannedAt = scan.scannedAt
+    updateData.techSignalsScanStatus = scan.status
+    outcomeValue = `Tech scan: ${scan.status}`
   }
 
   const result = await db.collection(config.dbCollection).findOneAndUpdate(

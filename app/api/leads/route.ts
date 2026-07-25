@@ -10,6 +10,7 @@ import { deriveKanbanColumn } from '../../../lib/kanban-column'
 import { buildFingerprint } from '../../../lib/fingerprint'
 import { dedupeContacts } from '../../../lib/contacts'
 import { verifyLeadContactsAsync } from '../../lib/email-verification-store'
+import { scanLeadTechStackAsync } from '../../lib/tech-stack-scan-store'
 
 // Normalize address - ensure country is included if missing
 function normalizeAddress(address: string, country: string): string {
@@ -371,6 +372,14 @@ export async function POST(request: Request) {
     // below is unaffected either way.
     void verifyLeadContactsAsync(db, config.dbCollection, result.insertedId, (newLead.contacts || []).map((c: any) => c.email))
 
+    // Fire-and-forget, SSRF-guarded homepage tech-stack scan (issue #69) —
+    // same non-blocking contract as the email check above: never awaited,
+    // a slow/hanging/blocked third-party site can never delay or fail lead
+    // creation.
+    if (newLead.url) {
+      void scanLeadTechStackAsync(db, config.dbCollection, result.insertedId, newLead.url)
+    }
+
     await db.collection('outcomelogs').insertOne({
       leadId: result.insertedId.toString(),
       action: 'CREATE',
@@ -402,7 +411,7 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, COLUMN_MOVE
+// PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH
 export async function PATCH(request: Request) {
   const requestId = generateRequestId();
   const authError = requireApiKey(request);
@@ -421,7 +430,7 @@ export async function PATCH(request: Request) {
     }
 
     const action = String(body.action || '').toUpperCase()
-    const allowed = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE'])
+    const allowed = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH'])
     if (!allowed.has(action)) {
       return NextResponse.json({ error: `Unsupported action: ${action}` }, { status: 400 })
     }

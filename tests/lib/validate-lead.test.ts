@@ -121,4 +121,9 @@ describe('validatePatchPayload', () => {
     const result = validatePatchPayload({ action: 'COLUMN_MOVE', kanbanColumn: 'QUALIFIED', sortOrder: 1 }, 'cogmap');
     expect(result.valid).toBe(true);
   });
+
+  it('allows RESCAN_TECH with no extra fields (issue #69)', () => {
+    const result = validatePatchPayload({ action: 'RESCAN_TECH' }, 'cogmap');
+    expect(result.valid).toBe(true);
+  });
 });

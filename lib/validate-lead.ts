@@ -34,7 +34,7 @@ const KANBAN_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON',
 const KANBAN_COLUMN_SET = new Set(KANBAN_COLUMNS);
 const ORG_SIZES = ['Small', 'Medium', 'Large', 'Enterprise'];
 const ORG_SIZE_SET = new Set(ORG_SIZES);
-const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE']);
+const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH']);
 
 function contactConfidence(contact: any): number {
   if (!contact || typeof contact !== 'object') return 0;
@@ -150,7 +150,7 @@ export function validatePatchPayload(body: any, brand: string): ValidationResult
 
   const action = body.action;
   if (!action || typeof action !== 'string' || !PATCH_ACTIONS.has(action.toUpperCase())) {
-    errors.push('action must be one of: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE');
+    errors.push('action must be one of: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH');
     return { valid: false, errors };
   }
 

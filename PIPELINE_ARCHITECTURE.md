@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.51
+**Version:** 2.4.52
 
 ## Overview
 
@@ -84,7 +84,7 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 |--------|----------|---------|
 | GET | `/api/leads?brand=<brand>` | List leads — legacy `page`/`limit` pagination by default, opt-in cursor pagination via `?cursor=` (`hasMore`/`nextCursor`) |
 | POST | `/api/leads?brand=<brand>` | Create lead with normalization, dedup, quality gate, ICE scoring |
-| PATCH | `/api/leads?brand=<brand>&id=<id>` | Action lead (ACCEPT, DECLINE, PIN, REQUEST_REFRESH, MODIFY, COLUMN_MOVE) |
+| PATCH | `/api/leads?brand=<brand>&id=<id>` | Action lead (ACCEPT, DECLINE, PIN, REQUEST_REFRESH, MODIFY, COLUMN_MOVE, RESCAN_TECH) |
 | GET | `/api/leads/[id]?brand=<brand>` | Fetch single lead |
 | PUT | `/api/leads/[id]?brand=<brand>` | Update lead fields for enrichment; auto-reclassifies `kanbanColumn` on `ice` change while still in an auto-managed column |
 | DELETE | `/api/leads/[id]?brand=<brand>` | Delete lead |
@@ -135,6 +135,13 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
   // specific-mailbox proof. seniorityTier/department (2.4.50, issue #68):
   // rule-based (not ML), re-derived from `title` on every normalize.
   contacts: Array<{ name, title, email, phone, linkedin, role, isDecisionMaker, lastVerifiedAt?, emailVerificationStatus?, seniorityTier, department }>
+  // techSignals (2.4.52, issue #69): top-level, NOT per-contact — describes
+  // the company homepage, not a person. Server-computed by an SSRF-guarded
+  // background scan (lib/tech-stack-scan.ts); see
+  // docs/STACK_AND_DEPENDENCIES.md's "Outbound Requests / SSRF Guard".
+  techSignals?: string[]
+  techSignalsScannedAt?: string
+  techSignalsScanStatus?: 'ok' | 'blocked' | 'timeout' | 'invalid_url' | 'non_html' | 'error'
   pro_for_organization: string[]  // generic since 2.3.0 — shared across every brand, not brand-specific
   con_for_organization: string[]
   value_proposition: string

@@ -56,6 +56,51 @@ function emailStatusBadge(status: import('@/lib/email-verification').EmailVerifi
   return <StatusBadge status="info" aria-label="Email domain deliverability check in progress">Checking…</StatusBadge>;
 }
 
+// Human-readable labels for lib/tech-stack-scan.ts's SIGNATURES ids (issue
+// #69) — the accessible name of each badge must be a real label ("Google
+// Analytics"), never the raw signature id, per the issue's own a11y spec.
+const TECH_SIGNAL_LABELS: Record<string, string> = {
+  wordpress: 'WordPress',
+  wix: 'Wix',
+  squarespace: 'Squarespace',
+  webflow: 'Webflow',
+  shopify: 'Shopify',
+  'google-analytics': 'Google Analytics',
+  gtm: 'Google Tag Manager',
+  'meta-pixel': 'Meta Pixel',
+  hubspot: 'HubSpot',
+  nextjs: 'Next.js',
+  react: 'React',
+  vue: 'Vue.js',
+};
+
+// Renders null (section omitted) when no scan has run yet — the issue's own
+// UX spec treats "not yet scanned" as absent, not as an empty/failed state.
+function techSignalsSection(lead: Lead) {
+  if (!lead.techSignalsScanStatus) return null;
+
+  if (lead.techSignalsScanStatus === 'ok' && (lead.techSignals?.length ?? 0) > 0) {
+    return (
+      <Group gap="xs" role="list" aria-label="Detected tech signals">
+        {lead.techSignals!.map((signal) => (
+          <Badge key={signal} variant="light" color="teal" role="listitem" aria-label={TECH_SIGNAL_LABELS[signal] || signal}>
+            {TECH_SIGNAL_LABELS[signal] || signal}
+          </Badge>
+        ))}
+      </Group>
+    );
+  }
+
+  if (lead.techSignalsScanStatus === 'ok') {
+    return <Text size="sm" c="dimmed">No tech signals detected.</Text>;
+  }
+
+  // blocked/timeout/invalid_url/non_html/error — deliberately non-alarming
+  // copy, no color signaling: an unreachable or bot-blocking site is an
+  // expected, non-actionable outcome per the issue's own UX spec.
+  return <Text size="sm" c="dimmed">Scan unavailable</Text>;
+}
+
 const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
   { value: "WRONG_INDUSTRY", label: "Wrong industry" },
   { value: "NO_DECISION_MAKER", label: "No decision maker" },
@@ -293,6 +338,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
         <Text size="sm" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
         <Badge variant="light" color={qualityToneValue}>{qualityStatus}</Badge>
       </Group>
+      {techSignalsSection(lead)}
     </Stack>
   );
 
