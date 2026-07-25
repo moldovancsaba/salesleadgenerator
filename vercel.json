@@ -3,6 +3,10 @@
     {
       "path": "/api/admin/forecast-snapshot",
       "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/admin/ticket-size-recalc",
+      "schedule": "0 7 * * 1"
     }
   ]
 }
