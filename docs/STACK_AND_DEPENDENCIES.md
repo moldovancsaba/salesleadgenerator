@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.55
+**Version:** 2.4.56
 
 ---
 
@@ -59,7 +59,7 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 | Component | Notes |
 |-----------|-------|
 | Vercel | Production hosting, preview deployments |
-| Vercel Cron Jobs | **New in 2.4.41** (`vercel.json`, root of repo) — a weekly `GET /api/admin/forecast-snapshot` (Mondays 06:00 UTC), authorized via Vercel's automatic `Authorization: Bearer $CRON_SECRET` header against a new `CRON_SECRET` env var (`lib/api-auth.ts`'s `requireCronOrApiKey`/`isCronRequest`). Not used anywhere else in this repo prior to this — a genuinely new mechanism, not an extension of an existing scheduler, since a forecast snapshot is a deterministic aggregation with no LLM reasoning and belongs with the app's own hosting platform rather than OpenClaw (see below). Requires `CRON_SECRET` to be set in the Vercel project's environment variables for the scheduled trigger to authenticate — until set, the endpoint falls back to the existing `x-api-key`/`SLG_API_KEY` admin auth (same documented fail-open behavior as every other admin route when `SLG_API_KEY` is unset). |
+| Vercel Cron Jobs | **New in 2.4.41** (`vercel.json`, root of repo) — a weekly `GET /api/admin/forecast-snapshot` (Mondays 06:00 UTC), authorized via Vercel's automatic `Authorization: Bearer $CRON_SECRET` header against a new `CRON_SECRET` env var (`lib/api-auth.ts`'s `requireCronOrApiKey`/`isCronRequest`). Not used anywhere else in this repo prior to this — a genuinely new mechanism, not an extension of an existing scheduler, since a forecast snapshot is a deterministic aggregation with no LLM reasoning and belongs with the app's own hosting platform rather than OpenClaw (see below). Requires `CRON_SECRET` to be set in the Vercel project's environment variables for the scheduled trigger to authenticate — until set, the endpoint falls back to the existing `x-api-key`/`SLG_API_KEY` admin auth (same documented fail-open behavior as every other admin route when `SLG_API_KEY` is unset). **2.4.56, issue #82** added a second weekly cron, `GET /api/admin/ticket-size-recalc` (Mondays 07:00 UTC, deliberately offset an hour from the forecast snapshot to avoid overlapping load) — same `requireCronOrApiKey` auth, reuses issue #81's `backfillTicketSizeCollection()` with `apply: true` for every brand, so a lead's `ticketSizeEstimate` never silently goes stale even if it's never individually re-saved. |
 | MongoDB Atlas | Managed database cluster |
 | PWA | Web app manifest, standalone mode, minimal shell-only service worker (`public/sw.js`), CSS + JS zoom lock (`app/globals.css`, `app/components/PwaSetup.tsx`) — see `docs/ARCHITECTURE.md`'s "PWA and Zoom Lock" section |
 

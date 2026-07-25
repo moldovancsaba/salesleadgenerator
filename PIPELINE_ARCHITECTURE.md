@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.55
+**Version:** 2.4.56
 
 ## Overview
 
@@ -102,6 +102,7 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 | GET | `/api/admin/cron-status` | Cron observability |
 | GET | `/api/admin/data-hygiene` | Malformed lead counts by brand |
 | POST | `/api/admin/ticket-size-backfill` | Backfill/recompute `ticketSizeEstimate` for every lead in one or all brands; `x-api-key` guarded, defaults to a dry run (2.4.54, issue #81) |
+| GET/POST | `/api/admin/ticket-size-recalc` | Weekly recalculation sweep: `ticketSizeEstimate` for every lead in every brand, always applied; `GET` is the Vercel Cron target (`CRON_SECRET` bearer) or admin (`x-api-key`), `POST` is a key-guarded manual re-trigger (2.4.56, issue #82) |
 | GET/POST | `/api/admin/forecast-snapshot` | Write a weekly forecast snapshot per brand/tenant; `GET` is the Vercel Cron target (`CRON_SECRET` bearer) or admin (`x-api-key`), `POST` is a key-guarded manual/backfill trigger (2.4.41, issue #57) |
 | GET | `/api/admin/forecast-snapshot/history` | Read forecast snapshot history for a brand/tenant/date range (`x-api-key`) — feeds a future trend-chart UI |
 | GET/POST | `/api/outreach-templates` | Template CRUD and analytics; `GET` also accepts `tags`/`q` (additive to `industry`/`channel`, graceful zero-match fallback) and a `mode=search` variant for a real Mongo-level tag/content query (2.4.41, issue #64) |

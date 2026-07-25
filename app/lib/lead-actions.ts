@@ -5,6 +5,7 @@ import { isMongoConfigured } from '../../lib/mongodb'
 import { tenantFilter as buildTenantFilter } from '../../lib/tenant'
 import { dedupeContacts, normalizeContact, contactKey, verifiableFieldsDiffer } from '../../lib/contacts'
 import { scanTechStack } from '../../lib/tech-stack-scan'
+import { computeTicketSizeForLead } from './ticket-size-store'
 
 export type LeadActionInput = {
   brand: string
@@ -83,6 +84,18 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     fields.forEach(field => {
       if (normalizedBody[field] !== undefined) updateData[field] = normalizedBody[field]
     })
+    // Change-triggered ticket-size recompute (issue #82) — a size-tier edit
+    // is exactly the kind of firmographic change that invalidates the
+    // stored ticketSizeEstimate; recomputed inline (cheap, in-process, no
+    // reason to defer) rather than waiting for the weekly cron sweep or a
+    // Sales Settings save. estimated_participants isn't in MODIFY's own
+    // field whitelist above, so the existing stored value is reused as-is.
+    if (updateData.size !== undefined && updateData.size !== existing.size) {
+      updateData.ticketSizeEstimate = await computeTicketSizeForLead(db, brand, tenantId, {
+        size: updateData.size,
+        estimated_participants: existing.estimated_participants,
+      })
+    }
     // Previously MODIFY had no way to touch contacts[] at all — the only path
     // that could write it was PUT. Added so decision-maker status (a flag on a
     // contact, not a top-level field — see lib/contacts.ts, issue #45) can
