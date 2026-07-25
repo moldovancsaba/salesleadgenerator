@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { resolveBrand } from '@/app/lib/brand'
+import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
 import { getTenantId } from '@/lib/tenant'
-import { sanitizeSalesSettings, emptySalesSettings } from '@/app/lib/sales-settings'
+import { sanitizeSalesSettings, emptySalesSettings, defaultRevenueTargetCurrency } from '@/app/lib/sales-settings'
+import { backfillTicketSizeCollection } from '@/lib/backfill-ticket-size'
 
 const COLLECTION = 'company_settings'
 
@@ -63,6 +64,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ bran
       { $set: { ...sanitized, updatedAt } },
       { upsert: true }
     )
+
+    // Fire-and-forget ticket-size recompute across this brand's leads
+    // (issue #82) — an operator correcting a wrong dealSize.largestWon or
+    // adding a product's per-unit pricing should not have to wait for the
+    // weekly cron sweep (/api/admin/ticket-size-recalc) for every lead's
+    // estimate to reflect it. Never awaited: a slow recompute over many
+    // leads must never delay this save's response, same non-blocking
+    // contract already established for issues #67/#69's background writes.
+    const config = BRAND_CONFIG[brand]
+    if (config) {
+      void backfillTicketSizeCollection(db, config.dbCollection, brand, tenantId, defaultRevenueTargetCurrency(brand), { apply: true })
+        .catch((error) => console.error('[sales-settings PUT] ticket-size recompute failed', { brand, tenantId, error }))
+    }
 
     return NextResponse.json({ settings: { ...sanitized, updatedAt }, source: 'mongodb' })
   } catch (error: any) {

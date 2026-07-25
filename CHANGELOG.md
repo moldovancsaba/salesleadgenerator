@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.56
+
+First delivery of Phase 2 of the ticket-size estimation overhaul (tracking issue #87): periodic and change-triggered recalculation, so `ticketSizeEstimate` never silently goes stale.
+
+### Added — periodic + change-triggered ticket-size recalculation (fixes #82)
+`ticketSizeEstimate` (issue #79) is computed at write time from a snapshot of `company_settings` and a lead's own `size`/`estimated_participants`. If an operator later corrects a `dealSize.largestWon` or adds product pricing, or a lead's `size` changes, the stored estimate previously had no way to catch up short of that exact lead being re-saved. Three triggers now keep it current, all reusing the same underlying compute functions from #79/#81 — no duplicated recalculation logic:
+
+- **Weekly scheduled sweep**: new `GET/POST /api/admin/ticket-size-recalc`, added to `vercel.json` (Mondays 07:00 UTC, deliberately offset an hour from the existing forecast-snapshot cron to avoid overlapping load), `requireCronOrApiKey` guarded — the same auth pattern `/api/admin/forecast-snapshot` already established. Internally reuses issue #81's `backfillTicketSizeCollection()` with `apply: true` for every brand, so the "backfill" implementation doubles as the recurring job rather than being reimplemented.
+- **Sales Settings save trigger**: `PUT /api/sales-settings/[brand]` now fires a `void`, fire-and-forget recompute across that brand's whole lead collection immediately after a successful save — the highest-value trigger, since an operator correcting a wrong deal-size band shouldn't have to wait up to a week for every lead's estimate to reflect it. Never awaited, so a slow recompute over many leads can never delay the save's own response — the same non-blocking contract already established for issues #67/#69's background writes.
+- **`MODIFY` size-change trigger**: `app/lib/lead-actions.ts`'s `MODIFY` action now recomputes a single lead's `ticketSizeEstimate` inline, synchronously, whenever `size` actually changes in that request — cheap, in-process, no reason to defer to the weekly sweep.
+
+### Testing
+No new pure-logic module — every new code path here is Mongo-touching orchestration wiring reusing already-unit-tested compute functions (`estimateTicketSize`, `computeTicketSizeForLead`, `backfillTicketSizeCollection`), consistent with this repo's established, documented `mongodb-memory-server`-blocked-in-sandbox limitation on testing orchestration directly (see e.g. `app/lib/win-rate-store.ts`'s own test file, which likewise only covers its one pure function).
+
+### Documentation
+`docs/STACK_AND_DEPENDENCIES.md`'s "Hosting and Delivery" Vercel Cron row gains the second cron entry. `docs/ARCHITECTURE.md`'s "Ticket-size estimation" subsection gains a "Recalculation" paragraph describing all three triggers. `PIPELINE_ARCHITECTURE.md`'s API Endpoints table gains the new route.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (310/310, unchanged — no new tests, see Testing above), smoke suite (5/5), `next build --webpack` (34 routes, 1 new — `/api/admin/ticket-size-recalc`).
+
+Version bumped 2.4.55 -> 2.4.56. Next: issue #83 (closed-won calibration — the feedback loop that will eventually justify replacing this engine's fixed placeholder assumptions with real data).
+
 ## 2.4.55
 
 Third delivery of the ticket-size estimation overhaul (tracking issue #87), and the last of Phase 1: full detail-drawer UI for the firmographic-tiered estimate.
