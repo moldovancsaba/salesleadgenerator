@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.67
+
+### Changed — removed the on-page view-mode dropdown, folded into the hamburger nav (third pass on issue #95)
+Owner-reported: "Remove the dropdown menu selector" — the per-page `Select` ("Kanban ▾") that 2.4.66 explicitly called out as the thing visually competing with the hamburger trigger. Rather than leave the two menus side by side (one for global nav, one for switching Kanban/Table/Metrics/Search Learning on the board page), the `Select` in `app/sales/[brand]/sales-page-client.tsx` is removed outright and its four options moved into a new **View** section inside the hamburger drawer itself (`app/components/AppNav.tsx`), shown only on the sales board page (`/sales/[brand]` exactly).
+
+Since `AppNav` is mounted globally in the root layout and `SalesPageClient` is a sibling, not a parent/child, the view can't be plain lifted React state shared between them — it's now carried in the `?view=` URL query param instead: the drawer's View links point at `/sales/[brand]?view=table` etc., and `SalesPageClient` reads `useSearchParams().get('view')` (defaulting to `kanban`) rather than holding its own `useState`.
+
+This introduced a real build failure, not assumed: `useSearchParams()` requires a `Suspense` boundary, and because `AppNav` renders on every page (including Next's own `/_not-found`), the production build failed static generation for that page (`missing-suspense-with-csr-bailout`) until `AppNav`'s exported component was split into a `<Suspense>` wrapper (fallback: the same trigger button, so there's no visible flash) around the real `useSearchParams()`-using implementation.
+
+Verified via a real local-dev-server Playwright check (route-mocked APIs, since this sandbox's Chromium still can't reach production HTTPS through its proxy — same unresolved limitation as prior sessions): the on-page dropdown is gone from the header, the drawer's new View section lists Kanban/Table/Metrics/Search Learning with the current one correctly highlighted, and clicking "Table" navigates to `?view=table` and swaps the panel in place without losing the already-loaded board header. Full gate clean (tsc 0 errors, lint 0 errors/warnings, vitest 345/345, smoke 5/5, build 33 routes).
+
 ## 2.4.66
 
 ### Fixed — hamburger nav was effectively invisible (second correction to issue #95)
