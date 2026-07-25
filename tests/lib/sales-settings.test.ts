@@ -72,6 +72,28 @@ describe('sanitizeSalesSettings', () => {
     expect(result.dealSize.medium).toBeUndefined();
   });
 
+  it('defaults regionMultipliers to an empty object (issue #84)', () => {
+    const result = sanitizeSalesSettings(null, 'cogmap', 'default');
+    expect(result.regionMultipliers).toEqual({});
+  });
+
+  it('uppercases region keys and coerces numeric-string multipliers', () => {
+    const result = sanitizeSalesSettings({ regionMultipliers: { cee: '0.8', MENA: 1.2 } }, 'cogmap', 'default');
+    expect(result.regionMultipliers).toEqual({ CEE: 0.8, MENA: 1.2 });
+  });
+
+  it('drops region multiplier entries that are zero, negative, or non-numeric rather than storing a corrupted value', () => {
+    const result = sanitizeSalesSettings({ regionMultipliers: { US: 0, CEE: -1, MENA: 'nonsense', NA: 1.5 } }, 'cogmap', 'default');
+    expect(result.regionMultipliers).toEqual({ NA: 1.5 });
+  });
+
+  it('drops region keys that sanitize to empty and caps the total entry count', () => {
+    const many: Record<string, number> = {};
+    for (let i = 0; i < 60; i++) many[`R${i}`] = 1.1;
+    const result = sanitizeSalesSettings({ regionMultipliers: { '': 2, '   ': 3, ...many } }, 'cogmap', 'default');
+    expect(Object.keys(result.regionMultipliers).length).toBeLessThanOrEqual(50);
+  });
+
   it('sanitizes an array of product lines including nested pricing', () => {
     const result = sanitizeSalesSettings({
       products: [

@@ -190,6 +190,7 @@ export async function PUT(
       estimated_participants: Number(
         updateData.estimated_participants !== undefined ? updateData.estimated_participants : existing.estimated_participants
       ) || undefined,
+      region: updateData.region !== undefined ? updateData.region : existing.region,
     })
 
     const result = await dbInstance.collection(config.dbCollection).findOneAndUpdate(

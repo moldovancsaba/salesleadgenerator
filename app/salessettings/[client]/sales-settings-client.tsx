@@ -34,9 +34,28 @@ const PRICING_FIELD_MAP: Record<PricingModel, { key: keyof ProductLine['pricing'
   custom_quotation: [{ key: 'customQuotationTypicalValue', label: 'Typical quotation value (€)' }],
 }
 
+// Region is genuinely free text (Lead.region has no server-side enum — see
+// app/lib/sales-settings.ts's RegionMultipliers comment), so this is edited
+// as region/multiplier rows, not a fixed-field form like Typical Deal Size.
+// Kept as separate component state (not directly in `settings.regionMultipliers`,
+// a Record) because a Record's key order shifts on rename — editing a row's
+// region text in place via delete+reinsert would make the row visually jump
+// on every keystroke. Rows are the single source of truth while editing;
+// settings.regionMultipliers is rebuilt from them only at save() time.
+type RegionMultiplierRow = { id: string; region: string; multiplier: number | undefined }
+
+function rowsFromRegionMultipliers(record: Record<string, number> | undefined): RegionMultiplierRow[] {
+  return Object.entries(record || {}).map(([region, multiplier], i) => ({
+    id: `region-${i}-${Math.random().toString(36).slice(2, 8)}`,
+    region,
+    multiplier,
+  }))
+}
+
 export function SalesSettingsClient({ brand }: { brand: Brand }) {
   const [tenantId, setTenantId] = useState('default')
   const [settings, setSettings] = useState<SalesSettings>(emptySalesSettings(brand))
+  const [regionRows, setRegionRows] = useState<RegionMultiplierRow[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -58,7 +77,11 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
         const res = await fetch(`/api/sales-settings/${brand}?tenantId=${encodeURIComponent(tenantId)}`)
         if (!res.ok) throw new Error('Failed to load sales settings')
         const data = await res.json()
-        if (!cancelled) setSettings(data.settings || emptySalesSettings(brand, tenantId))
+        const loaded = data.settings || emptySalesSettings(brand, tenantId)
+        if (!cancelled) {
+          setSettings(loaded)
+          setRegionRows(rowsFromRegionMultipliers(loaded.regionMultipliers))
+        }
       } catch (err: any) {
         if (!cancelled) setError(err?.message || 'Failed to load sales settings')
       } finally {
@@ -74,10 +97,21 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
     setError(null)
     setSaved(false)
     try {
+      // regionMultipliers is rebuilt from regionRows here, not kept live-synced
+      // in `settings` — see rowsFromRegionMultipliers()'s comment above. A row
+      // with an empty region or no valid multiplier is simply omitted, not
+      // an error (mirrors the same "drop, don't corrupt" contract
+      // sanitizeRegionMultipliers() itself applies server-side).
+      const regionMultipliers: Record<string, number> = {}
+      for (const row of regionRows) {
+        const key = row.region.trim().toUpperCase()
+        if (key && typeof row.multiplier === 'number' && row.multiplier > 0) regionMultipliers[key] = row.multiplier
+      }
+      const payload = { ...settings, regionMultipliers }
       const res = await fetch(`/api/sales-settings/${brand}?tenantId=${encodeURIComponent(tenantId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -85,12 +119,25 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
       }
       const data = await res.json()
       setSettings(data.settings)
+      setRegionRows(rowsFromRegionMultipliers(data.settings.regionMultipliers))
       setSaved(true)
     } catch (err: any) {
       setError(err?.message || 'Failed to save sales settings')
     } finally {
       setSaving(false)
     }
+  }
+
+  function addRegionRow() {
+    setRegionRows((rows) => [...rows, { id: `region-${rows.length}-${Math.random().toString(36).slice(2, 8)}`, region: '', multiplier: undefined }])
+  }
+
+  function removeRegionRow(id: string) {
+    setRegionRows((rows) => rows.filter((r) => r.id !== id))
+  }
+
+  function updateRegionRow(id: string, patch: Partial<RegionMultiplierRow>) {
+    setRegionRows((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)))
   }
 
   function addProduct() {
@@ -337,6 +384,46 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
               onChange={(value) => setSettings((s) => ({ ...s, dealSize: { ...s.dealSize, largestWon: typeof value === 'number' ? value : undefined } }))}
               min={0}
             />
+          </Stack>
+        </Paper>
+
+        {/* 5b. Region Multipliers (issue #84) */}
+        <Paper withBorder p="md" radius="md">
+          <Stack gap="sm">
+            <Title order={4}>Region Multipliers</Title>
+            <Text size="sm" c="dimmed">
+              Optional. Adjusts the ticket-size estimate for leads in a specific region — e.g. a CEE or MENA
+              deal may realistically run smaller than a US one at the same company-size tier. A region with
+              no row below is left unadjusted (1.0). Region text must match a lead&apos;s own region field
+              (not case-sensitive — always stored uppercase).
+            </Text>
+            {regionRows.map((row) => (
+              <Group key={row.id} align="flex-end">
+                <TextInput
+                  label="Region"
+                  placeholder="e.g. CEE"
+                  value={row.region}
+                  onChange={(e) => { const v = e.currentTarget.value; updateRegionRow(row.id, { region: v }) }}
+                  style={{ flex: 1 }}
+                />
+                <NumberInput
+                  label="Multiplier"
+                  placeholder="1.0"
+                  value={row.multiplier ?? ''}
+                  onChange={(value) => updateRegionRow(row.id, { multiplier: typeof value === 'number' ? value : undefined })}
+                  min={0}
+                  step={0.05}
+                  decimalScale={2}
+                  style={{ flex: 1 }}
+                />
+                <Button size="xs" color="red" variant="light" onClick={() => removeRegionRow(row.id)}>
+                  <IconTrash size={14} />
+                </Button>
+              </Group>
+            ))}
+            <Button size="xs" leftSection={<IconPlus size={14} />} onClick={addRegionRow} variant="light">
+              Add region
+            </Button>
           </Stack>
         </Paper>
 

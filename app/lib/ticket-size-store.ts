@@ -22,7 +22,7 @@ export async function computeTicketSizeForLead(
   db: Db,
   brand: string,
   tenantId: string,
-  lead: { size?: string; estimated_participants?: number }
+  lead: { size?: string; estimated_participants?: number; region?: string }
 ): Promise<TicketSizeResult> {
   const settings = (await db.collection('company_settings').findOne({ brand, tenantId })) as SalesSettings | null;
   const currency = defaultRevenueTargetCurrency(brand);
@@ -30,9 +30,14 @@ export async function computeTicketSizeForLead(
   const unitCount = typeof lead.estimated_participants === 'number' && lead.estimated_participants > 0
     ? lead.estimated_participants
     : undefined;
+  // Region is free text (see RegionMultipliers' own comment in
+  // app/lib/sales-settings.ts) — an unrecognized/unconfigured region simply
+  // finds no entry here, and lib/ticket-size.ts's own resolveRegionMultiplier()
+  // treats that as a 1.0 no-op, never an error (issue #84).
+  const regionMultiplier = lead.region ? settings?.regionMultipliers?.[lead.region.toUpperCase()] : undefined;
 
   return estimateTicketSize(
-    { sizeTier, unitCount, currency },
+    { sizeTier, unitCount, currency, regionMultiplier },
     settings?.dealSize || {},
     settings ? toProductInputs(settings.products) : []
   );

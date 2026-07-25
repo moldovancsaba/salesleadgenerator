@@ -104,6 +104,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
       updateData.ticketSizeEstimate = await computeTicketSizeForLead(db, brand, tenantId, {
         size: updateData.size,
         estimated_participants: existing.estimated_participants,
+        region: existing.region,
       })
     }
     // Previously MODIFY had no way to touch contacts[] at all — the only path
