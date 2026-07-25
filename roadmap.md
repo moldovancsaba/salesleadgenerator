@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**Version:** 2.4.51
+**Version:** 2.4.52
 
 ---
 

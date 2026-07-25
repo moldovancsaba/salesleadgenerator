@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.51
+**Version:** 2.4.52
 
 ---
 
@@ -85,6 +85,23 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 | Read access | Public for listings and health | Route handlers |
 
 **Note:** as of 2.2.0, when `SLG_API_KEY` *is* set, a request must send the exact matching `x-api-key` header — a missing header is rejected (401) identically to a wrong one. Earlier versions incorrectly allowed a missing header through even when a key was configured; this was fixed as a security patch.
+
+---
+
+## Outbound Requests / SSRF Guard (2.4.52, issue #69)
+
+`lib/tech-stack-scan.ts`'s `scanTechStack()` is **the first code path in this repo that makes a server-side HTTP request to an arbitrary, externally-supplied host** — every other outbound call is either client-side (hitting this app's own `/api/*` routes) or to a fixed, trusted host (MongoDB Atlas, Vercel). It fetches a lead's own `url` field (a company homepage) and pattern-matches the HTML against a small CMS/analytics/framework signature table, writing `techSignals`/`techSignalsScannedAt`/`techSignalsScanStatus` back onto the lead. Because the target host is attacker-influenced (anyone who can create/edit a lead controls `url`), the guard chain below is load-bearing, not incidental:
+
+| Guard | Behavior |
+|-------|----------|
+| Scheme allowlist | Only `http:`/`https:` accepted; anything else (`file:`, `ftp:`, etc.) → `invalid_url` before any network access |
+| DNS resolution + private/reserved IP rejection | Own `dns.lookup`-based resolution, then reject RFC1918, loopback, link-local (including the `169.254.169.254` cloud metadata address), CGNAT, documentation ranges, multicast/reserved, and the IPv6 equivalents (`::1`, ULA `fc00::/7`, link-local `fe80::/10`, IPv4-mapped) → `blocked`, before any fetch is attempted |
+| Connect via the validated IP | Node's `http`/`https` `.request()` `lookup` option is overridden to return the pre-validated IP directly — the `Host` header/TLS SNI still use the original hostname, but the TCP connection never re-resolves DNS, closing the DNS-rebinding gap between the check and the connect |
+| Redirect cap | 3 redirects max, **every hop re-run through the full scheme + DNS + private-IP check from scratch** — a redirect to a private IP is `blocked` just like a direct request would be |
+| Response body cap | 512 KB, enforced by streaming and aborting the connection, not by downloading the full body and truncating after the fact |
+| Total timeout | 5000ms, enforced by the module itself (`Promise.race`) independent of the underlying request's own timeout — a guard against the request layer failing to time out on its own |
+
+Never throws: every failure mode (`blocked`/`timeout`/`invalid_url`/`non_html`/`error`) resolves to a `TechScanResult`, so a scan issue can never propagate as an unhandled rejection to its caller. Runs fire-and-forget (`void scanLeadTechStackAsync(...)`) strictly after `POST /api/leads`'s `insertOne` and response are already built, and on-demand via the `RESCAN_TECH` PATCH action — gated by the same `requireApiKey` check the whole `PATCH /api/leads` endpoint already requires, and scoped to the lead's own stored `url` only (never a URL from the request payload), per the issue's explicit "not exposed as a public endpoint accepting arbitrary URLs" requirement. No new npm dependency — `http`/`https`/`dns`/`net` are all Node built-ins.
 
 ---
 

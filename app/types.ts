@@ -76,6 +76,12 @@ export type Lead = {
   // but previously missing from this type entirely.
   product_fit_notes?: string;
   tags?: string[];
+  // Pattern-matched from the homepage HTML by an SSRF-guarded background scan
+  // — see lib/tech-stack-scan.ts, issue #69. Not user-editable. Undefined
+  // techSignalsScanStatus means no scan has run yet for this lead.
+  techSignals?: string[];
+  techSignalsScannedAt?: string;
+  techSignalsScanStatus?: 'ok' | 'blocked' | 'timeout' | 'invalid_url' | 'non_html' | 'error';
   kanbanColumn: KanbanColumn;
   sortOrder: number;
   fingerprint?: string;
