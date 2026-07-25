@@ -144,7 +144,7 @@ export default function OutreachTemplatesPage() {
               <TextInput
                 label="Template name"
                 value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.currentTarget.value }))}
+                onChange={(e) => { const v = e.currentTarget.value; setForm((f) => ({ ...f, name: v })); }}
                 placeholder="Academy intro email"
               />
               <Select
@@ -161,7 +161,7 @@ export default function OutreachTemplatesPage() {
             <TextInput
               label="Industry"
               value={form.industry}
-              onChange={(e) => setForm((f) => ({ ...f, industry: e.currentTarget.value }))}
+              onChange={(e) => { const v = e.currentTarget.value; setForm((f) => ({ ...f, industry: v })); }}
               placeholder="Academy, Federation, Club"
             />
 
@@ -192,7 +192,7 @@ export default function OutreachTemplatesPage() {
               <TextInput
                 label="Subject"
                 value={form.subject}
-                onChange={(e) => setForm((f) => ({ ...f, subject: e.currentTarget.value }))}
+                onChange={(e) => { const v = e.currentTarget.value; setForm((f) => ({ ...f, subject: v })); }}
                 placeholder="Cognitive performance for {entity_name}"
               />
             )}
@@ -200,7 +200,7 @@ export default function OutreachTemplatesPage() {
             <Textarea
               label="Body"
               value={form.body}
-              onChange={(e) => setForm((f) => ({ ...f, body: e.currentTarget.value }))}
+              onChange={(e) => { const v = e.currentTarget.value; setForm((f) => ({ ...f, body: v })); }}
               minRows={5}
               placeholder="Hi {contact_name}, ..."
             />

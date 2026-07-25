@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.58
+
+### Fixed — lead detail-drawer field editing had no UI entry point (fixes #88)
+Discovered while implementing issue #83. `app/detail.tsx` defined a full `handleModify()` function sending `entity_name`/`url`/`address`/`general_contact`/`size`/`industry`/`sport_or_sector`/`level_league`/`value_proposition`/`notes`/`tags` via `PATCH ... MODIFY` — but it was never called from any button; the "Edit" action in the ActionBar has always opened the outreach-compose modal instead (confirmed via `git log -S`: true from this file's very first commit, not a regression). There was no way for a user to edit any of a lead's core fields from the browser at all.
+
+Fixed with a new, additive "Lead Details" section in the detail drawer: an "Edit" button reveals a form (`TextInput`/`Select`/`AdminTextarea` per field) seeded from the current lead, with "Save" (calls the now-rewired `handleModify()`, reading from local `editForm` state instead of `lead.X` directly) and "Cancel". `contacts[]` editing remains explicitly out of scope — the form's payload omits `contacts` entirely, which is the safe, correct way to leave existing contacts untouched (`PATCH ... MODIFY` only touches `contacts` when the payload includes it).
+
+**A second, more consequential bug was found and fixed while building this form**: every new text field's `onChange` initially read `e.currentTarget.value` from *inside* a `setEditForm(prev => ...)` functional-updater closure. React Strict Mode (on by default in Next.js dev builds) double-invokes state updater functions to detect impure updaters — by the second invocation, the native event has finished dispatching and the DOM spec has nulled `currentTarget`, throwing `Cannot read properties of null (reading 'value')` on every keystroke. **A repo-wide check found the identical pre-existing pattern in two other files**: `app/salessettings/[client]/sales-settings-client.tsx` (13 fields) and `app/outreach/templates/page.tsx` (4 fields) — meaning typing into the Sales Settings page (the exact page this project's own ticket-size work, issue #79, depends on operators filling in) or the outreach-template editor has been silently broken in every local `npm run dev` session this whole time (Strict Mode's double-invoke is dev-only and does not reproduce in a production Vercel build). Fixed identically in all three files: capture the event's value into a local `const` before calling the state setter, so the updater closes over a plain string, never the event object. A repo-wide grep confirms zero remaining instances of the unsafe shape.
+
+### Testing
+No new pure-logic module — presentational/orchestration wiring reusing the already-tested `MODIFY` action path. Interactive verification via headless Chromium against the real dev server: opened the edit form, changed `entity_name`, saved, and inspected the outgoing `PATCH` request body directly — confirmed the edited value was sent, `contacts` was correctly omitted, and `tags` was correctly parsed back to an array. Separately confirmed (before/after) that typing into a `sales-settings-client.tsx` text field reproduced the crash pre-fix and no longer does post-fix.
+
+### Documentation
+`docs/ARCHITECTURE.md` gains a "Lead field editing" note (what's editable from the detail drawer, what isn't yet) and documents both the original dead-code bug and the broader Strict-Mode-updater bug found and fixed alongside it.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (319/319, unchanged), smoke suite (5/5), `next build --webpack` (35 routes, unchanged — reuses the existing `PATCH` action envelope, no new route).
+
+Version bumped 2.4.57 -> 2.4.58.
+
 ## 2.4.57
 
 Second delivery of Phase 2, and the final item, of the ticket-size estimation overhaul (tracking issue #87): closed-won calibration — the feedback loop that will eventually replace the v1 engine's fixed placeholder assumptions with real data.
