@@ -53,6 +53,9 @@ All three are now `/forecast/[brand]`, `/battlecards/[brand]`, `/outreach/templa
 
 `tenantId` (a separate multi-tenancy axis, not a brand/client identity) remains overridable via `?tenantId=` on battlecards/templates, unchanged — only `brand` moved from a query param/dropdown to the URL path.
 
+### Error Boundaries (2.4.69, issue #101)
+`app/error.tsx` — this app's first error boundary anywhere, at any level. Before this, an uncaught render error in any Client Component (the Sales Settings crash above, or any future one) took the entire page down to a blank/broken screen with zero recovery path — reported by a real user as "This page couldn't load," indistinguishable from a genuine network failure, since nothing in this app ever rendered that text (confirmed via a repo-wide `grep` — it doesn't exist in this codebase). A plain Mantine screen ("Something went wrong") offers `reset()` (Next's own re-render-the-failed-segment recovery, tried first) and a hard `window.location.reload()` fallback. Deliberately app-wide rather than scoped to just `/salessettings/[client]`: the actual defect class (a `GET` route contract mismatch producing a value a Client Component's type declares non-optional) is generic, not specific to this one page.
+
 ### Key client behavior
 - Fetches all pages from `GET /api/leads?brand=<brand>` (cursor-paginated as of 2.4.7, looping on `hasMore`/`nextCursor` instead of a single capped fetch) and normalizes locally
 - Uses `handleAction` for mutations: ACCEPT, DECLINE, PIN, REQUEST_REFRESH, COLUMN_MOVE, DELETE
@@ -158,9 +161,11 @@ Results are cached in a new `winrate_calibration` collection (one doc per `{tena
 - `GET /api/outcome-logs` — outcome-log history
 - `POST /api/outcome-logs` — record an outcome log entry
 
-### Sales Settings (2.4.20, auth corrected 2.4.21)
-- `GET /api/sales-settings/[brand]?tenantId=<id>` — public; returns the stored `company_settings` document for `{brand, tenantId}`, or `emptySalesSettings()` with `source: 'default'` on first visit; `503` if `MONGODB_URI` is unset
+### Sales Settings (2.4.20, auth corrected 2.4.21, read-path sanitized 2.4.69)
+- `GET /api/sales-settings/[brand]?tenantId=<id>` — public; returns the stored `company_settings` document for `{brand, tenantId}` **run through the same `sanitizeSalesSettings()` PUT uses** (issue #101 — was previously the raw, unsanitized doc), or `emptySalesSettings()` with `source: 'default'` on first visit; `503` if `MONGODB_URI` is unset
 - `PUT /api/sales-settings/[brand]?tenantId=<id>` — runs the body through `sanitizeSalesSettings()` (`app/lib/sales-settings.ts`) and upserts `{brand, tenantId, ...sanitized fields, updatedAt}` keyed by `{brand, tenantId}`. **Not** protected via `requireApiKey` (corrected in 2.4.21 — it originally was, which meant the browser Save button on `/salessettings/[client]` had no way to authenticate and got a hard `401` in any environment with `SLG_API_KEY` set, since there's no login/session system in this app to hold the secret safely client-side). Matches the same precedent `/api/settings`'s PUT already established for its own browser-edited document; company settings carry no lead/contact PII, so an anonymous write's blast radius is limited to a company's own sales-context text.
+
+**Read/write contract mismatch crashed the whole page (2.4.69, issue #101).** Owner-reported: Sales Settings was completely inaccessible ("This page couldn't load") for at least one brand. Root cause, confirmed via a real Next.js dev-overlay reproduction: `GET`'s handler returned the raw Mongo document whenever one existed, with zero defaulting — a document saved before a field existed in the `SalesSettings` schema (e.g. `customerTypes`, added after some brands' docs were first created) came back with that field genuinely `undefined`, violating the type's own non-optional contract. `sales-settings-client.tsx:229`'s `settings.customerTypes.includes('other')` (and `:249`/`:253`'s `settings.products.length`/`.map`) had no null guard, so this threw synchronously during render — and with no error boundary anywhere in this app, the crash took the whole page down with no recovery UI at all. `GET` now runs the stored doc through the same `sanitizeSalesSettings()` PUT already uses, so read and write can never disagree about what a complete `SalesSettings` object looks like; the two unguarded client accesses gained `?.`/`|| []` defensive guards as belt-and-suspenders. See "Error Boundaries" below for the second half of this fix.
 
 ---
 

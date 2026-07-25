@@ -89,6 +89,44 @@ describe('PUT then GET /api/sales-settings/[brand] — real round trip', () => {
     expect(getBody.settings.customerTypes).toEqual(['sports_clubs', 'federations']);
   });
 
+  // Issue #101: a settings doc saved before `customerTypes`/`products` (or any
+  // other field) existed in the schema was returned by GET completely
+  // unsanitized — `settings.customerTypes` came back `undefined`, and
+  // `app/salessettings/[client]/sales-settings-client.tsx`'s
+  // `settings.customerTypes.includes('other')` crashed the whole page with no
+  // error boundary. Seeded directly (bypassing PUT's own sanitizer entirely)
+  // to simulate exactly that legacy-document shape, not a payload PUT would
+  // ever have produced itself.
+  it('sanitizes a legacy doc missing newer schema fields instead of returning them undefined', async () => {
+    // A distinct tenantId keeps this doc isolated from the round-trip test
+    // above, which already wrote a real (fully-sanitized) doc under
+    // {brand: 'cogmap', tenantId: 'default'} — reusing that key would let
+    // findOne() return either doc depending on Mongo's natural order.
+    const clientPromise = (await import('../../lib/mongodb')).default;
+    const client = await clientPromise;
+    const db = client.db();
+    await db.collection('company_settings').insertOne({
+      brand: 'cogmap',
+      tenantId: 'legacy-doc-test',
+      companyName: 'Legacy Doc Co',
+      // customerTypes, products, dealSize, upsell, etc. deliberately absent —
+      // exactly what a doc written before these fields existed looks like.
+    } as any);
+
+    const res = await GET(
+      req('/api/sales-settings/cogmap?tenantId=legacy-doc-test'),
+      { params: Promise.resolve({ brand: 'cogmap' }) }
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.source).toBe('mongodb');
+    expect(body.settings.companyName).toBe('Legacy Doc Co');
+    expect(body.settings.customerTypes).toEqual([]);
+    expect(body.settings.products).toEqual([]);
+    expect(body.settings.dealSize).toEqual({});
+    expect(body.settings.upsell).toEqual({ commonAdditionalProducts: '' });
+  });
+
   it('does not require an x-api-key header (the 2.4.21 auth fix)', async () => {
     // No x-api-key header sent at all, matching exactly what the browser
     // Save button sends — this is the real regression this route already
