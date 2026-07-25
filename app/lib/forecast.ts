@@ -6,6 +6,8 @@ import { computeConcentration, getConcentrationRiskSettings } from '../../lib/fo
 import type { LeadValue, ConcentrationRiskSettings } from '../../lib/forecast-concentration'
 import { computeCoverage } from '../../lib/pipeline-coverage'
 import type { RevenueTargetInput } from '../../lib/pipeline-coverage'
+import { getForecastCalibrationSettings, mergeCalibratedWeights } from '../../lib/win-rate-calibration'
+import { getCachedWinRates } from './win-rate-store'
 
 // CogMap forecasts in USD, Seyu in EUR — matches app/lib/sales-settings.ts's
 // defaultRevenueTargetCurrency(), the source of truth this mirrors.
@@ -117,7 +119,24 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
   }
 
   let forecast: Record<string, any> | null = null
-  const weightsUsed = await getPipelineWeights(db)
+  const staticWeights = await getPipelineWeights(db)
+  const calibrationSettings = await getForecastCalibrationSettings(db)
+  // Cached-read only — recompute never happens on this hot path (issue #56).
+  // GET /api/win-rates is the sole lazy-recompute trigger; POST
+  // /api/win-rates/recalculate is the sole manual-recompute trigger.
+  const cachedWinRates = calibrationSettings.mode === 'calibrated'
+    ? await getCachedWinRates(db, brand, tenantId)
+    : null
+  const { weightsUsed, sources: probabilitySources } = mergeCalibratedWeights(
+    staticWeights,
+    cachedWinRates?.stages ?? null,
+    calibrationSettings.mode,
+    calibrationSettings.minSampleSize
+  )
+  const calibrationInfo = {
+    mode: calibrationSettings.mode,
+    lastComputedAt: cachedWinRates?.computedAt ? new Date(cachedWinRates.computedAt).toISOString() : null,
+  }
 
   if (brand === 'cogmap') {
     const pipelineForecast = await collection.aggregate([
@@ -148,6 +167,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
         rawRevenue: item.revenue,
         probability: rate,
         weightedRevenue: Math.round(item.revenue * rate),
+        probabilitySource: probabilitySources[col] ?? 'static',
       }
     }
 
@@ -191,6 +211,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
       totalWeightedRevenue: totalWeighted,
       concentrationRisk: brandConcentrationRisk,
       coverage,
+      calibration: calibrationInfo,
       byTier: pipelineForecast.reduce((acc: Record<string, { leads: number; participants: number; revenue: number }>, item: any) => {
         acc[item._id || 'UNSET'] = { leads: item.leads, participants: item.participants, revenue: item.revenue }
         return acc
@@ -299,6 +320,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
         rawRevenue: item.revenue,
         probability: rate,
         weightedRevenue: Math.round(item.revenue * rate),
+        probabilitySource: probabilitySources[col] ?? 'static',
       }
     }
 
@@ -355,6 +377,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
       totalWeightedRevenue: totalWeightedSeyu,
       concentrationRisk: brandConcentrationRiskSeyu,
       coverage: coverageSeyu,
+      calibration: calibrationInfo,
       currency: 'EUR',
     }
   }
