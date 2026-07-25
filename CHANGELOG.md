@@ -1,5 +1,45 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.64
+
+Delivers the mobile bug/UX batch tracked under issue #89 (#90–#96) plus #94's newly-found sanity-cap gap. Investigating #91 surfaced two much larger, previously-undisclosed defects that explain several of these reports at once — documented in detail below rather than folded silently into the smaller fixes.
+
+### Fixed — every browser-initiated lead action/notification was broken in production (fixes #91)
+Two compounding, independently-verified bugs, found while investigating "move to column doesn't work":
+
+1. **`@mantine/notifications`'s `<Notifications />` root was never mounted anywhere in this app.** `showNotification()` (used throughout `app/detail.tsx` for Accept/Decline/Pin/Refresh/Delete feedback, and now `app/kanban.tsx`) is an imperative call into a queue that component renders — with nothing rendering it, every call has been a silent no-op since the day this app started using it. Fixed by mounting `<Notifications />` in `app/components/Providers.tsx` and importing `@mantine/notifications/styles.css` in the root layout. Verified via a real browser check: a simulated action failure now visibly renders a red toast with the real error text (previously nothing rendered at all).
+2. **`PATCH /api/leads` and `DELETE /api/leads/[id]` required `requireApiKey`, but no client code has ever sent an `x-api-key` header.** Verified this is real, not theoretical, by hitting production directly: `SLG_API_KEY` *is* configured there, and an unauthenticated `PATCH ... COLUMN_MOVE` against a real production lead returned a real `401`. Every Accept/Decline/Pin/Refresh/Move/Delete from the actual deployed app has been silently rejected for as long as that key has been configured — compounded by bug 1 above, so it failed with zero visible feedback. Fixed by removing the guard from these two routes specifically (not blanket-removed): they're the browser's own exclusive write path, which has no way to hold that secret safely — the same precedent `PUT /api/sales-settings/[brand]` already established. `POST /api/leads` and `PUT /api/leads/[id]` (the external research agent's create/enrichment paths, never called from the browser — confirmed via `grep`, not assumed) keep their guard.
+3. **A third, independent bug found in the same investigation**: `app/sales/[brand]/sales-page-client.tsx`'s `handleDelete` called `DELETE /api/leads?id=...` — a URL with no `DELETE` handler at all (the real one is `/api/leads/[id]`). Every delete from the browser 405'd regardless of auth. Fixed to target the correct route.
+4. **A fourth bug, of the same "silent" character**: `handleAction`/`handleDelete` in the same file swallowed fetch failures (`console.error` + `return`) instead of rethrowing, so `app/detail.tsx`'s callers — which already have a `catch` block that shows a failure notification — never saw the error and always showed a false **success** toast even when the action had actually failed. Fixed to rethrow.
+
+Also confirmed for this session's environment (relevant context, not a code change): raw-TCP MongoDB access remains blocked from this sandbox (matches every prior session's documented finding), but HTTPS to the production Vercel deployment is reachable — that's how all of the above was verified directly against production rather than assumed from a static read.
+
+### Added — 20 new tests
+`tests/integration/leads-patch-actions.integration.test.ts` (new, real `mongodb-memory-server`-backed): PATCH succeeds with no `x-api-key` even when `SLG_API_KEY` is configured, COLUMN_MOVE/ACCEPT/DECLINE behavior, and the same for the DELETE route. Seeded via direct DB insert rather than through `POST /api/leads`'s own quality-gate check (`computeEase()`), a separate, pre-existing, already-disclosed staleness in this repo's existing integration fixtures (`leads.integration.test.ts`/`leads-id.integration.test.ts`'s `createLead()` helper predates that gate and no longer produces a passing payload — confirmed via isolated reproduction to be unrelated to this change, not fixed here; flagged as its own known gap).
+
+### Fixed — Decline Reason picker disconnected from Reject (fixes #90)
+The reason picker was an unconditional field at the very bottom of a long scrollable drawer — a user tapping Reject (which only set dead `actionMode` state; nothing actually called `handleDecline()` at all) would never see it without scrolling past 15+ other sections, and `declineReason` could be silently submitted at its stale default. Replaced with a small dedicated confirmation `Modal` (immune to scroll position, per the issue's own preferred fix) that appears immediately on Reject, with Cancel/Confirm actions — `handleDecline()` is now genuinely wired to a button for the first time. Also narrowed `actionMode`'s type from a stale `"decline" | "pin" | "refresh" | null` union (Pin/Refresh never actually used it) to just `"decline" | null`.
+
+### Fixed — outreach compose modal invisible on mobile (fixes #92)
+`app/outreach/compose-modal.tsx`'s `Modal` had `withinPortal={false}` — an unexplained override of Mantine's own default, and the only `Modal` in this codebase with it set. On mobile, the lead detail drawer renders as a full-screen `AdminModal`; without a portal, the compose modal rendered inline instead of escaping to the document root, landing behind/clipped by the already-open parent. Removed the override.
+
+### Changed — "Preview" renamed to "Open" (fixes #93)
+`app/card.tsx`'s lead-card button always opened the full detail modal, never a lighter-weight preview — renamed per CLAUDE.md Rule 7 (labels must match real capability).
+
+### Added — contact names are now Title Case (fixes #96)
+`lib/contacts.ts` gains `toNameCase()`, applied inside `normalizeContact()`: `"JOHN SMITH"` → `"John Smith"`, `"anne-marie"` → `"Anne-Marie"`, `"o'brien"` → `"O'Brien"`. Documented v1 simplifications (not silently under-delivered, per the issue's own recommendation not to build a heuristic that would still be wrong for names it doesn't anticipate): `Mc`/`Mac`/`Di`-style prefixes are flattened (`"McDonald"` → `"Mcdonald"`), and name particles (`"van der berg"`) are capitalized like any other word.
+
+### Fixed — ticket-size sanity cap was a complete no-op without `largestWon` (fixes #94)
+Two causes, both closed:
+1. **Backfill actually run against production** (see 2.4.63's CHANGELOG entry — completed the day before this release, during the same investigation that led here).
+2. **The sanity cap itself had a real structural gap**, newly found: `applySanityCap()` only clamped an estimate when `dealSize.largestWon` was configured — a very plausible real-world state for any brand that hasn't filled it in, in which case a `tier_band`/`per_unit` estimate was returned completely unbounded, shown as a confident "Modelled estimate" with no independent check at all. Fixed with the combined approach the issue itself recommended: `lib/ticket-size.ts` gains an always-on `ABSOLUTE_CEILING` ($50M, currency-agnostic, well above any plausible real deal for this app's sports-org customer base) that applies regardless of configuration, and `app/lib/sales-settings.ts`'s `sanitizeOptionalNumber()` gains an optional `max` clamp applied only to `dealSize`'s own fields (`MAX_DEAL_SIZE_INPUT`, kept in sync with the same $50M figure) — defense in depth, not a single point of failure. Region multipliers still apply before either cap; manual overrides remain fully exempt from both, unchanged.
+
+### Added — persistent hamburger navigation (fixes #95)
+`app/components/AppNav.tsx`, mounted in the root layout — the first persistent nav surface in this app. Before this, every page (including Sales Settings) was reachable only by typing its URL directly. A hamburger trigger opens a Mantine `Drawer` grouped into Pipeline (one link per `BRAND_CONFIG` brand), Reporting (Forecast/Battlecards/Outreach Templates — brand-agnostic single pages), and Sales Settings (one link per brand). Caught and fixed a real hydration error during verification: `Drawer`'s title slot already renders an `<h2>`, and nesting a Mantine `<Title>` (renders `<h4>`) inside it is invalid HTML — replaced with plain `<Text>`.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s Auth section updated with the real, verified `requireApiKey` scoping (which routes are guarded and why, which deliberately aren't); new "Persistent Navigation" subsection; the "Preview"→"Open" rename corrected in the next-step-nudge section's cross-reference.
+
 ## 2.4.63
 
 ### Removed — agent-runtime/ (fixes #99)

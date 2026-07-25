@@ -60,6 +60,25 @@ describe('estimateTicketSize', () => {
     expect(result.high).toBeLessThanOrEqual(1_000_000);
   });
 
+  it('caps a tier_band estimate to an absolute ceiling even when largestWon is completely unset (issue #94)', () => {
+    // The previously-uncapped case: the sanity cap used to be a total no-op
+    // whenever largestWon was unconfigured — a very plausible real-world
+    // state for a brand-new brand. An absolute ceiling now applies
+    // regardless of configuration.
+    const dealSize: DealSizeBands = { enterprise: 8_000_000_000 };
+    const result = estimateTicketSize(inputs({ sizeTier: 'Enterprise' }), dealSize, [], now);
+    if (result.method !== 'tier_band') throw new Error('expected tier_band');
+    expect(result.expected).toBe(50_000_000);
+    expect(result.high).toBeLessThanOrEqual(50_000_000);
+  });
+
+  it('caps a per_unit estimate to the same absolute ceiling when largestWon is unset (issue #94)', () => {
+    const products: TicketSizeProductInput[] = [{ customerSize: ['enterprise'], perUnitRate: 1_000_000 }];
+    const result = estimateTicketSize(inputs({ sizeTier: 'Enterprise', unitCount: 1000 }), {}, products, now);
+    if (result.method !== 'per_unit') throw new Error('expected per_unit');
+    expect(result.expected).toBe(50_000_000);
+  });
+
   it('computes a per_unit estimate when a matching product and unit count exist', () => {
     const products: TicketSizeProductInput[] = [{ customerSize: ['small', 'medium'], perUnitRate: 10 }];
     const result = estimateTicketSize(inputs({ sizeTier: 'Small', unitCount: 100 }), {}, products, now);

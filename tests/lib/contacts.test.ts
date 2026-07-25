@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeContact, dedupeContacts, getDecisionMakerContact, normalizePhone, normalizeEmail, contactKey, verifiableFieldsDiffer } from '../../lib/contacts';
+import { normalizeContact, dedupeContacts, getDecisionMakerContact, normalizePhone, normalizeEmail, contactKey, verifiableFieldsDiffer, toNameCase } from '../../lib/contacts';
 
 describe('normalizeContact', () => {
   it('trims fields and formats email/phone', () => {
@@ -41,6 +41,44 @@ describe('normalizeContact', () => {
     const c = normalizeContact({ name: 'A' });
     expect(c.seniorityTier).toBe('Unknown');
     expect(c.department).toBe('Unknown');
+  });
+});
+
+describe('toNameCase (issue #96)', () => {
+  it('title-cases all-caps input', () => {
+    expect(toNameCase('JOHN SMITH')).toBe('John Smith');
+  });
+
+  it('title-cases all-lowercase input', () => {
+    expect(toNameCase('john smith')).toBe('John Smith');
+  });
+
+  it('capitalizes after a hyphen', () => {
+    expect(toNameCase('anne-marie dubois')).toBe('Anne-Marie Dubois');
+  });
+
+  it('capitalizes after an apostrophe', () => {
+    expect(toNameCase("o'brien")).toBe("O'Brien");
+    expect(toNameCase("d'angelo")).toBe("D'Angelo");
+  });
+
+  it('returns empty string for empty input', () => {
+    expect(toNameCase('')).toBe('');
+  });
+
+  it('leaves already-correct Title Case unchanged', () => {
+    expect(toNameCase('Jane Doe')).toBe('Jane Doe');
+  });
+
+  it('documented v1 limitation: flattens Mc/Mac-style prefixes', () => {
+    expect(toNameCase('McDonald')).toBe('Mcdonald');
+  });
+});
+
+describe('normalizeContact — name casing (issue #96)', () => {
+  it('title-cases a contact name on every normalize', () => {
+    expect(normalizeContact({ name: 'JOHN SMITH' }).name).toBe('John Smith');
+    expect(normalizeContact({ name: 'john smith' }).name).toBe('John Smith');
   });
 });
 

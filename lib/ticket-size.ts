@@ -84,6 +84,23 @@ const VOLUME_DISCOUNT_BY_TIER: Record<Lowercase<TicketSizeTier>, number> = {
 // upstream agent free-wrote or how large/well-known the company is.
 const SANITY_CAP_MULTIPLIER = 2;
 
+// Issue #94: the largestWon-based cap above is a complete no-op whenever an
+// operator hasn't configured dealSize.largestWon — a very plausible
+// real-world state, since nothing requires it to be set. This absolute
+// ceiling applies unconditionally, regardless of configuration, so a
+// tier_band/per_unit estimate can never be unboundedly large even for a
+// brand-new brand with an empty Sales Settings doc. Deliberately currency-
+// agnostic (this app has no FX conversion — see docs/ARCHITECTURE.md's
+// revenue-target currency-mismatch handling) and well above any plausible
+// real deal size for this app's sports-org customer base: a genuinely huge,
+// legitimate enterprise deal must never itself be treated as suspicious —
+// this exists only to catch the original $8B-style class of bug when the
+// largestWon-based cap isn't configured to catch it another way. Kept in
+// sync with app/lib/sales-settings.ts's MAX_DEAL_SIZE_INPUT, which bounds
+// dealSize's own fields at the point they're entered — defense in depth,
+// not a single point of failure.
+const ABSOLUTE_CEILING = 50_000_000;
+
 // v1's band width is a fixed multiplier, not a real historical variance —
 // same "known simplification, replaced once real data exists" contract as
 // the volume-discount table above.
@@ -94,8 +111,10 @@ const PER_UNIT_LOW_FACTOR = 0.7;
 const PER_UNIT_HIGH_FACTOR = 1.3;
 
 function applySanityCap(value: number, dealSize: DealSizeBands): number {
-  if (!dealSize.largestWon || dealSize.largestWon <= 0) return value;
-  return Math.min(value, dealSize.largestWon * SANITY_CAP_MULTIPLIER);
+  const largestWonCap = dealSize.largestWon && dealSize.largestWon > 0
+    ? dealSize.largestWon * SANITY_CAP_MULTIPLIER
+    : Infinity;
+  return Math.min(value, largestWonCap, ABSOLUTE_CEILING);
 }
 
 function resolveRegionMultiplier(inputs: TicketSizeInputs): number {
@@ -141,7 +160,7 @@ export function estimateTicketSize(
     const expected = applySanityCap(tierValue * regionMultiplier, dealSize);
     const high = dealSize.largestWon
       ? Math.min(expected * TIER_BAND_HIGH_FACTOR, dealSize.largestWon * SANITY_CAP_MULTIPLIER)
-      : expected * TIER_BAND_HIGH_FACTOR_NO_CAP;
+      : Math.min(expected * TIER_BAND_HIGH_FACTOR_NO_CAP, ABSOLUTE_CEILING);
     return {
       low: expected * TIER_BAND_LOW_FACTOR,
       expected,

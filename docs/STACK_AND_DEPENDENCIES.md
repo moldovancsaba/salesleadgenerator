@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.63
+**Version:** 2.4.64
 
 ---
 
@@ -50,7 +50,7 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 | eslint-config-next | ^16.2.11 (was 15.5.13) | Active | Next.js's recommended ESLint ruleset — bumped alongside `next` in 2.4.26 (versioned in lockstep with the Next.js major it supports). `react-hooks/set-state-in-effect`, a new rule in this version's bundled `eslint-plugin-react-hooks`, is disabled repo-wide in `eslint.config.mjs` — see that file's comment for the rationale (a deliberate, safe, pervasive pattern, not a real bug). |
 | Vitest | ^4.1.10 | Active | Unit tests (`tests/lib/*.test.ts`, `vitest.config.ts`) — deliberately excludes `tests/integration/**` from the default run |
 | tsx | ^4.7.0 | Active | Runs the smoke test (`tests/smoke/*.smoke.ts`) directly, and as of 2.4.33 `scripts/migrate-decision-maker-to-contacts.ts` — converted from `.js` specifically so it could import `lib/migrate-decision-maker.ts` directly instead of maintaining a hand-synced duplicate of the migration algorithm |
-| mongodb-memory-server | ^11.2.0 | Active (2.4.23) | Real in-process MongoDB for `tests/integration/*` (`npm run test:integration`, `vitest.integration.config.ts`), so route handlers are tested against genuine Mongo query/aggregation behavior rather than a mock. Downloads a real `mongod` binary from `fastdl.mongodb.org` on first use — **confirmed blocked by this development sandbox's own network policy** (verified via its proxy status endpoint: a policy-level `403` on `CONNECT`, the same restriction class as GitHub release-asset downloads, not a version/mirror mismatch). Works normally in environments where that host is reachable (a developer's own machine, most CI runners). |
+| mongodb-memory-server | ^11.2.0 | Active (2.4.23) | Real in-process MongoDB for `tests/integration/*` (`npm run test:integration`, `vitest.integration.config.ts`), so route handlers are tested against genuine Mongo query/aggregation behavior rather than a mock. Downloads a real `mongod` binary from `fastdl.mongodb.org` on first use. **Sandbox network access to this host is environment-dependent, re-verify per session rather than assuming the prior finding still holds**: an earlier session (2.4.23-era) found it blocked (policy-level `403` on `CONNECT`); a later session (2026-07-25) found it reachable and ran real `mongodb-memory-server`-backed integration tests successfully (`tests/integration/leads-patch-actions.integration.test.ts`, 7/7 passing). Not part of the mandatory quality gate either way (`vitest.config.ts` excludes `tests/integration/**` from the default run) — a session that finds it blocked should fall back to route-mocked browser verification instead, same as this repo's established precedent for earlier admin features. |
 
 ---
 

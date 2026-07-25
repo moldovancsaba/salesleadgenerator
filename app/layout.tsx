@@ -1,9 +1,11 @@
 import { Inter } from "next/font/google";
 import "@mantine/core/styles.css";
+import "@mantine/notifications/styles.css";
 import "@sovereignsquad/gds-theme/styles.css";
 import "./globals.css";
 import { PwaSetup } from "./components/PwaSetup";
 import { Providers } from "./components/Providers";
+import { AppNav } from "./components/AppNav";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -41,6 +43,12 @@ export default function RootLayout({
       <body>
         <Providers>
           <PwaSetup />
+          {/* Issue #95: the only persistent, always-reachable nav surface
+              in the app — every other page previously had no link to any
+              other page at all, including Sales Settings. */}
+          <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--mantine-color-body)', borderBottom: '1px solid var(--mantine-color-gray-3)', padding: '8px 12px' }}>
+            <AppNav />
+          </div>
           {children}
         </Providers>
       </body>

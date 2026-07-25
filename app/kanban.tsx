@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Box, Chip, Group, Loader } from '@mantine/core';
+import { showNotification } from '@mantine/notifications';
 import { KanbanBoard as GdsKanbanBoard } from '@sovereignsquad/gds-core/client';
 import type { KanbanItem as GdsKanbanItem, KanbanColumnData as GdsKanbanColumnData } from '@sovereignsquad/gds-core/client';
 import type { Lead, KanbanColumn } from './types';
@@ -206,6 +207,18 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       await Promise.all([loadColumn(toColumn), loadColumn(fromColumn)])
     } catch (err) {
       console.error('Column move error:', err)
+      // issue #91: this previously reverted the optimistic removal with zero
+      // visible feedback — a real move failure (network, validation, server
+      // error) looked identical to "nothing happened," indistinguishable
+      // from the move menu itself not working at all. Every other action in
+      // this app (see app/detail.tsx's handleAccept/handleDecline/etc.)
+      // already surfaces failures via showNotification; this brings column
+      // moves in line rather than leaving them the one silent exception.
+      showNotification({
+        message: err instanceof Error ? err.message : 'Failed to move lead to that column',
+        color: 'red',
+        autoClose: 5000,
+      })
       // Reconcile with the server on failure too, so the optimistic removal
       // doesn't leave the UI out of sync with what's actually persisted.
       await loadColumn(fromColumn)

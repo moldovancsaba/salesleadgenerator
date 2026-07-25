@@ -72,6 +72,12 @@ describe('sanitizeSalesSettings', () => {
     expect(result.dealSize.medium).toBeUndefined();
   });
 
+  it('clamps a fat-fingered dealSize value to an upper bound instead of saving it unbounded (issue #94)', () => {
+    const result = sanitizeSalesSettings({ dealSize: { enterprise: 8_000_000_000, largestWon: 9_999_999_999 } }, 'cogmap', 'default');
+    expect(result.dealSize.enterprise).toBe(50_000_000);
+    expect(result.dealSize.largestWon).toBe(50_000_000);
+  });
+
   it('defaults regionMultipliers to an empty object (issue #84)', () => {
     const result = sanitizeSalesSettings(null, 'cogmap', 'default');
     expect(result.regionMultipliers).toEqual({});

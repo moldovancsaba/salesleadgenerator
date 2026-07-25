@@ -1,0 +1,136 @@
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import type { MongoMemoryServer } from 'mongodb-memory-server';
+import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
+
+// PATCH /api/leads (the ACCEPT/DECLINE/PIN/COLUMN_MOVE/etc. action handler)
+// had zero integration coverage before this — added while investigating
+// issue #91 ("move to column doesn't work"), whose real root cause turned
+// out to be here: this route required requireApiKey, but the browser (every
+// caller — app/kanban.tsx, app/detail.tsx via app/sales/[brand]/sales-page-
+// client.tsx's handleAction) has never sent an x-api-key header. Once
+// SLG_API_KEY was actually configured in production, every action from the
+// real app silently 401'd. Fixed by removing the guard (same "browser can't
+// hold this secret safely" precedent as PUT /api/sales-settings/[brand]).
+//
+// Seeds leads by inserting directly via the driver rather than through
+// POST /api/leads — POST's own quality-gate check (computeEase(), a
+// pre-existing feature unrelated to this fix) rejects the minimal ICE
+// fixtures used elsewhere in this test suite, a separate, already-disclosed
+// gap (see docs/STACK_AND_DEPENDENCIES.md's Known Issues) not fixed here.
+
+let mongod: MongoMemoryServer;
+let PATCH: typeof import('../../app/api/leads/route').PATCH;
+let GET: typeof import('../../app/api/leads/route').GET;
+let idDELETE: typeof import('../../app/api/leads/[id]/route').DELETE;
+
+const TEST_API_KEY = 'test-leads-patch-key';
+
+beforeAll(async () => {
+  mongod = await startTestMongo();
+  // Configured, same as production — the exact condition that exposed the
+  // bug (see mongo-test-server.ts's module-load-time constraint note).
+  process.env.SLG_API_KEY = TEST_API_KEY;
+  const mod = await import('../../app/api/leads/route');
+  PATCH = mod.PATCH;
+  GET = mod.GET;
+  idDELETE = (await import('../../app/api/leads/[id]/route')).DELETE;
+}, 60000);
+
+afterAll(async () => {
+  delete process.env.SLG_API_KEY;
+  await stopTestMongo(mongod);
+});
+
+async function seedLead(entityName: string, overrides: Record<string, unknown> = {}): Promise<string> {
+  const clientPromise = (await import('../../lib/mongodb')).default;
+  const client = await clientPromise;
+  const db = client.db();
+  const result = await db.collection('leads').insertOne({
+    entity_name: entityName,
+    tenantId: 'default',
+    kanbanColumn: 'DISCOVERED',
+    ice: { impact: 5, confidence: 5, ease: 5 },
+    contacts: [],
+    ...overrides,
+  });
+  return result.insertedId.toString();
+}
+
+function req(url: string, init?: RequestInit) {
+  return new Request(`http://localhost${url}`, init);
+}
+
+function patchReq(id: string, body: Record<string, unknown>) {
+  return req(`/api/leads?brand=cogmap&tenantId=default&id=${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, ...body }),
+  });
+}
+
+describe('PATCH /api/leads — no x-api-key required (issue #91)', () => {
+  it('succeeds with no x-api-key header, exactly what the browser sends, even though SLG_API_KEY is configured', async () => {
+    const id = await seedLead('No Auth Header Co');
+    const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'QUALIFIED', sortOrder: Date.now() }));
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects a completely malformed request the same as before (bad column) — the fix only removed the auth check, not validation', async () => {
+    const id = await seedLead('Bad Column Co');
+    const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'NOT_A_REAL_COLUMN' }));
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('PATCH /api/leads — COLUMN_MOVE (issue #91)', () => {
+  it('moves a lead to the requested column and it is reflected on a subsequent GET', async () => {
+    const id = await seedLead('Move Target Co');
+    const patchRes = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'QUALIFIED', sortOrder: Date.now() }));
+    expect(patchRes.status).toBe(200);
+    const patchBody = await patchRes.json();
+    expect(patchBody.lead.kanbanColumn).toBe('QUALIFIED');
+
+    const listRes = await GET(req('/api/leads?brand=cogmap'));
+    const listBody = await listRes.json();
+    const moved = listBody.leads.find((l: any) => l._id === id);
+    expect(moved.kanbanColumn).toBe('QUALIFIED');
+  });
+
+  it('a same-column move is accepted as a no-op-shaped success (matches app/kanban.tsx short-circuiting before ever calling this route)', async () => {
+    const id = await seedLead('Same Column Co', { kanbanColumn: 'ENGAGED' });
+    const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'ENGAGED', sortOrder: Date.now() }));
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('PATCH /api/leads — ACCEPT/DECLINE (issue #90/#91 investigation)', () => {
+  it('ACCEPT sets status=qualified and increments acceptanceCount/feedbackScore', async () => {
+    const id = await seedLead('Accept Me Co');
+    const res = await PATCH(patchReq(id, { action: 'ACCEPT', annotation: 'Accepted' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.status).toBe('qualified');
+    expect(body.lead.acceptanceCount).toBe(1);
+    expect(body.lead.feedbackScore).toBe(1);
+  });
+
+  it('DECLINE moves a lead to LOST and records the reason', async () => {
+    const id = await seedLead('Decline Me Co');
+    const res = await PATCH(patchReq(id, { action: 'DECLINE', declineReason: 'BUDGET_CONSTRAINTS', annotation: 'Too small' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.kanbanColumn).toBe('LOST');
+    expect(body.lead.declineReason).toBe('BUDGET_CONSTRAINTS');
+  });
+});
+
+describe('DELETE /api/leads/[id] — no x-api-key required (issue #91 investigation)', () => {
+  it('succeeds with no x-api-key header, exactly what app/sales/[brand]/sales-page-client.tsx sends, even though SLG_API_KEY is configured', async () => {
+    const id = await seedLead('No Auth Delete Co');
+    const res = await idDELETE(
+      req(`/api/leads/${id}?brand=cogmap&tenantId=default`, { method: 'DELETE' }),
+      { params: Promise.resolve({ id }) }
+    );
+    expect(res.status).toBe(200);
+  });
+});

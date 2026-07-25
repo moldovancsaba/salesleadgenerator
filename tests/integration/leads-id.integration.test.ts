@@ -148,3 +148,11 @@ describe('DELETE /api/leads/[id]', () => {
     expect(getRes.status).toBe(404);
   });
 });
+
+// The "no x-api-key header required even when SLG_API_KEY is configured"
+// regression test for this route lives in
+// leads-patch-actions.integration.test.ts instead of here: lib/api-auth.ts
+// reads SLG_API_KEY once at module import time (see mongo-test-server.ts's
+// own comment on this), and this file's beforeAll already imported DELETE
+// with no key set — setting process.env.SLG_API_KEY inside an individual
+// `it` here would be too late to affect the already-evaluated module.
