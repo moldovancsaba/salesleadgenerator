@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.54
+
+Second delivery of the ticket-size estimation overhaul (tracking issue #87): backfill for every lead written before issue #79's engine existed.
+
+### Added — ticket-size backfill (fixes #81)
+New `lib/backfill-ticket-size.ts`: `backfillTicketSizeCollection()` scans a brand's whole collection and computes/writes `ticketSizeEstimate` (issue #79) for every lead — this is what actually retires the free-written `estimated_annual_revenue_usd` display for leads already in the database, including the reported Fanatics/$8B case. Idempotent — compares the stored estimate's `method`/`expected` (never `computedAt`, which legitimately differs on every run) against what `estimateTicketSize()` derives today, and only writes when it's genuinely different; safe to re-run any time a brand's `company_settings` changes, ahead of issue #82's future automated recalculation.
+
+Two ways to run it, mirroring the established backfill pattern (issue #68) plus one new path specific to this repo's real operating constraint: `scripts/backfill-ticket-size.ts` (CLI, `--dry-run` default/`--apply`/`--brand=cogmap|seyu`) and a new **`POST /api/admin/ticket-size-backfill`** (`x-api-key` guarded, `{brand?, tenantId?, apply?}` body, defaults to a dry run across both brands). The admin-endpoint variant exists because the repo owner has no terminal/CLI access (mobile-only, per CLAUDE.md) and could not otherwise run `--apply` themselves — the issue's own acceptance criteria called this out explicitly rather than defaulting to a CLI-only script nobody with owner access could actually execute.
+
+### Testing
+`tests/lib/backfill-ticket-size.test.ts` — 6 new tests covering: apply-mode compute-and-write; dry-run never writing; idempotency on already-backfilled data; a changed `company_settings` correctly producing a fresh "updated" result on re-run; a sizeless lead backfilling to an honest `unconfigured` state, never a fabricated number; a brand with no `company_settings` doc at all backfilling every lead to `unconfigured` without erroring.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s "Ticket-size estimation" subsection gains a "Backfill" paragraph. `PIPELINE_ARCHITECTURE.md`'s API Endpoints table gains the new admin route.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (310/310), smoke suite (5/5), `next build --webpack` (33 routes — one new route, `/api/admin/ticket-size-backfill`).
+
+**Not run against production**: this sandbox has no `MONGODB_URI` (the same documented gap affecting every Mongo-integration path in this repo, including every prior backfill script) — both the CLI script and the admin endpoint were verified via unit tests against a mocked driver, not a real dry-run against live data. Running this for real against production is disclosed, genuine follow-up work: the repo owner (or a future Claude Code session with `MONGODB_URI` configured) needs to call `POST /api/admin/ticket-size-backfill` with `apply: false` first to review the dry-run counts, then `apply: true` to commit.
+
+Version bumped 2.4.53 -> 2.4.54. Next: issue #80 (full detail-drawer UI).
+
 ## 2.4.53
 
 First delivery of the ticket-size estimation overhaul (tracking issue #87): a deterministic, firmographic-based ticket-size engine, replacing the previously free-written estimate that could read as $8,000,000,000 for a mid-market lead.
