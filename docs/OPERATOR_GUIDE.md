@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.50  
+**Version:** 2.4.51  
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -43,6 +43,16 @@ A badge appears next to each contact's email in the lead detail modal:
 | Check failed — retry pending | A temporary DNS problem (timeout, resolver hiccup) — automatically retried, never treated as "this email is bad" |
 
 The check runs after you save a lead or edit a contact's email — it never delays saving, and a DNS outage never blocks or fails a save. Results typically land within a few seconds; refresh or reopen the lead to see an updated badge.
+
+---
+
+## Job Title / Seniority Badges (2.4.50, issue #68)
+
+Every contact's title is automatically classified into a seniority tier and department, shown as small badges next to the title in the lead detail modal — e.g. "VP of Sales" shows **VP** and **Sales** badges. This is rule-based keyword matching, not AI/ML — it can't understand a title it has no keyword for, and a badge only appears when it's confident (a title like "Owner" alone shows a department badge but no tier badge, since "Owner" alone doesn't reliably indicate rank).
+
+Seniority tiers, most senior first: C-level, VP, Director, Manager, IC (individual contributor). Departments: Sales, Marketing, Operations, Executive. No badge appears when a tier or department can't be determined — this is expected for titles with no recognizable keyword (unusual titles, or titles in a language other than English), not a bug.
+
+These fields are re-derived from the title every time a contact is saved — they can't be edited directly; edit the title itself if a badge looks wrong.
 
 ---
 

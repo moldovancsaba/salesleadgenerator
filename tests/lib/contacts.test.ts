@@ -21,6 +21,27 @@ describe('normalizeContact', () => {
     const c = normalizeContact(null as any);
     expect(c.name).toBe('');
   });
+
+  it('derives seniorityTier/department from title on every normalize (issue #68)', () => {
+    const c = normalizeContact({ name: 'A', title: 'VP of Sales' });
+    expect(c.seniorityTier).toBe('VP');
+    expect(c.department).toBe('Sales');
+  });
+
+  it('re-derives seniorityTier/department rather than trusting an input-supplied value', () => {
+    // Unlike emailVerificationStatus (server-computed, passed through), these
+    // are always re-derived from title — a caller can't spoof them by
+    // sending stale/fabricated values in the payload.
+    const c = normalizeContact({ name: 'A', title: 'Sales Manager', seniorityTier: 'C-level', department: 'Executive' } as any);
+    expect(c.seniorityTier).toBe('Manager');
+    expect(c.department).toBe('Sales');
+  });
+
+  it('resolves an empty/missing title to Unknown/Unknown', () => {
+    const c = normalizeContact({ name: 'A' });
+    expect(c.seniorityTier).toBe('Unknown');
+    expect(c.department).toBe('Unknown');
+  });
 });
 
 describe('normalizeContact — lastVerifiedAt stamping', () => {

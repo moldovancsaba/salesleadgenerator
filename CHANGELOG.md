@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.51
+
+Thirteenth delivery of the sales-tooling roadmap (tracking issue #76): job-title/seniority normalization (rule-based, not ML).
+
+### Added — job-title/seniority normalization (fixes #68)
+New pure module `lib/title-normalization.ts`: `normalizeTitle()` maps free-text `contacts[].title` to two derived fields — `seniorityTier` (`C-level`/`VP`/`Director`/`Manager`/`IC`/`Unknown`) and `department` (`Sales`/`Marketing`/`Operations`/`Executive`/`Unknown`) — via an ordered regex/keyword table. Explicitly not ML: no hosted model, no training data, no external API. Computed inside `lib/contacts.ts`'s `normalizeContact()`, the one shared path every write (`POST`, `PUT`, `PATCH ... MODIFY`) already funnels through, so it applies automatically everywhere with no new call site — and, unlike `emailVerificationStatus`, is **re-derived from `title` every time**, never trusted from an input payload.
+
+Two real inconsistencies in the original spec were found and reconciled, both documented in the module itself: `revenue` was added to the Sales department keywords (missing from the spec's own pseudocode, but required to make its own worked example — "Chief Revenue Officer" → Sales — actually true); the bare `president` department keyword now excludes `vice president` via a negative lookbehind (without it, "Vice President, Sales" incorrectly resolved to Executive department, since `president` is a literal substring of `vice president`). A title with no rank keyword resolves to `IC` only when its department independently resolved to something recognized — a bare Executive-department signal (`Owner`/`Founder` alone) or an entirely unrecognized title (e.g. non-Latin-script text) resolves to `Unknown` tier instead of a guessed `IC`, matching the spec's own worked example ("Owner" → Unknown tier, Executive department).
+
+`app/detail.tsx`'s CONTACTS block renders a tier badge and a department badge next to `contact.title`, each hidden individually when `Unknown` — no empty-state chrome. New backfill script `scripts/backfill-title-normalization.ts` (importing `lib/backfill-title-normalization.ts`'s pure, idempotent collection-scan logic) mirrors `scripts/migrate-decision-maker-to-contacts.ts`'s `--dry-run`/`--apply` shape exactly.
+
+### Testing
+`tests/lib/title-normalization.test.ts` — 8 new tests covering empty/missing/non-string input, exact matches, case/punctuation insensitivity, the issue's own worked multi-role examples, C-suite abbreviations, IC-vs-Unknown fallback behavior, non-Latin-script graceful fallback, and fixed tier precedence. `tests/lib/contacts.test.ts` gains 3 integration tests confirming `normalizeContact()` derives and never trusts an input-supplied `seniorityTier`/`department`. `tests/lib/backfill-title-normalization.test.ts` — 5 new tests covering apply-mode writes, dry-run never writing, idempotency on already-backfilled data, graceful handling of contactless documents, and per-contact (not per-document) update granularity. Interactive verification via headless Chromium against the real dev server with a mocked lead payload covering five real-world titles: confirmed both badges render with correct text, and that "Owner" correctly shows only the department badge with no tier badge.
+
+**Backfill script not run against production**: this sandbox has no `MONGODB_URI` (same documented gap as every other Mongo-integration path in this repo, including issue #45's original migration script) — sanity-checked locally (confirmed it parses and correctly reaches the missing-env-var error path) but a real dry-run against live data is disclosed, real follow-up work for an environment with DB access, not claimed as already done.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s Lead data model gains a "Job-title/seniority normalization" subsection and the `seniorityTier`/`department` field entry; `PIPELINE_ARCHITECTURE.md`'s Lead Model `contacts[]` shape updated (also closing a pre-existing gap where it hadn't been updated for `emailVerificationStatus` in 2.4.50); `docs/OPERATOR_GUIDE.md` gains a "Job Title / Seniority Badges" section.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (265/265), smoke suite (5/5), `next build --webpack` (31 routes, no new routes).
+
+Version bumped 2.4.50 -> 2.4.51.
+
 ## 2.4.50
 
 Twelfth delivery of the sales-tooling roadmap (tracking issue #76): real email verification (MX-based, no paid API).

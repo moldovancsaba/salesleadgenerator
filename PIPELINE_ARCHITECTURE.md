@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.50
+**Version:** 2.4.51
 
 ## Overview
 
@@ -130,7 +130,11 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
   // lastVerifiedAt (2.4.40, issue #66): per-contact ISO timestamp of last
   // confirmed-accurate verifiable-field data. See docs/ARCHITECTURE.md's
   // "Per-contact freshness" for exactly which write path stamps it and when.
-  contacts: Array<{ name, title, email, phone, linkedin, role, isDecisionMaker, lastVerifiedAt? }>
+  // emailVerificationStatus (2.4.50, issue #67): MX-based domain-deliverability
+  // signal, written back asynchronously after create/update — never a
+  // specific-mailbox proof. seniorityTier/department (2.4.50, issue #68):
+  // rule-based (not ML), re-derived from `title` on every normalize.
+  contacts: Array<{ name, title, email, phone, linkedin, role, isDecisionMaker, lastVerifiedAt?, emailVerificationStatus?, seniorityTier, department }>
   pro_for_organization: string[]  // generic since 2.3.0 — shared across every brand, not brand-specific
   con_for_organization: string[]
   value_proposition: string
