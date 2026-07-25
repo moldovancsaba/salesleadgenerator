@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.39
+
+First delivery of the sales-tooling roadmap (tracking issue #76): stale/stuck-deal alerts.
+
+### Added — stale/stuck-deal alerts (fixes #61)
+New pure module `lib/stale-deal.ts` (`computeStaleness`, mirroring `lib/kanban-column-visibility.ts`'s framework-free shape: no React, no Mongo, no internal `Date.now()`). A lead is "stale" once it has sat in its kanban column for at least that column's configured day threshold (`DEFAULT_STALE_THRESHOLDS`: DISCOVERED/QUALIFIED 14d, ENGAGED 21d, PROPOSAL 10d), and "critical" at 2× the threshold. WON/LOST are always excluded; a missing/invalid `updatedAt` or a non-positive/non-finite threshold returns `null` (not stale).
+
+`GET`/`PUT /api/settings` gain an additive `thresholds` field alongside the existing `weights` — persisted to its own `settings` collection document (`{key: 'stale_thresholds'}`), upserted independently so editing weights never touches thresholds or vice versa. `app/kanban.tsx` fetches thresholds once per board mount (falling back to the defaults on failure) and computes staleness client-side per card inside `renderItem`, from data already in memory — no new per-card network call. `app/card.tsx`'s `LeadCard` renders the result as a new badge row between the header and industry text: icon + "Stale"/"Critical" text + day count always together (never color-only, per CLAUDE.md Rule 7), with a full-context `aria-label` for screen readers (WCAG 1.4.1).
+
+### Testing
+`tests/lib/stale-deal.test.ts` — 13 new tests: exact-threshold boundary, one-day-under, 2x critical boundary, one-day-under-critical, missing/invalid `updatedAt`, per-column threshold differences for identical elapsed days, hardcoded WON/LOST exclusion even with an artificially low threshold, zero/negative/NaN threshold handling, and default-threshold fallback for an unlisted column key.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s "Kanban Lead Card" and "Kanban Board and Drag-and-Drop" sections; `PIPELINE_ARCHITECTURE.md`'s API endpoint table.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (94/94), smoke suite (5/5), `next build --webpack` (23 routes).
+
+Version bumped 2.4.38 -> 2.4.39.
+
 ## 2.4.38
 
 Three owner requests: check whether a fresh GDS release fixes the misleading drag-icon (issue #40), make kanban columns easier to navigate on the PWA, and fix the duplicated/incorrect card-count indicator in column headers.
