@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.42
+**Version:** 2.4.43
 
 ## Overview
 
@@ -92,7 +92,7 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 | GET | `/api/search?q=<query>&brand=<brand>` | Predictive lead search, deduped by fingerprint; cursor pagination when a specific `brand` is given |
 | GET | `/api/boards` | Available brand boards and config |
 | GET | `/api/boards/[brand]?tenantId=<id>` | Board metadata: counts, region breakdown, pipeline-weighted forecast |
-| GET | `/api/metrics?brand=<brand>&tenantId=<id>` | Per-column and per-region lead counts |
+| GET | `/api/metrics?brand=<brand>&tenantId=<id>` | Per-column and per-region lead counts, plus `metrics.velocity` (time-in-stage, stage-to-stage conversion, computed from `outcomelogs`; 2.4.42, issue #58) |
 | GET | `/api/settings` | Pipeline-weight settings used by forecast calculations, plus per-column stale-deal day thresholds (`thresholds`, additive as of 2.4.39) |
 | GET | `/api/forecast/export?format=csv\|json` | CogMap revenue forecast export |
 | GET | `/api/health` | Health check |
