@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.62
+
+### Changed — Dependency-audit re-verification (2026-07-25)
+Re-ran and corrected `docs/STACK_AND_DEPENDENCIES.md`'s "Dependency Audit" table — real verification via `npm view`/`npm outdated`/`npm audit`/upstream issue tracking, not assumed from the prior entries:
+
+- **ESLint 10 blocker re-tested and found to have changed shape.** The 2.4.26 blocker (`typescript-eslint`'s `scopeManager.addGlobals is not a function` crash under ESLint 10) is confirmed fixed upstream — `typescript-eslint@8.65.0`/`@typescript-eslint/parser@8.65.0` now declare `eslint: '^8.57.0 || ^9.0.0 || ^10.0.0'` in their own `peerDependencies`. Re-attempting the bump to `eslint@10.8.0` hit a **different, new** crash instead: `eslint-plugin-react@7.37.5` (pinned transitively via `eslint-config-next@16.2.11`, confirmed to be that package's latest published release) throws `TypeError: contextOrFilename.getFilename is not a function` on `npm run lint`, because it still calls a legacy `context.getFilename()` API removed in ESLint 10. Reverted to `eslint@9.39.5` — still the correct pin, for a different reason than previously documented.
+- **TypeScript 7 blocker's citation corrected.** The prior table cited typescript-eslint issue #10940 as the TS 7 tracking issue; re-reading it shows that issue is actually an unrelated `tsgo`/native-Go-compiler performance proposal. The real, on-point issue is typescript-eslint/typescript-eslint#12518 ("TypeScript 7.0.2 Support"), filed 2026-07-08 and closed as not planned — `typescript-eslint@8.65.0`'s peer range still hard-caps `typescript: '>=4.8.4 <6.1.0'`. `typescript` stays at `6.0.3`.
+- **`postcss` bumped 8.5.20 → 8.5.23** (direct dependency, patch-level, within the already-declared `^8.4.0` range). Full quality gate re-verified clean at this version: `npx tsc --noEmit` (0 errors — excluding pre-existing, unrelated failures from commit `7e8edef`, see below), `npm run lint` (0 errors/warnings), `npx vitest run` (334/334), `npm run test:smoke` (5/5).
+- **New high-severity `npm audit` finding, not previously documented**: `brace-expansion` DoS (GHSA-mh99-v99m-4gvg), reached via vulnerable `minimatch@3.1.5` inside `eslint-config-next@16.2.11`'s own transitive dependencies (`eslint-plugin-import`, `eslint-plugin-jsx-a11y`, `eslint-plugin-react` — all three confirmed at their own latest published versions, no fix released yet). Upstream-only, same category as the already-documented `next`-bundled `postcss`/`sharp` CVEs (re-checked: `next`'s latest stable is still `16.2.11`, no fix yet).
+- Corrected `README.md`'s "Versioning" section, which had drifted to a stale `2.4.29` across many releases while the version badge above it stayed current.
+
+### Known issue found during this audit, tracked separately (not fixed here — out of scope for a dependency-only change)
+`main`'s prior HEAD (`7e8edef`, "feat(admin): add tenant/app/queue management webapp") fails both `npx tsc --noEmit` and `npm run build` — a client-component `metadata` export, two wrong relative import paths, a missing `StatusBadge` reference, and two `useState` type mismatches. Shipped with no CHANGELOG entry and no version bump. Filed as issue #98 with full repro detail; **not fixed in this change** since it requires understanding of the intended `/admin` page design, out of scope for this dependency-audit pass.
+
+### Documentation
+`docs/STACK_AND_DEPENDENCIES.md`'s Dependency Audit section updated with all of the above, dated and attributed to a 2026-07-25 re-check rather than silently overwriting the prior entries.
+
 ## 2.4.61
 
 ### Added — manual ticket-size override with audit trail (fixes #86)
