@@ -33,6 +33,14 @@ export interface TicketSizeInputs {
   sizeTier: TicketSizeTier | undefined;
   unitCount: number | undefined;
   currency: TicketSizeCurrency;
+  // Operator-configured, per-region adjustment (issue #84) — e.g. a CEE or
+  // MENA deal may realistically run smaller than a US one for the same
+  // company-size tier. Applied before the sanity cap, so it can shrink or
+  // grow an estimate but never let it escape the 2x-largestWon ceiling.
+  // Absent, non-finite, or <=0 collapses to a 1.0 no-op — region is genuinely
+  // free text at the API boundary (no server-side enum), so an unrecognized
+  // or unconfigured region must never zero out or corrupt an estimate.
+  regionMultiplier?: number;
 }
 
 export interface DealSizeBands {
@@ -82,6 +90,11 @@ function applySanityCap(value: number, dealSize: DealSizeBands): number {
   return Math.min(value, dealSize.largestWon * SANITY_CAP_MULTIPLIER);
 }
 
+function resolveRegionMultiplier(inputs: TicketSizeInputs): number {
+  const m = inputs.regionMultiplier;
+  return typeof m === 'number' && Number.isFinite(m) && m > 0 ? m : 1;
+}
+
 export function estimateTicketSize(
   inputs: TicketSizeInputs,
   dealSize: DealSizeBands,
@@ -99,8 +112,9 @@ export function estimateTicketSize(
   // Method 1: per_unit — a product explicitly priced for this tier, with a
   // real unit-count signal (e.g. CogMap's estimated_participants).
   const product = products.find((p) => p.customerSize.includes(tierKey) && typeof p.perUnitRate === 'number' && p.perUnitRate > 0);
+  const regionMultiplier = resolveRegionMultiplier(inputs);
   if (product && typeof inputs.unitCount === 'number' && inputs.unitCount > 0) {
-    const raw = product.perUnitRate! * inputs.unitCount * 12 * VOLUME_DISCOUNT_BY_TIER[tierKey];
+    const raw = product.perUnitRate! * inputs.unitCount * 12 * VOLUME_DISCOUNT_BY_TIER[tierKey] * regionMultiplier;
     const expected = applySanityCap(raw, dealSize);
     return {
       low: expected * PER_UNIT_LOW_FACTOR,
@@ -116,7 +130,7 @@ export function estimateTicketSize(
   // Method 2: tier_band — the brand's own configured deal-size band.
   const tierValue = dealSize[tierKey];
   if (typeof tierValue === 'number' && tierValue > 0) {
-    const expected = applySanityCap(tierValue, dealSize);
+    const expected = applySanityCap(tierValue * regionMultiplier, dealSize);
     const high = dealSize.largestWon
       ? Math.min(expected * TIER_BAND_HIGH_FACTOR, dealSize.largestWon * SANITY_CAP_MULTIPLIER)
       : expected * TIER_BAND_HIGH_FACTOR_NO_CAP;

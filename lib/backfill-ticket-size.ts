@@ -46,6 +46,7 @@ export async function backfillTicketSizeCollection(
   const settings = await db.collection('company_settings').findOne({ brand, tenantId });
   const dealSize: DealSizeBands = settings?.dealSize || {};
   const products = toProductInputs(settings?.products);
+  const regionMultipliers: Record<string, number> = settings?.regionMultipliers || {};
 
   const collection = db.collection(collectionName);
   const cursor = collection.find({});
@@ -60,7 +61,8 @@ export async function backfillTicketSizeCollection(
       ? doc.estimated_participants
       : undefined;
 
-    const newEstimate = estimateTicketSize({ sizeTier, unitCount, currency }, dealSize, products, now);
+    const regionMultiplier = typeof doc.region === 'string' ? regionMultipliers[doc.region.toUpperCase()] : undefined;
+    const newEstimate = estimateTicketSize({ sizeTier, unitCount, currency, regionMultiplier }, dealSize, products, now);
     result.methodCounts[newEstimate.method] = (result.methodCounts[newEstimate.method] || 0) + 1;
 
     const existing = doc.ticketSizeEstimate;

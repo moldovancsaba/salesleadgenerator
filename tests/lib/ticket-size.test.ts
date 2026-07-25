@@ -108,4 +108,43 @@ describe('estimateTicketSize', () => {
     const result = estimateTicketSize(inputs({ sizeTier: 'Small' }), dealSize, [], () => new Date('2020-01-01T00:00:00.000Z'));
     expect(result.computedAt).toBe('2020-01-01T00:00:00.000Z');
   });
+
+  describe('regionMultiplier (issue #84)', () => {
+    it('scales a tier_band estimate by the configured region multiplier', () => {
+      const dealSize: DealSizeBands = { medium: 40000, largestWon: 300000 };
+      const result = estimateTicketSize(inputs({ sizeTier: 'Medium', regionMultiplier: 0.5 }), dealSize, [], now);
+      if (result.method !== 'tier_band') throw new Error('expected tier_band');
+      expect(result.expected).toBe(20000);
+    });
+
+    it('scales a per_unit estimate by the configured region multiplier', () => {
+      const products: TicketSizeProductInput[] = [{ customerSize: ['small'], perUnitRate: 10 }];
+      const result = estimateTicketSize(inputs({ sizeTier: 'Small', unitCount: 100, regionMultiplier: 1.5 }), {}, products, now);
+      if (result.method !== 'per_unit') throw new Error('expected per_unit');
+      expect(result.expected).toBe(18000); // 12000 base * 1.5
+    });
+
+    it('defaults to a 1.0 no-op when regionMultiplier is omitted', () => {
+      const dealSize: DealSizeBands = { medium: 40000 };
+      const withDefault = estimateTicketSize(inputs({ sizeTier: 'Medium' }), dealSize, [], now);
+      const explicit = estimateTicketSize(inputs({ sizeTier: 'Medium', regionMultiplier: 1 }), dealSize, [], now);
+      expect(withDefault).toEqual(explicit);
+    });
+
+    it('treats a zero, negative, or non-finite regionMultiplier as a 1.0 no-op rather than corrupting the estimate', () => {
+      const dealSize: DealSizeBands = { medium: 40000 };
+      for (const bad of [0, -1, NaN, Infinity]) {
+        const result = estimateTicketSize(inputs({ sizeTier: 'Medium', regionMultiplier: bad }), dealSize, [], now);
+        if (result.method !== 'tier_band') throw new Error('expected tier_band');
+        expect(result.expected).toBe(40000);
+      }
+    });
+
+    it('still applies the sanity cap after the region multiplier — the multiplier cannot bypass the $8B-bug fix', () => {
+      const dealSize: DealSizeBands = { enterprise: 8_000_000_000, largestWon: 500_000 };
+      const result = estimateTicketSize(inputs({ sizeTier: 'Enterprise', regionMultiplier: 3 }), dealSize, [], now);
+      if (result.method !== 'tier_band') throw new Error('expected tier_band');
+      expect(result.expected).toBe(1_000_000); // still 2x largestWon
+    });
+  });
 });
