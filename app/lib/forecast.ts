@@ -138,6 +138,13 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
     lastComputedAt: cachedWinRates?.computedAt ? new Date(cachedWinRates.computedAt).toISOString() : null,
   }
 
+  // Ticket-size estimate (issue #79) takes priority over the legacy
+  // free-written estimated_annual_revenue_usd field once computed — same
+  // fallback contract as app/constants.ts's getTicketSize() (issue #79/#80),
+  // so the forecast and the lead-detail UI never disagree about which
+  // number is authoritative for a given lead (issue #85).
+  const REVENUE_EXPR = { $ifNull: ['$ticketSizeEstimate.expected', { $ifNull: ['$estimated_annual_revenue_usd', 0] }] }
+
   if (brand === 'cogmap') {
     const pipelineForecast = await collection.aggregate([
       { $match: filter },
@@ -146,7 +153,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
           _id: '$kanbanColumn',
           leads: { $sum: 1 },
           participants: { $sum: { $ifNull: ['$estimated_participants', 0] } },
-          revenue: { $sum: { $ifNull: ['$estimated_annual_revenue_usd', 0] } },
+          revenue: { $sum: REVENUE_EXPR },
         },
       },
     ]).toArray()
@@ -180,7 +187,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
         $group: {
           _id: '$revenue_model',
           leads: { $sum: 1 },
-          revenue: { $sum: { $ifNull: ['$estimated_annual_revenue_usd', 0] } },
+          revenue: { $sum: REVENUE_EXPR },
         },
       },
       { $sort: { revenue: -1 } },
@@ -191,7 +198,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
       {
         $group: {
           _id: null,
-          revenue: { $sum: { $ifNull: ['$estimated_annual_revenue_usd', 0] } },
+          revenue: { $sum: REVENUE_EXPR },
           participants: { $sum: { $ifNull: ['$estimated_participants', 0] } },
         },
       },
@@ -199,7 +206,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
 
     const perLeadValues = await collection.aggregate<PerLeadValueDoc>([
       { $match: filter },
-      { $project: { entity_name: 1, kanbanColumn: 1, value: { $ifNull: ['$estimated_annual_revenue_usd', 0] } } },
+      { $project: { entity_name: 1, kanbanColumn: 1, value: REVENUE_EXPR } },
     ]).toArray()
     const concentrationSettings = await getConcentrationRiskSettings(db)
     const brandConcentrationRisk = attachConcentrationRisk(perLeadValues, pipeline, totalWeighted, weightsUsed, concentrationSettings)
