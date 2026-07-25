@@ -19,6 +19,7 @@ When a request arrives that amounts to more than a single, obvious, one-file cha
 2. Record each deliverable as its own GitHub issue before (or as part of) doing the work, following the structure established in this repo's existing issues (executive summary, current state with exact file/line references, architecture, pseudo-code where relevant, edge cases, acceptance criteria, testing, documentation, rollback/handover).
 3. Implement against those issues, referencing the issue number in commits (`fixes #N`), and update the issue with what actually shipped, including any caveats discovered along the way (like a lockfile that couldn't be regenerated, or a rule that had to be relaxed).
 4. Small, unambiguous, single-step fixes explicitly requested in the moment don't need a new issue manufactured after the fact — use judgment, but default to recording rather than skipping when in doubt.
+5. **No GitHub Projects (v2) board API is available in this session's toolset.** Issues, labels, and milestones can be created and organized (tracking issue + sub-issues, following the structure above), but issues cannot be added to or removed from a project board directly. State this limitation plainly whenever a project board is requested, and hand off the "add to board" step to the repo owner (or whoever has board access) rather than claiming it was done. Do not re-attempt this per instance or re-litigate whether a workaround exists — it doesn't, until this note is updated.
 
 ## 3. Documentation is mandatory
 
@@ -41,6 +42,7 @@ Before making a claim or a change:
 - Run the actual command and read its actual output, not an assumption of what it would say.
 - When a fact is externally verifiable (a CVE's patched version, a library's breaking-change list, a config's real current state), verify it — don't state it from general recollection.
 - When something is genuinely ambiguous or unverifiable in the current environment (e.g. a sandbox that can't reach a private dependency), say exactly that, plus what would need to happen to verify it for real — never paper over the gap with a plausible-sounding guess.
+- **Structural, business-logic, and architectural questions are never answered from memory or general training knowledge.** This includes things like "how should ticket size/deal size be calculated," "what's the standard way to model X," or any question about how this specific codebase's data/config actually behaves. Before answering, read the actual relevant files in this repo (not a recollection of similar codebases) and, where the question is grounded in external practice (an industry method, a framework, a published pattern), do real research — web search/fetch with citations, not a plausible-sounding answer generated from training data. This is a strict, standing rule, not a per-request judgment call.
 
 ## 6. Branch and push authorization
 
