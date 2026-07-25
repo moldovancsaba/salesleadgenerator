@@ -9,6 +9,7 @@ import { executeLeadAction } from '../../lib/lead-actions'
 import { deriveKanbanColumn } from '../../../lib/kanban-column'
 import { buildFingerprint } from '../../../lib/fingerprint'
 import { dedupeContacts } from '../../../lib/contacts'
+import { verifyLeadContactsAsync } from '../../lib/email-verification-store'
 
 // Normalize address - ensure country is included if missing
 function normalizeAddress(address: string, country: string): string {
@@ -363,6 +364,12 @@ export async function POST(request: Request) {
     if (normalizedWarnings.length > 0) {
       console.warn('Lead created with normalization warnings', normalizedWarnings)
     }
+
+    // Fire-and-forget MX-based deliverability check (issue #67) — never
+    // awaited, so a DNS timeout/outage can't delay or fail lead creation.
+    // Results land asynchronously via a background write-back; the response
+    // below is unaffected either way.
+    void verifyLeadContactsAsync(db, config.dbCollection, result.insertedId, (newLead.contacts || []).map((c: any) => c.email))
 
     await db.collection('outcomelogs').insertOne({
       leadId: result.insertedId.toString(),

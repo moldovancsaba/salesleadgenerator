@@ -51,6 +51,17 @@ export type Lead = {
     // ISO timestamp of last confirmed-accurate verifiable-field data — see
     // lib/contact-freshness.ts, issue #66. Undefined means never verified.
     lastVerifiedAt?: string;
+    // MX-based domain-deliverability signal, written back asynchronously
+    // after create/update — see lib/email-verification.ts, issue #67.
+    // Undefined means the background check hasn't landed yet.
+    emailVerificationStatus?: {
+      status: 'unverified' | 'mx-verified' | 'mx-failed' | 'check-error';
+      checkedAt: string | null;
+      isRoleAccount: boolean;
+      isFreeProvider: boolean;
+      mxHosts?: string[];
+      error?: string;
+    };
   }>;
   pro_for_organization?: string | string[];
   con_for_organization?: string | string[];
