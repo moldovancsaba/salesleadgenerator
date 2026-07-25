@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.41
+**Version:** 2.4.42
 
 ---
 
@@ -83,15 +83,18 @@ As of 2.4.10, `app/kanban.tsx` renders via GDS's governed `KanbanBoard` (`@sover
 
 ### Boards and Metrics
 - `GET /api/boards` — available brand boards and config (brand-agnostic)
-- `GET /api/boards/[brand]?tenantId=<id>` — single board's metadata: counts, region breakdown, and a revenue forecast including a per-column, pipeline-weighted breakdown (`forecast.pipeline[COLUMN]`) for both `cogmap` (direct revenue estimates) and, as of 2.4.0, `seyu` (summed per-lead pricing blocks)
+- `GET /api/boards/[brand]?tenantId=<id>` — single board's metadata: counts, region breakdown, and a revenue forecast including a per-column, pipeline-weighted breakdown (`forecast.pipeline[COLUMN]`) for both `cogmap` (direct revenue estimates) and, as of 2.4.0, `seyu` (summed per-lead pricing blocks). As of 2.4.41, the computation itself lives in `app/lib/forecast.ts`'s `computeForecast(db, brand, tenantId)` — extracted so this route and the new forecast-snapshot endpoint (below) can never drift; this route's own JSON response is unchanged (the helper's extra `weightsUsed` field is deliberately dropped before responding)
 - `GET /api/metrics?brand=<brand>&tenantId=<id>` — per-column and per-region lead counts for a brand
-- `GET /api/settings` — pipeline-weight settings (the `pipeline_weights` document, or defaults) used by forecast calculations
+- `GET /api/settings` — pipeline-weight settings (the `pipeline_weights` document, or defaults) used by forecast calculations, plus per-column stale-deal day thresholds (`thresholds`, additive as of 2.4.39)
 - `GET /api/forecast/export?format=csv|json` — CogMap revenue forecast, exportable as CSV
 
+**Forecast snapshot history (2.4.41, issue #57):** a new `forecast_snapshots` collection (`app/lib/forecast-snapshot.ts`) periodically persists the same forecast shape `GET /api/boards/[brand]` already computes, plus the pipeline weights actually used (weights are mutable at runtime via `PUT /api/settings`, so the same pipeline state can produce a different `totalWeightedRevenue` at different times — a snapshot must record the weights, not just the result). One document per `{brand, tenantId, periodKey}` (an ISO week key, e.g. `"2026-W30"`, computed UTC-anchored by the new pure `lib/iso-week.ts`'s `isoWeekKey()` — avoids DST-boundary ambiguity across tenants), upserted so retries/re-runs are idempotent. `GET /api/admin/forecast-snapshot` is the trigger endpoint: Vercel Cron's automatic `Authorization: Bearer $CRON_SECRET` header authorizes the scheduled weekly run (`vercel.json`'s `crons` entry, Mondays 06:00 UTC), or the existing `x-api-key` admin auth for a manual re-trigger; it loops every brand × every tenantId actually present in that brand's collection (`discoverTenantIds()` — a new tenant added mid-quarter starts its own series automatically) and writes/upserts one snapshot per pair, isolating failures per pair rather than aborting the whole run. `POST /api/admin/forecast-snapshot` (`x-api-key`-guarded) supports backfilling a missed week via an explicit `{periodKey, tenantId?}` body — tagged `source: 'backfill'` rather than `'vercel-cron'`/`'manual'`, since a backfill is computed from *current* pipeline state (there's no way to reconstruct a true past state). `GET /api/admin/forecast-snapshot/history?brand=&tenantId=&from=&to=&limit=` (also `x-api-key`-guarded) reads the series ascending, capped at 52 by default (max 200) — the read contract a future trend-chart UI is expected to consume; no chart ships in this issue. Indexes (`{brand,tenantId,periodKey}` unique, `{brand,tenantId,capturedAt}`) are ensured lazily via `createIndex` on each write (idempotent, no separate migration script) — this has not been independently verified against the live Atlas cluster from this sandbox (no `MONGODB_URI` here), consistent with how `PIPELINE_ARCHITECTURE.md` already documents the `fingerprint` index as schema-defined rather than cluster-verified.
+
 ### Health and Observability
-- `GET /api/health` — database connectivity, latency, brand counts, last error; `?tenantId=<id>` adds an opt-in per-tenant breakdown
+- `GET /api/health` — database connectivity, latency, brand counts, last error; `?tenantId=<id>` adds an opt-in per-tenant breakdown. As of 2.4.41, also returns `lastForecastSnapshot: {capturedAt, brands: {cogmap: 'written'|'stale'|'never', seyu: ...}}` — `'stale'` past 9 days since the last snapshot (a week plus one cron cycle of slack), `'never'` if no snapshot document exists yet for that brand/tenant; computed non-fatally, same pattern as the existing lead-count sub-query
 - `GET /api/admin/cron-status` — cron observability
 - `GET /api/admin/data-hygiene` — malformed lead counts by brand
+- `GET /api/admin/forecast-snapshot` / `POST /api/admin/forecast-snapshot` / `GET /api/admin/forecast-snapshot/history` — see "Forecast snapshot history" above
 - `GET /api/stats` — totals and breakdowns by column and region
 
 ### Outreach

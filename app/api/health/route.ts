@@ -2,11 +2,54 @@ import { NextResponse } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
 import { BRAND_CONFIG } from '../../lib/brand'
 import { tenantFilter } from '../../../lib/tenant'
+import { FORECAST_SNAPSHOT_COLLECTION } from '../../lib/forecast-snapshot'
 
 function getTenantId(request: Request): string {
   const url = new URL(request.url);
   const tenantId = (url.searchParams.get('tenantId') || '').trim();
   return tenantId || '';
+}
+
+type ForecastSnapshotHealth = {
+  capturedAt: string | null
+  brands: Record<string, 'written' | 'stale' | 'never'>
+}
+
+// A snapshot older than 9 days (a week plus a cycle of slack for a delayed
+// cron run) reads as 'stale' rather than 'never' — distinguishing "the job
+// stopped running" from "it has genuinely never run for this brand."
+const STALE_THRESHOLD_MS = 9 * 24 * 60 * 60 * 1000
+
+async function computeLastForecastSnapshot(db: any, tenantId: string): Promise<ForecastSnapshotHealth> {
+  const effectiveTenantId = tenantId || 'default'
+  const now = Date.now()
+  const brands: Record<string, 'written' | 'stale' | 'never'> = {}
+  let latestCapturedAt: string | null = null
+
+  for (const brandKey of Object.keys(BRAND_CONFIG)) {
+    try {
+      const doc = await db.collection(FORECAST_SNAPSHOT_COLLECTION)
+        .find({ brand: brandKey, tenantId: effectiveTenantId })
+        .sort({ capturedAt: -1 })
+        .limit(1)
+        .next()
+
+      if (!doc) {
+        brands[brandKey] = 'never'
+        continue
+      }
+
+      const capturedAt = doc.capturedAt instanceof Date ? doc.capturedAt.toISOString() : String(doc.capturedAt)
+      if (!latestCapturedAt || new Date(capturedAt) > new Date(latestCapturedAt)) {
+        latestCapturedAt = capturedAt
+      }
+      brands[brandKey] = (now - new Date(capturedAt).getTime()) > STALE_THRESHOLD_MS ? 'stale' : 'written'
+    } catch {
+      brands[brandKey] = 'never'
+    }
+  }
+
+  return { capturedAt: latestCapturedAt, brands }
 }
 
 export async function GET(request: Request) {
@@ -72,6 +115,13 @@ export async function GET(request: Request) {
       // Non-fatal: counts are informational
     }
 
+    let lastForecastSnapshot: ForecastSnapshotHealth | null = null
+    try {
+      lastForecastSnapshot = await computeLastForecastSnapshot(db, tenantId)
+    } catch {
+      // Non-fatal: snapshot freshness is informational
+    }
+
     status = dbLatencyMs > 2000 ? 'degraded' : 'ok'
 
     return NextResponse.json({
@@ -81,6 +131,7 @@ export async function GET(request: Request) {
       leadCounts,
       tenantId: tenantId || undefined,
       tenantLeadCounts,
+      lastForecastSnapshot,
       lastError,
       timestamp: new Date().toISOString(),
     })

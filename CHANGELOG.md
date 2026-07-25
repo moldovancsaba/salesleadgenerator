@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.42
+
+Fourth delivery of the sales-tooling roadmap (tracking issue #76), the last of the "foundational" wave: forecast snapshot history.
+
+### Added — forecast snapshot history (fixes #57)
+`GET /api/boards/[brand]`'s live pipeline-weighted forecast computation is extracted into a new shared `app/lib/forecast.ts`'s `computeForecast(db, brand, tenantId)` — the board route and the new snapshot endpoint now call the same function, so they can never drift; the board route's own JSON response is unchanged (the helper's extra `weightsUsed` field is deliberately dropped before responding).
+
+New `forecast_snapshots` collection (`app/lib/forecast-snapshot.ts`) captures that same forecast shape periodically, plus the pipeline weights actually in effect at capture time (weights are runtime-mutable via `PUT /api/settings`, so the same pipeline state can produce a different weighted revenue at different times — a snapshot must record the weights used, not just the result). One document per `{brand, tenantId, periodKey}` — `periodKey` is a UTC-anchored ISO week (`"2026-W30"`, new pure `lib/iso-week.ts`), avoiding DST-boundary ambiguity across tenants — upserted so retried/re-run triggers are idempotent, never duplicating.
+
+`GET /api/admin/forecast-snapshot` is the write trigger: Vercel Cron's automatic `Authorization: Bearer $CRON_SECRET` header (new `vercel.json`, weekly Mondays 06:00 UTC) or the existing `x-api-key` admin auth both authorize it (`lib/api-auth.ts`'s new `requireCronOrApiKey`/`isCronRequest`). It loops every brand × every tenantId actually present in that brand's collection (`discoverTenantIds()` — a new tenant added mid-quarter starts its own series with zero extra code) and isolates failures per pair rather than aborting the whole run. `POST /api/admin/forecast-snapshot` (key-guarded) supports backfilling a missed week via an explicit `{periodKey, tenantId?}` — tagged `source: 'backfill'` since it's computed from *current* pipeline state, not a real historical reconstruction. `GET /api/admin/forecast-snapshot/history?brand=&tenantId=&from=&to=&limit=` reads the series ascending (default cap 52, max 200) — the contract a future trend-chart UI is expected to consume; no chart ships in this issue.
+
+`GET /api/health` gains `lastForecastSnapshot: {capturedAt, brands: {cogmap, seyu}}` (`'written'`/`'stale'` past 9 days/`'never'`), computed non-fatally alongside the existing lead-count sub-query.
+
+### Testing
+`tests/lib/iso-week.test.ts` — 5 new tests (mid-week, UTC week-boundary, year-boundary in both directions, cross-week stability). `tests/integration/forecast-snapshot.integration.test.ts` — 14 new tests (auth: no/wrong/cron-secret/api-key; all-zero snapshot shape for both brands; idempotent double-write; real forecast capture with `weightsUsed` persisted; POST backfill tagging; history `limit`/`from`-`to`/missing-`brand`/no-auth; `MONGODB_URI` unset → 503) — **could not be executed in this sandbox**: `mongodb-memory-server`'s `mongod` binary download from `fastdl.mongodb.org` is blocked by this development sandbox's own network policy (a `403` at the proxy/gateway level), a pre-existing, already-documented constraint (`docs/STACK_AND_DEPENDENCIES.md`'s `mongodb-memory-server` row) — confirmed by the same failure reproducing identically on the pre-existing, unmodified `health.integration.test.ts`. The new test file follows the exact same pattern as the 5 other passing integration test files in this repo and is expected to pass in any environment where that host is reachable (a developer machine, most CI runners); `npm run test:integration` is explicitly excluded from the always-on quality gate for this reason. The default gate (`tsc`/`eslint`/`vitest run`/smoke) is unaffected and fully green.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s "Boards and Metrics"/"Health and Observability" sections (new "Forecast snapshot history" subsection); `PIPELINE_ARCHITECTURE.md`'s API endpoint table, Security section, and a new "Forecast Snapshot Model" schema block; `docs/STACK_AND_DEPENDENCIES.md`'s "Hosting and Delivery"/"Agent and Scheduling" sections (new `vercel.json`/`CRON_SECRET`/Vercel Cron Jobs entries).
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (129/129), smoke suite (5/5), `next build --webpack` (25 routes, 2 new). `npm run test:integration` blocked by this sandbox's network policy (see Testing above, not part of the gate).
+
+Version bumped 2.4.41 -> 2.4.42.
+
 ## 2.4.41
 
 Third delivery of the sales-tooling roadmap (tracking issue #76): content tagging and search for outreach templates.

@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.41
+**Version:** 2.4.42
 
 ## Overview
 
@@ -98,6 +98,8 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 | GET | `/api/health` | Health check |
 | GET | `/api/admin/cron-status` | Cron observability |
 | GET | `/api/admin/data-hygiene` | Malformed lead counts by brand |
+| GET/POST | `/api/admin/forecast-snapshot` | Write a weekly forecast snapshot per brand/tenant; `GET` is the Vercel Cron target (`CRON_SECRET` bearer) or admin (`x-api-key`), `POST` is a key-guarded manual/backfill trigger (2.4.41, issue #57) |
+| GET | `/api/admin/forecast-snapshot/history` | Read forecast snapshot history for a brand/tenant/date range (`x-api-key`) — feeds a future trend-chart UI |
 | GET/POST | `/api/outreach-templates` | Template CRUD and analytics; `GET` also accepts `tags`/`q` (additive to `industry`/`channel`, graceful zero-match fallback) and a `mode=search` variant for a real Mongo-level tag/content query (2.4.41, issue #64) |
 | GET | `/api/outreach-logs` | Outreach activity logs |
 | GET/POST | `/api/outcome-logs` | Outcome logs for feedback learning |
@@ -170,6 +172,25 @@ There is no Mongoose schema for this shape — `models/Lead.ts` (and `OutcomeLog
 }
 ```
 
+### Forecast Snapshot Model (2.4.41, issue #57)
+
+```typescript
+{
+  brand: string
+  tenantId: string
+  periodKey: string          // ISO week, UTC-anchored, e.g. "2026-W30" — lib/iso-week.ts
+  capturedAt: Date
+  totalLeads: number
+  columnCounts: Record<string, number>
+  weightsUsed: Record<string, number>   // pipeline_weights AT capture time — weights are mutable, so the result alone can't be trusted for a trend
+  forecast: object           // exact shape GET /api/boards/[brand] returns — app/lib/forecast.ts's computeForecast()
+  source: 'vercel-cron' | 'manual' | 'backfill'
+  createdAt: Date
+}
+```
+
+Collection: `forecast_snapshots`. Upserted on `{brand, tenantId, periodKey}` (idempotent — a retried trigger never duplicates); indexes on that compound key (unique) and `{brand, tenantId, capturedAt}` are ensured lazily via `createIndex` on each write, not a separate migration script.
+
 ## Frontend
 
 - **Framework:** Next.js 16 (App Router)
@@ -193,6 +214,7 @@ There is no Mongoose schema for this shape — `models/Lead.ts` (and `OutcomeLog
 
 - Public read access for lead listings and health checks
 - Write and admin endpoints require API key auth via `x-api-key` — when `SLG_API_KEY` is set, a request missing the header is rejected (401) the same as one with a wrong value; when `SLG_API_KEY` is unset entirely, requests are allowed through (documented fail-open behavior for local/dev use)
+- `GET /api/admin/forecast-snapshot` (2.4.41) additionally accepts Vercel Cron's automatic `Authorization: Bearer $CRON_SECRET` header, checked against a `CRON_SECRET` env var — either that header or a valid `x-api-key` authorizes the request (`lib/api-auth.ts`'s `requireCronOrApiKey`)
 - Input validation enforced before database writes, including partial updates (`PUT`)
 - CORS restricted to configured origins via `proxy.ts` (renamed from `middleware.ts` in 2.4.26's Next.js 16 upgrade — same logic, mandatory convention-file rename)
 - Security headers set in middleware: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`
