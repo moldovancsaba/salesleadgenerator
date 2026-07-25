@@ -12,6 +12,7 @@ import {
   emptySalesSettings, emptyProductLine,
   CUSTOMER_TYPE_OPTIONS, BUYER_ROLE_OPTIONS, CUSTOMER_SIZE_OPTIONS, PRICING_MODEL_OPTIONS,
   PURCHASE_FREQUENCY_OPTIONS, SALES_CYCLE_OPTIONS, REVENUE_PREDICTABILITY_OPTIONS, QUARTER_OPTIONS,
+  REVENUE_TARGET_CURRENCY_OPTIONS, REVENUE_TARGET_PERIOD_OPTIONS,
 } from '@/app/lib/sales-settings'
 
 const PRICING_FIELD_MAP: Record<PricingModel, { key: keyof ProductLine['pricing']; label: string }[]> = {
@@ -445,6 +446,37 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
               value={settings.seasonality.specificMonths}
               onChange={(e) => setSettings((s) => ({ ...s, seasonality: { ...s.seasonality, specificMonths: e.currentTarget.value } }))}
             />
+          </Stack>
+        </Paper>
+
+        {/* Revenue Target — feeds the pipeline coverage ratio on /forecast */}
+        <Paper withBorder p="md" radius="md">
+          <Stack gap="sm">
+            <Title order={4}>Revenue Target</Title>
+            <Text size="xs" c="dimmed">
+              Used to show how well the weighted pipeline forecast covers your target on the Forecast page.
+              Leave the amount blank to hide the coverage indicator.
+            </Text>
+            <Group grow>
+              <NumberInput
+                label="Target amount"
+                value={settings.revenueTarget.amount ?? ''}
+                onChange={(value) => setSettings((s) => ({ ...s, revenueTarget: { ...s.revenueTarget, amount: typeof value === 'number' ? value : undefined } }))}
+                min={0}
+              />
+              <Select
+                label="Currency"
+                value={settings.revenueTarget.currency}
+                onChange={(value) => value && setSettings((s) => ({ ...s, revenueTarget: { ...s.revenueTarget, currency: value as SalesSettings['revenueTarget']['currency'] } }))}
+                data={REVENUE_TARGET_CURRENCY_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+              />
+              <Select
+                label="Period"
+                value={settings.revenueTarget.period}
+                onChange={(value) => value && setSettings((s) => ({ ...s, revenueTarget: { ...s.revenueTarget, period: value as SalesSettings['revenueTarget']['period'] } }))}
+                data={REVENUE_TARGET_PERIOD_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+              />
+            </Group>
           </Stack>
         </Paper>
 

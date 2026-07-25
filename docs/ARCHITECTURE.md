@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.45
+**Version:** 2.4.46
 
 ---
 
@@ -184,6 +184,8 @@ Tracks query success, accepted/declined counts, top terms, and top domains.
 
 ### Company Settings (2.4.20)
 Collection: `company_settings` — one document per `{brand, tenantId}` (see `app/lib/sales-settings.ts`'s `SalesSettings` type for the full shape: company basics, repeatable `products[]` with per-product buyer/pricing/predictability fields, deal size, purchase frequency, upsell, sales cycle, an example customer, and seasonality). Written only via `PUT /api/sales-settings/[brand]`'s upsert; read by both the settings page and, going forward, the OpenClaw/KiloClaw research agent alongside the static `agent-runtime/tenants.json` config.
+
+**Revenue target / pipeline coverage ratio (2.4.46, issue #60):** `SalesSettings` gains `revenueTarget: {amount?, currency: 'USD'|'EUR', period: 'monthly'|'quarterly'|'annual'}` — a new plain-Mantine "Revenue Target" `Paper` section on `/salessettings/[client]` (following the page's own documented precedent: GDS Admin has no equivalent for this page's repeatable-row/checkbox-group needs, so new fields stay in the same all-Mantine surface). `amount` defaults unset (`sanitizeOptionalNumber`'s existing non-negative clamp collapses any negative input to 0); `currency` defaults to the brand's own real forecast currency (`USD` for cogmap, `EUR` for seyu — see below) but is freely editable. `app/lib/forecast.ts`'s `computeForecast()` looks the target up under the exact same `{brand, tenantId}` key `app/api/sales-settings/[brand]/route.ts`'s own GET/PUT already use (not `lib/tenant.ts`'s `tenantFilter()` `$or`-default special-casing — an exact match against whatever `tenantId` this particular `computeForecast()` call received), and feeds it plus the already-computed weighted total into a new pure module, `lib/pipeline-coverage.ts`'s `computeCoverage()`. Returns `null` — never a false `0%` — when no target is configured or the amount is 0/negative; returns an explicit `ratio: 0`/`'below'` for a genuine zero-pipeline-with-a-target case, never hidden. Benchmark bands are boundary-inclusive: `ratio < 3` → `'below'`, `3 ≤ ratio ≤ 5` → `'in_range'`, `ratio > 5` → `'above'`. Currency is explicit and user-set — a mismatch between the target's currency and the brand's own forecast currency is never silently FX-converted (no rate source exists in this app); it surfaces as `benchmark: 'unset'` plus `currencyMismatch: true`, and `app/forecast/page.tsx` renders an explicit warning line rather than a misleading ratio. `forecast.coverage` (`null` or the full `Coverage` object) is attached for both brands. The forecast page renders a GDS `MetricCard` (ratio + a tone-colored trend label, never color-only) when a target is set, or GDS `MissingDataPrompt` when it isn't — both from `@sovereignsquad/gds-core/client`.
 
 ---
 
