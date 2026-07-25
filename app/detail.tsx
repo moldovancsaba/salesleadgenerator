@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import type { Lead } from './types';
 import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@sovereignsquad/gds-admin/client';
 import { createGdsVocabularyPack, GdsIcons, StatusBadge } from '@sovereignsquad/gds-core/client';
-import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid } from '@mantine/core';
+import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, NumberInput } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { PRO_FIELD, CON_FIELD } from './lib/brand';
@@ -189,6 +189,18 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   const [busy, setBusy] = useState(false);
   const [outreachOpen, setOutreachOpen] = useState(false);
   const [fullScreen, setFullScreen] = useState(true);
+  // Closed-won calibration capture (issue #83) — a standalone mini-flow
+  // (its own local state + save action) rather than routing through
+  // handleModify()'s full-payload MODIFY call below: handleModify() is
+  // defined in this file but not currently wired to any button (a
+  // pre-existing gap, out of scope to fix here), so this field needs its
+  // own minimal, genuinely working capture path instead of depending on it.
+  const [actualDealValueInput, setActualDealValueInput] = useState<number | ''>('');
+  const [savingActualDealValue, setSavingActualDealValue] = useState(false);
+
+  useEffect(() => {
+    setActualDealValueInput(typeof lead?.actualDealValueUsd === 'number' ? lead.actualDealValueUsd : '');
+  }, [lead?._id, lead?.actualDealValueUsd]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -298,6 +310,24 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
       showNotification({ message: err instanceof Error ? err.message : 'Delete failed', color: 'red', autoClose: 5000 });
     } finally {
       setBusy(false);
+    }
+  }
+
+  // Issue #83: captures the real, closed contract value once a lead is WON,
+  // so lib/ticket-size-calibration.ts can compare it against what this
+  // lead's ticketSizeEstimate.expected predicted. A single-field MODIFY
+  // call, deliberately not routed through handleModify() above — see the
+  // state-declaration comment for why.
+  async function handleSaveActualDealValue() {
+    if (!lead || typeof actualDealValueInput !== 'number') return;
+    setSavingActualDealValue(true);
+    try {
+      await onAction(lead._id, 'MODIFY', { actualDealValueUsd: actualDealValueInput });
+      showNotification({ message: 'Actual deal value saved', color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Save failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setSavingActualDealValue(false);
     }
   }
 
@@ -427,6 +457,35 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
       </Box>
 
       {ticketSizeDetailSection(lead)}
+
+      {lead.kanbanColumn === 'WON' && (
+        <Box>
+          <Text size="sm" fw={600} mb={4}>Actual Deal Value</Text>
+          <Text size="xs" c="dimmed" mb={4}>
+            The real, closed contract value (USD) — used to calibrate future ticket-size estimates against real outcomes.
+          </Text>
+          <Group align="flex-end" gap="xs">
+            <NumberInput
+              aria-label="Actual deal value in USD"
+              value={actualDealValueInput}
+              onChange={(value) => setActualDealValueInput(typeof value === 'number' ? value : '')}
+              min={0}
+              prefix="$"
+              thousandSeparator=","
+              style={{ flex: 1 }}
+            />
+            <Button
+              size="sm"
+              variant="light"
+              onClick={handleSaveActualDealValue}
+              loading={savingActualDealValue}
+              disabled={typeof actualDealValueInput !== 'number'}
+            >
+              Save
+            </Button>
+          </Group>
+        </Box>
+      )}
 
       {nudge && (
         <Box>

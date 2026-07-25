@@ -98,6 +98,10 @@ export type Lead = {
     currency?: 'USD' | 'EUR';
     confidence?: 'low' | 'medium' | 'high';
   };
+  // The real, closed contract value (always USD) once a lead is WON — see
+  // lib/ticket-size-calibration.ts, issue #83. Captured via MODIFY, never
+  // computed. Undefined means not yet recorded, not a $0 deal.
+  actualDealValueUsd?: number;
   kanbanColumn: KanbanColumn;
   sortOrder: number;
   fingerprint?: string;
