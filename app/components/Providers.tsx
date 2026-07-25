@@ -1,6 +1,7 @@
 'use client';
 
 import { MantineProvider, createTheme } from "@mantine/core";
+import { Notifications } from "@mantine/notifications";
 
 // createTheme() must run in a Client Component: `Input.vars` below is a
 // function, and functions can't be serialized across the Server -> Client
@@ -39,5 +40,17 @@ const theme = createTheme({
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <MantineProvider theme={theme}>{children}</MantineProvider>;
+  return (
+    <MantineProvider theme={theme}>
+      {/* @mantine/notifications' showNotification() (app/detail.tsx,
+          app/kanban.tsx) is an imperative call into a queue this component
+          renders — with no <Notifications /> mounted anywhere in this app,
+          every one of those calls has been a silent no-op. Found while
+          investigating issue #91 ("move doesn't work, no visible
+          feedback"); relevant to every action-feedback toast in this app,
+          not just kanban moves. */}
+      <Notifications />
+      {children}
+    </MantineProvider>
+  );
 }

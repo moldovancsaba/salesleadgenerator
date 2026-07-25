@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import type { Lead } from './types';
 import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@sovereignsquad/gds-admin/client';
 import { createGdsVocabularyPack, GdsIcons, StatusBadge } from '@sovereignsquad/gds-core/client';
-import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, NumberInput, TextInput, Select } from '@mantine/core';
+import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, NumberInput, TextInput, Select, Modal } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { PRO_FIELD, CON_FIELD } from './lib/brand';
@@ -208,7 +208,11 @@ const LEAD_ACTION_VOCABULARY_PACK = createGdsVocabularyPack('lead', {
 export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, onAction, onDelete, onUpdated }: Props) {
   const [annotation, setAnnotation] = useState("");
   const [declineReason, setDeclineReason] = useState<DeclineReason>("OTHER");
-  const [actionMode, setActionMode] = useState<"decline" | "pin" | "refresh" | null>(null);
+  // Only "decline" is ever actually set (Accept/Pin/Refresh fire
+  // immediately on click, no confirmation step) — narrowed from a stale
+  // "decline" | "pin" | "refresh" | null union that implied a confirmation
+  // flow for Pin/Refresh that was never wired up.
+  const [actionMode, setActionMode] = useState<"decline" | null>(null);
   const [busy, setBusy] = useState(false);
   const [outreachOpen, setOutreachOpen] = useState(false);
   const [fullScreen, setFullScreen] = useState(true);
@@ -315,6 +319,11 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
       showNotification({ message: err instanceof Error ? err.message : 'Decline failed', color: 'red', autoClose: 5000 });
     } finally {
       setBusy(false);
+      // Success or failure, close the confirmation — a failure is already
+      // surfaced via the red notification above, same pattern every other
+      // action in this modal (Accept/Pin/Refresh) relies on; the user can
+      // click Reject again to retry rather than an inline retry affordance.
+      setActionMode(null);
     }
   }
 
@@ -800,14 +809,6 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
         </Box>
       )}
 
-      <AdminSelect
-        name="declineReason"
-        label="Decline Reason"
-        description="Only used when declining"
-        value={declineReason}
-        onChange={(value: string | null) => value && setDeclineReason(value as DeclineReason)}
-        data={DECLINE_REASONS.map((r) => ({ value: r.value, label: r.label }))}
-      />
       <AdminTextarea
         name="annotation"
         label="Annotation"
@@ -831,6 +832,32 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
         </AdminDetailDrawer>
       )}
       <OutreachComposeModal opened={outreachOpen} onClose={() => setOutreachOpen(false)} lead={lead} brand={brand} />
+      {/* issue #90: Decline Reason used to be an unconditional field buried
+          at the bottom of a long scrollable drawer, disconnected from
+          Reject — a user could tap Reject (which only set dead state; it
+          never actually called handleDecline) without ever seeing or
+          setting a reason. A small dedicated confirmation, immune to scroll
+          position, is the robust fix the issue itself called out as
+          preferable to relying on layout placement. */}
+      <Modal opened={actionMode === 'decline'} onClose={() => setActionMode(null)} title="Reject lead" centered>
+        <Stack gap="sm">
+          <AdminSelect
+            name="declineReason"
+            label="Decline Reason"
+            value={declineReason}
+            onChange={(value: string | null) => value && setDeclineReason(value as DeclineReason)}
+            data={DECLINE_REASONS.map((r) => ({ value: r.value, label: r.label }))}
+          />
+          <Group justify="flex-end" gap="xs">
+            <Button variant="light" color="gray" onClick={() => setActionMode(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button color="red" onClick={handleDecline} loading={busy}>
+              Confirm Reject
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </>
   );
 }

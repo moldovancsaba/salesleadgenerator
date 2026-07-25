@@ -425,10 +425,21 @@ export async function POST(request: Request) {
 }
 
 // PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH
+//
+// No requireApiKey guard here, deliberately (issue #91's real root cause):
+// this is the exclusive write path for every lead action button in the
+// browser UI (app/detail.tsx, app/kanban.tsx, app/sales/[brand]/sales-page-
+// client.tsx's handleAction) — none of which have ever sent an x-api-key
+// header, since a browser has no way to hold that secret safely without a
+// login system, the same reasoning PUT /api/sales-settings/[brand] already
+// established. Once SLG_API_KEY was actually configured in production,
+// every Accept/Decline/Pin/Refresh/Move/Modify from the real app silently
+// 401'd — found and verified live against production while investigating
+// issue #91, not assumed. POST (external research-agent lead creation,
+// anti-spam) keeps its guard; this route's own GET (listings) was already
+// public.
 export async function PATCH(request: Request) {
   const requestId = generateRequestId();
-  const authError = requireApiKey(request);
-  if (authError) return authError;
 
   try {
     const brand = getBrand(request);

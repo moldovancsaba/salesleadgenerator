@@ -117,7 +117,7 @@ export function LeadCard({ lead, onOpen, staleness, nudge }: LeadCardProps) {
         )}
         {onOpen && (
           <Button variant="light" size="xs" onClick={onOpen} mt={4}>
-            Preview
+            Open
           </Button>
         )}
       </Stack>

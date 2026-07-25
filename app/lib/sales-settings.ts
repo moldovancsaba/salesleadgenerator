@@ -256,12 +256,17 @@ function sanitizeEnum<T extends string>(value: unknown, allowed: T[]): T | '' {
 
 // Coerces a submitted price/quantity field to a non-negative number, or
 // undefined if genuinely absent — never a corrupted string, the same class
-// of bug the 2.4.8 ICE-field incident already fixed once for leads.
-function sanitizeOptionalNumber(value: unknown): number | undefined {
+// of bug the 2.4.8 ICE-field incident already fixed once for leads. An
+// optional `max` clamps the top end too (issue #94) — used only for
+// dealSize's own fields below, since those feed directly, unmoderated, into
+// lib/ticket-size.ts's estimates; every other pricing field here is left
+// unbounded (unchanged behavior) since it isn't this issue's scope.
+function sanitizeOptionalNumber(value: unknown, max?: number): number | undefined {
   if (value === undefined || value === null || value === '') return undefined;
   const num = typeof value === 'number' ? value : parseFloat(String(value));
   if (Number.isNaN(num)) return undefined;
-  return Math.max(0, num);
+  const clamped = Math.max(0, num);
+  return typeof max === 'number' ? Math.min(clamped, max) : clamped;
 }
 
 // A region key with no valid positive-finite multiplier is dropped entirely
@@ -340,6 +345,15 @@ function sanitizeProductLine(value: unknown, index: number): ProductLine {
 // Normalizes an arbitrary request body into a well-shaped SalesSettings
 // document before it's written to MongoDB — every field defaults to an
 // empty/safe value rather than throwing, mirroring app/lib/normalize-lead.ts.
+// Upper bound on dealSize's own fields (issue #94) — defense in depth,
+// alongside lib/ticket-size.ts's own absolute ceiling on the resulting
+// estimate: a fat-fingered "Enterprise customer" value (an extra zero or
+// two) can no longer be saved into Sales Settings in the first place,
+// rather than relying solely on the downstream cap to catch it. Keep this
+// in sync with lib/ticket-size.ts's ABSOLUTE_CEILING — both exist to bound
+// the same class of value, just at different points in the pipeline.
+const MAX_DEAL_SIZE_INPUT = 50_000_000;
+
 export function sanitizeSalesSettings(body: unknown, brand: string, tenantId: string): SalesSettings {
   const raw = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
   const dealSizeRaw = (raw.dealSize && typeof raw.dealSize === 'object' ? raw.dealSize : {}) as Record<string, unknown>;
@@ -358,11 +372,11 @@ export function sanitizeSalesSettings(body: unknown, brand: string, tenantId: st
     customerTypesOther: sanitizeString(raw.customerTypesOther, 200),
     products: Array.isArray(raw.products) ? raw.products.map((p, i) => sanitizeProductLine(p, i)) : [],
     dealSize: {
-      small: sanitizeOptionalNumber(dealSizeRaw.small),
-      medium: sanitizeOptionalNumber(dealSizeRaw.medium),
-      large: sanitizeOptionalNumber(dealSizeRaw.large),
-      enterprise: sanitizeOptionalNumber(dealSizeRaw.enterprise),
-      largestWon: sanitizeOptionalNumber(dealSizeRaw.largestWon),
+      small: sanitizeOptionalNumber(dealSizeRaw.small, MAX_DEAL_SIZE_INPUT),
+      medium: sanitizeOptionalNumber(dealSizeRaw.medium, MAX_DEAL_SIZE_INPUT),
+      large: sanitizeOptionalNumber(dealSizeRaw.large, MAX_DEAL_SIZE_INPUT),
+      enterprise: sanitizeOptionalNumber(dealSizeRaw.enterprise, MAX_DEAL_SIZE_INPUT),
+      largestWon: sanitizeOptionalNumber(dealSizeRaw.largestWon, MAX_DEAL_SIZE_INPUT),
     },
     regionMultipliers: sanitizeRegionMultipliers(raw.regionMultipliers),
     purchaseFrequency: sanitizeEnumArray(raw.purchaseFrequency, PURCHASE_FREQUENCIES),

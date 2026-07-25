@@ -69,6 +69,24 @@ export function normalizeEmail(email: string): string {
   return email.toLowerCase().trim();
 }
 
+// Title-cases a contact name (issue #96) — lowercases everything, then
+// capitalizes the first letter of each word, where "word" boundaries are
+// whitespace, hyphens, and apostrophes: "JOHN SMITH" -> "John Smith",
+// "anne-marie" -> "Anne-Marie", "o'brien" -> "O'Brien".
+//
+// Known v1 simplifications, documented rather than silently under-delivered
+// (per issue #96's own recommendation not to build a heuristic that would
+// still be wrong for names it doesn't anticipate):
+// - Already-correct mixed-case names ("McDonald", "DiCaprio") are flattened
+//   to "Mcdonald"/"Dicaprio" — no Mc/Mac/Di prefix detection.
+// - Name particles ("van der berg", "de la cruz") are capitalized like every
+//   other word rather than kept lowercase per locale/family convention —
+//   this app has no data to decide otherwise.
+export function toNameCase(name: string): string {
+  if (!name) return '';
+  return name.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_match, boundary, letter) => boundary + letter.toUpperCase());
+}
+
 export function normalizeContact(c: ContactInput, options?: NormalizeContactOptions): NormalizedContact {
   const rawEmail = typeof c?.email === 'string' ? c.email.trim() : '';
   const rawPhone = typeof c?.phone === 'string' ? c.phone.trim() : '';
@@ -77,7 +95,7 @@ export function normalizeContact(c: ContactInput, options?: NormalizeContactOpti
   const now = options?.now ?? new Date();
   const { seniorityTier, department } = normalizeTitle(title);
   return {
-    name: typeof c?.name === 'string' ? c.name.trim() : '',
+    name: typeof c?.name === 'string' ? toNameCase(c.name.trim()) : '',
     title,
     email: rawEmail ? normalizeEmail(rawEmail) : '',
     phone: rawPhone ? normalizePhone(rawPhone) : '',

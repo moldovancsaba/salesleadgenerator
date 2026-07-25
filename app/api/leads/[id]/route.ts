@@ -254,13 +254,17 @@ export async function PUT(
   }
 }
 
+// No requireApiKey guard here, deliberately (issue #91's investigation):
+// this is the browser's own Delete action (app/detail.tsx -> app/sales/
+// [brand]/sales-page-client.tsx's handleDelete) — same "browser can't hold
+// this secret safely" reasoning as PATCH /api/leads above and PUT
+// /api/sales-settings/[brand]. This route's own GET/PUT stay guarded (PUT
+// is the external research agent's enrichment write path, never called
+// from the browser — verified via grep, not assumed).
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = requireApiKey(request);
-  if (authError) return authError;
-
   try {
     const { id } = await params;
     const brand = getBrand(request);

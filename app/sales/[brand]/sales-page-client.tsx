@@ -102,8 +102,13 @@ export function SalesPageClient({ brand }: Props) {
       })
 
       if (!res.ok) {
-        console.error('Action failed:', await res.json().catch(() => ({ error: `${res.status}` })))
-        return
+        // Rethrow rather than swallow (issue #91's investigation): the
+        // callers of onAction (app/detail.tsx's handleAccept/handleDecline/
+        // etc.) already have a try/catch that shows a failure notification
+        // — but only if this actually throws. Swallowing it here meant a
+        // genuinely failed action still showed a false "success" toast.
+        const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(body.error || `HTTP ${res.status}`);
       }
 
       const { lead } = await res.json()
@@ -111,20 +116,25 @@ export function SalesPageClient({ brand }: Props) {
       setSelectedLead(null)
     } catch (err) {
       console.error('Action error:', err)
+      throw err
     }
   }, [brand])
 
   const handleDelete = useCallback(async (leadId: string) => {
     try {
-      const url = new URL('/api/leads', window.location.origin)
-      const res = await fetch(`${url.toString()}?id=${encodeURIComponent(leadId)}&brand=${encodeURIComponent(brand)}&tenantId=default`, {
-        method: 'DELETE',
-      })
+      // Targets /api/leads/[id] (the real DELETE handler) — this previously
+      // called DELETE /api/leads?id=..., a route with no DELETE handler at
+      // all, always failing regardless of auth (found investigating #91).
+      const url = new URL(`/api/leads/${encodeURIComponent(leadId)}`, window.location.origin)
+      url.searchParams.set('brand', brand)
+      url.searchParams.set('tenantId', 'default')
+      const res = await fetch(url.toString(), { method: 'DELETE' })
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`)
       setTableLeads((prev) => prev.filter((l) => l._id !== leadId))
       setSelectedLead(null)
     } catch (err) {
       console.error('Delete error:', err)
+      throw err
     }
   }, [brand])
 
