@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.45
+
+Seventh delivery of the sales-tooling roadmap (tracking issue #76): forecast concentration-risk flag.
+
+### Added — forecast concentration-risk flag (fixes #59)
+Neither brand's pipeline-weighted forecast previously surfaced how much of a column's — or the whole brand's — value is concentrated in a single deal. `app/lib/forecast.ts`'s `computeForecast()` now fetches every lead's own per-lead value (CogMap: `estimated_annual_revenue_usd`; Seyu: the same per-lead `leadValue` calculation `seyuColumnForecast` already used, without the final `$group`) and ranks them through a new pure module, `lib/forecast-concentration.ts`'s `computeConcentration()` — mirroring `lib/pipeline-weights.ts`'s precedent (pure math plus a Mongo-touching settings reader in one file).
+
+`forecast.pipeline[COLUMN].concentrationRisk` ranks by raw value; `forecast.concentrationRisk` (brand-level) ranks by **weighted** value (`rawValue × that column's own close probability`), since a large deal in `DISCOVERED` (weight 0.01) is materially less real risk than the same value in `WON` (weight 1.0) — `LOST`'s 0 weight means its leads never contribute to brand-level concentration, by construction. Returns `null` when the total is 0, never flags a single-lead column/brand (no diversification decision to make with one deal), and breaks ties deterministically (value desc, then `leadId` asc).
+
+The issue's acceptance criteria called for verifying MongoDB's `$topN` accumulator (≥5.2) against the live Atlas cluster, or implementing a fallback — this sandbox has no way to verify server version against a live cluster, so the fallback was implemented directly and unconditionally: every positive-value lead is fetched in one aggregation (no `$topN` dependency at all) and ranked/sliced in plain JS, working on any MongoDB version rather than depending on an unverifiable capability. Settings (`{threshold: 0.3, topN: 1}` defaults) are read/written via `GET`/`PUT /api/settings`'s existing additive-field pattern (`concentrationRiskSettings`, its own `settings` collection document, independent upsert from `weights`/`thresholds`).
+
+`app/forecast/page.tsx` renders a brand-level GDS `InlineAlert` (severity `warning`) when `forecast.concentrationRisk.atRisk`, and a per-column GDS `StatusBadge` next to CogMap's existing Pipeline panel rows when that column is at risk — both from `@sovereignsquad/gds-core/client`. Never color-only: the badge/alert text states the literal percentage and lead name alongside the color, with a full-context `aria-label` on the badge since `StatusBadge` visually truncates.
+
+### Testing
+`tests/lib/forecast-concentration.test.ts` — 10 new tests: a single dominant deal (90%) flagged, an evenly-distributed pipeline not flagged, an empty column and a zero-total pipeline both returning `null`, the threshold boundary flagged inclusively, a single-lead column never flagged even at 100% concentration, deterministic tie-breaking on equal-value deals, zero/negative-value leads excluded from ranking, `topN > 1` summing correctly, and the documented defaults applying when omitted. Interactive verification via headless Chromium against the real dev server with a mocked `/api/boards/cogmap` response (this sandbox has no `MONGODB_URI` to produce real forecast data): confirmed the brand-level `InlineAlert` and per-column `StatusBadge` both render correctly with no console/hydration errors.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s "Boards and Metrics" section (new "Forecast Concentration-Risk Flag" subsection); `PIPELINE_ARCHITECTURE.md`'s API endpoint table.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (164/164), smoke suite (5/5), `next build --webpack` (26 routes).
+
+Version bumped 2.4.44 -> 2.4.45.
+
 ## 2.4.44
 
 Sixth delivery of the sales-tooling roadmap (tracking issue #76): win/loss reason rollup reporting.

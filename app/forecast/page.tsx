@@ -3,10 +3,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Container, Title, Text, Paper, SimpleGrid, Group, Badge, Select, TextInput, Loader, Alert, Button } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
+import { StatusBadge, InlineAlert } from '@sovereignsquad/gds-core/client';
+
+type ConcentrationRisk = {
+  topLeadId: string;
+  topLeadName: string;
+  topLeadValue: number;
+  percentOfTotal: number;
+  threshold: number;
+  topN: number;
+  atRisk: boolean;
+};
 
 type Forecast = {
-  pipeline?: Record<string, { leads: number; participants: number; rawRevenue: number; probability: number; weightedRevenue: number }>;
+  pipeline?: Record<string, { leads: number; participants: number; rawRevenue: number; probability: number; weightedRevenue: number; concentrationRisk?: ConcentrationRisk | null }>;
   totalWeightedRevenue?: number;
+  concentrationRisk?: ConcentrationRisk | null;
   byTier?: Record<string, { leads: number; participants: number; revenue: number }>;
   byModel?: Record<string, { leads: number; revenue: number }>;
   totals?: { revenue: number; participants: number };
@@ -123,6 +135,16 @@ export default function ForecastPage() {
         </Group>
       </Group>
 
+      {data.concentrationRisk?.atRisk && (
+        <div style={{ marginBottom: 16 }}>
+          <InlineAlert
+            title="Concentration risk"
+            message={`${Math.round(data.concentrationRisk.percentOfTotal * 100)}% of weighted pipeline value is in ${data.concentrationRisk.topN === 1 ? 'one deal' : `the top ${data.concentrationRisk.topN} deals`} — "${data.concentrationRisk.topLeadName}" alone is $${Math.round(data.concentrationRisk.topLeadValue).toLocaleString()}. Threshold: ${Math.round(data.concentrationRisk.threshold * 100)}%.`}
+            severity="warning"
+          />
+        </div>
+      )}
+
       {isSeyu ? (
         <Paper withBorder p="md" radius="md" mb="lg">
           <Title order={4}>Pricing by Company</Title>
@@ -177,6 +199,14 @@ export default function ForecastPage() {
                   <div style={{ textAlign: 'right' }}>
                     <Text fw={700}>${raw.weightedRevenue.toLocaleString()}</Text>
                     <Text size="xs" c="dimmed">{Math.round(raw.probability * 100)}% · raw ${raw.rawRevenue.toLocaleString()}</Text>
+                    {raw.concentrationRisk?.atRisk && (
+                      <StatusBadge
+                        status="warning"
+                        aria-label={`Concentration risk: ${Math.round(raw.concentrationRisk.percentOfTotal * 100)} percent of this column's raw value is in ${raw.concentrationRisk.topLeadName}`}
+                      >
+                        {Math.round(raw.concentrationRisk.percentOfTotal * 100)}% in {raw.concentrationRisk.topN === 1 ? '1 deal' : `${raw.concentrationRisk.topN} deals`}
+                      </StatusBadge>
+                    )}
                   </div>
                 </Group>
               );
