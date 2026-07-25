@@ -8,6 +8,7 @@ import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
 import { COLUMNS } from './constants';
 import { toggleColumnVisibility as toggleColumnVisibilityInSet } from '../lib/kanban-column-visibility';
+import { computeStaleness, DEFAULT_STALE_THRESHOLDS, type KanbanColumn as StaleDealColumn } from '../lib/stale-deal';
 
 type ColumnState = {
   leads: Lead[];
@@ -103,6 +104,26 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
 
   const toggleColumnVisibility = useCallback((key: KanbanColumn) => {
     setHiddenColumns((prev) => toggleColumnVisibilityInSet(prev, key, COLUMNS.length))
+  }, [])
+
+  // Fetched once per board mount, not per card — stale/critical badges are
+  // computed client-side in renderItem from data already in memory, so this
+  // is the only network call staleness detection needs. Falls back to
+  // DEFAULT_STALE_THRESHOLDS on fetch failure, matching the pipeline-weights
+  // GET fallback pattern in app/api/settings/route.ts.
+  const [staleThresholds, setStaleThresholds] = useState<Record<StaleDealColumn, number>>(DEFAULT_STALE_THRESHOLDS)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/settings')
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`Settings load failed: ${res.status}`))))
+      .then((data) => {
+        if (!cancelled && data.thresholds) setStaleThresholds(data.thresholds)
+      })
+      .catch((err) => {
+        console.error('Stale thresholds load error:', err)
+      })
+    return () => { cancelled = true }
   }, [])
 
   const loadColumn = useCallback(async (colKey: KanbanColumn, cursor?: string | null) => {
@@ -245,15 +266,20 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     const leadItem = item as LeadKanbanItem
     const colState = columnStates[column.id as KanbanColumn]
     const isLast = column.items[column.items.length - 1]?.id === item.id
+    const staleness = computeStaleness(
+      { kanbanColumn: leadItem.lead.kanbanColumn as StaleDealColumn, updatedAt: leadItem.lead.updatedAt },
+      staleThresholds,
+      new Date()
+    )
     return (
       <>
-        <LeadCard lead={leadItem.lead} onOpen={() => onOpenLead(leadItem.lead)} />
+        <LeadCard lead={leadItem.lead} onOpen={() => onOpenLead(leadItem.lead)} staleness={staleness} />
         {isLast && colState.hasMore && !colState.loading && (
           <LoadMoreSentinel onLoadMore={() => loadColumn(column.id as KanbanColumn, colState.cursor)} />
         )}
       </>
     )
-  }, [columnStates, onOpenLead, loadColumn])
+  }, [columnStates, onOpenLead, loadColumn, staleThresholds])
 
   // enableDrag deliberately omitted (default false): it renders a
   // drag-handle icon per card and activates GDS's real @dnd-kit

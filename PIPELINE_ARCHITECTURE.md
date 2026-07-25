@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.38
+**Version:** 2.4.39
 
 ## Overview
 
@@ -93,7 +93,7 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 | GET | `/api/boards` | Available brand boards and config |
 | GET | `/api/boards/[brand]?tenantId=<id>` | Board metadata: counts, region breakdown, pipeline-weighted forecast |
 | GET | `/api/metrics?brand=<brand>&tenantId=<id>` | Per-column and per-region lead counts |
-| GET | `/api/settings` | Pipeline-weight settings used by forecast calculations |
+| GET | `/api/settings` | Pipeline-weight settings used by forecast calculations, plus per-column stale-deal day thresholds (`thresholds`, additive as of 2.4.39) |
 | GET | `/api/forecast/export?format=csv\|json` | CogMap revenue forecast export |
 | GET | `/api/health` | Health check |
 | GET | `/api/admin/cron-status` | Cron observability |
