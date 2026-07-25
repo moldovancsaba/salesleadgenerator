@@ -20,14 +20,28 @@ import { BRAND_CONFIG, type Brand } from '@/app/lib/brand';
 // docs/ARCHITECTURE.md's Input Validation section) and was corrected
 // immediately once flagged: the menu now only ever shows links for whichever
 // single client the current page actually belongs to, derived strictly from
-// the URL. On a page with no client context (the brand-agnostic Reporting
-// pages, or the root landing page), no client-specific link is shown at
-// all — never a guess, and never both.
+// the URL. On a page with no client context (the root landing page), no
+// client-specific link is shown at all — never a guess, and never both.
+//
+// Issue #100: Forecast/Battlecards/Outreach Templates were originally treated
+// as brand-agnostic (linked from a generic "Reporting" section with no brand
+// in the href at all) even though each renders exactly one brand's data —
+// `/forecast` itself compounded this with an in-page CogMap/Seyu `Select`
+// that could switch brands without a real navigation. All three are now
+// `/[route]/[brand]` paths, matched below the same way `/sales/[brand]` and
+// `/salessettings/[client]` already are, and linked only inside this same
+// per-client section — never as a brand-agnostic global item.
 function currentBrandFromPath(pathname: string): Brand | null {
   const salesMatch = pathname.match(/^\/sales\/([^/]+)/);
   if (salesMatch && salesMatch[1] in BRAND_CONFIG) return salesMatch[1] as Brand;
   const settingsMatch = pathname.match(/^\/salessettings\/([^/]+)/);
   if (settingsMatch && settingsMatch[1] in BRAND_CONFIG) return settingsMatch[1] as Brand;
+  const forecastMatch = pathname.match(/^\/forecast\/([^/]+)/);
+  if (forecastMatch && forecastMatch[1] in BRAND_CONFIG) return forecastMatch[1] as Brand;
+  const battlecardsMatch = pathname.match(/^\/battlecards\/([^/]+)/);
+  if (battlecardsMatch && battlecardsMatch[1] in BRAND_CONFIG) return battlecardsMatch[1] as Brand;
+  const templatesMatch = pathname.match(/^\/outreach\/templates\/([^/]+)/);
+  if (templatesMatch && templatesMatch[1] in BRAND_CONFIG) return templatesMatch[1] as Brand;
   return null;
 }
 
@@ -148,36 +162,44 @@ function AppNavInner() {
                 </>
               )}
               <Divider my="xs" />
+
+              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                Reporting
+              </Text>
+              <NavLink
+                component={Link}
+                href={`/forecast/${currentBrand}`}
+                label="Forecast"
+                leftSection={<IconTrendingUp size={18} />}
+                active={pathname === `/forecast/${currentBrand}`}
+                onClick={close}
+              />
+              <NavLink
+                component={Link}
+                href={`/battlecards/${currentBrand}`}
+                label="Battlecards"
+                leftSection={<IconCards size={18} />}
+                active={pathname === `/battlecards/${currentBrand}`}
+                onClick={close}
+              />
+              <NavLink
+                component={Link}
+                href={`/outreach/templates/${currentBrand}`}
+                label="Outreach Templates"
+                leftSection={<IconMail size={18} />}
+                active={pathname === `/outreach/templates/${currentBrand}`}
+                onClick={close}
+              />
             </>
           )}
-
-          <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-            Reporting
-          </Text>
-          <NavLink
-            component={Link}
-            href="/forecast"
-            label="Forecast"
-            leftSection={<IconTrendingUp size={18} />}
-            active={pathname === '/forecast'}
-            onClick={close}
-          />
-          <NavLink
-            component={Link}
-            href="/battlecards"
-            label="Battlecards"
-            leftSection={<IconCards size={18} />}
-            active={pathname === '/battlecards'}
-            onClick={close}
-          />
-          <NavLink
-            component={Link}
-            href="/outreach/templates"
-            label="Outreach Templates"
-            leftSection={<IconMail size={18} />}
-            active={pathname === '/outreach/templates'}
-            onClick={close}
-          />
+          {!currentBrand && (
+            // No client picker exists anywhere in this app (issue #100's known
+            // gap) — this page genuinely has no brand to derive from the URL,
+            // so nothing brand-specific is shown rather than guessing one.
+            <Text size="sm" c="dimmed" mt={4}>
+              Open a client&apos;s Pipeline (e.g. /sales/cogmap) to see its Forecast, Battlecards, and Templates here.
+            </Text>
+          )}
         </Stack>
       </Drawer>
     </>
