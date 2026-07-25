@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.39
+**Version:** 2.4.40
 
 ---
 
@@ -124,9 +124,17 @@ Stored in brand-aware collections:
 
 Canonical contact storage is `contacts[]` — the sole source of truth as of 2.4.32 (issue #45's hard cutover). There is no longer a separate `decision_maker_name`/`decision_maker_title`/`decision_maker_contact`/`contact_phone` set of top-level fields; decision-maker status is a flag (`isDecisionMaker: boolean`) on a `contacts[]` entry instead, matching how any other contact-level fact is modeled. `POST`, `PUT /api/leads/[id]`, and `PATCH ... MODIFY` all normalize and dedupe `contacts[]` identically via `lib/contacts.ts`, closing a prior bug where `PUT`/`MODIFY` bypassed the merge logic `POST`/`GET` used and could silently diverge from it.
 
+**Per-contact freshness (2.4.40, issue #66):** each `contacts[]` entry gains an optional `lastVerifiedAt` (ISO timestamp) — the whole-lead `updatedAt` is stamped on every write including edits that never touch a contact field, so it can't answer "is this person's email still good?" `lastVerifiedAt` is stamped differently per write path, all via `lib/contacts.ts`'s `normalizeContact`/`dedupeContacts` (`{ verify: true }` option) except MODIFY:
+- `POST /api/leads` (create) — stamped unconditionally; a brand-new lead's contacts are fresh by definition.
+- `PUT /api/leads/[id]` (the agent enrichment path, "PUT only changed fields") — stamped unconditionally for every contact in the payload; arriving here means the agent just confirmed it.
+- `PATCH ... MODIFY` — stamped only for a contact whose verifiable fields (`email`/`phone`/`linkedin`/`title`/`role`) differ from what's already stored under the same dedup key (`contactKey`/`verifiableFieldsDiffer`, `app/lib/lead-actions.ts`); an edit to an unrelated lead field (e.g. a notes typo fix) does not re-stamp any contact, since `handleModify()` in `app/detail.tsx` sends the whole `contacts[]` array on every save regardless of what actually changed.
+- On a dedup collision (`dedupeContacts`), the surviving entry keeps the **later** of the two colliding contacts' `lastVerifiedAt`, not "first seen."
+
+`lib/contact-freshness.ts` (`isContactStale`, `staleContactRatio`, `DEFAULT_STALENESS_THRESHOLD_DAYS = 180`, overridable via `CONTACT_STALENESS_THRESHOLD_DAYS`) is a pure module — no React/Mongo/internal `Date.now()`, mirroring `lib/stale-deal.ts`'s shape — computing staleness at read time from `lastVerifiedAt`; missing `lastVerifiedAt` is treated as stale (an honest "unknown," not a fabricated "fresh at creation"), and a future timestamp (clock skew) is treated as not-stale. `app/detail.tsx`'s CONTACTS block renders a "Needs re-verification" badge per stale contact and a stale-count summary ("N of M contacts need re-verification") — GDS's `AdminModal`/`AdminDetailDrawer` `actions` prop has no per-action description slot, so the summary can't render literally under the `REQUEST_REFRESH` button; it's placed next to the contact data it describes instead, without changing that button's own behavior.
+
 Key fields:
 - `entity_name`, `url`, `region`, `country`
-- `contacts[]` with `name`, `title`, `email`, `phone`, `linkedin`, `role`, `isDecisionMaker`
+- `contacts[]` with `name`, `title`, `email`, `phone`, `linkedin`, `role`, `isDecisionMaker`, `lastVerifiedAt`
 - Organization-agnostic pros/cons (as of 2.3.0): `pro_for_organization`, `con_for_organization` — one shared field name across every brand/tenant, not brand-specific (`PRO_FIELD`/`CON_FIELD` in `app/lib/brand.ts`)
 - `kanbanColumn`, `sortOrder`
 - `fingerprint` — SHA1 of `url + entity_name + region`

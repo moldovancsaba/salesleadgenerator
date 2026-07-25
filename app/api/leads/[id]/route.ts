@@ -162,8 +162,11 @@ export async function PUT(
     // Shared with POST and PATCH MODIFY (lib/contacts.ts) — previously this route
     // had its own inline normalization and never deduped, unlike POST. Using the
     // same dedupeContacts() here closes that divergence (issue #45).
+    // { verify: true } stamps lastVerifiedAt unconditionally for every contact in
+    // the payload — this is the agent enrichment path ("PUT only changed
+    // fields"), so a contact appearing here has just been confirmed (issue #66).
     if (body.contacts && Array.isArray(body.contacts)) {
-      updateData.contacts = dedupeContacts(body.contacts);
+      updateData.contacts = dedupeContacts(body.contacts, { verify: true });
     }
 
     // Discovered/Qualified are auto-managed by ICE score alone: a score change

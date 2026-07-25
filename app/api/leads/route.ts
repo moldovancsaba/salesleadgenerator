@@ -252,7 +252,9 @@ export async function POST(request: Request) {
 
     // contacts[] is the single source of truth for contact data — dedupeContacts
     // also applies per-contact phone/email formatting (lib/contacts.ts).
-    normalizedBody.contacts = dedupeContacts(normalizedBody.contacts || [])
+    // { verify: true } stamps lastVerifiedAt unconditionally — a brand-new
+    // lead's contacts are fresh by definition (issue #66).
+    normalizedBody.contacts = dedupeContacts(normalizedBody.contacts || [], { verify: true })
 
     const fingerprint = buildFingerprint(
       normalizedBody.entity_name || normalizedBody.name || '',
