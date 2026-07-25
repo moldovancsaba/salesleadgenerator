@@ -38,19 +38,32 @@ export function getIceScore(lead: { ice?: { impact: number; confidence: number; 
 // existing leads don't go blank overnight — see issue #81 for the backfill
 // that eventually retires this fallback path entirely.
 export type TicketSizeDisplay =
-  | { kind: 'estimate'; low: number; expected: number; high: number; currency: 'USD' | 'EUR'; method: 'tier_band' | 'per_unit'; confidence: 'low' | 'medium' | 'high' }
+  | {
+      kind: 'estimate';
+      low: number;
+      expected: number;
+      high: number;
+      currency: 'USD' | 'EUR';
+      method: 'tier_band' | 'per_unit' | 'manual_override';
+      confidence: 'low' | 'medium' | 'high';
+      // Present only when method === 'manual_override' (issue #86).
+      overrideReason?: string;
+      overriddenBy?: string;
+    }
   | { kind: 'unconfigured' }
   | { kind: 'legacy'; value: number; currency: 'USD' | 'EUR' }
   | null;
 
 export function getTicketSize(lead: {
   ticketSizeEstimate?: {
-    method: 'tier_band' | 'per_unit' | 'unconfigured';
+    method: 'tier_band' | 'per_unit' | 'unconfigured' | 'manual_override';
     low?: number;
     expected?: number;
     high?: number;
     currency?: 'USD' | 'EUR';
     confidence?: 'low' | 'medium' | 'high';
+    overrideReason?: string;
+    overriddenBy?: string;
   };
   estimated_annual_revenue_usd?: number;
   pricingByCompany?: Record<string, { upfront_eur?: number; monthly_eur?: number; annual_fee_eur?: number }>;
@@ -70,6 +83,8 @@ export function getTicketSize(lead: {
         currency: est.currency,
         method: est.method,
         confidence: est.confidence,
+        overrideReason: est.overrideReason,
+        overriddenBy: est.overriddenBy,
       };
     }
   }

@@ -6,6 +6,8 @@ import { tenantFilter as buildTenantFilter } from '../../lib/tenant'
 import { dedupeContacts, normalizeContact, contactKey, verifiableFieldsDiffer } from '../../lib/contacts'
 import { scanTechStack } from '../../lib/tech-stack-scan'
 import { computeTicketSizeForLead } from './ticket-size-store'
+import { createManualTicketSizeOverride } from '../../lib/ticket-size'
+import { defaultRevenueTargetCurrency } from './sales-settings'
 
 export type LeadActionInput = {
   brand: string
@@ -94,13 +96,53 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
       const coerced = Number(updateData.actualDealValueUsd)
       updateData.actualDealValueUsd = Number.isFinite(coerced) ? coerced : undefined
     }
-    // Change-triggered ticket-size recompute (issue #82) — a size-tier edit
-    // is exactly the kind of firmographic change that invalidates the
-    // stored ticketSizeEstimate; recomputed inline (cheap, in-process, no
-    // reason to defer) rather than waiting for the weekly cron sweep or a
-    // Sales Settings save. estimated_participants isn't in MODIFY's own
-    // field whitelist above, so the existing stored value is reused as-is.
-    if (updateData.size !== undefined && updateData.size !== existing.size) {
+    // Manual ticket-size override (issue #86) — a rep's direct knowledge of a
+    // specific deal takes precedence over the firmographic model. Requires a
+    // non-empty reason (mirrors DECLINE's own required declineReason) so
+    // #83's calibration report can see how often and why humans override the
+    // model; a request with an expected value but no reason is silently
+    // ignored (not applied, not erroring) rather than storing an
+    // unaccountable override — the same "never fabricate/never corrupt"
+    // contract as every other sanitizer in this codebase.
+    const wantsOverride = normalizedBody.manualTicketSizeExpected !== undefined
+      && normalizedBody.manualTicketSizeExpected !== null
+      && normalizedBody.manualTicketSizeExpected !== ''
+    const wantsClearOverride = normalizedBody.clearManualTicketSizeOverride === true
+
+    if (wantsOverride) {
+      const coercedExpected = Number(normalizedBody.manualTicketSizeExpected)
+      const reason = typeof normalizedBody.manualTicketSizeReason === 'string' ? normalizedBody.manualTicketSizeReason.trim() : ''
+      if (Number.isFinite(coercedExpected) && coercedExpected > 0 && reason) {
+        const currency = existing.ticketSizeEstimate?.currency || defaultRevenueTargetCurrency(brand)
+        updateData.ticketSizeEstimate = createManualTicketSizeOverride(
+          { expected: coercedExpected, reason, overriddenBy: 'webapp-user' },
+          currency
+        )
+        outcomeValue = `Manual ticket-size override: ${reason}`
+      }
+    } else if (wantsClearOverride) {
+      // Reverts to the modeled estimate immediately, regardless of whether
+      // `size` also changed in this same request.
+      updateData.ticketSizeEstimate = await computeTicketSizeForLead(db, brand, tenantId, {
+        size: updateData.size !== undefined ? updateData.size : existing.size,
+        estimated_participants: existing.estimated_participants,
+        region: existing.region,
+      })
+      outcomeValue = 'Manual ticket-size override cleared'
+    } else if (
+      updateData.size !== undefined
+      && updateData.size !== existing.size
+      && existing.ticketSizeEstimate?.method !== 'manual_override'
+    ) {
+      // Change-triggered ticket-size recompute (issue #82) — a size-tier edit
+      // is exactly the kind of firmographic change that invalidates the
+      // stored ticketSizeEstimate; recomputed inline (cheap, in-process, no
+      // reason to defer) rather than waiting for the weekly cron sweep or a
+      // Sales Settings save. estimated_participants isn't in MODIFY's own
+      // field whitelist above, so the existing stored value is reused as-is.
+      // Skipped when an active manual override exists (issue #86) — an
+      // override permanently exempts the lead from this recompute until
+      // explicitly cleared via wantsClearOverride above.
       updateData.ticketSizeEstimate = await computeTicketSizeForLead(db, brand, tenantId, {
         size: updateData.size,
         estimated_participants: existing.estimated_participants,
@@ -197,10 +239,15 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     beforeState: {
       kanbanColumn: existing.kanbanColumn,
       status: existing.status,
+      // Only present on the two ticket-size-override branches above — kept
+      // out of every other action's log entry rather than always present-
+      // but-usually-undefined (issue #86's audit trail).
+      ticketSizeMethod: updateData.ticketSizeEstimate ? existing.ticketSizeEstimate?.method : undefined,
     },
     afterState: {
       kanbanColumn: updateData.kanbanColumn || existing.kanbanColumn,
       status: updateData.status || existing.status,
+      ticketSizeMethod: updateData.ticketSizeEstimate?.method,
     },
     createdAt: new Date(),
     tenantId,

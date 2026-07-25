@@ -46,6 +46,10 @@ function ticketSizeCardLabel(ticketSize: TicketSizeDisplay): string {
 function ticketSizeCardCaption(ticketSize: TicketSizeDisplay): string | null {
   if (!ticketSize || ticketSize.kind === 'unconfigured') return null;
   if (ticketSize.kind === 'legacy') return 'Unverified estimate';
+  // A human override (issue #86) is a different kind of trust than the
+  // firmographic model's own output — CLAUDE.md Rule 7 requires the caption
+  // say so, never call it "modelled" once a rep has directly overridden it.
+  if (ticketSize.method === 'manual_override') return 'Manually overridden';
   return 'Modelled estimate';
 }
 

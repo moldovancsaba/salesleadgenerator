@@ -1,5 +1,28 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.61
+
+### Added — manual ticket-size override with audit trail (fixes #86)
+A rep's direct knowledge of a specific deal (a verbal budget number from the prospect, a comparable recent close) may know a better ticket-size estimate than the firmographic model can produce. This resolves the three Open Questions #86 shipped with, all as reasoned defaults consistent with the rest of this session's ticket-size work:
+
+1. **Lifecycle**: an override permanently exempts a lead from every automated recompute (issue #82) until explicitly cleared. `lib/backfill-ticket-size.ts`'s `backfillTicketSizeCollection()` — the single shared function behind the weekly cron sweep, the Sales-Settings-save trigger, and the CLI/admin backfill endpoint — now skips any document whose `ticketSizeEstimate.method === 'manual_override'` in one place, covering all three triggers at once. `PUT /api/leads/[id]` (the agent-enrichment path) and `MODIFY`'s own size-change recompute carry the identical guard.
+2. **Accountability**: a reason is required, mirroring `DECLINE`'s own required `declineReason`. A `MODIFY` request with an override value but no reason is silently ignored — not applied, not erroring — the same "never fabricate/never corrupt" contract every sanitizer in this codebase already follows.
+3. **UI placement**: lives in the #88 "Lead Details" edit form as two new fields (override value + reason) and a "Clear existing override" button, rather than a separate UI surface.
+
+`lib/ticket-size.ts` gains `TicketSizeMethod`'s `'manual_override'` value and a new `createManualTicketSizeOverride()`. Deliberately **not** run through the existing sanity cap (`applySanityCap()`): the cap exists specifically to catch an unvalidated, agent-written figure (the original $8B bug); a manual override is the opposite — an explicit, reason-required human judgment call, the same trust level CLAUDE.md Rule 7 already extends to any real user action. `low`/`high` both equal `expected` since this is a specific figure, not a modeled band.
+
+`app/lib/lead-actions.ts`'s `MODIFY` handler gains `manualTicketSizeExpected`/`manualTicketSizeReason` (sets an override) and `clearManualTicketSizeOverride` (reverts to the modeled estimate immediately, regardless of whether `size` also changed in the same request). Both are logged to the existing `outcomelogs` audit trail (`beforeState`/`afterState.ticketSizeMethod`, a distinct `outcomeValue` string) — reusing the audit mechanism this repo already has rather than adding a new collection, satisfying the issue's own "audit trail" requirement.
+
+`lib/ticket-size-calibration.ts`'s existing method allow-list (`tier_band`/`per_unit` only) already excludes `manual_override` from calibration math by construction, with no code change needed beyond a clarifying comment — a human's judgment call is not a "the model was right/wrong" data point to grade, so it's counted in `wonWithoutEstimate` (the same bucket as `unconfigured`) rather than polluting a tier/method's bias stats, exactly as the issue's executive summary required.
+
+UI: `app/card.tsx`'s kanban-card caption and `app/detail.tsx`'s detail-drawer section both render "Manually overridden by ... — <reason>" instead of "Modelled estimate from ..." once set, per CLAUDE.md Rule 7 (a control/display must never imply a capability or provenance it doesn't actually have).
+
+### Testing
+`tests/lib/ticket-size.test.ts` — 2 new tests for `createManualTicketSizeOverride()` (correct low=expected=high shape, and confirming it is NOT subject to the sanity cap). `tests/lib/backfill-ticket-size.test.ts` — 1 new test confirming a `manual_override` lead is permanently skipped (0 updates) even when its stored value is wildly out of sync with current settings. `tests/lib/ticket-size-calibration.test.ts` — 1 new test confirming a `manual_override` lead is excluded from calibration groups and counted in `wonWithoutEstimate` instead. Full gate: `npx tsc --noEmit` (0 errors), `npm run lint` (0 warnings/errors), `npx vitest run` (334/334, up from 330), `npm run test:smoke` (5/5), `npx next build --webpack` (35 routes, unchanged). No test file exists for `app/lib/lead-actions.ts` itself (Mongo-touching orchestration reusing the already-tested pure functions above — the same `mongodb-memory-server`-blocked-in-sandbox limitation this repo has documented for every prior orchestration change); instead verified interactively via headless Chromium against the real dev server with mocked `/api/leads`/`/api/boards` routes: set an override with a value and reason, confirmed the exact `PATCH` payload sent, reopened the lead and confirmed the drawer rendered "Manually overridden", then cleared the override and confirmed the `clearManualTicketSizeOverride: true` payload.
+
+### Documentation
+`docs/ARCHITECTURE.md` and `PIPELINE_ARCHITECTURE.md` updated with the manual-override mechanism, its permanent-exemption/reason-required/UI-placement resolution of #86's three Open Questions, and its exclusion from calibration math.
+
 ## 2.4.60
 
 ### Added — region-based ticket-size multiplier (fixes #84)

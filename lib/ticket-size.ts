@@ -7,7 +7,7 @@
 // Pure module — no React/Mongo/internal Date.now(), mirroring
 // lib/tech-stack-scan.ts's/lib/title-normalization.ts's shape.
 
-export type TicketSizeMethod = 'tier_band' | 'per_unit' | 'unconfigured';
+export type TicketSizeMethod = 'tier_band' | 'per_unit' | 'unconfigured' | 'manual_override';
 export type TicketSizeConfidence = 'low' | 'medium' | 'high';
 export type TicketSizeCurrency = 'USD' | 'EUR';
 export type TicketSizeTier = 'Small' | 'Medium' | 'Large' | 'Enterprise';
@@ -17,9 +17,17 @@ export interface TicketSizeEstimate {
   expected: number;
   high: number;
   currency: TicketSizeCurrency;
-  method: 'tier_band' | 'per_unit';
+  method: 'tier_band' | 'per_unit' | 'manual_override';
   confidence: TicketSizeConfidence;
   computedAt: string;
+  // Present only when method === 'manual_override' (issue #86) — a rep's
+  // direct knowledge of a specific deal, deliberately exempt from the
+  // sanity cap and from every automated recompute (#82) once set. A reason
+  // is required by createManualTicketSizeOverride() below, mirroring
+  // DECLINE's own required declineReason, so #83's calibration report can
+  // at least see how often and why humans override the model.
+  overrideReason?: string;
+  overriddenBy?: string;
 }
 
 export interface TicketSizeUnconfigured {
@@ -149,4 +157,35 @@ export function estimateTicketSize(
   // this brand/tier yet — an honest "not configured," never a fabricated
   // number (mirrors lib/tech-stack-scan.ts's never-fabricate contract).
   return { method: 'unconfigured', computedAt };
+}
+
+export interface TicketSizeManualOverrideInput {
+  expected: number;
+  reason: string;
+  overriddenBy?: string;
+}
+
+// A human's direct knowledge of a specific deal (a verbal budget number, a
+// comparable recent close) may beat the firmographic model — issue #86.
+// Deliberately NOT run through applySanityCap(): the cap exists to catch an
+// unvalidated, agent-written number; a manual override is the opposite — an
+// explicit, reason-required human judgment call, the same trust level CLAUDE.md
+// Rule 7 already extends to any real user action. low/high both equal expected
+// since this is a specific figure, not a modeled band.
+export function createManualTicketSizeOverride(
+  input: TicketSizeManualOverrideInput,
+  currency: TicketSizeCurrency,
+  now: () => Date = () => new Date()
+): TicketSizeEstimate {
+  return {
+    low: input.expected,
+    expected: input.expected,
+    high: input.expected,
+    currency,
+    method: 'manual_override',
+    confidence: 'high',
+    computedAt: now().toISOString(),
+    overrideReason: input.reason,
+    overriddenBy: input.overriddenBy,
+  };
 }

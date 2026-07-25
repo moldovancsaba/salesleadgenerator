@@ -185,13 +185,18 @@ export async function PUT(
     // effective post-update size/participant count, so an update that first
     // sets `size` or `estimated_participants` immediately gets a real
     // estimate rather than waiting for a separate recalculation pass.
-    updateData.ticketSizeEstimate = await computeTicketSizeForLead(dbInstance, brand, tenantId, {
-      size: updateData.size !== undefined ? updateData.size : existing.size,
-      estimated_participants: Number(
-        updateData.estimated_participants !== undefined ? updateData.estimated_participants : existing.estimated_participants
-      ) || undefined,
-      region: updateData.region !== undefined ? updateData.region : existing.region,
-    })
+    // Skipped entirely when a rep has set a manual override (issue #86) —
+    // an override permanently exempts the lead from this recompute, the
+    // same guard lib/backfill-ticket-size.ts applies for its own triggers.
+    if (existing.ticketSizeEstimate?.method !== 'manual_override') {
+      updateData.ticketSizeEstimate = await computeTicketSizeForLead(dbInstance, brand, tenantId, {
+        size: updateData.size !== undefined ? updateData.size : existing.size,
+        estimated_participants: Number(
+          updateData.estimated_participants !== undefined ? updateData.estimated_participants : existing.estimated_participants
+        ) || undefined,
+        region: updateData.region !== undefined ? updateData.region : existing.region,
+      })
+    }
 
     const result = await dbInstance.collection(config.dbCollection).findOneAndUpdate(
       { _id: existing._id, ...buildTenantFilter(tenantId) },

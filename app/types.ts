@@ -90,13 +90,18 @@ export type Lead = {
   // brand hasn't set up deal-size bands/product pricing in Sales Settings
   // yet — an honest state, never a fabricated number.
   ticketSizeEstimate?: {
-    method: 'tier_band' | 'per_unit' | 'unconfigured';
+    method: 'tier_band' | 'per_unit' | 'unconfigured' | 'manual_override';
     computedAt: string;
     low?: number;
     expected?: number;
     high?: number;
     currency?: 'USD' | 'EUR';
     confidence?: 'low' | 'medium' | 'high';
+    // Present only when method === 'manual_override' (issue #86) — a rep's
+    // direct override, permanently exempt from automated recompute (#82)
+    // until explicitly cleared.
+    overrideReason?: string;
+    overriddenBy?: string;
   };
   // The real, closed contract value (always USD) once a lead is WON — see
   // lib/ticket-size-calibration.ts, issue #83. Captured via MODIFY, never

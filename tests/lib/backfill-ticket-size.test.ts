@@ -115,4 +115,20 @@ describe('backfillTicketSizeCollection', () => {
 
     expect(db._updates[0].set.ticketSizeEstimate.expected).toBe(40000);
   });
+
+  it('permanently skips a lead with a manual ticket-size override, never overwriting it (issue #86)', async () => {
+    const overridden = [{
+      _id: '1', size: 'Medium',
+      // A stale-looking override relative to today's settings (medium band
+      // would compute to 40000) — must be left untouched regardless.
+      ticketSizeEstimate: { method: 'manual_override', expected: 999999, low: 999999, high: 999999, currency: 'USD', confidence: 'high', computedAt: '2020-01-01T00:00:00.000Z', overrideReason: 'Confirmed contract value' },
+    }];
+    const db = fakeDb(overridden, { dealSize: { medium: 40000 }, products: [] });
+    const result = await backfillTicketSizeCollection(db, 'leads', 'cogmap', 'default', 'USD', { apply: true }, NOW);
+
+    expect(result.updated).toBe(0);
+    expect(result.unchanged).toBe(1);
+    expect(result.methodCounts.manual_override).toBeUndefined();
+    expect(db._updates).toHaveLength(0);
+  });
 });
