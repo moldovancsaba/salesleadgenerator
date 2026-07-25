@@ -226,7 +226,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
                 ))}
               </Group>
             </Checkbox.Group>
-            {settings.customerTypes.includes('other') && (
+            {settings.customerTypes?.includes('other') && (
               <TextInput
                 label="Other customer type"
                 value={settings.customerTypesOther}
@@ -246,11 +246,11 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
               </Button>
             </Group>
 
-            {!settings.products.length && (
+            {!settings.products?.length && (
               <Text size="sm" c="dimmed">No products yet. Add your first one above.</Text>
             )}
 
-            {settings.products.map((product, idx) => (
+            {(settings.products || []).map((product, idx) => (
               <Paper key={product.id} withBorder p="sm" radius="md">
                 <Stack gap="sm">
                   <Group justify="space-between">

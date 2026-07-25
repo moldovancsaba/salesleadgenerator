@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.69
+
+### Fixed — Sales Settings page crashed with no recovery ("This page couldn't load") on a legacy settings doc (fixes #101)
+Owner-reported, live on production: Sales Settings was completely inaccessible for at least one brand — "This page couldn't load. Reload to try again, or go back." Reproduced via a real Next.js dev-overlay render: `TypeError: Cannot read properties of undefined (reading 'includes')` at `app/salessettings/[client]/sales-settings-client.tsx:229`.
+
+Root cause: `GET /api/sales-settings/[brand]` returned the raw MongoDB document completely unsanitized whenever one existed, while `PUT` always ran the submitted body through `sanitizeSalesSettings()` before writing — a read/write contract mismatch. A settings document saved before a field existed in the `SalesSettings` schema (e.g. `customerTypes`, added after some brands' documents were first created) came back from `GET` with that field genuinely `undefined`, violating the type's own non-optional contract. `sales-settings-client.tsx`'s `settings.customerTypes.includes('other')` (and `settings.products.length`/`.map`) had no null guard, so this threw synchronously during render — and since **this app had no error boundary anywhere, at any level**, the crash took the entire page down with zero recovery UI.
+
+Three-part fix:
+1. `GET`'s handler now runs the stored doc through the same `sanitizeSalesSettings()` PUT already uses, so read and write can never disagree about what a complete `SalesSettings` object looks like.
+2. `sales-settings-client.tsx`'s two array accesses gained `?.`/`|| []` defensive guards, belt-and-suspenders regardless of what the API sends.
+3. New `app/error.tsx` — this app's first error boundary anywhere. Any future uncaught render error (this class of bug, or any other) now shows a clear "Something went wrong" screen with a real retry action instead of a blank, unrecoverable page.
+
+New integration test (`tests/integration/sales-settings.integration.test.ts`) seeds a doc directly into `company_settings` missing `customerTypes`/`products`/`dealSize`/`upsell` (bypassing PUT's own sanitizer, simulating a genuine legacy document) and asserts `GET` returns fully-defaulted values for all of them. Verified end-to-end via Playwright: the exact crash reproduces pre-fix and is gone post-fix, rendering normally with the real, now-fixed API contract. Full gate clean (tsc 0 errors, lint 0 errors/warnings, vitest 345/345, smoke 5/5, build; the pre-existing, environment-dependent `tests/integration/leads.integration.test.ts` staleness — excluded from the mandatory gate per `vitest.config.ts`'s own exclusion — is unrelated and unchanged by this fix).
+
 ## 2.4.68
 
 ### Fixed — Forecast/Battlecards/Outreach Templates could mix CogMap and Seyu on a single page (fixes #100)
