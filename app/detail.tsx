@@ -8,6 +8,7 @@ import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid } f
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { PRO_FIELD, CON_FIELD } from './lib/brand';
+import { getTicketSize } from './constants';
 import { isContactStale, DEFAULT_STALENESS_THRESHOLD_DAYS } from '@/lib/contact-freshness';
 import { computeStaleness, DEFAULT_STALE_THRESHOLDS } from '@/lib/stale-deal';
 import { getNextStepNudge } from '@/lib/next-step-nudge';
@@ -99,6 +100,65 @@ function techSignalsSection(lead: Lead) {
   // copy, no color signaling: an unreachable or bot-blocking site is an
   // expected, non-actionable outcome per the issue's own UX spec.
   return <Text size="sm" c="dimmed">Scan unavailable</Text>;
+}
+
+function formatTicketSizeCurrency(value: number, currency: 'USD' | 'EUR'): string {
+  const symbol = currency === 'USD' ? '$' : '€';
+  return `${symbol}${Math.round(value).toLocaleString()}`;
+}
+
+const TICKET_SIZE_METHOD_LABELS: Record<'tier_band' | 'per_unit', string> = {
+  tier_band: 'company-size tier',
+  per_unit: 'per-participant pricing',
+};
+
+// Full range/method/confidence — the detail-drawer treatment (issue #80),
+// placed adjacent to ICE Score since both answer "how are we scoring this
+// deal." Renders null (section omitted) when there is nothing at all to
+// show for this lead, matching techSignalsSection()'s own omit-rather-than
+// -show-empty-chrome convention above.
+function ticketSizeDetailSection(lead: Lead) {
+  const ticketSize = getTicketSize(lead);
+  if (!ticketSize) return null;
+
+  if (ticketSize.kind === 'unconfigured') {
+    return (
+      <Box>
+        <Text fw={600}>Ticket Size</Text>
+        <Text size="sm" c="dimmed">
+          Not yet configured — set deal-size bands or product pricing in Sales Settings for this brand.
+        </Text>
+      </Box>
+    );
+  }
+
+  if (ticketSize.kind === 'legacy') {
+    return (
+      <Box>
+        <Text fw={600}>Ticket Size</Text>
+        <Text fw={700} size="lg">{formatTicketSizeCurrency(ticketSize.value, ticketSize.currency)}</Text>
+        <Text size="xs" c="dimmed" fs="italic">
+          Unverified estimate — predates the firmographic estimation engine, pending recalculation.
+        </Text>
+      </Box>
+    );
+  }
+
+  // 'estimate' — the real, server-computed band.
+  return (
+    <Box>
+      <Group justify="space-between" align="baseline">
+        <Text fw={600}>Ticket Size</Text>
+        <Text fw={700} size="lg">{formatTicketSizeCurrency(ticketSize.expected, ticketSize.currency)}</Text>
+      </Group>
+      <Text size="sm" c="dimmed">
+        Range: {formatTicketSizeCurrency(ticketSize.low, ticketSize.currency)} – {formatTicketSizeCurrency(ticketSize.high, ticketSize.currency)}
+      </Text>
+      <Text size="xs" c="dimmed" fs="italic">
+        Modelled estimate from {TICKET_SIZE_METHOD_LABELS[ticketSize.method]} · {ticketSize.confidence} confidence
+      </Text>
+    </Box>
+  );
 }
 
 const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
@@ -365,6 +425,8 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
           </Box>
         </SimpleGrid>
       </Box>
+
+      {ticketSizeDetailSection(lead)}
 
       {nudge && (
         <Box>
