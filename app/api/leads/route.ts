@@ -328,6 +328,7 @@ export async function POST(request: Request) {
     const ticketSizeEstimate = await computeTicketSizeForLead(db, brand, tenantId, {
       size: normalizedBody.size,
       estimated_participants: Number(normalizedBody.estimated_participants) || undefined,
+      region: normalizedBody.region,
     })
 
     const newLead = {

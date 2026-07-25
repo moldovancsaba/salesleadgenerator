@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.59
+**Version:** 2.4.60
 
 ## Overview
 
@@ -119,6 +119,13 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 {
   entity_name: string
   url: string
+  // region: declared as a union here for documentation purposes only — there
+  // is NO server-side enum enforcement (lib/validate-lead.ts never validates
+  // it). app/lib/normalize-lead.ts uppercases whatever string is given,
+  // defaulting to 'NA' when absent; real seed data only ever contains 'CEE'
+  // and 'MENA' ('US' is never actually written). Confirmed by direct
+  // investigation before issue #84 used this field for region multipliers,
+  // per CLAUDE.md Rule 5 (never guess on a structural/data question).
   region: 'US' | 'CEE' | 'MENA'
   country?: string
   industry: string
@@ -149,6 +156,10 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
   // tiered deal-size band (lib/ticket-size.ts) — replaces trusting
   // estimated_annual_revenue_usd/pricingByCompany (both kept below, now
   // signals/audit trail only, no longer the authoritative displayed value).
+  // A lead's own (uppercased) region is looked up in SalesSettings.regionMultipliers
+  // (app/lib/sales-settings.ts) and applied as a multiplier before the sanity
+  // cap, if configured (2.4.60, issue #84) — an unconfigured/unrecognized
+  // region is a 1.0 no-op, never an error.
   ticketSizeEstimate?: {
     method: 'tier_band' | 'per_unit' | 'unconfigured'
     computedAt: string

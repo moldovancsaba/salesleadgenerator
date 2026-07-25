@@ -94,4 +94,25 @@ describe('backfillTicketSizeCollection', () => {
     expect(result.methodCounts.unconfigured).toBe(1);
     expect(db._updates[0].set.ticketSizeEstimate.method).toBe('unconfigured');
   });
+
+  it('applies a configured region multiplier keyed by the lead\'s own (uppercased) region (issue #84)', async () => {
+    const db = fakeDb(
+      [{ _id: '1', size: 'Medium', region: 'cee' }],
+      { dealSize: { medium: 40000, largestWon: 300000 }, products: [], regionMultipliers: { CEE: 0.5 } }
+    );
+    const result = await backfillTicketSizeCollection(db, 'leads', 'cogmap', 'default', 'USD', { apply: true }, NOW);
+
+    expect(result.updated).toBe(1);
+    expect(db._updates[0].set.ticketSizeEstimate.expected).toBe(20000);
+  });
+
+  it('leaves the estimate unchanged when the lead\'s region has no configured multiplier', async () => {
+    const db = fakeDb(
+      [{ _id: '1', size: 'Medium', region: 'US' }],
+      { dealSize: { medium: 40000 }, products: [], regionMultipliers: { CEE: 0.5 } }
+    );
+    const result = await backfillTicketSizeCollection(db, 'leads', 'cogmap', 'default', 'USD', { apply: true }, NOW);
+
+    expect(db._updates[0].set.ticketSizeEstimate.expected).toBe(40000);
+  });
 });

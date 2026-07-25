@@ -101,6 +101,14 @@ export interface DealSize {
   largestWon?: number;
 }
 
+// Region is genuinely free text at the API boundary (Lead.region has no
+// server-side enum — see lib/validate-lead.ts; app/lib/normalize-lead.ts
+// just uppercases whatever string is given, defaulting to 'NA' when absent).
+// This is therefore a sparse, operator-populated map, not a fixed-field
+// form like DealSize: a region with no entry here is a deliberate 1.0 no-op
+// in lib/ticket-size.ts, never an error or a fabricated adjustment (issue #84).
+export type RegionMultipliers = Record<string, number>;
+
 export interface Upsell {
   commonAdditionalProducts: string;
   typicalValue?: number;
@@ -141,6 +149,7 @@ export interface SalesSettings {
   customerTypesOther: string;
   products: ProductLine[];
   dealSize: DealSize;
+  regionMultipliers: RegionMultipliers;
   purchaseFrequency: PurchaseFrequency[];
   purchaseFrequencyComments: string;
   upsell: Upsell;
@@ -190,6 +199,7 @@ export function emptySalesSettings(brand: string, tenantId = 'default'): SalesSe
     customerTypesOther: '',
     products: [],
     dealSize: {},
+    regionMultipliers: {},
     purchaseFrequency: [],
     purchaseFrequencyComments: '',
     upsell: { commonAdditionalProducts: '' },
@@ -251,6 +261,27 @@ function sanitizeOptionalNumber(value: unknown): number | undefined {
   const num = typeof value === 'number' ? value : parseFloat(String(value));
   if (Number.isNaN(num)) return undefined;
   return Math.max(0, num);
+}
+
+// A region key with no valid positive-finite multiplier is dropped entirely
+// (not coerced to 1 or 0) — an operator who hasn't set one yet gets
+// lib/ticket-size.ts's own 1.0 no-op default, never a stored, misleading
+// value. Keys are uppercased to match app/lib/normalize-lead.ts's own
+// region normalization, so a lookup by a lead's stored (already-uppercased)
+// region always matches regardless of how the operator typed it in the UI.
+const MAX_REGION_MULTIPLIER_ENTRIES = 50;
+function sanitizeRegionMultipliers(value: unknown): RegionMultipliers {
+  if (!value || typeof value !== 'object') return {};
+  const result: RegionMultipliers = {};
+  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>)) {
+    if (Object.keys(result).length >= MAX_REGION_MULTIPLIER_ENTRIES) break;
+    const key = sanitizeString(rawKey, 50).toUpperCase();
+    if (!key) continue;
+    const num = typeof rawValue === 'number' ? rawValue : parseFloat(String(rawValue));
+    if (!Number.isFinite(num) || num <= 0) continue;
+    result[key] = num;
+  }
+  return result;
 }
 
 function sanitizeProductPricing(value: unknown): ProductPricing {
@@ -332,6 +363,7 @@ export function sanitizeSalesSettings(body: unknown, brand: string, tenantId: st
       enterprise: sanitizeOptionalNumber(dealSizeRaw.enterprise),
       largestWon: sanitizeOptionalNumber(dealSizeRaw.largestWon),
     },
+    regionMultipliers: sanitizeRegionMultipliers(raw.regionMultipliers),
     purchaseFrequency: sanitizeEnumArray(raw.purchaseFrequency, PURCHASE_FREQUENCIES),
     purchaseFrequencyComments: sanitizeString(raw.purchaseFrequencyComments, 1000),
     upsell: {
