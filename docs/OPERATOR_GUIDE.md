@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.48  
+**Version:** 2.4.49  
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -44,6 +44,18 @@ DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted p
 - Supported channels: email and LinkedIn.
 - Templates are organization-agnostic and scoped by brand.
 - Analytics are available via `/api/outreach-templates?mode=analytics`.
+
+### Managing battlecards (2.4.49, issue #65)
+
+Battlecards are competitor positioning summaries and objection responses, reference material for reps composing outreach — never auto-inserted into a message.
+
+1. Go to `/battlecards?brand=<cogmap|seyu>&tenantId=<id>` (defaults to `cogmap`/`default` if the query params are omitted).
+2. Click **New Battlecard**, fill in a competitor name and positioning summary (both required), and optionally add proof points, objection/response pairs, and tags.
+3. Click **Create Battlecard**. To edit an existing one, click **Edit** on its row in the table below the form; to remove one, click the trash icon (a confirmation prompt appears first).
+4. Tags reuse the same tag mechanism as outreach templates (issue #64) — a battlecard tagged `enterprise` shows up alongside any template tagged `enterprise`.
+5. When composing outreach for a lead (Outreach button in the lead detail modal), a **Battlecards** panel appears below the template list, showing every battlecard whose tags match the compose modal's tag filter (pre-populated from the lead's own tags, editable). Content here is read-only reference material — copy what's relevant into your own message by hand.
+
+Content is validated against the same CogMap/Seyu forbidden-terms list `Lead.value_proposition` already enforces — a battlecard's positioning summary, proof points, or objection responses can't mention the other brand's product terms.
 
 ---
 

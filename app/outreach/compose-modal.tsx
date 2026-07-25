@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title, TagsInput, Pill } from '@mantine/core';
+import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title, TagsInput, Pill, Badge } from '@mantine/core';
 import { IconX } from '@tabler/icons-react';
+import { SectionPanel } from '@sovereignsquad/gds-core/client';
 import { evaluateOutreachRouting } from '../lib/outreach/routing-rules';
 import { getDecisionMakerContact } from '../../lib/contacts';
 
@@ -37,6 +38,15 @@ type Template = {
   tags?: string[];
 };
 
+type Battlecard = {
+  id: string;
+  competitorName: string;
+  positioningSummary: string;
+  proofPoints: string[];
+  objections: Array<{ objection: string; response: string }>;
+  tags?: string[];
+};
+
 function interpolate(template: string, values: Record<string, any>): string {
   return Object.entries(values).reduce((text, [key, value]) => {
     const safeValue = typeof value === 'string' ? value : String(value ?? '');
@@ -55,6 +65,8 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   // Tag-based filter row, additive to the existing industry filter (issue
   // #64). Pre-populated from the lead's own tags when present.
   const [filterTags, setFilterTags] = useState<string[]>([]);
+  const [battlecards, setBattlecards] = useState<Battlecard[]>([]);
+  const [battlecardsLoading, setBattlecardsLoading] = useState(false);
 
   const industry = lead.industry || lead.sport_or_sector || '';
   // Template placeholder {contact_name} resolves from the contact flagged
@@ -115,6 +127,34 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
       cancelled = true;
     }
   }, [opened, brand, industry, interpolationValues, filterTags])
+
+  // Battlecards re-query on the same tag filter templates already use — one
+  // tag row drives both panels, rather than a second independent filter UI
+  // (issue #65's own pseudocode: candidateTags derived from the lead, same
+  // source templates already query on).
+  useEffect(() => {
+    if (!opened) return;
+    let cancelled = false;
+    setBattlecardsLoading(true);
+    const tagsParam = filterTags.length ? `&tags=${encodeURIComponent(filterTags.join(','))}` : '';
+    fetch(`/api/battlecards?brand=${brand}${tagsParam}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        setBattlecards(data.battlecards || []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBattlecards([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBattlecardsLoading(false);
+      })
+
+    return () => {
+      cancelled = true;
+    }
+  }, [opened, brand, filterTags])
 
   useEffect(() => {
     const found = templates.find((t) => t.id === templateId)
@@ -187,6 +227,52 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
         {!loading && filterTags.length > 0 && !hasTagMatch && (
           <Text size="xs" c="orange">No templates match these tags — showing all templates.</Text>
         )}
+
+        {/* Reference-only competitor/objection content (issue #65) — never
+            auto-inserted into `body`, so a rep reads it and writes their own
+            words rather than the message silently including hidden text. */}
+        <SectionPanel title="Battlecards" description="Competitor positioning and objection responses for this lead.">
+          {battlecardsLoading ? (
+            <Group gap="sm"><Loader size="xs" /> <Text size="sm">Loading battlecards…</Text></Group>
+          ) : battlecards.length === 0 ? (
+            <Text size="sm" c="dimmed">No matching battlecards for this lead.</Text>
+          ) : (
+            <Stack gap="sm">
+              {battlecards.map((bc) => (
+                <Paper key={bc.id} withBorder p="sm" radius="sm">
+                  <Group justify="space-between" align="flex-start" wrap="nowrap">
+                    <Text fw={600}>{bc.competitorName}</Text>
+                    {bc.tags && bc.tags.length > 0 && (
+                      <Group gap={4}>
+                        {bc.tags.map((tag) => (
+                          <Badge key={tag} variant="light" size="xs" color="gray">{tag}</Badge>
+                        ))}
+                      </Group>
+                    )}
+                  </Group>
+                  <Text size="sm" mt={4}>{bc.positioningSummary}</Text>
+                  {bc.proofPoints.length > 0 && (
+                    <Stack gap={2} mt="xs">
+                      {bc.proofPoints.map((point, i) => (
+                        <Text key={i} size="xs" c="dimmed">• {point}</Text>
+                      ))}
+                    </Stack>
+                  )}
+                  {bc.objections.length > 0 && (
+                    <Stack gap={4} mt="xs">
+                      {bc.objections.map((entry, i) => (
+                        <div key={i}>
+                          <Text size="xs" fw={600}>{entry.objection}</Text>
+                          <Text size="xs" c="dimmed">{entry.response}</Text>
+                        </div>
+                      ))}
+                    </Stack>
+                  )}
+                </Paper>
+              ))}
+            </Stack>
+          )}
+        </SectionPanel>
 
         {loading ? (
           <Paper p="md" withBorder>

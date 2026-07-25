@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.48
+**Version:** 2.4.49
 
 ---
 
@@ -130,6 +130,7 @@ Results are cached in a new `winrate_calibration` collection (one doc per `{tena
 - `POST /api/outreach-templates` — create template
 - `GET /api/outreach-logs` — outreach activity logs
 - `POST /api/outreach-logs` — create outreach log with routing enforcement
+- `GET/POST /api/battlecards`, `GET/PUT/DELETE /api/battlecards/[id]` — see "Battlecards" under Data Model below (2.4.49, issue #65)
 
 ### Learning
 - `GET /api/search-learning` — search memory and success metrics
@@ -192,7 +193,32 @@ Collections: `outreach_templates`, `outreach_logs`
 
 Templates are organization-agnostic and scoped by `tenantId` and `brand`. Logs enforce channel routing rules at write time.
 
-**Tagging and search (2.4.41, issue #64):** `OutreachTemplate` gains an optional `tags?: string[]` — the same multi-valued classification pattern as `Lead.tags` — alongside the pre-existing single-valued `industry`. `GET /api/outreach-templates` gains `tags` (comma-separated, `$in`-match ANY) and `q` (free text over `name`/`subject`/`body`), additive to the existing `industry`/`channel` params; a tags/q combination matching zero templates falls back to the full unfiltered list rather than a blank state, extending the graceful-degradation behavior `industry`/`channel` already had. A new `mode=search` branch (mirroring the existing `mode=analytics` branch) runs an actual Mongo-level query via the new shared `app/lib/search/tagged-content-filter.ts` (`buildTaggedContentFilter`, `normalizeTags`) and returns `{templates, matchedOn: {q, tags}, total, source}` — the pattern the future "Battlecard/objection-handling library" issue is expected to point its own collection at rather than reimplementing. `POST` normalizes and persists `tags[]` the same way `variables[]` already is. `app/outreach/templates/page.tsx`'s form gains a Mantine `TagsInput` (no native GDS tag/chip primitive exists) with a custom `renderPill` giving each removable pill an `aria-label="Remove tag {value}"`; `app/outreach/compose-modal.tsx` gains an additive tag-filter row above the template `Select`, pre-populated from `lead.tags`, with an `aria-live="polite"` result-count status and a non-blocking "no templates match these tags" hint when the server has fallen back to the unfiltered list.
+**Tagging and search (2.4.41, issue #64):** `OutreachTemplate` gains an optional `tags?: string[]` — the same multi-valued classification pattern as `Lead.tags` — alongside the pre-existing single-valued `industry`. `GET /api/outreach-templates` gains `tags` (comma-separated, `$in`-match ANY) and `q` (free text over `name`/`subject`/`body`), additive to the existing `industry`/`channel` params; a tags/q combination matching zero templates falls back to the full unfiltered list rather than a blank state, extending the graceful-degradation behavior `industry`/`channel` already had. A new `mode=search` branch (mirroring the existing `mode=analytics` branch) runs an actual Mongo-level query via the new shared `app/lib/search/tagged-content-filter.ts` (`buildTaggedContentFilter`, `normalizeTags`) and returns `{templates, matchedOn: {q, tags}, total, source}` — the pattern the "Battlecard/objection-handling library" issue (#65) points its own collection at rather than reimplementing (see below). `POST` normalizes and persists `tags[]` the same way `variables[]` already is. `app/outreach/templates/page.tsx`'s form gains a Mantine `TagsInput` (no native GDS tag/chip primitive exists) with a custom `renderPill` giving each removable pill an `aria-label="Remove tag {value}"`; `app/outreach/compose-modal.tsx` gains an additive tag-filter row above the template `Select`, pre-populated from `lead.tags`, with an `aria-live="polite"` result-count status and a non-blocking "no templates match these tags" hint when the server has fallen back to the unfiltered list.
+
+### Battlecards (2.4.49, issue #65)
+Collection: `battlecards`, one document per competitor, scoped by `{tenantId, brand}` — same isolation model as `outreach_templates`.
+
+```typescript
+{
+  tenantId: string
+  brand: string
+  competitorName: string
+  positioningSummary: string
+  proofPoints: string[]
+  objections: Array<{ objection: string; response: string }>
+  tags?: string[]
+  createdAt: Date
+  updatedAt: Date
+}
+```
+
+`GET/POST /api/battlecards` and `GET/PUT/DELETE /api/battlecards/[id]` follow `outreach-templates`'s CRUD pattern exactly, including the one gap that pattern had: `outreach_templates` still has no `DELETE` endpoint (`app/outreach/templates/page.tsx`'s `deleteTemplate()` remains a stub) — battlecards ship with full CRUD from day one, closing that gap for this collection specifically (not retroactively for templates, which is a separate, undone piece of work). `GET` reuses `app/lib/search/tagged-content-filter.ts`'s `buildTaggedContentFilter`/`normalizeTags` (issue #64) for its `tags` filter — no second tag-indexing mechanism. A `competitor` param additionally filters to an exact (case-insensitive) `competitorName` match. Reads are unauthenticated (matching `outreach-templates`'s `GET`); writes require `x-api-key`.
+
+**Content validation reuses the CogMap/Seyu forbidden-terms list**, extracted from `lib/validate-lead.ts` into an exported `findForbiddenBrandTerms(text, brand)` (previously an inline `const` only `validateLeadPayload` could reach — refactored so this is one shared source of truth, not a second copy). `app/lib/battlecards/validate-battlecard.ts`'s `validateBattlecardPayload()` checks `positioningSummary`, every `proofPoints[]` entry, and every `objections[].response` — deliberately **not** `objections[].objection`, since that field records what a prospect actually said and may legitimately reference anything.
+
+`app/battlecards/page.tsx` — admin CRUD page, built with GDS Admin field/table/status primitives (`AdminTextInput`, `AdminTextarea`, `AdminDataTable`, `AdminFormStatus`) per repo policy, with two documented exceptions: (1) the repeatable `proofPoints`/`objections` rows use plain Mantine `Stack`/`Group`/`ActionIcon` — gds-admin has no repeatable-rows primitive (the same gap already documented for the sales-settings form); (2) Save/Reset/Delete use plain Mantine `Button`s rather than `AdminFormActions`/`ActionBar` — those require resolving each action to a `SemanticActionId` registered in GDS's internal vocabulary (`GdsVocabulary`, a runtime object, not reliably inferable from the installed type definitions alone — see the "Lead detail modal" fix, issue #78, for what happens when a `namespace:action` id isn't actually registered via a vocabulary pack: `ActionBar` throws at render time despite the broader `SemanticActionId` *type* accepting it).
+
+`app/outreach/compose-modal.tsx` gains a `SectionPanel` (`@sovereignsquad/gds-core/client`) titled "Battlecards" below the template list, re-querying `GET /api/battlecards` on the exact same tag filter the template list already uses (no second, independent filter control) — content renders as plain read-only text, never auto-inserted into the outreach `body`.
 
 ### Search Learning
 Collection: `searchlearnings`

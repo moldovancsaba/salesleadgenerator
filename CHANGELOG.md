@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.49
+
+Eleventh delivery of the sales-tooling roadmap (tracking issue #76): battlecard / objection-handling library. Ships alongside a separately-committed fix for issue #78, a pre-existing bug discovered while verifying this feature (see that commit/issue for detail — the lead detail modal's action buttons were computed but never rendered).
+
+### Added — battlecard / objection-handling library (fixes #65)
+New `battlecards` collection, one document per competitor, scoped by `{tenantId, brand}` like `outreach_templates`. `GET/POST /api/battlecards` and `GET/PUT/DELETE /api/battlecards/[id]` follow the `outreach-templates` CRUD pattern, but ship full CRUD from day one — `outreach_templates` still has no `DELETE` (`app/outreach/templates/page.tsx`'s `deleteTemplate()` remains a stub); that gap wasn't repeated here. `GET` reuses `app/lib/search/tagged-content-filter.ts`'s `buildTaggedContentFilter`/`normalizeTags` (issue #64) for tag filtering — no second tag mechanism. Reads are unauthenticated (matching `outreach-templates`), writes require `x-api-key`.
+
+Content validation reuses the CogMap/Seyu forbidden-terms list already enforced on `Lead.value_proposition` — refactored out of `lib/validate-lead.ts`'s previously-inline `const` into an exported `findForbiddenBrandTerms(text, brand)`, one shared source of truth instead of a second copy. `app/lib/battlecards/validate-battlecard.ts`'s `validateBattlecardPayload()` checks `positioningSummary`, every `proofPoints[]` entry, and every `objections[].response` — never `objections[].objection`, since that field records what a prospect actually said.
+
+`app/battlecards/page.tsx` — new admin CRUD page, built with GDS Admin field/table/status primitives (`AdminTextInput`, `AdminTextarea`, `AdminDataTable`, `AdminFormStatus`) per repo policy, with two documented, deliberate exceptions: repeatable `proofPoints`/`objections` rows use plain Mantine (gds-admin has no repeatable-rows primitive, the same gap already documented for the sales-settings form); Save/Reset/Delete use plain Mantine `Button`s rather than `AdminFormActions`/`ActionBar` (those require a `SemanticActionId` registered in GDS's internal vocabulary — confirmed by testing that an unregistered `namespace:action` id throws at render time despite the broader `SemanticActionId` *type* allowing it; see issue #78's fix for the same discovery).
+
+`app/outreach/compose-modal.tsx` gains a `SectionPanel` (`@sovereignsquad/gds-core/client`) titled "Battlecards" below the template list, re-querying `GET /api/battlecards` on the same tag filter the template list already uses — no second, independent filter control. Content renders as plain read-only text, never auto-inserted into the outreach `body`.
+
+### Testing
+`tests/lib/validate-battlecard.test.ts` — 15 new tests: `findForbiddenBrandTerms` (CogMap/Seyu term detection both directions, clean text, non-string input, case-insensitivity), `normalizeProofPoints`/`normalizeObjections` (trimming, empty/non-array handling), and `validateBattlecardPayload` (required-field errors, forbidden content in `positioningSummary`, in a `proofPoints[]` entry with correct index reporting, in an `objections[].response` while never checking `objections[].objection`, a fully valid payload, and an explicitly-allowed empty `objections` array). Interactive verification via headless Chromium against the real dev server with mocked `/api/battlecards` responses (this sandbox has no `MONGODB_URI`): the admin page's list table, create form, and repeatable proof-point/objection row add/remove all confirmed working; the compose-modal's Battlecards panel confirmed rendering competitor name, positioning summary, proof points, and objection/response pairs correctly with no console errors attributable to the new code path.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s Outreach API bullets and a new "Battlecards" Data Model subsection; `docs/OPERATOR_GUIDE.md`'s Outreach section gains a "Managing battlecards" walkthrough.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (224/224), smoke suite (5/5), `next build --webpack` (31 routes).
+
+Version bumped 2.4.48 -> 2.4.49.
+
 ## 2.4.48
 
 Tenth delivery of the sales-tooling roadmap (tracking issue #76): win-rate-by-stage forecast calibration.
