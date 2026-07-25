@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { Lead } from './types';
 import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@sovereignsquad/gds-admin/client';
+import { createGdsVocabularyPack, GdsIcons } from '@sovereignsquad/gds-core/client';
 import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
@@ -47,6 +48,14 @@ const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
   { value: "LOW_PRIORITY", label: "Low priority" },
   { value: "OTHER", label: "Other" },
 ];
+
+// GDS's built-in semantic-action vocabulary (GdsVocabulary) has no "pin"
+// entry — every other action below uses a registered built-in key directly
+// (confirm/cancel/refresh/edit/delete), but "pin" needed this one-entry
+// custom vocabulary pack. Module-scope constant: static, not per-render.
+const LEAD_ACTION_VOCABULARY_PACK = createGdsVocabularyPack('lead', {
+  pin: { defaultMessage: 'Pin', icon: GdsIcons.Star, ariaLabel: 'Pin to Engaged' },
+});
 
 export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, onAction, onDelete, onUpdated }: Props) {
   const [annotation, setAnnotation] = useState("");
@@ -193,30 +202,40 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     }
   }
 
+  // `action` must resolve against GDS's ActionBar semantic-action
+  // vocabulary at runtime (confirmed by testing — the type-level
+  // `namespace:action` escape hatch alone is not enough; the id must
+  // actually be registered, either in the built-in GdsVocabulary or a
+  // pack passed via `vocabularyPacks`). Every action here maps to a
+  // built-in vocabulary key except "pin" (LEAD_ACTION_VOCABULARY_PACK,
+  // defined above — GdsVocabulary has no "pin" entry).
   const actions = {
     primary: {
-      action: 'approve',
+      action: 'confirm' as const,
+      ariaLabel: 'Approve',
       color: 'green',
       disabled: busy,
       onClick: handleAccept,
     },
     secondary: [
       {
-        action: 'reject',
+        action: 'cancel' as const,
+        ariaLabel: 'Reject',
         color: 'red',
         variant: 'light',
         disabled: busy,
         onClick: () => setActionMode("decline"),
       },
       {
-        action: 'pin',
+        action: 'lead:pin' as const,
         color: 'blue',
         variant: 'light',
         disabled: busy,
         onClick: handlePin,
       },
       {
-        action: 'refresh',
+        action: 'refresh' as const,
+        ariaLabel: 'Request refresh',
         color: 'gray',
         variant: 'light',
         disabled: busy,
@@ -225,7 +244,8 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     ],
     tertiary: [
       {
-        action: 'edit',
+        action: 'edit' as const,
+        ariaLabel: 'Compose outreach',
         color: 'dark',
         variant: 'light',
         disabled: busy,
@@ -233,14 +253,15 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
       },
 
       {
-        action: 'delete',
+        action: 'delete' as const,
+        ariaLabel: 'Delete',
         color: 'red',
         variant: 'subtle',
-        destructive: true,
         disabled: busy,
         onClick: handleDelete,
       },
     ],
+    vocabularyPacks: [LEAD_ACTION_VOCABULARY_PACK],
   };
 
   const metadata = (
@@ -426,11 +447,11 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   return (
     <>
       {fullScreen ? (
-        <AdminModal opened={opened} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} size="full">
+        <AdminModal opened={opened} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} size="full" actions={actions}>
           <Stack gap="md">{content}</Stack>
         </AdminModal>
       ) : (
-        <AdminDetailDrawer opened={opened} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} metadata={metadata}>
+        <AdminDetailDrawer opened={opened} onClose={onClose} title={lead.entity_name} description={lead.industry || lead.sport_or_sector || undefined} metadata={metadata} actions={actions}>
           {content}
         </AdminDetailDrawer>
       )}
