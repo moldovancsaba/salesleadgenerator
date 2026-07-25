@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { computeTicketSizeCalibration } from '../../lib/ticket-size-calibration';
 import type { WonLeadForCalibration } from '../../lib/ticket-size-calibration';
 
-function won(size: string, method: 'tier_band' | 'per_unit' | 'unconfigured', expected: number | undefined, actual: number | undefined): WonLeadForCalibration {
+function won(size: string, method: 'tier_band' | 'per_unit' | 'unconfigured' | 'manual_override', expected: number | undefined, actual: number | undefined): WonLeadForCalibration {
   return { size, ticketSizeEstimate: { method, expected }, actualDealValueUsd: actual };
 }
 
@@ -84,5 +84,16 @@ describe('computeTicketSizeCalibration', () => {
     expect(result.groups).toEqual([]);
     expect(result.wonWithoutEstimate).toBe(0);
     expect(result.wonWithoutActual).toBe(0);
+  });
+
+  it('excludes a manually-overridden estimate from the calibration math (issue #86) — a human judgment call is not a model prediction to grade', () => {
+    const leads = [
+      won('Enterprise', 'manual_override', 500000, 480000),
+      won('Enterprise', 'tier_band', 200000, 210000),
+    ];
+    const result = computeTicketSizeCalibration(leads, 1);
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].method).toBe('tier_band');
+    expect(result.wonWithoutEstimate).toBe(1);
   });
 });

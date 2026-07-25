@@ -56,6 +56,18 @@ export async function backfillTicketSizeCollection(
   for await (const doc of cursor) {
     result.scanned++;
 
+    // A manual override (issue #86) permanently exempts a lead from every
+    // automated recompute this function drives — the weekly cron sweep, the
+    // Sales-Settings-save trigger, and the CLI/admin backfill endpoint all
+    // call this same function, so this one check covers all three. A rep's
+    // explicit, reason-required judgment call must never be silently
+    // clobbered by the next scheduled sweep.
+    if (doc.ticketSizeEstimate?.method === 'manual_override') {
+      result.unchanged++;
+      result.docs.push({ id: String(doc._id), outcome: 'unchanged', method: 'manual_override' });
+      continue;
+    }
+
     const sizeTier = (VALID_SIZE_TIERS as string[]).includes(doc.size) ? (doc.size as TicketSizeTier) : undefined;
     const unitCount = typeof doc.estimated_participants === 'number' && doc.estimated_participants > 0
       ? doc.estimated_participants

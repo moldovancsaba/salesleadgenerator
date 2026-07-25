@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { estimateTicketSize } from '../../lib/ticket-size';
+import { estimateTicketSize, createManualTicketSizeOverride } from '../../lib/ticket-size';
 import type { DealSizeBands, TicketSizeInputs, TicketSizeProductInput } from '../../lib/ticket-size';
 
 const NOW = new Date('2026-07-25T00:00:00.000Z');
@@ -145,6 +145,26 @@ describe('estimateTicketSize', () => {
       const result = estimateTicketSize(inputs({ sizeTier: 'Enterprise', regionMultiplier: 3 }), dealSize, [], now);
       if (result.method !== 'tier_band') throw new Error('expected tier_band');
       expect(result.expected).toBe(1_000_000); // still 2x largestWon
+    });
+  });
+
+  describe('createManualTicketSizeOverride (issue #86)', () => {
+    it('builds a manual_override estimate with low/expected/high all equal to the given figure', () => {
+      const result = createManualTicketSizeOverride({ expected: 75000, reason: 'Verbal budget confirmed by prospect', overriddenBy: 'webapp-user' }, 'USD', now);
+      expect(result.method).toBe('manual_override');
+      expect(result.low).toBe(75000);
+      expect(result.expected).toBe(75000);
+      expect(result.high).toBe(75000);
+      expect(result.currency).toBe('USD');
+      expect(result.confidence).toBe('high');
+      expect(result.overrideReason).toBe('Verbal budget confirmed by prospect');
+      expect(result.overriddenBy).toBe('webapp-user');
+      expect(result.computedAt).toBe(NOW.toISOString());
+    });
+
+    it('is not subject to the sanity cap — a deliberate human judgment call, unlike an unvalidated agent-written figure', () => {
+      const result = createManualTicketSizeOverride({ expected: 50_000_000, reason: 'Confirmed multi-year framework deal' }, 'USD', now);
+      expect(result.expected).toBe(50_000_000);
     });
   });
 });

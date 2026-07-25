@@ -144,6 +144,25 @@ function ticketSizeDetailSection(lead: Lead) {
     );
   }
 
+  // A rep's manual override (issue #86) is a different kind of figure than
+  // the modelled estimate below — a single reason-required number, not a
+  // low/expected/high band, so it gets its own rendering rather than
+  // reusing the "Range: ..." / "Modelled estimate from ..." copy that would
+  // misrepresent it as the model's own output (CLAUDE.md Rule 7).
+  if (ticketSize.method === 'manual_override') {
+    return (
+      <Box>
+        <Group justify="space-between" align="baseline">
+          <Text fw={600}>Ticket Size</Text>
+          <Text fw={700} size="lg">{formatTicketSizeCurrency(ticketSize.expected, ticketSize.currency)}</Text>
+        </Group>
+        <Text size="xs" c="dimmed" fs="italic">
+          Manually overridden{ticketSize.overriddenBy ? ` by ${ticketSize.overriddenBy}` : ''} — {ticketSize.overrideReason || 'no reason recorded'}
+        </Text>
+      </Box>
+    );
+  }
+
   // 'estimate' — the real, server-computed band.
   return (
     <Box>
@@ -155,7 +174,7 @@ function ticketSizeDetailSection(lead: Lead) {
         Range: {formatTicketSizeCurrency(ticketSize.low, ticketSize.currency)} – {formatTicketSizeCurrency(ticketSize.high, ticketSize.currency)}
       </Text>
       <Text size="xs" c="dimmed" fs="italic">
-        Modelled estimate from {TICKET_SIZE_METHOD_LABELS[ticketSize.method]} · {ticketSize.confidence} confidence
+        Modelled estimate from {TICKET_SIZE_METHOD_LABELS[ticketSize.method as 'tier_band' | 'per_unit']} · {ticketSize.confidence} confidence
       </Text>
     </Box>
   );
@@ -208,9 +227,19 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   // This local editForm is the real editable state; handleModify() now reads
   // from it instead.
   const [editingFields, setEditingFields] = useState(false);
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{
+    entity_name: string; url: string; address: string; general_contact: string; size: string;
+    industry: string; sport_or_sector: string; level_league: string; value_proposition: string; notes: string; tags: string;
+    // Manual ticket-size override (issue #86) — blank means "no change to
+    // the override state," not "clear it"; clearing is its own explicit
+    // action (handleClearTicketSizeOverride below), never inferred from an
+    // emptied field.
+    manualTicketSizeExpected: number | '';
+    manualTicketSizeReason: string;
+  }>({
     entity_name: '', url: '', address: '', general_contact: '', size: '',
     industry: '', sport_or_sector: '', level_league: '', value_proposition: '', notes: '', tags: '',
+    manualTicketSizeExpected: '', manualTicketSizeReason: '',
   });
 
   useEffect(() => {
@@ -361,6 +390,8 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
       value_proposition: lead.value_proposition || '',
       notes: lead.notes || '',
       tags: (lead.tags || []).join(', '),
+      manualTicketSizeExpected: '',
+      manualTicketSizeReason: '',
     });
     setEditingFields(true);
   }
@@ -375,7 +406,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     if (!lead) return;
     setBusy(true);
     try {
-      await onAction(lead._id, 'MODIFY', {
+      const payload: Record<string, any> = {
         entity_name: editForm.entity_name,
         url: editForm.url,
         address: editForm.address,
@@ -387,11 +418,36 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
         value_proposition: editForm.value_proposition,
         notes: editForm.notes,
         tags: editForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
-      });
+      };
+      // Only included when both fields are actually filled in — a blank
+      // reason server-side silently skips setting the override rather than
+      // applying one with no accountability trail (issue #86).
+      if (typeof editForm.manualTicketSizeExpected === 'number' && editForm.manualTicketSizeExpected > 0 && editForm.manualTicketSizeReason.trim()) {
+        payload.manualTicketSizeExpected = editForm.manualTicketSizeExpected;
+        payload.manualTicketSizeReason = editForm.manualTicketSizeReason.trim();
+      }
+      await onAction(lead._id, 'MODIFY', payload);
       showNotification({ message: 'Lead updated', color: 'green', autoClose: 4000 });
       setEditingFields(false);
     } catch (err) {
       showNotification({ message: err instanceof Error ? err.message : 'Modify failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Reverts a manual ticket-size override back to the modelled estimate
+  // (issue #86) — a standalone action, not routed through the general
+  // editForm Save, since it's a single unambiguous intent with no other
+  // fields involved.
+  async function handleClearTicketSizeOverride() {
+    if (!lead) return;
+    setBusy(true);
+    try {
+      await onAction(lead._id, 'MODIFY', { clearManualTicketSizeOverride: true });
+      showNotification({ message: 'Ticket-size override cleared', color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Clear failed', color: 'red', autoClose: 5000 });
     } finally {
       setBusy(false);
     }
@@ -610,6 +666,33 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
               value={editForm.tags}
               onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, tags: v })); }}
             />
+            <Box>
+              <Text size="sm" fw={600}>Manual Ticket-Size Override</Text>
+              <Text size="xs" c="dimmed">
+                Overrides the modelled estimate with your own figure — e.g. a verbal budget number or a
+                comparable recent close. Requires a reason, and persists until explicitly cleared (exempt
+                from automatic recalculation in the meantime).
+              </Text>
+              <NumberInput
+                label="Override value"
+                placeholder="Leave blank to make no change"
+                value={editForm.manualTicketSizeExpected}
+                onChange={(value) => setEditForm((f) => ({ ...f, manualTicketSizeExpected: typeof value === 'number' ? value : '' }))}
+                min={0}
+                mt="xs"
+              />
+              <TextInput
+                label="Reason (required to save an override)"
+                value={editForm.manualTicketSizeReason}
+                onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, manualTicketSizeReason: v })); }}
+                mt="xs"
+              />
+              {lead.ticketSizeEstimate?.method === 'manual_override' && (
+                <Button size="xs" variant="subtle" color="gray" onClick={handleClearTicketSizeOverride} loading={busy} mt="xs">
+                  Clear existing override
+                </Button>
+              )}
+            </Box>
             <Group gap="xs">
               <Button size="sm" onClick={handleModify} loading={busy}>Save</Button>
               <Button size="sm" variant="subtle" color="gray" onClick={() => setEditingFields(false)} disabled={busy}>Cancel</Button>
