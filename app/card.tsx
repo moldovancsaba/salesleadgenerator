@@ -6,11 +6,13 @@ import { getIceScore, getTicketSize } from './constants';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { getDecisionMakerContact } from '@/lib/contacts';
 import type { StaleDealResult } from '@/lib/stale-deal';
+import type { Nudge } from '@/lib/next-step-nudge';
 
 type LeadCardProps = {
   lead: Lead;
   onOpen?: () => void;
   staleness?: StaleDealResult | null;
+  nudge?: Nudge | null;
 };
 
 // Deliberately flat, borderless content — no ProductCard/Paper wrapper here.
@@ -18,7 +20,7 @@ type LeadCardProps = {
 // renderItem returns (plus its drag handle and Move menu icons); nesting
 // ProductCard's own `withBorder` shell inside that produced a visible
 // "box within a box" around every kanban card.
-export function LeadCard({ lead, onOpen, staleness }: LeadCardProps) {
+export function LeadCard({ lead, onOpen, staleness, nudge }: LeadCardProps) {
   const ice = getIceScore(lead);
   const region = lead.region || 'NA';
   const quality = lead.qualityStatus || 'DRAFT';
@@ -73,6 +75,11 @@ export function LeadCard({ lead, onOpen, staleness }: LeadCardProps) {
             </Group>
           ))}
         </Stack>
+        {nudge && (
+          <Text size="xs" c={nudge.severity === 'warn' ? 'orange' : 'dimmed'}>
+            {nudge.message}
+          </Text>
+        )}
         {onOpen && (
           <Button variant="light" size="xs" onClick={onOpen} mt={4}>
             Preview
