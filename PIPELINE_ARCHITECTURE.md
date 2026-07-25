@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.52
+**Version:** 2.4.53
 
 ## Overview
 
@@ -142,6 +142,19 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
   techSignals?: string[]
   techSignalsScannedAt?: string
   techSignalsScanStatus?: 'ok' | 'blocked' | 'timeout' | 'invalid_url' | 'non_html' | 'error'
+  // ticketSizeEstimate (2.4.53, issue #79): server-computed, firmographic-
+  // tiered deal-size band (lib/ticket-size.ts) — replaces trusting
+  // estimated_annual_revenue_usd/pricingByCompany (both kept below, now
+  // signals/audit trail only, no longer the authoritative displayed value).
+  ticketSizeEstimate?: {
+    method: 'tier_band' | 'per_unit' | 'unconfigured'
+    computedAt: string
+    low?: number
+    expected?: number
+    high?: number
+    currency?: 'USD' | 'EUR'
+    confidence?: 'low' | 'medium' | 'high'
+  }
   pro_for_organization: string[]  // generic since 2.3.0 — shared across every brand, not brand-specific
   con_for_organization: string[]
   value_proposition: string
