@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.68
+
+### Fixed — Forecast/Battlecards/Outreach Templates could mix CogMap and Seyu on a single page (fixes #100)
+Owner-reported, live on production: `/forecast` had its own in-page `Select` ("CogMap"/"Seyu") that let a single loaded page switch between both brands' data — the same class of violation as issue #95's original AppNav bug ("You mixed the clients!!! That is prohibited!!!"), but this time baked directly into the page itself rather than the nav.
+
+Investigating found the same root defect in three disguises: `app/forecast/page.tsx` had the actual switcher dropdown; `app/battlecards/page.tsx` and `app/outreach/templates/page.tsx` silently defaulted to `cogmap` and only accepted an unvalidated `?brand=` query param, with no visible UI at all and no path-based identity — inconsistent with the one already-correct precedent in this codebase (`/sales/[brand]`, `/salessettings/[client]`).
+
+All three converted to per-brand routes matching that precedent exactly: `/forecast/[brand]`, `/battlecards/[brand]`, `/outreach/templates/[brand]` (Server Component `page.tsx` resolving `brand` via `resolveBrand()`/`BRAND_CONFIG` + a Client Component holding the interactive state, same split as `/sales/[brand]`). The bare routes no longer exist — `/forecast`, `/battlecards`, `/outreach/templates` now 404 instead of silently resolving to a guessed brand. `app/components/AppNav.tsx`'s `currentBrandFromPath()` now also recognizes these three path shapes, and the **Reporting** links moved out of a brand-agnostic global section into the existing per-client section (shown only when a client context exists, exactly like Pipeline/Sales Settings already work) — never a brand-agnostic item again. On a page with no client context (the root landing page, which has no in-app client picker at all — a pre-existing gap, not introduced or fixed here, called out explicitly rather than silently left undocumented), the drawer shows a plain hint instead of guessing or showing a global section.
+
+`tenantId` (a separate multi-tenancy axis, not a client/brand identity) is untouched — still overridable via `?tenantId=` on battlecards/templates; only `brand` moved from a query param/dropdown to the URL path.
+
+Verified via a real local-dev-server Playwright check: the CogMap/Seyu `Select` is completely gone from `/forecast/cogmap` (0 occurrences of "Seyu" anywhere on the page), the hamburger drawer's Reporting section is scoped to CogMap only, and `/forecast`/`/battlecards`/`/outreach/templates` (bare) return 404 while their `/[brand]` equivalents return 200. Full gate clean (tsc 0 errors, lint 0 errors/warnings, vitest 345/345, smoke 5/5, build with all three routes now dynamic `/[brand]` segments).
+
 ## 2.4.67
 
 ### Changed — removed the on-page view-mode dropdown, folded into the hamburger nav (third pass on issue #95)

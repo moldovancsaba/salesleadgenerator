@@ -76,7 +76,7 @@ These fields are re-derived from the title every time a contact is saved — the
 
 Battlecards are competitor positioning summaries and objection responses, reference material for reps composing outreach — never auto-inserted into a message.
 
-1. Go to `/battlecards?brand=<cogmap|seyu>&tenantId=<id>` (defaults to `cogmap`/`default` if the query params are omitted).
+1. Go to `/battlecards/<cogmap|seyu>` (optionally `?tenantId=<id>`, defaults to `default`) — brand is now part of the URL path itself (2.4.68, issue #100), not a query param, so there's no bare `/battlecards` route anymore.
 2. Click **New Battlecard**, fill in a competitor name and positioning summary (both required), and optionally add proof points, objection/response pairs, and tags.
 3. Click **Create Battlecard**. To edit an existing one, click **Edit** on its row in the table below the form; to remove one, click the trash icon (a confirmation prompt appears first).
 4. Tags reuse the same tag mechanism as outreach templates (issue #64) — a battlecard tagged `enterprise` shows up alongside any template tagged `enterprise`.

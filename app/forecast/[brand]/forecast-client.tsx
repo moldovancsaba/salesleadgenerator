@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Container, Title, Text, Paper, SimpleGrid, Group, Badge, Select, TextInput, Loader, Alert, Button, Stack } from '@mantine/core';
-import { IconAlertCircle } from '@tabler/icons-react';
+import { Container, Title, Text, Paper, SimpleGrid, Group, Badge, TextInput, Loader, Button, Stack } from '@mantine/core';
 import { StatusBadge, InlineAlert, MetricCard, MissingDataPrompt } from '@sovereignsquad/gds-core/client';
 import { AdminSelect, AdminDataTable, AdminResourceEmptyState, AdminFormStatus } from '@sovereignsquad/gds-admin/client';
 import { CALIBRATABLE_STAGES } from '@/lib/win-rate-calibration';
@@ -81,8 +80,11 @@ const COVERAGE_BENCHMARK_TREND: Record<Coverage['benchmark'], 'positive' | 'nega
   unset: 'neutral',
 };
 
-export default function ForecastPage() {
-  const [brand, setBrand] = useState<string>('cogmap');
+type Props = {
+  brand: string;
+};
+
+export function ForecastClient({ brand }: Props) {
   const [data, setData] = useState<Forecast | null>(null);
   const [loading, setLoading] = useState(true);
   const [weights, setWeights] = useState<Record<string, number>>({});
@@ -245,25 +247,14 @@ export default function ForecastPage() {
     <Container py="md">
       <Group justify="space-between" mb="md">
         <Title order={2}>{isSeyu ? 'Seyu Forecast' : 'CogMap Forecast'}</Title>
-        <Group gap="xs">
-          <Select
-            size="xs"
-            data={[
-              { value: 'cogmap', label: 'CogMap' },
-              { value: 'seyu', label: 'Seyu' },
-            ]}
-            value={brand}
-            onChange={(v) => v && setBrand(v)}
-          />
-          <Button
-            size="xs"
-            variant="light"
-            color="gray"
-            onClick={downloadCsv}
-          >
-            Export CSV
-          </Button>
-        </Group>
+        <Button
+          size="xs"
+          variant="light"
+          color="gray"
+          onClick={downloadCsv}
+        >
+          Export CSV
+        </Button>
       </Group>
 
       {data.concentrationRisk?.atRisk && (
