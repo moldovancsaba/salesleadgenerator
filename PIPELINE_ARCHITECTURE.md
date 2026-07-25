@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.58
+**Version:** 2.4.59
 
 ## Overview
 
@@ -223,6 +223,8 @@ There is no Mongoose schema for this shape — `models/Lead.ts` (and `OutcomeLog
   createdAt: Date
 }
 ```
+
+CogMap's revenue aggregations (`pipelineForecast`, `revenueByModel`, `totalRevenue`, `perLeadValues`, all in `computeForecast()`) read a lead's revenue via a shared `REVENUE_EXPR`: `ticketSizeEstimate.expected` when present, else `estimated_annual_revenue_usd`, else 0 (2.4.59, issue #85) — the same fallback `app/constants.ts`'s `getTicketSize()` already uses for the lead-detail UI, so the forecast total and what an operator sees on a lead's own drawer never disagree. Seyu's forecast is unaffected — it's computed entirely from `pricingByCompany`, a separate model `ticketSizeEstimate` was never wired to replace.
 
 Collection: `forecast_snapshots`. Upserted on `{brand, tenantId, periodKey}` (idempotent — a retried trigger never duplicates); indexes on that compound key (unique) and `{brand, tenantId, capturedAt}` are ensured lazily via `createIndex` on each write, not a separate migration script.
 

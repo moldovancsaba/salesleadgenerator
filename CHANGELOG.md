@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.59
+
+### Changed — forecast now uses the validated ticketSizeEstimate instead of the raw legacy field (fixes #85)
+Issues #79–#83 built, backfilled, kept-fresh, and calibrated a validated, sanity-capped `ticketSizeEstimate` per lead — but `app/lib/forecast.ts`'s `computeForecast()` (the numbers behind `/forecast` and `GET /api/boards/[brand]`) still summed the raw, unvalidated `estimated_annual_revenue_usd` field directly in all four of its CogMap revenue aggregations, meaning the one place an operator actually reads for planning was still exposed to exactly the kind of unvalidated figure #79 was built to stop trusting.
+
+All four CogMap aggregations (`pipelineForecast`'s per-column revenue, `revenueByModel`'s per-model revenue, `totalRevenue`'s grand total, `perLeadValues`'s per-lead value used for concentration-risk ranking) now read a shared `REVENUE_EXPR`: `ticketSizeEstimate.expected` when present, falling back to `estimated_annual_revenue_usd`, else 0 — the identical legacy-fallback contract `app/constants.ts`'s `getTicketSize()` already uses for the lead-detail UI (#79/#80), so the forecast total and a lead's own drawer can never disagree about which figure is authoritative.
+
+**Resolved open questions from #85:** deliberately a value swap only, not a confidence-weighted one — `expected` is already the model's central estimate, and folding `confidence`/`low`/`high` into forecast weighting too would double-count risk the pipeline-stage close-probability weighting (#56) already prices in; revisit only once #83's calibration data shows a specific confidence tier is systematically mis-weighted. Seyu's forecast is unchanged and explicitly out of scope — it's built entirely from `pricingByCompany`, a separate per-company pricing model `ticketSizeEstimate` was never wired to represent (its own leads do get a `ticketSizeEstimate` computed since `computeTicketSizeForLead()` is brand-agnostic, but Seyu's forecast panel never reads it, by design, both before and after this change).
+
+### Testing
+No new pure-logic module — a data-source swap inside existing, already-tested aggregation code (`app/lib/forecast.ts` has no dedicated unit tests of its own; it's exercised via the `/api/boards/[brand]` and `/forecast` integration paths). Verified via `npx tsc --noEmit` (0 errors), `npm run lint` (0 warnings/errors), `npx vitest run` (319/319, unchanged — confirms no regression to any pure module this touches transitively), `npm run test:smoke` (5/5), and `npx next build --webpack` (35 routes, unchanged).
+
+### Documentation
+`docs/ARCHITECTURE.md` and `PIPELINE_ARCHITECTURE.md` updated with the `REVENUE_EXPR` fallback contract and the resolved value-swap-only decision.
+
 ## 2.4.58
 
 ### Fixed — lead detail-drawer field editing had no UI entry point (fixes #88)
