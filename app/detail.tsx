@@ -386,7 +386,17 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
                 <Badge variant="light" size="xs" color="orange">Needs re-verification</Badge>
               )}
             </Group>
-            {contact.title && <Text size="sm" c="dimmed">{contact.title}</Text>}
+            {contact.title && (
+              <Group gap={4} wrap="nowrap">
+                <Text size="sm" c="dimmed">{contact.title}</Text>
+                {contact.seniorityTier && contact.seniorityTier !== 'Unknown' && (
+                  <Badge variant="light" size="xs" color="grape">{contact.seniorityTier}</Badge>
+                )}
+                {contact.department && contact.department !== 'Unknown' && (
+                  <Badge variant="outline" size="xs" color="gray">{contact.department}</Badge>
+                )}
+              </Group>
+            )}
             {contact.email && (
               <Group gap={4} wrap="nowrap">
                 <Text size="sm" c="dimmed" component="a" href={`mailto:${contact.email.trim()}`}>{contact.email}</Text>
