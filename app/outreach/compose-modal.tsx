@@ -197,7 +197,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title={<Title order={4}>Outreach</Title>} centered withinPortal={false}>
+    <Modal opened={opened} onClose={onClose} title={<Title order={4}>Outreach</Title>} centered>
       <Stack gap="sm">
         {/* No native GDS tag/chip input primitive exists (issue #64) — Mantine
             TagsInput, already a transitive dependency, used directly as the
