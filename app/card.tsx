@@ -5,10 +5,12 @@ import type { Lead } from './types';
 import { getIceScore, getTicketSize } from './constants';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { getDecisionMakerContact } from '@/lib/contacts';
+import type { StaleDealResult } from '@/lib/stale-deal';
 
 type LeadCardProps = {
   lead: Lead;
   onOpen?: () => void;
+  staleness?: StaleDealResult | null;
 };
 
 // Deliberately flat, borderless content — no ProductCard/Paper wrapper here.
@@ -16,7 +18,7 @@ type LeadCardProps = {
 // renderItem returns (plus its drag handle and Move menu icons); nesting
 // ProductCard's own `withBorder` shell inside that produced a visible
 // "box within a box" around every kanban card.
-export function LeadCard({ lead, onOpen }: LeadCardProps) {
+export function LeadCard({ lead, onOpen, staleness }: LeadCardProps) {
   const ice = getIceScore(lead);
   const region = lead.region || 'NA';
   const quality = lead.qualityStatus || 'DRAFT';
@@ -48,6 +50,18 @@ export function LeadCard({ lead, onOpen }: LeadCardProps) {
           <Text fw={700} size="sm" truncate style={{ minWidth: 0 }}>{lead.entity_name}</Text>
           <Badge variant="light" size="sm" style={{ flexShrink: 0 }}>{quality}</Badge>
         </Group>
+        {staleness && (
+          <Group gap={4} wrap="nowrap">
+            <Badge
+              variant="light"
+              color={staleness.severity === 'critical' ? 'red' : 'yellow'}
+              size="sm"
+              aria-label={`Stale for ${staleness.daysSince} days, threshold ${staleness.thresholdDays} days`}
+            >
+              {`⚠ ${staleness.severity === 'critical' ? 'Critical' : 'Stale'} · ${staleness.daysSince}d`}
+            </Badge>
+          </Group>
+        )}
         {(lead.industry || lead.sport_or_sector) && (
           <Text size="xs" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
         )}
