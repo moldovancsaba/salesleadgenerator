@@ -62,6 +62,10 @@ export type Lead = {
       mxHosts?: string[];
       error?: string;
     };
+    // Rule-based (not ML), derived from `title` on every write — see
+    // lib/title-normalization.ts, issue #68. Not user-editable.
+    seniorityTier?: 'C-level' | 'VP' | 'Director' | 'Manager' | 'IC' | 'Unknown';
+    department?: 'Sales' | 'Marketing' | 'Operations' | 'Executive' | 'Unknown';
   }>;
   pro_for_organization?: string | string[];
   con_for_organization?: string | string[];

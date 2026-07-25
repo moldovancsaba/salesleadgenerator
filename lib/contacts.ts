@@ -5,6 +5,8 @@
 // its own near-duplicate normalization, and PATCH MODIFY had none at all.
 
 import type { EmailVerificationStatus } from './email-verification';
+import { normalizeTitle } from './title-normalization';
+import type { SeniorityTier, Department } from './title-normalization';
 
 export type ContactInput = Record<string, any>;
 
@@ -25,6 +27,12 @@ export type NormalizedContact = {
   // synchronously here. Undefined means never checked yet, distinct from
   // status: 'unverified' (checked, but the email failed format validation).
   emailVerificationStatus?: EmailVerificationStatus;
+  // Rule-based, derived from `title` on every normalize — see
+  // lib/title-normalization.ts, issue #68. Not user-editable; re-derived
+  // from whatever `title` is, every time, so it can never silently drift
+  // from the title it describes.
+  seniorityTier: SeniorityTier;
+  department: Department;
 };
 
 export type NormalizeContactOptions = {
@@ -64,16 +72,20 @@ export function normalizeEmail(email: string): string {
 export function normalizeContact(c: ContactInput, options?: NormalizeContactOptions): NormalizedContact {
   const rawEmail = typeof c?.email === 'string' ? c.email.trim() : '';
   const rawPhone = typeof c?.phone === 'string' ? c.phone.trim() : '';
+  const title = typeof c?.title === 'string' ? c.title.trim() : '';
   const verify = options?.verify === true;
   const now = options?.now ?? new Date();
+  const { seniorityTier, department } = normalizeTitle(title);
   return {
     name: typeof c?.name === 'string' ? c.name.trim() : '',
-    title: typeof c?.title === 'string' ? c.title.trim() : '',
+    title,
     email: rawEmail ? normalizeEmail(rawEmail) : '',
     phone: rawPhone ? normalizePhone(rawPhone) : '',
     linkedin: typeof c?.linkedin === 'string' ? c.linkedin.trim() : '',
     role: typeof c?.role === 'string' ? c.role.trim() : '',
     isDecisionMaker: c?.isDecisionMaker === true,
+    seniorityTier,
+    department,
     lastVerifiedAt: verify ? now.toISOString() : (typeof c?.lastVerifiedAt === 'string' ? c.lastVerifiedAt : undefined),
     // Passed through as-is when present — this is a server-computed field
     // (issue #67's background MX check), never something a write payload is
