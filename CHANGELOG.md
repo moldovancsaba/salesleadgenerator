@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.41
+
+Third delivery of the sales-tooling roadmap (tracking issue #76): content tagging and search for outreach templates.
+
+### Added — content tagging and search for outreach templates (fixes #64)
+`OutreachTemplate` gains an optional `tags?: string[]`, the same multi-valued classification shape as `Lead.tags`, alongside the pre-existing single-valued `industry`. New shared, generic module `app/lib/search/tagged-content-filter.ts` (`buildTaggedContentFilter`, `normalizeTags`) — pure/synchronous, no `outreach_templates`-specific hardcoding, taking `textFields`/`tags`/`q`/tenant scope as parameters — is the foundation the future "Battlecard/objection-handling library" roadmap issue (#65) is expected to point its own collection at rather than reimplementing.
+
+`GET /api/outreach-templates` gains `tags` (comma-separated, match-ANY) and `q` (free text over `name`/`subject`/`body`), additive to the existing `industry`/`channel` params, with a zero-match combination falling back to the full unfiltered list rather than a blank state — extending the graceful-degradation behavior `industry`/`channel` already had. A new `mode=search` branch (mirroring the existing `mode=analytics` branch) runs a real Mongo-level query via `buildTaggedContentFilter` and returns `{templates, matchedOn: {q, tags}, total, source}`. `POST` normalizes (trim, case-insensitive dedupe, first-seen casing preserved) and persists `tags[]` the same way `variables[]` already is.
+
+`app/outreach/templates/page.tsx`'s form gains a Mantine `TagsInput` — no native GDS tag/chip primitive exists, so Mantine is used directly as the underlying building block, matching this repo's established pattern — with a custom `renderPill` giving each removable pill an `aria-label="Remove tag {value}"` (WCAG-conscious, not relying on Mantine's generic default). Saved templates render their tags as a pill group under the existing `channel · industry` line. `app/outreach/compose-modal.tsx` gains an additive tag-filter row above the template `Select`, pre-populated from `lead.tags`, with an `aria-live="polite"` result-count status and a non-blocking "no templates match these tags — showing all" hint when the server has fallen back to the unfiltered list.
+
+### Testing
+`tests/lib/tagged-content-filter.test.ts` — 10 new tests covering `normalizeTags` (trim/dedupe/casing/non-array/non-string input) and `buildTaggedContentFilter` (q-only, tags-only, both, neither, regex-escaping). Interactive verification via headless Chromium against the real dev server: the new `TagsInput` on the templates management form accepts a typed tag, renders it as a removable pill, and the `GET`/`mode=search` endpoints were spot-checked directly (tag fallback to the unfiltered list confirmed, `q` matching across template bodies confirmed) — no console/hydration errors beyond the expected gaps from this sandbox's missing `MONGODB_URI`.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s "Outreach Template and Log" section; `PIPELINE_ARCHITECTURE.md`'s API endpoint table.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (124/124), smoke suite (5/5), `next build --webpack` (23 routes).
+
+Version bumped 2.4.40 -> 2.4.41.
+
 ## 2.4.40
 
 Second delivery of the sales-tooling roadmap (tracking issue #76): field-level contact data freshness tracking.

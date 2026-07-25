@@ -6,6 +6,9 @@ export type OutreachTemplate = {
   subject?: string;
   body: string;
   variables: string[];
+  // Free-form, multi-valued classification beyond `industry` — persona, deal
+  // stage, competitor mention, etc. Same shape as Lead.tags (issue #64).
+  tags?: string[];
 };
 
 export const DEFAULT_OUTREACH_TEMPLATES: OutreachTemplate[] = [

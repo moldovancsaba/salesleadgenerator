@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.40
+**Version:** 2.4.41
 
 ---
 
@@ -160,6 +160,8 @@ Records mutations with before/after state, actor, teaching weight, and tenant.
 Collections: `outreach_templates`, `outreach_logs`
 
 Templates are organization-agnostic and scoped by `tenantId` and `brand`. Logs enforce channel routing rules at write time.
+
+**Tagging and search (2.4.41, issue #64):** `OutreachTemplate` gains an optional `tags?: string[]` — the same multi-valued classification pattern as `Lead.tags` — alongside the pre-existing single-valued `industry`. `GET /api/outreach-templates` gains `tags` (comma-separated, `$in`-match ANY) and `q` (free text over `name`/`subject`/`body`), additive to the existing `industry`/`channel` params; a tags/q combination matching zero templates falls back to the full unfiltered list rather than a blank state, extending the graceful-degradation behavior `industry`/`channel` already had. A new `mode=search` branch (mirroring the existing `mode=analytics` branch) runs an actual Mongo-level query via the new shared `app/lib/search/tagged-content-filter.ts` (`buildTaggedContentFilter`, `normalizeTags`) and returns `{templates, matchedOn: {q, tags}, total, source}` — the pattern the future "Battlecard/objection-handling library" issue is expected to point its own collection at rather than reimplementing. `POST` normalizes and persists `tags[]` the same way `variables[]` already is. `app/outreach/templates/page.tsx`'s form gains a Mantine `TagsInput` (no native GDS tag/chip primitive exists) with a custom `renderPill` giving each removable pill an `aria-label="Remove tag {value}"`; `app/outreach/compose-modal.tsx` gains an additive tag-filter row above the template `Select`, pre-populated from `lead.tags`, with an `aria-live="polite"` result-count status and a non-blocking "no templates match these tags" hint when the server has fallen back to the unfiltered list.
 
 ### Search Learning
 Collection: `searchlearnings`

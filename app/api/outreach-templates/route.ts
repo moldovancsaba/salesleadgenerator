@@ -3,9 +3,12 @@ import clientPromise, { isMongoConfigured } from '../../../lib/mongodb'
 import { requireApiKey } from '../../../lib/api-auth'
 import { DEFAULT_OUTREACH_TEMPLATES } from '../../lib/outreach/default-templates'
 import type { OutreachTemplate } from '../../lib/outreach/default-templates'
+import { buildTaggedContentFilter, normalizeTags } from '../../lib/search/tagged-content-filter'
 import { ObjectId } from 'mongodb'
 
 export const dynamic = 'force-dynamic'
+
+const SEARCH_TEXT_FIELDS = ['name', 'subject', 'body']
 
 function getTenantId(request: Request): string {
   const url = new URL(request.url)
@@ -19,6 +22,34 @@ function getBrand(request: Request): string {
   return brand || 'default'
 }
 
+function getRequestedTags(searchParams: URLSearchParams): string[] {
+  const raw = (searchParams.get('tags') || '').trim()
+  if (!raw) return []
+  return normalizeTags(raw.split(','))
+}
+
+// Shared by both the Mongo-configured and default-templates (no-Mongo)
+// paths so `industry`/`channel`/`tags`/`q` behave identically regardless of
+// which source the templates came from.
+function matchesFilters(
+  t: { channel: string; industry: string; tags?: string[]; name?: string; subject?: string; body?: string },
+  opts: { industry?: string; channel?: string; tags?: string[]; q?: string }
+): boolean {
+  if (opts.channel && t.channel !== opts.channel) return false
+  if (opts.industry && t.industry !== opts.industry) return false
+  if (opts.tags && opts.tags.length > 0) {
+    const templateTagsLower = (t.tags || []).map((tag) => tag.toLowerCase())
+    const requestedLower = opts.tags.map((tag) => tag.toLowerCase())
+    if (!requestedLower.some((tag) => templateTagsLower.includes(tag))) return false
+  }
+  if (opts.q) {
+    const needle = opts.q.toLowerCase()
+    const haystack = `${t.name || ''} ${t.subject || ''} ${t.body || ''}`.toLowerCase()
+    if (!haystack.includes(needle)) return false
+  }
+  return true
+}
+
 export async function GET(request: Request) {
   try {
     const tenantId = getTenantId(request)
@@ -26,7 +57,51 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const industry = (searchParams.get('industry') || '').trim()
     const channel = (searchParams.get('channel') || '').trim()
+    const q = (searchParams.get('q') || '').trim()
+    const tags = getRequestedTags(searchParams)
     const mode = (searchParams.get('mode') || '').trim()
+
+    if (mode === 'search') {
+      if (!isMongoConfigured()) {
+        const matched = DEFAULT_OUTREACH_TEMPLATES.filter((t: OutreachTemplate) =>
+          matchesFilters(t, { industry, channel, tags, q })
+        )
+        return NextResponse.json({
+          templates: matched,
+          matchedOn: { q: q || undefined, tags: tags.length ? tags : undefined },
+          total: matched.length,
+          source: 'default',
+        })
+      }
+
+      const client = await clientPromise
+      const db = client.db()
+      const filter = buildTaggedContentFilter({ tenantId, brand, q, tags, textFields: SEARCH_TEXT_FIELDS })
+      const dbFiltered = await db.collection('outreach_templates').find(filter).sort({ name: 1 }).toArray()
+      const matched = dbFiltered
+        .map((t) => ({
+          id: t._id.toString(),
+          name: t.name,
+          channel: t.channel,
+          industry: t.industry,
+          subject: t.subject,
+          body: t.body,
+          variables: t.variables,
+          tags: t.tags || [],
+        }))
+        .filter((t) => matchesFilters(t, { industry, channel }))
+
+      if (!matched.length) {
+        console.warn('[API:outreach-templates] mode=search returned zero results', { q, tags, industry, channel, brand, tenantId })
+      }
+
+      return NextResponse.json({
+        templates: matched,
+        matchedOn: { q: q || undefined, tags: tags.length ? tags : undefined },
+        total: matched.length,
+        source: 'mongodb',
+      })
+    }
 
     if (mode === 'analytics') {
       if (!isMongoConfigured()) {
@@ -84,33 +159,30 @@ export async function GET(request: Request) {
       return NextResponse.json({ analytics, total: analytics.length, source: 'mongodb', brand })
     }
 
+    const hasAdditionalFilters = Boolean(industry || channel || q || tags.length)
+
     if (!isMongoConfigured()) {
-      const defaults = DEFAULT_OUTREACH_TEMPLATES.filter((t: OutreachTemplate) => {
-        if (industry && t.industry !== industry) return false
-        if (channel && t.channel !== channel) return false
-        return true
-      })
-      return NextResponse.json({ templates: defaults, source: 'default', brand })
+      if (!hasAdditionalFilters) {
+        return NextResponse.json({ templates: DEFAULT_OUTREACH_TEMPLATES, source: 'default', brand })
+      }
+      const matched = DEFAULT_OUTREACH_TEMPLATES.filter((t: OutreachTemplate) =>
+        matchesFilters(t, { industry, channel, tags, q })
+      )
+      // Zero-match falls back to the full unfiltered list rather than a
+      // blank state — matches the existing industry/channel behavior below,
+      // extended to also cover tags/q.
+      return NextResponse.json({ templates: matched.length ? matched : DEFAULT_OUTREACH_TEMPLATES, source: 'default', brand })
     }
 
     const client = await clientPromise
     const db = client.db()
-    const filter: Record<string, string> = { tenantId, brand }
-    if (industry) filter.industry = industry
-    if (channel) filter.channel = channel
-
-    const templates = await db.collection('outreach_templates').find(filter).sort({ name: 1 }).toArray()
-
-    const effectiveIndustry = industry || ''
-    const effectiveChannel = channel || ''
+    const templates = await db.collection('outreach_templates').find({ tenantId, brand }).sort({ name: 1 }).toArray()
 
     if (!templates.length) {
-      const defaults = DEFAULT_OUTREACH_TEMPLATES.filter((t: OutreachTemplate) => {
-        if (effectiveChannel && t.channel !== effectiveChannel) return false
-        if (effectiveIndustry && t.industry !== effectiveIndustry) return false
-        return true
-      })
-      return NextResponse.json({ templates: defaults, source: 'default', brand })
+      const defaults = hasAdditionalFilters
+        ? DEFAULT_OUTREACH_TEMPLATES.filter((t: OutreachTemplate) => matchesFilters(t, { industry, channel, tags, q }))
+        : DEFAULT_OUTREACH_TEMPLATES
+      return NextResponse.json({ templates: defaults.length ? defaults : DEFAULT_OUTREACH_TEMPLATES, source: 'default', brand })
     }
 
     const mapped = templates.map((t) => ({
@@ -121,14 +193,11 @@ export async function GET(request: Request) {
       subject: t.subject,
       body: t.body,
       variables: t.variables,
+      tags: t.tags || [],
     }))
 
-    if (effectiveIndustry || effectiveChannel) {
-      const matched = mapped.filter((t) => {
-        if (effectiveChannel && t.channel !== effectiveChannel) return false
-        if (effectiveIndustry && t.industry !== effectiveIndustry) return false
-        return true
-      })
+    if (hasAdditionalFilters) {
+      const matched = mapped.filter((t) => matchesFilters(t, { industry, channel, tags, q }))
       return NextResponse.json({ templates: matched.length ? matched : mapped, source: 'mongodb', brand })
     }
 
@@ -154,6 +223,7 @@ export async function POST(request: Request) {
     const templateBody = String(body.body || '').trim()
     const subject = body.subject ? String(body.subject).trim() : undefined
     const variables = Array.isArray(body.variables) ? body.variables.filter((v: any) => typeof v === 'string' && v.trim()) : []
+    const tags = normalizeTags(body.tags)
 
     if (!name || !channel || !templateBody) {
       return NextResponse.json({ error: 'name, channel, and body are required' }, { status: 400 })
@@ -179,6 +249,7 @@ export async function POST(request: Request) {
       subject,
       body: templateBody,
       variables,
+      tags,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
