@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.55
+
+Third delivery of the ticket-size estimation overhaul (tracking issue #87), and the last of Phase 1: full detail-drawer UI for the firmographic-tiered estimate.
+
+### Added — ticket-size detail-drawer UI (fixes #80)
+`app/detail.tsx` gains a `ticketSizeDetailSection()` helper, placed directly under the ICE Score block — both blocks answer "how are we scoring this deal," so they sit together. Three UX states, mirroring the pattern already established for email verification (#67) and tech-stack signals (#69): a real **estimate** shows the `expected` value prominently, the full `low`–`high` range, and an italic caption naming the method ("company-size tier" / "per-participant pricing") and confidence; **unconfigured** shows a dimmed message pointing the operator at Sales Settings — the actual lever that fixes it, not a dead end; a pre-backfill **legacy** lead (issue #81 hasn't reached it yet) shows its old direct value but now with an explicit "Unverified estimate" caption, never as a bare trusted figure. The whole section is omitted entirely — not shown as empty chrome — for a lead with neither a computed estimate nor any legacy field at all.
+
+`app/card.tsx`'s kanban-card treatment already shipped as a required part of #79 (changing `getTicketSize()`'s return shape was a breaking change to its only caller); this issue's card-side scope was already covered.
+
+### Testing
+No new pure-logic module (this is presentational, same as issue #80's original scope note). Interactive verification via headless Chromium against the real dev server with mocked lead data covering all four states (real estimate, unconfigured, legacy/pre-backfill, and the card's compact treatment from #79): confirmed each renders the exact copy and layout described above, with no console errors beyond the expected `MONGODB_URI`-less failures from unrelated endpoints (`/api/settings`, kanban columns).
+
+### Documentation
+`docs/ARCHITECTURE.md`'s "Ticket-size estimation" subsection gains a "UI" paragraph describing all three detail-drawer states, and its stale "Kanban Lead Card" paragraph (still describing the pre-#79 direct-value display) is corrected to match current behavior.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (310/310), smoke suite (5/5), `next build --webpack` (33 routes, no new route).
+
+Version bumped 2.4.54 -> 2.4.55. **This completes Phase 1 of the ticket-size overhaul** (tracking issue #87) — the urgent "one reliable function," now backfillable and fully visible. Phase 2 (#82 periodic recalculation, #83 closed-won calibration) is next.
+
 ## 2.4.54
 
 Second delivery of the ticket-size estimation overhaul (tracking issue #87): backfill for every lead written before issue #79's engine existed.
