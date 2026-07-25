@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Container, Title, Text, Paper, SimpleGrid, Group, Badge, Select, TextInput, Loader, Alert, Button } from '@mantine/core';
+import { Container, Title, Text, Paper, SimpleGrid, Group, Badge, Select, TextInput, Loader, Alert, Button, Stack } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
-import { StatusBadge, InlineAlert } from '@sovereignsquad/gds-core/client';
+import { StatusBadge, InlineAlert, MetricCard, MissingDataPrompt } from '@sovereignsquad/gds-core/client';
 
 type ConcentrationRisk = {
   topLeadId: string;
@@ -15,15 +15,40 @@ type ConcentrationRisk = {
   atRisk: boolean;
 };
 
+type Coverage = {
+  target: number;
+  targetPeriod: 'monthly' | 'quarterly' | 'annual';
+  targetCurrency: 'USD' | 'EUR';
+  weightedPipeline: number;
+  ratio: number;
+  benchmark: 'below' | 'in_range' | 'above' | 'unset';
+  currencyMismatch: boolean;
+};
+
 type Forecast = {
   pipeline?: Record<string, { leads: number; participants: number; rawRevenue: number; probability: number; weightedRevenue: number; concentrationRisk?: ConcentrationRisk | null }>;
   totalWeightedRevenue?: number;
   concentrationRisk?: ConcentrationRisk | null;
+  coverage?: Coverage | null;
   byTier?: Record<string, { leads: number; participants: number; revenue: number }>;
   byModel?: Record<string, { leads: number; revenue: number }>;
   totals?: { revenue: number; participants: number };
   byCompany?: Array<{ company: string; leads: number; currency: string; upfrontEur: number; monthlyEur: number; annualFeeEur: number; revenueSharePercent: number; discountPercent: number; estimatedAnnualValueEur: number }>;
   totalEstimatedAnnualValueEur?: number;
+};
+
+const COVERAGE_BENCHMARK_LABEL: Record<Coverage['benchmark'], string> = {
+  below: 'Below healthy range',
+  in_range: 'Healthy coverage',
+  above: 'Above healthy range',
+  unset: 'Currency mismatch',
+};
+
+const COVERAGE_BENCHMARK_TREND: Record<Coverage['benchmark'], 'positive' | 'negative' | 'neutral'> = {
+  below: 'negative',
+  in_range: 'positive',
+  above: 'neutral',
+  unset: 'neutral',
 };
 
 export default function ForecastPage() {
@@ -144,6 +169,30 @@ export default function ForecastPage() {
           />
         </div>
       )}
+
+      <Paper withBorder p="md" radius="md" mb="lg">
+        <Title order={4} mb="xs">Pipeline Coverage</Title>
+        {!data.coverage ? (
+          <MissingDataPrompt
+            title="No revenue target set"
+            description="Set a revenue target in Company Setup to see how the weighted pipeline forecast covers it."
+          />
+        ) : (
+          <Stack gap="sm">
+            <MetricCard
+              label="Coverage ratio"
+              value={`${data.coverage.ratio.toFixed(1)}x`}
+              description={`${data.coverage.targetCurrency}${data.coverage.weightedPipeline.toLocaleString()} weighted pipeline vs. ${data.coverage.targetCurrency}${data.coverage.target.toLocaleString()} ${data.coverage.targetPeriod} target`}
+              trend={{ label: COVERAGE_BENCHMARK_LABEL[data.coverage.benchmark], tone: COVERAGE_BENCHMARK_TREND[data.coverage.benchmark] }}
+            />
+            {data.coverage.currencyMismatch && (
+              <Text size="xs" c="orange">
+                Target is set in {data.coverage.targetCurrency} but this brand&apos;s pipeline is forecast in a different currency — no automatic conversion is applied. Update the target currency in Company Setup to compare accurately.
+              </Text>
+            )}
+          </Stack>
+        )}
+      </Paper>
 
       {isSeyu ? (
         <Paper withBorder p="md" radius="md" mb="lg">

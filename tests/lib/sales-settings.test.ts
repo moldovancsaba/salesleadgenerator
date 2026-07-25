@@ -14,6 +14,11 @@ describe('emptySalesSettings', () => {
     const settings = emptySalesSettings('seyu');
     expect(settings.tenantId).toBe('default');
   });
+
+  it('defaults revenueTarget currency to match the brand\'s own forecast currency, amount unset', () => {
+    expect(emptySalesSettings('cogmap').revenueTarget).toEqual({ currency: 'USD', period: 'annual' });
+    expect(emptySalesSettings('seyu').revenueTarget).toEqual({ currency: 'EUR', period: 'annual' });
+  });
 });
 
 describe('emptyProductLine', () => {
@@ -109,5 +114,31 @@ describe('sanitizeSalesSettings', () => {
     expect(result.exampleCustomer.totalContractValue).toBe(4200);
     expect(result.seasonality.quarters).toEqual(['Q1', 'Q3']);
     expect(result.seasonality.specificMonths).toBe('August');
+  });
+
+  it('sanitizes revenueTarget, coercing a numeric-string amount and validating currency/period', () => {
+    const result = sanitizeSalesSettings({
+      revenueTarget: { amount: '500000', currency: 'EUR', period: 'quarterly' },
+    }, 'cogmap', 'default');
+    expect(result.revenueTarget).toEqual({ amount: 500000, currency: 'EUR', period: 'quarterly' });
+  });
+
+  it('falls back to the brand default currency and annual period for an invalid revenueTarget', () => {
+    const result = sanitizeSalesSettings({
+      revenueTarget: { amount: 100000, currency: 'GBP', period: 'weekly' },
+    }, 'seyu', 'default');
+    expect(result.revenueTarget).toEqual({ amount: 100000, currency: 'EUR', period: 'annual' });
+  });
+
+  it('clamps a negative revenueTarget amount to 0 rather than rejecting the whole object', () => {
+    const result = sanitizeSalesSettings({
+      revenueTarget: { amount: -1000, currency: 'USD', period: 'monthly' },
+    }, 'cogmap', 'default');
+    expect(result.revenueTarget.amount).toBe(0);
+  });
+
+  it('defaults revenueTarget when entirely absent from the body', () => {
+    const result = sanitizeSalesSettings({}, 'cogmap', 'default');
+    expect(result.revenueTarget).toEqual({ currency: 'USD', period: 'annual' });
   });
 });

@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.45
+**Version:** 2.4.46
 
 ## Overview
 
@@ -91,7 +91,7 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 | GET | `/api/leads/columns?brand=<brand>&column=<col>` | Cursor-paginated per-column kanban loading; ICE-score sorted for DISCOVERED/QUALIFIED, `sortOrder` sorted for the other 4 |
 | GET | `/api/search?q=<query>&brand=<brand>` | Predictive lead search, deduped by fingerprint; cursor pagination when a specific `brand` is given |
 | GET | `/api/boards` | Available brand boards and config |
-| GET | `/api/boards/[brand]?tenantId=<id>` | Board metadata: counts, region breakdown, pipeline-weighted forecast |
+| GET | `/api/boards/[brand]?tenantId=<id>` | Board metadata: counts, region breakdown, pipeline-weighted forecast (`forecast.concentrationRisk`, `forecast.coverage` — `null` when not applicable/configured) |
 | GET | `/api/metrics?brand=<brand>&tenantId=<id>` | Per-column and per-region lead counts, plus `metrics.velocity` (time-in-stage, stage-to-stage conversion, computed from `outcomelogs`; 2.4.42, issue #58) |
 | GET | `/api/metrics/decline-reasons?brand=&tenantId=&groupBy=&from=&to=` | Cross-tabbed decline-reason rollup by industry/sport-or-sector/region and date range (2.4.43, issue #63) |
 | GET | `/api/settings` | Pipeline-weight settings used by forecast calculations, plus per-column stale-deal day thresholds (`thresholds`, additive as of 2.4.39) and concentration-risk `threshold`/`topN` (`concentrationRiskSettings`, additive as of 2.4.45) |
