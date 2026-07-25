@@ -324,6 +324,12 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
                 onChange={(value) => setSettings((s) => ({ ...s, dealSize: { ...s.dealSize, large: typeof value === 'number' ? value : undefined } }))}
                 min={0}
               />
+              <NumberInput
+                label="Enterprise customer (€)"
+                value={settings.dealSize.enterprise ?? ''}
+                onChange={(value) => setSettings((s) => ({ ...s, dealSize: { ...s.dealSize, enterprise: typeof value === 'number' ? value : undefined } }))}
+                min={0}
+              />
             </Group>
             <NumberInput
               label="Largest customer won so far (€)"

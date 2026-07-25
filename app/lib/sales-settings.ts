@@ -92,6 +92,12 @@ export interface DealSize {
   small?: number;
   medium?: number;
   large?: number;
+  // Added in issue #79 — Lead.size has always had 4 tiers (Small/Medium/
+  // Large/Enterprise, see lib/validate-lead.ts's ORG_SIZE_SET) but this
+  // interface only ever defined bands for 3 of them, leaving no configured
+  // band for an Enterprise-tier lead's ticket-size estimate to resolve
+  // against. Real schema fix, not a workaround.
+  enterprise?: number;
   largestWon?: number;
 }
 
@@ -162,10 +168,13 @@ export function emptyProductLine(id: string): ProductLine {
   };
 }
 
-// CogMap forecasts in USD, Seyu in EUR (see app/lib/forecast.ts) — the
-// default currency here matches that brand's real forecast currency, though
-// it remains freely editable and is never auto-converted.
-function defaultRevenueTargetCurrency(brand: string): RevenueTargetCurrency {
+// CogMap forecasts in USD, Seyu in EUR (see app/lib/forecast.ts, and issue
+// #79's app/lib/ticket-size-store.ts) — the default currency here matches
+// that brand's real forecast currency, though revenueTarget itself remains
+// freely editable and is never auto-converted. Exported as the one shared
+// source of truth for brand->currency, rather than each caller re-deriving
+// its own copy of the same mapping.
+export function defaultRevenueTargetCurrency(brand: string): RevenueTargetCurrency {
   return brand === 'seyu' ? 'EUR' : 'USD';
 }
 
@@ -320,6 +329,7 @@ export function sanitizeSalesSettings(body: unknown, brand: string, tenantId: st
       small: sanitizeOptionalNumber(dealSizeRaw.small),
       medium: sanitizeOptionalNumber(dealSizeRaw.medium),
       large: sanitizeOptionalNumber(dealSizeRaw.large),
+      enterprise: sanitizeOptionalNumber(dealSizeRaw.enterprise),
       largestWon: sanitizeOptionalNumber(dealSizeRaw.largestWon),
     },
     purchaseFrequency: sanitizeEnumArray(raw.purchaseFrequency, PURCHASE_FREQUENCIES),

@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.53
+
+First delivery of the ticket-size estimation overhaul (tracking issue #87): a deterministic, firmographic-based ticket-size engine, replacing the previously free-written estimate that could read as $8,000,000,000 for a mid-market lead.
+
+### Added — firmographic-tiered ticket-size estimation engine (fixes #79)
+New pure module `lib/ticket-size.ts`: `estimateTicketSize()` computes a `{low, expected, high, method, confidence}` band from data this app already collects but never previously used for this purpose — a lead's own `size` tier (Small/Medium/Large/Enterprise) and, when configured, the brand's own `company_settings` (`dealSize` tier bands, per-product `pricing` rate cards). Two real methods, tried in priority order: **`per_unit`** — a product priced for the lead's tier, multiplied by an agent-supplied unit-count signal (`estimated_participants`) and a fixed per-tier volume-discount factor (Enterprise pays less per unit than Small, per real per-seat pricing practice); **`tier_band`** — the brand's own configured deal-size band for that tier. When neither is configured, the honest **`unconfigured`** result is returned — never a fabricated number.
+
+**The direct fix for the reported bug**: every estimate is hard-capped at 2× `dealSize.largestWon` when set — once an operator configures a realistic largest-deal-ever-won figure, no estimate for any lead can exceed twice it, regardless of what an upstream research agent free-wrote or how recognizable the company name is. `DealSize` (`app/lib/sales-settings.ts`) gained a new `enterprise` band alongside the existing `small`/`medium`/`large`, closing a real pre-existing schema mismatch — `Lead.size` has always had 4 tiers, `DealSize` only ever defined bands for 3 of them, so an Enterprise-tier lead had no configured band to resolve against at all.
+
+New Mongo-touching orchestration `app/lib/ticket-size-store.ts`'s `computeTicketSizeForLead()` does the one `company_settings` lookup and calls the pure engine; wired into `POST /api/leads` and `PUT /api/leads/[id]` **synchronously** (unlike the fire-and-forget tech-stack scan from issue #69) since this is in-process computation against already-fetched data, not an outbound network call — the very next read of a lead already carries a real estimate. `app/constants.ts`'s `getTicketSize()` now reads the new `ticketSizeEstimate` field first; a lead written before this shipped falls back to the old direct-value display only until issue #81's backfill catches it up, and even that legacy fallback is now shown as an explicitly qualified "unverified estimate," never a bare trusted figure (CLAUDE.md Rule 7). `app/card.tsx` renders a compact `~$500K`-style abbreviated value with a dimmed "Modelled estimate" (or "Unverified estimate" for the legacy fallback) qualifier — never a bare crisp number implying quote-grade precision. `estimated_annual_revenue_usd`, `estimated_participants`, `recommended_tier`, `revenue_model`, and `pricingByCompany` are all kept as-is: `estimated_participants`/`revenue_model`/`recommended_tier` now feed the new engine as real inputs, while `estimated_annual_revenue_usd`/`pricingByCompany` remain stored for reference/audit but are no longer trusted as the displayed ticket size.
+
+### Testing
+`tests/lib/ticket-size.test.ts` — 12 new tests covering: `unconfigured` for no size tier and for no brand configuration; `tier_band` computation and its per-tier mapping across all 4 size tiers; low-confidence vs. medium-confidence based on whether `largestWon` is set; **the sanity cap directly reproducing and fixing an $8,000,000,000-style input, asserting the output clamps to 2× `largestWon`**; `per_unit` computation and its volume-discount taper (Enterprise pays less per unit than Small on identical inputs); `per_unit` preferred over `tier_band` when both are available, and falling through to `tier_band` when a matching product exists but no unit count does; the sanity cap applying identically to `per_unit` estimates; deterministic `computedAt` via the injected `now()` dependency. `tests/lib/sales-settings.test.ts` updated for the new `enterprise` `DealSize` field.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s Lead data model gains a "Ticket-size estimation" subsection and the `ticketSizeEstimate` field entry. `PIPELINE_ARCHITECTURE.md`'s Lead Model gains the same field.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (304/304), smoke suite (5/5), `next build --webpack` (32 routes, no new route). Interactive verification via headless Chromium against the real dev server with a mocked lead payload reproducing the exact reported bug (an $8B-scale Enterprise-tier lead): confirmed the kanban card now shows `~$500K` / "Modelled estimate" instead of a bare $8,000,000,000 figure, alongside `unconfigured`, `per_unit`, and pre-backfill `legacy` display states.
+
+Version bumped 2.4.52 -> 2.4.53. Next: issue #81 (backfill existing leads) and issue #80 (full detail-drawer UI).
+
 ## 2.4.52
 
 Fourteenth and final delivery of the sales-tooling roadmap (tracking issue #76): lightweight, SSRF-guarded company tech-stack scan.

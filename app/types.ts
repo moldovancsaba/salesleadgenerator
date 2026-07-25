@@ -82,6 +82,22 @@ export type Lead = {
   techSignals?: string[];
   techSignalsScannedAt?: string;
   techSignalsScanStatus?: 'ok' | 'blocked' | 'timeout' | 'invalid_url' | 'non_html' | 'error';
+  // Server-computed, firmographic-tiered deal-size estimate — see
+  // lib/ticket-size.ts, issue #79. Replaces trusting the free-written
+  // estimated_annual_revenue_usd/pricingByCompany fields below directly;
+  // those remain as agent-supplied signals/audit trail, no longer the
+  // authoritative displayed ticket size. `method: 'unconfigured'` means the
+  // brand hasn't set up deal-size bands/product pricing in Sales Settings
+  // yet — an honest state, never a fabricated number.
+  ticketSizeEstimate?: {
+    method: 'tier_band' | 'per_unit' | 'unconfigured';
+    computedAt: string;
+    low?: number;
+    expected?: number;
+    high?: number;
+    currency?: 'USD' | 'EUR';
+    confidence?: 'low' | 'medium' | 'high';
+  };
   kanbanColumn: KanbanColumn;
   sortOrder: number;
   fingerprint?: string;

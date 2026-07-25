@@ -29,16 +29,53 @@ export function getIceScore(lead: { ice?: { impact: number; confidence: number; 
   return 0;
 }
 
-// Ticket size — the estimated deal value for a lead. CogMap leads carry a
-// direct annual-revenue estimate (USD); Seyu leads carry per-company pricing
-// blocks (EUR) instead, summed using the same max(annual, monthly*12+upfront)
-// formula the /api/boards/[brand] forecast already uses server-side.
+// Ticket size — the estimated deal value for a lead. As of issue #79 this
+// reads the server-computed, firmographic-tiered ticketSizeEstimate
+// (lib/ticket-size.ts) first — a low/expected/high band with a method and
+// confidence, never a bare trusted-agent-written number. A lead written
+// before #79 (or backfilled yet) has no ticketSizeEstimate at all; for that
+// legacy case only, this falls back to the old direct-value display so
+// existing leads don't go blank overnight — see issue #81 for the backfill
+// that eventually retires this fallback path entirely.
+export type TicketSizeDisplay =
+  | { kind: 'estimate'; low: number; expected: number; high: number; currency: 'USD' | 'EUR'; method: 'tier_band' | 'per_unit'; confidence: 'low' | 'medium' | 'high' }
+  | { kind: 'unconfigured' }
+  | { kind: 'legacy'; value: number; currency: 'USD' | 'EUR' }
+  | null;
+
 export function getTicketSize(lead: {
+  ticketSizeEstimate?: {
+    method: 'tier_band' | 'per_unit' | 'unconfigured';
+    low?: number;
+    expected?: number;
+    high?: number;
+    currency?: 'USD' | 'EUR';
+    confidence?: 'low' | 'medium' | 'high';
+  };
   estimated_annual_revenue_usd?: number;
   pricingByCompany?: Record<string, { upfront_eur?: number; monthly_eur?: number; annual_fee_eur?: number }>;
-}): { value: number; currency: 'USD' | 'EUR' } | null {
+}): TicketSizeDisplay {
+  const est = lead.ticketSizeEstimate;
+  if (est) {
+    if (est.method === 'unconfigured') return { kind: 'unconfigured' };
+    if (
+      typeof est.low === 'number' && typeof est.expected === 'number' && typeof est.high === 'number' &&
+      est.currency && est.confidence
+    ) {
+      return {
+        kind: 'estimate',
+        low: est.low,
+        expected: est.expected,
+        high: est.high,
+        currency: est.currency,
+        method: est.method,
+        confidence: est.confidence,
+      };
+    }
+  }
+
   if (typeof lead.estimated_annual_revenue_usd === 'number' && lead.estimated_annual_revenue_usd > 0) {
-    return { value: lead.estimated_annual_revenue_usd, currency: 'USD' };
+    return { kind: 'legacy', value: lead.estimated_annual_revenue_usd, currency: 'USD' };
   }
 
   if (lead.pricingByCompany && typeof lead.pricingByCompany === 'object') {
@@ -48,7 +85,7 @@ export function getTicketSize(lead: {
       const annual = entry?.annual_fee_eur || 0;
       return sum + Math.max(annual, monthly * 12 + upfront);
     }, 0);
-    if (total > 0) return { value: total, currency: 'EUR' };
+    if (total > 0) return { kind: 'legacy', value: total, currency: 'EUR' };
   }
 
   return null;

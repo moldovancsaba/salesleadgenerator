@@ -1,0 +1,111 @@
+import { describe, it, expect } from 'vitest';
+import { estimateTicketSize } from '../../lib/ticket-size';
+import type { DealSizeBands, TicketSizeInputs, TicketSizeProductInput } from '../../lib/ticket-size';
+
+const NOW = new Date('2026-07-25T00:00:00.000Z');
+const now = () => NOW;
+
+function inputs(overrides: Partial<TicketSizeInputs> = {}): TicketSizeInputs {
+  return { sizeTier: 'Medium', unitCount: undefined, currency: 'USD', ...overrides };
+}
+
+describe('estimateTicketSize', () => {
+  it('returns unconfigured when the lead has no size tier', () => {
+    const result = estimateTicketSize(inputs({ sizeTier: undefined }), {}, [], now);
+    expect(result.method).toBe('unconfigured');
+    expect(result.computedAt).toBe(NOW.toISOString());
+  });
+
+  it('returns unconfigured when the brand has no deal-size bands or matching product', () => {
+    const result = estimateTicketSize(inputs(), {}, [], now);
+    expect(result.method).toBe('unconfigured');
+  });
+
+  it('computes a tier_band estimate from the brand deal-size config', () => {
+    const dealSize: DealSizeBands = { small: 10000, medium: 40000, large: 100000, enterprise: 250000, largestWon: 300000 };
+    const result = estimateTicketSize(inputs({ sizeTier: 'Medium' }), dealSize, [], now);
+    expect(result.method).toBe('tier_band');
+    if (result.method !== 'tier_band') throw new Error('expected tier_band');
+    expect(result.expected).toBe(40000);
+    expect(result.low).toBe(20000);
+    expect(result.currency).toBe('USD');
+    expect(result.confidence).toBe('medium');
+  });
+
+  it('gives low confidence when no largestWon is configured', () => {
+    const dealSize: DealSizeBands = { medium: 40000 };
+    const result = estimateTicketSize(inputs({ sizeTier: 'Medium' }), dealSize, [], now);
+    if (result.method !== 'tier_band') throw new Error('expected tier_band');
+    expect(result.confidence).toBe('low');
+  });
+
+  it('maps every size tier to its own band', () => {
+    const dealSize: DealSizeBands = { small: 5000, medium: 20000, large: 80000, enterprise: 200000, largestWon: 250000 };
+    for (const [tier, expected] of [['Small', 5000], ['Medium', 20000], ['Large', 80000], ['Enterprise', 200000]] as const) {
+      const result = estimateTicketSize(inputs({ sizeTier: tier }), dealSize, [], now);
+      if (result.method !== 'tier_band') throw new Error(`expected tier_band for ${tier}`);
+      expect(result.expected).toBe(expected);
+    }
+  });
+
+  it('caps a tier_band estimate at 2x the largest deal ever won (the $8B-bug fix)', () => {
+    // Simulates a brand that configured a wildly out-of-scale band value —
+    // the sanity cap must still clamp the output to a sane figure derived
+    // from real historical data (largestWon), never letting an absurd input
+    // propagate through untouched.
+    const dealSize: DealSizeBands = { enterprise: 8_000_000_000, largestWon: 500_000 };
+    const result = estimateTicketSize(inputs({ sizeTier: 'Enterprise' }), dealSize, [], now);
+    if (result.method !== 'tier_band') throw new Error('expected tier_band');
+    expect(result.expected).toBe(1_000_000); // 2x largestWon, not 8B
+    expect(result.high).toBeLessThanOrEqual(1_000_000);
+  });
+
+  it('computes a per_unit estimate when a matching product and unit count exist', () => {
+    const products: TicketSizeProductInput[] = [{ customerSize: ['small', 'medium'], perUnitRate: 10 }];
+    const result = estimateTicketSize(inputs({ sizeTier: 'Small', unitCount: 100 }), {}, products, now);
+    expect(result.method).toBe('per_unit');
+    if (result.method !== 'per_unit') throw new Error('expected per_unit');
+    // 10 * 100 * 12 * 1.0 (small tier discount factor)
+    expect(result.expected).toBe(12000);
+  });
+
+  it('applies a steeper volume discount for larger tiers on identical per-unit inputs', () => {
+    const products: TicketSizeProductInput[] = [{ customerSize: ['small', 'enterprise'], perUnitRate: 10 }];
+    const small = estimateTicketSize(inputs({ sizeTier: 'Small', unitCount: 100 }), {}, products, now);
+    const enterprise = estimateTicketSize(inputs({ sizeTier: 'Enterprise', unitCount: 100 }), {}, products, now);
+    if (small.method !== 'per_unit' || enterprise.method !== 'per_unit') throw new Error('expected per_unit for both');
+    expect(enterprise.expected).toBeLessThan(small.expected);
+  });
+
+  it('falls through to tier_band when a product matches the tier but there is no unit count', () => {
+    const dealSize: DealSizeBands = { small: 5000 };
+    const products: TicketSizeProductInput[] = [{ customerSize: ['small'], perUnitRate: 10 }];
+    const result = estimateTicketSize(inputs({ sizeTier: 'Small', unitCount: undefined }), dealSize, products, now);
+    expect(result.method).toBe('tier_band');
+  });
+
+  it('prefers per_unit over tier_band when both are available', () => {
+    const dealSize: DealSizeBands = { small: 5000 };
+    const products: TicketSizeProductInput[] = [{ customerSize: ['small'], perUnitRate: 10 }];
+    const result = estimateTicketSize(inputs({ sizeTier: 'Small', unitCount: 50 }), dealSize, products, now);
+    expect(result.method).toBe('per_unit');
+  });
+
+  it('caps a per_unit estimate at 2x the largest deal ever won', () => {
+    const products: TicketSizeProductInput[] = [{ customerSize: ['enterprise'], perUnitRate: 1_000_000 }];
+    const result = estimateTicketSize(
+      inputs({ sizeTier: 'Enterprise', unitCount: 10000 }),
+      { largestWon: 500_000 },
+      products,
+      now
+    );
+    if (result.method !== 'per_unit') throw new Error('expected per_unit');
+    expect(result.expected).toBe(1_000_000);
+  });
+
+  it('is deterministic via the injected now() dependency', () => {
+    const dealSize: DealSizeBands = { small: 5000 };
+    const result = estimateTicketSize(inputs({ sizeTier: 'Small' }), dealSize, [], () => new Date('2020-01-01T00:00:00.000Z'));
+    expect(result.computedAt).toBe('2020-01-01T00:00:00.000Z');
+  });
+});

@@ -129,6 +129,12 @@ export function normalizeLead(raw: LeadRaw): NormalizedLead {
     // array, never undefined, for a document scanned before this field
     // existed or not yet scanned at all.
     techSignals: Array.isArray(raw.techSignals) ? raw.techSignals : [],
+    // Server-computed by app/lib/ticket-size-store.ts (issue #79) — passed
+    // through unchanged, same pattern as techSignals/emailVerificationStatus.
+    // A create/update payload never legitimately sets this directly.
+    ticketSizeEstimate: raw.ticketSizeEstimate && typeof raw.ticketSizeEstimate === 'object'
+      ? raw.ticketSizeEstimate
+      : undefined,
     entity_name: ensureString(raw.entity_name || raw.name),
     region: ensureString(raw.region || 'NA').toUpperCase(),
     url: ensureString(raw.url),
