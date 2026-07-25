@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.43
+
+Fifth delivery of the sales-tooling roadmap (tracking issue #76): pipeline velocity metrics.
+
+### Added — pipeline velocity metrics (fixes #58)
+`GET /api/metrics` gains `metrics.velocity`: average time-in-stage and stage-to-stage conversion time, computed entirely from data already captured on every lead mutation — no new writes, no new collection, purely read/aggregate. A stage transition is detected as *any* `outcomelogs` row where `beforeState.kanbanColumn !== afterState.kanbanColumn`, regardless of `action` — confirmed that `COLUMN_MOVE`, `PIN` (forces `ENGAGED`), and `DECLINE` (forces `LOST`) all produce one; a naive `action === 'COLUMN_MOVE'`-only filter would silently miss the latter two.
+
+Two real gaps in `outcomelogs` had to be designed around: it has no `brand` field, and its `tenantId` is inconsistently written (the generic `POST /api/outcome-logs` path never sets it, unlike `executeLeadAction`'s own insert). `app/api/metrics/route.ts`'s new velocity step resolves the brand/tenant-scoped set of `leadId`s from the leads collection first, then joins `outcomelogs` on that set rather than trusting its `tenantId` alone — bounded to a two-period lookback window with a row cap (`truncated: true` surfaced rather than silently under-counting).
+
+New pure module `app/lib/velocity-metrics.ts` (`computeVelocity`) — no Mongo/React/internal `Date.now()`, mirroring `lib/stale-deal.ts`'s shape — groups by lead, walks each lead's sorted transitions, and falls back to the lead's own `createdAt` only for a first transition whose `from` is `DISCOVERED` (every lead starts there); any other "no prior transition" case has no known origin and is excluded rather than guessed. Per transition-pair: avg/median days, sample size, and trend vs. the immediately preceding equal-length period (`null`, not `NaN`/`Infinity`, when there's no prior sample). A velocity-step failure degrades only `metrics.velocity` (`null`) — the rest of `/api/metrics` is unaffected.
+
+`app/metrics.tsx`'s `MetricsPanel` gains a "Pipeline Velocity" section: a GDS `StatsStrip` for average time-in-stage, and a GDS `AdminAnalyticsTable` for per-pair transition stats — no new non-GDS chart library. A pair with fewer than 3 samples renders "—" rather than a misleadingly precise average. `AdminAnalyticsTable`'s `metricTone` is a per-column, not per-row, property (a real, confirmed GDS constraint), so per-row trend coloring is rendered directly as a colored `Text` node in the column's `accessor` instead — the `+`/`−` percentage text is always present alongside the color, never color-only.
+
+### Testing
+`tests/lib/velocity-metrics.test.ts` — 11 new tests: COLUMN_MOVE-shaped and PIN-shaped and DECLINE-shaped transition detection (action-agnostic), non-column-changing logs ignored, bouncing-lead independent sampling, sparse pre-feature lead with no known origin excluded, empty-log no-divide-by-zero, null trend on zero prior sample, correct trend computation with both periods present, `avgTimeInStage` aggregation across destinations, and the `insufficientData` floor. Interactive verification via headless Chromium against the real dev server: the existing metrics sections render unaffected, and — since this sandbox has no `MONGODB_URI` to produce real transition data — a mocked `/api/metrics` response was used to confirm the `StatsStrip`/`AdminAnalyticsTable` render correctly end-to-end (dash-for-low-sample-size, teal/red trend coloring paired with text, no console/hydration errors).
+
+### Documentation
+`docs/ARCHITECTURE.md`'s "Boards and Metrics" section (new "Pipeline Velocity" subsection); `PIPELINE_ARCHITECTURE.md`'s API endpoint table.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (140/140), smoke suite (5/5), `next build --webpack` (25 routes).
+
+Version bumped 2.4.42 -> 2.4.43.
+
 ## 2.4.42
 
 Fourth delivery of the sales-tooling roadmap (tracking issue #76), the last of the "foundational" wave: forecast snapshot history.

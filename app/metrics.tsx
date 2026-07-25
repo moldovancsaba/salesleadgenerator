@@ -14,7 +14,25 @@ import {
   Badge,
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
-import { InfoCard } from '@sovereignsquad/gds-admin/client';
+import { InfoCard, StatsStrip, AdminAnalyticsTable, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client';
+
+type VelocityTransitionStat = {
+  from: string;
+  to: string;
+  avgDays: number | null;
+  medianDays: number | null;
+  sampleSize: number;
+  priorPeriodAvgDays: number | null;
+  trendPct: number | null;
+};
+
+type VelocityMetrics = {
+  transitions: VelocityTransitionStat[];
+  avgTimeInStage: Record<string, number | null>;
+  periodDays: number;
+  insufficientData: boolean;
+  truncated: boolean;
+};
 
 type MetricsData = {
   total: number;
@@ -26,7 +44,13 @@ type MetricsData = {
   sortedDeclineReasons: Array<[string, number]>;
   qualityCounts: Record<string, number>;
   successRate: number;
+  velocity: VelocityMetrics | null;
 };
+
+// A transition pair with fewer than 3 samples renders "—" rather than an
+// averaged number that would read as more statistically meaningful than it
+// actually is.
+const MIN_DISPLAYABLE_SAMPLE = 3;
 
 type Props = {
   brand?: string;
@@ -182,6 +206,90 @@ export function MetricsPanel({ brand = 'cogmap', tenantId = 'default' }: Props) 
             )
           })}
         </SimpleGrid>
+      </Stack>
+
+      <Stack gap="md">
+        <Title order={4}>Pipeline Velocity</Title>
+        {!data.velocity ? (
+          <Alert icon={<IconAlertCircle size="1rem" />} title="Velocity metrics unavailable" color="gray" variant="light">
+            Could not compute stage-to-stage timing right now — the rest of this page is unaffected.
+          </Alert>
+        ) : data.velocity.transitions.length === 0 ? (
+          <AdminResourceEmptyState
+            title="No stage transitions yet"
+            description="Velocity metrics need at least one recorded kanban-column change."
+          />
+        ) : (
+          <>
+            {data.velocity.insufficientData && (
+              <Alert icon={<IconAlertCircle size="1rem" />} color="yellow" variant="light">
+                Limited data collected so far — figures below may not be statistically meaningful yet.
+              </Alert>
+            )}
+            {data.velocity.truncated && (
+              <Alert icon={<IconAlertCircle size="1rem" />} color="yellow" variant="light">
+                Too many outcome-log rows to scan in one request — results reflect a partial (truncated) sample.
+              </Alert>
+            )}
+            {Object.keys(data.velocity.avgTimeInStage).length > 0 && (
+              <StatsStrip
+                stats={Object.entries(data.velocity.avgTimeInStage)
+                  .filter(([, avgDays]) => avgDays !== null)
+                  .map(([stage, avgDays]) => ({
+                    label: `Avg time in ${stage}`,
+                    value: `${(avgDays as number).toFixed(1)}d`,
+                  }))}
+              />
+            )}
+            <AdminAnalyticsTable
+              rows={data.velocity.transitions}
+              getRowKey={(row) => `${row.from}->${row.to}`}
+              columns={[
+                {
+                  key: 'transition',
+                  header: 'Transition',
+                  rowHeader: true,
+                  accessor: (row) => `${row.from} → ${row.to}`,
+                },
+                {
+                  key: 'avgDays',
+                  header: 'Avg days',
+                  numeric: true,
+                  accessor: (row) => (row.sampleSize < MIN_DISPLAYABLE_SAMPLE || row.avgDays === null ? '—' : row.avgDays.toFixed(1)),
+                },
+                {
+                  key: 'medianDays',
+                  header: 'Median days',
+                  numeric: true,
+                  accessor: (row) => (row.sampleSize < MIN_DISPLAYABLE_SAMPLE || row.medianDays === null ? '—' : row.medianDays.toFixed(1)),
+                },
+                {
+                  key: 'sampleSize',
+                  header: 'Samples',
+                  numeric: true,
+                  accessor: (row) => String(row.sampleSize),
+                },
+                {
+                  key: 'trend',
+                  header: `Trend vs. prior ${data.velocity!.periodDays}d`,
+                  accessor: (row) => {
+                    if (row.trendPct === null || row.sampleSize < MIN_DISPLAYABLE_SAMPLE) return '—';
+                    // Faster (lower avgDays) is an improvement, so a negative
+                    // trendPct renders in teal — but the sign and number are
+                    // always shown as text alongside the color, never color alone.
+                    const improving = row.trendPct < 0;
+                    const sign = row.trendPct > 0 ? '+' : '';
+                    return (
+                      <Text size="sm" c={improving ? 'teal' : 'red'} fw={600}>
+                        {sign}{row.trendPct.toFixed(0)}%
+                      </Text>
+                    );
+                  },
+                },
+              ]}
+            />
+          </>
+        )}
       </Stack>
     </Stack>
   )
