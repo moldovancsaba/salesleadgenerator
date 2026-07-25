@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title } from '@mantine/core';
+import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title, TagsInput, Pill } from '@mantine/core';
 import { IconX } from '@tabler/icons-react';
 import { evaluateOutreachRouting } from '../lib/outreach/routing-rules';
 import { getDecisionMakerContact } from '../../lib/contacts';
@@ -16,6 +16,7 @@ type Props = {
     value_proposition?: string;
     sport_or_sector?: string;
     industry?: string;
+    tags?: string[];
     url?: string;
     country?: string;
     region?: string;
@@ -33,6 +34,7 @@ type Template = {
   subject?: string;
   body: string;
   variables: string[];
+  tags?: string[];
 };
 
 function interpolate(template: string, values: Record<string, any>): string {
@@ -50,6 +52,9 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
+  // Tag-based filter row, additive to the existing industry filter (issue
+  // #64). Pre-populated from the lead's own tags when present.
+  const [filterTags, setFilterTags] = useState<string[]>([]);
 
   const industry = lead.industry || lead.sport_or_sector || '';
   // Template placeholder {contact_name} resolves from the contact flagged
@@ -68,11 +73,23 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   const canSendLinkedIn = channel === 'linkedin' && routeResult.allowed && body.trim().length > 0;
   const canSend = channel === 'email' ? canSendEmail : canSendLinkedIn;
 
+  // Reset the tag filter to the lead's own tags whenever the modal opens
+  // for a (possibly new) lead — interpolationValues already tracks lead
+  // identity via its `[lead]` memo dependency.
+  useEffect(() => {
+    if (opened) setFilterTags(interpolationValues.tags || []);
+  }, [opened, interpolationValues]);
+
+  const hasTagMatch = filterTags.length === 0 || templates.some((t) =>
+    (t.tags || []).some((tag) => filterTags.some((ft) => ft.toLowerCase() === tag.toLowerCase()))
+  );
+
   useEffect(() => {
     if (!opened) return;
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/outreach-templates?brand=${brand}${industry ? `&industry=${encodeURIComponent(industry)}` : ''}`)
+    const tagsParam = filterTags.length ? `&tags=${encodeURIComponent(filterTags.join(','))}` : '';
+    fetch(`/api/outreach-templates?brand=${brand}${industry ? `&industry=${encodeURIComponent(industry)}` : ''}${tagsParam}`)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
@@ -97,7 +114,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
     return () => {
       cancelled = true;
     }
-  }, [opened, brand, industry, interpolationValues])
+  }, [opened, brand, industry, interpolationValues, filterTags])
 
   useEffect(() => {
     const found = templates.find((t) => t.id === templateId)
@@ -142,6 +159,35 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   return (
     <Modal opened={opened} onClose={onClose} title={<Title order={4}>Outreach</Title>} centered withinPortal={false}>
       <Stack gap="sm">
+        {/* No native GDS tag/chip input primitive exists (issue #64) — Mantine
+            TagsInput, already a transitive dependency, used directly as the
+            underlying building block, matching this repo's established
+            Mantine-composed-under-GDS pattern. Additive to the existing
+            industry filter, pre-populated from the lead's own tags. */}
+        <TagsInput
+          label="Filter by tag"
+          placeholder="Add a tag to filter templates"
+          value={filterTags}
+          onChange={setFilterTags}
+          clearable
+          renderPill={({ option, onRemove, disabled }) => (
+            <Pill
+              withRemoveButton
+              onRemove={onRemove}
+              disabled={disabled}
+              removeButtonProps={{ 'aria-label': `Remove tag ${option.value}` }}
+            >
+              {option.value}
+            </Pill>
+          )}
+        />
+        <Text size="xs" c="dimmed" aria-live="polite">
+          {loading ? 'Loading templates…' : `${templates.length} template${templates.length === 1 ? '' : 's'} found`}
+        </Text>
+        {!loading && filterTags.length > 0 && !hasTagMatch && (
+          <Text size="xs" c="orange">No templates match these tags — showing all templates.</Text>
+        )}
+
         {loading ? (
           <Paper p="md" withBorder>
             <Group gap="sm"><Loader size="xs" /> <Text size="sm">Loading templates…</Text></Group>

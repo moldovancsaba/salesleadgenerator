@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput } from '@mantine/core'
+import { Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput, TagsInput, Badge, Pill } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 
 type Template = {
@@ -12,6 +12,7 @@ type Template = {
   subject?: string
   body: string
   variables: string[]
+  tags?: string[]
 }
 
 const EMPTY_TEMPLATE: Omit<Template, 'id'> = {
@@ -21,6 +22,7 @@ const EMPTY_TEMPLATE: Omit<Template, 'id'> = {
   subject: '',
   body: '',
   variables: [],
+  tags: [],
 }
 
 export default function OutreachTemplatesPage() {
@@ -75,6 +77,7 @@ export default function OutreachTemplatesPage() {
         brand,
         tenantId,
         variables: (form.variables || []).filter(Boolean),
+        tags: (form.tags || []).filter(Boolean),
       }
 
       const res = await fetch('/api/outreach-templates', {
@@ -106,6 +109,7 @@ export default function OutreachTemplatesPage() {
       subject: template.subject || '',
       body: template.body,
       variables: template.variables || [],
+      tags: template.tags || [],
     })
   }
 
@@ -161,6 +165,29 @@ export default function OutreachTemplatesPage() {
               placeholder="Academy, Federation, Club"
             />
 
+            {/* No native GDS tag/chip input primitive exists (issue #64) — Mantine
+                TagsInput, already a transitive dependency, used directly as the
+                underlying building block, matching this repo's established
+                Mantine-composed-under-GDS pattern. */}
+            <TagsInput
+              label="Tags"
+              placeholder="persona, deal-stage, competitor-mention"
+              value={form.tags || []}
+              onChange={(value) => setForm((f) => ({ ...f, tags: value }))}
+              description="Press Enter or comma to add a tag"
+              clearable
+              renderPill={({ option, onRemove, disabled }) => (
+                <Pill
+                  withRemoveButton
+                  onRemove={onRemove}
+                  disabled={disabled}
+                  removeButtonProps={{ 'aria-label': `Remove tag ${option.value}` }}
+                >
+                  {option.value}
+                </Pill>
+              )}
+            />
+
             {form.channel === 'email' && (
               <TextInput
                 label="Subject"
@@ -214,6 +241,13 @@ export default function OutreachTemplatesPage() {
                     </Group>
                     {template.subject && (
                       <Text size="sm" c="dimmed">Subject: {template.subject}</Text>
+                    )}
+                    {template.tags && template.tags.length > 0 && (
+                      <Group gap={4}>
+                        {template.tags.map((tag) => (
+                          <Badge key={tag} variant="light" size="xs" color="gray">{tag}</Badge>
+                        ))}
+                      </Group>
                     )}
                     <Text size="sm" lineClamp={3}>
                       {template.body}

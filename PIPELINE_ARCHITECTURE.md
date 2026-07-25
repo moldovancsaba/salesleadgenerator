@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.40
+**Version:** 2.4.41
 
 ## Overview
 
@@ -98,7 +98,7 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 | GET | `/api/health` | Health check |
 | GET | `/api/admin/cron-status` | Cron observability |
 | GET | `/api/admin/data-hygiene` | Malformed lead counts by brand |
-| GET/POST | `/api/outreach-templates` | Template CRUD and analytics |
+| GET/POST | `/api/outreach-templates` | Template CRUD and analytics; `GET` also accepts `tags`/`q` (additive to `industry`/`channel`, graceful zero-match fallback) and a `mode=search` variant for a real Mongo-level tag/content query (2.4.41, issue #64) |
 | GET | `/api/outreach-logs` | Outreach activity logs |
 | GET/POST | `/api/outcome-logs` | Outcome logs for feedback learning |
 | GET/POST | `/api/search-learning` | Search memory and success metrics |
