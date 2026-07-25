@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import type { Lead } from './types';
 import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@sovereignsquad/gds-admin/client';
 import { createGdsVocabularyPack, GdsIcons, StatusBadge } from '@sovereignsquad/gds-core/client';
-import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, NumberInput } from '@mantine/core';
+import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, NumberInput, TextInput, Select } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { PRO_FIELD, CON_FIELD } from './lib/brand';
@@ -174,6 +174,10 @@ const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
   { value: "OTHER", label: "Other" },
 ];
 
+// Matches lib/validate-lead.ts's ORG_SIZE_SET exactly — the same fixed
+// 4-value enum the server validates `size` against on save (issue #88).
+const SIZE_FIELD_OPTIONS = ['Small', 'Medium', 'Large', 'Enterprise'];
+
 // GDS's built-in semantic-action vocabulary (GdsVocabulary) has no "pin"
 // entry — every other action below uses a registered built-in key directly
 // (confirm/cancel/refresh/edit/delete), but "pin" needed this one-entry
@@ -189,14 +193,25 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   const [busy, setBusy] = useState(false);
   const [outreachOpen, setOutreachOpen] = useState(false);
   const [fullScreen, setFullScreen] = useState(true);
-  // Closed-won calibration capture (issue #83) — a standalone mini-flow
-  // (its own local state + save action) rather than routing through
-  // handleModify()'s full-payload MODIFY call below: handleModify() is
-  // defined in this file but not currently wired to any button (a
-  // pre-existing gap, out of scope to fix here), so this field needs its
-  // own minimal, genuinely working capture path instead of depending on it.
+  // Closed-won calibration capture (issue #83) — kept as its own standalone
+  // mini-flow (own local state + save action) rather than folded into the
+  // "Edit Lead Details" form below: at the time this was written,
+  // handleModify() had no UI entry point at all (fixed in issue #88), and
+  // keeping this field on its own save action means capturing the actual
+  // deal value never requires touching any other lead field.
   const [actualDealValueInput, setActualDealValueInput] = useState<number | ''>('');
   const [savingActualDealValue, setSavingActualDealValue] = useState(false);
+  // "Edit Lead Details" form (issue #88) — handleModify() below was defined
+  // from this file's very first commit but never wired to any button; its
+  // payload was built directly from `lead.X`, which isn't locally mutable
+  // state, so there was no way to actually change anything before saving.
+  // This local editForm is the real editable state; handleModify() now reads
+  // from it instead.
+  const [editingFields, setEditingFields] = useState(false);
+  const [editForm, setEditForm] = useState({
+    entity_name: '', url: '', address: '', general_contact: '', size: '',
+    industry: '', sport_or_sector: '', level_league: '', value_proposition: '', notes: '', tags: '',
+  });
 
   useEffect(() => {
     setActualDealValueInput(typeof lead?.actualDealValueUsd === 'number' ? lead.actualDealValueUsd : '');
@@ -331,25 +346,50 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     }
   }
 
+  // Seeds editForm from the current lead and opens the edit UI (issue #88).
+  function openEditFields() {
+    if (!lead) return;
+    setEditForm({
+      entity_name: lead.entity_name || '',
+      url: lead.url || '',
+      address: lead.address || '',
+      general_contact: lead.general_contact || '',
+      size: lead.size || '',
+      industry: lead.industry || '',
+      sport_or_sector: lead.sport_or_sector || '',
+      level_league: lead.level_league || '',
+      value_proposition: lead.value_proposition || '',
+      notes: lead.notes || '',
+      tags: (lead.tags || []).join(', '),
+    });
+    setEditingFields(true);
+  }
+
+  // Reads from editForm (the real, user-editable state), not lead.X — see
+  // the editingFields state comment for why. Deliberately omits `contacts`
+  // from the payload entirely: PATCH ... MODIFY only touches `contacts` when
+  // the payload includes it, so leaving it out here leaves existing
+  // contacts untouched, which is the safe, correct behavior for a form that
+  // doesn't offer contacts editing (out of scope, issue #88).
   async function handleModify() {
     if (!lead) return;
     setBusy(true);
     try {
       await onAction(lead._id, 'MODIFY', {
-        entity_name: lead.entity_name,
-        url: lead.url,
-        address: lead.address,
-        general_contact: lead.general_contact,
-        size: lead.size,
-        industry: lead.industry,
-        sport_or_sector: lead.sport_or_sector,
-        level_league: lead.level_league,
-        contacts: lead.contacts,
-        value_proposition: lead.value_proposition,
-        notes: lead.notes,
-        tags: lead.tags,
+        entity_name: editForm.entity_name,
+        url: editForm.url,
+        address: editForm.address,
+        general_contact: editForm.general_contact,
+        size: editForm.size,
+        industry: editForm.industry,
+        sport_or_sector: editForm.sport_or_sector,
+        level_league: editForm.level_league,
+        value_proposition: editForm.value_proposition,
+        notes: editForm.notes,
+        tags: editForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
       });
       showNotification({ message: 'Lead updated', color: 'green', autoClose: 4000 });
+      setEditingFields(false);
     } catch (err) {
       showNotification({ message: err instanceof Error ? err.message : 'Modify failed', color: 'red', autoClose: 5000 });
     } finally {
@@ -527,6 +567,56 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
           <Text size="sm">{lead.kanbanColumn}</Text>
         </Box>
       </SimpleGrid>
+
+      <Box>
+        <Group justify="space-between" align="center">
+          <Text fw={600}>Lead Details</Text>
+          {!editingFields && (
+            <Button size="xs" variant="light" onClick={openEditFields} disabled={busy}>Edit</Button>
+          )}
+        </Group>
+        {editingFields && (
+          <Stack gap="xs" mt="xs">
+            <TextInput label="Entity name" value={editForm.entity_name} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, entity_name: v })); }} />
+            <TextInput label="URL" value={editForm.url} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, url: v })); }} />
+            <TextInput label="Address" value={editForm.address} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, address: v })); }} />
+            <TextInput label="General contact" value={editForm.general_contact} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, general_contact: v })); }} />
+            <Select
+              label="Size"
+              value={editForm.size || null}
+              onChange={(value) => setEditForm((f) => ({ ...f, size: value || '' }))}
+              data={SIZE_FIELD_OPTIONS}
+              clearable
+            />
+            <TextInput label="Industry" value={editForm.industry} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, industry: v })); }} />
+            <TextInput label="Sport / Sector" value={editForm.sport_or_sector} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, sport_or_sector: v })); }} />
+            <TextInput label="Level / League" value={editForm.level_league} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, level_league: v })); }} />
+            <AdminTextarea
+              name="value_proposition"
+              label="Value proposition"
+              value={editForm.value_proposition}
+              onChange={(value: string) => setEditForm((f) => ({ ...f, value_proposition: value }))}
+              rows={3}
+            />
+            <AdminTextarea
+              name="notes"
+              label="Notes"
+              value={editForm.notes}
+              onChange={(value: string) => setEditForm((f) => ({ ...f, notes: value }))}
+              rows={3}
+            />
+            <TextInput
+              label="Tags (comma-separated)"
+              value={editForm.tags}
+              onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, tags: v })); }}
+            />
+            <Group gap="xs">
+              <Button size="sm" onClick={handleModify} loading={busy}>Save</Button>
+              <Button size="sm" variant="subtle" color="gray" onClick={() => setEditingFields(false)} disabled={busy}>Cancel</Button>
+            </Group>
+          </Stack>
+        )}
+      </Box>
 
       <Stack gap="xs">
         <Group justify="space-between" align="baseline">
