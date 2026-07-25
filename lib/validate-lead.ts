@@ -12,6 +12,21 @@ const PHONE_RE = /^\+[\d][\d\-\s]{7,}$/;
 const LINKEDIN_RE = /^https?:\/\/(www\.)?linkedin\.com\/in\/\S+$/i;
 const CONTACT_CONFIDENCE_RE = /[A-Za-z]{2,}/;
 
+// Shared with app/api/battlecards/route.ts's own content validation (issue
+// #65) — one source of truth for which terms belong to which brand, rather
+// than a second copy that could drift from this one.
+export const FORBIDDEN_BRAND_TERMS: Record<string, string[]> = {
+  COGMAP: ['seyu', 'fan selfie', 'led screen', 'jumbotron', 'sponsor activation', 'revenue-share', 'revenue share', 'second screen', 'second-screen'],
+  SEYU: ['cogmap', 'cognitive assessment', 'player performance analytics', 'decision-making profiling', 'sports science', 'situational awareness'],
+};
+
+export function findForbiddenBrandTerms(text: string | undefined | null, brand: string): string[] {
+  const brandUpper = String(brand || '').toUpperCase();
+  const lower = typeof text === 'string' ? text.toLowerCase() : '';
+  const terms = FORBIDDEN_BRAND_TERMS[brandUpper] || [];
+  return terms.filter((term) => lower.includes(term));
+}
+
 const KANBAN_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST'];
 const KANBAN_COLUMN_SET = new Set(KANBAN_COLUMNS);
 const ORG_SIZES = ['Small', 'Medium', 'Large', 'Enterprise'];
@@ -42,19 +57,8 @@ export function validateLeadPayload(body: any, brand: string, options?: { partia
     return { valid: false, errors: ['Invalid payload'] };
   }
 
-  const brandUpper = String(brand || '').toUpperCase();
-
-  const vp = typeof body.value_proposition === 'string' ? body.value_proposition.toLowerCase() : '';
-  const forbiddenValueTerms: Record<string, string[]> = {
-    COGMAP: ['seyu', 'fan selfie', 'led screen', 'jumbotron', 'sponsor activation', 'revenue-share', 'revenue share', 'second screen', 'second-screen'],
-    SEYU: ['cogmap', 'cognitive assessment', 'player performance analytics', 'decision-making profiling', 'sports science', 'situational awareness'],
-  };
-
-  const valueTerms = forbiddenValueTerms[brandUpper] || [];
-  for (const term of valueTerms) {
-    if (vp.includes(term)) {
-      errors.push(`value_proposition contains forbidden ${brand} content: ${term}`);
-    }
+  for (const term of findForbiddenBrandTerms(body.value_proposition, brand)) {
+    errors.push(`value_proposition contains forbidden ${brand} content: ${term}`);
   }
 
   // entity_name / url / country / kanbanColumn / ice: required on create (partial=false);
