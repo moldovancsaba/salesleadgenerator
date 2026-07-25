@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.62
+**Version:** 2.4.63
 
 ---
 
@@ -69,8 +69,8 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 
 | Component | Role |
 |-----------|------|
-| OpenClaw agent | Research, enrichment, and kanban feedback learning |
-| OpenClaw cron | Scheduled discovery and enrichment runs |
+| OpenClaw agent | Research, enrichment, and kanban feedback learning — writes leads into this app's collections via its public API. Runs as its own separate app; its own runtime config (formerly this repo's `agent-runtime/` directory, removed in 2.4.63, issue #99) now lives entirely in that app, not here. |
+| OpenClaw cron | Scheduled discovery and enrichment runs, triggered from the separate OpenClaw app above |
 | Vercel Cron Jobs | Weekly forecast-snapshot capture only (2.4.41) — a deterministic aggregation, not an agent task; see "Hosting and Delivery" above and `docs/ARCHITECTURE.md`'s "Forecast snapshot history" |
 
 ---
