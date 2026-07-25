@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.44
+
+Sixth delivery of the sales-tooling roadmap (tracking issue #76): win/loss reason rollup reporting.
+
+### Added — decline-reason rollup reporting (fixes #63)
+New `GET /api/metrics/decline-reasons?brand=&tenantId=&groupBy=industry|sport_or_sector|region&from=&to=` — a cross-tabbed rollup of the `declineReason` already captured on every declined lead, kept as its own endpoint (not folded into `GET /api/metrics`) since it has its own `groupBy`/date-range params. No new collection, no new write path — purely additive read over data `app/lib/lead-actions.ts`'s DECLINE handler already writes. `groupBy=none` returns `totalsByReason` matching the existing `GET /api/metrics`'s `sortedDeclineReasons` shape exactly (verified by unit test — that field itself is unchanged, still returned for backward compatibility); any other `groupBy` additionally returns per-dimension `rows`, with a `null`/missing/empty-string dimension value excluded from `rows` and counted in `missingDimensionCount` instead of being coerced into a misleading "UNKNOWN" bucket.
+
+New pure module `app/lib/decline-reason-rollup.ts` (`buildDeclineMatchStage`, `shapeGroupedRows`, `shapeTotalsByReason`) — no Mongo driver import, so the two real decisions (the inclusive `$gte`/`$lte` date-range match, and missing-dimension exclusion) are unit-testable without a live database. **Documented, accepted data-model limitation**: DECLINE overwrites `declineReason`/`declinedAt` with no history array, so a lead declined more than once contributes only its current reason — not a bug, flagged explicitly rather than silently undercounted.
+
+`app/metrics.tsx`'s flat "Decline Reasons" list is replaced by a self-contained `DeclineReasonRollup` component with its own `groupBy`/period controls (GDS `GdsSegmentedControl`/`PeriodSelector`) and independent fetch. `groupBy=none` keeps the existing flat-list look; any other `groupBy` renders GDS's `AdvancedDataTable` (Reason/Dimension/Count, sortable) — both components live in `@sovereignsquad/gds-core/client`, not `gds-admin` (verified against the installed package's type definitions, since the source issue's component naming was ambiguous). A zero-decline result now renders `gds-core`'s `EmptyState` instead of the block previously just disappearing; a non-zero `missingDimensionCount` is always visible text, never color-only.
+
+### Testing
+`tests/lib/decline-reason-rollup.test.ts` — 14 new tests: match-stage construction (tenant filter merge, inclusive date range, from-only, no-range), grouped-row shaping (same-pair passthrough, null/empty-string dimension exclusion with correct `missingDimensionCount`, never a fake "UNKNOWN" bucket, missing-reason normalization to `OTHER`, multi-row accumulation, zero-input), and `groupBy=none` totals-by-reason parity with the existing `sortedDeclineReasons` shape. Interactive verification via headless Chromium against the real dev server with a mocked `/api/metrics/decline-reasons` response (this sandbox has no `MONGODB_URI` to produce real decline data): confirmed the flat list, the `GdsSegmentedControl`/`PeriodSelector` controls, the `AdvancedDataTable` grouped view (including its own sort/density controls and responsive card fallback), and the missing-dimension message all render correctly with no console/hydration errors.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s "Boards and Metrics" section (new "Decline Reason Rollup" subsection); `PIPELINE_ARCHITECTURE.md`'s API endpoint table.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (154/154), smoke suite (5/5), `next build --webpack` (26 routes).
+
+Version bumped 2.4.43 -> 2.4.44.
+
 ## 2.4.43
 
 Fifth delivery of the sales-tooling roadmap (tracking issue #76): pipeline velocity metrics.

@@ -15,6 +15,21 @@ import {
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { InfoCard, StatsStrip, AdminAnalyticsTable, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client';
+import { AdvancedDataTable, EmptyState, GdsSegmentedControl, PeriodSelector } from '@sovereignsquad/gds-core/client';
+
+type DeclineReasonRow = {
+  declineReason: string;
+  dimensionValue: string;
+  count: number;
+};
+
+type DeclineReasonRollupData = {
+  groupBy: 'none' | 'industry' | 'sport_or_sector' | 'region';
+  totalDeclines: number;
+  rows?: DeclineReasonRow[];
+  totalsByReason: Array<[string, number]>;
+  missingDimensionCount: number;
+};
 
 type VelocityTransitionStat = {
   from: string;
@@ -56,6 +71,132 @@ type Props = {
   brand?: string;
   tenantId?: string;
 };
+
+const GROUP_BY_OPTIONS = [
+  { value: 'none', label: 'All' },
+  { value: 'industry', label: 'Industry' },
+  { value: 'sport_or_sector', label: 'Sport/Sector' },
+  { value: 'region', label: 'Region' },
+] as const;
+
+const GROUP_BY_LABEL: Record<string, string> = {
+  industry: 'industry',
+  sport_or_sector: 'sport/sector',
+  region: 'region',
+};
+
+const PERIOD_OPTIONS = [
+  { value: 'all', label: 'All time' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: '90d', label: 'Last 90 days' },
+  { value: 'quarter', label: 'This quarter' },
+];
+
+function periodToRange(period: string): { from?: string } {
+  const now = new Date();
+  if (period === '30d') return { from: new Date(now.getTime() - 30 * 86_400_000).toISOString() };
+  if (period === '90d') return { from: new Date(now.getTime() - 90 * 86_400_000).toISOString() };
+  if (period === 'quarter') {
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+    return { from: new Date(Date.UTC(now.getFullYear(), quarterStartMonth, 1)).toISOString() };
+  }
+  return {};
+}
+
+// Cross-tabbed decline-reason rollup (issue #63): its own groupBy/period
+// controls and fetch, independent of MetricsPanel's single all-brand-metrics
+// call — mirrors "this month vs. last quarter" reporting needs that a single
+// flat, all-time aggregate can't answer.
+function DeclineReasonRollup({ brand, tenantId }: { brand: string; tenantId: string }) {
+  const [groupBy, setGroupBy] = useState<string>('none');
+  const [period, setPeriod] = useState('all');
+  const [data, setData] = useState<DeclineReasonRollupData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const { from } = periodToRange(period);
+    const params = new URLSearchParams({ brand, tenantId, groupBy });
+    if (from) params.set('from', from);
+
+    fetch(`/api/metrics/decline-reasons?${params.toString()}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled) return;
+        if (json.error) setError(json.error);
+        else setData(json);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Failed to load decline reason rollup');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [brand, tenantId, groupBy, period]);
+
+  return (
+    <Stack gap="md">
+      <Group justify="space-between" wrap="wrap" align="flex-end">
+        <Title order={4}>Decline Reasons</Title>
+        <Group gap="sm" wrap="wrap">
+          <GdsSegmentedControl
+            value={groupBy}
+            onChange={setGroupBy}
+            options={[...GROUP_BY_OPTIONS]}
+            ariaLabel="Group decline reasons by"
+          />
+          <PeriodSelector
+            label="Period"
+            value={period}
+            options={PERIOD_OPTIONS}
+            onChange={setPeriod}
+          />
+        </Group>
+      </Group>
+
+      {loading ? (
+        <Group justify="center" py="md"><Loader size="sm" /></Group>
+      ) : error ? (
+        <Alert icon={<IconAlertCircle size="1rem" />} title="Decline reasons unavailable" color="red">{error}</Alert>
+      ) : !data || data.totalDeclines === 0 ? (
+        <EmptyState title="No declines yet" description="Decline-reason data will appear here once leads are declined." />
+      ) : groupBy === 'none' ? (
+        <Stack gap={0}>
+          <Divider color="gray.2" />
+          {data.totalsByReason.map(([reason, count]) => (
+            <Group key={reason} justify="space-between" py="xs">
+              <Text size="sm">{reason.replace(/_/g, ' ')}</Text>
+              <Text c="red" size="sm" fw={600}>{count}</Text>
+            </Group>
+          ))}
+        </Stack>
+      ) : (
+        <>
+          <AdvancedDataTable
+            rows={data.rows || []}
+            rowId={(row, i) => `${row.declineReason}-${row.dimensionValue}-${i}`}
+            columns={[
+              { key: 'declineReason', label: 'Reason', sortable: true, render: (row) => row.declineReason.replace(/_/g, ' ') },
+              { key: 'dimensionValue', label: 'Dimension', sortable: true },
+              { key: 'count', label: 'Count', sortable: true },
+            ]}
+          />
+          {data.missingDimensionCount > 0 && (
+            <Text size="xs" c="dimmed">
+              {data.missingDimensionCount} decline{data.missingDimensionCount === 1 ? '' : 's'} excluded — missing {GROUP_BY_LABEL[groupBy] || groupBy} data.
+            </Text>
+          )}
+        </>
+      )}
+    </Stack>
+  );
+}
 
 export function MetricsPanel({ brand = 'cogmap', tenantId = 'default' }: Props) {
   const [data, setData] = useState<MetricsData | null>(null)
@@ -174,20 +315,7 @@ export function MetricsPanel({ brand = 'cogmap', tenantId = 'default' }: Props) 
         </SimpleGrid>
       </Stack>
 
-      {data.sortedDeclineReasons.length > 0 && (
-        <Stack gap="md">
-          <Title order={4}>Decline Reasons</Title>
-          <Stack gap={0}>
-            <Divider color="gray.2" />
-            {data.sortedDeclineReasons.map(([reason, count]) => (
-              <Group key={reason} justify="space-between" py="xs">
-                <Text size="sm">{reason.replace(/_/g, ' ')}</Text>
-                <Text c="red" size="sm" fw={600}>{count}</Text>
-              </Group>
-            ))}
-          </Stack>
-        </Stack>
-      )}
+      <DeclineReasonRollup brand={brand} tenantId={tenantId} />
 
       <Stack gap="md">
         <Title order={4}>Regional Breakdown</Title>
