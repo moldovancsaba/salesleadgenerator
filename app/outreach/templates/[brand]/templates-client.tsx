@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput, TagsInput, Badge, Pill } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
+import { BRAND_CONFIG, type Brand } from '@/app/lib/brand'
 
 type Template = {
   id: string
@@ -25,14 +26,19 @@ const EMPTY_TEMPLATE: Omit<Template, 'id'> = {
   tags: [],
 }
 
-export default function OutreachTemplatesPage() {
-  const [brand, setBrand] = useState('cogmap')
+type Props = {
+  brand: Brand;
+};
+
+export function OutreachTemplatesClient({ brand }: Props) {
+  // tenantId is a separate multi-tenancy axis from brand (issue #100 only
+  // concerns brand/client mixing) — still override-able via ?tenantId=,
+  // unlike brand, which now comes exclusively from the URL path segment.
   const [tenantId, setTenantId] = useState('default')
 
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search)
-      if (params.get('brand')) setBrand(params.get('brand') || 'cogmap')
       if (params.get('tenantId')) setTenantId(params.get('tenantId') || 'default')
     } catch {}
   }, [])
@@ -129,7 +135,7 @@ export default function OutreachTemplatesPage() {
           <div>
             <Title order={2}>Outreach Templates</Title>
             <Text size="sm" c="dimmed">
-              Manage brand-specific templates for <Text span fw={700}>{brand}</Text>.
+              Manage brand-specific templates for <Text span fw={700}>{BRAND_CONFIG[brand].label}</Text>.
               Templates are filtered by county and channel.
             </Text>
           </div>
