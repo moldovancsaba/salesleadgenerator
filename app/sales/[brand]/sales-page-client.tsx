@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Group, Text, Paper, Select, Loader, Container, Box, TextInput, UnstyledButton } from '@mantine/core';
+import { useSearchParams } from 'next/navigation';
+import { Group, Text, Paper, Loader, Container, Box, TextInput, UnstyledButton } from '@mantine/core';
 import type { Lead } from '@/app/types';
 import { KanbanBoard } from '@/app/kanban';
 import { LeadDetailModal } from '@/app/detail';
@@ -11,20 +12,21 @@ import { MetricsPanel } from '@/app/metrics';
 
 type ViewMode = 'kanban' | 'table' | 'metrics' | 'search';
 
-const VIEW_OPTIONS = [
-  { value: 'kanban', label: 'Kanban' },
-  { value: 'table', label: 'Table' },
-  { value: 'metrics', label: 'Metrics' },
-  { value: 'search', label: 'Search Learning' },
-];
-
 type Props = {
   brand: string;
 };
 
 export function SalesPageClient({ brand }: Props) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [view, setView] = useState<ViewMode>('kanban');
+  // View is driven by the ?view= URL param (set by the hamburger nav's View
+  // section, app/components/AppNav.tsx) rather than an in-page dropdown —
+  // the on-page "Kanban ▾" Select was removed because it duplicated the
+  // hamburger's job and was visually competing with it (issue #95).
+  const searchParams = useSearchParams();
+  const viewParam = searchParams.get('view');
+  const view: ViewMode = viewParam === 'table' || viewParam === 'metrics' || viewParam === 'search'
+    ? viewParam
+    : 'kanban';
   const [boardMeta, setBoardMeta] = useState<{
     brand: string; label: string; totalLeads: number;
     columnCounts: Record<string, number>; regionCounts: Record<string, number>;
@@ -193,13 +195,6 @@ export function SalesPageClient({ brand }: Props) {
       <Paper radius="md" withBorder p="md" style={{ flexShrink: 0 }}>
         <Group justify="space-between" align="center" wrap="nowrap" gap="xs">
           <Text fw={700} size="lg" truncate style={{ minWidth: 0 }}>{boardMeta?.label || brand}</Text>
-          <Select
-            size="xs"
-            value={view}
-            onChange={(value) => setView(value as ViewMode)}
-            data={VIEW_OPTIONS}
-            style={{ width: 168, flexShrink: 0 }}
-          />
         </Group>
         {metaLoading ? (
           <Loader size="xs" mt={4} />
