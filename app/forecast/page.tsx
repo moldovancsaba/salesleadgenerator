@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Container, Title, Text, Paper, SimpleGrid, Group, Badge, Select, TextInput, Loader, Alert, Button, Stack } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { StatusBadge, InlineAlert, MetricCard, MissingDataPrompt } from '@sovereignsquad/gds-core/client';
+import { AdminSelect, AdminDataTable, AdminResourceEmptyState, AdminFormStatus } from '@sovereignsquad/gds-admin/client';
+import { CALIBRATABLE_STAGES } from '@/lib/win-rate-calibration';
 
 type ConcentrationRisk = {
   topLeadId: string;
@@ -26,16 +28,24 @@ type Coverage = {
 };
 
 type Forecast = {
-  pipeline?: Record<string, { leads: number; participants: number; rawRevenue: number; probability: number; weightedRevenue: number; concentrationRisk?: ConcentrationRisk | null }>;
+  pipeline?: Record<string, { leads: number; participants: number; rawRevenue: number; probability: number; weightedRevenue: number; probabilitySource?: 'static' | 'calibrated'; concentrationRisk?: ConcentrationRisk | null }>;
   totalWeightedRevenue?: number;
   concentrationRisk?: ConcentrationRisk | null;
   coverage?: Coverage | null;
+  calibration?: { mode: 'static' | 'calibrated'; lastComputedAt: string | null } | null;
   byTier?: Record<string, { leads: number; participants: number; revenue: number }>;
   byModel?: Record<string, { leads: number; revenue: number }>;
   totals?: { revenue: number; participants: number };
   byCompany?: Array<{ company: string; leads: number; currency: string; upfrontEur: number; monthlyEur: number; annualFeeEur: number; revenueSharePercent: number; discountPercent: number; estimatedAnnualValueEur: number }>;
   totalEstimatedAnnualValueEur?: number;
 };
+
+type StageStat = { sampleSize: number; wonCount: number; lostCount: number; rate: number; confidence: 'ok' | 'insufficient' };
+type WinRatesResponse = { tenantId: string; brand: string; computedAt: string | null; windowDays: number | null; minSampleSize: number; stages: Record<string, StageStat> };
+type CalibrationSettings = { mode: 'static' | 'calibrated'; minSampleSize: number; windowDays: number | null };
+type CalibrationRow = { stage: string; staticRate: number; calibrated: StageStat; source: 'static' | 'calibrated' };
+
+const DEFAULT_CALIBRATION_SETTINGS: CalibrationSettings = { mode: 'static', minSampleSize: 20, windowDays: null };
 
 const COVERAGE_BENCHMARK_LABEL: Record<Coverage['benchmark'], string> = {
   below: 'Below healthy range',
@@ -58,6 +68,11 @@ export default function ForecastPage() {
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [calibrationSettings, setCalibrationSettings] = useState<CalibrationSettings>(DEFAULT_CALIBRATION_SETTINGS);
+  const [winRates, setWinRates] = useState<WinRatesResponse | null>(null);
+  const [winRatesLoading, setWinRatesLoading] = useState(true);
+  const [winRatesError, setWinRatesError] = useState<string | null>(null);
+  const [savingCalibrationMode, setSavingCalibrationMode] = useState(false);
 
   const loadForecast = useCallback(async (brandKey: string) => {
     setLoading(true);
@@ -79,6 +94,7 @@ export default function ForecastPage() {
 
       setData(boardJson.forecast || null);
       setWeights(settingsJson.weights || {});
+      setCalibrationSettings(settingsJson.calibration || DEFAULT_CALIBRATION_SETTINGS);
     } catch (err: any) {
       setError(err?.message || 'Load failed');
     } finally {
@@ -86,9 +102,55 @@ export default function ForecastPage() {
     }
   }, []);
 
+  // Computed client-side from already-fetched data isn't possible here — win
+  // rates require their own aggregation over outcomelogs — but this never
+  // blocks the rest of the page: a failed/slow win-rates fetch surfaces its
+  // own AdminFormStatus in the calibration panel while every other panel on
+  // this page renders normally from loadForecast's own data.
+  const loadWinRates = useCallback(async (brandKey: string) => {
+    setWinRatesLoading(true);
+    setWinRatesError(null);
+    try {
+      const tenantId = brandKey === 'cogmap' ? 'cogmap' : 'seyu';
+      const res = await fetch(`/api/win-rates?brand=${encodeURIComponent(brandKey)}&tenantId=${encodeURIComponent(tenantId)}`);
+      if (!res.ok) throw new Error(`Win-rates API: ${res.status}`);
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      setWinRates(json);
+    } catch (err: any) {
+      setWinRatesError(err?.message || 'Load failed');
+    } finally {
+      setWinRatesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadForecast(brand);
-  }, [brand, loadForecast]);
+    loadWinRates(brand);
+  }, [brand, loadForecast, loadWinRates]);
+
+  const handleCalibrationModeChange = async (value: string | null) => {
+    if (value !== 'static' && value !== 'calibrated') return;
+    const next: CalibrationSettings = { ...calibrationSettings, mode: value };
+    setCalibrationSettings(next);
+    setSavingCalibrationMode(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calibration: next }),
+      });
+      if (!res.ok) throw new Error(`Save failed: ${res.status}`);
+      await res.json().catch(() => ({}));
+      // The board's pipeline probabilities depend on calibration.mode — reload
+      // so probability/probabilitySource reflect the new mode immediately.
+      await loadForecast(brand);
+    } catch (err: any) {
+      console.error('Calibration mode save failed:', err);
+    } finally {
+      setSavingCalibrationMode(false);
+    }
+  };
 
   const saveWeights = async () => {
     setSaving(true);
@@ -191,6 +253,80 @@ export default function ForecastPage() {
               </Text>
             )}
           </Stack>
+        )}
+      </Paper>
+
+      <Paper withBorder p="md" radius="md" mb="lg">
+        <Group justify="space-between" align="flex-start" mb="xs" wrap="wrap">
+          <div>
+            <Title order={4}>Forecast Calibration</Title>
+            <Text size="xs" c="dimmed">
+              Calibrated rates use each stage&apos;s actual WON/LOST history (min. {calibrationSettings.minSampleSize} closed deals) instead of the hand-picked defaults below. A stage without enough closed deals always keeps its static rate, even in calibrated mode.
+            </Text>
+          </div>
+          <AdminSelect
+            name="calibration-mode"
+            label="Mode"
+            value={calibrationSettings.mode}
+            onChange={handleCalibrationModeChange}
+            data={[
+              { value: 'static', label: 'Static (hand-picked)' },
+              { value: 'calibrated', label: 'Calibrated (from outcomes)' },
+            ]}
+            disabled={savingCalibrationMode}
+            state={savingCalibrationMode ? 'loading' : 'idle'}
+            style={{ minWidth: 240 }}
+          />
+        </Group>
+
+        {winRatesError ? (
+          <AdminFormStatus state="error" title="Couldn't load calibration data" description={winRatesError} />
+        ) : winRatesLoading ? (
+          <AdminFormStatus state="loading" title="Loading calibration data" />
+        ) : !winRates || CALIBRATABLE_STAGES.every((stage) => (winRates.stages[stage]?.sampleSize ?? 0) === 0) ? (
+          <AdminResourceEmptyState
+            title="No closed deals yet"
+            description="Calibration needs at least one WON or LOST outcome per stage. Once leads close, this table fills in automatically."
+          />
+        ) : (
+          <>
+            <AdminDataTable<CalibrationRow>
+              rows={CALIBRATABLE_STAGES.filter((stage) => winRates.stages[stage]).map((stage) => ({
+                stage,
+                staticRate: weights[stage] ?? 0,
+                calibrated: winRates.stages[stage],
+                source: data.pipeline?.[stage]?.probabilitySource || 'static',
+              }))}
+              caption="Static vs. calibrated close probability per stage"
+              columns={[
+                { key: 'stage', header: 'Stage', rowHeader: true },
+                { key: 'staticRate', header: 'Static', numeric: true, accessor: (row) => `${Math.round(row.staticRate * 100)}%` },
+                { key: 'calibratedRate', header: 'Calibrated', numeric: true, accessor: (row) => `${Math.round(row.calibrated.rate * 100)}%` },
+                { key: 'sample', header: 'Sample (won/total)', numeric: true, accessor: (row) => `${row.calibrated.wonCount}/${row.calibrated.sampleSize}` },
+                {
+                  key: 'confidence',
+                  header: 'Confidence',
+                  accessor: (row) => (
+                    <StatusBadge
+                      status={row.calibrated.confidence === 'ok' ? 'success' : 'warning'}
+                      aria-label={
+                        row.calibrated.confidence === 'ok'
+                          ? `Sufficient sample size: ${row.calibrated.sampleSize} closed deals`
+                          : `Insufficient sample size: only ${row.calibrated.sampleSize} closed deals, needs ${calibrationSettings.minSampleSize}`
+                      }
+                    >
+                      {row.calibrated.confidence === 'ok' ? 'Sufficient data' : 'Insufficient data'}
+                    </StatusBadge>
+                  ),
+                },
+                { key: 'source', header: 'Used in forecast', accessor: (row) => (row.source === 'calibrated' ? 'Calibrated' : 'Static') },
+              ]}
+              getRowKey={(row) => row.stage}
+            />
+            {winRates.computedAt && (
+              <Text size="xs" c="dimmed" mt="xs">Last computed {new Date(winRates.computedAt).toLocaleString()}</Text>
+            )}
+          </>
         )}
       </Paper>
 

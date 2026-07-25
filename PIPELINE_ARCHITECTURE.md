@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.47
+**Version:** 2.4.48
 
 ## Overview
 
@@ -94,7 +94,9 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 | GET | `/api/boards/[brand]?tenantId=<id>` | Board metadata: counts, region breakdown, pipeline-weighted forecast (`forecast.concentrationRisk`, `forecast.coverage` — `null` when not applicable/configured) |
 | GET | `/api/metrics?brand=<brand>&tenantId=<id>` | Per-column and per-region lead counts, plus `metrics.velocity` (time-in-stage, stage-to-stage conversion, computed from `outcomelogs`; 2.4.42, issue #58) |
 | GET | `/api/metrics/decline-reasons?brand=&tenantId=&groupBy=&from=&to=` | Cross-tabbed decline-reason rollup by industry/sport-or-sector/region and date range (2.4.43, issue #63) |
-| GET | `/api/settings` | Pipeline-weight settings used by forecast calculations, plus per-column stale-deal day thresholds (`thresholds`, additive as of 2.4.39) and concentration-risk `threshold`/`topN` (`concentrationRiskSettings`, additive as of 2.4.45) |
+| GET | `/api/settings` | Pipeline-weight settings used by forecast calculations, plus per-column stale-deal day thresholds (`thresholds`, additive as of 2.4.39), concentration-risk `threshold`/`topN` (`concentrationRiskSettings`, additive as of 2.4.45), and forecast-calibration `mode`/`minSampleSize`/`windowDays` (`calibration`, additive as of 2.4.48, issue #56) |
+| GET | `/api/win-rates?brand=<brand>&tenantId=<id>` | Cached per-stage WON/LOST win rate, lazily recomputed from `outcomelogs` if the cache is missing or >24h stale (2.4.48, issue #56) |
+| POST | `/api/win-rates/recalculate` | Force an immediate win-rate recompute regardless of cache staleness; `x-api-key` guarded, admin/API-only (no browser UI trigger — see "Win-Rate Calibration" below) (2.4.48, issue #56) |
 | GET | `/api/forecast/export?format=csv\|json` | CogMap revenue forecast export |
 | GET | `/api/health` | Health check |
 | GET | `/api/admin/cron-status` | Cron observability |
@@ -191,6 +193,34 @@ There is no Mongoose schema for this shape — `models/Lead.ts` (and `OutcomeLog
 ```
 
 Collection: `forecast_snapshots`. Upserted on `{brand, tenantId, periodKey}` (idempotent — a retried trigger never duplicates); indexes on that compound key (unique) and `{brand, tenantId, capturedAt}` are ensured lazily via `createIndex` on each write, not a separate migration script.
+
+### Win-Rate Calibration Model (2.4.48, issue #56)
+
+```typescript
+{
+  tenantId: string
+  brand: 'cogmap' | 'seyu'
+  stages: {
+    DISCOVERED: { sampleSize: number; wonCount: number; lostCount: number; rate: number; confidence: 'ok' | 'insufficient' }
+    QUALIFIED:  { ... same shape }
+    ENGAGED:    { ... same shape }
+    PROPOSAL:   { ... same shape }
+  }
+  computedAt: Date
+  windowDays: number | null
+  minSampleSize: number
+}
+```
+
+Collection: `winrate_calibration`, one doc per `(tenantId, brand)`, upserted only by `app/lib/win-rate-store.ts`'s `computeAndPersistWinRates()` — never written directly by a request handler, mirroring `forecast_snapshots`' own separation.
+
+`lib/win-rate-calibration.ts`'s pure `computeWinRatesFromLogs()` reconstructs each lead's stage path by replaying its `outcomelogs` entries in chronological order (grouped by `leadId`), then attributes a WON/LOST terminal outcome back to every calibratable stage (`DISCOVERED`/`QUALIFIED`/`ENGAGED`/`PROPOSAL` — `WON`/`LOST` are terminal, never calibration targets themselves) that lead actually passed through. A no-op transition (`beforeState.kanbanColumn === afterState.kanbanColumn`, e.g. a `MODIFY` that didn't touch the column) is skipped; a lead with no WON/LOST terminal state is excluded from every denominator (an open deal is neither a win nor a loss).
+
+`GET /api/win-rates` is the only lazy-recompute trigger (missing or >24h-stale cache, `app/lib/win-rate-store.ts`'s `isStale()`); `POST /api/win-rates/recalculate` is the only manual-recompute trigger. `GET /api/boards/[brand]` (via `app/lib/forecast.ts`'s `computeForecast()`) only ever *reads* the cached doc — it never recomputes on that hot path, so calibration adds zero aggregation latency to the live board request. When `settings.forecast_calibration.mode === 'calibrated'`, `lib/win-rate-calibration.ts`'s `mergeCalibratedWeights()` substitutes a stage's cached `rate` for its static weight only when `confidence === 'ok'` and `sampleSize >= minSampleSize` — otherwise the static default silently continues to apply for that stage. Each `forecast.pipeline[col]` entry gains a `probabilitySource: 'static' | 'calibrated'` field reflecting which one was actually used; `forecast.calibration = { mode, lastComputedAt }` reports the mode and the cached doc's own `computedAt` (`null` if never computed). In `mode: 'static'` (the default), every previously-existing numeric field (`leads`/`participants`/`rawRevenue`/`probability`/`weightedRevenue`) is byte-identical to pre-calibration output — only the always-present `probabilitySource`/`calibration` fields are new.
+
+**Prerequisite fix shipped alongside this (2.4.48):** `app/api/leads/[id]/route.ts`'s `PUT` handler previously changed `kanbanColumn` without writing any `outcomelogs` entry — every other column-changing path (`ACCEPT`/`DECLINE`/`PIN`/`COLUMN_MOVE` in `app/lib/lead-actions.ts`, `CREATE` in `app/api/leads/route.ts`) already did. Any lead moved via `PUT` was invisible to calibration until this was fixed; the `PUT` handler now writes an `outcomelogs` entry (`action: 'PUT_COLUMN_CHANGE'`) whenever `updateData.kanbanColumn` differs from the existing value.
+
+**No "Recalculate now" button in the browser UI, by design:** `POST /api/win-rates/recalculate` is `x-api-key` guarded, the same pattern as every other admin-only mutation in this repo (`/api/admin/forecast-snapshot`'s `POST`, `PUT`/`DELETE /api/leads/[id]`) — none of which have a client-side UI trigger, since the browser has no way to know a server-only secret. Rather than ship a button that would silently 401 for every real user (a CLAUDE.md Rule 7 violation — a control that visually implies a working capability it doesn't have), the forecast page's calibration panel relies solely on `GET /api/win-rates`'s lazy 24h-staleness recompute, which the page itself triggers on every load. `POST /api/win-rates/recalculate` remains available for admin/API/cron use only.
 
 ## Frontend
 

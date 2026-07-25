@@ -1,5 +1,33 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.48
+
+Tenth delivery of the sales-tooling roadmap (tracking issue #76): win-rate-by-stage forecast calibration.
+
+### Added — win-rate-by-stage forecast calibration (fixes #56)
+**Prerequisite fix (in scope):** `app/api/leads/[id]/route.ts`'s `PUT` handler previously changed `kanbanColumn` without writing any `outcomelogs` entry — the only column-changing path in this app that didn't (`ACCEPT`/`DECLINE`/`PIN`/`COLUMN_MOVE` in `app/lib/lead-actions.ts` and `CREATE` in `app/api/leads/route.ts` all already did). Fixed by writing an `outcomelogs` entry (`action: 'PUT_COLUMN_CHANGE'`) whenever the request changes `kanbanColumn`, mirroring the existing insert shape — without this, leads moved via `PUT` (the enrichment-agent path) would have been systematically invisible to calibration.
+
+New pure module `lib/win-rate-calibration.ts`: `computeWinRatesFromLogs()` reconstructs each lead's stage path by replaying its `outcomelogs` entries in chronological order, then attributes a WON/LOST terminal outcome back to every calibratable stage (`DISCOVERED`/`QUALIFIED`/`ENGAGED`/`PROPOSAL`) that lead actually visited — a lead skipping stages is credited only to the stage it departed from, and a lead with no terminal WON/LOST is excluded from every denominator. `mergeCalibratedWeights()` substitutes a stage's calibrated rate for its static default only when `confidence: 'ok'` (`sampleSize >= minSampleSize`, default 20); otherwise the static default silently continues to apply. A new Mongo-touching orchestration module, `app/lib/win-rate-store.ts`, caches results in a new `winrate_calibration` collection (one doc per `{tenantId, brand}`) and exposes `isStale()` (24h boundary).
+
+`GET /api/win-rates?brand=&tenantId=` is the sole lazy-recompute trigger (missing/stale cache); `POST /api/win-rates/recalculate` (`x-api-key` guarded) is the sole manual-recompute trigger. `GET /api/boards/[brand]` (via `app/lib/forecast.ts`'s `computeForecast()`) only ever reads the cache — recompute never runs on that hot path. `settings.forecast_calibration` (`mode: 'static'|'calibrated'`, `minSampleSize`, `windowDays`) is read/written via the existing additive-field pattern on `GET`/`PUT /api/settings`. Each `forecast.pipeline[col]` gains `probabilitySource: 'static'|'calibrated'`; `forecast.calibration = {mode, lastComputedAt}` is new. In the default `mode: 'static'`, every previously-existing numeric pipeline field is unchanged (regression-verified) — only the always-present `probabilitySource`/`calibration` fields are new.
+
+`app/forecast/page.tsx` gains a "Forecast Calibration" panel (GDS-admin `AdminSelect`/`AdminDataTable`/`AdminResourceEmptyState`/`AdminFormStatus`, confirmed present in the installed `gds-admin` package) showing static vs. calibrated rate, sample size, and confidence per stage, with a mode toggle that `PUT`s `settings.calibration` and reloads the board. Confidence is conveyed by both text and color (CLAUDE.md Rule 7), never color alone.
+
+**Deliberate scope decision, documented rather than silently applied:** no "Recalculate now" button was added to the browser UI. `POST /api/win-rates/recalculate` is `x-api-key` guarded like every other admin-only mutation in this repo, none of which have a client-side trigger — the browser has no way to hold that secret safely (the same constraint `PUT /api/sales-settings/[brand]`'s 2.4.21 fix already documents). Shipping such a button would silently 401 for every real user, itself a Rule 7 violation. The panel relies solely on `GET /api/win-rates`'s lazy 24h-staleness recompute, triggered automatically on page load.
+
+### Testing
+`tests/lib/win-rate-calibration.test.ts` — 12 new tests covering `computeWinRatesFromLogs()` (exact known rate from synthetic logs, zero-sample fallback to static default, below-minSampleSize still returns a real rate, stage-skipping leads credited only to the departed stage, still-open leads excluded from every denominator, no-op transitions filtered, all-zero for a brand-new tenant without throwing, an exact 50/50 split, malformed entries ignored without throwing) and `mergeCalibratedWeights()` (static mode returns weights unchanged/regression, calibrated mode substitutes only sufficiently-sampled stages, falls back to static with no cached doc). `tests/lib/win-rate-store.test.ts` — 4 new tests for the pure `isStale()` 24h boundary. Tenant isolation (enforced by `fetchOutcomeLogs()`'s Mongo-level `tenantFilter`) and the `PUT` handler's `outcomelogs` write are verified by code review against established patterns, not by automated test — this sandbox cannot provision `mongodb-memory-server` (its binary download is blocked by this sandbox's network policy, the same documented gap as `tests/integration/health.integration.test.ts`).
+
+Interactive verification via headless Chromium against the real dev server with mocked `/api/boards/cogmap`, `/api/settings`, and `/api/win-rates` responses (this sandbox has no `MONGODB_URI`): confirmed the calibration table renders correct static/calibrated percentages, sample sizes, and confidence badges per stage, correctly reflects which source is actually in use per column, and that `AdminResourceEmptyState` renders when every stage has zero closed deals — no console/hydration errors attributable to the new code path.
+
+### Documentation
+`PIPELINE_ARCHITECTURE.md`'s API Endpoints table (new `/api/win-rates` rows, updated `/api/settings` row) and a new "Win-Rate Calibration Model" subsection; `docs/ARCHITECTURE.md`'s Boards/Settings API bullets, a new "Win-Rate Calibration" subsection, and updates to the "Outcome Log" and `PUT /api/leads/[id]` entries noting the new write/consumer.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (209/209), smoke suite (5/5), `next build --webpack` (29 routes).
+
+Version bumped 2.4.47 -> 2.4.48.
+
 ## 2.4.47
 
 Ninth delivery of the sales-tooling roadmap (tracking issue #76): next-step nudges.

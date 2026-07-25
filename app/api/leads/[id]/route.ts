@@ -189,6 +189,25 @@ export async function PUT(
     }
     const updatedLead = result;
 
+    // Every other kanbanColumn-changing path (ACCEPT/DECLINE/PIN/COLUMN_MOVE
+    // in app/lib/lead-actions.ts, CREATE in app/api/leads/route.ts) writes an
+    // outcomelogs entry; this PUT path previously didn't, making any lead
+    // moved via PUT invisible to stage-transition analysis (issue #56).
+    if (updateData.kanbanColumn !== undefined && updateData.kanbanColumn !== existing.kanbanColumn) {
+      await dbInstance.collection('outcomelogs').insertOne({
+        leadId: existing._id.toString(),
+        action: 'PUT_COLUMN_CHANGE',
+        outcomeType: 'PUT_COLUMN_CHANGE',
+        outcomeValue: `Moved to ${updateData.kanbanColumn}`,
+        actorType: 'USER',
+        actedBy: 'webapp-user',
+        beforeState: { kanbanColumn: existing.kanbanColumn, status: existing.status },
+        afterState: { kanbanColumn: updateData.kanbanColumn, status: updateData.status ?? existing.status },
+        createdAt: new Date(),
+        tenantId,
+      });
+    }
+
     return NextResponse.json(normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }))
   } catch (error: any) {
     console.error('PUT lead/:id Error:', error)
