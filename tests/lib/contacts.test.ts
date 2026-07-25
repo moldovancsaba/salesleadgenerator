@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeContact, dedupeContacts, getDecisionMakerContact, normalizePhone, normalizeEmail } from '../../lib/contacts';
+import { normalizeContact, dedupeContacts, getDecisionMakerContact, normalizePhone, normalizeEmail, contactKey, verifiableFieldsDiffer } from '../../lib/contacts';
 
 describe('normalizeContact', () => {
   it('trims fields and formats email/phone', () => {
@@ -20,6 +20,59 @@ describe('normalizeContact', () => {
     expect(() => normalizeContact(null as any)).not.toThrow();
     const c = normalizeContact(null as any);
     expect(c.name).toBe('');
+  });
+});
+
+describe('normalizeContact — lastVerifiedAt stamping', () => {
+  it('leaves lastVerifiedAt undefined by default when the input has none', () => {
+    expect(normalizeContact({ name: 'A' }).lastVerifiedAt).toBeUndefined();
+  });
+
+  it('passes through the input lastVerifiedAt unchanged when verify is not set', () => {
+    const c = normalizeContact({ name: 'A', lastVerifiedAt: '2026-01-01T00:00:00.000Z' });
+    expect(c.lastVerifiedAt).toBe('2026-01-01T00:00:00.000Z');
+  });
+
+  it('stamps lastVerifiedAt to the supplied now when verify is true, overriding any input value', () => {
+    const now = new Date('2026-07-25T00:00:00.000Z');
+    const c = normalizeContact({ name: 'A', lastVerifiedAt: '2020-01-01T00:00:00.000Z' }, { verify: true, now });
+    expect(c.lastVerifiedAt).toBe('2026-07-25T00:00:00.000Z');
+  });
+});
+
+describe('contactKey', () => {
+  it('matches lib/contacts.ts dedup key precedence (name+phone, then name+email, then bare name)', () => {
+    const a = normalizeContact({ name: 'Jane', phone: '+15551234567' });
+    const b = normalizeContact({ name: 'Jane', phone: '+15551234567' });
+    expect(contactKey(a)).toBe(contactKey(b));
+  });
+
+  it('returns empty string for a contact with no name', () => {
+    expect(contactKey(normalizeContact({ email: 'a@b.com' }))).toBe('');
+  });
+});
+
+describe('verifiableFieldsDiffer', () => {
+  it('returns true when there is no prior match', () => {
+    expect(verifiableFieldsDiffer(null, normalizeContact({ name: 'A', email: 'a@b.com' }))).toBe(true);
+  });
+
+  it('returns false when verifiable fields are identical', () => {
+    const a = normalizeContact({ name: 'A', email: 'a@b.com', title: 'CEO' });
+    const b = normalizeContact({ name: 'A', email: 'a@b.com', title: 'CEO' });
+    expect(verifiableFieldsDiffer(a, b)).toBe(false);
+  });
+
+  it('returns true when a verifiable field changed', () => {
+    const a = normalizeContact({ name: 'A', email: 'a@b.com', title: 'CEO' });
+    const b = normalizeContact({ name: 'A', email: 'a@b.com', title: 'CTO' });
+    expect(verifiableFieldsDiffer(a, b)).toBe(true);
+  });
+
+  it('ignores name/isDecisionMaker changes (not verifiable fields)', () => {
+    const a = normalizeContact({ name: 'A', email: 'a@b.com', isDecisionMaker: false });
+    const b = normalizeContact({ name: 'A', email: 'a@b.com', isDecisionMaker: true });
+    expect(verifiableFieldsDiffer(a, b)).toBe(false);
   });
 });
 
@@ -50,6 +103,30 @@ describe('dedupeContacts', () => {
   it('preserves isDecisionMaker through dedup', () => {
     const result = dedupeContacts([{ name: 'Jane', email: 'jane@a.com', isDecisionMaker: true }]);
     expect(result[0].isDecisionMaker).toBe(true);
+  });
+
+  it('on collision, keeps the later of the two lastVerifiedAt timestamps regardless of order', () => {
+    const laterFirst = dedupeContacts([
+      { name: 'Jane', phone: '+15551234567', lastVerifiedAt: '2026-06-01T00:00:00.000Z' },
+      { name: 'Jane', phone: '+15551234567', lastVerifiedAt: '2026-01-01T00:00:00.000Z' },
+    ]);
+    expect(laterFirst).toHaveLength(1);
+    expect(laterFirst[0].lastVerifiedAt).toBe('2026-06-01T00:00:00.000Z');
+
+    const earlierFirst = dedupeContacts([
+      { name: 'Jane', phone: '+15551234567', lastVerifiedAt: '2026-01-01T00:00:00.000Z' },
+      { name: 'Jane', phone: '+15551234567', lastVerifiedAt: '2026-06-01T00:00:00.000Z' },
+    ]);
+    expect(earlierFirst[0].lastVerifiedAt).toBe('2026-06-01T00:00:00.000Z');
+  });
+
+  it('forwards verify/now options to every normalized contact', () => {
+    const now = new Date('2026-07-25T00:00:00.000Z');
+    const result = dedupeContacts(
+      [{ name: 'Jane', lastVerifiedAt: '2020-01-01T00:00:00.000Z' }],
+      { verify: true, now }
+    );
+    expect(result[0].lastVerifiedAt).toBe('2026-07-25T00:00:00.000Z');
   });
 });
 

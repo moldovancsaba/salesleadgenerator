@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.40
+
+Second delivery of the sales-tooling roadmap (tracking issue #76): field-level contact data freshness tracking.
+
+### Added — contact data freshness tracking (fixes #66)
+`contacts[]` entries gain an optional `lastVerifiedAt` (ISO timestamp) — the whole-lead `updatedAt` is stamped on every write including edits that never touch a contact, so it couldn't answer "is this person's email still good?" `lib/contacts.ts`'s `normalizeContact`/`dedupeContacts` gain an optional `{ verify: true }` option to stamp `lastVerifiedAt = now` unconditionally, plus newly-exported `contactKey` and `verifiableFieldsDiffer` helpers for per-contact diffing.
+
+Stamping differs per write path: `POST /api/leads` (create) and `PUT /api/leads/[id]` (the agent enrichment path — "PUT only changed fields") both stamp unconditionally, since arriving contacts there are fresh/just-confirmed by definition. `PATCH ... MODIFY` (`app/lib/lead-actions.ts`) stamps selectively — only a contact whose verifiable fields (`email`/`phone`/`linkedin`/`title`/`role`) actually differ from what's already stored under the same dedup key, since `handleModify()` sends the whole `contacts[]` array on every save regardless of what changed (a notes typo fix must not falsely re-verify every contact). On a dedup collision, the surviving entry now keeps the later of the two timestamps instead of "first seen."
+
+New pure module `lib/contact-freshness.ts` (`isContactStale`, `staleContactRatio`, `DEFAULT_STALENESS_THRESHOLD_DAYS = 180`, overridable via `CONTACT_STALENESS_THRESHOLD_DAYS`) — no React/Mongo/internal `Date.now()`, mirroring `lib/stale-deal.ts`'s shape. Missing `lastVerifiedAt` is treated as stale (an honest "unknown," not a fabricated "fresh at creation"); a future timestamp (clock skew) is treated as not-stale. `app/detail.tsx`'s CONTACTS block renders a "Needs re-verification" badge per stale contact and a stale-count summary; GDS's `AdminModal`/`AdminDetailDrawer` `actions` prop has no per-action description slot, so the summary renders next to the contact data it describes rather than literally under the `REQUEST_REFRESH` button — that button's own behavior is unchanged. `agent-runtime/unified-enrichment-prompt.md` now notes that any contact included in a PUT is treated as freshly re-verified.
+
+### Testing
+`tests/lib/contact-freshness.test.ts` — 9 new tests (missing timestamp, exact threshold boundary, one-ms-under, future-timestamp clock skew, invalid timestamp, empty-array ratio, mixed/all-stale/all-fresh ratios). `tests/lib/contacts.test.ts` — 11 new tests covering `lastVerifiedAt` stamping (default passthrough, verify-override), `contactKey`/`verifiableFieldsDiffer`, and dedup's later-timestamp-wins collision merge, in addition to the existing suite (all still passing, unaffected by the additive `options` parameter).
+
+### Documentation
+`docs/ARCHITECTURE.md`'s "Lead" data-model section (new "Per-contact freshness" subsection); `PIPELINE_ARCHITECTURE.md`'s Lead Model schema block; `agent-runtime/unified-enrichment-prompt.md`'s critical-rules block.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (114/114), smoke suite (5/5), `next build --webpack` (23 routes).
+
+Version bumped 2.4.39 -> 2.4.40.
+
 ## 2.4.39
 
 First delivery of the sales-tooling roadmap (tracking issue #76): stale/stuck-deal alerts.

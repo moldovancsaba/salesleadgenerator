@@ -48,6 +48,9 @@ export type Lead = {
     linkedin?: string;
     role?: string;
     isDecisionMaker?: boolean;
+    // ISO timestamp of last confirmed-accurate verifiable-field data — see
+    // lib/contact-freshness.ts, issue #66. Undefined means never verified.
+    lastVerifiedAt?: string;
   }>;
   pro_for_organization?: string | string[];
   con_for_organization?: string | string[];

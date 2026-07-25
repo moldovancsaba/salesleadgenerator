@@ -3,7 +3,7 @@ import { normalizeLead } from './normalize-lead'
 import { validatePatchPayload } from '../../lib/validate-lead'
 import { isMongoConfigured } from '../../lib/mongodb'
 import { tenantFilter as buildTenantFilter } from '../../lib/tenant'
-import { dedupeContacts } from '../../lib/contacts'
+import { dedupeContacts, normalizeContact, contactKey, verifiableFieldsDiffer } from '../../lib/contacts'
 
 export type LeadActionInput = {
   brand: string
@@ -87,7 +87,24 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     // contact, not a top-level field — see lib/contacts.ts, issue #45) can
     // actually be edited via the same action the detail modal already uses.
     if (Array.isArray(normalizedBody.contacts)) {
-      updateData.contacts = dedupeContacts(normalizedBody.contacts)
+      // Unlike POST/PUT, MODIFY is not necessarily a re-verification event —
+      // handleModify() in app/detail.tsx sends the whole contacts[] array on
+      // every save, even for unrelated field edits (e.g. a notes typo fix).
+      // Only stamp lastVerifiedAt for a contact whose verifiable fields
+      // (email/phone/linkedin/title/role) actually differ from what's
+      // already stored for that same dedup key — everything else keeps its
+      // prior timestamp (issue #66).
+      const now = new Date()
+      const existingByKey = new Map<string, ReturnType<typeof normalizeContact>>()
+      dedupeContacts(existing.contacts).forEach((c) => existingByKey.set(contactKey(c), c))
+      const stamped = normalizedBody.contacts.map((raw: Record<string, any>) => {
+        const normalized = normalizeContact(raw)
+        const key = contactKey(normalized)
+        const match = key ? existingByKey.get(key) : undefined
+        const changed = verifiableFieldsDiffer(match, normalized)
+        return { ...raw, lastVerifiedAt: changed ? now.toISOString() : match?.lastVerifiedAt }
+      })
+      updateData.contacts = dedupeContacts(stamped)
     }
     if (normalizedBody[PRO_FIELD]) updateData[PRO_FIELD] = normalizedBody[PRO_FIELD]
     if (normalizedBody[CON_FIELD]) updateData[CON_FIELD] = normalizedBody[CON_FIELD]
