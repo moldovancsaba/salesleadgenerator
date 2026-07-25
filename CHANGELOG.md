@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.50
+
+Twelfth delivery of the sales-tooling roadmap (tracking issue #76): real email verification (MX-based, no paid API).
+
+### Added — MX-based email verification (fixes #67)
+New pure module `lib/email-verification.ts`: `verifyEmail()` proves only *domain-level* mail deliverability via a Node `dns.promises.Resolver` MX lookup (RFC 5321 §5 A-record fallback when a domain has no MX) — no paid API, no new npm dependency. It never proves a specific mailbox exists: a catch-all domain always verifies, a typo'd local part at a real domain is indistinguishable from a correct one. `EMAIL_RE`'s format check (exported from `lib/validate-lead.ts`, no longer a private duplicate) runs first — a malformed email short-circuits to `unverified` without ever calling `resolveMx`. Four status tiers: `mx-verified`, `mx-failed` (definitive — NXDOMAIN or no MX + no A — never retried), `check-error` (transient — timeout/SERVFAIL/etc. — retried up to twice with 1s/3s backoff), `unverified`. `isRoleAccount()`/`isFreeProvider()` check small static lists independently of the MX result. DNS cancellation uses `Resolver#cancel()` (the actual Node API for aborting an in-flight query) rather than `AbortController`, which `dns.promises` doesn't support — confirmed by testing, not assumed from the issue's own pseudocode.
+
+`NormalizedContact` (`lib/contacts.ts`) gains an optional `emailVerificationStatus` field, passed through unchanged by `normalizeContact()` on every re-normalize so it isn't silently dropped by unrelated writes (e.g. `PATCH ... MODIFY`'s existing-contacts pass). New Mongo-touching orchestration module `app/lib/email-verification-store.ts`'s `verifyLeadContactsAsync()` dedupes DNS lookups per unique domain (two contacts on the same domain trigger one lookup, not two) and writes each contact's own result back via a positional `$` `updateOne`. Both `POST /api/leads` and `PUT /api/leads/[id]` invoke it with `void` (fire-and-forget) after their own insert/update completes — a DNS timeout or resolver outage can never delay or fail a lead write, and `PUT` only re-checks emails that are new or changed versus what was already stored, not every contact on every save.
+
+`app/detail.tsx`'s CONTACTS block renders a `StatusBadge` next to each contact's email for all four states, always paired with distinct text and a full-context `aria-label`, never color alone (CLAUDE.md Rule 7).
+
+### Testing
+`tests/lib/email-verification.test.ts` — 18 new tests covering `isRoleAccount`/`isFreeProvider`/`extractDomain`, `lookupMx` (MX found; RFC 5321 A-record fallback on empty MX; no-MX-no-A; NXDOMAIN; unexpected-error-as-transient; a real timeout that resolves quickly via a mocked never-resolving promise, confirming `Resolver#cancel()` is called and the function never hangs), and `verifyEmail` (malformed-email short-circuit asserting `resolveMx` is never called; a real mx-verified result; mx-failed with independent role-account detection; the full 2-retry backoff schedule verified by call count and exact delay arguments; early-stop on a successful retry; never-retrying a definitive failure; free-provider flagging; never throwing even on a misbehaving resolver). `tests/lib/email-verification-store.test.ts` — 7 new tests covering per-domain DNS-lookup dedup, per-email write-backs via the correct positional `$` filter, and that neither a rejected domain check nor a rejected Mongo write ever throws out of the fire-and-forget entry point. Interactive verification via headless Chromium against the real dev server with a mocked lead payload covering all four states: confirmed the `StatusBadge` renders correct, distinct text for `mx-verified`/`mx-failed`/`check-error`/pending, with no console errors.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s Lead data model gains an "MX-based email verification" subsection and the `emailVerificationStatus` field entry; `docs/STACK_AND_DEPENDENCIES.md`'s Backend table gains a Node `dns` (built-in) row, explicit about the no-paid-API/no-new-package constraint; `docs/OPERATOR_GUIDE.md` gains a "Contact Email Verification" section explaining the four badge states and the domain-not-mailbox caveat.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (249/249), smoke suite (5/5), `next build --webpack` (31 routes, no new routes — this issue's contract explicitly needs none).
+
+Version bumped 2.4.49 -> 2.4.50.
+
 ## 2.4.49
 
 Eleventh delivery of the sales-tooling roadmap (tracking issue #76): battlecard / objection-handling library. Ships alongside a separately-committed fix for issue #78, a pre-existing bug discovered while verifying this feature (see that commit/issue for detail — the lead detail modal's action buttons were computed but never rendered).

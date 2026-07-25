@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.49  
+**Version:** 2.4.50  
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -26,6 +26,23 @@ DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted p
    - Modify → edit lead fields
    - Delete → remove lead
 5. Drag cards between columns when the pipeline changes.
+
+---
+
+## Contact Email Verification (2.4.50, issue #67)
+
+Every contact email is automatically checked in the background — a DNS lookup confirms the **domain** can receive mail. This is not, and cannot be, proof that the specific mailbox exists: a catch-all domain always passes, and a typo in the part before the `@` at an otherwise-real domain is invisible to this check. Treat it as a first-pass filter, not a guarantee.
+
+A badge appears next to each contact's email in the lead detail modal:
+
+| Badge | Meaning |
+|-------|---------|
+| Checking… | Not yet checked, or the address failed basic format validation |
+| Verified domain | The domain has mail servers (MX record), or a fallback host that can accept mail |
+| Undeliverable domain | Confirmed — this domain cannot receive mail (no such domain, or no mail server at all) |
+| Check failed — retry pending | A temporary DNS problem (timeout, resolver hiccup) — automatically retried, never treated as "this email is bad" |
+
+The check runs after you save a lead or edit a contact's email — it never delays saving, and a DNS outage never blocks or fails a save. Results typically land within a few seconds; refresh or reopen the lead to see an updated badge.
 
 ---
 

@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.49
+**Version:** 2.4.50
 
 ---
 
@@ -38,6 +38,7 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 | mongodb driver | **direct dependency, `^6.20.0`, added explicitly in 2.4.28** | Active | Raw `MongoClient` used in `lib/mongodb.ts` and every API route handler. **Was never actually declared in `package.json`** before 2.4.28 — it only existed in `node_modules` as a hoisted transitive dependency of `mongoose`. Bumping `mongoose` to 9.x (which bundles `mongodb@~7.5` instead of 8.x's `~6.20`) silently promoted this hoisted copy to 7.5.0 on `npm install` — a major-version bump of the app's live database driver as an undeclared side effect of an "ops-scripts only" dependency change. Fixed by declaring `mongodb` directly here, pinned to the version this app's code has always actually been verified against — the same "declare it directly, don't rely on another package's transitive hoisting" precedent already set for `@dnd-kit/*` in 2.4.13. |
 | MongoDB | Atlas hosted | Active | Persistence |
 | dotenv | ^17.4.2 | Scripts-only | Used in `scripts/*.js` and `scripts/*.mjs`; not used in app code |
+| Node `dns` (built-in) | Node runtime version | Active (2.4.50, issue #67) | `lib/email-verification.ts`'s MX/A-record deliverability check (`dns.promises.Resolver`) — **no package dependency, no paid third-party API**, per the issue's explicit constraint. Proves domain-level mail acceptance only, never a specific mailbox. |
 
 ---
 

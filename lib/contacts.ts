@@ -4,6 +4,8 @@
 // exact bug this module replaces (see issue #45): each route previously had
 // its own near-duplicate normalization, and PATCH MODIFY had none at all.
 
+import type { EmailVerificationStatus } from './email-verification';
+
 export type ContactInput = Record<string, any>;
 
 export type NormalizedContact = {
@@ -18,6 +20,11 @@ export type NormalizedContact = {
   // phone, linkedin, title, role) were confirmed accurate — see issue #66.
   // Undefined means never verified, not "verified at record creation."
   lastVerifiedAt?: string;
+  // MX-based domain-deliverability signal (issue #67) — written back
+  // asynchronously by write paths after insert/update, never computed
+  // synchronously here. Undefined means never checked yet, distinct from
+  // status: 'unverified' (checked, but the email failed format validation).
+  emailVerificationStatus?: EmailVerificationStatus;
 };
 
 export type NormalizeContactOptions = {
@@ -68,6 +75,13 @@ export function normalizeContact(c: ContactInput, options?: NormalizeContactOpti
     role: typeof c?.role === 'string' ? c.role.trim() : '',
     isDecisionMaker: c?.isDecisionMaker === true,
     lastVerifiedAt: verify ? now.toISOString() : (typeof c?.lastVerifiedAt === 'string' ? c.lastVerifiedAt : undefined),
+    // Passed through as-is when present — this is a server-computed field
+    // (issue #67's background MX check), never something a write payload is
+    // expected to set. Write paths that detect the email itself changed are
+    // responsible for clearing/re-verifying it; normalizeContact just avoids
+    // silently dropping an already-computed result on every re-normalize
+    // (e.g. PATCH MODIFY's existing.contacts pass in app/lib/lead-actions.ts).
+    emailVerificationStatus: c?.emailVerificationStatus,
   };
 }
 

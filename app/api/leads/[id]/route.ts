@@ -6,6 +6,7 @@ import { requireApiKey } from '../../../../lib/api-auth'
 import { validateLeadPayload } from '../../../../lib/validate-lead'
 import { deriveKanbanColumn, isAutoManagedColumn } from '../../../../lib/kanban-column'
 import { dedupeContacts } from '../../../../lib/contacts'
+import { verifyLeadContactsAsync } from '../../../lib/email-verification-store'
 
 function getBrand(request: Request): 'cogmap' | 'seyu' {
   const url = new URL(request.url);
@@ -188,6 +189,25 @@ export async function PUT(
       return NextResponse.json({ error: 'Lead not found after update' }, { status: 404 })
     }
     const updatedLead = result;
+
+    // Only re-check emails that are new or changed vs. what was already
+    // stored — re-verifying every contact on every PUT would waste DNS
+    // lookups on emails whose domain-deliverability result hasn't gone
+    // stale, and PUT is the agent enrichment path's most frequent write
+    // (issue #67). Fire-and-forget, same as the CREATE path.
+    if (updateData.contacts !== undefined) {
+      const existingEmails = new Set(
+        (existing.contacts || [])
+          .map((c: any) => (typeof c?.email === 'string' ? c.email.toLowerCase().trim() : ''))
+          .filter(Boolean)
+      );
+      const changedEmails = (updateData.contacts as Array<{ email?: string }>)
+        .map((c) => c.email)
+        .filter((email): email is string => !!email && !existingEmails.has(email.toLowerCase()));
+      if (changedEmails.length > 0) {
+        void verifyLeadContactsAsync(dbInstance, config.dbCollection, existing._id, changedEmails);
+      }
+    }
 
     // Every other kanbanColumn-changing path (ACCEPT/DECLINE/PIN/COLUMN_MOVE
     // in app/lib/lead-actions.ts, CREATE in app/api/leads/route.ts) writes an
