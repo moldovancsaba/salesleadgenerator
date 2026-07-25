@@ -9,6 +9,7 @@ import { LeadCard } from './card';
 import { COLUMNS } from './constants';
 import { toggleColumnVisibility as toggleColumnVisibilityInSet } from '../lib/kanban-column-visibility';
 import { computeStaleness, DEFAULT_STALE_THRESHOLDS, type KanbanColumn as StaleDealColumn } from '../lib/stale-deal';
+import { getNextStepNudge } from '../lib/next-step-nudge';
 
 type ColumnState = {
   leads: Lead[];
@@ -266,14 +267,20 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     const leadItem = item as LeadKanbanItem
     const colState = columnStates[column.id as KanbanColumn]
     const isLast = column.items[column.items.length - 1]?.id === item.id
+    const now = new Date()
     const staleness = computeStaleness(
       { kanbanColumn: leadItem.lead.kanbanColumn as StaleDealColumn, updatedAt: leadItem.lead.updatedAt },
       staleThresholds,
-      new Date()
+      now
+    )
+    const nudge = getNextStepNudge(
+      { kanbanColumn: leadItem.lead.kanbanColumn, createdAt: leadItem.lead.createdAt, contacts: leadItem.lead.contacts },
+      staleness,
+      now
     )
     return (
       <>
-        <LeadCard lead={leadItem.lead} onOpen={() => onOpenLead(leadItem.lead)} staleness={staleness} />
+        <LeadCard lead={leadItem.lead} onOpen={() => onOpenLead(leadItem.lead)} staleness={staleness} nudge={nudge} />
         {isLast && colState.hasMore && !colState.loading && (
           <LoadMoreSentinel onLoadMore={() => loadColumn(column.id as KanbanColumn, colState.cursor)} />
         )}

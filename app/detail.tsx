@@ -8,6 +8,8 @@ import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { PRO_FIELD, CON_FIELD } from './lib/brand';
 import { isContactStale, DEFAULT_STALENESS_THRESHOLD_DAYS } from '@/lib/contact-freshness';
+import { computeStaleness, DEFAULT_STALE_THRESHOLDS } from '@/lib/stale-deal';
+import { getNextStepNudge } from '@/lib/next-step-nudge';
 import {
   IconX,
   IconThumbUp,
@@ -79,6 +81,21 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   const normalizedCon = ensureArrayField((normalized as any)[CON_FIELD]);
 
   const contactStaleCount = (lead.contacts || []).filter((c) => isContactStale(c, DEFAULT_STALENESS_THRESHOLD_DAYS)).length;
+
+  // DEFAULT_STALE_THRESHOLDS (not brand-fetched /api/settings thresholds):
+  // this modal makes no additional API calls per issue #62's own scope, and
+  // app/kanban.tsx itself falls back to these same defaults on fetch failure.
+  const nudgeNow = new Date();
+  const nudgeStaleness = computeStaleness(
+    { kanbanColumn: lead.kanbanColumn, updatedAt: lead.updatedAt },
+    DEFAULT_STALE_THRESHOLDS,
+    nudgeNow
+  );
+  const nudge = getNextStepNudge(
+    { kanbanColumn: lead.kanbanColumn, createdAt: lead.createdAt, contacts: lead.contacts },
+    nudgeStaleness,
+    nudgeNow
+  );
 
   const iceToneValue = iceScore >= 700 ? 'teal' : iceScore >= 480 ? 'green' : iceScore >= 200 ? 'orange' : 'blue';
   const regionToneValue = lead.region === 'US' ? 'blue' : lead.region === 'CEE' ? 'indigo' : lead.region === 'MENA' ? 'green' : 'gray';
@@ -261,6 +278,26 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
           </Box>
         </SimpleGrid>
       </Box>
+
+      {nudge && (
+        <Box>
+          <Group justify="space-between" align="center" wrap="wrap">
+            <Text size="sm" c={nudge.severity === 'warn' ? 'orange' : 'dimmed'}>{nudge.message}</Text>
+            {nudge.actionable && nudge.action === 'REQUEST_REFRESH' && (
+              <Button
+                size="xs"
+                variant="light"
+                color="orange"
+                onClick={handleRefresh}
+                loading={busy}
+                aria-label={`Request refresh — ${nudge.message}`}
+              >
+                Request refresh
+              </Button>
+            )}
+          </Group>
+        </Box>
+      )}
 
       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
         <Box>

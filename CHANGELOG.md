@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.47
+
+Ninth delivery of the sales-tooling roadmap (tracking issue #76): next-step nudges.
+
+### Added — next-step nudges (fixes #62)
+New pure module `lib/next-step-nudge.ts` (`getNextStepNudge(lead, staleness, now, contactStalenessThresholdDays?)`) produces a single rule-based "what to do next" hint per lead, evaluated top-down, first match wins: `NO_CONTACTS` → `DECISION_MAKER_MISSING` (via `lib/contacts.ts`'s `getDecisionMakerContact`) → `NEEDS_VERIFICATION` (via `lib/contact-freshness.ts`'s `isContactStale`, issue #66) → `STALE` (via `lib/stale-deal.ts`'s `computeStaleness`, issue #61). Returns `null` for `WON`/`LOST` and for leads within a 3-day creation grace period; wrapped in try/catch so any malformed input degrades to "no nudge" rather than throwing.
+
+The issue's original spec was written against two speculative sibling shapes (`StalenessSignal.daysInCurrentColumn`, `FreshnessSignal.isMissingCriticalData`) that predated #61/#66 shipping. Reconciled against the real output shapes instead of guessing: `StaleDealResult.daysSince` is derived from the lead's whole-record `updatedAt` (bumped by any mutation), so it cannot distinguish "no outreach" from "stuck in this column" as originally assumed — the planned two-flavor `STALE_NO_OUTREACH`/`STALE_IN_COLUMN` split collapses to a single `STALE` nudge; freshness is tracked per-contact, not as a lead-level boolean. This reconciliation is documented in a header comment in `lib/next-step-nudge.ts` itself.
+
+Rendered in two places: `app/card.tsx` shows the nudge message as decorative `Text` (orange for `severity: 'warn'`, dimmed for `'info'`) with no interactive affordance, matching the card's existing "click Preview to act" pattern (CLAUDE.md Rule 7). `app/detail.tsx` shows the same message plus, only when `nudge.actionable && nudge.action === 'REQUEST_REFRESH'`, a real `Button` reusing the modal's existing `handleRefresh()` — no duplicated PATCH/notification logic. The modal computes staleness/nudge from `DEFAULT_STALE_THRESHOLDS` (not a brand-fetched `/api/settings` value) since it makes no additional network calls by design, mirroring `app/kanban.tsx`'s own fallback-to-defaults behavior.
+
+### Testing
+`tests/lib/next-step-nudge.test.ts` — 14 new tests: null with no staleness and a fresh decision maker; null for `WON`/`LOST`; null within the creation grace period; `NO_CONTACTS` for an empty or undefined contacts array; `DECISION_MAKER_MISSING`/`NEEDS_VERIFICATION` each outranking a simultaneous staleness signal; `STALE` returned with the correct severity mapping (`info` for `'stale'`, `warn` for `'critical'`); multiple contacts where any one fresh decision maker clears the nudge; never-throws on a malformed lead shape or malformed staleness object; an explicit `null` staleness signal treated as no staleness. Interactive verification via headless Chromium against the real dev server with mocked `/api/leads/columns` responses (this sandbox has no `MONGODB_URI`): confirmed all four non-null nudge states render correctly on kanban cards (`NO_CONTACTS`, `DECISION_MAKER_MISSING`, `NEEDS_VERIFICATION`, `STALE`) and that the detail modal renders the same `NEEDS_VERIFICATION` message plus a working "Request refresh" button, with no console/hydration errors attributable to the new code path.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s "Kanban Lead Card" section gains a "Next-step nudges" subsection describing the rule priority, the reconciliation against #61/#66's real shapes, and the two render integration points.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (193/193), smoke suite (5/5), `next build --webpack` (27 routes).
+
+Version bumped 2.4.46 -> 2.4.47.
+
 ## 2.4.46
 
 Eighth delivery of the sales-tooling roadmap (tracking issue #76), completing the forecasting cluster: pipeline coverage ratio.
