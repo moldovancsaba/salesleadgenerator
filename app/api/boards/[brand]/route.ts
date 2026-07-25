@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
-import { getPipelineWeights } from '@/lib/pipeline-weights'
-import { getTenantId, tenantFilter } from '@/lib/tenant'
+import { getTenantId } from '@/lib/tenant'
+import { computeForecast } from '@/app/lib/forecast'
 
 export async function GET(request: Request, { params }: { params: Promise<{ brand: string }> }) {
   try {
@@ -10,7 +10,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
     const brand = resolveBrand(brandParam)
     const config = BRAND_CONFIG[brand]
     const tenantId = getTenantId(request)
-    const filter = tenantFilter(tenantId)
 
     if (!process.env.MONGODB_URI) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
@@ -18,228 +17,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
 
     const client = await clientPromise
     const db = client.db()
-    const collection = db.collection(config.dbCollection)
 
-    const totalLeads = await collection.countDocuments(filter)
-    const updatedAt = new Date().toISOString()
-
-    const byColumnCursor = await collection.aggregate([
-      { $match: filter },
-      { $group: { _id: '$kanbanColumn', count: { $sum: 1 } } },
-    ]).toArray()
-
-    const byRegionCursor = await collection.aggregate([
-      { $match: filter },
-      { $group: { _id: '$region', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]).toArray()
-
-    const columnCounts: Record<string, number> = {}
-    for (const item of byColumnCursor) {
-      columnCounts[item._id || 'UNKNOWN'] = item.count
-    }
-
-    const regionCounts: Record<string, number> = {}
-    for (const item of byRegionCursor) {
-      regionCounts[item._id || 'UNKNOWN'] = item.count
-    }
-
-    let forecast: Record<string, any> | null = null
-
-    if (brand === 'cogmap') {
-      const pipelineForecast = await collection.aggregate([
-        { $match: filter },
-        {
-          $group: {
-            _id: '$kanbanColumn',
-            leads: { $sum: 1 },
-            participants: { $sum: { $ifNull: ['$estimated_participants', 0] } },
-            revenue: { $sum: { $ifNull: ['$estimated_annual_revenue_usd', 0] } },
-          },
-        },
-      ]).toArray()
-
-      const closedRates = await getPipelineWeights(db)
-      const pipelineColumns = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST']
-      const rawByColumn: Record<string, any> = {}
-      for (const item of pipelineForecast) {
-        rawByColumn[(item._id || 'UNKNOWN') as string] = item
-      }
-
-      const pipeline: Record<string, any> = {}
-      for (const col of pipelineColumns) {
-        const item = rawByColumn[col] || { leads: 0, participants: 0, revenue: 0 }
-        const rate = closedRates[col] ?? 0
-        pipeline[col] = {
-          leads: item.leads,
-          participants: item.participants,
-          rawRevenue: item.revenue,
-          probability: rate,
-          weightedRevenue: Math.round(item.revenue * rate),
-        }
-      }
-
-      const totalWeighted = Object.values(pipeline as Record<string, { weightedRevenue: number }>)
-        .reduce((sum: number, col) => sum + (col.weightedRevenue || 0), 0)
-
-      const revenueByModel = await collection.aggregate([
-        { $match: filter },
-        {
-          $group: {
-            _id: '$revenue_model',
-            leads: { $sum: 1 },
-            revenue: { $sum: { $ifNull: ['$estimated_annual_revenue_usd', 0] } },
-          },
-        },
-        { $sort: { revenue: -1 } },
-      ]).toArray()
-
-      const totalRevenue = await collection.aggregate([
-        { $match: filter },
-        {
-          $group: {
-            _id: null,
-            revenue: { $sum: { $ifNull: ['$estimated_annual_revenue_usd', 0] } },
-            participants: { $sum: { $ifNull: ['$estimated_participants', 0] } },
-          },
-        },
-      ]).toArray()
-
-      forecast = {
-        pipeline,
-        totalWeightedRevenue: totalWeighted,
-        byTier: pipelineForecast.reduce((acc: Record<string, { leads: number; participants: number; revenue: number }>, item: any) => {
-          acc[item._id || 'UNSET'] = { leads: item.leads, participants: item.participants, revenue: item.revenue }
-          return acc
-        }, {}),
-        byModel: revenueByModel.reduce((acc: Record<string, { leads: number; revenue: number }>, item: any) => {
-          acc[item._id || 'UNSET'] = { leads: item.leads, revenue: item.revenue }
-          return acc
-        }, {}),
-        totals: totalRevenue[0] || { revenue: 0, participants: 0 },
-      }
-    }
-
-    if (brand === 'seyu') {
-      const seyuForecast = await collection.aggregate([
-        { $match: filter },
-        { $project: { companyPricing: { $objectToArray: '$pricingByCompany' } } },
-        { $unwind: { path: '$companyPricing', preserveNullAndEmptyArrays: true } },
-        {
-          $group: {
-            _id: '$companyPricing.k',
-            leads: { $sum: 1 },
-            currency: { $first: { $ifNull: ['$companyPricing.v.currency', 'EUR'] } },
-            upfrontEur: { $sum: { $ifNull: ['$companyPricing.v.upfront_eur', 0] } },
-            monthlyEur: { $sum: { $ifNull: ['$companyPricing.v.monthly_eur', 0] } },
-            annualEur: { $sum: { $ifNull: ['$companyPricing.v.annual_fee_eur', 0] } },
-            revenueSharePercent: { $max: { $ifNull: ['$companyPricing.v.revenue_share_percent', 0] } },
-            discountPercent: { $max: { $ifNull: ['$companyPricing.v.discount_percent', 0] } },
-          },
-        },
-        { $sort: { leads: -1 } },
-      ]).toArray()
-
-      const annualizedByCompany = (seyuForecast || []).map((doc: any) => ({
-        company: doc._id || 'UNKNOWN',
-        leads: doc.leads || 0,
-        currency: doc.currency || 'EUR',
-        upfrontEur: doc.upfrontEur || 0,
-        monthlyEur: doc.monthlyEur || 0,
-        annualFeeEur: doc.annualEur || 0,
-        revenueSharePercent: doc.revenueSharePercent || 0,
-        discountPercent: doc.discountPercent || 0,
-        estimatedAnnualValueEur: Math.max(
-          doc.annualEur || 0,
-          ((doc.monthlyEur || 0) * 12) + (doc.upfrontEur || 0)
-        ),
-      }))
-
-      const totalAnnualized = annualizedByCompany.reduce((sum: number, item: { estimatedAnnualValueEur: number }) => sum + (item.estimatedAnnualValueEur || 0), 0)
-
-      // Per-column pipeline-weighted ("discounted") forecast, mirroring cogmap's
-      // shape: each lead's own pricingByCompany entries are summed per-lead
-      // (max(annual, monthly*12+upfront) per entry) before grouping by column,
-      // so a lead with multiple company blocks isn't double counted per entry.
-      const seyuColumnForecast = await collection.aggregate([
-        { $match: filter },
-        {
-          $project: {
-            kanbanColumn: 1,
-            companyPricing: { $objectToArray: { $ifNull: ['$pricingByCompany', {}] } },
-          },
-        },
-        {
-          $addFields: {
-            leadValue: {
-              $sum: {
-                $map: {
-                  input: '$companyPricing',
-                  as: 'entry',
-                  in: {
-                    $max: [
-                      { $ifNull: ['$$entry.v.annual_fee_eur', 0] },
-                      {
-                        $add: [
-                          { $multiply: [{ $ifNull: ['$$entry.v.monthly_eur', 0] }, 12] },
-                          { $ifNull: ['$$entry.v.upfront_eur', 0] },
-                        ],
-                      },
-                    ],
-                  },
-                },
-              },
-            },
-          },
-        },
-        {
-          $group: {
-            _id: '$kanbanColumn',
-            leads: { $sum: 1 },
-            revenue: { $sum: '$leadValue' },
-          },
-        },
-      ]).toArray()
-
-      const closedRatesSeyu = await getPipelineWeights(db)
-      const pipelineColumnsSeyu = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST']
-      const rawByColumnSeyu: Record<string, any> = {}
-      for (const item of seyuColumnForecast) {
-        rawByColumnSeyu[(item._id || 'UNKNOWN') as string] = item
-      }
-
-      const pipelineSeyu: Record<string, any> = {}
-      for (const col of pipelineColumnsSeyu) {
-        const item = rawByColumnSeyu[col] || { leads: 0, revenue: 0 }
-        const rate = closedRatesSeyu[col] ?? 0
-        pipelineSeyu[col] = {
-          leads: item.leads,
-          rawRevenue: item.revenue,
-          probability: rate,
-          weightedRevenue: Math.round(item.revenue * rate),
-        }
-      }
-
-      const totalWeightedSeyu = Object.values(pipelineSeyu as Record<string, { weightedRevenue: number }>)
-        .reduce((sum: number, col) => sum + (col.weightedRevenue || 0), 0)
-
-      forecast = {
-        byCompany: annualizedByCompany,
-        totalEstimatedAnnualValueEur: totalAnnualized,
-        pipeline: pipelineSeyu,
-        totalWeightedRevenue: totalWeightedSeyu,
-        currency: 'EUR',
-      }
-    }
+    // weightsUsed is deliberately dropped here — it exists on the shared
+    // computeForecast() result for the forecast-snapshot endpoint (issue
+    // #57) to persist, but was never part of this route's own response
+    // shape and stays that way (no behavior change on extraction).
+    const { weightsUsed: _weightsUsed, ...result } = await computeForecast(db, brand, tenantId)
 
     return NextResponse.json({
       brand,
       label: config.label,
-      totalLeads,
-      updatedAt,
-      columnCounts,
-      regionCounts,
-      forecast,
+      ...result,
       tenantId,
       source: 'mongodb',
     })
