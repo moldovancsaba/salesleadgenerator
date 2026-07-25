@@ -148,24 +148,24 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
               <TextInput
                 label="Company name"
                 value={settings.companyName}
-                onChange={(e) => setSettings((s) => ({ ...s, companyName: e.currentTarget.value }))}
+                onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, companyName: v })); }}
               />
               <TextInput
                 label="Contact person"
                 value={settings.contactPerson}
-                onChange={(e) => setSettings((s) => ({ ...s, contactPerson: e.currentTarget.value }))}
+                onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, contactPerson: v })); }}
               />
             </Group>
             <Group grow>
               <TextInput
                 label="Website"
                 value={settings.website}
-                onChange={(e) => setSettings((s) => ({ ...s, website: e.currentTarget.value }))}
+                onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, website: v })); }}
               />
               <TextInput
                 label="Main industry"
                 value={settings.mainIndustry}
-                onChange={(e) => setSettings((s) => ({ ...s, mainIndustry: e.currentTarget.value }))}
+                onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, mainIndustry: v })); }}
               />
             </Group>
             <Checkbox.Group
@@ -183,7 +183,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
               <TextInput
                 label="Other customer type"
                 value={settings.customerTypesOther}
-                onChange={(e) => setSettings((s) => ({ ...s, customerTypesOther: e.currentTarget.value }))}
+                onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, customerTypesOther: v })); }}
               />
             )}
           </Stack>
@@ -357,7 +357,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
             <Textarea
               label="Comments"
               value={settings.purchaseFrequencyComments}
-              onChange={(e) => setSettings((s) => ({ ...s, purchaseFrequencyComments: e.currentTarget.value }))}
+              onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, purchaseFrequencyComments: v })); }}
               minRows={2}
             />
           </Stack>
@@ -370,7 +370,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
             <Textarea
               label="Additional products / services"
               value={settings.upsell.commonAdditionalProducts}
-              onChange={(e) => setSettings((s) => ({ ...s, upsell: { ...s.upsell, commonAdditionalProducts: e.currentTarget.value } }))}
+              onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, upsell: { ...s.upsell, commonAdditionalProducts: v } })); }}
               minRows={2}
             />
             <NumberInput
@@ -396,7 +396,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
             <TextInput
               label="Who usually approves the purchase?"
               value={settings.approver}
-              onChange={(e) => setSettings((s) => ({ ...s, approver: e.currentTarget.value }))}
+              onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, approver: v })); }}
             />
           </Stack>
         </Paper>
@@ -409,18 +409,18 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
               <TextInput
                 label="Example customer name"
                 value={settings.exampleCustomer.name}
-                onChange={(e) => setSettings((s) => ({ ...s, exampleCustomer: { ...s.exampleCustomer, name: e.currentTarget.value } }))}
+                onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, exampleCustomer: { ...s.exampleCustomer, name: v } })); }}
               />
               <TextInput
                 label="Contract length"
                 value={settings.exampleCustomer.contractLength}
-                onChange={(e) => setSettings((s) => ({ ...s, exampleCustomer: { ...s.exampleCustomer, contractLength: e.currentTarget.value } }))}
+                onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, exampleCustomer: { ...s.exampleCustomer, contractLength: v } })); }}
               />
             </Group>
             <Textarea
               label="Products purchased"
               value={settings.exampleCustomer.productsPurchased}
-              onChange={(e) => setSettings((s) => ({ ...s, exampleCustomer: { ...s.exampleCustomer, productsPurchased: e.currentTarget.value } }))}
+              onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, exampleCustomer: { ...s.exampleCustomer, productsPurchased: v } })); }}
               minRows={2}
             />
             <NumberInput
@@ -450,7 +450,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
             <TextInput
               label="Specific months (optional)"
               value={settings.seasonality.specificMonths}
-              onChange={(e) => setSettings((s) => ({ ...s, seasonality: { ...s.seasonality, specificMonths: e.currentTarget.value } }))}
+              onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, seasonality: { ...s.seasonality, specificMonths: v } })); }}
             />
           </Stack>
         </Paper>
@@ -493,7 +493,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
             <Textarea
               label="Pricing, discounts, renewals, special cases"
               value={settings.notes}
-              onChange={(e) => setSettings((s) => ({ ...s, notes: e.currentTarget.value }))}
+              onChange={(e) => { const v = e.currentTarget.value; setSettings((s) => ({ ...s, notes: v })); }}
               minRows={3}
             />
           </Stack>
