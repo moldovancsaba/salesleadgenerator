@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.60
+**Version:** 2.4.61
 
 ## Overview
 
@@ -160,14 +160,22 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
   // (app/lib/sales-settings.ts) and applied as a multiplier before the sanity
   // cap, if configured (2.4.60, issue #84) — an unconfigured/unrecognized
   // region is a 1.0 no-op, never an error.
+  // method: 'manual_override' (2.4.61, issue #86): a rep's own reason-
+  // required figure, permanently exempt from every automated recompute
+  // (#82) until explicitly cleared via MODIFY's clearManualTicketSizeOverride.
+  // low/high both equal expected (a specific figure, not a modeled band);
+  // NOT run through the sanity cap — a human judgment call is trusted
+  // differently than an unvalidated agent-written number.
   ticketSizeEstimate?: {
-    method: 'tier_band' | 'per_unit' | 'unconfigured'
+    method: 'tier_band' | 'per_unit' | 'unconfigured' | 'manual_override'
     computedAt: string
     low?: number
     expected?: number
     high?: number
     currency?: 'USD' | 'EUR'
     confidence?: 'low' | 'medium' | 'high'
+    overrideReason?: string
+    overriddenBy?: string
   }
   // actualDealValueUsd (2.4.57, issue #83): the real, closed contract value
   // (always USD) once a lead is WON — captured via MODIFY, compared against

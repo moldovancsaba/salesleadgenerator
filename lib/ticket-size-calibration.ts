@@ -45,6 +45,11 @@ export type TicketSizeCalibrationResult = {
 export const DEFAULT_MIN_SAMPLE_SIZE = 5;
 
 const VALID_TIERS = new Set(['Small', 'Medium', 'Large', 'Enterprise']);
+// Deliberately excludes 'manual_override' (issue #86) — a human's own
+// judgment call is not a "the model was right/wrong" data point, and would
+// pollute this calibration if graded. Falls into wonWithoutEstimate below,
+// same as 'unconfigured' — grouped there by construction (this is an
+// allow-list, not a special case), not because it's literally estimate-less.
 const VALID_METHODS = new Set(['tier_band', 'per_unit']);
 
 function median(values: number[]): number {
