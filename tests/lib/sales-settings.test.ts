@@ -42,7 +42,7 @@ describe('sanitizeSalesSettings', () => {
     const result = sanitizeSalesSettings(null, 'cogmap', 'default');
     expect(result.companyName).toBe('');
     expect(result.products).toEqual([]);
-    expect(result.dealSize).toEqual({ small: undefined, medium: undefined, large: undefined, largestWon: undefined });
+    expect(result.dealSize).toEqual({ small: undefined, medium: undefined, large: undefined, enterprise: undefined, largestWon: undefined });
   });
 
   it('trims strings and enforces max lengths', () => {

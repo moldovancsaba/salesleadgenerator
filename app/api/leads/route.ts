@@ -11,6 +11,7 @@ import { buildFingerprint } from '../../../lib/fingerprint'
 import { dedupeContacts } from '../../../lib/contacts'
 import { verifyLeadContactsAsync } from '../../lib/email-verification-store'
 import { scanLeadTechStackAsync } from '../../lib/tech-stack-scan-store'
+import { computeTicketSizeForLead } from '../../lib/ticket-size-store'
 
 // Normalize address - ensure country is included if missing
 function normalizeAddress(address: string, country: string): string {
@@ -319,6 +320,16 @@ export async function POST(request: Request) {
 
     const count = await db.collection(config.dbCollection).countDocuments({ kanbanColumn, tenantId })
 
+    // Firmographic-tiered ticket-size estimate (issue #79) — computed
+    // synchronously (a small in-process company_settings lookup, not an
+    // outbound network call, unlike the fire-and-forget checks below) so
+    // the very first read of this lead already carries a real estimate
+    // rather than the free-written estimated_annual_revenue_usd value.
+    const ticketSizeEstimate = await computeTicketSizeForLead(db, brand, tenantId, {
+      size: normalizedBody.size,
+      estimated_participants: Number(normalizedBody.estimated_participants) || undefined,
+    })
+
     const newLead = {
       id: Date.now(),
       region: normalizedBody.region || 'US',
@@ -340,6 +351,7 @@ export async function POST(request: Request) {
       revenue_model: normalizedBody.revenue_model || '',
       product_fit_notes: normalizedBody.product_fit_notes || '',
       pricingByCompany: normalizedBody.pricingByCompany || {},
+      ticketSizeEstimate,
       status: normalizedBody.status || 'new',
       notes: normalizedBody.notes || '',
       tags: normalizedBody.tags || [],

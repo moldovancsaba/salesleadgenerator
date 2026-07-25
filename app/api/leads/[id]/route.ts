@@ -7,6 +7,7 @@ import { validateLeadPayload } from '../../../../lib/validate-lead'
 import { deriveKanbanColumn, isAutoManagedColumn } from '../../../../lib/kanban-column'
 import { dedupeContacts } from '../../../../lib/contacts'
 import { verifyLeadContactsAsync } from '../../../lib/email-verification-store'
+import { computeTicketSizeForLead } from '../../../lib/ticket-size-store'
 
 function getBrand(request: Request): 'cogmap' | 'seyu' {
   const url = new URL(request.url);
@@ -178,6 +179,18 @@ export async function PUT(
       const newIceScore = Number(body.ice.impact) * Number(body.ice.confidence) * Number(body.ice.ease);
       updateData.kanbanColumn = deriveKanbanColumn(newIceScore);
     }
+
+    // Firmographic-tiered ticket-size estimate (issue #79) — recomputed on
+    // every PUT (the agent enrichment path's most frequent write) using the
+    // effective post-update size/participant count, so an update that first
+    // sets `size` or `estimated_participants` immediately gets a real
+    // estimate rather than waiting for a separate recalculation pass.
+    updateData.ticketSizeEstimate = await computeTicketSizeForLead(dbInstance, brand, tenantId, {
+      size: updateData.size !== undefined ? updateData.size : existing.size,
+      estimated_participants: Number(
+        updateData.estimated_participants !== undefined ? updateData.estimated_participants : existing.estimated_participants
+      ) || undefined,
+    })
 
     const result = await dbInstance.collection(config.dbCollection).findOneAndUpdate(
       { _id: existing._id, ...buildTenantFilter(tenantId) },
