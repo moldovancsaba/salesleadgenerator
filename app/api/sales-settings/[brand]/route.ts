@@ -27,7 +27,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
       return NextResponse.json({ settings: emptySalesSettings(brand, tenantId), source: 'default' })
     }
 
-    const { _id, ...settings } = doc as any
+    // Run stored docs through the same sanitizer PUT already applies on write
+    // (issue #101): a doc saved before a schema field existed (e.g.
+    // customerTypes, added after some brands' docs were first created) was
+    // returned here completely unsanitized, so that field came back
+    // `undefined` — the client's `settings.customerTypes.includes(...)`
+    // (a required, non-optional array in the SalesSettings type) crashed
+    // with no error boundary, taking down the whole page. Sanitizing here
+    // guarantees GET and PUT can never disagree about what a complete,
+    // safe SalesSettings object looks like.
+    const { _id, updatedAt, ...rest } = doc as any
+    const settings = { ...sanitizeSalesSettings(rest, brand, tenantId), updatedAt }
     return NextResponse.json({ settings, source: 'mongodb' })
   } catch (error: any) {
     console.error('[API:sales-settings/[brand]] GET error:', error)
