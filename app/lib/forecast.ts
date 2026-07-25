@@ -2,6 +2,55 @@ import type { Db } from 'mongodb'
 import { BRAND_CONFIG } from './brand'
 import { getPipelineWeights } from '../../lib/pipeline-weights'
 import { tenantFilter } from '../../lib/tenant'
+import { computeConcentration, getConcentrationRiskSettings } from '../../lib/forecast-concentration'
+import type { LeadValue, ConcentrationRiskSettings } from '../../lib/forecast-concentration'
+
+const PIPELINE_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST']
+
+type PerLeadValueDoc = { _id: any; entity_name?: string; kanbanColumn?: string; value?: number }
+
+// Attaches per-column concentrationRisk (raw basis) to each pipeline[col]
+// entry, and returns the brand-level concentrationRisk (weighted basis —
+// rawValue * that column's own close probability, since a large deal in
+// DISCOVERED contributes far less real risk than the same value in WON).
+// A lead with $topN (MongoDB >=5.2) would fetch this more cheaply server-side,
+// but that server-version support can't be verified against a live cluster
+// from this sandbox — this fetches every positive-value lead's own value
+// instead and ranks/slices in plain JS, which works on any Mongo version and
+// avoids depending on an unverifiable capability (issue #59).
+function attachConcentrationRisk(
+  perLeadDocs: PerLeadValueDoc[],
+  pipeline: Record<string, any>,
+  totalWeighted: number,
+  weightsUsed: Record<string, number>,
+  settings: ConcentrationRiskSettings
+): ReturnType<typeof computeConcentration> {
+  const leadValuesByColumn: Record<string, LeadValue[]> = {}
+  for (const doc of perLeadDocs) {
+    const col = doc.kanbanColumn || 'UNKNOWN'
+    const lv: LeadValue = { leadId: doc._id.toString(), entityName: doc.entity_name || 'Unknown', value: doc.value || 0 }
+    ;(leadValuesByColumn[col] ??= []).push(lv)
+  }
+
+  for (const col of PIPELINE_COLUMNS) {
+    const values = leadValuesByColumn[col] || []
+    const positiveCount = values.filter((v) => v.value > 0).length
+    const rawRevenue = pipeline[col]?.rawRevenue ?? 0
+    if (pipeline[col]) {
+      pipeline[col].concentrationRisk = computeConcentration(values, rawRevenue, positiveCount, settings.threshold, settings.topN)
+    }
+  }
+
+  const weightedValues: LeadValue[] = []
+  for (const [col, values] of Object.entries(leadValuesByColumn)) {
+    const weight = weightsUsed[col] ?? 0
+    for (const v of values) {
+      weightedValues.push({ ...v, value: v.value * weight })
+    }
+  }
+  const weightedPositiveCount = weightedValues.filter((v) => v.value > 0).length
+  return computeConcentration(weightedValues, totalWeighted, weightedPositiveCount, settings.threshold, settings.topN)
+}
 
 // Extracted from app/api/boards/[brand]/route.ts (issue #57) so the live
 // board endpoint and the forecast-snapshot endpoint can never drift —
@@ -107,9 +156,17 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
       },
     ]).toArray()
 
+    const perLeadValues = await collection.aggregate<PerLeadValueDoc>([
+      { $match: filter },
+      { $project: { entity_name: 1, kanbanColumn: 1, value: { $ifNull: ['$estimated_annual_revenue_usd', 0] } } },
+    ]).toArray()
+    const concentrationSettings = await getConcentrationRiskSettings(db)
+    const brandConcentrationRisk = attachConcentrationRisk(perLeadValues, pipeline, totalWeighted, weightsUsed, concentrationSettings)
+
     forecast = {
       pipeline,
       totalWeightedRevenue: totalWeighted,
+      concentrationRisk: brandConcentrationRisk,
       byTier: pipelineForecast.reduce((acc: Record<string, { leads: number; participants: number; revenue: number }>, item: any) => {
         acc[item._id || 'UNSET'] = { leads: item.leads, participants: item.participants, revenue: item.revenue }
         return acc
@@ -224,11 +281,53 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
     const totalWeightedSeyu = Object.values(pipelineSeyu as Record<string, { weightedRevenue: number }>)
       .reduce((sum: number, col) => sum + (col.weightedRevenue || 0), 0)
 
+    // Same per-lead leadValue computation as seyuColumnForecast above, minus
+    // the final $group — concentration ranking needs individual lead values,
+    // not just the per-column sum.
+    const perLeadValuesSeyu = await collection.aggregate<PerLeadValueDoc>([
+      { $match: filter },
+      {
+        $project: {
+          entity_name: 1,
+          kanbanColumn: 1,
+          companyPricing: { $objectToArray: { $ifNull: ['$pricingByCompany', {}] } },
+        },
+      },
+      {
+        $project: {
+          entity_name: 1,
+          kanbanColumn: 1,
+          value: {
+            $sum: {
+              $map: {
+                input: '$companyPricing',
+                as: 'entry',
+                in: {
+                  $max: [
+                    { $ifNull: ['$$entry.v.annual_fee_eur', 0] },
+                    {
+                      $add: [
+                        { $multiply: [{ $ifNull: ['$$entry.v.monthly_eur', 0] }, 12] },
+                        { $ifNull: ['$$entry.v.upfront_eur', 0] },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    ]).toArray()
+    const concentrationSettingsSeyu = await getConcentrationRiskSettings(db)
+    const brandConcentrationRiskSeyu = attachConcentrationRisk(perLeadValuesSeyu, pipelineSeyu, totalWeightedSeyu, weightsUsed, concentrationSettingsSeyu)
+
     forecast = {
       byCompany: annualizedByCompany,
       totalEstimatedAnnualValueEur: totalAnnualized,
       pipeline: pipelineSeyu,
       totalWeightedRevenue: totalWeightedSeyu,
+      concentrationRisk: brandConcentrationRiskSeyu,
       currency: 'EUR',
     }
   }
