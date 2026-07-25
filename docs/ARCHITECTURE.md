@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.49
+**Version:** 2.4.50
 
 ---
 
@@ -164,9 +164,13 @@ Canonical contact storage is `contacts[]` — the sole source of truth as of 2.4
 
 `lib/contact-freshness.ts` (`isContactStale`, `staleContactRatio`, `DEFAULT_STALENESS_THRESHOLD_DAYS = 180`, overridable via `CONTACT_STALENESS_THRESHOLD_DAYS`) is a pure module — no React/Mongo/internal `Date.now()`, mirroring `lib/stale-deal.ts`'s shape — computing staleness at read time from `lastVerifiedAt`; missing `lastVerifiedAt` is treated as stale (an honest "unknown," not a fabricated "fresh at creation"), and a future timestamp (clock skew) is treated as not-stale. `app/detail.tsx`'s CONTACTS block renders a "Needs re-verification" badge per stale contact and a stale-count summary ("N of M contacts need re-verification") — GDS's `AdminModal`/`AdminDetailDrawer` `actions` prop has no per-action description slot, so the summary can't render literally under the `REQUEST_REFRESH` button; it's placed next to the contact data it describes instead, without changing that button's own behavior.
 
+**MX-based email verification (2.4.50, issue #67):** `lastVerifiedAt`/staleness above answers "was this contact re-confirmed by a human/agent recently" — it says nothing about whether the email address itself can actually receive mail. `lib/email-verification.ts`'s `verifyEmail()` proves only *domain-level* deliverability via a Node `dns.promises.Resolver` MX lookup (RFC 5321 §5 A-record fallback when a domain has no MX), never a specific mailbox — a catch-all domain always verifies, and a typo'd local part at a real domain is indistinguishable from a correct one under this check; UI/docs copy always says "domain," never "email." Status tiers: `mx-verified` (domain can receive mail), `mx-failed` (confirmed NXDOMAIN or no MX + no A — definitive, never retried), `check-error` (a transient failure — timeout/SERVFAIL/etc. — retried up to twice with 1s/3s backoff before giving up), `unverified` (either not yet checked, or the email failed `lib/validate-lead.ts`'s `EMAIL_RE` format check — MX lookup is never attempted for a malformed address; both cases render identically as "Checking…" per the UI states below, since only the format-invalid case is truly terminal and that's rare enough not to warrant a fifth display state). `isRoleAccount`/`isFreeProvider` flags (checked against small static lists) travel alongside the status but aren't currently surfaced in the UI.
+
+The check runs **asynchronously, never inline** in the request path — `app/lib/email-verification-store.ts`'s `verifyLeadContactsAsync()` is invoked with `void` (fire-and-forget) after `POST /api/leads`'s insert and after `PUT /api/leads/[id]`'s update, so a DNS timeout or resolver outage can never delay or fail a lead write; results land later via a positional `$` `updateOne` once each domain's lookup completes. Contacts sharing a domain are deduped to one DNS lookup, not one per contact. `PUT` only re-checks emails that are new or changed versus what was already stored (diffed against `existing.contacts`), not every contact on every save. `app/detail.tsx`'s CONTACTS block renders a `StatusBadge` next to `contact.email` for each of the four states — always paired with distinct text, never color alone (CLAUDE.md Rule 7) — with a full-context `aria-label` on each.
+
 Key fields:
 - `entity_name`, `url`, `region`, `country`
-- `contacts[]` with `name`, `title`, `email`, `phone`, `linkedin`, `role`, `isDecisionMaker`, `lastVerifiedAt`
+- `contacts[]` with `name`, `title`, `email`, `phone`, `linkedin`, `role`, `isDecisionMaker`, `lastVerifiedAt`, `emailVerificationStatus` (issue #67, `{status, checkedAt, isRoleAccount, isFreeProvider, mxHosts?, error?}`)
 - Organization-agnostic pros/cons (as of 2.3.0): `pro_for_organization`, `con_for_organization` — one shared field name across every brand/tenant, not brand-specific (`PRO_FIELD`/`CON_FIELD` in `app/lib/brand.ts`)
 - `kanbanColumn`, `sortOrder`
 - `fingerprint` — SHA1 of `url + entity_name + region`

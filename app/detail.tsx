@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { Lead } from './types';
 import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@sovereignsquad/gds-admin/client';
-import { createGdsVocabularyPack, GdsIcons } from '@sovereignsquad/gds-core/client';
+import { createGdsVocabularyPack, GdsIcons, StatusBadge } from '@sovereignsquad/gds-core/client';
 import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
@@ -35,6 +35,26 @@ type Props = {
   onDelete: (leadId: string) => void;
   onUpdated: () => void;
 };
+
+// MX-based domain-deliverability signal (issue #67) — proves the domain can
+// receive mail, never a specific mailbox, so copy always says "domain."
+// Undefined (background check hasn't landed yet) and the terminal
+// status: 'unverified' (malformed email — rare, since contacts[] isn't
+// hard-gated on email format) share one "Checking…" display per the
+// issue's own UX spec, which treats both as one "not yet resolved" bucket.
+function emailStatusBadge(status: import('@/lib/email-verification').EmailVerificationStatus | undefined) {
+  const effective = status?.status ?? 'unverified';
+  if (effective === 'mx-verified') {
+    return <StatusBadge status="success" aria-label="Email domain verified — this domain can receive mail">Verified domain</StatusBadge>;
+  }
+  if (effective === 'mx-failed') {
+    return <StatusBadge status="danger" aria-label="Email domain check found this domain cannot receive mail">Undeliverable domain</StatusBadge>;
+  }
+  if (effective === 'check-error') {
+    return <StatusBadge status="warning" aria-label="Email domain check failed due to a temporary error — a retry is pending">Check failed — retry pending</StatusBadge>;
+  }
+  return <StatusBadge status="info" aria-label="Email domain deliverability check in progress">Checking…</StatusBadge>;
+}
 
 const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
   { value: "WRONG_INDUSTRY", label: "Wrong industry" },
@@ -367,7 +387,12 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
               )}
             </Group>
             {contact.title && <Text size="sm" c="dimmed">{contact.title}</Text>}
-            {contact.email && <Text size="sm" c="dimmed" component="a" href={`mailto:${contact.email.trim()}`}>{contact.email}</Text>}
+            {contact.email && (
+              <Group gap={4} wrap="nowrap">
+                <Text size="sm" c="dimmed" component="a" href={`mailto:${contact.email.trim()}`}>{contact.email}</Text>
+                {emailStatusBadge(contact.emailVerificationStatus)}
+              </Group>
+            )}
             {contact.phone && <Text size="sm" c="dimmed" component="a" href={`tel:${contact.phone.trim()}`}>{contact.phone}</Text>}
             {contact.linkedin && <Text size="sm" c="blue">{contact.linkedin}</Text>}
           </Box>

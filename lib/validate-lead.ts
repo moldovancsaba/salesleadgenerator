@@ -7,7 +7,10 @@ export interface ValidationResult {
 
 const ISO_COUNTRY_RE = /^[A-Z]{2}$/;
 const URL_RE = /^https?:\/\/\S+$/i;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Exported so lib/email-verification.ts's verifyEmail() runs the identical
+// format check before ever attempting an MX lookup (issue #67) — one
+// source of truth, not a second regex that could drift from this one.
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+[\d][\d\-\s]{7,}$/;
 const LINKEDIN_RE = /^https?:\/\/(www\.)?linkedin\.com\/in\/\S+$/i;
 const CONTACT_CONFIDENCE_RE = /[A-Za-z]{2,}/;
