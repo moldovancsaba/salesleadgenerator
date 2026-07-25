@@ -10,6 +10,7 @@ This file is the canonical enrichment prompt template for ContentCreator. Each f
 - Use list-based verification only.
 - On API rate-limit or failover error: stop immediately and report. Do NOT spam retries.
 - PUT ONLY changed fields.
+- Any contact included in a PUT is treated as freshly re-verified: the backend stamps that contact's `lastVerifiedAt` unconditionally (issue #66, `lib/contacts.ts`). Only PUT a contact whose data you actually confirmed this run — including an unconfirmed/unchanged contact in the payload marks it as verified when it wasn't.
 
 ## Required Prompt Sections
 

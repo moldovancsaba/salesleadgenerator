@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.39
+**Version:** 2.4.40
 
 ## Overview
 
@@ -122,7 +122,10 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
   // top-level fields (decision_maker_name/title/contact, contact_phone —
   // retired in the 2.4.32 hard cutover, issue #45; no longer recognized
   // anywhere, a request that still sends them has those values ignored)
-  contacts: Array<{ name, title, email, phone, linkedin, role, isDecisionMaker }>
+  // lastVerifiedAt (2.4.40, issue #66): per-contact ISO timestamp of last
+  // confirmed-accurate verifiable-field data. See docs/ARCHITECTURE.md's
+  // "Per-contact freshness" for exactly which write path stamps it and when.
+  contacts: Array<{ name, title, email, phone, linkedin, role, isDecisionMaker, lastVerifiedAt? }>
   pro_for_organization: string[]  // generic since 2.3.0 — shared across every brand, not brand-specific
   con_for_organization: string[]
   value_proposition: string

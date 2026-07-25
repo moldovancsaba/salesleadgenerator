@@ -7,6 +7,7 @@ import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid } f
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { PRO_FIELD, CON_FIELD } from './lib/brand';
+import { isContactStale, DEFAULT_STALENESS_THRESHOLD_DAYS } from '@/lib/contact-freshness';
 import {
   IconX,
   IconThumbUp,
@@ -76,6 +77,8 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   const normalized = normalizeLead(lead);
   const normalizedPro = ensureArrayField((normalized as any)[PRO_FIELD]);
   const normalizedCon = ensureArrayField((normalized as any)[CON_FIELD]);
+
+  const contactStaleCount = (lead.contacts || []).filter((c) => isContactStale(c, DEFAULT_STALENESS_THRESHOLD_DAYS)).length;
 
   const iceToneValue = iceScore >= 700 ? 'teal' : iceScore >= 480 ? 'green' : iceScore >= 200 ? 'orange' : 'blue';
   const regionToneValue = lead.region === 'US' ? 'blue' : lead.region === 'CEE' ? 'indigo' : lead.region === 'MENA' ? 'green' : 'gray';
@@ -281,7 +284,17 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
       </SimpleGrid>
 
       <Stack gap="xs">
-        <Text size="xs" c="dimmed" fw={600}>CONTACTS</Text>
+        <Group justify="space-between" align="baseline">
+          <Text size="xs" c="dimmed" fw={600}>CONTACTS</Text>
+          {/* Helper text for the "refresh" action above: GDS's ActionBar has no
+              per-action description slot, so this can't render literally under
+              that button — it's surfaced here instead, next to the data it
+              describes, without changing REQUEST_REFRESH's own behavior
+              (CLAUDE.md Rule 7 — context only, no new affordance). */}
+          {contactStaleCount > 0 && (
+            <Text size="xs" c="orange">{contactStaleCount} of {lead.contacts?.length} contacts need re-verification</Text>
+          )}
+        </Group>
         {/* Decision-maker status is a flag on a contact (isDecisionMaker), not a
             separate top-level block — see lib/contacts.ts, issue #45. Every
             contact renders the same way; the flag only adds a badge. */}
@@ -291,6 +304,9 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
             <Group gap="xs">
               <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
               {contact.isDecisionMaker && <Badge variant="light" size="xs" color="blue">Decision Maker</Badge>}
+              {isContactStale(contact, DEFAULT_STALENESS_THRESHOLD_DAYS) && (
+                <Badge variant="light" size="xs" color="orange">Needs re-verification</Badge>
+              )}
             </Group>
             {contact.title && <Text size="sm" c="dimmed">{contact.title}</Text>}
             {contact.email && <Text size="sm" c="dimmed" component="a" href={`mailto:${contact.email.trim()}`}>{contact.email}</Text>}
