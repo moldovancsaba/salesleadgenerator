@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
+import { computeVelocity } from '@/app/lib/velocity-metrics'
+import type { OutcomeLogRow } from '@/app/lib/velocity-metrics'
+
+const VELOCITY_PERIOD_DAYS = 30
+// Two full periods back from now, so the query covers both the current and
+// prior comparison windows without scanning the whole outcomelogs history.
+const VELOCITY_LOOKBACK_MS = VELOCITY_PERIOD_DAYS * 2 * 86_400_000
+const VELOCITY_ROW_CAP = 20_000
 
 const COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST'] as const
 const REGIONS = ['US', 'CEE', 'MENA'] as const
@@ -13,6 +21,47 @@ function tenantFilter(tenantId: string) {
   return tenantId === 'default'
     ? { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] }
     : { tenantId }
+}
+
+// outcomelogs has no `brand` field (a single shared collection keyed only by
+// leadId) and an inconsistent `tenantId` (the generic POST /api/outcome-logs
+// path never writes it, unlike executeLeadAction's own insert) — so a
+// brand/tenant-scoped velocity query must resolve the set of leadIds
+// belonging to this brand/tenant first, then join outcomelogs on that set,
+// rather than trusting outcomelogs.tenantId alone (issue #58).
+async function computeVelocityMetrics(db: any, leadsCollection: any, leadsFilter: Record<string, any>) {
+  const leadDocs = await leadsCollection
+    .find(leadsFilter, { projection: { _id: 1, createdAt: 1 } })
+    .toArray()
+
+  const leadIds = leadDocs.map((d: any) => d._id.toString())
+  const leadCreatedAt: Record<string, Date | string> = {}
+  for (const doc of leadDocs) {
+    if (doc.createdAt) leadCreatedAt[doc._id.toString()] = doc.createdAt
+  }
+
+  if (leadIds.length === 0) {
+    return { ...computeVelocity([], {}, new Date(), VELOCITY_PERIOD_DAYS), truncated: false }
+  }
+
+  const lookbackCutoff = new Date(Date.now() - VELOCITY_LOOKBACK_MS)
+  const rawLogs = await db.collection('outcomelogs')
+    .find(
+      { leadId: { $in: leadIds }, createdAt: { $gte: lookbackCutoff } },
+      { projection: { leadId: 1, createdAt: 1, beforeState: 1, afterState: 1 }, limit: VELOCITY_ROW_CAP + 1 }
+    )
+    .toArray()
+
+  const truncated = rawLogs.length > VELOCITY_ROW_CAP
+  const logs: OutcomeLogRow[] = (truncated ? rawLogs.slice(0, VELOCITY_ROW_CAP) : rawLogs).map((l: any) => ({
+    leadId: l.leadId,
+    createdAt: l.createdAt,
+    beforeState: l.beforeState,
+    afterState: l.afterState,
+  }))
+
+  const velocity = computeVelocity(logs, leadCreatedAt, new Date(), VELOCITY_PERIOD_DAYS)
+  return { ...velocity, truncated }
 }
 
 export async function GET(request: Request) {
@@ -122,6 +171,16 @@ export async function GET(request: Request) {
     const acceptedWithVerified = qualityCounts.VERIFIED + qualityCounts.CHECKED
     const successRate = totalWithFeedback > 0 ? (acceptedWithVerified / totalWithFeedback) * 100 : 0
 
+    // Velocity failure degrades only this one key, never the whole response
+    // (Operational Behavior, issue #58) — the rest of /api/metrics is
+    // independently useful even if outcomelogs is unreachable/malformed.
+    let velocity = null
+    try {
+      velocity = await computeVelocityMetrics(db, collection, filter)
+    } catch (velocityError: any) {
+      console.error('[API:metrics] velocity computation error:', velocityError)
+    }
+
     return NextResponse.json({
       brand,
       tenantId,
@@ -137,6 +196,7 @@ export async function GET(request: Request) {
         sortedDeclineReasons,
         qualityCounts,
         successRate,
+        velocity,
       },
     })
   } catch (error: any) {
