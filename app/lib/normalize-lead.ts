@@ -123,6 +123,12 @@ export function normalizeLead(raw: LeadRaw): NormalizedLead {
     qualityStatus: typeof raw.qualityStatus === 'string' ? raw.qualityStatus : 'DRAFT',
     contacts: Array.isArray(raw.contacts) ? raw.contacts : [],
     tags: Array.isArray(raw.tags) ? raw.tags : [],
+    // Server-computed post-insert (issue #69) — a create/update payload
+    // never legitimately sets this, but normalizing it here (matching
+    // tags[]'s own pattern) guarantees GET responses always return a real
+    // array, never undefined, for a document scanned before this field
+    // existed or not yet scanned at all.
+    techSignals: Array.isArray(raw.techSignals) ? raw.techSignals : [],
     entity_name: ensureString(raw.entity_name || raw.name),
     region: ensureString(raw.region || 'NA').toUpperCase(),
     url: ensureString(raw.url),

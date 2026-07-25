@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.51
+**Version:** 2.4.52
 
 ---
 
@@ -174,9 +174,12 @@ Seniority is checked in fixed, most-senior-first precedence (`C-level > VP > Dir
 
 `app/detail.tsx`'s CONTACTS block renders a tier `Badge` and a department `Badge` next to `contact.title`, each hidden individually when its value is `Unknown` — no empty-state chrome, matching this file's existing convention (e.g. the `isDecisionMaker` badge). `scripts/backfill-title-normalization.ts` (importing `lib/backfill-title-normalization.ts`'s pure collection-scan logic, mirroring `scripts/migrate-decision-maker-to-contacts.ts`'s `--dry-run`/`--apply` shape exactly) backfills existing documents written before this feature existed — idempotent, safe to re-run, a contact whose stored values already match the current keyword table's output is left untouched. **Not run against production**: this sandbox has no `MONGODB_URI` (same documented gap as every other Mongo-integration path in this repo) — the script was sanity-checked locally (confirmed it parses, connects to the missing-env-var error path correctly) but a real dry-run against live data is disclosed, real follow-up work for an environment with DB access, not claimed as already done.
 
+**Tech-stack scan (2.4.52, issue #69):** unlike the two fields above, `techSignals`/`techSignalsScannedAt`/`techSignalsScanStatus` are **top-level `Lead` fields, not per-contact fields** — they describe the company's homepage, not any individual person. `lib/tech-stack-scan.ts`'s `scanTechStack()` fetches the lead's own `url` and pattern-matches the HTML against a small signature table (CMS meta generators, analytics/tag-manager snippets, JS framework bundle hints); see `docs/STACK_AND_DEPENDENCIES.md`'s "Outbound Requests / SSRF Guard" section for the full guard chain, since this is the app's first outbound fetch to an arbitrary, attacker-influenced host. `app/lib/tech-stack-scan-store.ts`'s `scanLeadTechStackAsync()` runs the scan and writes the result back; invoked with `void` (fire-and-forget) after `POST /api/leads`'s insert and response are already built, and on-demand via a new `RESCAN_TECH` PATCH action (`app/lib/lead-actions.ts`) that re-scans the lead's own stored `url` — awaited synchronously in that path, since it's an explicit user-triggered action expecting an immediate result, unlike the POST-time scan. `techSignalsScanStatus` is one of `'ok'|'blocked'|'timeout'|'invalid_url'|'non_html'|'error'`; `techSignals` is only ever non-empty when status is `'ok'`. `app/detail.tsx` renders a badge list (found signals), a dimmed "No tech signals detected." (ok, empty), or a dimmed "Scan unavailable" (any other status) adjacent to the country/region/quality badge row — the section is omitted entirely when `techSignalsScanStatus` is undefined (never scanned).
+
 Key fields:
 - `entity_name`, `url`, `region`, `country`
 - `contacts[]` with `name`, `title`, `email`, `phone`, `linkedin`, `role`, `isDecisionMaker`, `lastVerifiedAt`, `emailVerificationStatus` (issue #67, `{status, checkedAt, isRoleAccount, isFreeProvider, mxHosts?, error?}`), `seniorityTier`/`department` (issue #68, rule-based, re-derived from `title` on every write)
+- `techSignals[]`, `techSignalsScannedAt`, `techSignalsScanStatus` (issue #69, top-level, server-computed by the SSRF-guarded homepage scan — see above)
 - Organization-agnostic pros/cons (as of 2.3.0): `pro_for_organization`, `con_for_organization` — one shared field name across every brand/tenant, not brand-specific (`PRO_FIELD`/`CON_FIELD` in `app/lib/brand.ts`)
 - `kanbanColumn`, `sortOrder`
 - `fingerprint` — SHA1 of `url + entity_name + region`
