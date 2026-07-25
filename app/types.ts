@@ -72,7 +72,8 @@ export type Lead = {
   value_proposition?: string;
   status?: string;
   notes?: string;
-  // Written by POST and required by the agent's quality gate (agent-runtime/tenants.json)
+  // Written by POST and required by the research agent's quality gate
+  // (config now lives in that separate app, not this repo — see issue #99)
   // but previously missing from this type entirely.
   product_fit_notes?: string;
   tags?: string[];
