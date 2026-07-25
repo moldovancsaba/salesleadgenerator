@@ -1,5 +1,12 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.66
+
+### Fixed — hamburger nav was effectively invisible (second correction to issue #95)
+Owner-reported after 2.4.65 shipped: still didn't see the hamburger menu, only "the dropdown old menu" (the per-page view-mode `Select` — Kanban/Table/Metrics/Search Learning — which has always existed and serves a different purpose). Root cause, confirmed via a real screenshot: the hamburger trigger was a bare `ActionIcon variant="subtle" color="gray"` — no fill, no border, three thin gray lines on a white background — genuinely easy to miss entirely next to the much more visually prominent, bordered, colored view-mode dropdown sitting directly below it.
+
+Fixed: the trigger is now `variant="filled" color="indigo"`, matching the visual weight of every other real button in this app, and the root layout's nav bar now pairs it with an "Sales Lead Generator" label so the whole bar reads unambiguously as an intentional header/nav rather than a stray floating icon. Verified via a real screenshot that the button is now clearly visible and distinguishable from the view-mode dropdown, and still opens the drawer correctly. Full gate clean (tsc/lint/vitest 345/345/smoke/build).
+
 ## 2.4.65
 
 ### Fixed — hamburger nav mixed clients (correction to 2.4.64's issue #95 delivery)
