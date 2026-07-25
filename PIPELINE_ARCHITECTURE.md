@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.56
+**Version:** 2.4.57
 
 ## Overview
 
@@ -96,6 +96,7 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
 | GET | `/api/metrics/decline-reasons?brand=&tenantId=&groupBy=&from=&to=` | Cross-tabbed decline-reason rollup by industry/sport-or-sector/region and date range (2.4.43, issue #63) |
 | GET | `/api/settings` | Pipeline-weight settings used by forecast calculations, plus per-column stale-deal day thresholds (`thresholds`, additive as of 2.4.39), concentration-risk `threshold`/`topN` (`concentrationRiskSettings`, additive as of 2.4.45), and forecast-calibration `mode`/`minSampleSize`/`windowDays` (`calibration`, additive as of 2.4.48, issue #56) |
 | GET | `/api/win-rates?brand=<brand>&tenantId=<id>` | Cached per-stage WON/LOST win rate, lazily recomputed from `outcomelogs` if the cache is missing or >24h stale (2.4.48, issue #56) |
+| GET | `/api/ticket-size-calibration?brand=<brand>&tenantId=<id>` | Cached ticket-size estimate accuracy per size tier/method, lazily recomputed from WON leads' `ticketSizeEstimate` vs. `actualDealValueUsd` if the cache is missing or >24h stale (2.4.57, issue #83) |
 | POST | `/api/win-rates/recalculate` | Force an immediate win-rate recompute regardless of cache staleness; `x-api-key` guarded, admin/API-only (no browser UI trigger — see "Win-Rate Calibration" below) (2.4.48, issue #56) |
 | GET | `/api/forecast/export?format=csv\|json` | CogMap revenue forecast export |
 | GET | `/api/health` | Health check |
@@ -157,6 +158,11 @@ The API enforces duplicate prevention with `findOne` + 409 responses. The schema
     currency?: 'USD' | 'EUR'
     confidence?: 'low' | 'medium' | 'high'
   }
+  // actualDealValueUsd (2.4.57, issue #83): the real, closed contract value
+  // (always USD) once a lead is WON — captured via MODIFY, compared against
+  // ticketSizeEstimate.expected by lib/ticket-size-calibration.ts. Undefined
+  // means not yet recorded, never a fabricated $0.
+  actualDealValueUsd?: number
   pro_for_organization: string[]  // generic since 2.3.0 — shared across every brand, not brand-specific
   con_for_organization: string[]
   value_proposition: string

@@ -45,6 +45,26 @@ type WinRatesResponse = { tenantId: string; brand: string; computedAt: string | 
 type CalibrationSettings = { mode: 'static' | 'calibrated'; minSampleSize: number; windowDays: number | null };
 type CalibrationRow = { stage: string; staticRate: number; calibrated: StageStat; source: 'static' | 'calibrated' };
 
+type TicketSizeCalibrationGroup = {
+  tier: string;
+  method: 'tier_band' | 'per_unit';
+  sampleSize: number;
+  meanAbsoluteError: number;
+  medianAbsoluteError: number;
+  meanPercentError: number;
+  medianPercentError: number;
+  confidence: 'ok' | 'insufficient';
+};
+type TicketSizeCalibrationResponse = {
+  tenantId: string;
+  brand: string;
+  computedAt: string;
+  minSampleSize: number;
+  groups: TicketSizeCalibrationGroup[];
+  wonWithoutEstimate: number;
+  wonWithoutActual: number;
+};
+
 const DEFAULT_CALIBRATION_SETTINGS: CalibrationSettings = { mode: 'static', minSampleSize: 20, windowDays: null };
 
 const COVERAGE_BENCHMARK_LABEL: Record<Coverage['benchmark'], string> = {
@@ -73,6 +93,9 @@ export default function ForecastPage() {
   const [winRatesLoading, setWinRatesLoading] = useState(true);
   const [winRatesError, setWinRatesError] = useState<string | null>(null);
   const [savingCalibrationMode, setSavingCalibrationMode] = useState(false);
+  const [ticketSizeCalibration, setTicketSizeCalibration] = useState<TicketSizeCalibrationResponse | null>(null);
+  const [ticketSizeCalibrationLoading, setTicketSizeCalibrationLoading] = useState(true);
+  const [ticketSizeCalibrationError, setTicketSizeCalibrationError] = useState<string | null>(null);
 
   const loadForecast = useCallback(async (brandKey: string) => {
     setLoading(true);
@@ -124,10 +147,31 @@ export default function ForecastPage() {
     }
   }, []);
 
+  // Same independent-panel contract as loadWinRates above (issue #56): a
+  // failed/slow fetch here surfaces its own AdminFormStatus in this one
+  // panel, never blocking the rest of the page.
+  const loadTicketSizeCalibration = useCallback(async (brandKey: string) => {
+    setTicketSizeCalibrationLoading(true);
+    setTicketSizeCalibrationError(null);
+    try {
+      const tenantId = brandKey === 'cogmap' ? 'cogmap' : 'seyu';
+      const res = await fetch(`/api/ticket-size-calibration?brand=${encodeURIComponent(brandKey)}&tenantId=${encodeURIComponent(tenantId)}`);
+      if (!res.ok) throw new Error(`Ticket-size calibration API: ${res.status}`);
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      setTicketSizeCalibration(json);
+    } catch (err: any) {
+      setTicketSizeCalibrationError(err?.message || 'Load failed');
+    } finally {
+      setTicketSizeCalibrationLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadForecast(brand);
     loadWinRates(brand);
-  }, [brand, loadForecast, loadWinRates]);
+    loadTicketSizeCalibration(brand);
+  }, [brand, loadForecast, loadWinRates, loadTicketSizeCalibration]);
 
   const handleCalibrationModeChange = async (value: string | null) => {
     if (value !== 'static' && value !== 'calibrated') return;
@@ -326,6 +370,65 @@ export default function ForecastPage() {
             {winRates.computedAt && (
               <Text size="xs" c="dimmed" mt="xs">Last computed {new Date(winRates.computedAt).toLocaleString()}</Text>
             )}
+          </>
+        )}
+      </Paper>
+
+      <Paper withBorder p="md" radius="md" mb="lg">
+        <Title order={4}>Ticket-Size Calibration</Title>
+        <Text size="xs" c="dimmed" mb="xs">
+          Compares each closed-won lead&apos;s real contract value (captured in the detail drawer once a lead is WON) against what the ticket-size estimate predicted at the time — issue #79&apos;s engine ships with fixed placeholder assumptions precisely because this data doesn&apos;t exist yet; this table is what eventually replaces them with real figures.
+        </Text>
+
+        {ticketSizeCalibrationError ? (
+          <AdminFormStatus state="error" title="Couldn't load ticket-size calibration data" description={ticketSizeCalibrationError} />
+        ) : ticketSizeCalibrationLoading ? (
+          <AdminFormStatus state="loading" title="Loading ticket-size calibration data" />
+        ) : !ticketSizeCalibration || ticketSizeCalibration.groups.length === 0 ? (
+          <AdminResourceEmptyState
+            title="No calibration data yet"
+            description="Needs at least one WON lead with both a ticket-size estimate and a real captured deal value. Set the actual deal value in a WON lead's detail drawer to start building this up."
+          />
+        ) : (
+          <>
+            <AdminDataTable<TicketSizeCalibrationGroup>
+              rows={ticketSizeCalibration.groups}
+              caption="Estimate accuracy by size tier and method"
+              columns={[
+                { key: 'tier', header: 'Size Tier', rowHeader: true },
+                { key: 'method', header: 'Method', accessor: (row) => (row.method === 'tier_band' ? 'Company-size tier' : 'Per-participant') },
+                { key: 'sample', header: 'Sample size', numeric: true, accessor: (row) => row.sampleSize },
+                { key: 'meanError', header: 'Mean bias', numeric: true, accessor: (row) => `${row.meanPercentError > 0 ? '+' : ''}${row.meanPercentError}%` },
+                { key: 'medianError', header: 'Median bias', numeric: true, accessor: (row) => `${row.medianPercentError > 0 ? '+' : ''}${row.medianPercentError}%` },
+                {
+                  key: 'confidence',
+                  header: 'Confidence',
+                  accessor: (row) => (
+                    <StatusBadge
+                      status={row.confidence === 'ok' ? 'success' : 'warning'}
+                      aria-label={
+                        row.confidence === 'ok'
+                          ? `Sufficient sample size: ${row.sampleSize} closed deals`
+                          : `Insufficient sample size: only ${row.sampleSize} closed deals, needs ${ticketSizeCalibration.minSampleSize}`
+                      }
+                    >
+                      {row.confidence === 'ok' ? 'Sufficient data' : 'Insufficient data'}
+                    </StatusBadge>
+                  ),
+                },
+              ]}
+              getRowKey={(row) => `${row.tier}:${row.method}`}
+            />
+            <Text size="xs" c="dimmed" mt="xs">
+              Positive bias = the model underestimates this group (real deals close bigger than predicted) — consider raising the corresponding Sales Settings deal-size band. Negative bias = the model overestimates.
+            </Text>
+            {(ticketSizeCalibration.wonWithoutEstimate > 0 || ticketSizeCalibration.wonWithoutActual > 0) && (
+              <Text size="xs" c="dimmed" mt="xs">
+                {ticketSizeCalibration.wonWithoutEstimate > 0 && `${ticketSizeCalibration.wonWithoutEstimate} WON lead(s) had no usable ticket-size estimate when closed. `}
+                {ticketSizeCalibration.wonWithoutActual > 0 && `${ticketSizeCalibration.wonWithoutActual} WON lead(s) have an estimate but no actual deal value captured yet.`}
+              </Text>
+            )}
+            <Text size="xs" c="dimmed" mt="xs">Last computed {new Date(ticketSizeCalibration.computedAt).toLocaleString()}</Text>
           </>
         )}
       </Paper>

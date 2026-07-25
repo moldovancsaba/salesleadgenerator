@@ -80,10 +80,20 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
 
   if (action === 'MODIFY') {
     const fields = ['entity_name', 'url', 'address', 'general_contact', 'size', 'industry',
-                    'sport_or_sector', 'level_league', 'value_proposition', 'notes', 'tags']
+                    'sport_or_sector', 'level_league', 'value_proposition', 'notes', 'tags',
+                    'actualDealValueUsd']
     fields.forEach(field => {
       if (normalizedBody[field] !== undefined) updateData[field] = normalizedBody[field]
     })
+    // The real, closed contract value once a lead is WON (issue #83) — coerced
+    // to a real number here, the same corruption class the ice-field fix
+    // (2.4.8) and PUT's own explicit `ice` coercion already guard against;
+    // normalizeLead() has no special-case for this field, so without this it
+    // would pass through as whatever type the client sent.
+    if (updateData.actualDealValueUsd !== undefined) {
+      const coerced = Number(updateData.actualDealValueUsd)
+      updateData.actualDealValueUsd = Number.isFinite(coerced) ? coerced : undefined
+    }
     // Change-triggered ticket-size recompute (issue #82) — a size-tier edit
     // is exactly the kind of firmographic change that invalidates the
     // stored ticketSizeEstimate; recomputed inline (cheap, in-process, no

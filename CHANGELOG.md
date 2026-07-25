@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.57
+
+Second delivery of Phase 2, and the final item, of the ticket-size estimation overhaul (tracking issue #87): closed-won calibration — the feedback loop that will eventually replace the v1 engine's fixed placeholder assumptions with real data.
+
+### Added — closed-won ticket-size calibration (fixes #83)
+Issue #79's engine shipped with deliberately simple, fixed placeholder assumptions (a flat ±50%/±30% band width, a hand-set volume-discount curve by size tier) because there was zero historical data to calibrate against at launch. This closes that loop, mirroring the exact closed-loop calibration pattern issue #56 already implemented for win-rate-by-stage forecasting:
+
+- **Capture**: `Lead` gains a new top-level `actualDealValueUsd?: number` (always USD, for cross-brand comparability) — the real, closed contract value. `app/detail.tsx` gains a small, standalone capture UI (its own local state, its own single-field `MODIFY` call), shown only when `kanbanColumn === 'WON'`. **Discovered while implementing this**: `handleModify()` — the function that would normally carry a MODIFY payload — exists in `app/detail.tsx` but isn't currently wired to any button in the UI (its "Edit" action opens the outreach-compose modal instead). This is a real, pre-existing gap, disclosed here rather than silently worked around; this issue's own capture UI deliberately doesn't depend on it, calling `onAction(..., 'MODIFY', {actualDealValueUsd})` directly instead.
+- **Compare**: new pure module `lib/ticket-size-calibration.ts`'s `computeTicketSizeCalibration()` — for every `WON` lead with both a usable `ticketSizeEstimate` and `actualDealValueUsd`, computes signed mean/median absolute and percent error, grouped by size tier and by method (`tier_band`/`per_unit`), gated on a minimum sample size. A `WON` lead with no usable estimate, or an estimate but no captured actual, is excluded from the math but counted separately (`wonWithoutEstimate`/`wonWithoutActual`) rather than silently dropped.
+- **Report**: `app/lib/ticket-size-calibration-store.ts` persists the result in a new `ticket_size_calibration` collection with the same `>24h` staleness/lazy-recompute contract as `app/lib/win-rate-store.ts`, read via new `GET /api/ticket-size-calibration`. A new "Ticket-Size Calibration" panel on `/forecast` shows sample size, mean/median bias (signed — positive means the model underestimates that group), and a confidence badge per tier/method, plus the won-without-estimate/actual counts and a plain-language read on what to do about a confidently-biased group (adjust that tier's Sales Settings deal-size band).
+
+### Testing
+`tests/lib/ticket-size-calibration.test.ts` — 9 new tests covering: exact known mean/median absolute and percent error for a single group; correct separation by tier and by method (never mixed); minimum-sample-size confidence gating; a WON lead with an `unconfigured` estimate excluded and counted separately; a WON lead with an estimate but no `actualDealValueUsd` excluded and counted separately (never treated as a fabricated $0); an unrecognized size tier bucketed as "Unknown" rather than throwing; a negative mean percent error correctly signaling systematic overestimation; an empty input returning an empty result without throwing. `app/lib/ticket-size-calibration-store.ts`'s Mongo-touching orchestration isn't separately unit tested, per this repo's established, documented `mongodb-memory-server`-blocked-in-sandbox limitation (same precedent as `app/lib/win-rate-store.ts`'s own test file, which only covers its one pure function).
+
+### Documentation
+`docs/ARCHITECTURE.md`'s "Ticket-size estimation" subsection gains a "Calibration" paragraph. `PIPELINE_ARCHITECTURE.md` gains the new API endpoint and the `actualDealValueUsd` field.
+
+### Verification
+Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (319/319), smoke suite (5/5), `next build --webpack` (35 routes, 1 new — `/api/ticket-size-calibration`). Interactive verification via headless Chromium against the real dev server: confirmed the "Actual Deal Value" capture UI appears only for WON leads and pre-fills with the stored value; confirmed the `/forecast` calibration panel renders sample size, signed bias percentages, confidence badges, and the won-without-estimate/actual summary correctly with mocked data.
+
+Version bumped 2.4.56 -> 2.4.57. **This completes the ticket-size estimation overhaul** (tracking issue #87) — both Phase 1 (the urgent core engine, backfill, and UI) and Phase 2 (periodic/change-triggered recalculation and closed-won calibration) are now shipped. Phase 3 (#84/#85/#86) remains idea-bank, not committed, pending the repo owner resolving each issue's own Open Questions.
+
 ## 2.4.56
 
 First delivery of Phase 2 of the ticket-size estimation overhaul (tracking issue #87): periodic and change-triggered recalculation, so `ticketSizeEstimate` never silently goes stale.
