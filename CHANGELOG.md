@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.88
+
+### Changed — ENGAGED/PROPOSAL stage gate now requires any contact, not specifically a decision-maker (owner request)
+`lib/stage-gate.ts`'s required-fields-per-stage gate (issue #72) previously blocked a move into `ENGAGED`/`PROPOSAL` unless the lead had a `contacts[]` entry flagged `isDecisionMaker: true`. Owner feedback: this app shouldn't distinguish contact "types" for the purpose of this requirement — `isDecisionMaker` should remain a flag a contact can carry (still used elsewhere: `lib/contacts.ts`'s dedup/sort, `app/lib/outreach/routing-rules.ts`, `lib/next-step-nudge.ts`'s advisory nudge), but the hard gate should only require *a* contact, any contact.
+
+- `checkStageGate()`'s "a decision-maker contact" requirement is now "a contact" — satisfied by any non-empty `contacts[]` array.
+- Error message changed accordingly: `"Missing required fields for ENGAGED: a contact, a value proposition"`.
+- `POST /api/leads`'s separate creation-time quality gate (verified-contact-confidence, `bestContactConfidence()`) is a different mechanism entirely and was not touched.
+- Tests updated: `tests/lib/stage-gate.test.ts` (added a case confirming a non-decision-maker contact now satisfies the gate), `tests/integration/leads-patch-actions.integration.test.ts` (updated expected error text).
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest 441/441, smoke 5/5, GDS style audit clean, build. Integration suite: same pre-existing baseline, 0 new failures.
+
 ## 2.4.87
 
 ### Fixed — six remaining deferred findings from the 2.4.85 code audit (issues #105-#110)

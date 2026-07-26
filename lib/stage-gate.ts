@@ -25,8 +25,14 @@ type RequiredFieldCheck = {
 
 const REQUIRED_FIELDS: RequiredFieldCheck[] = [
   {
-    label: 'a decision-maker contact',
-    isSatisfied: (lead) => Array.isArray(lead.contacts) && lead.contacts.some((c: any) => c?.isDecisionMaker === true),
+    label: 'a contact',
+    // Owner-requested (this gate previously required a contact specifically
+    // flagged isDecisionMaker: true — this app doesn't distinguish contact
+    // "types" for gating purposes, only for display/routing elsewhere, e.g.
+    // lib/contacts.ts's dedup/sort and app/lib/outreach/routing-rules.ts).
+    // isDecisionMaker remains a real flag a contact can carry, it's just no
+    // longer what this gate checks — any contact at all now satisfies it.
+    isSatisfied: (lead) => Array.isArray(lead.contacts) && lead.contacts.length > 0,
   },
   {
     label: 'a value proposition',
