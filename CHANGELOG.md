@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.71
+
+### Added — DoneIsBetter SSO integration, phase 1: infrastructure only (issue #102)
+Owner-requested: integrate `https://sso.doneisbetter.com` as this app's authentication layer. Researched the real published docs and live service before writing any code (quickstart, API reference, response formats, React example, error handling, security best practices, and the live `/.well-known/openid-configuration`/`/.well-known/jwks.json` discovery endpoints — not taken from prose alone). Found a real gap in their own docs: the quickstart requires PKCE as a hard requirement, but their published React example omits it entirely — implemented PKCE properly per the actual requirement (RFC 7636 S256, verified against the RFC's own Appendix B test vector in a new unit test), not the incomplete example.
+
+This app currently has no login system anywhere — every page is still anonymously accessible; only admin-only API routes are gated (`SLG_API_KEY`). Which pages, if any, should actually require login is a real architectural decision, not something to guess at — so this ships only the OAuth plumbing (new, isolated routes/components), with **zero change to any existing page's access behavior**. Scope questions (which routes to gate, whether this replaces or supplements `SLG_API_KEY`, who the intended users are) are recorded in issue #102 for the owner to decide before phase 2.
+
+Shipped: `lib/sso.ts` (PKCE helpers, authorize-URL builder, token exchange/refresh, `jose`-based ID token verification against the live JWKS, permission lookup), `app/api/auth/{login,callback,session,logout}/route.ts` (Next.js 16 App Router handlers — their own example is Pages Router, translated rather than copy-pasted), `app/components/AuthProvider.tsx`'s `useAuth()` hook (built but deliberately not mounted in the root layout yet, since doing so adds a background session-check fetch to every page — itself a real behavior change tied to the same unanswered scope question), `/access-pending` and `/access-denied` pages.
+
+**Hard external blocker, disclosed rather than worked around**: DoneIsBetter SSO has no self-service client registration — a real `client_id`/`client_secret` requires emailing `sso@doneisbetter.com`, ~24h manual approval. `SSO_CLIENT_ID`/`SSO_CLIENT_SECRET`/`SSO_REDIRECT_URI` are unset in every environment today; `/api/auth/login` returns a clear `503` rather than crashing. Verified via a real local run with mock credentials that the login redirect, PKCE cookie-setting, and callback state/error handling all behave correctly end-to-end — token exchange, refresh, ID-token verification, and permission lookup against the real service remain unverified until real credentials exist.
+
+New dependency: `jose@^6.2.4` — deliberately not `jsonwebtoken` (DoneIsBetter's own suggested package), which alone can't fetch/cache a remote JWKS and would need a second package (`jwks-rsa`); `jose` does both in one actively-maintained, edge-compatible package. Confirmed not deprecated before adding.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean, vitest 353/353 (8 new tests covering PKCE correctness and authorize-URL construction), smoke 5/5, build (4 new API routes + 2 new pages compile cleanly).
+
 ## 2.4.70
 
 ### Fixed — kanban column header showed a duplicate count (closes #48, GDS bumped 3.13.0 → 3.14.3)
