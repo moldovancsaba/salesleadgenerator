@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.85
+
+### Fixed — critical/high findings from a comprehensive code audit
+A three-pass audit (security, correctness, code quality) surfaced several real, confirmed issues. Each critical/high finding was independently verified by direct execution before being trusted, and again after the fix. Fixed in this release:
+
+- **Unauthenticated path-traversal arbitrary file write, `/api/prompts`.** `tenantId` was interpolated directly into a filesystem path with no sanitization — confirmed exploitable (`../../../../../../tmp/pwned.md` resolves clean out of the intended directory). New `lib/safe-identifier.ts` allowlists safe identifiers; both `GET`/`PUT` now reject anything else with a 400.
+- **No authentication at all on `/api/prompts` and `/api/admin/toggle`.** Both now require a super-admin session (`requireSuperAdminSession`), matching `/api/admin/users`/`/api/admin/duplicate-scan`. `/admin/prompts/[brand]/page.tsx` gains the same page-level gate its sibling admin pages already have.
+- **MODIFY validation bug breaking Edit Lead Details, actual-deal-value capture, and the ticket-size-override clear in production right now.** `validatePatchPayload`'s MODIFY branch never passed `{ partial: true }` to `validateLeadPayload`, so every real MODIFY payload the app sends failed create-mode required-field validation before ever reaching the actual update logic. One-line fix, 4 new regression tests.
+- **Latent `qualityStatus` enum corruption in `lib/quality-registry.ts`.** `enforceQualityCeiling` could write an arbitrary garbage string into the `qualityStatus` field given an unrecognized upstream status value — was blocked only by the MODIFY bug above rejecting the request first; fixing that without this would have reactivated live data corruption. Now allowlist-filters both `proposedStatus` and `upstreamStatuses` against the known hierarchy. 8 new unit tests.
+
+Findings deliberately deferred (real, but each needs its own scoped follow-up): no auth at all on `GET`/`PATCH /api/leads`, `GET /api/leads/columns`, `PATCH /api/leads/bulk`, `DELETE /api/leads/[id]` (a pre-existing, disclosed design choice that predates SSO — but SSO/#103 only ever gated pages, never this underlying data API); `requireApiKey` failing open when `SLG_API_KEY` is unset; unescaped `$regex` in `GET /api/search`; `lib/near-duplicate.ts`'s uncapped O(n²) scan; non-atomic counters in `executeLeadAction`; `PATCH /api/leads/bulk` not de-duplicating `leadIds`; `getTenantId`/`tenantFilter` duplicated across 8 files. See `docs/ARCHITECTURE.md`'s "Security Audit Fixes" section for full detail.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean (97 files), vitest 435/435, smoke 5/5, build. Integration suite: same 14 pre-existing unrelated failures as baseline, 0 new failures, 10 new passing tests.
+
 ## 2.4.84
 
 ### Fixed — stale filter documentation (issue #71 follow-up)
