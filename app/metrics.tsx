@@ -49,6 +49,25 @@ type VelocityMetrics = {
   truncated: boolean;
 };
 
+type IndustryCorrelation = {
+  industry: string;
+  sampleSize: number;
+  weightedWonRate: number | null;
+};
+
+type SearchQueryCorrelation = {
+  query: string;
+  sampleSize: number;
+  acceptRate: number | null;
+};
+
+type OutcomeCorrelation = {
+  byIndustry: IndustryCorrelation[];
+  bySearchQuery: SearchQueryCorrelation[];
+  truncated: boolean;
+  searchQueryDataIsGlobal: boolean;
+};
+
 type MetricsData = {
   total: number;
   columnCounts: Record<string, number>;
@@ -60,6 +79,7 @@ type MetricsData = {
   qualityCounts: Record<string, number>;
   successRate: number;
   velocity: VelocityMetrics | null;
+  outcomeCorrelation: OutcomeCorrelation | null;
 };
 
 // A transition pair with fewer than 3 samples renders "—" rather than an
@@ -416,6 +436,71 @@ export function MetricsPanel({ brand = 'cogmap', tenantId = 'default' }: Props) 
                 },
               ]}
             />
+          </>
+        )}
+      </Stack>
+
+      <Stack gap="md">
+        <Title order={4}>What Worked — Outcome Correlation</Title>
+        {!data.outcomeCorrelation ? (
+          <Alert icon={<IconAlertCircle size="1rem" />} title="Outcome correlation unavailable" color="gray" variant="light">
+            Could not compute outcome correlation right now — the rest of this page is unaffected.
+          </Alert>
+        ) : (
+          <>
+            {data.outcomeCorrelation.truncated && (
+              <Alert icon={<IconAlertCircle size="1rem" />} color="yellow" variant="light">
+                Too many outcome-log rows to scan in one request — results reflect a partial (truncated) sample.
+              </Alert>
+            )}
+
+            <Text size="sm" fw={600}>By industry (WON/LOST outcomes, weighted by signal confidence)</Text>
+            {data.outcomeCorrelation.byIndustry.length === 0 ? (
+              <AdminResourceEmptyState
+                title="No WON/LOST outcomes yet"
+                description="This report needs at least one lead to reach WON or LOST."
+              />
+            ) : (
+              <AdminAnalyticsTable
+                rows={data.outcomeCorrelation.byIndustry}
+                getRowKey={(row) => row.industry}
+                columns={[
+                  { key: 'industry', header: 'Industry', rowHeader: true, accessor: (row) => row.industry },
+                  { key: 'sampleSize', header: 'Samples', numeric: true, accessor: (row) => String(row.sampleSize) },
+                  {
+                    key: 'weightedWonRate',
+                    header: 'Won rate',
+                    numeric: true,
+                    accessor: (row) => (row.weightedWonRate === null ? 'Insufficient data' : `${(row.weightedWonRate * 100).toFixed(1)}%`),
+                  },
+                ]}
+              />
+            )}
+
+            <Text size="sm" fw={600} mt="sm">
+              By search query (accept rate — global across all brands, not brand-scoped)
+            </Text>
+            {data.outcomeCorrelation.bySearchQuery.length === 0 ? (
+              <AdminResourceEmptyState
+                title="No search-learning data recorded yet"
+                description="Search-query accept/decline outcomes will appear here once recorded."
+              />
+            ) : (
+              <AdminAnalyticsTable
+                rows={data.outcomeCorrelation.bySearchQuery}
+                getRowKey={(row) => row.query}
+                columns={[
+                  { key: 'query', header: 'Search query', rowHeader: true, accessor: (row) => row.query },
+                  { key: 'sampleSize', header: 'Samples', numeric: true, accessor: (row) => String(row.sampleSize) },
+                  {
+                    key: 'acceptRate',
+                    header: 'Accept rate',
+                    numeric: true,
+                    accessor: (row) => (row.acceptRate === null ? 'Insufficient data' : `${(row.acceptRate * 100).toFixed(1)}%`),
+                  },
+                ]}
+              />
+            )}
           </>
         )}
       </Stack>
