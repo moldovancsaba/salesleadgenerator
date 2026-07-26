@@ -1,6 +1,6 @@
 {
   "name": "slg-leads",
-  "version": "2.4.69",
+  "version": "2.4.70",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -21,9 +21,9 @@
     "@mantine/hooks": "^9.4.2",
     "@mantine/modals": "^9.4.2",
     "@mantine/notifications": "^9.4.2",
-    "@sovereignsquad/gds-admin": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.13.0/sovereignsquad-gds-admin-3.13.0.tgz",
-    "@sovereignsquad/gds-core": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.13.0/sovereignsquad-gds-core-3.13.0.tgz",
-    "@sovereignsquad/gds-theme": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.13.0/sovereignsquad-gds-theme-3.13.0.tgz",
+    "@sovereignsquad/gds-admin": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.14.3/sovereignsquad-gds-admin-3.14.3.tgz",
+    "@sovereignsquad/gds-core": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.14.3/sovereignsquad-gds-core-3.14.3.tgz",
+    "@sovereignsquad/gds-theme": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.14.3/sovereignsquad-gds-theme-3.14.3.tgz",
     "@tabler/icons-react": "^3.45.0",
     "dayjs": "^1.11.21",
     "dotenv": "^17.4.2",
