@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.70
+
+### Fixed — kanban column header showed a duplicate count (closes #48, GDS bumped 3.13.0 → 3.14.3)
+Owner-reported: "the counter on the top right of the columns... is now duplication and needs to be hidden," alongside a note that GDS shipped a number of previously-requested fixes. Root cause: `app/kanban.tsx` has always hand-embedded a column's real total into its title text (e.g. `"Qualified (365) · $1.3M"`) as a workaround for GDS's `KanbanColumn` Badge only ever showing `column.items.length` — the loaded-page count, not the real total (tracked as issue #48 since 2.4.38's GDS bump). GDS 3.14.0 shipped exactly the fix issue #48 itself suggested: an optional `KanbanColumnData.totalCount` the header Badge now prefers over `items.length` when present.
+
+Bumped `@sovereignsquad/gds-admin`/`gds-core`/`gds-theme` 3.13.0 → 3.14.3 (verified against the real published `CHANGELOG.md`, not assumed) and adopted `totalCount`: `app/kanban.tsx`'s `columns` now sets `totalCount: colState.count` and the title no longer embeds a count at all — a single, accurate count in the header, sourced from the real server total, not two conflicting numbers.
+
+The same 3.14.0–3.14.3 release also shipped fixes for three more issues this repo had already filed against GDS (`KanbanColumnData.title` accepting `ReactNode` — #51; a `renderColumnFooter` slot — #52; native `collapsible` column support — #53) and partially fixed a fourth (`gds-theme`'s CSS no longer force-imports `@mantine/dates` — #50, though `gds-core`'s JS still does, confirmed via a real build test with both packages removed, which failed). None of these three are adopted in this change — each is a real follow-up UI decision (a two-line header, migrating off the inline "load more" workaround, evaluating collapse-in-place vs. hide-entirely), not a mechanical swap, and out of scope for today's narrower counter-duplication fix. All tracked with what's now available in issues #50–#54 and the master tracking board, issue #55.
+
+Verified via a real Playwright render (route-mocked API data with a column total exceeding its loaded page) that the header now shows exactly one count, sourced from the real total. Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean (75 files), vitest 345/345, smoke 5/5, build.
+
 ## 2.4.69
 
 ### Fixed — Sales Settings page crashed with no recovery ("This page couldn't load") on a legacy settings doc (fixes #101)
