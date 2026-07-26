@@ -1,8 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { errors as joseErrors } from 'jose';
-import { getPermission, refreshTokens, verifyIdToken } from '@/lib/sso';
+import { getPermission, refreshTokens, verifyIdToken, type SsoIdTokenClaims } from '@/lib/sso';
+import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
+import { getAccessibleBrands, getUserAccess, isSuperAdminEmail } from '@/lib/sso-access';
 
 const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30;
+
+// Read-only — never upserts (that only happens once, on login, in
+// app/api/oauth/callback/route.ts). Called on every page's session check
+// once AuthProvider is mounted, so no write per read.
+async function buildSessionBody(claims: SsoIdTokenClaims, accessToken: string) {
+  const permission = await getPermission(claims.sub, accessToken);
+
+  let accessibleBrands: string[] = [];
+  if (isMongoConfigured()) {
+    const client = await clientPromise;
+    const db = client.db();
+    const record = await getUserAccess(db, claims.sub);
+    accessibleBrands = getAccessibleBrands(claims.email, record?.orgAccess);
+  } else if (isSuperAdminEmail(claims.email)) {
+    // No DB configured (local dev without MONGODB_URI) — a super admin
+    // still needs to see something rather than an empty nav, since
+    // orgAccess can't be read at all in that state.
+    accessibleBrands = getAccessibleBrands(claims.email, undefined);
+  }
+
+  return {
+    user: { id: claims.sub, email: claims.email, name: claims.name, emailVerified: claims.email_verified },
+    permission,
+    accessibleBrands,
+    isSuperAdmin: isSuperAdminEmail(claims.email),
+  };
+}
 
 export async function GET(request: NextRequest) {
   const idToken = request.cookies.get('sso_id_token')?.value;
@@ -10,16 +39,12 @@ export async function GET(request: NextRequest) {
   const refreshToken = request.cookies.get('sso_refresh_token')?.value;
 
   if (!idToken || !accessToken) {
-    return NextResponse.json({ user: null, permission: null }, { status: 401 });
+    return NextResponse.json({ user: null, permission: null, accessibleBrands: [], isSuperAdmin: false }, { status: 401 });
   }
 
   try {
     const claims = await verifyIdToken(idToken);
-    const permission = await getPermission(claims.sub, accessToken);
-    return NextResponse.json({
-      user: { id: claims.sub, email: claims.email, name: claims.name, emailVerified: claims.email_verified },
-      permission,
-    });
+    return NextResponse.json(await buildSessionBody(claims, accessToken));
   } catch (error) {
     // Their own error-handling guidance: an expired ID token should attempt
     // a silent refresh before falling back to "not authenticated" — never
@@ -29,12 +54,9 @@ export async function GET(request: NextRequest) {
       try {
         const tokens = await refreshTokens(refreshToken);
         const claims = await verifyIdToken(tokens.id_token);
-        const permission = await getPermission(claims.sub, tokens.access_token);
+        const body = await buildSessionBody(claims, tokens.access_token);
 
-        const response = NextResponse.json({
-          user: { id: claims.sub, email: claims.email, name: claims.name, emailVerified: claims.email_verified },
-          permission,
-        });
+        const response = NextResponse.json(body);
         const secureCookie = process.env.NODE_ENV === 'production';
         response.cookies.set('sso_access_token', tokens.access_token, {
           httpOnly: true, secure: secureCookie, sameSite: 'lax', path: '/', maxAge: tokens.expires_in,
@@ -55,7 +77,7 @@ export async function GET(request: NextRequest) {
       console.error('[api/auth/session] verification failed:', error);
     }
 
-    const response = NextResponse.json({ user: null, permission: null }, { status: 401 });
+    const response = NextResponse.json({ user: null, permission: null, accessibleBrands: [], isSuperAdmin: false }, { status: 401 });
     response.cookies.delete('sso_access_token');
     response.cookies.delete('sso_id_token');
     response.cookies.delete('sso_refresh_token');

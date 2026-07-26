@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCodeForTokens, getPermission, verifyIdToken } from '@/lib/sso';
+import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
+import { upsertUserSeen } from '@/lib/sso-access';
 
 const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30 days, matches DoneIsBetter's own published example
 
@@ -33,6 +35,21 @@ export async function GET(request: NextRequest) {
     const tokens = await exchangeCodeForTokens(code, codeVerifier);
     const claims = await verifyIdToken(tokens.id_token);
     const permission = await getPermission(claims.sub, tokens.access_token);
+
+    // Issue #103: records every user who has ever signed in, regardless of
+    // their DoneIsBetter-level permission status below, so the super admin
+    // sees pending/revoked accounts in the admin UI too, not just approved
+    // ones. Never blocks the redirect — a DB hiccup here shouldn't turn a
+    // successful SSO login into a failed one.
+    if (isMongoConfigured() && claims.email) {
+      try {
+        const client = await clientPromise;
+        const db = client.db();
+        await upsertUserSeen(db, { ssoUserId: claims.sub, email: claims.email, name: claims.name });
+      } catch (err) {
+        console.error('[api/oauth/callback] upsertUserSeen failed:', err);
+      }
+    }
 
     let destination = '/';
     if (permission?.status === 'pending') destination = '/access-pending';

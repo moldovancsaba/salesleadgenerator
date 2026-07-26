@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.72
+**Version:** 2.4.73
 
 ---
 
@@ -97,6 +97,14 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 | `SSO_BASE_URL` | Optional — defaults to `https://sso.doneisbetter.com` if unset |
 
 `lib/sso.ts`'s `isSsoConfigured()` reports whether all three required vars are set; `/api/auth/login` returns `503` rather than crashing when they aren't. No existing page's access behavior changes as part of phase 1 — see the ARCHITECTURE.md section for the open scope questions blocking phase 2.
+
+**Per-organization access control (2.4.73, issue #103, phase 2 — see `docs/ARCHITECTURE.md`'s "Per-Organization Access Control" section for the full writeup):** one more env var, and this one is load-bearing for the whole app, not just SSO login:
+
+| Env var | Purpose |
+|---------|---------|
+| `SSO_SUPER_ADMIN_EMAILS` | Comma-separated list of emails (case-insensitive) with unconditional access to every brand and to `/admin/users`. **Must include the owner's email** (`moldovancsaba@gmail.com`) — every brand page now requires login, and only a super admin can grant anyone (including the owner) per-brand access via `/admin/users`. If this var is unset or wrong when phase 2 deploys, **nobody can access anything**, including the person who'd otherwise fix it — there is no other way to bootstrap the first grant. |
+
+Real credentials (`SSO_CLIENT_ID`/`SSO_CLIENT_SECRET`) obtained 2026-07-26 and stored only in this sandbox's gitignored `.env.local`; setting all five vars (`SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`, `SSO_REDIRECT_URI`, `SSO_BASE_URL`, `SSO_SUPER_ADMIN_EMAILS`) in Vercel's Project → Environment Variables is a manual step for whoever has dashboard access — this session has no Vercel API/CLI credentials to do it programmatically (confirmed: `vercel whoami` requires an interactive browser login this headless environment can't complete).
 
 ---
 

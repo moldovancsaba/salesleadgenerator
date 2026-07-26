@@ -2,6 +2,7 @@
 
 import { MantineProvider, createTheme } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
+import { AuthProvider } from "./AuthProvider";
 
 // createTheme() must run in a Client Component: `Input.vars` below is a
 // function, and functions can't be serialized across the Server -> Client
@@ -50,7 +51,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
           feedback"); relevant to every action-feedback toast in this app,
           not just kanban moves. */}
       <Notifications />
-      {children}
+      {/* Issue #103: the app's first login-aware provider. Drives
+          AppNav.tsx's access-based menu (0/1/2+ organizations) and every
+          brand page's own server-side requireBrandAccess() gate — this is
+          the client-side counterpart used for UI, not the enforcement
+          itself (that always happens server-side, per page, regardless of
+          what this reports). */}
+      <AuthProvider>{children}</AuthProvider>
     </MantineProvider>
   );
 }

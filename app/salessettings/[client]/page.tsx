@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { SalesSettingsClient } from './sales-settings-client';
 import { resolveBrand, BRAND_CONFIG } from '@/app/lib/brand';
+import { requireBrandAccess } from '@/lib/require-brand-access';
 
 export async function generateMetadata({ params }: { params: Promise<{ client: string }> }): Promise<Metadata> {
   const { client: clientParam } = await params;
@@ -11,6 +12,7 @@ export async function generateMetadata({ params }: { params: Promise<{ client: s
 export default async function SalesSettingsPage({ params }: { params: Promise<{ client: string }> }) {
   const { client: clientParam } = await params;
   const brand = resolveBrand(clientParam);
+  await requireBrandAccess(brand);
 
   return <SalesSettingsClient brand={brand} />;
 }
