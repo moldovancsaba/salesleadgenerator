@@ -6,6 +6,7 @@ import "./globals.css";
 import { PwaSetup } from "./components/PwaSetup";
 import { Providers } from "./components/Providers";
 import { AppNav } from "./components/AppNav";
+import { BackToTopButton } from "./components/BackToTopButton";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -43,6 +44,7 @@ export default function RootLayout({
       <body>
         <Providers>
           <PwaSetup />
+          <BackToTopButton />
           {/* Issue #95: the only persistent, always-reachable nav surface
               in the app — every other page previously had no link to any
               other page at all, including Sales Settings. A bare icon with
