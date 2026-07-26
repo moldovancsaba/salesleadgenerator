@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.90
+
+### Added — "Back to top" button for the PWA view (owner request)
+New `app/components/BackToTopButton.tsx`: a floating circular button, bottom-right, that appears once the page has scrolled past ~250px and scrolls back to the top on tap (Mantine `Affix`/`Transition`/`ActionIcon` + `useWindowScroll`, no new dependency). Mounted once, globally, in `app/layout.tsx` — every page relies on ordinary window scroll (no page has its own scroll container), so this one instance covers every view.
+
+Verified with a real headless-Chromium run at a mobile viewport (390×844): hidden at the top, appears after scrolling, and clicking it returns scroll position to 0 — screenshotted at each step.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest 453/453, smoke 5/5, GDS style audit clean, build.
+
 ## 2.4.89
 
 ### Added — unreliable size-tier data now computes the smallest realistic ticket size instead of nothing (owner request, issue #111)
