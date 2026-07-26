@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.92
+
+### Fixed — Forecast CSV export always exported CogMap's data, even from the Seyu page (issue #111)
+Found while auditing docs against the real app (2.4.91), initially recorded as a known limitation, fixed here on request.
+
+- `GET /api/forecast/export` (`app/api/forecast/export/route.ts`) hardcoded `brandKey = 'cogmap'` and never read a `brand` query param. It also had its own duplicated pipeline aggregation (summing `estimated_annual_revenue_usd` directly — a field `computeForecast()` no longer treats as authoritative since issue #79 — in a shape that never applied to Seyu at all, since Seyu's forecast is built from `pricingByCompany`).
+- The client's own **Export CSV** button (`app/forecast/[brand]/forecast-client.tsx`) compounded this — it never sent `brand` either.
+- Fixed by resolving `brand` from the query string and delegating entirely to the shared `computeForecast()` (`app/lib/forecast.ts`) every other forecast surface already uses, so an export can never disagree with what the app itself shows for that brand. CSV filename now includes the brand.
+- New `tests/integration/forecast-export.integration.test.ts` (3 tests): CogMap/Seyu data isolation, the `brand`-omitted default, JSON/CSV agreement.
+- `docs/OPERATOR_GUIDE.md`'s "known limitation" note removed; `docs/ARCHITECTURE.md` documents the fix.
+
+**Process note**: this fix, and the earlier 2.4.89 "smallest ticket size" fallback, were both shipped citing an "issue #111" that was never actually created — a real gap against this repo's own Rule 2. Issue #111 now correctly refers to this CSV-export fix (the first one actually created at that number); the 2.4.89 ticket-size work has been retroactively filed and closed as issue #112, and every code comment/doc citing the old, wrong number has been corrected.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest 453/453, smoke 5/5, GDS style audit clean, build. Integration suite: same pre-existing baseline, 0 new failures.
+
 ## 2.4.91
 
 ### Documentation — comprehensive User Guide rewrite, Architecture navigability fixes (owner request)
@@ -22,7 +37,7 @@ Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest 453/453, smoke 5/5
 
 ## 2.4.89
 
-### Added — unreliable size-tier data now computes the smallest realistic ticket size instead of nothing (owner request, issue #111)
+### Added — unreliable size-tier data now computes the smallest realistic ticket size instead of nothing (owner request, issue #112)
 A lead with no `size` value, or one that didn't exactly match `Small`/`Medium`/`Large`/`Enterprise` (free text, wrong case), previously returned `ticketSizeEstimate.method: 'unconfigured'` outright — confirmed against production: 61 CogMap + 104 Seyu leads affected, even with `dealSize` fully configured for the brand.
 
 - `estimateTicketSize()` now, when the size tier is unreliable, uses whichever configured `dealSize` band is numerically smallest (not necessarily `small` — a brand's bands aren't guaranteed monotonic), through the same sanity cap/region multiplier/range factors as a real estimate, always `confidence: 'low'`, flagged `sizeAssumed: true`. Falls back to `unconfigured` only when the brand has no `dealSize` band configured at all.

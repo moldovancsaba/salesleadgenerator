@@ -51,7 +51,7 @@ export type TicketSizeDisplay =
       overriddenBy?: string;
       // True when the lead had no reliable size-tier data and this is the
       // brand's smallest configured deal-size band, not a real per-lead
-      // estimate (issue #111) — the UI must say so, not present it as if
+      // estimate (issue #112) — the UI must say so, not present it as if
       // the lead's actual size were known.
       sizeAssumed?: boolean;
     }

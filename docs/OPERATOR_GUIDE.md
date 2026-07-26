@@ -204,9 +204,7 @@ Reached via **Reporting → Forecast** for a brand. Shows, top to bottom:
 - **Pricing by Company** (Seyu only) — per-client pricing terms and estimated annual value, plus a grand total.
 - **Pipeline / By Tier / By Model** (CogMap only) — dollar value per pipeline stage, per company-size tier, and per revenue model.
 - **Pipeline Weights** — editable close-probability percentages per stage, with Save — this is what feeds every "static" probability used above.
-- **Export CSV** button (top of page) — downloads the pipeline's per-column revenue/probability/weighted-revenue breakdown as a spreadsheet.
-
-**Known limitation**: the Export CSV button currently always exports CogMap's data, even when clicked from the Seyu forecast page — a real gap, not yet fixed. Treat CSV export as CogMap-only for now.
+- **Export CSV** button (top of page) — downloads the current brand's pipeline per-column revenue/probability/weighted-revenue breakdown as a spreadsheet, matching the numbers shown on the page (fixed 2.4.92 — it previously always exported CogMap's data regardless of which brand's page you clicked it from).
 
 ---
 
@@ -337,7 +335,6 @@ These require `x-api-key` auth. There is no browser button for any of them — t
 ## Known Issues and Limitations
 
 - Full `next build` may OOM in limited local/sandboxed environments; use `tsc --noEmit` for type verification there. Vercel's production build environment is unaffected.
-- Forecast's **Export CSV** button always exports CogMap's pipeline data, even when triggered from the Seyu forecast page — treat CSV export as CogMap-only until this is fixed.
 - Some leads (a real, ongoing minority — confirmed in production: dozens per brand) have a `size` value that's missing, or free text instead of one of the four valid tiers (Small/Medium/Large/Enterprise) — usually from research-agent writes that predate the current enum enforcement, or a size description rather than a size tier. These leads still get a Ticket Size estimate (the smallest configured tier, clearly labeled — see [Ticket Size](#ticket-size)), but their Metrics/Forecast tier-breakdown numbers group under "Unknown" rather than a real tier. Editing the lead's `size` field to a real tier value corrects this.
 - Table view mobile density/readability may still need additional tuning.
 - Country filter population depends on lead `country` data; some datasets may need backfill from `region`.

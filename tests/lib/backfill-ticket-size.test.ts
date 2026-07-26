@@ -79,7 +79,7 @@ describe('backfillTicketSizeCollection', () => {
     expect(db._updates[0].set.ticketSizeEstimate.method).toBe('tier_band');
   });
 
-  it('backfills to the smallest configured band, flagged sizeAssumed, when the lead has no size (issue #111)', async () => {
+  it('backfills to the smallest configured band, flagged sizeAssumed, when the lead has no size (issue #112)', async () => {
     const db = fakeDb([{ _id: '1' }], { dealSize: { small: 5000, medium: 20000 }, products: [] });
     const result = await backfillTicketSizeCollection(db, 'leads', 'cogmap', 'default', 'USD', { apply: true }, NOW);
 
