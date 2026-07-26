@@ -113,3 +113,21 @@ export function getRoleForBrand(email: string | undefined, orgAccess: OrgAccessM
   if (isSuperAdminEmail(email)) return 'admin';
   return orgAccess?.[brand] || null;
 }
+
+// Where app/api/oauth/callback/route.ts sends a user right after a
+// successful login. DoneIsBetter's own app-level permissionStatus is
+// checked first (pending/revoked are their gate, not this app's); only once
+// that's clear does this app's own zero-organization-access state matter —
+// approved by DoneIsBetter but not yet assigned to any brand here is a
+// genuinely first-time user, not a login failure, and gets the same warm
+// "we'll be in touch" page as a DoneIsBetter-pending user.
+export function resolveLoginDestination(
+  permissionStatus: 'pending' | 'approved' | 'revoked' | undefined | null,
+  email: string | undefined,
+  orgAccess: OrgAccessMap | undefined
+): '/access-pending' | '/access-denied' | '/' {
+  if (permissionStatus === 'pending') return '/access-pending';
+  if (permissionStatus === 'revoked') return '/access-denied';
+  if (getAccessibleBrands(email, orgAccess).length === 0) return '/access-pending';
+  return '/';
+}
