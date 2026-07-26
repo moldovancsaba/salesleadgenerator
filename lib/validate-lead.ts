@@ -155,7 +155,15 @@ export function validatePatchPayload(body: any, brand: string): ValidationResult
   }
 
   if (action === 'MODIFY') {
-    const result = validateLeadPayload(body, brand);
+    // partial: true — a MODIFY is an edit to some of a lead's fields, not a
+    // re-creation of the whole lead; without this, validateLeadPayload's
+    // create-mode required-field checks (entity_name/url/country/kanbanColumn/
+    // ice) reject every real MODIFY payload the app actually sends, since
+    // none of them resend fields the edit didn't touch. Confirmed this was
+    // breaking Edit Lead Details, actual-deal-value capture, and the manual
+    // ticket-size-override clear — every one of those payloads 400'd before
+    // reaching executeLeadAction's actual field-update logic.
+    const result = validateLeadPayload(body, brand, { partial: true });
     if (!result.valid) {
       return result;
     }

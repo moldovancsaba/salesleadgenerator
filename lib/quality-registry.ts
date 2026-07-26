@@ -55,13 +55,28 @@ export function enforceQualityCeiling(
   upstreamStatuses: string[]
 ): string {
   const hierarchy = ['DRAFT', 'CHECKED', 'VERIFIED'] as const;
-  
-  if (!proposedStatus || !upstreamStatuses || upstreamStatuses.length === 0) {
-    return proposedStatus || 'DRAFT';
+
+  // An unrecognized proposedStatus (client-controlled, upstreamQualityStatuses
+  // is never validated by lib/validate-lead.ts) must never be written to the
+  // qualityStatus enum field as-is — hierarchy.indexOf() returning -1 for a
+  // garbage string previously made every real status "higher" than it,
+  // which made the ceiling check always fire and return the garbage value
+  // itself. Falls back to 'DRAFT', the same safe default already used below
+  // for a missing/empty proposedStatus.
+  if (!proposedStatus || !hierarchy.includes(proposedStatus as any)) {
+    return 'DRAFT';
+  }
+
+  // Unrecognized upstream entries are dropped rather than treated as "lower
+  // than everything" — a single garbage string must not silently collapse
+  // the ceiling to that same garbage value.
+  const validUpstream = (upstreamStatuses || []).filter((s) => hierarchy.includes(s as any));
+  if (validUpstream.length === 0) {
+    return proposedStatus;
   }
 
   // Find the lowest upstream status
-  const lowestUpstream = upstreamStatuses.reduce((lowest, current) => {
+  const lowestUpstream = validUpstream.reduce((lowest, current) => {
     const currentIndex = hierarchy.indexOf(current as any);
     const lowestIndex = hierarchy.indexOf(lowest as any);
     return currentIndex < lowestIndex ? current : lowest;

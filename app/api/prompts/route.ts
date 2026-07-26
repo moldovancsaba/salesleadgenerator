@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { getTenantId } from '@/lib/tenant'
+import { requireSuperAdminSession } from '@/lib/session'
+import { isSafeIdentifier } from '@/lib/safe-identifier'
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
@@ -25,7 +26,10 @@ function diskPromptExists(tenantId: string, type: 'discovery' | 'enrichment'): {
   return { path, exists: existsSync(path) }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const claimsOrResponse = await requireSuperAdminSession(request)
+  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse
+
   try {
     const { searchParams } = new URL(request.url)
     const brand = searchParams.get('brand') || 'cogmap'
@@ -34,6 +38,9 @@ export async function GET(request: Request) {
 
     if (!type || (type !== 'discovery' && type !== 'enrichment')) {
       return NextResponse.json({ error: 'type query param required: discovery or enrichment' }, { status: 400 })
+    }
+    if (!isSafeIdentifier(tenantId)) {
+      return NextResponse.json({ error: 'tenantId must contain only letters, digits, hyphens, and underscores' }, { status: 400 })
     }
 
     if (!process.env.MONGODB_URI) {
@@ -66,7 +73,10 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
+  const claimsOrResponse = await requireSuperAdminSession(request)
+  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse
+
   try {
     const body = await request.json()
     const brand = body.brand || 'cogmap'
@@ -79,6 +89,9 @@ export async function PUT(request: Request) {
     }
     if (typeof content !== 'string') {
       return NextResponse.json({ error: 'content must be a string' }, { status: 400 })
+    }
+    if (!isSafeIdentifier(tenantId)) {
+      return NextResponse.json({ error: 'tenantId must contain only letters, digits, hyphens, and underscores' }, { status: 400 })
     }
 
     if (process.env.MONGODB_URI) {

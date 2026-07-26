@@ -127,3 +127,38 @@ describe('validatePatchPayload', () => {
     expect(result.valid).toBe(true);
   });
 });
+
+// Regression coverage: MODIFY previously called validateLeadPayload without
+// { partial: true }, so every real MODIFY payload the shipped UI sends
+// (which never resends entity_name/url/country/kanbanColumn/ice on an edit
+// that doesn't touch them) was rejected before executeLeadAction's actual
+// field-update logic ever ran — Edit Lead Details, actual-deal-value
+// capture, and the manual ticket-size-override clear were all broken.
+describe('validatePatchPayload MODIFY (partial-update regression)', () => {
+  it('allows a MODIFY payload that only sets actualDealValueUsd', () => {
+    const result = validatePatchPayload({ action: 'MODIFY', actualDealValueUsd: 50000 }, 'cogmap');
+    expect(result.valid).toBe(true);
+  });
+
+  it('allows a MODIFY payload that only clears a manual ticket-size override', () => {
+    const result = validatePatchPayload({ action: 'MODIFY', clearManualTicketSizeOverride: true }, 'cogmap');
+    expect(result.valid).toBe(true);
+  });
+
+  it('allows the real Edit Lead Details payload shape (no country/kanbanColumn/ice)', () => {
+    const result = validatePatchPayload({
+      action: 'MODIFY',
+      entity_name: 'Acme FC', url: 'https://acme.example.com', address: '123 Main St',
+      general_contact: 'info@acme.com', size: 'Medium', industry: 'Academy',
+      sport_or_sector: 'Soccer', level_league: 'D1', value_proposition: 'Great fit',
+      notes: '', tags: [],
+    }, 'cogmap');
+    expect(result.valid).toBe(true);
+  });
+
+  it('still rejects a MODIFY payload with a present-but-malformed url', () => {
+    const result = validatePatchPayload({ action: 'MODIFY', url: 'not-a-url' }, 'cogmap');
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('url must be a valid HTTP(S) URL'))).toBe(true);
+  });
+});

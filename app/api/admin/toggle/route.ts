@@ -1,10 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
+import { requireSuperAdminSession } from '@/lib/session'
 import { resolveBrand } from '@/app/lib/brand'
 import { readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
+  const claimsOrResponse = await requireSuperAdminSession(request)
+  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse
+
   try {
     const body = await request.json()
     const brand = resolveBrand(body.brand || 'cogmap')
@@ -54,7 +58,10 @@ export async function PUT(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const claimsOrResponse = await requireSuperAdminSession(request)
+  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse
+
   try {
     const { searchParams } = new URL(request.url)
     const brand = resolveBrand(searchParams.get('brand') || 'cogmap')
