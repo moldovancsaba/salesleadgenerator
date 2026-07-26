@@ -1,6 +1,30 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.61
+**Version:** 2.4.90
+
+---
+
+## Contents
+
+- [System Context](#system-context)
+- [Frontend](#frontend)
+- [API Layer](#api-layer)
+- [Data Model](#data-model)
+- [Request and Response Flows](#request-and-response-flows)
+- [Module and Responsibility Map](#module-and-responsibility-map)
+- [Auth, Middleware, CORS, and Security](#auth-middleware-cors-and-security)
+- [Deployment and Environment](#deployment-and-environment)
+- [Tenant Isolation](#tenant-isolation)
+
+This file is a long, dated, feature-by-feature technical narrative — each dated
+paragraph documents one issue/change as it shipped, in the section it belongs
+to, rather than being reorganized after the fact. Use this Contents list plus
+your editor's search (issue number, feature name, or file name) to navigate;
+don't expect every dated addition to have its own heading — most are bold
+lead-in sentences within the section above. For a plain-English, task-oriented
+walkthrough of what an operator actually sees and does, see
+`docs/OPERATOR_GUIDE.md` instead — this file is written for a developer
+maintaining the code, not a user of the app.
 
 ---
 
@@ -35,6 +59,7 @@
 - `/outreach/templates/[brand]` (2.4.68, issue #100 — was bare `/outreach/templates`) — template management UI, one brand at a time. Same Server/Client split as `/sales/[brand]`: `page.tsx` resolves `brand` via `resolveBrand()`; `templates-client.tsx` holds all form state.
 - `/salessettings/[client]` (2.4.20) — Company Setup / Sales Settings: a plain-language questionnaire (what a brand sells, who buys it, how it's priced, deal size, purchase frequency, upsell, sales cycle, an example customer, seasonality, notes) that a brand's own team fills in so the OpenClaw/KiloClaw research agent can refine lead scoring and revenue forecasts without requiring the respondent to know financial/accounting terminology (ACV/ARR/MRR etc. — see GitHub issue #24). Same Server Component/Client Component split as `/sales/[brand]` (`page.tsx` resolves `client` via `resolveBrand()` and exports `generateMetadata()` returning `"<Brand> Settings"`; `sales-settings-client.tsx` holds all form state). Deliberately built with plain Mantine primitives (`Checkbox.Group`, `NumberInput`, `Select`, repeatable product rows), not GDS Admin form wrappers — GDS has no equivalent for repeatable rows/checkbox groups this form needs, and this avoids further GDS integration surface area after 3.11.x's type-contract issues.
 - Detail modal — lead actions, outreach compose, feedback
+- Table view (`app/table.tsx`'s `TableView`, one of the four `?view=` modes on `/sales/[brand]` alongside Kanban/Metrics/Search Learning) — a GDS `AdminDataTable` (`@sovereignsquad/gds-admin/client`) over the same lead set the kanban board renders, columns Name/Score (ICE)/Region/Quality/Status, all sortable. No built-in row-click in `AdminDataTable` (only per-column accessor rendering), so the Name cell itself is the tap target that opens the detail modal, matching what a kanban card's own tap already does. `renderMobileCard` collapses each row to name/region/quality on narrow viewports rather than a horizontally-scrolling table. Shares `FilterBar`'s region/industry filter state with the kanban view (one `leadFilter` object threaded to both) — switching between Kanban and Table mid-session keeps the same active filter, never resets it.
 
 ### Persistent Navigation (2.4.65, issue #95)
 `app/components/AppNav.tsx`, mounted once in the root layout (`app/layout.tsx`) inside a sticky top bar — the first persistent, always-reachable nav surface in the app. Before this, `app/layout.tsx` rendered nothing but `{children}`; every page, including `/salessettings/[client]`, was only reachable by typing its URL directly. A hamburger trigger (`IconMenu2`) opens a Mantine `Drawer` with `NavLink`s grouped into that one client's own **Pipeline**/**Sales Settings**/**Reporting** links, shown only when a client context exists (as of 2.4.68, Reporting — Forecast/Battlecards/Outreach Templates — moved inside this per-client section too; see issue #100 below).
@@ -455,6 +480,16 @@ A comprehensive code audit (security, correctness, code quality — three parall
 **`lib/quality-registry.ts`'s `enforceQualityCeiling` could write a garbage string into the `qualityStatus` enum field.** `hierarchy.indexOf(current)` returned `-1` for any unrecognized status string, which the reduce's `currentIndex < lowestIndex` comparison then treated as *lower than every real status* — so a single malformed entry in the client-controlled `upstreamQualityStatuses` array became the computed "ceiling," and that literal garbage string got returned and written to the lead's `qualityStatus` field. Confirmed reachable via `app/lib/lead-actions.ts`'s `MODIFY` branch, which passes the field through with no validation anywhere in `lib/validate-lead.ts`. This path was latent (blocked by the MODIFY validation bug above rejecting the request first) — fixing that bug without also fixing this one would have reactivated live data corruption. Fixed by allowlist-filtering both `proposedStatus` and every `upstreamStatuses` entry against the known hierarchy before any comparison; an unrecognized `proposedStatus` now falls back to `'DRAFT'` (the same safe default already used for a missing one), and unrecognized upstream entries are dropped rather than corrupting the ceiling calculation. 8 new unit tests, including one asserting the function can never return a value outside `DRAFT`/`CHECKED`/`VERIFIED` for any input.
 
 **Findings deliberately not fixed in this release** (real, but each needs its own scoped follow-up, not a rushed fix bundled into a security-audit commit): `GET`/`PATCH /api/leads`, `GET /api/leads/columns`, `PATCH /api/leads/bulk`, and `DELETE /api/leads/[id]` had no authentication of any kind at the time this section was first written — since fixed in 2.4.86, issue #104 (see below). The remaining six deferred findings (`requireApiKey`'s fail-open behavior, the `GET /api/search` regex, `lib/near-duplicate.ts`'s scan cap, `executeLeadAction`'s counters, bulk `leadIds` dedup, and the duplicated tenant-filter helpers) were fixed in 2.4.87, issues #105-#110 — see below.
+
+### Prompt Editor and Per-Tenant Automation Toggle
+
+Two admin-only features referenced above only as a security-fix footnote — here's what they actually do, as a product feature, for the first time in this file.
+
+`/admin/prompts/[brand]` (`app/admin/prompts/[brand]/page.tsx`, server-gated identically to `/admin/users`/`/admin/duplicates` — non-super-admin redirects before rendering anything) lets a super admin view and edit the free-text instructions ("prompts") that drive the external OpenClaw/KiloClaw research agent's own Discovery (finding new leads) and Enrichment (adding detail to existing leads) behavior for a given `{brand, tenantId}` — two separate tabs, one per operation. `GET`/`PUT /api/prompts` (`prompts` MongoDB collection, plus a disk mirror at a path the cron generator reads directly — so a saved edit takes effect on the agent's *next* run, not instantly) back the read/save. Editing and saving this text is a real, direct lever on the agent's future behavior, not documentation of it.
+
+Each tab also renders an **Enabled** switch — a separate control from saving prompt text, backed by `GET`/`PUT /api/admin/toggle` (the `tenant_operations` collection, plus a best-effort write to the same cron generator's `Agents/contentcreator/tenants.json` file so the change takes effect immediately rather than waiting for that file to be regenerated some other way; a failed file write is silently ignored since Mongo remains the source of truth on the next read). Flipping it turns Discovery or Enrichment on/off for that tenant. The client optimistically flips the switch, then reverts it and shows an error if the `PUT` fails — never leaving a false "on" displayed against a save that didn't actually happen (CLAUDE.md Rule 7).
+
+Both `/api/prompts` and `/api/admin/toggle` are session-gated (`requireSuperAdminSession()`), not `x-api-key` — this is exclusively a human clicking Save/toggle in a browser from `/admin/prompts/[brand]`'s own client component, the same "browser can't hold `SLG_API_KEY` safely" reasoning documented throughout this file for every other browser-originated write.
 
 ### Remaining Deferred-Finding Fixes (2.4.87, issues #105-#110)
 
