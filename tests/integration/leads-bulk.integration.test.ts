@@ -113,6 +113,33 @@ describe('PATCH /api/leads/bulk', () => {
     expect(body.results[1].success).toBe(false);
   });
 
+  it('de-duplicates a repeated leadId instead of running the action twice for it (issue #109)', async () => {
+    const id = await seedLead('Bulk Duplicate Id Co');
+
+    const res = await PATCH(req({
+      brand: 'cogmap',
+      leadIds: [id, id, id],
+      action: 'DECLINE',
+      payload: { declineReason: 'OTHER' },
+    }));
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Exactly one result for the id, not three.
+    expect(body.results).toEqual([{ leadId: id, success: true, error: undefined }]);
+
+    const clientPromise = (await import('../../lib/mongodb')).default;
+    const client = await clientPromise;
+    const db = client.db();
+    const { ObjectId } = await import('mongodb');
+    const lead = await db.collection('leads').findOne({ _id: new ObjectId(id) });
+    // Declined exactly once — a pre-fix bug ran executeLeadAction three
+    // times for this single duplicated id, double-decrementing
+    // feedbackScore/incrementing declineCount past 1.
+    expect(lead?.declineCount).toBe(1);
+    expect(lead?.feedbackScore).toBe(-1);
+  });
+
   it('blocks a bulk PIN for a lead missing stage-gate required fields (issue #72 interaction), without failing the batch', async () => {
     const ready = await seedLead('Bulk Pin Ready Co', {
       contacts: [{ isDecisionMaker: true }],

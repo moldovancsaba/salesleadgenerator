@@ -5,16 +5,11 @@ import { DEFAULT_BATTLECARDS } from '../../lib/battlecards/default-battlecards'
 import type { Battlecard } from '../../lib/battlecards/default-battlecards'
 import { validateBattlecardPayload, normalizeProofPoints, normalizeObjections } from '../../lib/battlecards/validate-battlecard'
 import { buildTaggedContentFilter, normalizeTags } from '../../lib/search/tagged-content-filter'
+import { getTenantId } from '../../../lib/tenant'
 
 export const dynamic = 'force-dynamic'
 
 const SEARCH_TEXT_FIELDS = ['competitorName', 'positioningSummary']
-
-function getTenantId(request: Request): string {
-  const url = new URL(request.url)
-  const tenantId = (url.searchParams.get('tenantId') || 'default').trim()
-  return tenantId || 'default'
-}
 
 function getBrand(request: Request): string {
   const url = new URL(request.url)

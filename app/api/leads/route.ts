@@ -4,6 +4,7 @@ import { BRAND_CONFIG, resolveBrand, PRO_FIELD, CON_FIELD } from '../../lib/bran
 import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import { requireApiKey } from '../../../lib/api-auth'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
+import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { validateLeadPayload, validatePatchPayload, bestContactConfidence } from '../../../lib/validate-lead'
 import { generateRequestId } from '../../lib/request-id'
 import { executeLeadAction } from '../../lib/lead-actions'
@@ -97,12 +98,6 @@ function getBrand(request: Request): Brand {
   return resolveBrand(brandParam);
 }
 
-function getTenantId(request: Request): string {
-  const url = new URL(request.url);
-  const tenantId = (url.searchParams.get('tenantId') || 'default').trim();
-  return tenantId || 'default';
-}
-
 // GET - List leads with filters
 export async function GET(request: NextRequest) {
   try {
@@ -129,12 +124,7 @@ export async function GET(request: NextRequest) {
     const db = client.db()
 
     // Backward-compatible tenant filter: include legacy docs without tenantId when querying default
-    let filter: any = {}
-    if (tenantId === 'default') {
-      filter = { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] }
-    } else {
-      filter = { tenantId }
-    }
+    const filter: any = { ...tenantFilter(tenantId) }
     if (region) filter.region = region
     // Case-insensitive substring match — industry is free text entered via
     // Sales Settings/lead creation, not a fixed enum, so an exact match

@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.87
+
+### Fixed — six remaining deferred findings from the 2.4.85 code audit (issues #105-#110)
+Each independently scoped and tracked as its own issue per this repo's workflow rule, fixed together in one release:
+
+- **#105 — `requireApiKey` fail-open when `SLG_API_KEY` is unset.** Now fails closed (401) specifically in `NODE_ENV=production`; dev/test fail-open behavior is unchanged. `requireCronOrApiKey` inherits the fix via its own fallback.
+- **#106 — unescaped `$regex` in `GET /api/search`.** `q` now runs through the existing `escapeRegExp()` before building the six `$regex` clauses, matching the pattern `GET /api/leads`/`GET /api/leads/columns` already use.
+- **#107 — `lib/near-duplicate.ts`'s uncapped O(n²) scan.** `POST /api/admin/duplicate-scan` now caps at 2000 leads (newest-first, deterministic across repeated scans), reporting `totalAvailable`/`truncated` so a capped scan is visible rather than silently incomplete — the admin UI surfaces this with an explicit notification.
+- **#108 — non-atomic counter increments in `executeLeadAction`.** `acceptanceCount`/`declineCount`/`feedbackScore` now use Mongo's atomic `$inc` instead of a JS-computed `existing.field + 1` written via `$set` — closes a lost-update race between two concurrent actions on the same lead.
+- **#109 — `PATCH /api/leads/bulk` not de-duplicating `leadIds`.** De-duplicated (first-seen order) before the 100-lead cap check and the processing loop — a duplicated id previously ran the action, and its side effects, once per occurrence.
+- **#110 — `getTenantId`/`tenantFilter` reimplemented locally in 11 route files.** All now import the shared `lib/tenant.ts` helpers; pure refactor, no behavior change. `app/api/health/route.ts`'s local copy is deliberately left alone (genuine semantic difference, not duplication).
+
+New tests: `tests/lib/api-auth.test.ts` (+1, production fail-closed), `tests/integration/search-regex.integration.test.ts` (new, 2 tests), `tests/integration/leads-bulk.integration.test.ts` (+1, dedup regression), `tests/integration/admin-session-auth.integration.test.ts` (+1, duplicate-scan 401 coverage — a real pre-existing gap this closed). One honestly-disclosed gap: a concurrency regression test for #108 was written but didn't discriminate the bug (passed identically pre- and post-fix in this test harness) and was removed rather than kept as false-confidence coverage — see `docs/ARCHITECTURE.md`'s 2.4.87 section for detail. The #107 cap/truncation logic was verified by direct execution against `mongodb-memory-server` rather than through the route handler, since it requires a real super-admin session that can't be fabricated in this sandbox (same constraint as every other `requireSuperAdminSession`-gated route).
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean (97 files), vitest 440/440, smoke 5/5, build. Integration suite: same 13-14 pre-existing unrelated failures as baseline (one is flaky pass/fail depending on run), 0 new failures, 4 new passing tests.
+
 ## 2.4.86
 
 ### Fixed — no auth at all on the core lead data API (issue #104)

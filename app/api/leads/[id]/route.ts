@@ -9,23 +9,12 @@ import { deriveKanbanColumn, isAutoManagedColumn } from '../../../../lib/kanban-
 import { dedupeContacts } from '../../../../lib/contacts'
 import { verifyLeadContactsAsync } from '../../../lib/email-verification-store'
 import { computeTicketSizeForLead } from '../../../lib/ticket-size-store'
+import { getTenantId, tenantFilter as buildTenantFilter } from '../../../../lib/tenant'
 
 function getBrand(request: Request): 'cogmap' | 'seyu' {
   const url = new URL(request.url);
   const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || 'cogmap';
   return resolveBrand(brandParam);
-}
-
-function getTenantId(request: Request): string {
-  const url = new URL(request.url);
-  const tenantId = (url.searchParams.get('tenantId') || 'default').trim();
-  return tenantId || 'default';
-}
-
-function buildTenantFilter(tenantId: string) {
-  return tenantId === 'default'
-    ? { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] }
-    : { tenantId };
 }
 
 async function tryFindLead(db: any, config: any, tenantId: string, rawId: string) {
