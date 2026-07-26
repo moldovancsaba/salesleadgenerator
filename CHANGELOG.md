@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.75
+
+### Changed — land on Forecast, not the marketing root, when a user has organization access (issue #103 follow-up)
+Owner-requested: a user with organization access still landed on `/` (the brand-agnostic marketing page) after logging in — not useful for someone who just authenticated and has real data to look at. `lib/sso-access.ts`'s `resolveLoginDestination()` now sends them to `/forecast/${accessibleBrands[0]}` (their first accessible brand's Forecast page) instead; the zero-access/pending/revoked destinations are unchanged.
+
+Made "first" genuinely deterministic as part of this: `getAccessibleBrands()` previously derived brand order from `Object.keys(orgAccess)` — MongoDB's field-insertion order, which depends on the sequence a super admin happened to click through in `/admin/users` and could arbitrarily put Seyu before CogMap. Fixed to always iterate `BRAND_CONFIG`'s own canonical order (CogMap, then Seyu) and filter down to accessible brands, so "first" means the same thing everywhere in this app regardless of grant history.
+
+New tests: `getAccessibleBrands` asserts canonical order survives a reversed-insertion `orgAccess` object; `resolveLoginDestination` covers every ≥1-accessible-brand scenario (one brand, both brands, grant-order-reversed, super admin) returning the correct per-brand Forecast URL.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean, vitest 374/374, smoke 5/5, integration 8/8, build.
+
 ## 2.4.74
 
 ### Added — warm welcome page for zero-access first logins (issue #103 follow-up)

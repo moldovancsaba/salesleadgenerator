@@ -99,9 +99,16 @@ export async function setUserOrgAccess(
 
 // --- Pure functions below: no DB, no network, fully unit-testable. ---
 
+// Always returns brands in BRAND_CONFIG's own canonical key order (cogmap,
+// then seyu), never MongoDB's field-insertion order for `orgAccess` — which
+// depends on the sequence a super admin happened to click through in
+// /admin/users and isn't a reliable way to define "first" for anything.
+// This ordering is now meaningful, not cosmetic: resolveLoginDestination()
+// below sends a user to their first accessible brand's Forecast page.
 export function getAccessibleBrands(email: string | undefined, orgAccess: OrgAccessMap | undefined): Brand[] {
-  if (isSuperAdminEmail(email)) return Object.keys(BRAND_CONFIG) as Brand[];
-  return (Object.keys(orgAccess || {}) as Brand[]).filter((brand) => Boolean(orgAccess?.[brand]));
+  const allBrandsInCanonicalOrder = Object.keys(BRAND_CONFIG) as Brand[];
+  if (isSuperAdminEmail(email)) return allBrandsInCanonicalOrder;
+  return allBrandsInCanonicalOrder.filter((brand) => Boolean(orgAccess?.[brand]));
 }
 
 export function hasAccessToBrand(email: string | undefined, orgAccess: OrgAccessMap | undefined, brand: Brand): boolean {
@@ -120,14 +127,20 @@ export function getRoleForBrand(email: string | undefined, orgAccess: OrgAccessM
 // that's clear does this app's own zero-organization-access state matter —
 // approved by DoneIsBetter but not yet assigned to any brand here is a
 // genuinely first-time user, not a login failure, and gets the same warm
-// "we'll be in touch" page as a DoneIsBetter-pending user.
+// "we'll be in touch" page as a DoneIsBetter-pending user. A user with at
+// least one accessible brand lands on that brand's own Forecast page
+// (owner-requested — a genuinely useful landing page, not the brand-
+// agnostic marketing root) rather than a generic "/" — "first" is
+// getAccessibleBrands()'s own canonical-order first entry, deterministic
+// regardless of the order access was granted in.
 export function resolveLoginDestination(
   permissionStatus: 'pending' | 'approved' | 'revoked' | undefined | null,
   email: string | undefined,
   orgAccess: OrgAccessMap | undefined
-): '/access-pending' | '/access-denied' | '/' {
+): string {
   if (permissionStatus === 'pending') return '/access-pending';
   if (permissionStatus === 'revoked') return '/access-denied';
-  if (getAccessibleBrands(email, orgAccess).length === 0) return '/access-pending';
-  return '/';
+  const accessibleBrands = getAccessibleBrands(email, orgAccess);
+  if (accessibleBrands.length === 0) return '/access-pending';
+  return `/forecast/${accessibleBrands[0]}`;
 }
