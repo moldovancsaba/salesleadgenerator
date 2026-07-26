@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.83
+
+### Changed — Board toolbar redesign: native column collapse, consolidated Filters/Select (issues #53, #71/#70 follow-up)
+Owner feedback on the shipped #70/#71 UI, same session: four rows of permanent chrome (filter inputs, a "Save filter" button, six column-visibility chips, a "Select" toggle) stacked above the board — most of a phone's viewport before a single lead was visible.
+
+Adopted GDS 3.14's native `collapsible`/`collapsedColumnIds`/`onCollapsedChange` on `KanbanBoard` (already installed since 2.4.70, not previously adopted) — tapping a column's own header now collapses it in place to just its title and count. Deleted `lib/kanban-column-visibility.ts` and its always-visible toggle-chip row entirely; there's one way to reduce a column's footprint now, not two. Closes issue #53 for real.
+
+`FilterBar` collapsed from an always-visible row into a single icon button (indicator dot when a filter is active) opening a Mantine `Drawer` — the same overlay pattern the hamburger nav already uses. The bulk-select toggle moved out of `KanbanBoard` into the parent page, sharing one slim row with the Filters trigger.
+
+Also fixed: GDS's theme puts a gradient on every non-`"default"`-variant `Button`, so a "subtle" secondary action read with the same visual weight as a real primary CTA. The Filters drawer's "Clear filters" now uses `variant="default"` so it doesn't compete with "Save filter."
+
+Verified via a temporary (uncommitted, deleted after use) preview route and real headless-Chromium screenshots at a 390px mobile viewport, confirming: the toolbar reduces to one slim row, the Filters drawer opens/closes correctly, Select mode toggles correctly, and the native column collapse actually collapses/expands (`aria-expanded` true → false confirmed).
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean (97 files), vitest 418/418, smoke 5/5, build. Integration suite: same 14 pre-existing unrelated failures as baseline, 0 new failures.
+
 ## 2.4.82
 
 ### Added — Saved/filtered views (issue #71)
