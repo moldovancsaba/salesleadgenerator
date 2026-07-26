@@ -21,7 +21,7 @@ describe('estimateTicketSize', () => {
     expect(result.method).toBe('unconfigured');
   });
 
-  describe('no reliable size-tier data (issue #111)', () => {
+  describe('no reliable size-tier data (issue #112)', () => {
     it('uses the smallest configured deal-size band instead of unconfigured', () => {
       const dealSize: DealSizeBands = { small: 10000, medium: 40000, large: 100000, enterprise: 250000, largestWon: 300000 };
       const result = estimateTicketSize(inputs({ sizeTier: undefined }), dealSize, [], now);

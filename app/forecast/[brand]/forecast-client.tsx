@@ -216,10 +216,13 @@ export function ForecastClient({ brand }: Props) {
   };
 
   const downloadCsv = () => {
+    // Issue #111: brand was never actually sent, so the server (which
+    // hardcoded 'cogmap' regardless) always exported CogMap's data
+    // regardless of which brand's page this button was clicked from.
+    // tenantId follows the same brand-as-tenantId convention already used
+    // by this file's other fetches above (win rates, ticket-size calibration).
     const tenantId = brand === 'cogmap' ? 'cogmap' : 'seyu';
-    const url = brand === 'cogmap'
-      ? `/api/forecast/export?format=csv&tenantId=cogmap`
-      : `/api/forecast/export?format=csv&tenantId=${tenantId}`;
+    const url = `/api/forecast/export?format=csv&brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}`;
     window.open(url, '_blank');
   };
 

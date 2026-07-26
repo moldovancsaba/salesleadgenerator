@@ -105,7 +105,7 @@ export type Lead = {
     overriddenBy?: string;
     // True when the lead had no reliable size-tier data and this is the
     // brand's smallest configured deal-size band, not a real per-lead
-    // estimate (issue #111).
+    // estimate (issue #112).
     sizeAssumed?: boolean;
   };
   // The real, closed contract value (always USD) once a lead is WON — see

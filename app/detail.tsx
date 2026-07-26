@@ -163,7 +163,7 @@ function ticketSizeDetailSection(lead: Lead) {
     );
   }
 
-  // 'estimate' — the real, server-computed band. sizeAssumed (issue #111)
+  // 'estimate' — the real, server-computed band. sizeAssumed (issue #112)
   // means the lead had no reliable size-tier data and this is the brand's
   // smallest configured deal-size band, not a real per-lead estimate — said
   // plainly rather than presented as if the lead's actual size were known.

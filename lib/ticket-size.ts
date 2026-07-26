@@ -31,7 +31,7 @@ export interface TicketSizeEstimate {
   // True when the lead had no reliable size-tier data (missing, or a value
   // that didn't match Small/Medium/Large/Enterprise) and this figure is the
   // smallest configured deal-size band, not a real per-lead estimate —
-  // issue #111. Never set for manual_override.
+  // issue #112. Never set for manual_override.
   sizeAssumed?: boolean;
 }
 
@@ -135,7 +135,7 @@ export function estimateTicketSize(
 ): TicketSizeResult {
   const computedAt = now().toISOString();
 
-  // Issue #111: previously returned 'unconfigured' outright whenever a lead
+  // Issue #112: previously returned 'unconfigured' outright whenever a lead
   // had no reliable size-tier data (missing `size`, or a value that didn't
   // match the Small/Medium/Large/Enterprise enum — free text, wrong case,
   // etc.) — a large fraction of real leads never got any ticket size at

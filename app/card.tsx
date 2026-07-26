@@ -50,7 +50,7 @@ function ticketSizeCardCaption(ticketSize: TicketSizeDisplay): string | null {
   // firmographic model's own output — CLAUDE.md Rule 7 requires the caption
   // say so, never call it "modelled" once a rep has directly overridden it.
   if (ticketSize.method === 'manual_override') return 'Manually overridden';
-  // sizeAssumed (issue #111): the smallest configured deal-size band, used
+  // sizeAssumed (issue #112): the smallest configured deal-size band, used
   // as a conservative placeholder because this lead's size isn't set — the
   // card must not caption this as "Modelled estimate," which would imply
   // the model actually knows this lead's size.
