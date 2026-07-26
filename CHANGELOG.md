@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.86
+
+### Fixed — no auth at all on the core lead data API (issue #104)
+Per-organization access control (2.4.73, #103) gated every brand-scoped page, but never the underlying data API those pages call: `GET`/`PATCH /api/leads`, `GET /api/leads/columns`, `PATCH /api/leads/bulk`, and `GET`/`DELETE /api/leads/[id]` had zero authentication of any kind. Anyone who knew or guessed a `brand` value could list, modify, bulk-decline, or delete another organization's leads — including contact PII — with no login and no key, which defeated per-org access control's actual guarantee at the layer that matters most.
+
+- New `lib/require-brand-access-api.ts`'s `requireBrandAccessApi()` — the Route Handler equivalent of the existing page-level `requireBrandAccess()` gate. Accepts either a valid `x-api-key` (machine callers — research agent, documented external integrations) or a valid SSO session cookie belonging to a user with access to the specific `brand` (the browser path — no client-side code change needed, the cookie is already sent automatically).
+- Unlike `requireApiKey`'s own fail-open behavior when `SLG_API_KEY` is unset, this does **not** fail open: an unset key skips the API-key branch entirely rather than granting access, falling through to the session check.
+- Applied to all 6 routes above (`GET /api/leads/[id]` included for the same PII reason even though it wasn't separately enumerated in the original 2.4.85 audit note). `POST /api/leads` and `PUT /api/leads/[id]` are unchanged — those keep their existing separate `requireApiKey` guard.
+- `docs/OPERATOR_GUIDE.md`'s `curl` examples and `README.md`'s API Overview updated — there is no longer an unauthenticated read path.
+- New tests: `tests/lib/require-brand-access-api.test.ts` (4 tests, covering the API-key branch and the no-credentials 401 — the branches testable without a real signed SSO JWT, same sandbox constraint as the existing admin-session-auth tests). Existing `tests/integration/leads*.integration.test.ts` updated to authenticate via `x-api-key` (new `tests/integration/helpers/api-request.ts`) since these exercise business logic, not auth.
+- **Genuinely unverified in this sandbox**: a real authenticated browser session actually being granted/denied access by this new check — no way to mint a real signed SSO JWT here. Owner should confirm after deploy: a logged-in session can still read/act on leads for a brand they have access to, and gets a 403 for one they don't.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest 439/439, smoke 5/5, build. Integration suite: same 14 pre-existing unrelated failures as baseline, 0 new failures, 4 new passing unit tests.
+
 ## 2.4.85
 
 ### Fixed — critical/high findings from a comprehensive code audit

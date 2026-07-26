@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
 import { BRAND_CONFIG, resolveBrand, PRO_FIELD, CON_FIELD } from '../../../lib/brand'
 import { normalizeLead } from '../../../lib/normalize-lead'
 import { requireApiKey } from '../../../../lib/api-auth'
+import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 import { validateLeadPayload } from '../../../../lib/validate-lead'
 import { deriveKanbanColumn, isAutoManagedColumn } from '../../../../lib/kanban-column'
 import { dedupeContacts } from '../../../../lib/contacts'
@@ -56,12 +57,15 @@ async function tryFindLead(db: any, config: any, tenantId: string, rawId: string
 }
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
     const brand = getBrand(request);
+    const authError = await requireBrandAccessApi(request, brand);
+    if (authError) return authError;
+
     const config = BRAND_CONFIG[brand];
     const tenantId = getTenantId(request);
 
@@ -258,16 +262,20 @@ export async function PUT(
 // this is the browser's own Delete action (app/detail.tsx -> app/sales/
 // [brand]/sales-page-client.tsx's handleDelete) — same "browser can't hold
 // this secret safely" reasoning as PATCH /api/leads above and PUT
-// /api/sales-settings/[brand]. This route's own GET/PUT stay guarded (PUT
-// is the external research agent's enrichment write path, never called
-// from the browser — verified via grep, not assumed).
+// /api/sales-settings/[brand]. Issue #104: gated by requireBrandAccessApi
+// instead. PUT stays on its own separate requireApiKey guard — it's the
+// external research agent's enrichment write path, never called from the
+// browser (verified via grep, not assumed).
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
     const brand = getBrand(request);
+    const authError = await requireBrandAccessApi(request, brand);
+    if (authError) return authError;
+
     const config = BRAND_CONFIG[brand];
     const tenantId = getTenantId(request);
 

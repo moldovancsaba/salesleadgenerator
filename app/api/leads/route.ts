@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
 import { BRAND_CONFIG, resolveBrand, PRO_FIELD, CON_FIELD } from '../../lib/brand'
 import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import { requireApiKey } from '../../../lib/api-auth'
+import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { validateLeadPayload, validatePatchPayload, bestContactConfidence } from '../../../lib/validate-lead'
 import { generateRequestId } from '../../lib/request-id'
 import { executeLeadAction } from '../../lib/lead-actions'
@@ -103,9 +104,12 @@ function getTenantId(request: Request): string {
 }
 
 // GET - List leads with filters
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const brand = getBrand(request);
+    const authError = await requireBrandAccessApi(request, brand);
+    if (authError) return authError;
+
     const config = BRAND_CONFIG[brand];
     const tenantId = getTenantId(request);
     const { searchParams } = new URL(request.url)
@@ -433,23 +437,23 @@ export async function POST(request: Request) {
 
 // PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH
 //
-// No requireApiKey guard here, deliberately (issue #91's real root cause):
-// this is the exclusive write path for every lead action button in the
-// browser UI (app/detail.tsx, app/kanban.tsx, app/sales/[brand]/sales-page-
-// client.tsx's handleAction) — none of which have ever sent an x-api-key
-// header, since a browser has no way to hold that secret safely without a
-// login system, the same reasoning PUT /api/sales-settings/[brand] already
-// established. Once SLG_API_KEY was actually configured in production,
-// every Accept/Decline/Pin/Refresh/Move/Modify from the real app silently
-// 401'd — found and verified live against production while investigating
-// issue #91, not assumed. POST (external research-agent lead creation,
-// anti-spam) keeps its guard; this route's own GET (listings) was already
-// public.
-export async function PATCH(request: Request) {
+// No requireApiKey guard here (issue #91's real root cause): this is the
+// exclusive write path for every lead action button in the browser UI
+// (app/detail.tsx, app/kanban.tsx, app/sales/[brand]/sales-page-client.tsx's
+// handleAction) — none of which have ever sent an x-api-key header, since a
+// browser has no way to hold that secret safely without a login system.
+// Issue #104: gated by requireBrandAccessApi instead — the browser already
+// carries the SSO session cookie automatically, so this checks that instead
+// of an API key. POST (external research-agent lead creation) keeps its
+// separate requireApiKey guard.
+export async function PATCH(request: NextRequest) {
   const requestId = generateRequestId();
 
   try {
     const brand = getBrand(request);
+    const authError = await requireBrandAccessApi(request, brand);
+    if (authError) return authError;
+
     const tenantId = getTenantId(request);
 
     const body = await readBody(request)

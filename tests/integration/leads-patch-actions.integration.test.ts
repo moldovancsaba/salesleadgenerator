@@ -1,16 +1,24 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
+import { buildApiRequest } from './helpers/api-request';
+import type { NextRequest } from 'next/server';
 
 // PATCH /api/leads (the ACCEPT/DECLINE/PIN/COLUMN_MOVE/etc. action handler)
 // had zero integration coverage before this — added while investigating
 // issue #91 ("move to column doesn't work"), whose real root cause turned
 // out to be here: this route required requireApiKey, but the browser (every
 // caller — app/kanban.tsx, app/detail.tsx via app/sales/[brand]/sales-page-
-// client.tsx's handleAction) has never sent an x-api-key header. Once
-// SLG_API_KEY was actually configured in production, every action from the
-// real app silently 401'd. Fixed by removing the guard (same "browser can't
-// hold this secret safely" precedent as PUT /api/sales-settings/[brand]).
+// client.tsx's handleAction) has never sent an x-api-key header. Fixed at
+// the time by removing the guard entirely (same "browser can't hold this
+// secret safely" precedent as PUT /api/sales-settings/[brand]) — which
+// issue #104 later found had gone too far: it left this route (and DELETE
+// /api/leads/[id] below) with no auth at all, so per-org access control
+// never actually applied to the data these buttons write. Both routes are
+// now gated by requireBrandAccessApi (lib/require-brand-access-api.ts),
+// which accepts either a session with brand access (the real browser path)
+// or an x-api-key (what these tests use, via helpers/api-request.ts, since
+// minting a real signed SSO JWT isn't possible in this sandbox).
 //
 // Seeds leads by inserting directly via the driver rather than through
 // POST /api/leads — POST's own quality-gate check (computeEase(), a
@@ -23,13 +31,8 @@ let PATCH: typeof import('../../app/api/leads/route').PATCH;
 let GET: typeof import('../../app/api/leads/route').GET;
 let idDELETE: typeof import('../../app/api/leads/[id]/route').DELETE;
 
-const TEST_API_KEY = 'test-leads-patch-key';
-
 beforeAll(async () => {
   mongod = await startTestMongo();
-  // Configured, same as production — the exact condition that exposed the
-  // bug (see mongo-test-server.ts's module-load-time constraint note).
-  process.env.SLG_API_KEY = TEST_API_KEY;
   const mod = await import('../../app/api/leads/route');
   PATCH = mod.PATCH;
   GET = mod.GET;
@@ -37,7 +40,6 @@ beforeAll(async () => {
 }, 60000);
 
 afterAll(async () => {
-  delete process.env.SLG_API_KEY;
   await stopTestMongo(mongod);
 });
 
@@ -56,8 +58,8 @@ async function seedLead(entityName: string, overrides: Record<string, unknown> =
   return result.insertedId.toString();
 }
 
-function req(url: string, init?: RequestInit) {
-  return new Request(`http://localhost${url}`, init);
+function req(url: string, init?: ConstructorParameters<typeof NextRequest>[1]) {
+  return buildApiRequest(url, init);
 }
 
 function patchReq(id: string, body: Record<string, unknown>) {
@@ -68,14 +70,14 @@ function patchReq(id: string, body: Record<string, unknown>) {
   });
 }
 
-describe('PATCH /api/leads — no x-api-key required (issue #91)', () => {
-  it('succeeds with no x-api-key header, exactly what the browser sends, even though SLG_API_KEY is configured', async () => {
+describe('PATCH /api/leads — action succeeds with valid credentials (issue #91/#104)', () => {
+  it('succeeds with a valid credential and no browser session, matching the machine-caller path requireBrandAccessApi supports', async () => {
     const id = await seedLead('No Auth Header Co');
     const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'QUALIFIED', sortOrder: Date.now() }));
     expect(res.status).toBe(200);
   });
 
-  it('rejects a completely malformed request the same as before (bad column) — the fix only removed the auth check, not validation', async () => {
+  it('rejects a completely malformed request the same as before (bad column) — auth passing doesn\'t skip validation', async () => {
     const id = await seedLead('Bad Column Co');
     const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'NOT_A_REAL_COLUMN' }));
     expect(res.status).toBe(400);
@@ -179,8 +181,8 @@ describe('PATCH /api/leads — required-fields-per-stage gating (issue #72)', ()
   });
 });
 
-describe('DELETE /api/leads/[id] — no x-api-key required (issue #91 investigation)', () => {
-  it('succeeds with no x-api-key header, exactly what app/sales/[brand]/sales-page-client.tsx sends, even though SLG_API_KEY is configured', async () => {
+describe('DELETE /api/leads/[id] — action succeeds with valid credentials (issue #91/#104)', () => {
+  it('succeeds with a valid credential and no browser session, matching the machine-caller path requireBrandAccessApi supports', async () => {
     const id = await seedLead('No Auth Delete Co');
     const res = await idDELETE(
       req(`/api/leads/${id}?brand=cogmap&tenantId=default`, { method: 'DELETE' }),

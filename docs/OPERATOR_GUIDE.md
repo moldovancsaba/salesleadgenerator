@@ -92,9 +92,12 @@ Content is validated against the same CogMap/Seyu forbidden-terms list `Lead.val
 
 Base URL: `https://salesleadgenerator.vercel.app`
 
+**Auth (issue #104):** every lead endpoint below (`GET`/`PATCH /api/leads`, `GET /api/leads/columns`, `PATCH /api/leads/bulk`, `GET`/`PUT`/`DELETE /api/leads/[id]`) requires either an `x-api-key` header (shown below) or an authenticated browser session with access to the requested `brand`. There is no longer an unauthenticated read path — a prior version of this doc documented `GET /api/leads` as callable with no credentials at all; that was a real gap (per-org access control never actually applied to this data), closed in issue #104.
+
 ### Read Leads
 ```bash
-curl "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap&limit=100"
+curl "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap&limit=100" \
+  -H "x-api-key: YOUR_API_KEY"
 ```
 
 ### Create Lead
@@ -128,6 +131,7 @@ curl -X PATCH "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap&id=<
   -H "x-api-key: YOUR_API_KEY" \
   -d '{"action":"ACCEPT"}'
 ```
+(The app's own browser UI calls this same route via its authenticated session instead of an API key — see the Auth note above.)
 
 ### Update Lead
 ```bash

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
+import { buildApiRequest } from './helpers/api-request';
 
 // PATCH /api/leads/bulk (issue #70) — reuses executeLeadAction per lead, so
 // most business-logic edge cases are already covered by
@@ -35,7 +36,7 @@ async function seedLead(entityName: string, overrides: Record<string, unknown> =
 }
 
 function req(body: Record<string, unknown>) {
-  return new Request('http://localhost/api/leads/bulk', {
+  return buildApiRequest('/api/leads/bulk', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
