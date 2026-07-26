@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
+import { buildApiRequest } from './helpers/api-request';
+import type { NextRequest } from 'next/server';
 
 let mongod: MongoMemoryServer;
 let leadsPOST: typeof import('../../app/api/leads/route').POST;
@@ -23,8 +25,8 @@ afterAll(async () => {
   await stopTestMongo(mongod);
 });
 
-function req(url: string, init?: RequestInit) {
-  return new Request(`http://localhost${url}`, init);
+function req(url: string, init?: ConstructorParameters<typeof NextRequest>[1]) {
+  return buildApiRequest(url, init);
 }
 
 async function createLead(entityName: string, ice: { impact: number; confidence: number; ease: number }) {

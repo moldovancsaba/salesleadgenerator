@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
+import { buildApiRequest } from './helpers/api-request';
 
 // GET /api/leads and GET /api/leads/columns's new region/industry filter
 // params (issue #71). Seeds directly via the driver (matching
@@ -41,7 +42,7 @@ async function seedLead(entityName: string, overrides: Record<string, unknown> =
 }
 
 function req(url: string) {
-  return new Request(`http://localhost${url}`);
+  return buildApiRequest(url);
 }
 
 describe('GET /api/leads — region/industry filters (issue #71)', () => {
