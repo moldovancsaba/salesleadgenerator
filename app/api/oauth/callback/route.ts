@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     }
     return response;
   } catch (error: any) {
-    console.error('[api/auth/callback] error:', error);
+    console.error('[api/oauth/callback] error:', error);
     const response = NextResponse.json({ error: 'Authentication failed', details: error?.message }, { status: 500 });
     clearOauthCookies(response);
     return response;
