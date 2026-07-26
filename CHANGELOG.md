@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.80
+
+### Added — Near-duplicate review queue (issue #73)
+Owner-prioritized promotion from the idea bank (2026-07-26, one of 5 highest-business-value items selected for near-term delivery). Dedup was exact-fingerprint-only — "Acme Corp" and "Acme Corporation" produce two silent, unrelated lead records.
+
+New pure module `lib/near-duplicate.ts` (12 unit tests): Dice's-coefficient bigram similarity for near-identical names, plus an exact-domain-match signal, over every pairwise combination in a brand's lead set. New `duplicate_reviews` collection, `POST /api/admin/duplicate-scan` (finds and persists new candidate pairs, skipping any pair already reviewed under any status), `GET/PATCH /api/duplicate-reviews` (list pending, dismiss/confirm). New `/admin/duplicates` page (super-admin gated, same pattern as `/admin/users`) with a new nav entry.
+
+Dismiss/confirm only — no merge action anywhere in this delivery, per owner-confirmed scope. A real merge is an explicit future issue.
+
+Deliberate deviation from this issue's own original draft, caught during implementation: session-based auth (matching `/api/admin/users/*`), not the `x-api-key` scheme first proposed — the browser triggering a scan has no safe way to hold that secret.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean (93 files), vitest 411/411, smoke 5/5, build.
+
 ## 2.4.79
 
 ### Added — Required-fields-per-stage gating (issue #72)
