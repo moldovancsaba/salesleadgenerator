@@ -3,12 +3,21 @@ import clientPromise from '@/lib/mongodb'
 import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
 import { computeVelocity } from '@/app/lib/velocity-metrics'
 import type { OutcomeLogRow } from '@/app/lib/velocity-metrics'
+import { correlateOutcomes } from '@/lib/outcome-correlation'
 
 const VELOCITY_PERIOD_DAYS = 30
 // Two full periods back from now, so the query covers both the current and
 // prior comparison windows without scanning the whole outcomelogs history.
 const VELOCITY_LOOKBACK_MS = VELOCITY_PERIOD_DAYS * 2 * 86_400_000
 const VELOCITY_ROW_CAP = 20_000
+// Issue #74: correlation looks at all-time outcome history (not a rolling
+// window like velocity above), so it needs its own, separate cap.
+const CORRELATION_ROW_CAP = 20_000
+const CORRELATION_MIN_SAMPLE_SIZE = 10
+// searchlearnings has no tenant/brand scoping (single global companyId,
+// confirmed via source — see docs/ARCHITECTURE.md's "Outcome-learning
+// report" section) — this is a real, disclosed limitation, not an oversight.
+const SEARCH_LEARNING_COMPANY_ID = 'slg'
 
 const COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST'] as const
 const REGIONS = ['US', 'CEE', 'MENA'] as const
@@ -62,6 +71,42 @@ async function computeVelocityMetrics(db: any, leadsCollection: any, leadsFilter
 
   const velocity = computeVelocity(logs, leadCreatedAt, new Date(), VELOCITY_PERIOD_DAYS)
   return { ...velocity, truncated }
+}
+
+// Issue #74 — reuses the same leadIds-then-join pattern computeVelocityMetrics
+// established above, but over all-time outcome history rather than a rolling
+// window (correlation needs the full signal, not just the last 30 days).
+async function computeOutcomeCorrelationMetrics(db: any, leadsCollection: any, leadsFilter: Record<string, any>) {
+  const leadDocs = await leadsCollection
+    .find(leadsFilter, { projection: { _id: 1, industry: 1 } })
+    .toArray()
+
+  const leadIds = leadDocs.map((d: any) => d._id.toString())
+  const leadIndustryById = new Map<string, string | undefined>(
+    leadDocs.map((d: any) => [d._id.toString(), d.industry])
+  )
+
+  const rawLogs = leadIds.length
+    ? await db.collection('outcomelogs')
+        .find(
+          { leadId: { $in: leadIds }, 'afterState.kanbanColumn': { $in: ['WON', 'LOST'] } },
+          { projection: { leadId: 1, afterState: 1, teachingWeight: 1 }, limit: CORRELATION_ROW_CAP + 1 }
+        )
+        .toArray()
+    : []
+
+  const truncated = rawLogs.length > CORRELATION_ROW_CAP
+  const outcomeLogs = (truncated ? rawLogs.slice(0, CORRELATION_ROW_CAP) : rawLogs).map((l: any) => ({
+    leadId: l.leadId,
+    afterState: l.afterState,
+    teachingWeight: l.teachingWeight,
+  }))
+
+  const searchLearning = await db.collection('searchlearnings').findOne({ companyId: SEARCH_LEARNING_COMPANY_ID })
+  const searchQueries = Array.isArray(searchLearning?.topQueries) ? searchLearning.topQueries : null
+
+  const correlation = correlateOutcomes(outcomeLogs, leadIndustryById, searchQueries, CORRELATION_MIN_SAMPLE_SIZE)
+  return { ...correlation, truncated, searchQueryDataIsGlobal: true }
 }
 
 export async function GET(request: Request) {
@@ -181,6 +226,14 @@ export async function GET(request: Request) {
       console.error('[API:metrics] velocity computation error:', velocityError)
     }
 
+    // Same graceful-degradation contract as velocity above (issue #74).
+    let outcomeCorrelation = null
+    try {
+      outcomeCorrelation = await computeOutcomeCorrelationMetrics(db, collection, filter)
+    } catch (correlationError: any) {
+      console.error('[API:metrics] outcome correlation computation error:', correlationError)
+    }
+
     return NextResponse.json({
       brand,
       tenantId,
@@ -197,6 +250,7 @@ export async function GET(request: Request) {
         qualityCounts,
         successRate,
         velocity,
+        outcomeCorrelation,
       },
     })
   } catch (error: any) {
