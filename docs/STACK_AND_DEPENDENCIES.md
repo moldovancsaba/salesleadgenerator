@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.70
+**Version:** 2.4.71
 
 ---
 
@@ -25,6 +25,7 @@
 | @dnd-kit/core, sortable, utilities | ^6.3.1, ^10.0.0, ^3.2.2 | Active | Direct dependencies as of 2.4.13. `@sovereignsquad/gds-core@3.11.1`'s own `package.json` declares these as regular (non-peer) `dependencies` — they should install transitively, but this repo's `package-lock.json` had been out of sync with the real dependency tree for a long time (confirmed identical at a commit predating any GDS work this session did), so the transitive subtree of the tarball-installed `gds-core` was never discovered. Declared directly here so they're unambiguously present regardless of any lockfile-caching quirks around the privately-tarball-installed GDS packages. Added via a real `npm install` against the public `registry.npmjs.org` (confirmed reachable from this sandbox, unlike `github.com`), not hand-edited — real resolved URLs/`integrity` hashes. |
 | @mantine/dates | ^9.4.2 | Active, added 2.4.38 | Added as a direct dependency during the GDS 3.13.0 bump: `@sovereignsquad/gds-theme@3.13.0`'s compiled `styles.css` unconditionally imports `@mantine/dates/styles.css` (backing new `GdsDateInput`/`GdsDateRangeInput`/`GdsDateTimeInput` components this repo doesn't use yet), which broke `next dev`'s webpack build (`Module not found`) until installed — a real, verified gap in GDS's own `package.json` (`@mantine/dates` is not declared as a peer dependency despite being required at build time). Not currently imported anywhere in this app's own code; present solely to satisfy GDS's theme CSS. |
 | dayjs | ^1.11.21 | Active, added 2.4.38 | Added alongside `@mantine/dates` in the same bump — `@mantine/dates@9.4.2`'s own `package.json` declares `dayjs: ">=1.0.0"` as a required peer dependency (used internally by its `Calendar` component), and it was missing, breaking the same webpack build (`Module not found: Can't resolve 'dayjs'`) until installed. Not imported anywhere in this app's own code either. |
+| jose | ^6.2.4 | Active, added 2.4.71 | SSO integration (issue #102): ID token JWT signature verification against DoneIsBetter SSO's live JWKS endpoint (`createRemoteJWKSet`/`jwtVerify`, `lib/sso.ts`). Deliberately **not** the package DoneIsBetter's own quickstart suggests (`jsonwebtoken`) — that package alone doesn't fetch/cache a remote JWKS, requiring a second package (`jwks-rsa`) with its own maintenance/deprecation profile; `jose` does both in one actively-maintained, edge-runtime-compatible package. Confirmed not deprecated via `npm view jose deprecated` before adding. |
 
 There is no Framer Motion or Sonner dependency in this project — both were previously listed here in error; verified against `package.json`, neither package appears anywhere in it.
 
@@ -85,6 +86,17 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 | Read access | Public for listings and health | Route handlers |
 
 **Note:** as of 2.2.0, when `SLG_API_KEY` *is* set, a request must send the exact matching `x-api-key` header — a missing header is rejected (401) identically to a wrong one. Earlier versions incorrectly allowed a missing header through even when a key was configured; this was fixed as a security patch.
+
+**SSO integration (2.4.71, issue #102, phase 1 — see `docs/ARCHITECTURE.md`'s "SSO Integration" section for the full writeup):** new env vars, all unset in every environment today (external client registration required — no self-service; email `sso@doneisbetter.com`):
+
+| Env var | Purpose |
+|---------|---------|
+| `SSO_CLIENT_ID` | OAuth client ID, issued by DoneIsBetter SSO on manual approval |
+| `SSO_CLIENT_SECRET` | OAuth client secret — backend-only, never exposed to the browser |
+| `SSO_REDIRECT_URI` | Must exactly match (protocol + path) the URI registered with DoneIsBetter SSO, e.g. `https://salesleadgenerator.vercel.app/api/auth/callback` |
+| `SSO_BASE_URL` | Optional — defaults to `https://sso.doneisbetter.com` if unset |
+
+`lib/sso.ts`'s `isSsoConfigured()` reports whether all three required vars are set; `/api/auth/login` returns `503` rather than crashing when they aren't. No existing page's access behavior changes as part of phase 1 — see the ARCHITECTURE.md section for the open scope questions blocking phase 2.
 
 ---
 
