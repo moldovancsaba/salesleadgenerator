@@ -1,11 +1,15 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ActionIcon, Drawer, NavLink, Stack, Divider, Text } from '@mantine/core';
-import { IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp, IconCards, IconMail, IconSettings } from '@tabler/icons-react';
+import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Loader, Group } from '@mantine/core';
+import {
+  IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
+  IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock,
+} from '@tabler/icons-react';
 import { BRAND_CONFIG, type Brand } from '@/app/lib/brand';
+import { useAuth } from './AuthProvider';
 
 // Issue #95: this app had no persistent in-app navigation anywhere — every
 // page (including Sales Settings) was only reachable by typing its URL
@@ -18,19 +22,17 @@ import { BRAND_CONFIG, type Brand } from '@/app/lib/brand';
 // the same view. That's forbidden in this app (the same principle already
 // enforced server-side — cross-brand vocabulary/field isolation, see
 // docs/ARCHITECTURE.md's Input Validation section) and was corrected
-// immediately once flagged: the menu now only ever shows links for whichever
-// single client the current page actually belongs to, derived strictly from
-// the URL. On a page with no client context (the root landing page), no
-// client-specific link is shown at all — never a guess, and never both.
+// immediately once flagged.
 //
-// Issue #100: Forecast/Battlecards/Outreach Templates were originally treated
-// as brand-agnostic (linked from a generic "Reporting" section with no brand
-// in the href at all) even though each renders exactly one brand's data —
-// `/forecast` itself compounded this with an in-page CogMap/Seyu `Select`
-// that could switch brands without a real navigation. All three are now
-// `/[route]/[brand]` paths, matched below the same way `/sales/[brand]` and
-// `/salessettings/[client]` already are, and linked only inside this same
-// per-client section — never as a brand-agnostic global item.
+// Issue #103: which brand's section shows is no longer purely a function of
+// the current URL — it's the user's real SSO-derived access
+// (useAuth().accessibleBrands), enforced server-side by every brand page's
+// own requireBrandAccess() (this component only ever reflects that access,
+// it never grants it). Three real states, not one: 0 accessible brands (a
+// genuine "no access yet" state, distinct from "not logged in" or "no URL
+// context"), exactly 1 (the per-client section, same as before), and 2+ (a
+// new organization switcher — the first time this app can navigate between
+// clients without knowing a URL by heart).
 function currentBrandFromPath(pathname: string): Brand | null {
   const salesMatch = pathname.match(/^\/sales\/([^/]+)/);
   if (salesMatch && salesMatch[1] in BRAND_CONFIG) return salesMatch[1] as Brand;
@@ -63,14 +65,29 @@ function AppNavInner() {
   const [opened, setOpened] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const currentBrand = currentBrandFromPath(pathname);
-  // The sales board's own view switcher (Kanban/Table/Metrics/Search
-  // Learning) used to be a separate on-page Select ("Kanban ▾") that sat
-  // right under this button and visually upstaged it. It's now folded into
-  // this single nav surface instead of living on its own — one menu, not
-  // two competing ones — and only shown on the board page itself, driven by
-  // the ?view= URL param that app/sales/[brand]/sales-page-client.tsx reads.
-  const isSalesBoard = currentBrand !== null && pathname === `/sales/${currentBrand}`;
+  const { user, loading, accessibleBrands, isSuperAdmin, login, logout } = useAuth();
+  const urlBrand = currentBrandFromPath(pathname);
+
+  // The org switcher's own selection, independent of the URL — lets the
+  // user browse a different organization's Reporting section before
+  // actually navigating anywhere. Synced back to the URL's own brand
+  // whenever it's a valid, accessible one (e.g. following a direct link),
+  // so the switcher never silently disagrees with the page you're actually on.
+  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
+  useEffect(() => {
+    if (urlBrand && accessibleBrands.includes(urlBrand)) {
+      setSelectedBrand(urlBrand);
+    }
+  }, [urlBrand, accessibleBrands]);
+
+  const effectiveBrand: Brand | null =
+    accessibleBrands.length === 1
+      ? accessibleBrands[0]
+      : selectedBrand && accessibleBrands.includes(selectedBrand)
+        ? selectedBrand
+        : accessibleBrands[0] ?? null;
+
+  const isSalesBoard = effectiveBrand !== null && pathname === `/sales/${effectiveBrand}`;
   const currentView = searchParams.get('view') || 'kanban';
 
   const close = () => setOpened(false);
@@ -101,104 +118,162 @@ function AppNavInner() {
         size="xs"
       >
         <Stack gap={4}>
-          {currentBrand && (
+          {loading ? (
+            <Group justify="center" py="lg"><Loader size="sm" /></Group>
+          ) : !user ? (
             <>
-              <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt={4}>
-                {BRAND_CONFIG[currentBrand].label}
+              <Text size="sm" c="dimmed" mt={4}>
+                Sign in to see your organizations.
               </Text>
               <NavLink
-                component={Link}
-                href={`/sales/${currentBrand}`}
-                label="Pipeline"
-                leftSection={<IconLayoutKanban size={18} />}
-                active={pathname === `/sales/${currentBrand}`}
-                onClick={close}
+                label="Sign in"
+                leftSection={<IconLogin size={18} />}
+                onClick={() => { close(); login(); }}
               />
-              <NavLink
-                component={Link}
-                href={`/salessettings/${currentBrand}`}
-                label="Sales Settings"
-                leftSection={<IconSettings size={18} />}
-                active={pathname === `/salessettings/${currentBrand}`}
-                onClick={close}
-              />
-              {isSalesBoard && (
+            </>
+          ) : (
+            <>
+              {accessibleBrands.length === 0 && (
+                <Text size="sm" c="dimmed" mt={4}>
+                  You&apos;re signed in, but don&apos;t have access to any organization yet. Contact your admin.
+                </Text>
+              )}
+
+              {accessibleBrands.length > 1 && (
                 <>
-                  <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt="xs">
-                    View
+                  <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt={4}>
+                    Organization
+                  </Text>
+                  <Select
+                    size="sm"
+                    data={accessibleBrands.map((b) => ({ value: b, label: BRAND_CONFIG[b].label }))}
+                    value={effectiveBrand}
+                    onChange={(value) => value && setSelectedBrand(value as Brand)}
+                    allowDeselect={false}
+                    aria-label="Switch organization"
+                  />
+                  <Divider my="xs" />
+                </>
+              )}
+
+              {effectiveBrand && (
+                <>
+                  {accessibleBrands.length === 1 && (
+                    <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt={4}>
+                      {BRAND_CONFIG[effectiveBrand].label}
+                    </Text>
+                  )}
+                  <NavLink
+                    component={Link}
+                    href={`/sales/${effectiveBrand}`}
+                    label="Pipeline"
+                    leftSection={<IconLayoutKanban size={18} />}
+                    active={pathname === `/sales/${effectiveBrand}`}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
+                    href={`/salessettings/${effectiveBrand}`}
+                    label="Sales Settings"
+                    leftSection={<IconSettings size={18} />}
+                    active={pathname === `/salessettings/${effectiveBrand}`}
+                    onClick={close}
+                  />
+                  {isSalesBoard && (
+                    <>
+                      <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt="xs">
+                        View
+                      </Text>
+                      <NavLink
+                        component={Link}
+                        href={`/sales/${effectiveBrand}?view=kanban`}
+                        label="Kanban"
+                        leftSection={<IconLayoutKanban size={18} />}
+                        active={currentView === 'kanban'}
+                        onClick={close}
+                      />
+                      <NavLink
+                        component={Link}
+                        href={`/sales/${effectiveBrand}?view=table`}
+                        label="Table"
+                        leftSection={<IconTable size={18} />}
+                        active={currentView === 'table'}
+                        onClick={close}
+                      />
+                      <NavLink
+                        component={Link}
+                        href={`/sales/${effectiveBrand}?view=metrics`}
+                        label="Metrics"
+                        leftSection={<IconChartBar size={18} />}
+                        active={currentView === 'metrics'}
+                        onClick={close}
+                      />
+                      <NavLink
+                        component={Link}
+                        href={`/sales/${effectiveBrand}?view=search`}
+                        label="Search Learning"
+                        leftSection={<IconSearch size={18} />}
+                        active={currentView === 'search'}
+                        onClick={close}
+                      />
+                    </>
+                  )}
+                  <Divider my="xs" />
+
+                  <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                    Reporting
                   </Text>
                   <NavLink
                     component={Link}
-                    href={`/sales/${currentBrand}?view=kanban`}
-                    label="Kanban"
-                    leftSection={<IconLayoutKanban size={18} />}
-                    active={currentView === 'kanban'}
+                    href={`/forecast/${effectiveBrand}`}
+                    label="Forecast"
+                    leftSection={<IconTrendingUp size={18} />}
+                    active={pathname === `/forecast/${effectiveBrand}`}
                     onClick={close}
                   />
                   <NavLink
                     component={Link}
-                    href={`/sales/${currentBrand}?view=table`}
-                    label="Table"
-                    leftSection={<IconTable size={18} />}
-                    active={currentView === 'table'}
+                    href={`/battlecards/${effectiveBrand}`}
+                    label="Battlecards"
+                    leftSection={<IconCards size={18} />}
+                    active={pathname === `/battlecards/${effectiveBrand}`}
                     onClick={close}
                   />
                   <NavLink
                     component={Link}
-                    href={`/sales/${currentBrand}?view=metrics`}
-                    label="Metrics"
-                    leftSection={<IconChartBar size={18} />}
-                    active={currentView === 'metrics'}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href={`/sales/${currentBrand}?view=search`}
-                    label="Search Learning"
-                    leftSection={<IconSearch size={18} />}
-                    active={currentView === 'search'}
+                    href={`/outreach/templates/${effectiveBrand}`}
+                    label="Outreach Templates"
+                    leftSection={<IconMail size={18} />}
+                    active={pathname === `/outreach/templates/${effectiveBrand}`}
                     onClick={close}
                   />
                 </>
               )}
-              <Divider my="xs" />
 
-              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-                Reporting
-              </Text>
+              {isSuperAdmin && (
+                <>
+                  <Divider my="xs" />
+                  <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                    Admin
+                  </Text>
+                  <NavLink
+                    component={Link}
+                    href="/admin/users"
+                    label="Users & Access"
+                    leftSection={<IconShieldLock size={18} />}
+                    active={pathname === '/admin/users'}
+                    onClick={close}
+                  />
+                </>
+              )}
+
+              <Divider my="xs" />
               <NavLink
-                component={Link}
-                href={`/forecast/${currentBrand}`}
-                label="Forecast"
-                leftSection={<IconTrendingUp size={18} />}
-                active={pathname === `/forecast/${currentBrand}`}
-                onClick={close}
-              />
-              <NavLink
-                component={Link}
-                href={`/battlecards/${currentBrand}`}
-                label="Battlecards"
-                leftSection={<IconCards size={18} />}
-                active={pathname === `/battlecards/${currentBrand}`}
-                onClick={close}
-              />
-              <NavLink
-                component={Link}
-                href={`/outreach/templates/${currentBrand}`}
-                label="Outreach Templates"
-                leftSection={<IconMail size={18} />}
-                active={pathname === `/outreach/templates/${currentBrand}`}
-                onClick={close}
+                label={`Sign out${user.email ? ` (${user.email})` : ''}`}
+                leftSection={<IconLogout size={18} />}
+                onClick={() => { close(); logout(); }}
               />
             </>
-          )}
-          {!currentBrand && (
-            // No client picker exists anywhere in this app (issue #100's known
-            // gap) — this page genuinely has no brand to derive from the URL,
-            // so nothing brand-specific is shown rather than guessing one.
-            <Text size="sm" c="dimmed" mt={4}>
-              Open a client&apos;s Pipeline (e.g. /sales/cogmap) to see its Forecast, Battlecards, and Templates here.
-            </Text>
           )}
         </Stack>
       </Drawer>
