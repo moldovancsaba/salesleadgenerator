@@ -46,6 +46,7 @@ type LeadKanbanColumn = {
   id: string;
   title: string;
   items: LeadKanbanItem[];
+  totalCount: number;
 };
 
 // GDS's KanbanColumn has no dedicated "load more" slot for server-paginated
@@ -242,21 +243,26 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     return `${symbol}${Math.round(value).toLocaleString()}`
   }, [forecastCurrency])
 
-  // GDS's KanbanColumnData.title is a plain string (not a ReactNode), so the
-  // per-column forecast — a two-line, differently-styled subtitle in the
-  // previous hand-rolled header — is encoded into one line here instead.
-  // Disclosed trade-off of adopting the governed pattern's fixed API.
+  // GDS 3.14.0 added KanbanColumnData.totalCount — the column header's own
+  // count badge now renders that real server-side total (falling back to
+  // items.length only when omitted), so the count no longer needs to be
+  // hand-embedded into the title text. Before this, GDS's badge and this
+  // title string both showed a count in the same header, one above the
+  // other — a real duplicate, not just a cosmetic one, since GDS's badge is
+  // always rendered and was never optional. The per-column forecast still
+  // has nowhere else to go (no dedicated subtitle slot), so it stays in the
+  // title string alongside the plain column label.
   const columns: LeadKanbanColumn[] = useMemo(() => COLUMNS.map((col) => {
     const colState = columnStates[col.key]
     const colForecast = forecast?.[col.key]
-    const countLabel = typeof colState.count === 'number' ? colState.count.toLocaleString() : colState.leads.length
     const forecastLabel = colForecast && colForecast.rawRevenue > 0
       ? ` · ${formatForecast(colForecast.weightedRevenue)}`
       : ''
 
     return {
       id: col.key,
-      title: `${col.label} (${countLabel})${forecastLabel}`,
+      title: `${col.label}${forecastLabel}`,
+      totalCount: colState.count,
       items: colState.leads.map((lead) => ({
         id: lead._id,
         title: lead.entity_name,
