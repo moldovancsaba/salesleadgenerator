@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.61  
+**Version:** 2.4.84  
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -58,10 +58,12 @@ These fields are re-derived from the title every time a contact is saved — the
 
 ## Filters and Search
 
-- No filter UI exists in the current frontend — the Region/Status dropdowns were removed entirely in 2.4.0. The header has only the view-mode selector and a predictive search bar.
-- Search matches entity name, sector, and contact name (predictive dropdown under the header).
+- Region and industry filtering (2.4.82, issue #71): tap the Filters icon above the board or table (a small funnel — collapsed by default, nothing shows until you open it) to open the filter panel. Set a region (US/CEE/MENA) and/or an industry (free text, matches case-insensitively — e.g. `academy` matches `Academy`), and the board/table narrows to match immediately. Applies to both kanban and table view — switching views keeps the same active filter.
+- **Saved filters**: with a region and/or industry set, tap **Save filter** and give it a name — it appears as a removable pill you can tap to re-apply later. Saved per-browser (not synced across devices), scoped per brand.
+- No status filter — the kanban board's own columns already group by status; adding a redundant status filter was deliberately left out (this exact redundancy is why the original Region/Status dropdowns were removed in 2.4.0).
+- Search matches entity name, sector, and contact name (predictive dropdown under the header) — independent of the region/industry filter, not affected by it.
 - No manual sort control exists (the 2.4.3 header's Asc/Desc button was removed — it never actually sorted anything). DISCOVERED and QUALIFIED always sort by ICE score, high to low; ENGAGED/PROPOSAL/WON/LOST sort by the order the user has arranged them in.
-- Tenant filter (`?tenantId=`) exists in the API only; there is no tenant, region, or country filter control anywhere in the UI.
+- Tenant filter (`?tenantId=`) exists in the API only; there is no tenant filter control in the UI.
 
 ---
 

@@ -1,5 +1,10 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.84
+
+### Fixed — stale filter documentation (issue #71 follow-up)
+`PIPELINE_ARCHITECTURE.md` and `docs/OPERATOR_GUIDE.md` (both canonical per README's own doc index) still said "no filter UI exists — removed in 2.4.0," contradicting the real shipped state since #71 (2.4.82). Both updated to describe the actual current behavior: a Filters icon (collapsed by default — owner-confirmed preference, nothing filter-related shows until opened) expanding region/industry filters and saved-filter pills, applying identically to kanban and table view. `docs/OPERATOR_GUIDE.md` also gains the saved-filter workflow (name, tap-to-reapply, tap-to-delete) and an explicit note on why there's no status filter (redundant with the kanban board's own column grouping — the exact reason the original Region/Status dropdowns were removed in 2.4.0).
+
 ## 2.4.83
 
 ### Changed — Board toolbar redesign: native column collapse, consolidated Filters/Select (issues #53, #71/#70 follow-up)
