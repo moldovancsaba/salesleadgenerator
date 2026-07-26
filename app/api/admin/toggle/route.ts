@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { resolveBrand } from '@/app/lib/brand'
 import { readFileSync, writeFileSync } from 'fs'
+import { join } from 'path'
 
 export async function PUT(request: Request) {
   try {
