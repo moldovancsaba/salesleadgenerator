@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Loader, Group } from '@mantine/core';
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
-  IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock,
+  IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck,
 } from '@tabler/icons-react';
 import { BRAND_CONFIG, type Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -262,6 +262,14 @@ function AppNavInner() {
                     label="Users & Access"
                     leftSection={<IconShieldLock size={18} />}
                     active={pathname === '/admin/users'}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
+                    href="/admin/duplicates"
+                    label="Duplicate Review"
+                    leftSection={<IconCopyCheck size={18} />}
+                    active={pathname === '/admin/duplicates'}
                     onClick={close}
                   />
                 </>
