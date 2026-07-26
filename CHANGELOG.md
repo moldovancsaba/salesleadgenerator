@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.78
+
+### Added — "What worked" outcome-learning report (issue #74)
+Owner-prioritized promotion from the idea bank (2026-07-26, one of 5 highest-business-value items selected for near-term delivery). Every lead mutation has been logged to `outcomelogs` with a `teachingWeight` since early in this project's history, and every search-learning outcome to `searchlearnings` — but nothing ever read either back to answer "what actually correlates with WON."
+
+New pure module `lib/outcome-correlation.ts` (`correlateOutcomes`, 7 unit tests): a per-industry WON rate weighted by `teachingWeight` (a DECLINE-driven signal counts more than an incidental drag-and-drop), and a per-search-query accept rate from `searchlearnings.topQueries`'s real accepted/declined counts. Anything below a 10-sample minimum reports "insufficient data" rather than a misleadingly precise number.
+
+`GET /api/metrics` gains a new `metrics.outcomeCorrelation` key (own graceful-degradation contract, matching the existing `velocity` key), and `app/metrics.tsx` gains a new "What Worked — Outcome Correlation" panel reusing the existing Pipeline Velocity panel's table/alert components.
+
+Real, disclosed gap found during verification: `searchlearnings` has zero writers anywhere in the codebase today (confirmed via grep across `app/` and `agent-runtime/`) and no tenant/brand scoping — the search-query dimension may be empty in production and is explicitly labeled "global across all brands" rather than silently implying isolation that doesn't exist.
+
+Ships human-readable only — `correlateOutcomes()` is a standalone module so a future phase could feed `agent-runtime`'s prompts from its output, but that wiring is explicitly out of scope for this delivery.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean (89 files), vitest 389/389, smoke 5/5, build.
+
 ## 2.4.77
 
 ### Added — Template conversion tracking (issue #75)
