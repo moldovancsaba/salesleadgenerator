@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Loader, Group } from '@mantine/core';
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
-  IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck,
+  IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
 } from '@tabler/icons-react';
 import { BRAND_CONFIG, type Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -256,6 +256,14 @@ function AppNavInner() {
                   <Text size="xs" fw={600} c="dimmed" tt="uppercase">
                     Admin
                   </Text>
+                  <NavLink
+                    component={Link}
+                    href={`/admin/prompts/${effectiveBrand}`}
+                    label="Prompt Editor"
+                    leftSection={<IconEdit size={18} />}
+                    active={pathname.startsWith('/admin/prompts')}
+                    onClick={close}
+                  />
                   <NavLink
                     component={Link}
                     href="/admin/users"
