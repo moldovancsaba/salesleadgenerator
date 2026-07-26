@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.91
+
+### Documentation — comprehensive User Guide rewrite, Architecture navigability fixes (owner request)
+Owner feedback: the user guide and architecture docs were missing a lot of real, shipped functionality. Audited both against the actual app (every page, every API route) using four parallel research passes plus direct reading of `docs/ARCHITECTURE.md` end-to-end, rather than guessing what was missing.
+
+**`docs/OPERATOR_GUIDE.md`** — version header was stale (2.4.84) and the whole doc only covered a fraction of what's shipped. Rewritten with a table of contents and full coverage of: SSO sign-in and per-org access states, the hamburger-menu navigation structure, the stage-gate "contact + value proposition" requirement for ENGAGED/PROPOSAL (updated for 2.4.88's "any contact" change), bulk Select mode, column collapse, Table view (previously undocumented anywhere in either doc), a dedicated **Ticket Size** section covering all four calculation outcomes including the 2.4.89 "smallest configured band" fallback, a full **Sales Settings** field-by-field walkthrough, Outreach (clarifying that "Log outreach" records but does not send a message), **Forecast** (pipeline coverage, calibration, concentration risk, per-brand pricing panels — with the CSV export's CogMap-only bug flagged as a known limitation, discovered during this audit), **Metrics Dashboard** and **Search Learning** (both previously undocumented), and **Admin Tools** (Users & Access, Duplicate Review, Prompt Editor + automation toggle — previously only mentioned as security-fix footnotes, not described as features).
+
+**`docs/ARCHITECTURE.md`** — version header was stale (2.4.61, six versions and dozens of shipped features behind). Added a Contents list at the top (the file is a long, dated, feature-by-feature narrative with dozens of un-headed "bold lead-in" paragraphs — genuinely hard to navigate, not actually missing most of its content) plus a pointer to `OPERATOR_GUIDE.md` for user-facing behavior vs. this file's developer focus. Added the two content gaps actually found: a Table View subsection (never described anywhere) and a "Prompt Editor and Per-Tenant Automation Toggle" subsection describing what that feature does as a product capability, not just its auth fix.
+
+No code changes in this release — documentation only.
+
 ## 2.4.90
 
 ### Added — "Back to top" button for the PWA view (owner request)
