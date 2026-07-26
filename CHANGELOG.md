@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.73
+
+### Added — per-organization access control: super admin, admin UI, access-aware nav (issue #103, SSO phase 2)
+Owner-requested, answering issue #102's open scope questions: a designated super admin (`moldovancsaba@gmail.com`, via `SSO_SUPER_ADMIN_EMAILS`) manages which SSO-authenticated users can access which brand (CogMap/Seyu), with what role — and every brand page now actually enforces it. This is the first login requirement anywhere in this app.
+
+DoneIsBetter SSO's own permission API is per-app, not per-brand, so a new `sso_user_access` collection (`lib/sso-access.ts`) is this app's own — upserted once per login, read on every access decision. Super admin status is deliberately **not** stored (avoids drift) — derived fresh on every check from `SSO_SUPER_ADMIN_EMAILS` against the verified ID token's email claim, and bypasses `orgAccess` entirely for every brand. This is the deliberate safety net against the sole operator (iOS-mobile-only access, no other way in) ever getting locked out by a bug in the per-org assignment logic.
+
+Enforcement, not just display: per CLAUDE.md Rule 7, a menu that hides links without the server blocking direct access would be security theater. All five brand-specific pages (`/sales/[brand]`, `/salessettings/[client]`, `/forecast/[brand]`, `/battlecards/[brand]`, `/outreach/templates/[brand]`) now call `lib/require-brand-access.ts`'s `requireBrandAccess()` before any data fetch — redirects to the real SSO login if not authenticated, `/access-denied` if authenticated but not authorized for that specific brand. `/api/sales/[brand]/page.tsx` also had a real pre-existing bug fixed alongside this: it used `brandParam || 'cogmap'` instead of `resolveBrand()`, so an invalid brand segment passed through unnormalized.
+
+New admin UI: `/admin/users` (GDS `AdminDataTable`, matching this app's established admin-page convention) lists every user who has ever signed in, with a per-brand `Select` (none/user/admin) that PUTs `/api/admin/users/[userId]/access`. Both the page and its two API routes are gated by a new session-based `requireSuperAdminSession()` (`lib/session.ts`) — distinct from the existing `x-api-key` machine-to-machine scheme, since this is a human clicking around with a real SSO session.
+
+`app/components/AppNav.tsx` now mounts `AuthProvider` (`app/components/Providers.tsx`) and reflects real access instead of guessing from the URL alone: not logged in → a "Sign in" link; logged in with 0 accessible brands → a genuine "no access yet, contact your admin" message; exactly 1 → the same per-client section as before; 2+ → a new organization switcher, this app's first client picker anywhere (closing a gap 2.4.68's docs explicitly called out). A super admin always sees an Admin section linking to `/admin/users`.
+
+New tests: `tests/lib/sso-access.test.ts` (13 tests, full coverage of the pure super-admin/access-resolution functions) and `tests/integration/sso-access.integration.test.ts` (8 tests, real `mongodb-memory-server` round trip). Verified against a real running server that unauthenticated requests to all five brand pages, `/admin/users`, and both admin API routes correctly redirect/401 — and via a real Playwright render (route-mocked session API) that the nav's four states (not logged in, 0/1/2+ orgs) all render correctly, including the org switcher actually changing which links show.
+
+**Real, disclosed gap**: completing an actual human SSO login and confirming `requireBrandAccess` grants access for a real signed session remains unverified in this sandbox (no private key to fabricate a valid ID token, no real password/2FA to complete a real login). **The owner should personally complete a real login immediately after this deploys.**
+
+**Critical deployment note**: `SSO_SUPER_ADMIN_EMAILS` must be set in Vercel alongside the phase-1 SSO vars, or nobody — including the owner — can be granted access after this deploys, since granting access itself requires being a super admin.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean (86 files), vitest 366/366, smoke 5/5, build (`/admin/users`, `/api/admin/users`, `/api/admin/users/[userId]/access` all compile cleanly).
+
 ## 2.4.72
 
 ### Fixed — SSO callback route moved to match the real registered redirect URI (issue #102)
