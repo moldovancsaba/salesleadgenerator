@@ -1,18 +1,26 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { executeLeadAction } from '../../../lib/lead-actions'
 import { resolveBrand } from '../../../lib/brand'
+import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 
 // Issue #70. No requireApiKey — matches PATCH /api/leads (app/api/leads/
 // route.ts), which dropped that guard for the same reason (issue #91): this
 // is called from the browser (app/kanban.tsx's bulk action bar), which has
-// no safe way to hold SLG_API_KEY.
+// no safe way to hold SLG_API_KEY. Issue #104: gated by
+// requireBrandAccessApi instead, same as PATCH /api/leads. brand comes from
+// the JSON body here (not the query string), so the body must be parsed
+// before the auth check and reused, not read twice.
 const MAX_BULK_SIZE = 100
 const ALLOWED_BULK_ACTIONS = new Set(['DECLINE', 'PIN'])
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
     const brand = resolveBrand(body.brand)
+
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const tenantId = (body.tenantId || 'default').trim() || 'default'
     const action = String(body.action || '').toUpperCase()
     const leadIds = Array.isArray(body.leadIds) ? body.leadIds : []
