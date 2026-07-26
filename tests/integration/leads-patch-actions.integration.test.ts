@@ -97,7 +97,13 @@ describe('PATCH /api/leads — COLUMN_MOVE (issue #91)', () => {
   });
 
   it('a same-column move is accepted as a no-op-shaped success (matches app/kanban.tsx short-circuiting before ever calling this route)', async () => {
-    const id = await seedLead('Same Column Co', { kanbanColumn: 'ENGAGED' });
+    // ENGAGED is gated (issue #72) — seeded with the required fields so this
+    // test exercises same-column-move behavior, not the unrelated stage gate.
+    const id = await seedLead('Same Column Co', {
+      kanbanColumn: 'ENGAGED',
+      contacts: [{ isDecisionMaker: true }],
+      value_proposition: 'Cognitive performance training',
+    });
     const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'ENGAGED', sortOrder: Date.now() }));
     expect(res.status).toBe(200);
   });
@@ -121,6 +127,55 @@ describe('PATCH /api/leads — ACCEPT/DECLINE (issue #90/#91 investigation)', ()
     const body = await res.json();
     expect(body.lead.kanbanColumn).toBe('LOST');
     expect(body.lead.declineReason).toBe('BUDGET_CONSTRAINTS');
+  });
+});
+
+describe('PATCH /api/leads — required-fields-per-stage gating (issue #72)', () => {
+  it('blocks a COLUMN_MOVE into ENGAGED when required fields are missing, with a clear message', async () => {
+    const id = await seedLead('No Contact Co');
+    const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'ENGAGED', sortOrder: Date.now() }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('Missing required fields for ENGAGED: a decision-maker contact, a value proposition');
+  });
+
+  it('blocks a PIN (always targets ENGAGED) when required fields are missing', async () => {
+    const id = await seedLead('Pin Blocked Co');
+    const res = await PATCH(patchReq(id, { action: 'PIN' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('allows a COLUMN_MOVE into ENGAGED when required fields are present on the existing lead', async () => {
+    const id = await seedLead('Ready For Engaged Co', {
+      contacts: [{ isDecisionMaker: true }],
+      value_proposition: 'Cognitive performance training',
+    });
+    const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'ENGAGED', sortOrder: Date.now() }));
+    expect(res.status).toBe(200);
+  });
+
+  it('allows a COLUMN_MOVE into ENGAGED when the required fields are supplied in the same request payload', async () => {
+    const id = await seedLead('Same Request Co');
+    const res = await PATCH(patchReq(id, {
+      action: 'COLUMN_MOVE',
+      kanbanColumn: 'ENGAGED',
+      sortOrder: Date.now(),
+      contacts: [{ isDecisionMaker: true }],
+      value_proposition: 'Cognitive performance training',
+    }));
+    expect(res.status).toBe(200);
+  });
+
+  it('does not gate a COLUMN_MOVE into DISCOVERED/QUALIFIED (auto-managed columns)', async () => {
+    const id = await seedLead('Discovered Co');
+    const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'QUALIFIED', sortOrder: Date.now() }));
+    expect(res.status).toBe(200);
+  });
+
+  it('does not gate a DECLINE into LOST', async () => {
+    const id = await seedLead('Decline No Gate Co');
+    const res = await PATCH(patchReq(id, { action: 'DECLINE', declineReason: 'OTHER' }));
+    expect(res.status).toBe(200);
   });
 });
 

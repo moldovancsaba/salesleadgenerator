@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.79
+
+### Added — Required-fields-per-stage gating (issue #72)
+Owner-prioritized promotion from the idea bank (2026-07-26, one of 5 highest-business-value items selected for near-term delivery). Leads could be dragged or pinned into ENGAGED/PROPOSAL with zero field-completeness check — only lead creation enforced a quality gate.
+
+New pure module `lib/stage-gate.ts` (`checkStageGate`, 10 unit tests): hard-blocks a `COLUMN_MOVE`/`PIN` into `ENGAGED`/`PROPOSAL` unless the lead has a decision-maker contact and a non-empty value proposition. DISCOVERED/QUALIFIED (auto-managed) and WON/LOST (terminal) are never gated. No admin bypass, per owner-confirmed scope. Checked against the request's merged state, so supplying the missing fields in the same request satisfies the gate.
+
+Fixed a real pre-existing bug discovered while wiring this up: `app/kanban.tsx`'s drag failure handler discarded the server's actual error message, showing a generic "Move failed: 400" for every kind of failure. Now surfaces the real reason (e.g. this gate's specific missing-fields message).
+
+6 new integration tests covering the gate's block/allow paths, plus a fixture fix for one pre-existing test that now needs the required fields seeded.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean (89 files), vitest 399/399, smoke 5/5, build. Integration suite: same 14 pre-existing unrelated failures as baseline (confirmed via a stash-and-compare), 0 new failures, 6 new passing tests.
+
 ## 2.4.78
 
 ### Added — "What worked" outcome-learning report (issue #74)

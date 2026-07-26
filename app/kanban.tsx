@@ -204,7 +204,13 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         body: JSON.stringify({ id: leadId, action: 'COLUMN_MOVE', kanbanColumn: toColumn, sortOrder: Date.now() }),
       })
 
-      if (!res.ok) throw new Error(`Move failed: ${res.status}`)
+      if (!res.ok) {
+        // Issue #72: surfaces the real server-provided reason (e.g. a stage-
+        // gate rejection) instead of a bare HTTP status, which read
+        // identically for every kind of failure.
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || `Move failed: ${res.status}`)
+      }
       await Promise.all([loadColumn(toColumn), loadColumn(fromColumn)])
     } catch (err) {
       console.error('Column move error:', err)
