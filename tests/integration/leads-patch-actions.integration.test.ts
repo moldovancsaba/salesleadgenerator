@@ -138,7 +138,7 @@ describe('PATCH /api/leads — required-fields-per-stage gating (issue #72)', ()
     const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'ENGAGED', sortOrder: Date.now() }));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toBe('Missing required fields for ENGAGED: a decision-maker contact, a value proposition');
+    expect(body.error).toBe('Missing required fields for ENGAGED: a contact, a value proposition');
   });
 
   it('blocks a PIN (always targets ENGAGED) when required fields are missing', async () => {
