@@ -2,17 +2,11 @@ import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import clientPromise, { isMongoConfigured } from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
-import { tenantFilter } from '../../../../lib/tenant'
+import { getTenantId, tenantFilter } from '../../../../lib/tenant'
 import { validateBattlecardPayload, normalizeProofPoints, normalizeObjections } from '../../../lib/battlecards/validate-battlecard'
 import { normalizeTags } from '../../../lib/search/tagged-content-filter'
 
 export const dynamic = 'force-dynamic'
-
-function getTenantId(request: Request): string {
-  const url = new URL(request.url)
-  const tenantId = (url.searchParams.get('tenantId') || 'default').trim()
-  return tenantId || 'default'
-}
 
 function getBrand(request: Request): string {
   const url = new URL(request.url)

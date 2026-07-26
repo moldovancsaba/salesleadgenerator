@@ -4,18 +4,9 @@ import { BRAND_CONFIG, resolveBrand, type Brand } from '@/app/lib/brand'
 import { isAutoManagedColumn, ICE_SCORE_AGGREGATION_EXPR } from '@/lib/kanban-column'
 import { escapeRegExp } from '@/app/lib/search/tagged-content-filter'
 import { requireBrandAccessApi } from '@/lib/require-brand-access-api'
+import { getTenantId, tenantFilter } from '@/lib/tenant'
 
 const CHUNK_SIZE = 50
-
-function getTenantId(request: Request): string {
-  return (new URL(request.url).searchParams.get('tenantId') || 'default').trim() || 'default'
-}
-
-function tenantFilter(tenantId: string) {
-  return tenantId === 'default'
-    ? { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] }
-    : { tenantId }
-}
 
 function resolveBrandFrom(request: Request): Brand {
   return resolveBrand(new URL(request.url).searchParams.get('brand') || 'cogmap')

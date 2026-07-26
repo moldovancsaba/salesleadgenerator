@@ -2,14 +2,9 @@ import { NextResponse } from 'next/server'
 import clientPromise, { isMongoConfigured } from '../../../lib/mongodb'
 import { requireApiKey } from '../../../lib/api-auth'
 import { evaluateOutreachRouting } from '../../lib/outreach/routing-rules'
+import { getTenantId } from '../../../lib/tenant'
 
 export const dynamic = 'force-dynamic'
-
-function getTenantId(request: Request): string {
-  const url = new URL(request.url)
-  const tenantId = (url.searchParams.get('tenantId') || 'default').trim()
-  return tenantId || 'default'
-}
 
 export async function GET(request: Request) {
   try {

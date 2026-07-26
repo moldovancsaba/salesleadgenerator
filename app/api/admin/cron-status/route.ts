@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
+import { getTenantId } from '../../../../lib/tenant'
 
 const COLLECTION = 'outcomelogs'
 const LEAD_COLLECTION_PATTERN = (brand: string) => (brand === 'seyu' ? 'seyu_leads' : 'leads')
@@ -20,12 +21,6 @@ type CronStatus = {
 
 function hoursAgo(hours: number): Date {
   return new Date(Date.now() - hours * 60 * 60 * 1000)
-}
-
-function getTenantId(request: Request): string {
-  const url = new URL(request.url);
-  const tenantId = (url.searchParams.get('tenantId') || 'default').trim();
-  return tenantId || 'default';
 }
 
 export const dynamic = 'force-dynamic'

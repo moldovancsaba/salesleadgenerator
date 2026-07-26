@@ -5,6 +5,17 @@ const CRON_SECRET = process.env.CRON_SECRET || '';
 
 export function requireApiKey(request: Request): NextResponse | null {
   if (!API_KEY) {
+    // Issue #105: fail open only outside production — a local/dev/test
+    // environment with no key configured shouldn't need one. In production,
+    // an unset SLG_API_KEY is a misconfiguration (accidental removal, a new
+    // environment spun up without it) and must fail closed instead of
+    // silently dropping auth on every route this guards.
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json(
+        { error: 'Unauthorized', details: 'SLG_API_KEY is not configured' },
+        { status: 401 }
+      );
+    }
     return null;
   }
 
@@ -28,8 +39,8 @@ export function isCronRequest(request: Request): boolean {
 // Accepts either Vercel Cron's automatic `Authorization: Bearer $CRON_SECRET`
 // header (the scheduled trigger) or the existing x-api-key admin auth (manual
 // trigger/backfill) — used only by app/api/admin/forecast-snapshot (issue
-// #57). Same fail-open behavior as requireApiKey when SLG_API_KEY is unset:
-// documented, not accidental.
+// #57). Inherits requireApiKey's own fail-open-outside-production behavior
+// when SLG_API_KEY is unset (issue #105).
 export function requireCronOrApiKey(request: Request): NextResponse | null {
   if (isCronRequest(request)) {
     return null;

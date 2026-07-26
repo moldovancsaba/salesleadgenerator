@@ -1,29 +1,26 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
 import { BRAND_CONFIG } from '../../lib/brand'
+import { getTenantId, tenantFilter } from '../../../lib/tenant'
+import { escapeRegExp } from '../../lib/search/tagged-content-filter'
 
-function getTenantId(request: Request): string {
-  const url = new URL(request.url)
-  const tenantId = (url.searchParams.get('tenantId') || 'default').trim()
-  return tenantId || 'default'
-}
-
-function tenantFilter(tenantId: string) {
-  return tenantId === 'default'
-    ? { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] }
-    : { tenantId }
-}
-
+// Issue #106: q was interpolated into $regex unescaped — a query containing
+// regex metacharacters (e.g. "(a+)+$") was evaluated as regex syntax rather
+// than literal text, a ReDoS risk against Mongo's regex engine as well as a
+// functional bug (a literal search for "." matched every document). Same
+// escapeRegExp() already used by GET /api/leads and /api/leads/columns for
+// their own regex-matched fields.
 function buildSearchFilter(q: string, tenantId: string, region?: string) {
+  const safeQ = escapeRegExp(q)
   const filter: any = {
     ...tenantFilter(tenantId),
     $or: [
-      { entity_name: { $regex: q, $options: 'i' } },
-      { url: { $regex: q, $options: 'i' } },
-      { value_proposition: { $regex: q, $options: 'i' } },
-      { industry: { $regex: q, $options: 'i' } },
-      { sport_or_sector: { $regex: q, $options: 'i' } },
-      { notes: { $regex: q, $options: 'i' } },
+      { entity_name: { $regex: safeQ, $options: 'i' } },
+      { url: { $regex: safeQ, $options: 'i' } },
+      { value_proposition: { $regex: safeQ, $options: 'i' } },
+      { industry: { $regex: safeQ, $options: 'i' } },
+      { sport_or_sector: { $regex: safeQ, $options: 'i' } },
+      { notes: { $regex: safeQ, $options: 'i' } },
     ],
   }
   if (region) filter.region = region

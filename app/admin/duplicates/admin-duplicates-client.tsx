@@ -62,9 +62,15 @@ export function AdminDuplicatesClient() {
         throw new Error(data.error || `Scan failed (${res.status})`)
       }
       const data = await res.json()
+      // Issue #107: the scan is capped (2000 leads) for perf reasons — when
+      // truncated, say so explicitly rather than silently reporting a scan
+      // that looks complete but wasn't.
+      const truncationNote = data.truncated
+        ? ` (capped — ${data.totalAvailable} leads exist, only the ${data.scanned} most recent were scanned)`
+        : ''
       showNotification({
-        message: `Scanned ${data.scanned} leads — ${data.newPairs} new candidate pair${data.newPairs === 1 ? '' : 's'} found.`,
-        color: 'teal',
+        message: `Scanned ${data.scanned} leads${truncationNote} — ${data.newPairs} new candidate pair${data.newPairs === 1 ? '' : 's'} found.`,
+        color: data.truncated ? 'yellow' : 'teal',
       })
       await loadReviews()
     } catch (err: any) {

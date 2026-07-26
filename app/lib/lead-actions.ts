@@ -78,10 +78,17 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     outcomeValue = `Moved to ${normalizedBody.kanbanColumn}`
   }
 
+  // Issue #108: acceptanceCount/declineCount/feedbackScore are incremented
+  // via Mongo's atomic $inc (below), not read-then-write in JS — two
+  // concurrent actions on the same lead (e.g. a retried tap) previously both
+  // read the same starting value and both wrote the same +1, silently
+  // losing one increment.
+  const incData: Record<string, number> = {}
+
   if (action === 'ACCEPT') {
     updateData.status = 'qualified'
-    updateData.acceptanceCount = (existing.acceptanceCount || 0) + 1
-    updateData.feedbackScore = (existing.feedbackScore || 0) + 1
+    incData.acceptanceCount = 1
+    incData.feedbackScore = 1
   }
 
   if (action === 'DECLINE') {
@@ -89,8 +96,8 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     updateData.kanbanColumn = 'LOST'
     updateData.declineReason = normalizedBody.declineReason || 'OTHER'
     updateData.declinedAt = new Date()
-    updateData.declineCount = (existing.declineCount || 0) + 1
-    updateData.feedbackScore = (existing.feedbackScore || 0) - 1
+    incData.declineCount = 1
+    incData.feedbackScore = -1
     outcomeValue = normalizedBody.declineReason || 'DECLINED'
   }
 
@@ -227,9 +234,14 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     outcomeValue = `Tech scan: ${scan.status}`
   }
 
+  const updateOperation: Record<string, any> = { $set: updateData }
+  if (Object.keys(incData).length > 0) {
+    updateOperation.$inc = incData
+  }
+
   const result = await db.collection(config.dbCollection).findOneAndUpdate(
     { _id: new ObjectId(leadId), ...tenantFilter },
-    { $set: updateData },
+    updateOperation,
     { returnDocument: 'after' }
   )
 
