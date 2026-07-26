@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Box, Chip, Group, Loader } from '@mantine/core';
+import { Box, Chip, Group, Loader, Button, Checkbox, Text } from '@mantine/core';
+import { IconChecklist, IconX } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import { KanbanBoard as GdsKanbanBoard } from '@sovereignsquad/gds-core/client';
 import type { KanbanItem as GdsKanbanItem, KanbanColumnData as GdsKanbanColumnData } from '@sovereignsquad/gds-core/client';
@@ -244,6 +245,94 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     handleMove(itemId, fromColumnId as KanbanColumn, toColumnId as KanbanColumn)
   }, [handleMove])
 
+  // Issue #70: bulk DECLINE/PIN. An explicit mode toggle (not long-press or
+  // always-visible checkboxes, per owner-confirmed scope) so entering
+  // selection is a deliberate action, not an accidental tap.
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [selectedColumn, setSelectedColumn] = useState<KanbanColumn | null>(null)
+  const [bulkRunning, setBulkRunning] = useState(false)
+
+  const toggleSelectMode = useCallback(() => {
+    setSelectMode((prev) => !prev)
+    setSelectedIds(new Set())
+    setSelectedColumn(null)
+  }, [])
+
+  const toggleSelected = useCallback((leadId: string, column: KanbanColumn) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(leadId)) {
+        next.delete(leadId)
+        if (next.size === 0) setSelectedColumn(null)
+      } else {
+        // Same-column-only selection (issue #70's confirmed scope) — a
+        // mixed-column bulk action would have ambiguous semantics (a
+        // COLUMN_MOVE target that varies per lead), so this is blocked
+        // client-side with a clear message rather than silently applying
+        // to whichever leads happen to match.
+        if (selectedColumn && column !== selectedColumn) {
+          showNotification({
+            message: `Selection is limited to one column at a time (currently ${selectedColumn}).`,
+            color: 'yellow',
+          })
+          return prev
+        }
+        next.add(leadId)
+        setSelectedColumn(column)
+      }
+      return next
+    })
+  }, [selectedColumn])
+
+  const runBulkAction = useCallback(async (action: 'DECLINE' | 'PIN') => {
+    if (selectedIds.size === 0 || !selectedColumn) return
+    setBulkRunning(true)
+    try {
+      const res = await fetch('/api/leads/bulk', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brand,
+          tenantId,
+          leadIds: Array.from(selectedIds),
+          action,
+          payload: action === 'DECLINE' ? { declineReason: 'OTHER' } : {},
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || `Bulk action failed: ${res.status}`)
+      }
+      const data = await res.json()
+      const results: Array<{ leadId: string; success: boolean; error?: string }> = data.results || []
+      const succeeded = results.filter((r) => r.success).length
+      const failed = results.length - succeeded
+      const firstError = results.find((r) => !r.success)?.error
+
+      showNotification({
+        message: failed === 0
+          ? `${succeeded} lead${succeeded === 1 ? '' : 's'} ${action === 'DECLINE' ? 'declined' : 'pinned'}.`
+          : `${succeeded} of ${results.length} ${action === 'DECLINE' ? 'declined' : 'pinned'} — ${failed} blocked${firstError ? `: ${firstError}` : ''}.`,
+        color: failed === 0 ? 'teal' : 'yellow',
+        autoClose: failed === 0 ? 4000 : 8000,
+      })
+
+      await loadColumn(selectedColumn)
+      if (action === 'PIN') await loadColumn('ENGAGED')
+      setSelectedIds(new Set())
+      setSelectedColumn(null)
+    } catch (err) {
+      showNotification({
+        message: err instanceof Error ? err.message : 'Bulk action failed',
+        color: 'red',
+        autoClose: 5000,
+      })
+    } finally {
+      setBulkRunning(false)
+    }
+  }, [brand, tenantId, selectedIds, selectedColumn, loadColumn])
+
   const formatForecast = useCallback((value: number) => {
     const symbol = forecastCurrency === 'EUR' ? '€' : '$'
     return `${symbol}${Math.round(value).toLocaleString()}`
@@ -305,13 +394,23 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     )
     return (
       <>
+        {selectMode && (
+          <Checkbox
+            size="sm"
+            mb={4}
+            aria-label={`Select ${leadItem.lead.entity_name} for bulk action`}
+            checked={selectedIds.has(leadItem.lead._id)}
+            onChange={() => toggleSelected(leadItem.lead._id, column.id as KanbanColumn)}
+            disabled={Boolean(selectedColumn) && selectedColumn !== (column.id as KanbanColumn) && !selectedIds.has(leadItem.lead._id)}
+          />
+        )}
         <LeadCard lead={leadItem.lead} onOpen={() => onOpenLead(leadItem.lead)} staleness={staleness} nudge={nudge} />
         {isLast && colState.hasMore && !colState.loading && (
           <LoadMoreSentinel onLoadMore={() => loadColumn(column.id as KanbanColumn, colState.cursor)} />
         )}
       </>
     )
-  }, [columnStates, onOpenLead, loadColumn, staleThresholds])
+  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected])
 
   // enableDrag deliberately omitted (default false): it renders a
   // drag-handle icon per card and activates GDS's real @dnd-kit
@@ -322,22 +421,54 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // provides full move functionality without it.
   return (
     <>
-      <Group gap="xs" wrap="wrap" mb="sm" role="group" aria-label="Show or hide kanban columns">
-        {COLUMNS.map((col) => {
-          const colState = columnStates[col.key]
-          const countLabel = typeof colState.count === 'number' ? colState.count.toLocaleString() : colState.leads.length
-          return (
-            <Chip
-              key={col.key}
-              size="xs"
-              checked={!hiddenColumns.has(col.key)}
-              onChange={() => toggleColumnVisibility(col.key)}
-            >
-              {col.label} ({countLabel})
-            </Chip>
-          )
-        })}
+      <Group gap="xs" wrap="wrap" mb="sm" justify="space-between">
+        <Group gap="xs" wrap="wrap" role="group" aria-label="Show or hide kanban columns">
+          {COLUMNS.map((col) => {
+            const colState = columnStates[col.key]
+            const countLabel = typeof colState.count === 'number' ? colState.count.toLocaleString() : colState.leads.length
+            return (
+              <Chip
+                key={col.key}
+                size="xs"
+                checked={!hiddenColumns.has(col.key)}
+                onChange={() => toggleColumnVisibility(col.key)}
+              >
+                {col.label} ({countLabel})
+              </Chip>
+            )
+          })}
+        </Group>
+        <Button
+          size="xs"
+          variant={selectMode ? 'filled' : 'light'}
+          leftSection={selectMode ? <IconX size={14} /> : <IconChecklist size={14} />}
+          onClick={toggleSelectMode}
+        >
+          {selectMode ? 'Cancel select' : 'Select'}
+        </Button>
       </Group>
+
+      {selectMode && selectedIds.size > 0 && (
+        <Group
+          gap="sm"
+          mb="sm"
+          p="xs"
+          style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 6 }}
+          role="region"
+          aria-label="Bulk actions"
+        >
+          <Text size="sm" fw={600}>
+            {selectedIds.size} selected in {selectedColumn}
+          </Text>
+          <Button size="xs" color="red" variant="light" onClick={() => runBulkAction('DECLINE')} loading={bulkRunning}>
+            Decline selected
+          </Button>
+          <Button size="xs" color="teal" variant="light" onClick={() => runBulkAction('PIN')} loading={bulkRunning}>
+            Pin selected
+          </Button>
+        </Group>
+      )}
+
       <GdsKanbanBoard
         columns={visibleColumns}
         onMoveItem={handleMoveItem}
