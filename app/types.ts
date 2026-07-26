@@ -103,6 +103,10 @@ export type Lead = {
     // until explicitly cleared.
     overrideReason?: string;
     overriddenBy?: string;
+    // True when the lead had no reliable size-tier data and this is the
+    // brand's smallest configured deal-size band, not a real per-lead
+    // estimate (issue #111).
+    sizeAssumed?: boolean;
   };
   // The real, closed contract value (always USD) once a lead is WON — see
   // lib/ticket-size-calibration.ts, issue #83. Captured via MODIFY, never

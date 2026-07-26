@@ -79,8 +79,21 @@ describe('backfillTicketSizeCollection', () => {
     expect(db._updates[0].set.ticketSizeEstimate.method).toBe('tier_band');
   });
 
-  it('backfills to an honest unconfigured state when the lead has no size and never fabricates a number', async () => {
-    const db = fakeDb([{ _id: '1' }], { dealSize: { small: 5000 }, products: [] });
+  it('backfills to the smallest configured band, flagged sizeAssumed, when the lead has no size (issue #111)', async () => {
+    const db = fakeDb([{ _id: '1' }], { dealSize: { small: 5000, medium: 20000 }, products: [] });
+    const result = await backfillTicketSizeCollection(db, 'leads', 'cogmap', 'default', 'USD', { apply: true }, NOW);
+
+    expect(result.updated).toBe(1);
+    expect(db._updates[0].set.ticketSizeEstimate).toMatchObject({
+      method: 'tier_band',
+      expected: 5000,
+      confidence: 'low',
+      sizeAssumed: true,
+    });
+  });
+
+  it('still backfills to an honest unconfigured state when the lead has no size and the brand has no deal-size bands either', async () => {
+    const db = fakeDb([{ _id: '1' }], { dealSize: {}, products: [] });
     const result = await backfillTicketSizeCollection(db, 'leads', 'cogmap', 'default', 'USD', { apply: true }, NOW);
 
     expect(result.updated).toBe(1);
