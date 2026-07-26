@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.74
+
+### Added — warm welcome page for zero-access first logins (issue #103 follow-up)
+Owner confirmed real SSO login working end-to-end, then requested: a brand-new user who signs in successfully but hasn't been assigned to any organization yet should see a friendly welcome message ("we'll be in touch soon") instead of the plain marketing landing page, and should already show up in the admin user list ready to be granted access.
+
+The second half was already correct — `upsertUserSeen()` in `app/api/oauth/callback/route.ts` runs unconditionally on every successful login regardless of downstream permission/access status, specifically so a zero-access user is already visible in `/admin/users`. Verified, not assumed.
+
+For the first half: extracted the redirect decision into a new pure, fully unit-tested function, `lib/sso-access.ts`'s `resolveLoginDestination(permissionStatus, email, orgAccess)`. DoneIsBetter's own `pending`/`revoked` app-level status is checked first (that's their gate); only once that's clear does this app's own zero-brand-access state matter — approved by DoneIsBetter but not yet assigned to CogMap or Seyu now also routes to `/access-pending`, repurposed with warmer copy ("Welcome! You're successfully signed in. We'll be in touch soon once you have access to your organization.") replacing the more alarming-sounding "an SSO administrator hasn't approved your access" text, which was specifically about DoneIsBetter's own gate and reads oddly for the much more common "just needs an org assignment" case both states now share. A super admin is exempt by construction (`getAccessibleBrands()`'s bypass), so this never affects the owner.
+
+New tests: 6 unit tests on `resolveLoginDestination` covering every permission/access combination. Verified via a real Playwright screenshot that the redirect target renders the new copy correctly.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean, vitest 372/372, smoke 5/5, build.
+
 ## 2.4.73
 
 ### Added — per-organization access control: super admin, admin UI, access-aware nav (issue #103, SSO phase 2)
