@@ -4,6 +4,7 @@ import { requireApiKey } from '../../../lib/api-auth'
 import { DEFAULT_OUTREACH_TEMPLATES } from '../../lib/outreach/default-templates'
 import type { OutreachTemplate } from '../../lib/outreach/default-templates'
 import { buildTaggedContentFilter, normalizeTags } from '../../lib/search/tagged-content-filter'
+import { computeTemplateConversions } from '../../../lib/template-conversion'
 import { ObjectId } from 'mongodb'
 
 export const dynamic = 'force-dynamic'
@@ -115,24 +116,42 @@ export async function GET(request: Request) {
       if (industry) match.industry = industry
       if (channel) match.channel = channel
 
-      const pipeline = [
-        { $match: match },
-        {
-          $group: {
-            _id: '$templateId',
-            totalLogs: { $sum: 1 },
-            channels: { $addToSet: '$channel' },
-            lastUsed: { $max: '$createdAt' },
-          },
-        },
-        { $sort: { totalLogs: -1 } },
-      ]
+      // Issue #75: fetched raw (not pre-aggregated) so the same records feed
+      // both the existing volume totals and the new conversion-attribution
+      // join below, without a second round trip.
+      const outreachLogs = await db.collection('outreach_logs').find(match).toArray()
 
-      const analyticsRaw = await db.collection('outreach_logs').aggregate(pipeline).toArray()
+      const leadIds = Array.from(new Set(outreachLogs.map((log) => log.leadId).filter(Boolean)))
+      const outcomeLogs = leadIds.length
+        ? await db.collection('outcomelogs').find({
+            tenantId,
+            leadId: { $in: leadIds },
+            'afterState.kanbanColumn': { $in: ['WON', 'LOST'] },
+          }).toArray()
+        : []
 
-      const templateIds = analyticsRaw
-        .map((item) => typeof item._id === 'string' ? item._id : String(item._id))
-        .filter(Boolean)
+      const conversions = computeTemplateConversions(
+        outreachLogs
+          .filter((log) => log.templateId)
+          .map((log) => ({ leadId: log.leadId, templateId: String(log.templateId), createdAt: log.createdAt })),
+        outcomeLogs.map((log) => ({ leadId: log.leadId, afterState: log.afterState, createdAt: log.createdAt }))
+      )
+
+      const totalsByTemplate = new Map<string, { totalLogs: number; channels: Set<string>; lastUsed: Date | null }>()
+      for (const log of outreachLogs) {
+        if (!log.templateId) continue
+        const templateId = String(log.templateId)
+        let entry = totalsByTemplate.get(templateId)
+        if (!entry) {
+          entry = { totalLogs: 0, channels: new Set(), lastUsed: null }
+          totalsByTemplate.set(templateId, entry)
+        }
+        entry.totalLogs += 1
+        if (log.channel) entry.channels.add(log.channel)
+        if (!entry.lastUsed || log.createdAt > entry.lastUsed) entry.lastUsed = log.createdAt
+      }
+
+      const templateIds = Array.from(totalsByTemplate.keys())
 
       const dbTemplates = templateIds.length
         ? await db.collection('outreach_templates').find({ tenantId, brand, _id: { $in: templateIds.map((id) => new ObjectId(id)) } }).toArray()
@@ -140,21 +159,23 @@ export async function GET(request: Request) {
 
       const templateNameMap = new Map(dbTemplates.map((t) => [t._id.toString(), t.name]))
 
-      const analytics = analyticsRaw.map((item) => {
-        const templateId = typeof item._id === 'string' ? item._id : String(item._id)
-        const channels = Array.isArray(item.channels) ? item.channels : []
-        const totalLogs = typeof item.totalLogs === 'number' ? item.totalLogs : 0
-        const lastUsed = item.lastUsed instanceof Date ? item.lastUsed.toISOString() : null
-
-        return {
-          templateId,
-          name: templateNameMap.get(templateId) || `Template #${templateId}`,
-          channel: channels[0] || 'email',
-          channels,
-          totalLogs,
-          lastUsed,
-        }
-      })
+      const analytics = Array.from(totalsByTemplate.entries())
+        .map(([templateId, entry]) => {
+          const conv = conversions.get(templateId)
+          return {
+            templateId,
+            name: templateNameMap.get(templateId) || `Template #${templateId}`,
+            channel: Array.from(entry.channels)[0] || 'email',
+            channels: Array.from(entry.channels),
+            totalLogs: entry.totalLogs,
+            lastUsed: entry.lastUsed ? entry.lastUsed.toISOString() : null,
+            won: conv?.won ?? 0,
+            lost: conv?.lost ?? 0,
+            conversionRate: conv?.conversionRate ?? 0,
+            declineRate: conv?.declineRate ?? 0,
+          }
+        })
+        .sort((a, b) => b.totalLogs - a.totalLogs)
 
       return NextResponse.json({ analytics, total: analytics.length, source: 'mongodb', brand })
     }
