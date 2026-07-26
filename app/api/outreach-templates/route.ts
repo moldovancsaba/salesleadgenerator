@@ -6,16 +6,11 @@ import type { OutreachTemplate } from '../../lib/outreach/default-templates'
 import { buildTaggedContentFilter, normalizeTags } from '../../lib/search/tagged-content-filter'
 import { computeTemplateConversions } from '../../../lib/template-conversion'
 import { ObjectId } from 'mongodb'
+import { getTenantId } from '../../../lib/tenant'
 
 export const dynamic = 'force-dynamic'
 
 const SEARCH_TEXT_FIELDS = ['name', 'subject', 'body']
-
-function getTenantId(request: Request): string {
-  const url = new URL(request.url)
-  const tenantId = (url.searchParams.get('tenantId') || 'default').trim()
-  return tenantId || 'default'
-}
 
 function getBrand(request: Request): string {
   const url = new URL(request.url)

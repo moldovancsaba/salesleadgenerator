@@ -23,7 +23,13 @@ export async function PATCH(request: NextRequest) {
 
     const tenantId = (body.tenantId || 'default').trim() || 'default'
     const action = String(body.action || '').toUpperCase()
-    const leadIds = Array.isArray(body.leadIds) ? body.leadIds : []
+    // Issue #109: de-duplicated (stringified, first-seen order) before the
+    // cap check and the processing loop — a duplicated id in the raw
+    // request previously ran executeLeadAction twice for the same lead,
+    // double-counting declineCount/feedbackScore and writing two
+    // outcomelogs rows for what was really one logical action.
+    const rawLeadIds = Array.isArray(body.leadIds) ? body.leadIds : []
+    const leadIds = Array.from(new Set(rawLeadIds.map((id: unknown) => String(id))))
     const payload = body.payload && typeof body.payload === 'object' ? body.payload : {}
 
     if (!ALLOWED_BULK_ACTIONS.has(action)) {

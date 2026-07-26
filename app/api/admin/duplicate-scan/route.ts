@@ -5,6 +5,15 @@ import { tenantFilter } from '@/lib/tenant';
 import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand';
 import { findCandidatePairs } from '@/lib/near-duplicate';
 
+// Issue #107: findCandidatePairs() is O(n^2) over whatever it's given. This
+// route previously fetched every lead in the brand/tenant with no limit —
+// fine at hundreds of leads, a real timeout/DoS risk at tens of thousands.
+// Capped at the count where O(n^2) bigram comparisons stay a
+// sub-few-second, in-process scan; sorted by createdAt desc (newest first)
+// so a truncated scan is at least deterministic across repeated runs rather
+// than depending on Mongo's unspecified natural order.
+const MAX_SCAN_SIZE = 2000;
+
 // Session-based (not x-api-key), matching app/api/admin/users/*: this is a
 // human clicking "Scan for duplicates" in a browser at /admin/duplicates,
 // not the external research agent — the browser has no safe way to hold an
@@ -27,8 +36,12 @@ export async function POST(request: NextRequest) {
   const db = client.db();
   const filter = tenantFilter(tenantId);
 
+  const totalAvailable = await db.collection(config.dbCollection).countDocuments(filter);
+
   const leads = await db.collection(config.dbCollection)
     .find(filter, { projection: { _id: 1, entity_name: 1, url: 1 } })
+    .sort({ createdAt: -1 })
+    .limit(MAX_SCAN_SIZE)
     .toArray();
 
   const candidates = leads.map((l: any) => ({ _id: l._id.toString(), entity_name: l.entity_name, url: l.url }));
@@ -62,6 +75,8 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     scanned: leads.length,
+    totalAvailable,
+    truncated: totalAvailable > leads.length,
     candidatesFound: pairs.length,
     newPairs: newRows.length,
   });

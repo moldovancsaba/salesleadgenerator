@@ -65,3 +65,15 @@ describe('GET/PUT /api/admin/toggle — requires a super-admin session', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('POST /api/admin/duplicate-scan — requires a super-admin session', () => {
+  it('rejects a request with no session cookie', async () => {
+    const { POST } = await import('../../app/api/admin/duplicate-scan/route');
+    const res = await POST(reqWithoutSession('/api/admin/duplicate-scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brand: 'cogmap' }),
+    }));
+    expect(res.status).toBe(401);
+  });
+});

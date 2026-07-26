@@ -4,6 +4,7 @@ import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
 import { computeVelocity } from '@/app/lib/velocity-metrics'
 import type { OutcomeLogRow } from '@/app/lib/velocity-metrics'
 import { correlateOutcomes } from '@/lib/outcome-correlation'
+import { getTenantId, tenantFilter } from '@/lib/tenant'
 
 const VELOCITY_PERIOD_DAYS = 30
 // Two full periods back from now, so the query covers both the current and
@@ -21,16 +22,6 @@ const SEARCH_LEARNING_COMPANY_ID = 'slg'
 
 const COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST'] as const
 const REGIONS = ['US', 'CEE', 'MENA'] as const
-
-function getTenantId(request: Request): string {
-  return (new URL(request.url).searchParams.get('tenantId') || 'default').trim() || 'default'
-}
-
-function tenantFilter(tenantId: string) {
-  return tenantId === 'default'
-    ? { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] }
-    : { tenantId }
-}
 
 // outcomelogs has no `brand` field (a single shared collection keyed only by
 // leadId) and an inconsistent `tenantId` (the generic POST /api/outcome-logs
