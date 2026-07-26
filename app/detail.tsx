@@ -163,7 +163,10 @@ function ticketSizeDetailSection(lead: Lead) {
     );
   }
 
-  // 'estimate' — the real, server-computed band.
+  // 'estimate' — the real, server-computed band. sizeAssumed (issue #111)
+  // means the lead had no reliable size-tier data and this is the brand's
+  // smallest configured deal-size band, not a real per-lead estimate — said
+  // plainly rather than presented as if the lead's actual size were known.
   return (
     <Box>
       <Group justify="space-between" align="baseline">
@@ -174,7 +177,9 @@ function ticketSizeDetailSection(lead: Lead) {
         Range: {formatTicketSizeCurrency(ticketSize.low, ticketSize.currency)} – {formatTicketSizeCurrency(ticketSize.high, ticketSize.currency)}
       </Text>
       <Text size="xs" c="dimmed" fs="italic">
-        Modelled estimate from {TICKET_SIZE_METHOD_LABELS[ticketSize.method as 'tier_band' | 'per_unit']} · {ticketSize.confidence} confidence
+        {ticketSize.sizeAssumed
+          ? "Smallest configured deal size — this lead's size isn't set, using the lowest tier as a conservative placeholder"
+          : `Modelled estimate from ${TICKET_SIZE_METHOD_LABELS[ticketSize.method as 'tier_band' | 'per_unit']} · ${ticketSize.confidence} confidence`}
       </Text>
     </Box>
   );

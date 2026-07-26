@@ -49,6 +49,11 @@ export type TicketSizeDisplay =
       // Present only when method === 'manual_override' (issue #86).
       overrideReason?: string;
       overriddenBy?: string;
+      // True when the lead had no reliable size-tier data and this is the
+      // brand's smallest configured deal-size band, not a real per-lead
+      // estimate (issue #111) — the UI must say so, not present it as if
+      // the lead's actual size were known.
+      sizeAssumed?: boolean;
     }
   | { kind: 'unconfigured' }
   | { kind: 'legacy'; value: number; currency: 'USD' | 'EUR' }
@@ -64,6 +69,7 @@ export function getTicketSize(lead: {
     confidence?: 'low' | 'medium' | 'high';
     overrideReason?: string;
     overriddenBy?: string;
+    sizeAssumed?: boolean;
   };
   estimated_annual_revenue_usd?: number;
   pricingByCompany?: Record<string, { upfront_eur?: number; monthly_eur?: number; annual_fee_eur?: number }>;
@@ -85,6 +91,7 @@ export function getTicketSize(lead: {
         confidence: est.confidence,
         overrideReason: est.overrideReason,
         overriddenBy: est.overriddenBy,
+        sizeAssumed: est.sizeAssumed,
       };
     }
   }

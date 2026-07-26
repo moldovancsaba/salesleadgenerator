@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.89
+
+### Added — unreliable size-tier data now computes the smallest realistic ticket size instead of nothing (owner request, issue #111)
+A lead with no `size` value, or one that didn't exactly match `Small`/`Medium`/`Large`/`Enterprise` (free text, wrong case), previously returned `ticketSizeEstimate.method: 'unconfigured'` outright — confirmed against production: 61 CogMap + 104 Seyu leads affected, even with `dealSize` fully configured for the brand.
+
+- `estimateTicketSize()` now, when the size tier is unreliable, uses whichever configured `dealSize` band is numerically smallest (not necessarily `small` — a brand's bands aren't guaranteed monotonic), through the same sanity cap/region multiplier/range factors as a real estimate, always `confidence: 'low'`, flagged `sizeAssumed: true`. Falls back to `unconfigured` only when the brand has no `dealSize` band configured at all.
+- Deliberately does not guess a specific tier and run it through `per_unit`: that method's volume discount is steeper for bigger tiers, so assuming `'Small'` there could compute a *larger* number than assuming `'Enterprise'` — the opposite of "smallest."
+- `app/detail.tsx` and `app/card.tsx` both show an explicit caveat instead of the normal "Modelled estimate ..." caption when `sizeAssumed` is set, so this is never presented as if the lead's real size were known (CLAUDE.md Rule 7).
+- `lib/ticket-size-calibration.ts` required no change — it already isolates leads with an unrecognized `size` into their own `'Unknown'` tier bucket, which structurally keeps `sizeAssumed` estimates out of real per-tier accuracy stats.
+- Fixed stale test/message-text assertions across the codebase that expected the old "unconfigured for missing size" behavior: `tests/lib/ticket-size.test.ts`, `tests/lib/backfill-ticket-size.test.ts`. New `tests/lib/constants.test.ts` (6 tests) covers `getTicketSize()`, previously untested.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest 453/453, smoke 5/5, GDS style audit clean, build. Integration suite: same pre-existing baseline, 0 new failures.
+
 ## 2.4.88
 
 ### Changed — ENGAGED/PROPOSAL stage gate now requires any contact, not specifically a decision-maker (owner request)

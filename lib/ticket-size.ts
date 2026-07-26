@@ -28,6 +28,11 @@ export interface TicketSizeEstimate {
   // at least see how often and why humans override the model.
   overrideReason?: string;
   overriddenBy?: string;
+  // True when the lead had no reliable size-tier data (missing, or a value
+  // that didn't match Small/Medium/Large/Enterprise) and this figure is the
+  // smallest configured deal-size band, not a real per-lead estimate —
+  // issue #111. Never set for manual_override.
+  sizeAssumed?: boolean;
 }
 
 export interface TicketSizeUnconfigured {
@@ -130,8 +135,47 @@ export function estimateTicketSize(
 ): TicketSizeResult {
   const computedAt = now().toISOString();
 
+  // Issue #111: previously returned 'unconfigured' outright whenever a lead
+  // had no reliable size-tier data (missing `size`, or a value that didn't
+  // match the Small/Medium/Large/Enterprise enum — free text, wrong case,
+  // etc.) — a large fraction of real leads never got any ticket size at
+  // all. Deliberately does NOT guess a tier and run it through per_unit or
+  // tier_band as normal: per_unit's volume discount is steeper for bigger
+  // tiers (lib/ticket-size.ts's own VOLUME_DISCOUNT_BY_TIER), so assuming
+  // 'Small' there can compute a LARGER number than assuming 'Enterprise'
+  // would — the opposite of "smallest." Instead, directly takes whichever
+  // dealSize band is smallest among whatever the brand has configured
+  // (small/medium/large/enterprise, not necessarily 'small' itself if bands
+  // aren't monotonic), still through the same sanity cap and range factors
+  // as a real tier_band estimate, always confidence: 'low', and flagged
+  // sizeAssumed so the UI can be honest that this isn't the lead's own
+  // actual size. Falls through to 'unconfigured' only when the brand has
+  // configured no dealSize band at all — genuinely nothing to compute from.
   if (!inputs.sizeTier) {
-    return { method: 'unconfigured', computedAt };
+    const regionMultiplier = resolveRegionMultiplier(inputs);
+    const bandValues = [dealSize.small, dealSize.medium, dealSize.large, dealSize.enterprise]
+      .filter((v): v is number => typeof v === 'number' && v > 0);
+
+    if (bandValues.length === 0) {
+      return { method: 'unconfigured', computedAt };
+    }
+
+    const smallestBand = Math.min(...bandValues);
+    const expected = applySanityCap(smallestBand * regionMultiplier, dealSize);
+    const high = dealSize.largestWon
+      ? Math.min(expected * TIER_BAND_HIGH_FACTOR, dealSize.largestWon * SANITY_CAP_MULTIPLIER)
+      : Math.min(expected * TIER_BAND_HIGH_FACTOR_NO_CAP, ABSOLUTE_CEILING);
+
+    return {
+      low: expected * TIER_BAND_LOW_FACTOR,
+      expected,
+      high,
+      currency: inputs.currency,
+      method: 'tier_band',
+      confidence: 'low',
+      computedAt,
+      sizeAssumed: true,
+    };
   }
 
   const tierKey = inputs.sizeTier.toLowerCase() as Lowercase<TicketSizeTier>;

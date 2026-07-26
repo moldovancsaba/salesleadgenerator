@@ -10,7 +10,7 @@ function inputs(overrides: Partial<TicketSizeInputs> = {}): TicketSizeInputs {
 }
 
 describe('estimateTicketSize', () => {
-  it('returns unconfigured when the lead has no size tier', () => {
+  it('returns unconfigured when the lead has no size tier and the brand has no deal-size bands configured either', () => {
     const result = estimateTicketSize(inputs({ sizeTier: undefined }), {}, [], now);
     expect(result.method).toBe('unconfigured');
     expect(result.computedAt).toBe(NOW.toISOString());
@@ -19,6 +19,49 @@ describe('estimateTicketSize', () => {
   it('returns unconfigured when the brand has no deal-size bands or matching product', () => {
     const result = estimateTicketSize(inputs(), {}, [], now);
     expect(result.method).toBe('unconfigured');
+  });
+
+  describe('no reliable size-tier data (issue #111)', () => {
+    it('uses the smallest configured deal-size band instead of unconfigured', () => {
+      const dealSize: DealSizeBands = { small: 10000, medium: 40000, large: 100000, enterprise: 250000, largestWon: 300000 };
+      const result = estimateTicketSize(inputs({ sizeTier: undefined }), dealSize, [], now);
+      if (result.method !== 'tier_band') throw new Error('expected tier_band');
+      expect(result.expected).toBe(10000);
+      expect(result.confidence).toBe('low');
+      expect(result.sizeAssumed).toBe(true);
+    });
+
+    it('picks the smallest configured band even when it is not literally "small" (non-monotonic config)', () => {
+      const dealSize: DealSizeBands = { medium: 15000, large: 100000 };
+      const result = estimateTicketSize(inputs({ sizeTier: undefined }), dealSize, [], now);
+      if (result.method !== 'tier_band') throw new Error('expected tier_band');
+      expect(result.expected).toBe(15000);
+    });
+
+    it('never uses per_unit for an assumed tier, even when a per-unit product and a real unit count exist', () => {
+      // per_unit's volume discount is steeper for bigger tiers, so guessing
+      // any specific tier here could compute a LARGER number than the
+      // smallest configured band — this must never happen for an unreliable lead.
+      const dealSize: DealSizeBands = { small: 5000 };
+      const products: TicketSizeProductInput[] = [{ customerSize: ['small', 'enterprise'], perUnitRate: 1000 }];
+      const result = estimateTicketSize(inputs({ sizeTier: undefined, unitCount: 10000 }), dealSize, products, now);
+      expect(result.method).toBe('tier_band');
+      if (result.method !== 'tier_band') throw new Error('expected tier_band');
+      expect(result.expected).toBe(5000);
+    });
+
+    it('still applies the sanity cap and region multiplier to the assumed-smallest estimate', () => {
+      const dealSize: DealSizeBands = { small: 8_000_000_000, largestWon: 500_000 };
+      const result = estimateTicketSize(inputs({ sizeTier: undefined, regionMultiplier: 2 }), dealSize, [], now);
+      if (result.method !== 'tier_band') throw new Error('expected tier_band');
+      expect(result.expected).toBe(1_000_000); // capped at 2x largestWon, region multiplier included
+    });
+
+    it('is genuinely unconfigured, not defaulted, when the brand has no deal-size bands at all', () => {
+      const result = estimateTicketSize(inputs({ sizeTier: undefined }), {}, [], now);
+      expect(result.method).toBe('unconfigured');
+      expect((result as any).sizeAssumed).toBeUndefined();
+    });
   });
 
   it('computes a tier_band estimate from the brand deal-size config', () => {
