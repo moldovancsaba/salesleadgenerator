@@ -1,15 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Box, Chip, Group, Loader, Button, Checkbox, Text } from '@mantine/core';
-import { IconChecklist, IconX } from '@tabler/icons-react';
+import { Box, Group, Loader, Button, Checkbox, Text } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { KanbanBoard as GdsKanbanBoard } from '@sovereignsquad/gds-core/client';
 import type { KanbanItem as GdsKanbanItem, KanbanColumnData as GdsKanbanColumnData } from '@sovereignsquad/gds-core/client';
 import type { Lead, KanbanColumn } from './types';
 import { LeadCard } from './card';
 import { COLUMNS } from './constants';
-import { toggleColumnVisibility as toggleColumnVisibilityInSet } from '../lib/kanban-column-visibility';
 import { computeStaleness, DEFAULT_STALE_THRESHOLDS, type KanbanColumn as StaleDealColumn } from '../lib/stale-deal';
 import { getNextStepNudge } from '../lib/next-step-nudge';
 import type { LeadFilter } from '../lib/saved-filters';
@@ -36,6 +34,12 @@ type BoardProps = {
   forecast?: Record<string, ColumnForecast> | null;
   forecastCurrency?: 'USD' | 'EUR';
   filter?: LeadFilter;
+  // Owned by the parent (app/sales/[brand]/sales-page-client.tsx) so the
+  // toggle button can live in the same slim toolbar row as the Filters
+  // trigger, rather than each mounting its own separate row (issue #53
+  // follow-up — the board's own internal selection state below still
+  // resets whenever this flips off).
+  selectMode?: boolean;
 };
 
 type LeadKanbanItem = {
@@ -84,7 +88,7 @@ function LoadMoreSentinel({ onLoadMore }: { onLoadMore: () => void }) {
   );
 }
 
-export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter }: BoardProps) {
+export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false }: BoardProps) {
   const [columnStates, setColumnStates] = useState<Record<KanbanColumn, ColumnState>>(() => {
     const init: Record<KanbanColumn, ColumnState> = {
       DISCOVERED: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
@@ -98,18 +102,19 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   })
   const [bootstrapped, setBootstrapped] = useState(false)
 
-  // GDS's KanbanColumn renders its own header (title + item-count Badge) as
-  // one opaque unit — there's no render prop to split header from body, so
-  // an in-place "tap the header to collapse that column" accordion isn't
-  // buildable without reimplementing GDS's own governed column chrome
-  // (against this project's GDS-required-for-kanban-UI policy). This toggle
-  // row achieves the same PWA navigation goal — fewer visible columns, less
-  // horizontal scroll — by hiding/showing whole columns from the board
-  // instead, entirely in this app's own code.
-  const [hiddenColumns, setHiddenColumns] = useState<Set<KanbanColumn>>(() => new Set())
+  // Real in-place collapse (issue #53) — GDS 3.14.0 added native
+  // collapsible/collapsedColumnIds/onCollapsedChange support to KanbanBoard,
+  // rendering a header disclosure toggle on every column. Replaces the
+  // hide-whole-column-via-a-separate-chip-row workaround (issue #49) this
+  // app shipped before that capability existed — tapping a column's own
+  // header now collapses/expands it in place, exactly the affordance
+  // originally asked for.
+  const [collapsedColumnIds, setCollapsedColumnIds] = useState<string[]>([])
 
-  const toggleColumnVisibility = useCallback((key: KanbanColumn) => {
-    setHiddenColumns((prev) => toggleColumnVisibilityInSet(prev, key, COLUMNS.length))
+  const handleCollapsedChange = useCallback((columnId: string, collapsed: boolean) => {
+    setCollapsedColumnIds((prev) =>
+      collapsed ? [...prev, columnId] : prev.filter((id) => id !== columnId)
+    )
   }, [])
 
   // Fetched once per board mount, not per card — stale/critical badges are
@@ -251,19 +256,20 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     handleMove(itemId, fromColumnId as KanbanColumn, toColumnId as KanbanColumn)
   }, [handleMove])
 
-  // Issue #70: bulk DECLINE/PIN. An explicit mode toggle (not long-press or
-  // always-visible checkboxes, per owner-confirmed scope) so entering
-  // selection is a deliberate action, not an accidental tap.
-  const [selectMode, setSelectMode] = useState(false)
+  // Issue #70: bulk DECLINE/PIN. `selectMode` itself is a prop now (the
+  // toggle button lives one level up, sharing a row with the Filters
+  // trigger) — this resets the in-board selection whenever the parent
+  // flips it off, so leaving select mode always clears state cleanly.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [selectedColumn, setSelectedColumn] = useState<KanbanColumn | null>(null)
   const [bulkRunning, setBulkRunning] = useState(false)
 
-  const toggleSelectMode = useCallback(() => {
-    setSelectMode((prev) => !prev)
-    setSelectedIds(new Set())
-    setSelectedColumn(null)
-  }, [])
+  useEffect(() => {
+    if (!selectMode) {
+      setSelectedIds(new Set())
+      setSelectedColumn(null)
+    }
+  }, [selectMode])
 
   const toggleSelected = useCallback((leadId: string, column: KanbanColumn) => {
     setSelectedIds((prev) => {
@@ -373,11 +379,6 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     }
   }), [columnStates, forecast, formatForecast])
 
-  const visibleColumns = useMemo(
-    () => columns.filter((col) => !hiddenColumns.has(col.id as KanbanColumn)),
-    [columns, hiddenColumns]
-  )
-
   // GDS's KanbanItem/KanbanColumnData are fixed, non-generic interfaces — the
   // real renderItem prop is checked contravariantly against exactly that
   // shape, so the callback's own parameter types must match it, not our
@@ -427,33 +428,6 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // provides full move functionality without it.
   return (
     <>
-      <Group gap="xs" wrap="wrap" mb="sm" justify="space-between">
-        <Group gap="xs" wrap="wrap" role="group" aria-label="Show or hide kanban columns">
-          {COLUMNS.map((col) => {
-            const colState = columnStates[col.key]
-            const countLabel = typeof colState.count === 'number' ? colState.count.toLocaleString() : colState.leads.length
-            return (
-              <Chip
-                key={col.key}
-                size="xs"
-                checked={!hiddenColumns.has(col.key)}
-                onChange={() => toggleColumnVisibility(col.key)}
-              >
-                {col.label} ({countLabel})
-              </Chip>
-            )
-          })}
-        </Group>
-        <Button
-          size="xs"
-          variant={selectMode ? 'filled' : 'light'}
-          leftSection={selectMode ? <IconX size={14} /> : <IconChecklist size={14} />}
-          onClick={toggleSelectMode}
-        >
-          {selectMode ? 'Cancel select' : 'Select'}
-        </Button>
-      </Group>
-
       {selectMode && selectedIds.size > 0 && (
         <Group
           gap="sm"
@@ -476,10 +450,13 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       )}
 
       <GdsKanbanBoard
-        columns={visibleColumns}
+        columns={columns}
         onMoveItem={handleMoveItem}
         renderItem={renderItem}
         emptyColumnLabel={bootstrapped ? 'No leads' : 'Loading…'}
+        collapsible
+        collapsedColumnIds={collapsedColumnIds}
+        onCollapsedChange={handleCollapsedChange}
       />
     </>
   )

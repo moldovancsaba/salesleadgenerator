@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Group, Text, Paper, Loader, Container, Box, TextInput, UnstyledButton } from '@mantine/core';
+import { Group, Text, Paper, Loader, Container, Box, TextInput, UnstyledButton, ActionIcon, Tooltip } from '@mantine/core';
+import { IconChecklist, IconX } from '@tabler/icons-react';
 import type { Lead } from '@/app/types';
 import { KanbanBoard } from '@/app/kanban';
 import { LeadDetailModal } from '@/app/detail';
@@ -40,6 +41,10 @@ export function SalesPageClient({ brand }: Props) {
   // Issue #71: shared across kanban and table view (both mount the same
   // FilterBar), so switching views mid-session keeps the same active filter.
   const [leadFilter, setLeadFilter] = useState<LeadFilter>({})
+  // Issue #70/#53 follow-up: owned here (not inside KanbanBoard) so the
+  // toggle sits in the same slim toolbar row as the Filters trigger, rather
+  // than each control mounting its own separate row.
+  const [selectMode, setSelectMode] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Lead[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -263,7 +268,21 @@ export function SalesPageClient({ brand }: Props) {
 
       <div style={{ flex: 1 }}>
         {(view === 'kanban' || view === 'table') && (
-          <FilterBar brand={brand} value={leadFilter} onChange={setLeadFilter} />
+          <Group gap="xs" mb="sm">
+            <FilterBar brand={brand} value={leadFilter} onChange={setLeadFilter} />
+            {view === 'kanban' && (
+              <Tooltip label={selectMode ? 'Cancel select' : 'Select leads for a bulk action'}>
+                <ActionIcon
+                  variant={selectMode ? 'filled' : 'subtle'}
+                  size="lg"
+                  aria-label={selectMode ? 'Cancel select' : 'Select leads for a bulk action'}
+                  onClick={() => setSelectMode((prev) => !prev)}
+                >
+                  {selectMode ? <IconX size={18} /> : <IconChecklist size={18} />}
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </Group>
         )}
 
         {view === 'kanban' && (
@@ -273,6 +292,7 @@ export function SalesPageClient({ brand }: Props) {
             forecast={boardMeta?.forecast?.pipeline || null}
             forecastCurrency={boardMeta?.forecast?.currency === 'EUR' ? 'EUR' : 'USD'}
             filter={leadFilter}
+            selectMode={selectMode}
           />
         )}
 
