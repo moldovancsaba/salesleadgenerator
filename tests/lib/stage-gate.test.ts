@@ -21,13 +21,13 @@ describe('checkStageGate', () => {
   it('blocks a move into ENGAGED missing both required fields', () => {
     const result = checkStageGate('ENGAGED', {});
     expect(result.allowed).toBe(false);
-    expect(result.missing).toEqual(['a decision-maker contact', 'a value proposition']);
+    expect(result.missing).toEqual(['a contact', 'a value proposition']);
   });
 
-  it('blocks a move missing only the decision-maker contact', () => {
+  it('blocks a move missing only the contact', () => {
     const result = checkStageGate('ENGAGED', { value_proposition: 'Cognitive performance training' });
     expect(result.allowed).toBe(false);
-    expect(result.missing).toEqual(['a decision-maker contact']);
+    expect(result.missing).toEqual(['a contact']);
   });
 
   it('blocks a move missing only the value proposition', () => {
@@ -60,19 +60,29 @@ describe('checkStageGate', () => {
     expect(result.missing).toEqual(['a value proposition']);
   });
 
-  it('treats a contacts array with no decision-maker as missing', () => {
+  // isDecisionMaker is no longer a gating condition (owner-requested) — any
+  // contact at all satisfies this requirement, decision-maker or not.
+  it('allows a move into ENGAGED with a contact that has no decision-maker flag set', () => {
     const result = checkStageGate('ENGAGED', {
       contacts: [{ isDecisionMaker: false }],
       value_proposition: 'Cognitive performance training',
     });
-    expect(result.missing).toEqual(['a decision-maker contact']);
+    expect(result).toEqual({ allowed: true, missing: [] });
+  });
+
+  it('treats an empty contacts array as missing', () => {
+    const result = checkStageGate('ENGAGED', {
+      contacts: [],
+      value_proposition: 'Cognitive performance training',
+    });
+    expect(result.missing).toEqual(['a contact']);
   });
 });
 
 describe('formatStageGateError', () => {
   it('formats a clear, directly usable error message', () => {
-    expect(formatStageGateError('ENGAGED', ['a decision-maker contact', 'a value proposition'])).toBe(
-      'Missing required fields for ENGAGED: a decision-maker contact, a value proposition'
+    expect(formatStageGateError('ENGAGED', ['a contact', 'a value proposition'])).toBe(
+      'Missing required fields for ENGAGED: a contact, a value proposition'
     );
   });
 });
