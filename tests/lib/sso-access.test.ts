@@ -4,6 +4,7 @@ import {
   getAccessibleBrands,
   hasAccessToBrand,
   getRoleForBrand,
+  resolveLoginDestination,
 } from '../../lib/sso-access';
 
 // isSuperAdminEmail reads process.env.SSO_SUPER_ADMIN_EMAILS fresh on every
@@ -105,6 +106,41 @@ describe('lib/sso-access', () => {
       expect(getRoleForBrand('user@example.com', { cogmap: 'admin' }, 'cogmap')).toBe('admin');
       expect(getRoleForBrand('user@example.com', { cogmap: 'user' }, 'seyu')).toBe(null);
       expect(getRoleForBrand('user@example.com', undefined, 'cogmap')).toBe(null);
+    });
+  });
+
+  describe('resolveLoginDestination', () => {
+    it("sends a DoneIsBetter-pending user to /access-pending regardless of orgAccess", () => {
+      process.env.SSO_SUPER_ADMIN_EMAILS = '';
+      expect(resolveLoginDestination('pending', 'user@example.com', { cogmap: 'admin' })).toBe('/access-pending');
+    });
+
+    it("sends a DoneIsBetter-revoked user to /access-denied regardless of orgAccess", () => {
+      process.env.SSO_SUPER_ADMIN_EMAILS = '';
+      expect(resolveLoginDestination('revoked', 'user@example.com', { cogmap: 'admin' })).toBe('/access-denied');
+    });
+
+    it("sends an approved user with zero brand access to /access-pending — the new 'welcome' state, not a login failure", () => {
+      process.env.SSO_SUPER_ADMIN_EMAILS = '';
+      expect(resolveLoginDestination('approved', 'newperson@example.com', undefined)).toBe('/access-pending');
+      expect(resolveLoginDestination('approved', 'newperson@example.com', {})).toBe('/access-pending');
+    });
+
+    it('sends an approved user with at least one brand to the root landing page', () => {
+      process.env.SSO_SUPER_ADMIN_EMAILS = '';
+      expect(resolveLoginDestination('approved', 'user@example.com', { cogmap: 'user' })).toBe('/');
+    });
+
+    it('treats a null/undefined DoneIsBetter permission (no record at all) the same as approved', () => {
+      process.env.SSO_SUPER_ADMIN_EMAILS = '';
+      expect(resolveLoginDestination(null, 'user@example.com', { cogmap: 'user' })).toBe('/');
+      expect(resolveLoginDestination(undefined, 'newperson@example.com', undefined)).toBe('/access-pending');
+    });
+
+    it('never sends a super admin to /access-pending, even with empty orgAccess', () => {
+      process.env.SSO_SUPER_ADMIN_EMAILS = 'moldovancsaba@gmail.com';
+      expect(resolveLoginDestination('approved', 'moldovancsaba@gmail.com', undefined)).toBe('/');
+      expect(resolveLoginDestination(undefined, 'moldovancsaba@gmail.com', {})).toBe('/');
     });
   });
 });

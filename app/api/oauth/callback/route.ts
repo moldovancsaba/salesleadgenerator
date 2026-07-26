@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCodeForTokens, getPermission, verifyIdToken } from '@/lib/sso';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
-import { upsertUserSeen } from '@/lib/sso-access';
+import { resolveLoginDestination, upsertUserSeen, type SsoUserAccessRecord } from '@/lib/sso-access';
 
 const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30 days, matches DoneIsBetter's own published example
 
@@ -40,20 +40,20 @@ export async function GET(request: NextRequest) {
     // their DoneIsBetter-level permission status below, so the super admin
     // sees pending/revoked accounts in the admin UI too, not just approved
     // ones. Never blocks the redirect — a DB hiccup here shouldn't turn a
-    // successful SSO login into a failed one.
+    // successful SSO login into a failed one. The record itself is reused
+    // below to decide the redirect, rather than a second DB round trip.
+    let userAccessRecord: SsoUserAccessRecord | null = null;
     if (isMongoConfigured() && claims.email) {
       try {
         const client = await clientPromise;
         const db = client.db();
-        await upsertUserSeen(db, { ssoUserId: claims.sub, email: claims.email, name: claims.name });
+        userAccessRecord = await upsertUserSeen(db, { ssoUserId: claims.sub, email: claims.email, name: claims.name });
       } catch (err) {
         console.error('[api/oauth/callback] upsertUserSeen failed:', err);
       }
     }
 
-    let destination = '/';
-    if (permission?.status === 'pending') destination = '/access-pending';
-    else if (permission?.status === 'revoked') destination = '/access-denied';
+    const destination = resolveLoginDestination(permission?.status, claims.email, userAccessRecord?.orgAccess);
 
     const response = NextResponse.redirect(new URL(destination, request.url));
     clearOauthCookies(response);
