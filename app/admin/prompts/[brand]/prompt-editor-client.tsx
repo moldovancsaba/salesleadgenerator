@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import {
   Container, Title, Text, Button, Group, Stack, Textarea,
-  Paper, Loader, Divider, Tabs, Select, Alert, TextInput,
+  Paper, Loader, Divider, Tabs, Alert, TextInput, Switch,
 } from '@mantine/core'
-import { IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconCheck } from '@tabler/icons-react'
 import { BRAND_CONFIG, type Brand } from '@/app/lib/brand'
 
 export function PromptEditorClient({ brand }: { brand: Brand }) {
@@ -15,6 +15,8 @@ export function PromptEditorClient({ brand }: { brand: Brand }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [discEnabled, setDiscEnabled] = useState(true)
+  const [enrEnabled, setEnrEnabled] = useState(true)
   const [discoveryContent, setDiscoveryContent] = useState('')
   const [enrichmentContent, setEnrichmentContent] = useState('')
   const [discoverySource, setDiscoverySource] = useState('')
@@ -35,14 +37,14 @@ export function PromptEditorClient({ brand }: { brand: Brand }) {
           const discData = await discRes.json()
           if (!cancelled) {
             setDiscoveryContent(discData.prompt?.content || '')
-            setDiscoverySource(discData.prompt?.source || discData.source || 'unknown')
+            setDiscoverySource(discData.source || 'unknown')
           }
         }
         if (enrRes.ok) {
           const enrData = await enrRes.json()
           if (!cancelled) {
             setEnrichmentContent(enrData.prompt?.content || '')
-            setEnrichmentSource(enrData.prompt?.source || enrData.source || 'unknown')
+            setEnrichmentSource(enrData.source || 'unknown')
           }
         }
       } catch (err: any) {
@@ -55,7 +57,7 @@ export function PromptEditorClient({ brand }: { brand: Brand }) {
     return () => { cancelled = true }
   }, [brand, tenantId])
 
-  async function save(type: 'discovery' | 'enrichment', content: string) {
+  async function savePrompt(type: 'discovery' | 'enrichment', content: string) {
     setSaving(true)
     setError(null)
     setSaved(false)
@@ -69,17 +71,31 @@ export function PromptEditorClient({ brand }: { brand: Brand }) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data?.error || 'Failed to save prompt')
       }
-      if (type === 'discovery') {
-        setDiscoverySource('mongodb')
-      } else {
-        setEnrichmentSource('mongodb')
-      }
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err: any) {
       setError(err?.message || 'Failed to save prompt')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function toggleOperation(type: 'discovery' | 'enrichment', enabled: boolean) {
+    try {
+      const res = await fetch('/api/admin/toggle', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand, tenantId, operation: type, enabled }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || 'Failed to update toggle')
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update toggle')
+      // Revert the switch on error
+      if (type === 'discovery') setDiscEnabled(!enabled)
+      else setEnrEnabled(!enabled)
     }
   }
 
@@ -111,7 +127,7 @@ export function PromptEditorClient({ brand }: { brand: Brand }) {
         )}
 
         {saved && (
-          <Alert color="green" title="Saved">Prompts saved to database and disk.</Alert>
+          <Alert color="green" title="Saved">Prompt saved.</Alert>
         )}
 
         <Tabs value={activeTab} onChange={setActiveTab}>
@@ -122,16 +138,27 @@ export function PromptEditorClient({ brand }: { brand: Brand }) {
 
           <Tabs.Panel value="discovery" pt="md">
             <Stack gap="sm">
-              <Group justify="space-between">
+              <Group justify="space-between" align="center">
                 <Text size="sm" c="dimmed">Source: {discoverySource}</Text>
-                <Button
-                  size="sm"
-                  leftSection={<IconPlus size={14} />}
-                  onClick={() => save('discovery', discoveryContent)}
-                  loading={saving}
-                >
-                  Save Discovery
-                </Button>
+                <Group gap="xs">
+                  <Switch
+                    checked={discEnabled}
+                    onChange={(e) => {
+                      const val = e.currentTarget.checked
+                      setDiscEnabled(val)
+                      toggleOperation('discovery', val)
+                    }}
+                    size="sm"
+                    label="Enabled"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => savePrompt('discovery', discoveryContent)}
+                    loading={saving}
+                  >
+                    Save Discovery
+                  </Button>
+                </Group>
               </Group>
               <Textarea
                 value={discoveryContent}
@@ -146,16 +173,27 @@ export function PromptEditorClient({ brand }: { brand: Brand }) {
 
           <Tabs.Panel value="enrichment" pt="md">
             <Stack gap="sm">
-              <Group justify="space-between">
+              <Group justify="space-between" align="center">
                 <Text size="sm" c="dimmed">Source: {enrichmentSource}</Text>
-                <Button
-                  size="sm"
-                  leftSection={<IconTrash size={14} />}
-                  onClick={() => save('enrichment', enrichmentContent)}
-                  loading={saving}
-                >
-                  Save Enrichment
-                </Button>
+                <Group gap="xs">
+                  <Switch
+                    checked={enrEnabled}
+                    onChange={(e) => {
+                      const val = e.currentTarget.checked
+                      setEnrEnabled(val)
+                      toggleOperation('enrichment', val)
+                    }}
+                    size="sm"
+                    label="Enabled"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => savePrompt('enrichment', enrichmentContent)}
+                    loading={saving}
+                  >
+                    Save Enrichment
+                  </Button>
+                </Group>
               </Group>
               <Textarea
                 value={enrichmentContent}
