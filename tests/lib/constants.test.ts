@@ -36,7 +36,7 @@ describe('getTicketSize', () => {
     });
   });
 
-  // Issue #111 — the ordinary case where the lead's size tier is reliably
+  // Issue #112 — the ordinary case where the lead's size tier is reliably
   // known: sizeAssumed must be undefined/falsy, not just omitted from a
   // stored estimate that predates this field.
   it('leaves sizeAssumed falsy for a normal, reliable estimate', () => {
