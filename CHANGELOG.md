@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.76
+
+### Added — Sign in prompt on the root landing page (issue #103 follow-up)
+Owner-requested: "For the not logged in main landing page please add the login to the main page under the general information." `app/page.tsx` (the plain marketing page — title, contact info, `InfoCard`) had no way to sign in at all; a first-time visitor with an existing account had to already know to open the hamburger nav. Converted from a Server to a Client Component (`useAuth()`) so the prompt can be conditional: when `!loading && !user`, a `Divider` + "Already have an account?" + `Sign in` button (the same `login()` the nav's own Sign In control calls) renders below the existing general-information content. An already-authenticated visitor sees the same marketing content with no redundant prompt.
+
+Verified via a route-mocked Playwright render (both logged-out and logged-in session states): the prompt shows/hides correctly, zero console errors either way, and clicking the button actually navigates to `/api/auth/login`.
+
+Side effect: this page previously threw `Attempted to call mergeThemeOverrides() from the server but mergeThemeOverrides is on the client` in `next dev`, because it rendered `InfoCard` (`@sovereignsquad/gds-admin/client`) from a Server Component — confirmed pre-existing on the unmodified base in an earlier investigation, out of scope at the time. The Client Component conversion resolves this as a byproduct (`curl http://localhost:3000/` now returns `200` in dev where it previously `500`'d).
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean, vitest 374/374, smoke 5/5, build.
+
 ## 2.4.75
 
 ### Changed — land on Forecast, not the marketing root, when a user has organization access (issue #103 follow-up)
