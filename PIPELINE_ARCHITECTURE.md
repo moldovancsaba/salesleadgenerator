@@ -1,6 +1,6 @@
 # Sales Lead Generator Pipeline Architecture
 
-**Version:** 2.4.61
+**Version:** 2.4.84
 
 ## Overview
 
@@ -283,7 +283,7 @@ Collection: `winrate_calibration`, one doc per `(tenantId, brand)`, upserted onl
 - **Board:** Horizontal scroll between columns, vertical scroll within columns
 - **Cards:** Compact (`ProductCard`) — entity name, ICE score, ticket size, region, contact — tap for full detail modal
 - **Drag:** Long-press + pointer events for cross-column moves
-- **Filters:** None currently — the Region/Status filter dropdowns were removed entirely in 2.4.0. The header has only the view-mode selector (Kanban/Table/Metrics/Search Learning) and a predictive search bar; there is no region/country/tenantId filter UI in the current frontend
+- **Filters:** Region and industry (2.4.82, issue #71) — a Filters icon button above the board/table (collapsed by default, per owner preference: nothing filter-related shows until it's opened) expands a Drawer with a region `Select` and an industry text filter (case-insensitive substring match), plus named saved-filter pills persisted per-browser (`localStorage`, scoped by brand). Applies identically to kanban and table view via server-side query params on `GET /api/leads`/`GET /api/leads/columns`. No status/`kanbanColumn` filter — the kanban board's own columns already partition by status. No tenant filter UI (API-only, `?tenantId=`).
 
 ## Observability
 
