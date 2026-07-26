@@ -12,6 +12,7 @@ import { COLUMNS } from './constants';
 import { toggleColumnVisibility as toggleColumnVisibilityInSet } from '../lib/kanban-column-visibility';
 import { computeStaleness, DEFAULT_STALE_THRESHOLDS, type KanbanColumn as StaleDealColumn } from '../lib/stale-deal';
 import { getNextStepNudge } from '../lib/next-step-nudge';
+import type { LeadFilter } from '../lib/saved-filters';
 
 type ColumnState = {
   leads: Lead[];
@@ -34,6 +35,7 @@ type BoardProps = {
   onOpenLead: (lead: Lead) => void;
   forecast?: Record<string, ColumnForecast> | null;
   forecastCurrency?: 'USD' | 'EUR';
+  filter?: LeadFilter;
 };
 
 type LeadKanbanItem = {
@@ -82,7 +84,7 @@ function LoadMoreSentinel({ onLoadMore }: { onLoadMore: () => void }) {
   );
 }
 
-export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD' }: BoardProps) {
+export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter }: BoardProps) {
   const [columnStates, setColumnStates] = useState<Record<KanbanColumn, ColumnState>>(() => {
     const init: Record<KanbanColumn, ColumnState> = {
       DISCOVERED: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
@@ -142,6 +144,8 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       url.searchParams.set('tenantId', tenantId)
       url.searchParams.set('column', colKey)
       if (cursor) url.searchParams.set('cursor', cursor)
+      if (filter?.region) url.searchParams.set('region', filter.region)
+      if (filter?.industry?.trim()) url.searchParams.set('industry', filter.industry.trim())
 
       const res = await fetch(url.toString())
       if (!res.ok) throw new Error(`Column load failed: ${res.status}`)
@@ -172,9 +176,11 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         [colKey]: { ...prev[colKey], loading: false },
       }))
     }
-  }, [brand, tenantId])
+  }, [brand, tenantId, filter])
 
-  // Bootstrap all columns with their first chunk
+  // Bootstrap all columns with their first chunk — also re-runs whenever
+  // filter changes, since loadColumn (in its deps) is a new function
+  // reference whenever the filter object changes (issue #71).
   useEffect(() => {
     setBootstrapped(false)
     Promise.all(COLUMNS.map((col) => loadColumn(col.key))).then(() => setBootstrapped(true))

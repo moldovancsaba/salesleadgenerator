@@ -9,6 +9,8 @@ import { LeadDetailModal } from '@/app/detail';
 import { TableView } from '@/app/table';
 import { SearchLearningPanel } from '@/app/search-learning';
 import { MetricsPanel } from '@/app/metrics';
+import { FilterBar } from '@/app/components/FilterBar';
+import type { LeadFilter } from '@/lib/saved-filters';
 
 type ViewMode = 'kanban' | 'table' | 'metrics' | 'search';
 
@@ -35,6 +37,9 @@ export function SalesPageClient({ brand }: Props) {
   const [metaLoading, setMetaLoading] = useState(true)
   const [tableLeads, setTableLeads] = useState<Lead[]>([])
   const [tableLoading, setTableLoading] = useState(true)
+  // Issue #71: shared across kanban and table view (both mount the same
+  // FilterBar), so switching views mid-session keeps the same active filter.
+  const [leadFilter, setLeadFilter] = useState<LeadFilter>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Lead[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -73,6 +78,8 @@ export function SalesPageClient({ brand }: Props) {
         url.searchParams.set('tenantId', 'default')
         url.searchParams.set('limit', '500')
         if (cursor) url.searchParams.set('cursor', cursor)
+        if (leadFilter.region) url.searchParams.set('region', leadFilter.region)
+        if (leadFilter.industry?.trim()) url.searchParams.set('industry', leadFilter.industry.trim())
 
         const res = await fetch(url.toString())
         if (!res.ok) throw new Error(`${res.status}`)
@@ -88,7 +95,7 @@ export function SalesPageClient({ brand }: Props) {
       .catch(console.error)
       .finally(() => { if (!cancelled) setTableLoading(false) })
     return () => { cancelled = true }
-  }, [view, brand])
+  }, [view, brand, leadFilter.region, leadFilter.industry])
 
   const handleAction = useCallback(async (leadId: string, action: string, payload?: any) => {
     try {
@@ -255,12 +262,17 @@ export function SalesPageClient({ brand }: Props) {
       </Group>
 
       <div style={{ flex: 1 }}>
+        {(view === 'kanban' || view === 'table') && (
+          <FilterBar brand={brand} value={leadFilter} onChange={setLeadFilter} />
+        )}
+
         {view === 'kanban' && (
           <KanbanBoard
             brand={brand}
             onOpenLead={setSelectedLead}
             forecast={boardMeta?.forecast?.pipeline || null}
             forecastCurrency={boardMeta?.forecast?.currency === 'EUR' ? 'EUR' : 'USD'}
+            filter={leadFilter}
           />
         )}
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
 import { isAutoManagedColumn, ICE_SCORE_AGGREGATION_EXPR } from '@/lib/kanban-column'
+import { escapeRegExp } from '@/app/lib/search/tagged-content-filter'
 
 const CHUNK_SIZE = 50
 
@@ -37,10 +38,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'column=DISCOVERED|QUALIFIED|ENGAGED|PROPOSAL|WON|LOST required' }, { status: 400 })
     }
 
+    // Issue #71: same two filterable dimensions as GET /api/leads (region
+    // exact match, industry case-insensitive substring) — kept identical
+    // across both views rather than also exposing a status/kanbanColumn
+    // filter here, which would be redundant with this route's own
+    // column-partitioned model.
+    const region = searchParams.get('region') || undefined
+    const industry = searchParams.get('industry') || undefined
+
     const client = await clientPromise
     const db = client.db()
     const collection = db.collection(config.dbCollection)
-    const colFilter = { kanbanColumn: column, ...filter }
+    const colFilter: Record<string, any> = { kanbanColumn: column, ...filter }
+    if (region) colFilter.region = region
+    if (industry) colFilter.industry = { $regex: escapeRegExp(industry), $options: 'i' }
 
     const [countDoc] = await collection.aggregate([
       { $match: colFilter },

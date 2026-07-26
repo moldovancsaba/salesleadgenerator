@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.82
+
+### Added — Saved/filtered views (issue #71)
+Region/status filters existed pre-2.4.0 and were deliberately removed as redundant with the kanban board's column-based grouping. Owner reviewed the remaining idea-bank item and scoped this back in: region + industry filters (not status, to avoid re-litigating that exact redundancy), applying to both kanban and table view, server-side query params, saved filters per-browser.
+
+`GET /api/leads` gains an `industry` param (case-insensitive substring — `region` already existed server-side but was never actually called by any UI). `GET /api/leads/columns` gains both `region` and `industry`, neither of which existed there before. New `<FilterBar>` component mounted once in `app/sales/[brand]/sales-page-client.tsx`, shared by both views via a single filter state object. New pure module `lib/saved-filters.ts` (11 unit tests) backs per-browser saved filters (`localStorage`, keyed by brand) — reuses the existing `Pill`-with-remove-button pattern from the outreach templates tag UI rather than inventing a new one.
+
+6 new integration tests for both routes' new filter params, including a regex-special-character-as-literal check (industry values are free text, filtered via `$regex` reusing the existing `escapeRegExp()` helper, now exported from `tagged-content-filter.ts`).
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean (96 files), vitest 422/422, smoke 5/5, build. Integration suite: same 14 pre-existing unrelated failures as baseline, 0 new failures, 6 new passing tests.
+
 ## 2.4.81
 
 ### Added — Bulk actions on kanban cards (issue #70)

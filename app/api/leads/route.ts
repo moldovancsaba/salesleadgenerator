@@ -12,6 +12,7 @@ import { dedupeContacts } from '../../../lib/contacts'
 import { verifyLeadContactsAsync } from '../../lib/email-verification-store'
 import { scanLeadTechStackAsync } from '../../lib/tech-stack-scan-store'
 import { computeTicketSizeForLead } from '../../lib/ticket-size-store'
+import { escapeRegExp } from '../../lib/search/tagged-content-filter'
 
 // Normalize address - ensure country is included if missing
 function normalizeAddress(address: string, country: string): string {
@@ -109,6 +110,7 @@ export async function GET(request: Request) {
     const tenantId = getTenantId(request);
     const { searchParams } = new URL(request.url)
     const region = searchParams.get('region') || undefined
+    const industry = searchParams.get('industry') || undefined
     const kanbanColumn = searchParams.get('kanbanColumn') || undefined
     const limit = Math.max(1, Math.min(5000, parseInt(searchParams.get('limit') || '5000') || 5000))
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
@@ -130,6 +132,11 @@ export async function GET(request: Request) {
       filter = { tenantId }
     }
     if (region) filter.region = region
+    // Case-insensitive substring match — industry is free text entered via
+    // Sales Settings/lead creation, not a fixed enum, so an exact match
+    // would miss casing/whitespace variants a user reasonably expects to
+    // match (issue #71).
+    if (industry) filter.industry = { $regex: escapeRegExp(industry), $options: 'i' }
     if (kanbanColumn) filter.kanbanColumn = kanbanColumn
 
     const totalCount = await db.collection(config.dbCollection).countDocuments(filter)
