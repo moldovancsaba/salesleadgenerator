@@ -8,6 +8,7 @@ import { scanTechStack } from '../../lib/tech-stack-scan'
 import { computeTicketSizeForLead } from './ticket-size-store'
 import { createManualTicketSizeOverride } from '../../lib/ticket-size'
 import { defaultRevenueTargetCurrency } from './sales-settings'
+import { checkStageGate, formatStageGateError } from '../../lib/stage-gate'
 
 export type LeadActionInput = {
   brand: string
@@ -49,6 +50,19 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
   const normalizedBody = normalizeLead({ ...existing, ...payload, action })
   const updateData: Record<string, any> = { updatedAt: new Date() }
   let outcomeValue: string = action
+
+  // Issue #72: hard block, no bypass. Checked against normalizedBody (already
+  // existing+payload merged), so a same-request field edit can satisfy the
+  // gate, not just pre-existing lead state. DISCOVERED/QUALIFIED stay
+  // auto-managed (lib/kanban-column.ts) and are never gated; WON/LOST are
+  // terminal and not gated either.
+  const destinationColumn = action === 'PIN' ? 'ENGAGED' : action === 'COLUMN_MOVE' ? normalizedBody.kanbanColumn : null
+  if (destinationColumn) {
+    const gate = checkStageGate(destinationColumn, normalizedBody)
+    if (!gate.allowed) {
+      return { success: false, error: formatStageGateError(destinationColumn, gate.missing), requestId }
+    }
+  }
 
   if (action === 'COLUMN_MOVE') {
     const now = new Date()
