@@ -77,6 +77,14 @@ describe('lib/sso-access', () => {
       expect(getAccessibleBrands('user@example.com', undefined)).toEqual([]);
       expect(getAccessibleBrands('user@example.com', {})).toEqual([]);
     });
+
+    it("always returns BRAND_CONFIG's own canonical order (cogmap, seyu), never MongoDB's field-insertion order", () => {
+      process.env.SSO_SUPER_ADMIN_EMAILS = '';
+      // seyu granted before cogmap — object key order would put seyu first
+      // if this function trusted Object.keys(orgAccess) — order matters now
+      // that resolveLoginDestination() picks accessibleBrands[0] as "first".
+      expect(getAccessibleBrands('user@example.com', { seyu: 'user', cogmap: 'user' })).toEqual(['cogmap', 'seyu']);
+    });
   });
 
   describe('hasAccessToBrand', () => {
@@ -126,21 +134,28 @@ describe('lib/sso-access', () => {
       expect(resolveLoginDestination('approved', 'newperson@example.com', {})).toBe('/access-pending');
     });
 
-    it('sends an approved user with at least one brand to the root landing page', () => {
+    it("sends an approved user with exactly one brand to that brand's Forecast page", () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = '';
-      expect(resolveLoginDestination('approved', 'user@example.com', { cogmap: 'user' })).toBe('/');
+      expect(resolveLoginDestination('approved', 'user@example.com', { cogmap: 'user' })).toBe('/forecast/cogmap');
+      expect(resolveLoginDestination('approved', 'user@example.com', { seyu: 'admin' })).toBe('/forecast/seyu');
+    });
+
+    it("sends a user with both brands to the canonically-first brand's Forecast page (cogmap), regardless of grant order", () => {
+      process.env.SSO_SUPER_ADMIN_EMAILS = '';
+      expect(resolveLoginDestination('approved', 'user@example.com', { cogmap: 'user', seyu: 'admin' })).toBe('/forecast/cogmap');
+      expect(resolveLoginDestination('approved', 'user@example.com', { seyu: 'admin', cogmap: 'user' })).toBe('/forecast/cogmap');
     });
 
     it('treats a null/undefined DoneIsBetter permission (no record at all) the same as approved', () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = '';
-      expect(resolveLoginDestination(null, 'user@example.com', { cogmap: 'user' })).toBe('/');
+      expect(resolveLoginDestination(null, 'user@example.com', { cogmap: 'user' })).toBe('/forecast/cogmap');
       expect(resolveLoginDestination(undefined, 'newperson@example.com', undefined)).toBe('/access-pending');
     });
 
-    it('never sends a super admin to /access-pending, even with empty orgAccess', () => {
+    it("sends a super admin to CogMap's Forecast page (their canonically-first brand), never /access-pending", () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = 'moldovancsaba@gmail.com';
-      expect(resolveLoginDestination('approved', 'moldovancsaba@gmail.com', undefined)).toBe('/');
-      expect(resolveLoginDestination(undefined, 'moldovancsaba@gmail.com', {})).toBe('/');
+      expect(resolveLoginDestination('approved', 'moldovancsaba@gmail.com', undefined)).toBe('/forecast/cogmap');
+      expect(resolveLoginDestination(undefined, 'moldovancsaba@gmail.com', {})).toBe('/forecast/cogmap');
     });
   });
 });
