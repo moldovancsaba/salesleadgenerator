@@ -1,0 +1,61 @@
+import { NextResponse } from 'next/server'
+import { executeLeadAction } from '../../../lib/lead-actions'
+import { resolveBrand } from '../../../lib/brand'
+
+// Issue #70. No requireApiKey — matches PATCH /api/leads (app/api/leads/
+// route.ts), which dropped that guard for the same reason (issue #91): this
+// is called from the browser (app/kanban.tsx's bulk action bar), which has
+// no safe way to hold SLG_API_KEY.
+const MAX_BULK_SIZE = 100
+const ALLOWED_BULK_ACTIONS = new Set(['DECLINE', 'PIN'])
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json()
+    const brand = resolveBrand(body.brand)
+    const tenantId = (body.tenantId || 'default').trim() || 'default'
+    const action = String(body.action || '').toUpperCase()
+    const leadIds = Array.isArray(body.leadIds) ? body.leadIds : []
+    const payload = body.payload && typeof body.payload === 'object' ? body.payload : {}
+
+    if (!ALLOWED_BULK_ACTIONS.has(action)) {
+      return NextResponse.json({ error: 'action must be one of: DECLINE, PIN' }, { status: 400 })
+    }
+
+    if (leadIds.length === 0) {
+      return NextResponse.json({ error: 'leadIds must be a non-empty array' }, { status: 400 })
+    }
+
+    if (leadIds.length > MAX_BULK_SIZE) {
+      return NextResponse.json({ error: `leadIds exceeds the ${MAX_BULK_SIZE}-lead limit per request` }, { status: 400 })
+    }
+
+    // Sequential, not Promise.all — these are writes to shared per-lead
+    // documents; reusing executeLeadAction exactly as the single-lead PATCH
+    // route does (app/api/leads/route.ts) keeps this bulk path from ever
+    // diverging from that business logic.
+    const results: Array<{ leadId: string; success: boolean; error?: string }> = []
+    for (const leadId of leadIds) {
+      try {
+        const result = await executeLeadAction({
+          brand,
+          tenantId,
+          leadId: String(leadId),
+          action: action as 'DECLINE' | 'PIN',
+          payload,
+        })
+        results.push({ leadId: String(leadId), success: result.success, error: result.success ? undefined : result.error })
+      } catch (itemError: any) {
+        // A malformed leadId throws synchronously inside executeLeadAction
+        // (invalid ObjectId) rather than returning a normal {success:false}
+        // result — caught here so one bad ID can't fail the whole batch.
+        results.push({ leadId: String(leadId), success: false, error: itemError?.message || 'Invalid lead id' })
+      }
+    }
+
+    return NextResponse.json({ results })
+  } catch (error: any) {
+    console.error('[API:leads/bulk] PATCH error:', error)
+    return NextResponse.json({ error: 'Failed to process bulk action', details: error.message }, { status: 500 })
+  }
+}

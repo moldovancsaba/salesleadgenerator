@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.81
+
+### Added — Bulk actions on kanban cards (issue #70)
+Owner-prioritized promotion from the idea bank (2026-07-26, last of 5 highest-business-value items selected for near-term delivery — completes the batch). Every kanban action previously operated on exactly one lead per request.
+
+New `PATCH /api/leads/bulk` (capped at 100 leads/request, no `requireApiKey` per the same browser-callable precedent as `PATCH /api/leads`) loops `executeLeadAction` per lead — reusing the exact same function the single-lead route already calls, so bulk DECLINE/PIN can never diverge from that business logic (including issue #72's stage gate, which still blocks per-lead, reported per-item rather than failing the whole batch). Each item is individually try/caught so one malformed lead id can't 500 the entire request.
+
+`app/kanban.tsx` gains an explicit "Select" mode toggle (owner-confirmed scope), a checkbox per card while active, same-column-only selection, and a bulk action bar reporting partial-failure summaries via the existing notification pattern.
+
+7 new integration tests (partial failure, over-cap rejection, malformed id resilience, #72 gate interaction).
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean (94 files), vitest 411/411, smoke 5/5, build. Integration suite: same 14 pre-existing unrelated failures as baseline, 0 new failures, 7 new passing tests.
+
+**This closes the batch of 5 idea-bank items promoted 2026-07-26 (#70, #72, #73, #74, #75) — all shipped across 2.4.77–2.4.81.**
+
 ## 2.4.80
 
 ### Added — Near-duplicate review queue (issue #73)
