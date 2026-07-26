@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput, TagsInput, Badge, Pill } from '@mantine/core'
+import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { BRAND_CONFIG, type Brand } from '@/app/lib/brand'
 
@@ -14,6 +15,21 @@ type Template = {
   body: string
   variables: string[]
   tags?: string[]
+}
+
+// Issue #75: per-template send volume plus WON/LOST conversion attribution,
+// from `/api/outreach-templates?mode=analytics`.
+type TemplateAnalytics = {
+  templateId: string
+  name: string
+  channel: string
+  channels: string[]
+  totalLogs: number
+  lastUsed: string | null
+  won: number
+  lost: number
+  conversionRate: number
+  declineRate: number
 }
 
 const EMPTY_TEMPLATE: Omit<Template, 'id'> = {
@@ -50,6 +66,10 @@ export function OutreachTemplatesClient({ brand }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  const [analytics, setAnalytics] = useState<TemplateAnalytics[]>([])
+  const [analyticsLoading, setAnalyticsLoading] = useState(true)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+
   const loadTemplates = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -65,9 +85,25 @@ export function OutreachTemplatesClient({ brand }: Props) {
     }
   }, [brand, tenantId])
 
+  const loadAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true)
+    setAnalyticsError(null)
+    try {
+      const res = await fetch(`/api/outreach-templates?mode=analytics&brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}`)
+      if (!res.ok) throw new Error('Failed to load template analytics')
+      const data = await res.json()
+      setAnalytics(data.analytics || [])
+    } catch (err: any) {
+      setAnalyticsError(err?.message || 'Failed to load template analytics')
+    } finally {
+      setAnalyticsLoading(false)
+    }
+  }, [brand, tenantId])
+
   useEffect(() => {
     loadTemplates()
-  }, [loadTemplates])
+    loadAnalytics()
+  }, [loadTemplates, loadAnalytics])
 
   function resetForm() {
     setForm(EMPTY_TEMPLATE)
@@ -277,6 +313,61 @@ export function OutreachTemplatesClient({ brand }: Props) {
               </Text>
             )}
           </Stack>
+        )}
+
+        <div>
+          <Title order={3}>Template Performance</Title>
+          <Text size="sm" c="dimmed">
+            Send volume and WON/LOST conversion attribution (issue #75) — last-touch, 90-day attribution window.
+          </Text>
+        </div>
+
+        {analyticsError && <AdminFormStatus state="error" title="Something went wrong" description={analyticsError} />}
+
+        {analyticsLoading ? (
+          <AdminFormStatus state="loading" title="Loading template performance" />
+        ) : analytics.length === 0 ? (
+          <AdminResourceEmptyState
+            title="No outreach sent yet"
+            description="Send outreach using a template to start seeing volume and conversion data here."
+          />
+        ) : (
+          <AdminDataTable<TemplateAnalytics>
+            rows={analytics}
+            caption="Template send volume and conversion attribution"
+            columns={[
+              {
+                key: 'name',
+                header: 'Template',
+                rowHeader: true,
+                accessor: (row) => (
+                  <Stack gap={0}>
+                    <Text fw={600} size="sm">{row.name}</Text>
+                    <Text size="xs" c="dimmed">{row.channels.join(', ')}</Text>
+                  </Stack>
+                ),
+              },
+              { key: 'sent', header: 'Sent', accessor: (row) => row.totalLogs },
+              { key: 'won', header: 'Won', accessor: (row) => row.won },
+              { key: 'lost', header: 'Lost', accessor: (row) => row.lost },
+              {
+                key: 'conversionRate',
+                header: 'Conversion rate',
+                accessor: (row) => `${(row.conversionRate * 100).toFixed(1)}%`,
+              },
+              {
+                key: 'declineRate',
+                header: 'Decline rate',
+                accessor: (row) => `${(row.declineRate * 100).toFixed(1)}%`,
+              },
+              {
+                key: 'lastUsed',
+                header: 'Last used',
+                accessor: (row) => (row.lastUsed ? new Date(row.lastUsed).toLocaleDateString() : '—'),
+              },
+            ]}
+            getRowKey={(row) => row.templateId}
+          />
         )}
       </Stack>
     </Container>

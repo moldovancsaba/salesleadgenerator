@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.77
+
+### Added — Template conversion tracking (issue #75)
+Owner-prioritized promotion from the idea bank (2026-07-26, one of 5 highest-business-value items selected for near-term delivery). Outreach template analytics previously reported send volume only; templates couldn't be compared on whether they actually led to a WON deal, even though the data to compute that (`outreach_logs` sends, `outcomelogs` WON/LOST transitions) was already being written.
+
+New pure module `lib/template-conversion.ts` (`computeTemplateConversions`, 8 unit tests): last-touch attribution — the most recent send to a lead before that lead's earliest WON/LOST `outcomelogs` entry, within a 90-day window, gets credit. Both WON and LOST are surfaced (`conversionRate`/`declineRate`), not a positive-only metric.
+
+`GET /api/outreach-templates?mode=analytics` now joins `outreach_logs` against `outcomelogs` via this helper, adding `won`/`lost`/`conversionRate`/`declineRate` to each template's existing `totalLogs`/`channels`/`lastUsed`. This branch previously had zero callers in the UI at all — first wired up in this delivery via a new "Template Performance" `AdminDataTable` in `app/outreach/templates/[brand]/templates-client.tsx`.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean (89 files), vitest 382/382, smoke 5/5, build.
+
 ## 2.4.76
 
 ### Added — Sign in prompt on the root landing page (issue #103 follow-up)
