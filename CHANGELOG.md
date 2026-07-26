@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.72
+
+### Fixed — SSO callback route moved to match the real registered redirect URI (issue #102)
+Owner obtained a real DoneIsBetter SSO client registration (`client_id`, `client_secret`, two registered redirect URIs: `/auth/callback` and `/api/oauth/callback`, scopes `openid profile email offline_access`, homepage `https://salesleadgenerator.vercel.app`). Neither registered URI matched phase 1's callback route (`app/api/auth/callback/`), built before real registration existed. Moved the route to `app/api/oauth/callback/route.ts` to match one of the two registered URIs exactly — chosen over `/auth/callback` for consistency with this app's existing `app/api/*` Route Handler convention and DoneIsBetter's own `/api/oauth/*` endpoint naming.
+
+**Verified against the real, live SSO service** (not just locally simulated): hit the real `/api/oauth/authorize` endpoint with the real `client_id` and the corrected `redirect_uri`. The service accepted both without any validation error and redirected to its own hosted `/login` page with an `oauth_request` payload that echoed back `"client_name": "salesleadgenerator"` — confirming the real credentials and the corrected redirect URI are genuinely registered and working end-to-end up through the hosted login handoff. Completing an actual human login remains unverified (requires a real user account on their platform), but every part of the flow this repo controls is now confirmed correct against production, not assumed.
+
+Real credentials are stored only in this sandbox's gitignored `.env.local` for local verification — never committed. Setting them in Vercel's own production environment variables is a manual step for whoever has Vercel dashboard access; this session has no Vercel API/CLI credentials to do it programmatically (confirmed: `vercel whoami` requires an interactive browser login this headless environment can't complete).
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, GDS style audit clean, vitest 353/353, smoke 5/5, build (`/api/oauth/callback` now shows correctly in the route list, `/api/auth/callback` gone).
+
 ## 2.4.71
 
 ### Added — DoneIsBetter SSO integration, phase 1: infrastructure only (issue #102)

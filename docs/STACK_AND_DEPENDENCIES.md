@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.71
+**Version:** 2.4.72
 
 ---
 
@@ -93,7 +93,7 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 |---------|---------|
 | `SSO_CLIENT_ID` | OAuth client ID, issued by DoneIsBetter SSO on manual approval |
 | `SSO_CLIENT_SECRET` | OAuth client secret — backend-only, never exposed to the browser |
-| `SSO_REDIRECT_URI` | Must exactly match (protocol + path) the URI registered with DoneIsBetter SSO, e.g. `https://salesleadgenerator.vercel.app/api/auth/callback` |
+| `SSO_REDIRECT_URI` | Must exactly match (protocol + path) a URI registered with DoneIsBetter SSO. Real client registered 2026-07-26 with two redirect URIs (`/auth/callback` and `/api/oauth/callback`) — this app's actual callback route is `app/api/oauth/callback/route.ts`, so `SSO_REDIRECT_URI=https://salesleadgenerator.vercel.app/api/oauth/callback` |
 | `SSO_BASE_URL` | Optional — defaults to `https://sso.doneisbetter.com` if unset |
 
 `lib/sso.ts`'s `isSsoConfigured()` reports whether all three required vars are set; `/api/auth/login` returns `503` rather than crashing when they aren't. No existing page's access behavior changes as part of phase 1 — see the ARCHITECTURE.md section for the open scope questions blocking phase 2.

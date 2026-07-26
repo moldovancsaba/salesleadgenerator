@@ -44,7 +44,7 @@ describe('lib/sso', () => {
     it('is true once all three are set', async () => {
       process.env.SSO_CLIENT_ID = 'client-123';
       process.env.SSO_CLIENT_SECRET = 'secret-abc';
-      process.env.SSO_REDIRECT_URI = 'https://example.com/api/auth/callback';
+      process.env.SSO_REDIRECT_URI = 'https://example.com/api/oauth/callback';
       const { isSsoConfigured } = await loadSso();
       expect(isSsoConfigured()).toBe(true);
     });
@@ -87,14 +87,14 @@ describe('lib/sso', () => {
       process.env.SSO_BASE_URL = 'https://sso.doneisbetter.com';
       process.env.SSO_CLIENT_ID = 'client-123';
       process.env.SSO_CLIENT_SECRET = 'secret-abc';
-      process.env.SSO_REDIRECT_URI = 'https://salesleadgenerator.vercel.app/api/auth/callback';
+      process.env.SSO_REDIRECT_URI = 'https://salesleadgenerator.vercel.app/api/oauth/callback';
       const { buildAuthorizeUrl } = await loadSso();
 
       const url = new URL(buildAuthorizeUrl({ state: 'state-xyz', codeChallenge: 'challenge-xyz' }));
       expect(url.origin).toBe('https://sso.doneisbetter.com');
       expect(url.pathname).toBe('/api/oauth/authorize');
       expect(url.searchParams.get('client_id')).toBe('client-123');
-      expect(url.searchParams.get('redirect_uri')).toBe('https://salesleadgenerator.vercel.app/api/auth/callback');
+      expect(url.searchParams.get('redirect_uri')).toBe('https://salesleadgenerator.vercel.app/api/oauth/callback');
       expect(url.searchParams.get('response_type')).toBe('code');
       expect(url.searchParams.get('scope')).toBe('openid profile email');
       expect(url.searchParams.get('state')).toBe('state-xyz');
