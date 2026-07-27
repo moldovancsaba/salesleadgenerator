@@ -324,6 +324,12 @@ export async function POST(request: NextRequest) {
     const newLead = {
       id: Date.now(),
       region: normalizedBody.region || 'US',
+      // Validated as a required field by validateLeadPayload() above but,
+      // until now, never actually persisted here — every lead ever created
+      // through this route silently lost its country. Confirmed by reading
+      // this object literal against the Lead type (types.ts) and by real
+      // production data (app/detail.tsx's Badge always rendered "—").
+      country: normalizedBody.country || '',
       entity_name: normalizedBody.entity_name || normalizedBody.name,
       url: normalizedBody.url || '',
       contacts: normalizedBody.contacts || [],

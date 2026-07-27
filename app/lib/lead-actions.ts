@@ -104,7 +104,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
   }
 
   if (action === 'MODIFY') {
-    const fields = ['entity_name', 'url', 'address', 'general_contact', 'size', 'industry',
+    const fields = ['entity_name', 'url', 'country', 'address', 'general_contact', 'size', 'industry',
                     'sport_or_sector', 'level_league', 'value_proposition', 'notes', 'tags',
                     'actualDealValueUsd', 'source']
     fields.forEach(field => {
