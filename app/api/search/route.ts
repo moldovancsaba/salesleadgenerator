@@ -10,10 +10,21 @@ import { escapeRegExp } from '../../lib/search/tagged-content-filter'
 // functional bug (a literal search for "." matched every document). Same
 // escapeRegExp() already used by GET /api/leads and /api/leads/columns for
 // their own regex-matched fields.
+// $and, not `{ ...tenantFilter(tenantId), $or: [...] }` — tenantFilter()
+// for the 'default' tenant (this app's only tenant in practice) itself
+// returns an object whose own top-level key is $or (lib/tenant.ts). Spreading
+// it into the same object literal as this function's own $or silently
+// overwrote the tenant scoping entirely (plain JS object spread — the later
+// key wins), so this route had no tenant isolation at all — a live,
+// confirmed bug (found during a 2026-07-27 documentation audit, same root
+// cause as app/api/leads/[id]/route.ts's tryFindLead() fix one commit
+// earlier, which this route was not checked against at the time). Combining
+// via $and preserves both filters regardless of what keys either contains —
+// the same pattern already used correctly by app/api/leads/route.ts and
+// app/api/leads/columns/route.ts.
 function buildSearchFilter(q: string, tenantId: string, region?: string) {
   const safeQ = escapeRegExp(q)
-  const filter: any = {
-    ...tenantFilter(tenantId),
+  const textMatch = {
     $or: [
       { entity_name: { $regex: safeQ, $options: 'i' } },
       { url: { $regex: safeQ, $options: 'i' } },
@@ -23,6 +34,7 @@ function buildSearchFilter(q: string, tenantId: string, region?: string) {
       { notes: { $regex: safeQ, $options: 'i' } },
     ],
   }
+  const filter: any = { $and: [tenantFilter(tenantId), textMatch] }
   if (region) filter.region = region
   return filter
 }
