@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Version:** 2.4.61
+**Version:** 2.4.101
 
 ---
 
@@ -22,11 +22,12 @@
 ## Supporting Documentation
 
 - `CLAUDE.md` — mandatory operating rules for any Claude session working in this repo
-- `PIPELINE_ARCHITECTURE.md` — pipeline stages, ICE scoring, dedup, research agent behavior
-- `PROPOSAL.md` — improvement proposal with completed and remaining workstreams
-- `roadmap.md` — phased roadmap with shipped/in-progress/planned items
-- `CHANGELOG.md` — version history and feature baselines
-- `deployment.md` — deployment log — recent commits, build status, files changed
+- `CHANGELOG.md` — version history, feature baselines, and (since 2026-07-27) documented root causes for real bugs found post-release
+- `docs/LESSONS_LEARNED.md` — recurring mistake patterns, sandbox/verification limitations, and architectural rationale ("why do we do what we do")
+
+## Archived Documentation
+
+`PIPELINE_ARCHITECTURE.md`, `PROPOSAL.md`, `roadmap.md`, and `deployment.md` were archived to `_archived/` on 2026-07-27 — all four were severely stale (15-80 versions behind) and fully superseded by `docs/ARCHITECTURE.md` and `CHANGELOG.md`. See `README.md`'s "Archived Documentation" table.
 
 ---
 

@@ -561,8 +561,10 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   // the editingFields state comment for why. Deliberately omits `contacts`
   // from the payload entirely: PATCH ... MODIFY only touches `contacts` when
   // the payload includes it, so leaving it out here leaves existing
-  // contacts untouched, which is the safe, correct behavior for a form that
-  // doesn't offer contacts editing (out of scope, issue #88).
+  // contacts untouched, which is the safe, correct behavior for this
+  // specific form. Contacts editing exists (issue #113) but lives in its
+  // own section with its own save handler, independent of this general
+  // Lead Details form — not a remaining gap, a deliberate separation.
   async function handleModify() {
     if (!lead) return;
     setBusy(true);
