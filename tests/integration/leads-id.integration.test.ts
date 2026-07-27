@@ -69,10 +69,51 @@ describe('GET /api/leads/[id]', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.entity_name).toBe('Fetchable FC');
+    // Regression guard, same bug as leads.integration.test.ts's create test:
+    // country was persisted by createLead's own POST here, this confirms
+    // the read path round-trips it correctly too.
+    expect(body.country).toBe('US');
   });
 });
 
+// Direct DB insert, not createLead() above — createLead() goes through the
+// real POST quality gate, which rejects a fixture with no contact under
+// certain ICE combinations (a disclosed, pre-existing gap, see
+// docs/STACK_AND_DEPENDENCIES.md's Known Issues). This test only needs an
+// existing lead to PUT against, so seeding directly avoids depending on
+// that unrelated gate.
+async function seedLeadDirect(entityName: string, overrides: Record<string, unknown> = {}): Promise<string> {
+  const clientPromise = (await import('../../lib/mongodb')).default;
+  const client = await clientPromise;
+  const db = client.db();
+  const result = await db.collection('leads').insertOne({
+    entity_name: entityName,
+    tenantId: 'default',
+    country: 'US',
+    kanbanColumn: 'DISCOVERED',
+    ice: { impact: 5, confidence: 5, ease: 5 },
+    contacts: [],
+    ...overrides,
+  });
+  return result.insertedId.toString();
+}
+
 describe('PUT /api/leads/[id]', () => {
+  it('updates country (regression guard — this field was validated on create but never persisted or updatable until 2026-07-27, see CHANGELOG.md)', async () => {
+    const id = await seedLeadDirect('Country Update FC');
+    const res = await idPUT(
+      req(`/api/leads/${id}?brand=cogmap`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country: 'GB' }),
+      }),
+      { params: Promise.resolve({ id }) }
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.country).toBe('GB');
+  });
+
   it('coerces string-typed ICE fields to real numbers (regression guard for the 2.4.8 corruption class)', async () => {
     const id = await createLead('Coercion Test FC');
     const res = await idPUT(

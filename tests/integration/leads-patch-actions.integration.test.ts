@@ -181,6 +181,16 @@ describe('PATCH /api/leads — required-fields-per-stage gating (issue #72)', ()
   });
 });
 
+describe('PATCH /api/leads — MODIFY: country (regression guard, 2026-07-27)', () => {
+  it('updates country via the Edit Lead Details form path — validated on create but silently dropped/non-editable until this fix, see CHANGELOG.md', async () => {
+    const id = await seedLead('Country Modify Co', { country: 'US' });
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', country: 'DE' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.country).toBe('DE');
+  });
+});
+
 describe('PATCH /api/leads — MODIFY: deals (issue #114)', () => {
   it('saves a manual deal and sums it', async () => {
     const id = await seedLead('Deal Co');

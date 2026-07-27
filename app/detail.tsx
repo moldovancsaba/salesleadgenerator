@@ -268,7 +268,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   // from it instead.
   const [editingFields, setEditingFields] = useState(false);
   const [editForm, setEditForm] = useState<{
-    entity_name: string; url: string; address: string; general_contact: string; size: string;
+    entity_name: string; url: string; country: string; address: string; general_contact: string; size: string;
     industry: string; sport_or_sector: string; level_league: string; value_proposition: string; notes: string; tags: string;
     // Manual ticket-size override (issue #86) — blank means "no change to
     // the override state," not "clear it"; clearing is its own explicit
@@ -277,7 +277,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     manualTicketSizeExpected: number | '';
     manualTicketSizeReason: string;
   }>({
-    entity_name: '', url: '', address: '', general_contact: '', size: '',
+    entity_name: '', url: '', country: '', address: '', general_contact: '', size: '',
     industry: '', sport_or_sector: '', level_league: '', value_proposition: '', notes: '', tags: '',
     manualTicketSizeExpected: '', manualTicketSizeReason: '',
   });
@@ -541,6 +541,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     setEditForm({
       entity_name: lead.entity_name || '',
       url: lead.url || '',
+      country: lead.country || '',
       address: lead.address || '',
       general_contact: lead.general_contact || '',
       size: lead.size || '',
@@ -579,6 +580,16 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
         notes: editForm.notes,
         tags: editForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
       };
+      // Omitted entirely when blank, not sent as ''  — unlike every other
+      // field on this form, the server validates country's format even on a
+      // partial MODIFY (a 2-letter ISO code) whenever the key is present at
+      // all, so sending an empty string for the many leads that don't have
+      // one yet (this field was only just wired up — see CHANGELOG) would
+      // 400 every other edit on this form too. Leaving it out here means
+      // "no change," matching the manual-ticket-size fields' own contract below.
+      if (editForm.country.trim()) {
+        payload.country = editForm.country.trim().toUpperCase();
+      }
       // Only included when both fields are actually filled in — a blank
       // reason server-side silently skips setting the override rather than
       // applying one with no accountability trail (issue #86).
@@ -918,6 +929,14 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
           <Stack gap="xs" mt="xs">
             <TextInput label="Entity name" value={editForm.entity_name} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, entity_name: v })); }} />
             <TextInput label="URL" value={editForm.url} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, url: v })); }} />
+            <TextInput
+              label="Country"
+              description="2-letter ISO code, e.g. US, GB, DE"
+              placeholder="US"
+              maxLength={2}
+              value={editForm.country}
+              onChange={(e) => { const v = e.currentTarget.value.toUpperCase(); setEditForm((f) => ({ ...f, country: v })); }}
+            />
             <TextInput label="Address" value={editForm.address} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, address: v })); }} />
             <TextInput label="General contact" value={editForm.general_contact} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, general_contact: v })); }} />
             <Select

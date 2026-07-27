@@ -124,7 +124,7 @@ export async function PUT(
     };
 
     const allowedFields = [
-      'entity_name', 'url', 'region', 'address', 'general_contact', 'size', 'industry',
+      'entity_name', 'url', 'region', 'country', 'address', 'general_contact', 'size', 'industry',
       'sport_or_sector', 'level_league', 'value_proposition', 'notes', 'tags',
       'kanbanColumn', 'sortOrder', 'status', 'ice', 'iceScore',
       PRO_FIELD, CON_FIELD, 'contacts', 'qualityStatus',

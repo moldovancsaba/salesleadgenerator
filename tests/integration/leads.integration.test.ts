@@ -55,6 +55,11 @@ describe('POST /api/leads', () => {
     const getBody = await getRes.json();
     expect(getBody.total).toBe(1);
     expect(getBody.leads[0].entity_name).toBe('Integration Test FC');
+    // Regression guard: country was validated as required on create but,
+    // until this fix, never actually persisted to the document — every
+    // created lead silently lost it (2026-07-27, discovered during a bulk
+    // CSV import; see CHANGELOG.md).
+    expect(getBody.leads[0].country).toBe('US');
     expect(getBody.leads[0].contacts).toEqual([
       { name: 'Ops Contact', title: '', email: 'ops@integration-test-fc.example.com', phone: '', linkedin: '', role: '', isDecisionMaker: true },
     ]);
