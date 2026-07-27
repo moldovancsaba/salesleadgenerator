@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Box, Group, Loader, Button, Checkbox, Text } from '@mantine/core';
+import { Box, Group, Loader, Button, Checkbox, Text, Menu } from '@mantine/core';
+import { IconArchive, IconArrowBackUp, IconChevronDown } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import { KanbanBoard as GdsKanbanBoard } from '@sovereignsquad/gds-core/client';
 import type { KanbanItem as GdsKanbanItem, KanbanColumnData as GdsKanbanColumnData } from '@sovereignsquad/gds-core/client';
@@ -41,6 +42,14 @@ type BoardProps = {
   // follow-up — the board's own internal selection state below still
   // resets whenever this flips off).
   selectMode?: boolean;
+  // Issue #126 — defaults to the 6-column Pipeline set (app/constants.ts's
+  // COLUMNS). The parent passes app/constants.ts's BACKLOG_COLUMN_DEF to
+  // mount this exact same component as the one-column Backlog board
+  // instead — same Select mode, same bulk actions, same filters, same
+  // renderItem, nothing duplicated. Must be a referentially-stable array
+  // (a module-level constant, not an inline literal) since the bootstrap
+  // effect below depends on it by reference.
+  columnDefs?: typeof COLUMNS;
 };
 
 type LeadKanbanItem = {
@@ -89,15 +98,14 @@ function LoadMoreSentinel({ onLoadMore }: { onLoadMore: () => void }) {
   );
 }
 
-export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false }: BoardProps) {
-  const [columnStates, setColumnStates] = useState<Record<KanbanColumn, ColumnState>>(() => {
-    const init: Record<KanbanColumn, ColumnState> = {
-      DISCOVERED: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
-      QUALIFIED: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
-      ENGAGED: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
-      PROPOSAL: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
-      WON: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
-      LOST: { leads: [], count: 0, hasMore: false, cursor: null, loading: false },
+export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false, columnDefs = COLUMNS }: BoardProps) {
+  // Record<string, ...> (not Record<KanbanColumn, ...>) — this component no
+  // longer always manages all 6 Pipeline columns; the Backlog board mounts
+  // it with a single 'BACKLOG' entry instead (issue #126).
+  const [columnStates, setColumnStates] = useState<Record<string, ColumnState>>(() => {
+    const init: Record<string, ColumnState> = {}
+    for (const col of columnDefs) {
+      init[col.key] = { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
     }
     return init
   })
@@ -216,8 +224,8 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // reference whenever the filter object changes (issue #71).
   useEffect(() => {
     setBootstrapped(false)
-    Promise.all(COLUMNS.map((col) => loadColumn(col.key))).then(() => setBootstrapped(true))
-  }, [brand, tenantId, loadColumn])
+    Promise.all(columnDefs.map((col) => loadColumn(col.key))).then(() => setBootstrapped(true))
+  }, [brand, tenantId, loadColumn, columnDefs])
 
   const handleMove = useCallback(async (leadId: string, fromColumn: KanbanColumn, toColumn: KanbanColumn) => {
     // Optimistic UI: drop the card from its source column immediately so the
@@ -387,7 +395,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // always rendered and was never optional. The per-column forecast still
   // has nowhere else to go (no dedicated subtitle slot), so it stays in the
   // title string alongside the plain column label.
-  const columns: LeadKanbanColumn[] = useMemo(() => COLUMNS.map((col) => {
+  const columns: LeadKanbanColumn[] = useMemo(() => columnDefs.map((col) => {
     const colState = columnStates[col.key]
     const colForecast = forecast?.[col.key]
     const forecastLabel = colForecast && colForecast.rawRevenue > 0
@@ -405,7 +413,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         lead,
       })),
     }
-  }), [columnStates, forecast, formatForecast])
+  }), [columnStates, forecast, formatForecast, columnDefs])
 
   // GDS's KanbanItem/KanbanColumnData are fixed, non-generic interfaces — the
   // real renderItem prop is checked contravariantly against exactly that
@@ -446,12 +454,48 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           nudge={nudge}
           winProbability={forecast?.[column.id]?.probability ?? null}
         />
+        {/* Issue #126 — deliberately not GDS's own per-card "Move to
+            column" dropdown: that widget's targets are exactly whatever
+            this board's own `columns` prop contains, so a one-column
+            Backlog board has no other targets to offer there, and adding
+            Backlog to the 6-column Pipeline board's own `columns` would
+            make it a 7th *visible* column, which the whole point of this
+            feature is to avoid. Both directions are separate, explicit
+            actions instead — derived from which column this card is
+            currently rendered in, not a separate mode flag on the board. */}
+        {column.id === 'BACKLOG' ? (
+          <Menu shadow="md" position="bottom-start">
+            <Menu.Target>
+              <Button size="xs" variant="light" mt={4} leftSection={<IconArrowBackUp size={12} />} rightSection={<IconChevronDown size={12} />}>
+                Move to Pipeline
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {COLUMNS.map((col) => (
+                <Menu.Item key={col.key} onClick={() => handleMove(leadItem.lead._id, 'BACKLOG', col.key)}>
+                  {col.label}
+                </Menu.Item>
+              ))}
+            </Menu.Dropdown>
+          </Menu>
+        ) : (
+          <Button
+            size="xs"
+            variant="subtle"
+            color="gray"
+            mt={4}
+            leftSection={<IconArchive size={12} />}
+            onClick={() => handleMove(leadItem.lead._id, column.id as KanbanColumn, 'BACKLOG')}
+          >
+            Move to Backlog
+          </Button>
+        )}
         {isLast && colState.hasMore && !colState.loading && (
           <LoadMoreSentinel onLoadMore={() => loadColumn(column.id as KanbanColumn, colState.cursor)} />
         )}
       </>
     )
-  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast])
+  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast, handleMove])
 
   // enableDrag deliberately omitted (default false): it renders a
   // drag-handle icon per card and activates GDS's real @dnd-kit

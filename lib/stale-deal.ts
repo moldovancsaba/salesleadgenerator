@@ -2,7 +2,7 @@
 // Date.now() inside — the caller supplies `now` so results are deterministic
 // and testable (mirrors lib/kanban-column-visibility.ts's shape).
 
-export type KanbanColumn = 'DISCOVERED' | 'QUALIFIED' | 'ENGAGED' | 'PROPOSAL' | 'WON' | 'LOST';
+export type KanbanColumn = 'DISCOVERED' | 'QUALIFIED' | 'ENGAGED' | 'PROPOSAL' | 'WON' | 'LOST' | 'BACKLOG';
 
 export const DEFAULT_STALE_THRESHOLDS: Record<KanbanColumn, number> = {
   DISCOVERED: 14,
@@ -11,6 +11,10 @@ export const DEFAULT_STALE_THRESHOLDS: Record<KanbanColumn, number> = {
   PROPOSAL: 10,
   WON: 0,
   LOST: 0,
+  // Issue #126 — a Backlog lead is deliberately parked, not neglected;
+  // staleness exists to flag active-pipeline leads nobody's touched, which
+  // doesn't apply here. 0 disables it, same convention as WON/LOST.
+  BACKLOG: 0,
 };
 
 export interface StaleDealInput {

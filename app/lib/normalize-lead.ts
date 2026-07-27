@@ -111,6 +111,7 @@ export function normalizeLead(raw: LeadRaw): NormalizedLead {
     'PROPOSAL',
     'WON',
     'LOST',
+    'BACKLOG',
   ]);
 
   const kanbanColumn = typeof raw.kanbanColumn === 'string' ? raw.kanbanColumn.trim().toUpperCase() : '';

@@ -7,6 +7,7 @@ import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Load
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
+  IconArchive,
 } from '@tabler/icons-react';
 import { BRAND_CONFIG, type Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -163,12 +164,24 @@ function AppNavInner() {
                       {BRAND_CONFIG[effectiveBrand].label}
                     </Text>
                   )}
+                  {/* Issue #126 — positioned immediately before Pipeline,
+                      per the owner's explicit request. Reuses the same
+                      ?view= mechanism the View submenu below already
+                      switches on, rather than a new route. */}
+                  <NavLink
+                    component={Link}
+                    href={`/sales/${effectiveBrand}?view=backlog`}
+                    label="Backlog"
+                    leftSection={<IconArchive size={18} />}
+                    active={currentView === 'backlog'}
+                    onClick={close}
+                  />
                   <NavLink
                     component={Link}
                     href={`/sales/${effectiveBrand}`}
                     label="Pipeline"
                     leftSection={<IconLayoutKanban size={18} />}
-                    active={pathname === `/sales/${effectiveBrand}`}
+                    active={pathname === `/sales/${effectiveBrand}` && currentView !== 'backlog'}
                     onClick={close}
                   />
                   <NavLink

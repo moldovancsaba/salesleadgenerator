@@ -28,9 +28,13 @@ export async function GET(request: NextRequest) {
     }
 
     const column = searchParams.get('column')
-    const allowed = new Set(['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST'])
+    // BACKLOG (issue #126) included so the one-column Backlog board can
+    // fetch/paginate through this same route — it's excluded from the
+    // Pipeline board's own column set (app/constants.ts), not from what
+    // this route considers a fetchable column.
+    const allowed = new Set(['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST', 'BACKLOG'])
     if (!column || !allowed.has(column)) {
-      return NextResponse.json({ error: 'column=DISCOVERED|QUALIFIED|ENGAGED|PROPOSAL|WON|LOST required' }, { status: 400 })
+      return NextResponse.json({ error: 'column=DISCOVERED|QUALIFIED|ENGAGED|PROPOSAL|WON|LOST|BACKLOG required' }, { status: 400 })
     }
 
     // Issue #71: same filterable dimensions as GET /api/leads (region exact

@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.95
+**Version:** 2.4.96
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -11,6 +11,7 @@
 - [Signing In and Access](#signing-in-and-access)
 - [Navigation](#navigation)
 - [Daily Workflow — Kanban Board](#daily-workflow--kanban-board)
+- [Backlog](#backlog)
 - [Card Indicators](#card-indicators)
 - [Table View](#table-view)
 - [Filters and Search](#filters-and-search)
@@ -58,7 +59,7 @@ Access is granted per-brand by a super admin in **Users & Access** (see [Admin T
 Everything in the app is reachable from one place: the hamburger icon (☰), always visible top-left. It opens a slide-out menu with, depending on your access:
 
 - **Organization** switcher (only shown if you have access to 2+ brands)
-- **\<Brand\>** section: **Pipeline** (the kanban/table board), **Sales Settings** (Company Setup)
+- **\<Brand\>** section: **Backlog** (leads parked for later, see [Backlog](#backlog)), **Pipeline** (the kanban/table board), **Sales Settings** (Company Setup)
 - **View** (only shown while already on the Pipeline page for a brand): Kanban, Table, Metrics, Search Learning — these four views live at the same URL with a `?view=` parameter, not separate pages
 - **Reporting**: Forecast, Battlecards, Outreach Templates
 - **Admin** (super admins only): Prompt Editor, Users & Access, Duplicate Review
@@ -84,6 +85,10 @@ DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted p
    - **Delete** → remove lead
 5. Drag cards between columns when the pipeline changes, or use the per-card "⋮" menu to move a card without dragging (this also works on mobile/keyboard, where drag doesn't).
 
+### Add Lead
+
+Tap the **+** button in the Pipeline toolbar to manually add a lead the research agent hasn't found yet (a referral, a lead you sourced yourself, etc.). The form captures the same fields the research agent would (entity, URL, country/region, size, industry, contacts, value proposition, tags) up front, rather than creating a bare stub you fill in later. You don't set ICE scores directly — a manually-added lead always starts in DISCOVERED with a neutral default score, exactly like a fresh research-agent lead below the QUALIFIED threshold. Duplicate detection (same URL + entity + region) applies the same as any other lead creation path.
+
 ### Required fields to move into ENGAGED or PROPOSAL
 
 A lead needs **at least one contact** (any contact — it no longer has to be flagged as the decision maker) and a **value proposition** filled in before it can be dragged, pinned, or bulk-actioned into ENGAGED or PROPOSAL. If either is missing, the move is blocked with a message like "Missing required fields for ENGAGED: a contact, a value proposition" — fill in the missing field(s) (in Edit Lead Details) and try again. DISCOVERED/QUALIFIED (auto-managed) and WON/LOST (terminal) are never gated this way.
@@ -95,6 +100,18 @@ Tap a column's own header to collapse it down to just its title and count — us
 ### Bulk actions (Select mode)
 
 Tap the **Select** icon in the toolbar above the board to enter select mode — a checkbox appears on every card. Selection is limited to one column at a time (picking a card in a different column is rejected with a notification). Once you've checked at least one card, a bulk action bar appears with **Decline selected** / **Pin selected**. Each lead is actioned individually server-side, so a partial failure (e.g. one lead blocked by the required-fields gate above) doesn't fail the whole batch — you'll see a summary like "8 of 10 declined — 2 blocked: Missing required fields for ENGAGED: ...". Tap the Select icon again (now an ✕) to leave select mode.
+
+---
+
+## Backlog
+
+Backlog is a holding area for leads you don't want to work right now, but don't want cluttering the Pipeline board either — a competitor you're deliberately deprioritizing, a lead that's a poor fit today but worth revisiting later, etc.
+
+- Reach it via the **Backlog** link in the hamburger menu, right before **Pipeline**.
+- It's the same board component as Pipeline — same card layout, Select mode, bulk actions, filters — but with a single **Backlog** column instead of the six pipeline stages.
+- From any pipeline column's card menu, choose **Move to Backlog** to park a lead. From a Backlog card, choose **Move to Pipeline** and pick which column it should land in (Discovered, Qualified, Engaged, Proposal, Won, or Lost) — this is a dedicated action, not the drag/drop or per-card "⋮" move menu used elsewhere, since a 1-column board and a 6-column board can't offer each other's columns as generic drag targets.
+- **Backlog leads are excluded from Forecast and the Metrics dashboard** — a deliberately-parked lead shouldn't inflate or distort revenue projections or pipeline health numbers. They're also exempt from staleness/"rotten" indicators, since being untouched in Backlog is the intended state, not neglect.
+- **Backlog leads are included in Table view** alongside every other column, so you can still search/filter/export them; they're only hidden from the Pipeline kanban board itself.
 
 ---
 
@@ -311,7 +328,7 @@ The app can be installed as a Progressive Web App (add-to-home-screen from your 
 
 Base URL: `https://salesleadgenerator.vercel.app`
 
-**Auth:** every lead endpoint below (`GET`/`PATCH /api/leads`, `GET /api/leads/columns`, `PATCH /api/leads/bulk`, `GET`/`PUT`/`DELETE /api/leads/[id]`) requires either an `x-api-key` header (shown below) or an authenticated browser session with access to the requested `brand`. There is no unauthenticated read path.
+**Auth:** every lead endpoint below (`GET`/`POST`/`PATCH /api/leads`, `GET /api/leads/columns`, `PATCH /api/leads/bulk`, `GET`/`PUT`/`DELETE /api/leads/[id]`) requires either an `x-api-key` header (shown below) or an authenticated browser session with access to the requested `brand`. There is no unauthenticated read path. `POST /api/leads` previously required `x-api-key` exclusively (only the research agent ever called it); as of 2.4.96 it accepts a browser session too, so the in-app **Add Lead** button (see [Add Lead](#add-lead)) can call it directly — the `x-api-key` path is unchanged for existing callers.
 
 ### Read Leads
 ```bash

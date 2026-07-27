@@ -30,7 +30,11 @@ export function findForbiddenBrandTerms(text: string | undefined | null, brand: 
   return terms.filter((term) => lower.includes(term));
 }
 
-const KANBAN_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST'];
+// BACKLOG (issue #126) included here so COLUMN_MOVE into/out of it validates
+// normally — it's excluded from app/constants.ts's own COLUMNS (the
+// Pipeline board's rendered/auto-managed set), not from this general
+// validity check.
+const KANBAN_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST', 'BACKLOG'];
 const KANBAN_COLUMN_SET = new Set(KANBAN_COLUMNS);
 const ORG_SIZES = ['Small', 'Medium', 'Large', 'Enterprise'];
 const ORG_SIZE_SET = new Set(ORG_SIZES);

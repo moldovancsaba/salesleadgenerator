@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Group, Text, Paper, Loader, Container, Box, TextInput, UnstyledButton, ActionIcon, Tooltip } from '@mantine/core';
-import { IconChecklist, IconX } from '@tabler/icons-react';
+import { IconChecklist, IconX, IconPlus } from '@tabler/icons-react';
 import type { Lead } from '@/app/types';
 import { KanbanBoard } from '@/app/kanban';
 import { LeadDetailModal } from '@/app/detail';
@@ -11,9 +11,15 @@ import { TableView } from '@/app/table';
 import { SearchLearningPanel } from '@/app/search-learning';
 import { MetricsPanel } from '@/app/metrics';
 import { FilterBar } from '@/app/components/FilterBar';
+import { AddLeadModal } from '@/app/components/AddLeadModal';
+import { BACKLOG_COLUMN_DEF } from '@/app/constants';
 import type { LeadFilter } from '@/lib/saved-filters';
 
-type ViewMode = 'kanban' | 'table' | 'metrics' | 'search';
+// Issue #126 — 'backlog' mounts the exact same KanbanBoard component as
+// 'kanban', just with a single-column columnDefs (BACKLOG_COLUMN_DEF) —
+// same Select mode, same bulk actions, same filters, no separate view
+// implementation.
+type ViewMode = 'kanban' | 'table' | 'metrics' | 'search' | 'backlog';
 
 type Props = {
   brand: string;
@@ -27,7 +33,7 @@ export function SalesPageClient({ brand }: Props) {
   // hamburger's job and was visually competing with it (issue #95).
   const searchParams = useSearchParams();
   const viewParam = searchParams.get('view');
-  const view: ViewMode = viewParam === 'table' || viewParam === 'metrics' || viewParam === 'search'
+  const view: ViewMode = viewParam === 'table' || viewParam === 'metrics' || viewParam === 'search' || viewParam === 'backlog'
     ? viewParam
     : 'kanban';
   const [boardMeta, setBoardMeta] = useState<{
@@ -45,6 +51,13 @@ export function SalesPageClient({ brand }: Props) {
   // toggle sits in the same slim toolbar row as the Filters trigger, rather
   // than each control mounting its own separate row.
   const [selectMode, setSelectMode] = useState(false)
+  // Issue #127 — bumped after a manual Add Lead create so the header count,
+  // the active Kanban/Backlog board, and Table view all pick up the new
+  // lead. KanbanBoard has no external "refresh" hook of its own (it manages
+  // its own column state internally) — remounting it via `key` is the
+  // simplest correct way to force a full reload without adding one.
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [addLeadOpen, setAddLeadOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Lead[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -64,7 +77,7 @@ export function SalesPageClient({ brand }: Props) {
       .catch(console.error)
       .finally(() => { if (!cancelled) setMetaLoading(false) })
     return () => { cancelled = true }
-  }, [brand])
+  }, [brand, refreshKey])
 
   // Load table data server-side when needed. Cursor-paginated (not a single
   // capped fetch) so a brand exceeding one page's worth of leads doesn't get
@@ -101,7 +114,7 @@ export function SalesPageClient({ brand }: Props) {
       .catch(console.error)
       .finally(() => { if (!cancelled) setTableLoading(false) })
     return () => { cancelled = true }
-  }, [view, brand, leadFilter.region, leadFilter.industry, leadFilter.tags])
+  }, [view, brand, leadFilter.region, leadFilter.industry, leadFilter.tags, refreshKey])
 
   const handleAction = useCallback(async (leadId: string, action: string, payload?: any) => {
     try {
@@ -268,10 +281,10 @@ export function SalesPageClient({ brand }: Props) {
       </Group>
 
       <div style={{ flex: 1 }}>
-        {(view === 'kanban' || view === 'table') && (
+        {(view === 'kanban' || view === 'table' || view === 'backlog') && (
           <Group gap="xs" mb="sm">
             <FilterBar brand={brand} value={leadFilter} onChange={setLeadFilter} />
-            {view === 'kanban' && (
+            {(view === 'kanban' || view === 'backlog') && (
               <Tooltip label={selectMode ? 'Cancel select' : 'Select leads for a bulk action'}>
                 <ActionIcon
                   variant={selectMode ? 'filled' : 'subtle'}
@@ -283,17 +296,43 @@ export function SalesPageClient({ brand }: Props) {
                 </ActionIcon>
               </Tooltip>
             )}
+            {view === 'kanban' && (
+              <Tooltip label="Add a lead manually">
+                <ActionIcon
+                  variant="subtle"
+                  size="lg"
+                  aria-label="Add a lead manually"
+                  onClick={() => setAddLeadOpen(true)}
+                >
+                  <IconPlus size={18} />
+                </ActionIcon>
+              </Tooltip>
+            )}
           </Group>
         )}
 
         {view === 'kanban' && (
           <KanbanBoard
+            key={`kanban-${refreshKey}`}
             brand={brand}
             onOpenLead={setSelectedLead}
             forecast={boardMeta?.forecast?.pipeline || null}
             forecastCurrency={boardMeta?.forecast?.currency === 'EUR' ? 'EUR' : 'USD'}
             filter={leadFilter}
             selectMode={selectMode}
+          />
+        )}
+
+        {view === 'backlog' && (
+          // Issue #126 — Backlog is excluded entirely from Forecast (no
+          // `forecast` prop passed), same component otherwise.
+          <KanbanBoard
+            key={`backlog-${refreshKey}`}
+            brand={brand}
+            onOpenLead={setSelectedLead}
+            filter={leadFilter}
+            selectMode={selectMode}
+            columnDefs={BACKLOG_COLUMN_DEF}
           />
         )}
 
@@ -318,6 +357,13 @@ export function SalesPageClient({ brand }: Props) {
           onUpdated={() => setSelectedLead(null)}
         />
       )}
+
+      <AddLeadModal
+        brand={brand}
+        opened={addLeadOpen}
+        onClose={() => setAddLeadOpen(false)}
+        onCreated={() => setRefreshKey((k) => k + 1)}
+      />
     </div>
   );
 }
