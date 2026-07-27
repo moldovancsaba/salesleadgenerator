@@ -39,9 +39,21 @@ async function tryFindLead(db: any, config: any, tenantId: string, rawId: string
     });
   }
 
+  // $and, not a sibling $or + ...filter spread — buildTenantFilter('default')
+  // itself returns an object whose own top-level key is $or ({$or: [{tenantId:
+  // 'default'}, {tenantId: {$exists: false}}]}). Spreading it alongside a
+  // second, differently-intentioned $or key silently overwrote the first
+  // (JS object spread — the later key wins), so this branch's actual id/_id
+  // match was discarded for the 'default' tenant (the common case in this
+  // app) and the query degraded to "any document in this tenant." A request
+  // for a genuinely nonexistent id then returned a random other lead instead
+  // of null — confirmed live (not assumed) via a real GET immediately after
+  // a real DELETE, which returned an unrelated lead instead of 404.
   return db.collection(config.dbCollection).findOne({
-    $or: [{ id: trimmed }, { _id: trimmed }],
-    ...filter,
+    $and: [
+      { $or: [{ id: trimmed }, { _id: trimmed }] },
+      filter,
+    ],
   });
 }
 

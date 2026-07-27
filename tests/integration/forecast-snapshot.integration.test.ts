@@ -109,6 +109,7 @@ describe('GET /api/admin/forecast-snapshot — write behavior', () => {
         country: 'US',
         kanbanColumn: 'WON',
         ice: { impact: 8, confidence: 8, ease: 8 },
+        contacts: [{ name: 'Jordan Smith', email: 'jordan@snapshot-test-fc.example.com', phone: '+1 555 0100', isDecisionMaker: true }],
         estimated_annual_revenue_usd: 20000,
       }),
     }));
