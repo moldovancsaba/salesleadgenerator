@@ -19,13 +19,13 @@ afterAll(async () => {
   await stopTestMongo(mongod);
 });
 
-async function seedLead(entityName: string): Promise<void> {
+async function seedLead(entityName: string, tenantId: string = 'default'): Promise<void> {
   const clientPromise = (await import('../../lib/mongodb')).default;
   const client = await clientPromise;
   const db = client.db();
   await db.collection('leads').insertOne({
     entity_name: entityName,
-    tenantId: 'default',
+    tenantId,
     kanbanColumn: 'DISCOVERED',
   });
 }
@@ -50,5 +50,28 @@ describe('GET /api/search — regex metacharacters treated as literal text', () 
   it('a query containing regex-special characters does not throw or hang (ReDoS-shaped input)', async () => {
     const res = await GET(req(`/api/search?q=${encodeURIComponent('(a+)+$')}&brand=cogmap`));
     expect(res.status).toBe(200);
+  });
+});
+
+// Regression guard for a real, confirmed-live bug found in a 2026-07-27
+// documentation audit: buildSearchFilter() built its query as
+// `{ ...tenantFilter(tenantId), $or: [...] }` — for the 'default' tenant,
+// tenantFilter() itself returns an object whose own top-level key is $or, so
+// the spread silently discarded tenant scoping entirely (later key wins).
+// GET /api/search returned leads from every tenant, not just the caller's.
+// Same root cause, independently discovered, as the tryFindLead() fix in
+// app/api/leads/[id]/route.ts one commit earlier — that fix was not checked
+// against this route at the time.
+describe('GET /api/search — tenant isolation', () => {
+  it('does not return a matching lead that belongs to a different tenant', async () => {
+    await seedLead('Isolation Test Corp', 'default');
+    await seedLead('Isolation Test Corp Other Tenant', 'some-other-tenant');
+
+    const res = await GET(req('/api/search?q=Isolation+Test+Corp&brand=cogmap&tenantId=default'));
+    const body = await res.json();
+
+    const names = body.leads.map((l: any) => l.entity_name);
+    expect(names).toContain('Isolation Test Corp');
+    expect(names).not.toContain('Isolation Test Corp Other Tenant');
   });
 });
