@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.99
+
+### Fixed — GET/PUT/DELETE /api/leads/[id] could silently act on the wrong lead for a nonexistent id (owner report: "go after the 13 pre-existing failures")
+Real, previously-undetected data-integrity bug, found while fixing 13 pre-existing integration-test failures documented since 2.4.93 as "a test-fixture gap" — most were exactly that (the shared `createLead()` test helper lacked a real contact, tripping `POST /api/leads`'s creation-time quality gate; fixed by adding one), but fixing those uncovered a genuine bug underneath the last one.
+
+`app/api/leads/[id]/route.ts`'s `tryFindLead()` — the shared lookup `GET`/`PUT`/`DELETE` all call — has a three-branch fallback: exact `_id` match, then legacy numeric `id` match, then a final `{ $or: [{id: trimmed}, {_id: trimmed}], ...filter }` catch-all. For the `'default'` tenant (this app's only tenant in practice — see docs), `filter` (`lib/tenant.ts`'s `tenantFilter()`) is itself `{ $or: [{tenantId: 'default'}, {tenantId: {$exists: false}}] }` — **also keyed on `$or`**. Spreading it into the same object as the literal `$or: [...]` above silently overwrote it (plain JS object spread — the later key wins), so the id/`_id` match was discarded entirely and the query degraded to "any document belonging to this tenant." A request with a well-formed but nonexistent id (already deleted, mistyped, stale from a client's cache) landed in this branch and matched an **arbitrary other lead** instead of correctly 404ing.
+
+**Real impact**: `GET` could display the wrong lead's data for a stale id. `PUT` (the research agent's enrichment path) could silently **overwrite a completely unrelated lead's fields**. `DELETE` could **delete a completely unrelated lead** instead of the one that was actually requested (and already gone). Confirmed live, not assumed — a real `DELETE` followed immediately by a real `GET` for the same now-deleted id returned an unrelated lead's full document instead of 404.
+
+Fixed by combining the two `$or`-keyed filters via `$and` instead of an object spread — `{ $and: [{ $or: [...] }, filter] }` — the same pattern this file's sibling `GET /api/leads` (`app/api/leads/route.ts`) and `GET /api/leads/columns` already use correctly for their own cursor-pagination `$or` clauses; this was the one place in the codebase that used the unsafe spread form instead. Grepped the rest of `app/`/`lib/` for the same anti-pattern — no other instance found.
+
+### Testing
+New regression test (`tests/integration/leads-id.integration.test.ts`): a `GET` for a well-formed, never-existing `ObjectId` now correctly 404s rather than returning an unrelated lead. Also fixed the 13 pre-existing test-fixture failures directly: `tests/integration/boards.integration.test.ts`, `forecast-snapshot.integration.test.ts`, `leads-columns.integration.test.ts`, `leads-id.integration.test.ts`, `leads.integration.test.ts` all now pass — full integration suite is **113/113, zero failures**, the first time since this baseline gap was first disclosed. Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest unit 520/520, integration 113/113, smoke 5/5, build, GDS style audit clean.
+
 ## Data operation — 2026-07-27, CogMap CSV lead import
 
 One-time owner-directed bulk import of a curated soccer-accounts CSV (`cogmapexpandedsocceraccounts.csv`, 1,729 rows) into CogMap's `leads` collection, all landing in `DISCOVERED` per the owner's explicit request. **1,725 created, 5 duplicates (an initial 5-row test batch), 0 errors** — verified via `GET /api/health`'s `leadCounts.cogmap` (448 → 2,178) and `GET /api/stats`'s per-column breakdown (`DISCOVERED` count rose to 1,766).
