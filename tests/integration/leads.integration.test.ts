@@ -60,9 +60,15 @@ describe('POST /api/leads', () => {
     // created lead silently lost it (2026-07-27, discovered during a bulk
     // CSV import; see CHANGELOG.md).
     expect(getBody.leads[0].country).toBe('US');
-    expect(getBody.leads[0].contacts).toEqual([
-      { name: 'Ops Contact', title: '', email: 'ops@integration-test-fc.example.com', phone: '', linkedin: '', role: '', isDecisionMaker: true },
-    ]);
+    // toMatchObject, not toEqual — a separate, pre-existing background
+    // enrichment step (lib/email-verification.ts, lib/title-normalization.ts)
+    // asynchronously adds department/seniorityTier/emailVerificationStatus/
+    // lastVerifiedAt to a contact after creation, unrelated to what this
+    // test controls or is verifying.
+    expect(getBody.leads[0].contacts).toHaveLength(1);
+    expect(getBody.leads[0].contacts[0]).toMatchObject({
+      name: 'Ops Contact', title: '', email: 'ops@integration-test-fc.example.com', phone: '', linkedin: '', role: '', isDecisionMaker: true,
+    });
   });
 
   it('ignores legacy decision_maker_*/contact_phone fields on create rather than storing them (hard cutover, issue #45)', async () => {
@@ -72,6 +78,13 @@ describe('POST /api/leads', () => {
       country: 'US',
       kanbanColumn: 'DISCOVERED',
       ice: { impact: 5, confidence: 5, ease: 5 },
+      // A real contacts[] entry, distinct from the legacy fields below —
+      // needed to clear the creation-time quality gate (no named contact
+      // means an unconditionally-low computed ease, see computeEase() in
+      // app/api/leads/route.ts). The assertions below still prove the real
+      // point of this test: the legacy fields never get merged into
+      // contacts[] as a second, phantom entry.
+      contacts: [{ name: 'Real Contact', email: 'real@legacy-field-fc.example.com', phone: '+1 555 0100', isDecisionMaker: true }],
       decision_maker_name: 'Legacy Name',
       decision_maker_contact: 'legacy@legacy-field-fc.example.com',
       contact_phone: '+1-555-000-0000',
@@ -87,7 +100,10 @@ describe('POST /api/leads', () => {
     expect(postBody.lead.decision_maker_name).toBeUndefined();
     expect(postBody.lead.decision_maker_contact).toBeUndefined();
     expect(postBody.lead.contact_phone).toBeUndefined();
-    expect(postBody.lead.contacts).toEqual([]);
+    // Exactly the one real contact supplied above — no phantom second entry
+    // derived from the legacy fields.
+    expect(postBody.lead.contacts).toHaveLength(1);
+    expect(postBody.lead.contacts[0].name).toBe('Real Contact');
   });
 
   it('rejects a payload that fails validation (bad country code)', async () => {
@@ -115,6 +131,7 @@ describe('POST /api/leads', () => {
       country: 'US',
       kanbanColumn: 'DISCOVERED',
       ice: { impact: 5, confidence: 5, ease: 5 },
+      contacts: [{ name: 'Jordan Smith', email: 'jordan@dedup-test-fc.example.com', phone: '+1 555 0100', isDecisionMaker: true }],
     };
 
     const first = await POST(req('/api/leads?brand=cogmap', {

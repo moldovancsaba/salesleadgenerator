@@ -40,6 +40,7 @@ async function createLead(entityName: string, ice = { impact: 8, confidence: 7, 
       country: 'US',
       kanbanColumn: 'DISCOVERED',
       ice,
+      contacts: [{ name: 'Jordan Smith', email: `jordan@${entityName.toLowerCase().replace(/\s+/g, '-')}.example.com`, phone: '+1 555 0100', isDecisionMaker: true }],
     }),
   }));
   expect(res.status).toBe(201);
@@ -189,6 +190,24 @@ describe('DELETE /api/leads/[id]', () => {
 
     const getRes = await idGET(req(`/api/leads/${id}?brand=cogmap`), { params: Promise.resolve({ id }) });
     expect(getRes.status).toBe(404);
+  });
+
+  // Regression guard for a real bug this same fix uncovered: tryFindLead()'s
+  // final fallback branch built its query as `{ $or: [...], ...filter }` —
+  // for the 'default' tenant, buildTenantFilter() itself returns an object
+  // whose own top-level key is $or, so the spread silently overwrote the
+  // id/_id match entirely (JS object spread — the later key wins). A GET for
+  // a genuinely nonexistent id degraded to "any document in this tenant"
+  // instead of 404 — confirmed live by seeing an unrelated lead's data
+  // returned for an id that had just been deleted, not assumed.
+  it('404s for a well-formed ObjectId that was never a real numeric/legacy id, rather than returning an arbitrary other lead', async () => {
+    await createLead('Distinct Bystander FC');
+    const neverExisted = '507f1f77bcf86cd799439099';
+    const res = await idGET(
+      req(`/api/leads/${neverExisted}?brand=cogmap`),
+      { params: Promise.resolve({ id: neverExisted }) }
+    );
+    expect(res.status).toBe(404);
   });
 });
 

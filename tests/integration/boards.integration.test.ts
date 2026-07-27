@@ -34,6 +34,7 @@ describe('GET /api/boards/[brand] — cogmap forecast', () => {
         country: 'US',
         kanbanColumn: 'WON',
         ice: { impact: 8, confidence: 8, ease: 8 },
+        contacts: [{ name: 'Jordan Smith', email: 'jordan@forecast-test-fc.example.com', phone: '+1 555 0100', isDecisionMaker: true }],
         estimated_annual_revenue_usd: 50000,
       }),
     }));
@@ -61,6 +62,7 @@ describe('GET /api/boards/[brand] — cogmap forecast', () => {
         country: 'US',
         kanbanColumn: 'DISCOVERED',
         ice: { impact: 2, confidence: 2, ease: 2 },
+        contacts: [{ name: 'Jordan Smith', email: 'jordan@discovered-forecast-fc.example.com', phone: '+1 555 0100', isDecisionMaker: true }],
         estimated_annual_revenue_usd: 10000,
       }),
     }));

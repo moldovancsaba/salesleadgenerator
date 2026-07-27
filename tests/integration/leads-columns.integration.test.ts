@@ -39,6 +39,7 @@ async function createLead(entityName: string, ice: { impact: number; confidence:
       country: 'US',
       kanbanColumn: 'DISCOVERED',
       ice,
+      contacts: [{ name: 'Jordan Smith', email: `jordan@${entityName.toLowerCase().replace(/\s+/g, '-')}.example.com`, phone: '+1 555 0100', isDecisionMaker: true }],
     }),
   }));
   expect(res.status).toBe(201);
