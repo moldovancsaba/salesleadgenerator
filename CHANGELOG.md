@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.95
+
+### Added — desktop trackpad "natural scroll" passthrough over the kanban board (owner report, follow-up to 2.4.94)
+2.4.94 fixed one real cause of broken trackpad scrolling on desktop (an unscoped `touch-action: manipulation`). Owner reported it was still broken specifically when hovering a card and using a two-finger natural-scroll trackpad gesture — a different, second mechanism.
+
+**Root cause**: on desktop (wide/landscape layouts), the vendored `@sovereignsquad/gds-core` `KanbanBoard` wraps its columns in a horizontally-scrolling Mantine `ScrollArea` (so columns can be panned sideways) — confirmed by reading the compiled package source, not guessed. A two-finger trackpad gesture the user experiences as "scroll the page down" rarely has a perfectly-zero horizontal delta component; on some browser/OS/trackpad-driver combinations, that horizontal component (or the whole gesture) gets captured by the horizontal ScrollArea instead of chaining the vertical intent up to the page — the symptom is exactly "scroll doesn't work while my pointer is over a card," since cards only exist inside that region.
+
+**Fix**: `app/kanban.tsx` wraps `<GdsKanbanBoard>` in a ref'd container and attaches a real (non-React-synthetic) `wheel` listener via `addEventListener(..., { passive: false })` — React's own synthetic `onWheel` handlers are passive by default for scroll-performance reasons, so `preventDefault()` inside one is silently a no-op; only a manually-attached non-passive listener can actually cancel the browser's default scroll here. New `lib/desktop-scroll-passthrough.ts`'s pure `isVerticalScrollIntent(deltaX, deltaY)` decides whether a gesture is vertical-dominant; when it is, the handler `preventDefault()`s and redirects to `window.scrollBy(0, deltaY)`. This app has no per-column internal vertical scroll of its own (confirmed — every page relies on plain document/window scroll, see `app/components/BackToTopButton.tsx`'s own comment), so a vertical-dominant gesture over the board always means "scroll the page," never "scroll something inside the board" — there's no legitimate competing target to break.
+
+**Desktop-only by design, per the owner's explicit request to separate mobile/PWA and desktop behavior**: gated on `matchMedia('(pointer: fine)')` — on a touchscreen (`pointer: coarse`), GDS renders a stacked, single-column layout with no horizontal ScrollArea to fight in the first place, and native touch panning must never be intercepted by this. Together with 2.4.94's `@media (pointer: coarse)` scoping of the mobile pinch-zoom fix, mobile/PWA and desktop interaction handling are now cleanly separated by pointer type rather than mixed into one unconditional ruleset.
+
+**Verification, and a disclosed limitation**: confirmed via a real headless-Chromium test that the fix mechanism itself works correctly (redirects a vertical-dominant wheel gesture to `window.scrollBy`, leaves horizontal-dominant gestures untouched — `ScrollArea` `scrollLeft` unaffected) and doesn't regress anything. **Could not reproduce the original reported failure in this sandboxed Linux/headless-Chromium environment** — a synthetic `WheelEvent` there already chained to the page correctly by default, which strongly suggests the real-world bug is specific to actual trackpad-driver/gesture-recognition behavior (macOS Safari/WebKit and/or Windows Precision Touchpad drivers) that this environment cannot replicate. Shipped anyway as a real, standard, low-risk defensive fix for this documented class of bug (nested horizontal-scroll container swallowing page scroll) — needs confirmation on real hardware after deploy, not claimed as verified-fixed from this sandbox alone.
+
+New `lib/desktop-scroll-passthrough.ts` unit tests (7 cases: pure vertical/horizontal, small-noise vertical, tie-breaking, sign-independent magnitude comparison, no-op).
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest 499/499, smoke 5/5.
+
 ## 2.4.94
 
 ### Fixed — trackpad scroll not working properly on desktop (owner report)
