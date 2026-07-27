@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.94
+
+### Fixed — trackpad scroll not working properly on desktop (owner report)
+`app/globals.css` set `touch-action: manipulation` unconditionally on `html`/`body`, added in an earlier release specifically to prevent pinch/double-tap zoom on iOS Safari. Unscoped, this also applies to desktop browsers — and on at least one real report (this fix), it suppressed two-finger trackpad scroll/pan on a laptop, a known category of interaction where some OS/browser combinations (notably Windows Precision Touchpad drivers) route trackpad gestures through touch-like pointer events that `touch-action` restricts.
+
+Scoped the rule to `@media (pointer: coarse)` — per the CSS Media Queries spec, a touchscreen reports `pointer: coarse`, while a trackpad or mouse reports `pointer: fine`, regardless of OS. This keeps the original iOS pinch-zoom fix intact on real touchscreens while leaving desktop trackpad/mouse scrolling at the browser's normal default (`touch-action: auto`).
+
+Verified with a real headless-Chromium check, not just reasoned about: a touch-emulated context (iPhone 13 device profile) still resolves `pointer: coarse` and gets `touch-action: manipulation`; a non-touch desktop context resolves `pointer: fine` and now gets `touch-action: auto`.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings.
+
 ## 2.4.93
 
 ### Added — Contact CRUD, Deal CRUD, checklist, tags, follow-up reminders, BANT-lite qualification, lead source, and card indicators (owner-requested batch, issues #113–#123)
