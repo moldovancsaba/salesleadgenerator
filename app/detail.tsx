@@ -9,12 +9,13 @@ import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { PRO_FIELD, CON_FIELD } from './lib/brand';
-import { getTicketSize } from './constants';
+import { getTicketSize, SIZE_FIELD_OPTIONS } from './constants';
 import { isContactStale, DEFAULT_STALENESS_THRESHOLD_DAYS } from '@/lib/contact-freshness';
 import { computeStaleness, DEFAULT_STALE_THRESHOLDS } from '@/lib/stale-deal';
 import { getNextStepNudge } from '@/lib/next-step-nudge';
 import { sumDeals } from '@/lib/deals';
 import type { Deal } from '@/lib/deals';
+import { ContactsEditor, type ContactRow } from './components/ContactsEditor';
 import {
   IconX,
   IconThumbUp,
@@ -204,7 +205,9 @@ const DECLINE_REASONS: { value: DeclineReason; label: string }[] = [
 
 // Matches lib/validate-lead.ts's ORG_SIZE_SET exactly — the same fixed
 // 4-value enum the server validates `size` against on save (issue #88).
-const SIZE_FIELD_OPTIONS = ['Small', 'Medium', 'Large', 'Enterprise'];
+// SIZE_FIELD_OPTIONS moved to app/constants.ts (issue #127) — shared with
+// app/components/AddLeadModal.tsx, which has no reason to import from this
+// file directly.
 
 // GDS's built-in semantic-action vocabulary (GdsVocabulary) has no "pin"
 // entry — every other action below uses a registered built-in key directly
@@ -212,7 +215,25 @@ const SIZE_FIELD_OPTIONS = ['Small', 'Medium', 'Large', 'Enterprise'];
 // custom vocabulary pack. Module-scope constant: static, not per-render.
 const LEAD_ACTION_VOCABULARY_PACK = createGdsVocabularyPack('lead', {
   pin: { defaultMessage: 'Pin', icon: GdsIcons.Star, ariaLabel: 'Pin to Engaged' },
+  // Issue #126 — deliberately two separate actions, not one generic "move,"
+  // since only one of the two is ever relevant for a given lead (derived
+  // from lead.kanbanColumn, not a separate board-mode flag).
+  backlog: { defaultMessage: 'Move to Backlog', icon: GdsIcons.Archive, ariaLabel: 'Move to Backlog' },
+  unbacklog: { defaultMessage: 'Move to Pipeline', icon: GdsIcons.Restore, ariaLabel: 'Move to a pipeline column' },
 });
+
+// The 6 real pipeline columns a Backlog lead can move back into — same set
+// as app/constants.ts's COLUMNS, duplicated here as plain value/label pairs
+// since this file doesn't otherwise import that module's icon/color/
+// description fields it doesn't need.
+const PIPELINE_MOVE_TARGETS = [
+  { value: 'DISCOVERED', label: 'Discovered' },
+  { value: 'QUALIFIED', label: 'Qualified' },
+  { value: 'ENGAGED', label: 'Engaged' },
+  { value: 'PROPOSAL', label: 'Proposal' },
+  { value: 'WON', label: 'Won' },
+  { value: 'LOST', label: 'Lost' },
+];
 
 export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, onAction, onDelete, onUpdated }: Props) {
   const [annotation, setAnnotation] = useState("");
@@ -221,7 +242,8 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   // immediately on click, no confirmation step) — narrowed from a stale
   // "decline" | "pin" | "refresh" | null union that implied a confirmation
   // flow for Pin/Refresh that was never wired up.
-  const [actionMode, setActionMode] = useState<"decline" | null>(null);
+  const [actionMode, setActionMode] = useState<"decline" | "unbacklog" | null>(null);
+  const [unbacklogTarget, setUnbacklogTarget] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [outreachOpen, setOutreachOpen] = useState(false);
   const [fullScreen, setFullScreen] = useState(true);
@@ -259,7 +281,6 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   // Lead Details form above, since it's a repeatable-rows UI (add/remove),
   // not a flat field set. Own edit toggle + Save, same pattern as the
   // Actual Deal Value capture above.
-  type ContactRow = { name: string; title: string; email: string; phone: string; linkedin: string; role: string; isDecisionMaker: boolean };
   const [editingContacts, setEditingContacts] = useState(false);
   const [contactsForm, setContactsForm] = useState<ContactRow[]>([]);
   const [savingContacts, setSavingContacts] = useState(false);
@@ -439,6 +460,40 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
       showNotification({ message: err instanceof Error ? err.message : 'Pin failed', color: 'red', autoClose: 5000 });
     } finally {
       setBusy(false);
+    }
+  }
+
+  // Issue #126 — deliberately not the generic COLUMN_MOVE flow GDS's own
+  // per-card dropdown would offer: this modal's ActionBar has no dropdown
+  // widget at all, only discrete buttons, matching every other action here
+  // (Accept/Decline/Pin/Refresh).
+  async function handleMoveToBacklog() {
+    if (!lead) return;
+    setBusy(true);
+    try {
+      await onAction(lead._id, "COLUMN_MOVE", { kanbanColumn: "BACKLOG", sortOrder: Date.now() });
+      showNotification({ message: 'Moved to Backlog', color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Move to Backlog failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleMoveToPipeline() {
+    if (!lead || !unbacklogTarget) return;
+    setBusy(true);
+    try {
+      await onAction(lead._id, "COLUMN_MOVE", { kanbanColumn: unbacklogTarget, sortOrder: Date.now() });
+      showNotification({ message: `Moved to ${unbacklogTarget}`, color: 'green', autoClose: 4000 });
+    } catch (err) {
+      // Surfaces the real server error (e.g. a stage-gate rejection when the
+      // target is ENGAGED/PROPOSAL — lib/stage-gate.ts applies here exactly
+      // as it does to any other COLUMN_MOVE, keyed off destination only).
+      showNotification({ message: err instanceof Error ? err.message : 'Move failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setBusy(false);
+      setActionMode(null);
     }
   }
 
@@ -707,6 +762,23 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
         disabled: busy,
         onClick: () => setOutreachOpen(true),
       },
+      // Issue #126 — exactly one of these two is ever shown, derived from
+      // the lead's own current column (never both, never neither).
+      lead.kanbanColumn === 'BACKLOG'
+        ? {
+            action: 'lead:unbacklog' as const,
+            color: 'blue',
+            variant: 'light',
+            disabled: busy,
+            onClick: () => { setUnbacklogTarget(null); setActionMode('unbacklog'); },
+          }
+        : {
+            action: 'lead:backlog' as const,
+            color: 'gray',
+            variant: 'light',
+            disabled: busy,
+            onClick: handleMoveToBacklog,
+          },
 
       {
         action: 'delete' as const,
@@ -975,28 +1047,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
         )}
         {editingContacts && (
           <Stack gap="sm">
-            {contactsForm.length === 0 && <Text size="sm" c="dimmed">No contacts yet.</Text>}
-            {contactsForm.map((c, i) => (
-              <Box key={i} p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }}>
-                <Group justify="space-between" align="center" mb={4}>
-                  <Text size="xs" c="dimmed" fw={600}>Contact {i + 1}</Text>
-                  <ActionIcon size="sm" variant="subtle" color="red" aria-label="Remove contact" onClick={() => setContactsForm((rows) => rows.filter((_, idx) => idx !== i))}>
-                    <IconTrash size={14} />
-                  </ActionIcon>
-                </Group>
-                <Stack gap={4}>
-                  <TextInput size="xs" placeholder="Name" value={c.name} onChange={(e) => { const v = e.currentTarget.value; setContactsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, name: v } : r)); }} />
-                  <TextInput size="xs" placeholder="Title" value={c.title} onChange={(e) => { const v = e.currentTarget.value; setContactsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, title: v } : r)); }} />
-                  <TextInput size="xs" placeholder="Email" value={c.email} onChange={(e) => { const v = e.currentTarget.value; setContactsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, email: v } : r)); }} />
-                  <TextInput size="xs" placeholder="Phone" value={c.phone} onChange={(e) => { const v = e.currentTarget.value; setContactsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, phone: v } : r)); }} />
-                  <TextInput size="xs" placeholder="LinkedIn URL" value={c.linkedin} onChange={(e) => { const v = e.currentTarget.value; setContactsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, linkedin: v } : r)); }} />
-                  <Checkbox size="xs" label="Decision maker" checked={c.isDecisionMaker} onChange={(e) => { const v = e.currentTarget.checked; setContactsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, isDecisionMaker: v } : r)); }} />
-                </Stack>
-              </Box>
-            ))}
-            <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} onClick={() => setContactsForm((rows) => [...rows, { name: '', title: '', email: '', phone: '', linkedin: '', role: '', isDecisionMaker: false }])}>
-              Add contact
-            </Button>
+            <ContactsEditor value={contactsForm} onChange={setContactsForm} />
             <Group gap="xs">
               <Button size="sm" onClick={handleSaveContacts} loading={savingContacts}>Save</Button>
               <Button size="sm" variant="subtle" color="gray" onClick={() => setEditingContacts(false)} disabled={savingContacts}>Cancel</Button>
@@ -1252,6 +1303,30 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
             </Button>
             <Button color="red" onClick={handleDecline} loading={busy}>
               Confirm Reject
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+      {/* Issue #126 — "Move to Pipeline" needs a destination column, unlike
+          every other single-purpose action button in this modal, so it gets
+          the same confirmation-modal treatment Reject's reason picker
+          already established rather than a bespoke new pattern. */}
+      <Modal opened={actionMode === 'unbacklog'} onClose={() => setActionMode(null)} title="Move to Pipeline" centered>
+        <Stack gap="sm">
+          <AdminSelect
+            name="unbacklogTarget"
+            label="Move to"
+            value={unbacklogTarget}
+            onChange={(value: string | null) => setUnbacklogTarget(value)}
+            data={PIPELINE_MOVE_TARGETS}
+            placeholder="Choose a column"
+          />
+          <Group justify="flex-end" gap="xs">
+            <Button variant="light" color="gray" onClick={() => setActionMode(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button color="blue" onClick={handleMoveToPipeline} loading={busy} disabled={!unbacklogTarget}>
+              Confirm Move
             </Button>
           </Group>
         </Stack>

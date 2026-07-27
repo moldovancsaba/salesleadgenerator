@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.96
+
+### Added — Backlog board (owner report, issue #126)
+A new holding area for leads the operator wants to deliberately park (a bad-fit-for-now lead, a competitor being deprioritized) without cluttering the Pipeline board. Reachable via a new **Backlog** link in the hamburger menu, right before **Pipeline** — same board component as Pipeline (same card layout, Select mode, bulk actions, filters), parameterized down to a single `BACKLOG` column via a new `columnDefs` prop on `app/kanban.tsx`'s `KanbanBoard`.
+
+Moving a lead in either direction is a dedicated app-level action ("Move to Backlog" / "Move to Pipeline") rather than GDS's built-in per-card move menu — that menu's own targets are always the board's *other rendered columns*, which structurally can't express a move to/from a column that isn't part of either board's own 6- or 1-column set. Available both on the kanban card and in the Lead Detail modal.
+
+Backlog leads are excluded from Forecast and Metrics revenue totals (`app/lib/forecast.ts`'s new `revenueFilter`, applied to every revenue aggregation) and exempt from staleness/"rotten" indicators — a parked lead is the intended state, not neglect. They remain visible in Table view alongside every other column (owner-confirmed scope), and lead-count breakdowns (not revenue) are unaffected.
+
+### Added — Add Lead (owner report, issue #127)
+A new **+** button in the Pipeline toolbar opens a full-form modal (`app/components/AddLeadModal.tsx`) to manually add a lead the research agent hasn't found yet — entity, URL, country/region, size, industry, value proposition, tags, and a repeatable contacts editor (`app/components/ContactsEditor.tsx`, extracted from the Lead Detail modal so both share one implementation). The form doesn't ask for ICE scores directly — a manually-added lead always gets a neutral default (`lib/create-lead-defaults.ts`) and lands in DISCOVERED, same as a fresh research-agent lead below the qualification threshold.
+
+**Security-relevant change**: `POST /api/leads` previously accepted only `x-api-key` auth (the research agent's sole path — no browser caller existed before this feature). It now also accepts an authenticated browser session with access to the requested brand (`requireBrandAccessApi`, the same combined guard already used by `PATCH`/`DELETE /api/leads` since issue #104), so the in-app Add Lead button can call it. The `x-api-key` path is checked first and is completely unaffected — existing external callers need no changes.
+
+### Testing
+New integration coverage: `tests/integration/leads-patch-actions.integration.test.ts` (move into/out of BACKLOG, including that the ENGAGED stage gate still applies moving back out), `tests/integration/boards.integration.test.ts` (BACKLOG excluded from `forecast.totals.revenue`), `tests/integration/leads.integration.test.ts` (manual Add Lead flow: full-form creation lands in DISCOVERED with `source: 'manual'`; duplicate-fingerprint 409 still applies), `tests/lib/create-lead-defaults.test.ts` (the default ICE constant's shape and score-vs-threshold invariant).
+
+**Disclosed, pre-existing test-fixture gap (not introduced by this release)**: 13 integration tests across `tests/integration/leads.integration.test.ts`, `leads-id.integration.test.ts`, `boards.integration.test.ts`, and `forecast-snapshot.integration.test.ts` fail against `POST /api/leads`'s own creation-time quality gate (`computeEase()` returns a low score for minimal test fixtures with no contact/address, tripping the "very low ease without a verified contact" 422 rejection) — confirmed via `git stash` A/B testing to be byte-identical (same 13 test names) both before and after this release's changes. This is a pre-existing gap in those tests' own fixtures, not a regression; new tests added in this release route around it with a real contact, matching the precedent already established in `leads-patch-actions.integration.test.ts`.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest unit 501/501, smoke 5/5, `next build --webpack` (all routes), `audit:gds-style` clean.
+
 ## 2.4.95
 
 ### Added — desktop trackpad "natural scroll" passthrough over the kanban board (owner report, follow-up to 2.4.94)

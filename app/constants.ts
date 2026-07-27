@@ -10,6 +10,23 @@ export const COLUMNS: { key: KanbanColumn; label: string; description: string; c
   { key: "LOST", label: "Lost", description: "Manually placed and ordered by the user", color: "red", icon: "✕" },
 ];
 
+// Issue #126 — deliberately NOT part of COLUMNS above: Backlog is never one
+// of the Pipeline board's 6 rendered/auto-managed columns. Passed instead as
+// app/kanban.tsx's own `columnDefs` prop when mounting the one-column
+// Backlog board (app/sales/[brand]/sales-page-client.tsx's `view=backlog`).
+// A module-level constant (not an inline array literal at the call site) so
+// its reference is stable across renders — app/kanban.tsx's bootstrap
+// effect depends on this array by reference.
+export const BACKLOG_COLUMN_DEF: { key: KanbanColumn; label: string; description: string; color: string; icon: string }[] = [
+  { key: "BACKLOG", label: "Backlog", description: "Parked — not currently being worked", color: "gray", icon: "📥" },
+];
+
+// Matches lib/validate-lead.ts's ORG_SIZE_SET exactly — the same fixed
+// 4-value enum the server validates `size` against on save (issue #88).
+// Shared by app/detail.tsx's edit form and app/components/AddLeadModal.tsx
+// (issue #127).
+export const SIZE_FIELD_OPTIONS = ['Small', 'Medium', 'Large', 'Enterprise'];
+
 export const MOBILE_MAX = 639;
 export const MOBILE_LANDSCAPE_MIN = 640;
 export const MOBILE_LANDSCAPE_MAX = 767;

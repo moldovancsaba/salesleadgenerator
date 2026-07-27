@@ -7,7 +7,12 @@ export type KanbanColumn =
   | "ENGAGED"
   | "PROPOSAL"
   | "WON"
-  | "LOST";
+  | "LOST"
+  // Issue #126 — a lead a rep isn't working right now, but hasn't declined.
+  // Deliberately not part of app/constants.ts's COLUMNS (the 6-column
+  // Pipeline board's own list) — never rendered there, never auto-managed,
+  // reachable only via an explicit "Move to Backlog" action.
+  | "BACKLOG";
 
 export type QualityStatus = "DRAFT" | "CHECKED" | "VERIFIED";
 

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { NextRequest } from 'next/server';
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
 
@@ -39,6 +40,14 @@ function req(url: string, init?: RequestInit) {
 
 function authedReq(url: string, init?: RequestInit) {
   return req(url, { ...init, headers: { ...(init?.headers || {}), 'x-api-key': TEST_API_KEY } });
+}
+
+// Issue #127 — POST /api/leads moved from Request to NextRequest (it now
+// checks request.cookies via requireBrandAccessApi, same as PATCH already
+// did). This file's own authedReq() above stays a plain Request for the
+// routes that don't need that; this is the one call site that does.
+function authedNextReq(url: string, init?: ConstructorParameters<typeof NextRequest>[1]) {
+  return new NextRequest(`http://localhost${url}`, { ...init, headers: { ...(init?.headers || {}), 'x-api-key': TEST_API_KEY } });
 }
 
 function cronReq(url: string, init?: RequestInit) {
@@ -91,7 +100,7 @@ describe('GET /api/admin/forecast-snapshot — write behavior', () => {
   });
 
   it('captures the real forecast shape once a lead exists, and persists weightsUsed', async () => {
-    await leadsPOST(req('/api/leads?brand=cogmap', {
+    await leadsPOST(authedNextReq('/api/leads?brand=cogmap', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

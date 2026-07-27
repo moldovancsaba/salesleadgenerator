@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
 import { BRAND_CONFIG, resolveBrand, PRO_FIELD, CON_FIELD } from '../../lib/brand'
 import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
-import { requireApiKey } from '../../../lib/api-auth'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { validateLeadPayload, validatePatchPayload, bestContactConfidence } from '../../../lib/validate-lead'
@@ -228,12 +227,23 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - Create new lead with dedup and scoring
-export async function POST(request: Request) {
-  const authError = requireApiKey(request);
-  if (authError) return authError;
-
+//
+// Issue #127: previously gated by requireApiKey alone (the research agent's
+// exclusive write path — no browser UI ever created a lead). Switched to
+// requireBrandAccessApi, matching PATCH/DELETE's existing dual-auth
+// precedent (issue #104), so the new browser-side "Add Lead" flow
+// (app/components/AddLeadModal.tsx) can create leads under the caller's own
+// SSO session instead of needing to hold the API key client-side (which a
+// browser can't do safely). The research agent's existing x-api-key calls
+// are unaffected — requireBrandAccessApi checks that header first and
+// short-circuits to authorized exactly as requireApiKey did, before ever
+// touching the session-based fallback.
+export async function POST(request: NextRequest) {
   try {
     const brand = getBrand(request);
+    const authError = await requireBrandAccessApi(request, brand);
+    if (authError) return authError;
+
     const config = BRAND_CONFIG[brand];
     const tenantId = getTenantId(request);
 
@@ -444,8 +454,10 @@ export async function POST(request: Request) {
 // browser has no way to hold that secret safely without a login system.
 // Issue #104: gated by requireBrandAccessApi instead — the browser already
 // carries the SSO session cookie automatically, so this checks that instead
-// of an API key. POST (external research-agent lead creation) keeps its
-// separate requireApiKey guard.
+// of an API key. POST also moved to this same combined guard as of issue
+// #127, once the browser gained its own lead-creation UI (previously POST
+// was create-only via the research agent's API key, so a stricter
+// requireApiKey-only guard was sufficient).
 export async function PATCH(request: NextRequest) {
   const requestId = generateRequestId();
 

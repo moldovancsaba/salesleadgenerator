@@ -92,6 +92,15 @@ export type ForecastComputation = {
 export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId: string): Promise<ForecastComputation> {
   const config = BRAND_CONFIG[brand]
   const filter = tenantFilter(tenantId)
+  // Issue #126 — Backlog leads are excluded from every revenue/forecast
+  // aggregation, not just from the fixed per-column iteration lists below
+  // (those already never read a BACKLOG bucket, but a lead-level grand
+  // total like totalRevenue/perLeadValues has no per-column restriction of
+  // its own and would otherwise still sum a Backlog lead's value in).
+  // columnCounts/byColumnCursor deliberately keep using the unrestricted
+  // `filter` — a general lead-count-by-column breakdown, not a revenue
+  // figure, and this issue only asked to exclude Backlog from the latter.
+  const revenueFilter = { ...filter, kanbanColumn: { $ne: 'BACKLOG' } }
   const collection = db.collection(config.dbCollection)
 
   const totalLeads = await collection.countDocuments(filter)
@@ -159,7 +168,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
 
   if (brand === 'cogmap') {
     const pipelineForecast = await collection.aggregate([
-      { $match: filter },
+      { $match: revenueFilter },
       {
         $group: {
           _id: '$kanbanColumn',
@@ -194,7 +203,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
       .reduce((sum: number, col) => sum + (col.weightedRevenue || 0), 0)
 
     const revenueByModel = await collection.aggregate([
-      { $match: filter },
+      { $match: revenueFilter },
       {
         $group: {
           _id: '$revenue_model',
@@ -206,7 +215,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
     ]).toArray()
 
     const totalRevenue = await collection.aggregate([
-      { $match: filter },
+      { $match: revenueFilter },
       {
         $group: {
           _id: null,
@@ -217,7 +226,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
     ]).toArray()
 
     const perLeadValues = await collection.aggregate<PerLeadValueDoc>([
-      { $match: filter },
+      { $match: revenueFilter },
       { $project: { entity_name: 1, kanbanColumn: 1, value: REVENUE_EXPR } },
     ]).toArray()
     const concentrationSettings = await getConcentrationRiskSettings(db)
@@ -245,7 +254,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
 
   if (brand === 'seyu') {
     const seyuForecast = await collection.aggregate([
-      { $match: filter },
+      { $match: revenueFilter },
       { $project: { companyPricing: { $objectToArray: '$pricingByCompany' } } },
       { $unwind: { path: '$companyPricing', preserveNullAndEmptyArrays: true } },
       {
@@ -285,7 +294,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
     // (max(annual, monthly*12+upfront) per entry) before grouping by column,
     // so a lead with multiple company blocks isn't double counted per entry.
     const seyuColumnForecast = await collection.aggregate([
-      { $match: filter },
+      { $match: revenueFilter },
       {
         $project: {
           kanbanColumn: 1,
@@ -350,7 +359,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
     // the final $group — concentration ranking needs individual lead values,
     // not just the per-column sum.
     const perLeadValuesSeyu = await collection.aggregate<PerLeadValueDoc>([
-      { $match: filter },
+      { $match: revenueFilter },
       {
         $project: {
           entity_name: 1,
