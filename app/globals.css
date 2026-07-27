@@ -1,13 +1,5 @@
-/*
-  touch-action: manipulation disables pinch-zoom and double-tap-zoom while
-  preserving normal single-finger scroll/pan. This is required in addition
-  to the viewport meta tag's maximum-scale/user-scalable, since iOS Safari
-  has ignored those two viewport properties since iOS 10 for accessibility
-  reasons — touch-action is the layer Safari actually respects.
-*/
 html,
 body {
-  touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
   /*
@@ -18,6 +10,29 @@ body {
   */
   overflow-x: hidden;
   max-width: 100vw;
+}
+
+/*
+  touch-action: manipulation disables pinch-zoom and double-tap-zoom while
+  preserving normal single-finger scroll/pan. This is required in addition
+  to the viewport meta tag's maximum-scale/user-scalable, since iOS Safari
+  has ignored those two viewport properties since iOS 10 for accessibility
+  reasons — touch-action is the layer Safari actually respects.
+
+  Scoped to (pointer: coarse) — touchscreens only — rather than applied
+  unconditionally: a laptop trackpad (and a mouse) reports `pointer: fine`
+  per the CSS Media Queries spec, but an unscoped rule here still applied to
+  them on some OS/browser combinations (confirmed cause of a real report:
+  trackpad two-finger scroll/pan not working properly on desktop). Gating on
+  pointer type keeps the intended mobile pinch-zoom fix while leaving
+  desktop trackpad/mouse scrolling at the browser's normal default
+  (touch-action: auto).
+*/
+@media (pointer: coarse) {
+  html,
+  body {
+    touch-action: manipulation;
+  }
 }
 
 /*
