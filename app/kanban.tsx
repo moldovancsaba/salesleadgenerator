@@ -151,6 +151,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       if (cursor) url.searchParams.set('cursor', cursor)
       if (filter?.region) url.searchParams.set('region', filter.region)
       if (filter?.industry?.trim()) url.searchParams.set('industry', filter.industry.trim())
+      if (filter?.tags && filter.tags.length > 0) url.searchParams.set('tags', filter.tags.join(','))
 
       const res = await fetch(url.toString())
       if (!res.ok) throw new Error(`Column load failed: ${res.status}`)
@@ -411,13 +412,19 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
             disabled={Boolean(selectedColumn) && selectedColumn !== (column.id as KanbanColumn) && !selectedIds.has(leadItem.lead._id)}
           />
         )}
-        <LeadCard lead={leadItem.lead} onOpen={() => onOpenLead(leadItem.lead)} staleness={staleness} nudge={nudge} />
+        <LeadCard
+          lead={leadItem.lead}
+          onOpen={() => onOpenLead(leadItem.lead)}
+          staleness={staleness}
+          nudge={nudge}
+          winProbability={forecast?.[column.id]?.probability ?? null}
+        />
         {isLast && colState.hasMore && !colState.loading && (
           <LoadMoreSentinel onLoadMore={() => loadColumn(column.id as KanbanColumn, colState.cursor)} />
         )}
       </>
     )
-  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected])
+  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast])
 
   // enableDrag deliberately omitted (default false): it renders a
   // drag-handle icon per card and activates GDS's real @dnd-kit

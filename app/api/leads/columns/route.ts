@@ -33,13 +33,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'column=DISCOVERED|QUALIFIED|ENGAGED|PROPOSAL|WON|LOST required' }, { status: 400 })
     }
 
-    // Issue #71: same two filterable dimensions as GET /api/leads (region
-    // exact match, industry case-insensitive substring) — kept identical
-    // across both views rather than also exposing a status/kanbanColumn
-    // filter here, which would be redundant with this route's own
-    // column-partitioned model.
+    // Issue #71: same filterable dimensions as GET /api/leads (region exact
+    // match, industry case-insensitive substring, and — issue #116 — tags
+    // OR-matched) kept identical across both views rather than also
+    // exposing a status/kanbanColumn filter here, which would be redundant
+    // with this route's own column-partitioned model.
     const region = searchParams.get('region') || undefined
     const industry = searchParams.get('industry') || undefined
+    const tagsParam = searchParams.get('tags') || undefined
+    const tags = tagsParam ? tagsParam.split(',').map((t) => t.trim()).filter(Boolean) : undefined
 
     const client = await clientPromise
     const db = client.db()
@@ -47,6 +49,7 @@ export async function GET(request: NextRequest) {
     const colFilter: Record<string, any> = { kanbanColumn: column, ...filter }
     if (region) colFilter.region = region
     if (industry) colFilter.industry = { $regex: escapeRegExp(industry), $options: 'i' }
+    if (tags && tags.length > 0) colFilter.tags = { $in: tags }
 
     const [countDoc] = await collection.aggregate([
       { $match: colFilter },
