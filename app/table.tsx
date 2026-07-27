@@ -1,6 +1,6 @@
 'use client';
 
-import { UnstyledButton } from '@mantine/core';
+import { Badge, Group, UnstyledButton } from '@mantine/core';
 import { AdminDataTable } from '@sovereignsquad/gds-admin/client';
 import type { Lead } from './types';
 import { getIceScore } from './constants';
@@ -40,6 +40,17 @@ export function TableView({ leads, onOpenLead }: TableViewProps) {
         { key: 'region', header: 'Region', sortable: true },
         { key: 'qualityStatus', header: 'Quality', sortable: true },
         { key: 'kanbanColumn', header: 'Status', sortable: true },
+        {
+          key: 'tags',
+          header: 'Tags',
+          accessor: (row: TableRow) => (
+            (row.tags?.length ?? 0) === 0 ? '—' : (
+              <Group gap={4} wrap="wrap">
+                {row.tags!.map((tag) => (<Badge key={tag} variant="outline" color="gray" size="xs">{tag}</Badge>))}
+              </Group>
+            )
+          ),
+        },
       ]}
       getRowKey={(row: TableRow) => row._id}
       renderMobileCard={(row: TableRow) => (

@@ -112,6 +112,50 @@ export type Lead = {
   // lib/ticket-size-calibration.ts, issue #83. Captured via MODIFY, never
   // computed. Undefined means not yet recorded, not a $0 deal.
   actualDealValueUsd?: number;
+  // Manually-managed deals, distinct from the auto-computed ticketSizeEstimate
+  // above — see lib/deals.ts, issue #114. Never auto-created/edited; a rep
+  // adds these directly or converts a ticket estimate into one. Multiple
+  // deals per lead are allowed (e.g. renewal + add-on).
+  deals?: Array<{
+    id: string;
+    value: number;
+    currency: 'USD' | 'EUR';
+    label?: string;
+    createdAt: string;
+    updatedAt: string;
+    source: 'manual' | 'converted_ticket_estimate';
+  }>;
+  // Per-item action checklist, distinct from the free-text `notes` field
+  // above — see lib/checklist.ts, issue #117.
+  checklist?: Array<{
+    id: string;
+    text: string;
+    done: boolean;
+    createdAt: string;
+    completedAt?: string;
+  }>;
+  // Scheduled follow-up commitment, distinct from the passive, rule-derived
+  // suggestions in lib/next-step-nudge.ts — see issue #121. Lead-level, not
+  // per-rep: this app has no user/ownership model. `null` explicitly clears
+  // an existing reminder (vs. omission, which leaves it unchanged).
+  nextActionDueAt?: string | null;
+  nextActionNote?: string;
+  // Lightweight BANT-style qualification signals, informational only — not
+  // wired into lib/stage-gate.ts's required-fields gate. See issue #122.
+  // authorityConfirmed is a deal-level judgment call, distinct from any
+  // individual contact's isDecisionMaker flag above.
+  qualification?: {
+    budgetConfirmed?: boolean;
+    budgetNotes?: string;
+    authorityConfirmed?: boolean;
+    needNotes?: string;
+    timelineEstimate?: string;
+  };
+  // Acquisition channel, e.g. "manual" | "research_agent" | "referral" |
+  // "outbound_list" | "event" | "inbound" — see issue #123. Freeform string
+  // (not a closed enum) so brand-specific channels don't require a code
+  // change to record.
+  source?: string;
   kanbanColumn: KanbanColumn;
   sortOrder: number;
   fingerprint?: string;

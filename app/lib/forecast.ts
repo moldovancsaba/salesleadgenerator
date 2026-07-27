@@ -138,12 +138,24 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
     lastComputedAt: cachedWinRates?.computedAt ? new Date(cachedWinRates.computedAt).toISOString() : null,
   }
 
-  // Ticket-size estimate (issue #79) takes priority over the legacy
-  // free-written estimated_annual_revenue_usd field once computed — same
-  // fallback contract as app/constants.ts's getTicketSize() (issue #79/#80),
-  // so the forecast and the lead-detail UI never disagree about which
-  // number is authoritative for a given lead (issue #85).
-  const REVENUE_EXPR = { $ifNull: ['$ticketSizeEstimate.expected', { $ifNull: ['$estimated_annual_revenue_usd', 0] }] }
+  // Manually-managed deals (issue #114) take priority over both the modeled
+  // ticket-size estimate and the legacy free-written revenue field once a
+  // lead has at least one deal — a deal is a human's direct knowledge of
+  // real (or converted-from-estimate, but then edited/owned) pipeline
+  // value, stronger than either automated signal. Ticket-size estimate
+  // (issue #79) still takes priority over the legacy estimated_annual_revenue_usd
+  // field once computed — same fallback contract as app/constants.ts's
+  // getTicketSize() (issue #79/#80), so the forecast and the lead-detail UI
+  // never disagree about which number is authoritative for a given lead
+  // (issue #85).
+  const DEALS_SUM_EXPR = { $sum: { $map: { input: { $ifNull: ['$deals', []] }, as: 'd', in: { $ifNull: ['$$d.value', 0] } } } }
+  const REVENUE_EXPR = {
+    $cond: [
+      { $gt: [{ $size: { $ifNull: ['$deals', []] } }, 0] },
+      DEALS_SUM_EXPR,
+      { $ifNull: ['$ticketSizeEstimate.expected', { $ifNull: ['$estimated_annual_revenue_usd', 0] }] },
+    ],
+  }
 
   if (brand === 'cogmap') {
     const pipelineForecast = await collection.aggregate([

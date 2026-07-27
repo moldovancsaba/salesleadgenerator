@@ -9,6 +9,8 @@ import { computeTicketSizeForLead } from './ticket-size-store'
 import { createManualTicketSizeOverride } from '../../lib/ticket-size'
 import { defaultRevenueTargetCurrency } from './sales-settings'
 import { checkStageGate, formatStageGateError } from '../../lib/stage-gate'
+import { sanitizeDeals } from '../../lib/deals'
+import { sanitizeChecklist } from '../../lib/checklist'
 
 export type LeadActionInput = {
   brand: string
@@ -104,7 +106,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
   if (action === 'MODIFY') {
     const fields = ['entity_name', 'url', 'address', 'general_contact', 'size', 'industry',
                     'sport_or_sector', 'level_league', 'value_proposition', 'notes', 'tags',
-                    'actualDealValueUsd']
+                    'actualDealValueUsd', 'source']
     fields.forEach(field => {
       if (normalizedBody[field] !== undefined) updateData[field] = normalizedBody[field]
     })
@@ -193,6 +195,38 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
         return { ...raw, lastVerifiedAt: changed ? now.toISOString() : match?.lastVerifiedAt }
       })
       updateData.contacts = dedupeContacts(stamped)
+    }
+    // Deals (issue #114) — whole-array replace, same convention as
+    // contacts[] above. Never auto-populated; only present when the UI
+    // explicitly sends a deals[] array (add/edit/remove/convert).
+    if (Array.isArray(normalizedBody.deals)) {
+      updateData.deals = sanitizeDeals(normalizedBody.deals, existing.deals, new Date())
+    }
+    // Checklist (issue #117) — same whole-array-replace convention.
+    if (Array.isArray(normalizedBody.checklist)) {
+      updateData.checklist = sanitizeChecklist(normalizedBody.checklist, existing.checklist, new Date())
+    }
+    // Follow-up reminder (issue #121) — explicit null clears it; omission
+    // leaves the existing value untouched, matching this MODIFY branch's
+    // established partial-update convention for every other field above.
+    if (normalizedBody.nextActionDueAt !== undefined) {
+      updateData.nextActionDueAt = normalizedBody.nextActionDueAt === null ? null : String(normalizedBody.nextActionDueAt)
+    }
+    if (normalizedBody.nextActionNote !== undefined) {
+      updateData.nextActionNote = typeof normalizedBody.nextActionNote === 'string' ? normalizedBody.nextActionNote.trim().slice(0, 500) : ''
+    }
+    // Qualification (issue #122) — merged field-by-field into whatever's
+    // already stored, not a whole-object replace, so editing just
+    // budgetNotes doesn't blow away an already-set timelineEstimate.
+    if (normalizedBody.qualification && typeof normalizedBody.qualification === 'object') {
+      const q = normalizedBody.qualification
+      const merged: Record<string, any> = { ...(existing.qualification || {}) }
+      if (q.budgetConfirmed !== undefined) merged.budgetConfirmed = q.budgetConfirmed === true
+      if (q.budgetNotes !== undefined) merged.budgetNotes = typeof q.budgetNotes === 'string' ? q.budgetNotes.trim().slice(0, 1000) : ''
+      if (q.authorityConfirmed !== undefined) merged.authorityConfirmed = q.authorityConfirmed === true
+      if (q.needNotes !== undefined) merged.needNotes = typeof q.needNotes === 'string' ? q.needNotes.trim().slice(0, 1000) : ''
+      if (q.timelineEstimate !== undefined) merged.timelineEstimate = typeof q.timelineEstimate === 'string' ? q.timelineEstimate.trim().slice(0, 200) : ''
+      updateData.qualification = merged
     }
     if (normalizedBody[PRO_FIELD]) updateData[PRO_FIELD] = normalizedBody[PRO_FIELD]
     if (normalizedBody[CON_FIELD]) updateData[CON_FIELD] = normalizedBody[CON_FIELD]

@@ -111,6 +111,9 @@ export async function GET(request: NextRequest) {
     const region = searchParams.get('region') || undefined
     const industry = searchParams.get('industry') || undefined
     const kanbanColumn = searchParams.get('kanbanColumn') || undefined
+    // Issue #116 — comma-separated, OR-matched against Lead.tags[].
+    const tagsParam = searchParams.get('tags') || undefined
+    const tags = tagsParam ? tagsParam.split(',').map((t) => t.trim()).filter(Boolean) : undefined
     const limit = Math.max(1, Math.min(5000, parseInt(searchParams.get('limit') || '5000') || 5000))
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
     const skip = (page - 1) * limit
@@ -132,6 +135,7 @@ export async function GET(request: NextRequest) {
     // match (issue #71).
     if (industry) filter.industry = { $regex: escapeRegExp(industry), $options: 'i' }
     if (kanbanColumn) filter.kanbanColumn = kanbanColumn
+    if (tags && tags.length > 0) filter.tags = { $in: tags }
 
     const totalCount = await db.collection(config.dbCollection).countDocuments(filter)
 
@@ -357,6 +361,12 @@ export async function POST(request: Request) {
       status: normalizedBody.status || 'new',
       notes: normalizedBody.notes || '',
       tags: normalizedBody.tags || [],
+      deals: [],
+      checklist: [],
+      // Issue #123 — defaults to 'manual' when the caller doesn't supply one;
+      // never guessed/inferred from the request beyond an explicit field, so
+      // this stays honest about what's actually known vs. assumed.
+      source: typeof normalizedBody.source === 'string' && normalizedBody.source.trim() ? normalizedBody.source.trim() : 'manual',
 
       kanbanColumn,
       sortOrder: count * 100,

@@ -218,6 +218,67 @@ function DeclineReasonRollup({ brand, tenantId }: { brand: string; tenantId: str
   );
 }
 
+type SourceRow = { source: string; leads: number; won: number; lost: number; winRate: number | null };
+
+// Issue #123 — which acquisition channel actually produces wins. Own fetch,
+// independent of MetricsPanel's single all-brand-metrics call, mirroring
+// DeclineReasonRollup's own pattern above.
+function SourceBreakdown({ brand, tenantId }: { brand: string; tenantId: string }) {
+  const [rows, setRows] = useState<SourceRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    fetch(`/api/metrics/by-source?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled) return;
+        if (json.error) setError(json.error);
+        else setRows(json.rows || []);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Failed to load source breakdown');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [brand, tenantId]);
+
+  return (
+    <Stack gap="md">
+      <Title order={4}>Lead Source</Title>
+      {loading ? (
+        <Group justify="center" py="md"><Loader size="sm" /></Group>
+      ) : error ? (
+        <Alert icon={<IconAlertCircle size="1rem" />} title="Source breakdown unavailable" color="red">{error}</Alert>
+      ) : !rows || rows.length === 0 ? (
+        <EmptyState title="No leads yet" description="Source data will appear here once leads exist." />
+      ) : (
+        <AdminAnalyticsTable
+          rows={rows}
+          getRowKey={(row) => row.source}
+          columns={[
+            { key: 'source', header: 'Source', rowHeader: true, accessor: (row) => row.source },
+            { key: 'leads', header: 'Leads', numeric: true, accessor: (row) => String(row.leads) },
+            {
+              key: 'winRate',
+              header: 'Win rate',
+              numeric: true,
+              accessor: (row) => (row.winRate === null ? 'Insufficient data' : `${(row.winRate * 100).toFixed(1)}%`),
+            },
+          ]}
+        />
+      )}
+    </Stack>
+  );
+}
+
 export function MetricsPanel({ brand = 'cogmap', tenantId = 'default' }: Props) {
   const [data, setData] = useState<MetricsData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -336,6 +397,8 @@ export function MetricsPanel({ brand = 'cogmap', tenantId = 'default' }: Props) 
       </Stack>
 
       <DeclineReasonRollup brand={brand} tenantId={tenantId} />
+
+      <SourceBreakdown brand={brand} tenantId={tenantId} />
 
       <Stack gap="md">
         <Title order={4}>Regional Breakdown</Title>
