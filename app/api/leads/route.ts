@@ -14,6 +14,7 @@ import { verifyLeadContactsAsync } from '../../lib/email-verification-store'
 import { scanLeadTechStackAsync } from '../../lib/tech-stack-scan-store'
 import { computeTicketSizeForLead } from '../../lib/ticket-size-store'
 import { escapeRegExp } from '../../lib/search/tagged-content-filter'
+import { computeIceScore, buildScoreProfile } from '../../../lib/score-profile'
 
 // Normalize address - ensure country is included if missing
 function normalizeAddress(address: string, country: string): string {
@@ -63,32 +64,6 @@ function computeEase(body: any): number {
   if (effectiveNamed && effectiveAddress && (effectiveEmail || effectivePhone) && !(effectiveEmail && effectivePhone)) return 6;
   if (effectiveNamed && effectiveAddress && effectiveEmail && effectivePhone) return 7;
   return 4;
-}
-
-function computeIceScore(impact: number, confidence: number, ease: number): number {
-  return impact * confidence * ease
-}
-
-function buildScoreProfile(impact: number, confidence: number, ease: number) {
-  const iceScore = computeIceScore(impact, confidence, ease)
-  return {
-    agentProposal: { impact, confidence, effort: ease },
-    calibratedHeuristic: { impact, confidence, effort: ease },
-    finalBlended: {
-      ice: iceScore,
-      quality: Math.round((impact / 10) * 100),
-      urgency: Math.round((confidence / 10) * 100),
-      freshness: 50,
-      humanSignal: 50,
-      risk: Math.round(((10 - ease) / 10) * 100),
-    },
-    qualityDimensions: {
-      evidenceQuality: confidence / 10,
-      linguisticQuality: 0.8,
-      actionabilityQuality: impact / 10,
-      strategicValue: impact / 10,
-    },
-  }
 }
 
 function getBrand(request: Request): Brand {
