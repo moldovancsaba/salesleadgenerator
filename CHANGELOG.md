@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.100
+
+### Fixed — GET /api/search leaked leads across tenants (found during a documentation audit, owner report: "Please do a documentation audit")
+Same bug class as 2.4.99's `tryFindLead()` fix, in a sibling file that wasn't checked at the time — 2.4.99's changelog entry said a grep of `app/`/`lib/` found no other instance; that grep missed this one.
+
+`app/api/search/route.ts`'s `buildSearchFilter()` built its Mongo query as `{ ...tenantFilter(tenantId), $or: [...six regex clauses] }`. For the `'default'` tenant (this app's only tenant in practice), `tenantFilter()` (`lib/tenant.ts`) itself returns an object keyed on `$or` — `{ $or: [{tenantId: 'default'}, {tenantId: {$exists: false}}] }`. Spreading it into the same object literal as the function's own `$or` silently discarded the tenant-scoping clause entirely (plain JS object spread — the later key wins), so `GET /api/search` had **no tenant isolation at all**: it could return leads belonging to any tenant, not just the caller's.
+
+Fixed by combining via `{ $and: [tenantFilter(tenantId), textMatch] }` instead of a spread — the same pattern already used correctly elsewhere in `app/api/leads/route.ts`, `app/api/leads/columns/route.ts`, and now `app/api/leads/[id]/route.ts`.
+
+### Testing
+New regression test (`tests/integration/search-regex.integration.test.ts`, `describe('GET /api/search — tenant isolation')`): seeds one lead in the `'default'` tenant and one in a different tenant with an overlapping name, asserts only the caller's tenant's lead is returned. Verified via a `git stash` A/B test that this test genuinely fails against the pre-fix code (`AssertionError: expected [...] to not include 'Isolation Test Corp Other Tenant'`) and passes after the fix. Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest unit 520/520, integration 114/114, smoke 5/5, build, GDS style audit clean.
+
 ## 2.4.99
 
 ### Fixed — GET/PUT/DELETE /api/leads/[id] could silently act on the wrong lead for a nonexistent id (owner report: "go after the 13 pre-existing failures")
