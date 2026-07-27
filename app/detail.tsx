@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import type { Lead } from './types';
 import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@sovereignsquad/gds-admin/client';
 import { createGdsVocabularyPack, GdsIcons, StatusBadge } from '@sovereignsquad/gds-core/client';
-import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, NumberInput, TextInput, Select, Modal } from '@mantine/core';
+import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, NumberInput, TextInput, Select, Modal, Checkbox, ActionIcon, Divider } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { PRO_FIELD, CON_FIELD } from './lib/brand';
@@ -12,6 +13,8 @@ import { getTicketSize } from './constants';
 import { isContactStale, DEFAULT_STALENESS_THRESHOLD_DAYS } from '@/lib/contact-freshness';
 import { computeStaleness, DEFAULT_STALE_THRESHOLDS } from '@/lib/stale-deal';
 import { getNextStepNudge } from '@/lib/next-step-nudge';
+import { sumDeals } from '@/lib/deals';
+import type { Deal } from '@/lib/deals';
 import {
   IconX,
   IconThumbUp,
@@ -20,6 +23,7 @@ import {
   IconRefresh,
   IconTrash,
   IconMail,
+  IconPlus,
 } from '@tabler/icons-react';
 import { OutreachComposeModal } from './outreach/compose-modal';
 import { TABLET_LANDSCAPE_MAX } from './constants';
@@ -251,6 +255,99 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     manualTicketSizeExpected: '', manualTicketSizeReason: '',
   });
 
+  // Contact CRUD (issue #113) — a separate editable section from the general
+  // Lead Details form above, since it's a repeatable-rows UI (add/remove),
+  // not a flat field set. Own edit toggle + Save, same pattern as the
+  // Actual Deal Value capture above.
+  type ContactRow = { name: string; title: string; email: string; phone: string; linkedin: string; role: string; isDecisionMaker: boolean };
+  const [editingContacts, setEditingContacts] = useState(false);
+  const [contactsForm, setContactsForm] = useState<ContactRow[]>([]);
+  const [savingContacts, setSavingContacts] = useState(false);
+
+  function openEditContacts() {
+    if (!lead) return;
+    setContactsForm((lead.contacts || []).map((c) => ({
+      name: c.name || '', title: c.title || '', email: c.email || '', phone: c.phone || '',
+      linkedin: c.linkedin || '', role: c.role || '', isDecisionMaker: c.isDecisionMaker === true,
+    })));
+    setEditingContacts(true);
+  }
+
+  // Manually-managed deals (issue #114) — always distinct from the
+  // auto-computed ticketSizeEstimate above; nothing here ever runs
+  // automatically.
+  type DealRow = { id?: string; value: number | ''; currency: 'USD' | 'EUR'; label: string; source?: Deal['source'] };
+  const [editingDeals, setEditingDeals] = useState(false);
+  const [dealsForm, setDealsForm] = useState<DealRow[]>([]);
+  const [savingDeals, setSavingDeals] = useState(false);
+
+  function openEditDeals() {
+    if (!lead) return;
+    setDealsForm((lead.deals || []).map((d) => ({ id: d.id, value: d.value, currency: d.currency, label: d.label || '', source: d.source })));
+    setEditingDeals(true);
+  }
+
+  // Pre-fills a new deal row from the current ticket-size estimate
+  // (owner-confirmed design decision, issue #114) — value is editable
+  // before save, not a blind auto-create.
+  function handleConvertTicketToDeal() {
+    const ticketSize = getTicketSize(lead);
+    if (!ticketSize || ticketSize.kind === 'unconfigured') return;
+    const expected = ticketSize.kind === 'legacy' ? ticketSize.value : ticketSize.expected;
+    const currency: 'USD' | 'EUR' = ticketSize.kind === 'legacy' ? ticketSize.currency : ticketSize.currency;
+    openEditDeals();
+    setDealsForm((rows) => [...rows, { value: expected, currency, label: 'Converted from ticket estimate', source: 'converted_ticket_estimate' }]);
+  }
+
+  // Per-lead checklist (issue #117) — structured, completion-tracked items,
+  // distinct from the free-text `notes` field.
+  type ChecklistRow = { id?: string; text: string; done: boolean };
+  const [editingChecklist, setEditingChecklist] = useState(false);
+  const [checklistForm, setChecklistForm] = useState<ChecklistRow[]>([]);
+  const [savingChecklist, setSavingChecklist] = useState(false);
+
+  function openEditChecklist() {
+    if (!lead) return;
+    setChecklistForm((lead.checklist || []).map((c) => ({ id: c.id, text: c.text, done: c.done })));
+    setEditingChecklist(true);
+  }
+
+  // Follow-up reminder (issue #121) — lead-level scheduled commitment,
+  // distinct from lib/next-step-nudge.ts's passive, rule-derived suggestion
+  // rendered below (`nudge`). Always-visible small section, own Save,
+  // mirroring the Actual Deal Value pattern.
+  const [nextActionDueAt, setNextActionDueAt] = useState<Date | null>(null);
+  const [nextActionNote, setNextActionNote] = useState('');
+  const [savingNextAction, setSavingNextAction] = useState(false);
+
+  // BANT-lite qualification (issue #122) — informational only, not wired
+  // into lib/stage-gate.ts's required-fields gate.
+  const [qualBudgetConfirmed, setQualBudgetConfirmed] = useState(false);
+  const [qualBudgetNotes, setQualBudgetNotes] = useState('');
+  const [qualAuthorityConfirmed, setQualAuthorityConfirmed] = useState(false);
+  const [qualNeedNotes, setQualNeedNotes] = useState('');
+  const [qualTimeline, setQualTimeline] = useState('');
+  const [savingQualification, setSavingQualification] = useState(false);
+
+  useEffect(() => {
+    setNextActionDueAt(lead?.nextActionDueAt ? new Date(lead.nextActionDueAt) : null);
+    setNextActionNote(lead?.nextActionNote || '');
+    setQualBudgetConfirmed(lead?.qualification?.budgetConfirmed === true);
+    setQualBudgetNotes(lead?.qualification?.budgetNotes || '');
+    setQualAuthorityConfirmed(lead?.qualification?.authorityConfirmed === true);
+    setQualNeedNotes(lead?.qualification?.needNotes || '');
+    setQualTimeline(lead?.qualification?.timelineEstimate || '');
+  }, [
+    lead?._id,
+    lead?.nextActionDueAt,
+    lead?.nextActionNote,
+    lead?.qualification?.budgetConfirmed,
+    lead?.qualification?.budgetNotes,
+    lead?.qualification?.authorityConfirmed,
+    lead?.qualification?.needNotes,
+    lead?.qualification?.timelineEstimate,
+  ]);
+
   useEffect(() => {
     setActualDealValueInput(typeof lead?.actualDealValueUsd === 'number' ? lead.actualDealValueUsd : '');
   }, [lead?._id, lead?.actualDealValueUsd]);
@@ -467,6 +564,100 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     }
   }
 
+  async function handleSaveContacts() {
+    if (!lead) return;
+    setSavingContacts(true);
+    try {
+      await onAction(lead._id, 'MODIFY', { contacts: contactsForm });
+      showNotification({ message: 'Contacts updated', color: 'green', autoClose: 4000 });
+      setEditingContacts(false);
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Save failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setSavingContacts(false);
+    }
+  }
+
+  async function handleSaveDeals() {
+    if (!lead) return;
+    setSavingDeals(true);
+    try {
+      await onAction(lead._id, 'MODIFY', { deals: dealsForm });
+      showNotification({ message: 'Deals updated', color: 'green', autoClose: 4000 });
+      setEditingDeals(false);
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Save failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setSavingDeals(false);
+    }
+  }
+
+  async function handleSaveChecklist() {
+    if (!lead) return;
+    setSavingChecklist(true);
+    try {
+      await onAction(lead._id, 'MODIFY', { checklist: checklistForm });
+      showNotification({ message: 'Checklist updated', color: 'green', autoClose: 4000 });
+      setEditingChecklist(false);
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Save failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setSavingChecklist(false);
+    }
+  }
+
+  async function handleSaveNextAction() {
+    if (!lead) return;
+    setSavingNextAction(true);
+    try {
+      await onAction(lead._id, 'MODIFY', {
+        nextActionDueAt: nextActionDueAt ? nextActionDueAt.toISOString() : null,
+        nextActionNote,
+      });
+      showNotification({ message: 'Follow-up saved', color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Save failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setSavingNextAction(false);
+    }
+  }
+
+  async function handleClearNextAction() {
+    if (!lead) return;
+    setSavingNextAction(true);
+    try {
+      await onAction(lead._id, 'MODIFY', { nextActionDueAt: null, nextActionNote: '' });
+      setNextActionDueAt(null);
+      setNextActionNote('');
+      showNotification({ message: 'Follow-up cleared', color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Clear failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setSavingNextAction(false);
+    }
+  }
+
+  async function handleSaveQualification() {
+    if (!lead) return;
+    setSavingQualification(true);
+    try {
+      await onAction(lead._id, 'MODIFY', {
+        qualification: {
+          budgetConfirmed: qualBudgetConfirmed,
+          budgetNotes: qualBudgetNotes,
+          authorityConfirmed: qualAuthorityConfirmed,
+          needNotes: qualNeedNotes,
+          timelineEstimate: qualTimeline,
+        },
+      });
+      showNotification({ message: 'Qualification saved', color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Save failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setSavingQualification(false);
+    }
+  }
+
   // `action` must resolve against GDS's ActionBar semantic-action
   // vocabulary at runtime (confirmed by testing — the type-level
   // `namespace:action` escape hatch alone is not enough; the id must
@@ -636,6 +827,18 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
           <Text size="xs" c="dimmed">Kanban Column</Text>
           <Text size="sm">{lead.kanbanColumn}</Text>
         </Box>
+        <Box>
+          <Text size="xs" c="dimmed">Source</Text>
+          <Text size="sm">{lead.source || '—'}</Text>
+        </Box>
+        <Box>
+          <Text size="xs" c="dimmed">Created</Text>
+          <Text size="sm">{lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '—'}</Text>
+        </Box>
+        <Box>
+          <Text size="xs" c="dimmed">Last Updated</Text>
+          <Text size="sm">{lead.updatedAt ? new Date(lead.updatedAt).toLocaleString() : '—'}</Text>
+        </Box>
       </SimpleGrid>
 
       <Box>
@@ -718,49 +921,239 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
       <Stack gap="xs">
         <Group justify="space-between" align="baseline">
           <Text size="xs" c="dimmed" fw={600}>CONTACTS</Text>
-          {/* Helper text for the "refresh" action above: GDS's ActionBar has no
-              per-action description slot, so this can't render literally under
-              that button — it's surfaced here instead, next to the data it
-              describes, without changing REQUEST_REFRESH's own behavior
-              (CLAUDE.md Rule 7 — context only, no new affordance). */}
-          {contactStaleCount > 0 && (
-            <Text size="xs" c="orange">{contactStaleCount} of {lead.contacts?.length} contacts need re-verification</Text>
+          <Group gap="xs">
+            {/* Helper text for the "refresh" action above: GDS's ActionBar has no
+                per-action description slot, so this can't render literally under
+                that button — it's surfaced here instead, next to the data it
+                describes, without changing REQUEST_REFRESH's own behavior
+                (CLAUDE.md Rule 7 — context only, no new affordance). */}
+            {contactStaleCount > 0 && (
+              <Text size="xs" c="orange">{contactStaleCount} of {lead.contacts?.length} contacts need re-verification</Text>
+            )}
+            {!editingContacts && (
+              <Button size="xs" variant="light" onClick={openEditContacts} disabled={busy}>Edit</Button>
+            )}
+          </Group>
+        </Group>
+        {!editingContacts && (
+          <>
+            {/* Decision-maker status is a flag on a contact (isDecisionMaker), not a
+                separate top-level block — see lib/contacts.ts, issue #45. Every
+                contact renders the same way; the flag only adds a badge. */}
+            {(lead.contacts || []).length === 0 && <Text size="sm" c="dimmed">—</Text>}
+            {(lead.contacts || []).map((contact, i) => (
+              <Box key={i}>
+                <Group gap="xs">
+                  <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
+                  {contact.isDecisionMaker && <Badge variant="light" size="xs" color="blue">Decision Maker</Badge>}
+                  {isContactStale(contact, DEFAULT_STALENESS_THRESHOLD_DAYS) && (
+                    <Badge variant="light" size="xs" color="orange">Needs re-verification</Badge>
+                  )}
+                </Group>
+                {contact.title && (
+                  <Group gap={4} wrap="nowrap">
+                    <Text size="sm" c="dimmed">{contact.title}</Text>
+                    {contact.seniorityTier && contact.seniorityTier !== 'Unknown' && (
+                      <Badge variant="light" size="xs" color="grape">{contact.seniorityTier}</Badge>
+                    )}
+                    {contact.department && contact.department !== 'Unknown' && (
+                      <Badge variant="outline" size="xs" color="gray">{contact.department}</Badge>
+                    )}
+                  </Group>
+                )}
+                {contact.email && (
+                  <Group gap={4} wrap="nowrap">
+                    <Text size="sm" c="dimmed" component="a" href={`mailto:${contact.email.trim()}`}>{contact.email}</Text>
+                    {emailStatusBadge(contact.emailVerificationStatus)}
+                  </Group>
+                )}
+                {contact.phone && <Text size="sm" c="dimmed" component="a" href={`tel:${contact.phone.trim()}`}>{contact.phone}</Text>}
+                {contact.linkedin && <Text size="sm" c="blue">{contact.linkedin}</Text>}
+              </Box>
+            ))}
+          </>
+        )}
+        {editingContacts && (
+          <Stack gap="sm">
+            {contactsForm.length === 0 && <Text size="sm" c="dimmed">No contacts yet.</Text>}
+            {contactsForm.map((c, i) => (
+              <Box key={i} p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }}>
+                <Group justify="space-between" align="center" mb={4}>
+                  <Text size="xs" c="dimmed" fw={600}>Contact {i + 1}</Text>
+                  <ActionIcon size="sm" variant="subtle" color="red" aria-label="Remove contact" onClick={() => setContactsForm((rows) => rows.filter((_, idx) => idx !== i))}>
+                    <IconTrash size={14} />
+                  </ActionIcon>
+                </Group>
+                <Stack gap={4}>
+                  <TextInput size="xs" placeholder="Name" value={c.name} onChange={(e) => { const v = e.currentTarget.value; setContactsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, name: v } : r)); }} />
+                  <TextInput size="xs" placeholder="Title" value={c.title} onChange={(e) => { const v = e.currentTarget.value; setContactsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, title: v } : r)); }} />
+                  <TextInput size="xs" placeholder="Email" value={c.email} onChange={(e) => { const v = e.currentTarget.value; setContactsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, email: v } : r)); }} />
+                  <TextInput size="xs" placeholder="Phone" value={c.phone} onChange={(e) => { const v = e.currentTarget.value; setContactsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, phone: v } : r)); }} />
+                  <TextInput size="xs" placeholder="LinkedIn URL" value={c.linkedin} onChange={(e) => { const v = e.currentTarget.value; setContactsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, linkedin: v } : r)); }} />
+                  <Checkbox size="xs" label="Decision maker" checked={c.isDecisionMaker} onChange={(e) => { const v = e.currentTarget.checked; setContactsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, isDecisionMaker: v } : r)); }} />
+                </Stack>
+              </Box>
+            ))}
+            <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} onClick={() => setContactsForm((rows) => [...rows, { name: '', title: '', email: '', phone: '', linkedin: '', role: '', isDecisionMaker: false }])}>
+              Add contact
+            </Button>
+            <Group gap="xs">
+              <Button size="sm" onClick={handleSaveContacts} loading={savingContacts}>Save</Button>
+              <Button size="sm" variant="subtle" color="gray" onClick={() => setEditingContacts(false)} disabled={savingContacts}>Cancel</Button>
+            </Group>
+          </Stack>
+        )}
+      </Stack>
+
+      <Divider />
+
+      <Stack gap="xs">
+        <Group justify="space-between" align="baseline">
+          <Text size="xs" c="dimmed" fw={600}>DEALS</Text>
+          <Group gap="xs">
+            {!editingDeals && (
+              <>
+                <Button size="xs" variant="subtle" onClick={handleConvertTicketToDeal} disabled={busy || !getTicketSize(lead) || getTicketSize(lead)?.kind === 'unconfigured'}>
+                  Convert ticket estimate to a Deal
+                </Button>
+                <Button size="xs" variant="light" onClick={openEditDeals} disabled={busy}>Edit</Button>
+              </>
+            )}
+          </Group>
+        </Group>
+        {!editingDeals && (
+          <>
+            {(lead.deals?.length ?? 0) === 0 && <Text size="sm" c="dimmed">No deals yet — deals are managed manually and never auto-created.</Text>}
+            {(lead.deals || []).map((d) => (
+              <Group key={d.id} justify="space-between">
+                <Box>
+                  <Text size="sm" fw={600}>{formatTicketSizeCurrency(d.value, d.currency)}</Text>
+                  <Text size="xs" c="dimmed">{d.label || (d.source === 'converted_ticket_estimate' ? 'Converted from ticket estimate' : 'Manual deal')}</Text>
+                </Box>
+              </Group>
+            ))}
+            {(lead.deals?.length ?? 0) > 0 && (
+              <Text size="xs" c="dimmed" fs="italic">Total: {formatTicketSizeCurrency(sumDeals(lead.deals), lead.deals![0].currency)} — deals take priority over the modelled ticket-size estimate in Forecast.</Text>
+            )}
+          </>
+        )}
+        {editingDeals && (
+          <Stack gap="sm">
+            {dealsForm.length === 0 && <Text size="sm" c="dimmed">No deals yet.</Text>}
+            {dealsForm.map((d, i) => (
+              <Box key={i} p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }}>
+                <Group justify="space-between" align="center" mb={4}>
+                  <Text size="xs" c="dimmed" fw={600}>Deal {i + 1}</Text>
+                  <ActionIcon size="sm" variant="subtle" color="red" aria-label="Remove deal" onClick={() => setDealsForm((rows) => rows.filter((_, idx) => idx !== i))}>
+                    <IconTrash size={14} />
+                  </ActionIcon>
+                </Group>
+                <Group gap="xs" align="flex-end">
+                  <NumberInput
+                    size="xs"
+                    label="Value"
+                    prefix={d.currency === 'EUR' ? '€' : '$'}
+                    thousandSeparator=","
+                    value={d.value}
+                    onChange={(v) => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, value: typeof v === 'number' ? v : '' } : r))}
+                    min={0}
+                    style={{ flex: 1 }}
+                  />
+                  <TextInput size="xs" label="Label (optional)" value={d.label} onChange={(e) => { const v = e.currentTarget.value; setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, label: v } : r)); }} style={{ flex: 1 }} />
+                </Group>
+              </Box>
+            ))}
+            <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} onClick={() => setDealsForm((rows) => [...rows, { value: '', currency: 'USD', label: '' }])}>
+              Add deal
+            </Button>
+            <Group gap="xs">
+              <Button size="sm" onClick={handleSaveDeals} loading={savingDeals}>Save</Button>
+              <Button size="sm" variant="subtle" color="gray" onClick={() => setEditingDeals(false)} disabled={savingDeals}>Cancel</Button>
+            </Group>
+          </Stack>
+        )}
+      </Stack>
+
+      <Divider />
+
+      <Stack gap="xs">
+        <Group justify="space-between" align="baseline">
+          <Text size="xs" c="dimmed" fw={600}>CHECKLIST</Text>
+          {!editingChecklist && (
+            <Button size="xs" variant="light" onClick={openEditChecklist} disabled={busy}>Edit</Button>
           )}
         </Group>
-        {/* Decision-maker status is a flag on a contact (isDecisionMaker), not a
-            separate top-level block — see lib/contacts.ts, issue #45. Every
-            contact renders the same way; the flag only adds a badge. */}
-        {(lead.contacts || []).length === 0 && <Text size="sm" c="dimmed">—</Text>}
-        {(lead.contacts || []).map((contact, i) => (
-          <Box key={i}>
+        {!editingChecklist && (
+          <>
+            {(lead.checklist?.length ?? 0) === 0 && <Text size="sm" c="dimmed">No checklist items yet.</Text>}
+            {(lead.checklist || []).map((item) => (
+              <Group key={item.id} gap="xs">
+                <Checkbox size="xs" checked={item.done} readOnly aria-label={item.done ? 'Done' : 'Not done'} />
+                <Text size="sm" td={item.done ? 'line-through' : undefined} c={item.done ? 'dimmed' : undefined}>{item.text}</Text>
+              </Group>
+            ))}
+          </>
+        )}
+        {editingChecklist && (
+          <Stack gap="xs">
+            {checklistForm.map((item, i) => (
+              <Group key={i} gap="xs" wrap="nowrap">
+                <Checkbox size="xs" checked={item.done} onChange={(e) => { const v = e.currentTarget.checked; setChecklistForm((rows) => rows.map((r, idx) => idx === i ? { ...r, done: v } : r)); }} />
+                <TextInput size="xs" value={item.text} onChange={(e) => { const v = e.currentTarget.value; setChecklistForm((rows) => rows.map((r, idx) => idx === i ? { ...r, text: v } : r)); }} style={{ flex: 1 }} />
+                <ActionIcon size="sm" variant="subtle" color="red" aria-label="Remove item" onClick={() => setChecklistForm((rows) => rows.filter((_, idx) => idx !== i))}>
+                  <IconTrash size={14} />
+                </ActionIcon>
+              </Group>
+            ))}
+            <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} onClick={() => setChecklistForm((rows) => [...rows, { text: '', done: false }])}>
+              Add item
+            </Button>
             <Group gap="xs">
-              <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
-              {contact.isDecisionMaker && <Badge variant="light" size="xs" color="blue">Decision Maker</Badge>}
-              {isContactStale(contact, DEFAULT_STALENESS_THRESHOLD_DAYS) && (
-                <Badge variant="light" size="xs" color="orange">Needs re-verification</Badge>
-              )}
+              <Button size="sm" onClick={handleSaveChecklist} loading={savingChecklist}>Save</Button>
+              <Button size="sm" variant="subtle" color="gray" onClick={() => setEditingChecklist(false)} disabled={savingChecklist}>Cancel</Button>
             </Group>
-            {contact.title && (
-              <Group gap={4} wrap="nowrap">
-                <Text size="sm" c="dimmed">{contact.title}</Text>
-                {contact.seniorityTier && contact.seniorityTier !== 'Unknown' && (
-                  <Badge variant="light" size="xs" color="grape">{contact.seniorityTier}</Badge>
-                )}
-                {contact.department && contact.department !== 'Unknown' && (
-                  <Badge variant="outline" size="xs" color="gray">{contact.department}</Badge>
-                )}
-              </Group>
-            )}
-            {contact.email && (
-              <Group gap={4} wrap="nowrap">
-                <Text size="sm" c="dimmed" component="a" href={`mailto:${contact.email.trim()}`}>{contact.email}</Text>
-                {emailStatusBadge(contact.emailVerificationStatus)}
-              </Group>
-            )}
-            {contact.phone && <Text size="sm" c="dimmed" component="a" href={`tel:${contact.phone.trim()}`}>{contact.phone}</Text>}
-            {contact.linkedin && <Text size="sm" c="blue">{contact.linkedin}</Text>}
-          </Box>
-        ))}
+          </Stack>
+        )}
+      </Stack>
+
+      <Divider />
+
+      <Stack gap="xs">
+        <Text size="xs" c="dimmed" fw={600}>FOLLOW-UP</Text>
+        <Text size="xs" c="dimmed">A scheduled reminder for this lead — distinct from the automatic suggestion below.</Text>
+        <Group align="flex-end" gap="xs">
+          <DateInput
+            size="xs"
+            label="Due date"
+            placeholder="No follow-up scheduled"
+            value={nextActionDueAt}
+            onChange={(v) => setNextActionDueAt(v ? new Date(v) : null)}
+            clearable
+            style={{ flex: 1 }}
+          />
+          <TextInput size="xs" label="Note" value={nextActionNote} onChange={(e) => setNextActionNote(e.currentTarget.value)} style={{ flex: 2 }} />
+        </Group>
+        <Group gap="xs">
+          <Button size="xs" variant="light" onClick={handleSaveNextAction} loading={savingNextAction}>Save follow-up</Button>
+          {lead.nextActionDueAt && (
+            <Button size="xs" variant="subtle" color="gray" onClick={handleClearNextAction} disabled={savingNextAction}>Clear</Button>
+          )}
+        </Group>
+      </Stack>
+
+      <Divider />
+
+      <Stack gap="xs">
+        <Text size="xs" c="dimmed" fw={600}>QUALIFICATION</Text>
+        <Text size="xs" c="dimmed">Informational only — not required to move this lead through the pipeline.</Text>
+        <Checkbox label="Budget confirmed" checked={qualBudgetConfirmed} onChange={(e) => setQualBudgetConfirmed(e.currentTarget.checked)} />
+        <TextInput size="xs" label="Budget notes" value={qualBudgetNotes} onChange={(e) => setQualBudgetNotes(e.currentTarget.value)} />
+        <Checkbox label="Buying authority confirmed" checked={qualAuthorityConfirmed} onChange={(e) => setQualAuthorityConfirmed(e.currentTarget.checked)} />
+        <TextInput size="xs" label="Need / pain point" value={qualNeedNotes} onChange={(e) => setQualNeedNotes(e.currentTarget.value)} />
+        <TextInput size="xs" label="Timeline estimate" placeholder="e.g. This quarter" value={qualTimeline} onChange={(e) => setQualTimeline(e.currentTarget.value)} />
+        <Group gap="xs">
+          <Button size="xs" variant="light" onClick={handleSaveQualification} loading={savingQualification}>Save qualification</Button>
+        </Group>
       </Stack>
 
       {((normalizedPro && normalizedPro.length > 0) || (normalizedCon && normalizedCon.length > 0)) && (

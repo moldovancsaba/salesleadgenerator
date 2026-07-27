@@ -8,13 +8,51 @@ import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { getDecisionMakerContact } from '@/lib/contacts';
 import type { StaleDealResult } from '@/lib/stale-deal';
 import type { Nudge } from '@/lib/next-step-nudge';
+import { sumDeals } from '@/lib/deals';
+import { checklistProgress } from '@/lib/checklist';
+import { computeRottenLevel } from '@/lib/rotten-indicator';
 
 type LeadCardProps = {
   lead: Lead;
   onOpen?: () => void;
   staleness?: StaleDealResult | null;
   nudge?: Nudge | null;
+  // Per-column close probability (issue #118) — an aggregate, forecast-level
+  // figure (lib/pipeline-weights.ts / win-rate calibration), not a per-lead
+  // computed field, so it arrives as a prop rather than being derived from
+  // `lead` here. undefined/null means the caller has no forecast data loaded
+  // (e.g. Forecast section collapsed) — the row is simply omitted then.
+  winProbability?: number | null;
 };
+
+const CURRENCY_SYMBOL: Record<string, string> = { USD: '$', EUR: '€' };
+
+function formatCompactCurrency(value: number, currency: string): string {
+  const symbol = CURRENCY_SYMBOL[currency] || '$';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${symbol}${(value / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${symbol}${Math.round(value / 1000)}K`;
+  return `${symbol}${Math.round(value)}`;
+}
+
+// Compact "3d ago" / "today" relative-time label — mirrors
+// formatCompactTicketSize's own "no room for full precision on a kanban
+// card" rationale below. Full absolute date+time lives in Lead Details
+// (app/detail.tsx) instead; this label also carries a `title` tooltip with
+// the absolute value for anyone who hovers.
+function formatRelativeDays(iso: string | undefined, now: Date): string | null {
+  if (!iso) return null;
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return null;
+  const days = Math.floor((now.getTime() - then.getTime()) / 86_400_000);
+  if (days <= 0) return 'today';
+  if (days === 1) return '1d ago';
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+}
+
+const ROTTEN_COLOR: Record<'green' | 'yellow' | 'red', string> = { green: 'green', yellow: 'yellow', red: 'red' };
 
 // Deliberately flat, borderless content — no ProductCard/Paper wrapper here.
 // GDS's own KanbanCard already renders a bordered Paper shell around whatever
@@ -58,13 +96,37 @@ function ticketSizeCardCaption(ticketSize: TicketSizeDisplay): string | null {
   return 'Modelled estimate';
 }
 
-export function LeadCard({ lead, onOpen, staleness, nudge }: LeadCardProps) {
+export function LeadCard({ lead, onOpen, staleness, nudge, winProbability }: LeadCardProps) {
   const ice = getIceScore(lead);
   const region = lead.region || 'NA';
   const quality = lead.qualityStatus || 'DRAFT';
+  // Issue #115: DRAFT is only shown in DISCOVERED/QUALIFIED (auto-managed
+  // columns a lead hasn't been manually worked yet) — CHECKED/VERIFIED
+  // always render, in every column, unchanged. Uses lead.kanbanColumn
+  // directly rather than a separate `column` prop: it's the same field
+  // app/kanban.tsx's renderItem already trusts for staleness/nudge
+  // computation on this exact lead, so a second prop would just be a second
+  // name for the same value.
+  const showQualityBadge = quality !== 'DRAFT' || lead.kanbanColumn === 'DISCOVERED' || lead.kanbanColumn === 'QUALIFIED';
   const ticketSize = getTicketSize(lead);
   const ticketSizeLabel = ticketSizeCardLabel(ticketSize);
   const ticketSizeCaption = ticketSizeCardCaption(ticketSize);
+
+  const dealsTotal = sumDeals(lead.deals);
+  const hasDeals = (lead.deals?.length ?? 0) > 0;
+  const dealCurrency = lead.deals?.[0]?.currency || 'USD';
+
+  const checklist = checklistProgress(lead.checklist);
+
+  const now = new Date();
+  const rotten = computeRottenLevel({ kanbanColumn: lead.kanbanColumn, updatedAt: lead.updatedAt }, now);
+  const createdLabel = formatRelativeDays(lead.createdAt, now);
+  const updatedLabel = formatRelativeDays(lead.updatedAt, now);
+
+  const isTerminalColumn = lead.kanbanColumn === 'WON' || lead.kanbanColumn === 'LOST';
+  const dueAt = lead.nextActionDueAt ? new Date(lead.nextActionDueAt) : null;
+  const dueValid = dueAt && !Number.isNaN(dueAt.getTime());
+  const dueDays = dueValid ? Math.floor((dueAt!.getTime() - now.getTime()) / 86_400_000) : null;
 
   // Prefer the contact flagged isDecisionMaker (lib/contacts.ts); fall back to
   // the first contact so the row isn't always '—' before data gets flagged.
@@ -77,17 +139,36 @@ export function LeadCard({ lead, onOpen, staleness, nudge }: LeadCardProps) {
   const metadata = [
     { label: 'Region', value: region },
     { label: 'ICE', value: ice },
-    { label: 'Ticket size', value: ticketSizeLabel },
+    { label: hasDeals ? 'Deal value' : 'Ticket size', value: hasDeals ? formatCompactCurrency(dealsTotal, dealCurrency) : ticketSizeLabel },
     { label: 'Size', value: lead.size || '—' },
     { label: 'Contact', value: contactName },
   ];
+  if (!isTerminalColumn && typeof winProbability === 'number' && Number.isFinite(winProbability)) {
+    metadata.push({ label: 'Win probability', value: `${Math.round(winProbability * 100)}%` });
+  }
 
   return (
     <ErrorBoundary>
       <Stack gap={4}>
         <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
           <Text fw={700} size="sm" truncate style={{ minWidth: 0 }}>{lead.entity_name}</Text>
-          <Badge variant="light" size="sm" style={{ flexShrink: 0 }}>{quality}</Badge>
+          <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
+            {rotten && (
+              <Badge
+                variant="dot"
+                color={ROTTEN_COLOR[rotten.level]}
+                size="sm"
+                aria-label={`Last touched ${rotten.daysSince} days ago`}
+              >
+                {`${rotten.daysSince}d`}
+              </Badge>
+            )}
+            {showQualityBadge && <Badge variant="light" size="sm">{quality}</Badge>}
+            {/* Additive, not a replacement for the quality badge above
+                (owner-confirmed via AskUserQuestion, issue #115) — a lead
+                can show both DRAFT and DEAL at once. */}
+            {hasDeals && <Badge variant="filled" color="grape" size="sm">DEAL</Badge>}
+          </Group>
         </Group>
         {staleness && (
           <Group gap={4} wrap="nowrap">
@@ -104,6 +185,16 @@ export function LeadCard({ lead, onOpen, staleness, nudge }: LeadCardProps) {
         {(lead.industry || lead.sport_or_sector) && (
           <Text size="xs" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
         )}
+        {(lead.tags?.length ?? 0) > 0 && (
+          <Group gap={4} wrap="wrap" role="list" aria-label="Tags">
+            {lead.tags!.slice(0, 3).map((tag) => (
+              <Badge key={tag} variant="outline" color="gray" size="xs" role="listitem">{tag}</Badge>
+            ))}
+            {lead.tags!.length > 3 && (
+              <Badge variant="outline" color="gray" size="xs">{`+${lead.tags!.length - 3}`}</Badge>
+            )}
+          </Group>
+        )}
         <Stack gap={2}>
           {metadata.map((m) => (
             <Group key={m.label} justify="space-between" gap="xs" wrap="nowrap">
@@ -112,12 +203,31 @@ export function LeadCard({ lead, onOpen, staleness, nudge }: LeadCardProps) {
             </Group>
           ))}
         </Stack>
-        {ticketSizeCaption && (
+        {ticketSizeCaption && !hasDeals && (
           <Text size="xs" c="dimmed" fs="italic">{ticketSizeCaption}</Text>
+        )}
+        {checklist.total > 0 && (
+          <Text size="xs" c={checklist.done === checklist.total ? 'teal' : 'dimmed'}>
+            {`Checklist ${checklist.done}/${checklist.total}`}
+          </Text>
+        )}
+        {dueValid && (
+          <Text size="xs" c={dueDays !== null && dueDays < 0 ? 'red' : dueDays === 0 ? 'orange' : 'dimmed'}>
+            {dueDays !== null && dueDays < 0
+              ? `Follow-up ${Math.abs(dueDays)}d overdue`
+              : dueDays === 0
+                ? 'Follow-up due today'
+                : `Follow-up in ${dueDays}d`}
+          </Text>
         )}
         {nudge && (
           <Text size="xs" c={nudge.severity === 'warn' ? 'orange' : 'dimmed'}>
             {nudge.message}
+          </Text>
+        )}
+        {(createdLabel || updatedLabel) && (
+          <Text size="xs" c="dimmed" title={`Created ${lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '—'} · Updated ${lead.updatedAt ? new Date(lead.updatedAt).toLocaleString() : '—'}`}>
+            {createdLabel && `Created ${createdLabel}`}{createdLabel && updatedLabel && ' · '}{updatedLabel && `Updated ${updatedLabel}`}
           </Text>
         )}
         {onOpen && (

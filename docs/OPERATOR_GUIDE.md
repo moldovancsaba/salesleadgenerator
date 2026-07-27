@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.90
+**Version:** 2.4.93
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -11,9 +11,14 @@
 - [Signing In and Access](#signing-in-and-access)
 - [Navigation](#navigation)
 - [Daily Workflow — Kanban Board](#daily-workflow--kanban-board)
+- [Card Indicators](#card-indicators)
 - [Table View](#table-view)
 - [Filters and Search](#filters-and-search)
 - [Lead Detail](#lead-detail)
+- [Deals](#deals)
+- [Checklist](#checklist)
+- [Follow-ups](#follow-ups)
+- [Qualification](#qualification)
 - [Ticket Size](#ticket-size)
 - [Sales Settings (Company Setup)](#sales-settings-company-setup)
 - [Outreach](#outreach)
@@ -93,16 +98,31 @@ Tap the **Select** icon in the toolbar above the board to enter select mode — 
 
 ---
 
+## Card Indicators
+
+Each kanban card shows several small signals, each answering a different question:
+
+- **Quality badge** (DRAFT / CHECKED / VERIFIED): DRAFT only shows in DISCOVERED/QUALIFIED — once a lead is manually worked into ENGAGED and beyond, an unreviewed DRAFT badge would just be noise. CHECKED/VERIFIED always show, everywhere.
+- **DEAL badge**: appears next to the quality badge (not instead of it) whenever the lead has at least one manually-entered deal — see [Deals](#deals).
+- **Rotten dot**: a small colored dot + day count showing how long since the lead was last touched (any edit or move) — green for the first 3 days, yellow through day 7, red from day 8 onward. This is deliberately a *different* signal from the yellow/red "Stale"/"Critical" badge described in the workflow section above: the stale badge only appears once a column-specific threshold (10–21 days) is crossed and is a harder alert; the rotten dot is always visible from day 0 as a gentler, at-a-glance freshness cue. Both can show on the same card at once — that's expected, not a bug.
+- **Tags**: up to 3 tag chips, with a "+N more" chip if there are more — see [Filters and Search](#filters-and-search) for filtering by tag.
+- **Checklist progress**: "N/M" once a lead has checklist items — see [Checklist](#checklist).
+- **Follow-up**: "Follow-up due today" / "Follow-up Nd overdue" / "Follow-up in Nd" once a reminder is set — see [Follow-ups](#follow-ups).
+- **Win probability**: a "Win probability" row showing that column's close-rate percentage (the same figure the Forecast page uses to weight revenue), shown for every column except WON/LOST.
+- **Created / Updated**: a compact "Created 3d ago · Updated today" line — hover for the exact date and time.
+
+---
+
 ## Table View
 
-Switch to Table via the hamburger menu's View section (or `?view=table`). Shows every lead as sortable rows: Name, Score (ICE), Region, Quality, Status — tap a row's name to open the same detail modal the kanban card opens. On a narrow phone screen, rows collapse into a compact card (name, region, quality) instead of a wide table. There's no separate filtering here — the Filters panel (see below) applies identically to both Kanban and Table view, and switching between them keeps the same active filter.
+Switch to Table via the hamburger menu's View section (or `?view=table`). Shows every lead as sortable rows: Name, Score (ICE), Region, Quality, Status, Tags — tap a row's name to open the same detail modal the kanban card opens. On a narrow phone screen, rows collapse into a compact card (name, region, quality) instead of a wide table. There's no separate filtering here — the Filters panel (see below) applies identically to both Kanban and Table view, and switching between them keeps the same active filter.
 
 ---
 
 ## Filters and Search
 
-- **Region and industry filtering**: tap the Filters icon above the board or table (a small funnel — collapsed by default, nothing shows until you open it) to open the filter panel. Set a region (US/CEE/MENA) and/or an industry (free text, matches case-insensitively — e.g. `academy` matches `Academy`), and the board/table narrows to match immediately. Applies to both kanban and table view — switching views keeps the same active filter.
-- **Saved filters**: with a region and/or industry set, tap **Save filter** and give it a name — it appears as a removable pill you can tap to re-apply later. Saved per-browser (not synced across devices), scoped per brand.
+- **Region, industry, and tag filtering**: tap the Filters icon above the board or table (a small funnel — collapsed by default, nothing shows until you open it) to open the filter panel. Set a region (US/CEE/MENA), an industry (free text, matches case-insensitively — e.g. `academy` matches `Academy`), and/or one or more tags, and the board/table narrows to match immediately. A lead matches the tag filter if it has *any* of the selected tags (not all of them). Applies to both kanban and table view — switching views keeps the same active filter.
+- **Saved filters**: with a region, industry, and/or tags set, tap **Save filter** and give it a name — it appears as a removable pill you can tap to re-apply later. Saved per-browser (not synced across devices), scoped per brand.
 - No status filter — the kanban board's own columns already group by status; adding a redundant status filter was deliberately left out.
 - Search matches entity name, sector, and contact name (predictive dropdown under the header) — independent of the region/industry filter, not affected by it.
 - No manual sort control exists. DISCOVERED and QUALIFIED always sort by ICE score, high to low; ENGAGED/PROPOSAL/WON/LOST sort by the order you've arranged them in.
@@ -115,11 +135,42 @@ Switch to Table via the hamburger menu's View section (or `?view=table`). Shows 
 Tapping a card (or a table row) opens the full detail view:
 
 - **ICE Score** and **Ticket Size** (see the dedicated [Ticket Size](#ticket-size) section below) sit near the top, both answering "how are we scoring this deal."
-- **Contacts**: each contact shows a "Decision Maker" flag (informational — no longer required to move a lead forward, see the workflow section above), an email-verification badge (Checking… / Verified domain / Undeliverable domain / Check failed — retry pending — this only confirms the *domain* can receive mail, never that the specific mailbox exists), and rule-based seniority/department badges derived from the contact's title (e.g. "VP" + "Sales" for "VP of Sales"). A contact not re-confirmed in 180 days shows a "Needs re-verification" badge.
+- **Source / Created / Last Updated**: a small metadata row shows the lead's acquisition channel (`manual`, `research_agent`, or whatever a caller sets — `—` if never recorded) and the full date+time it was created and last touched.
+- **Contacts**: each contact shows a "Decision Maker" flag (informational — no longer required to move a lead forward, see the workflow section above), an email-verification badge (Checking… / Verified domain / Undeliverable domain / Check failed — retry pending — this only confirms the *domain* can receive mail, never that the specific mailbox exists), and rule-based seniority/department badges derived from the contact's title (e.g. "VP" + "Sales" for "VP of Sales"). A contact not re-confirmed in 180 days shows a "Needs re-verification" badge. Tap **Edit** on the Contacts section to add a new contact, edit an existing one's fields, toggle its decision-maker flag, or remove it — each contact is its own row with its own remove button; **Save** replaces the whole contact list, **Cancel** discards changes.
 - **Tech Signals**: badges for anything detected on the lead's own website homepage (WordPress, Google Analytics, HubSpot, etc.), a "No tech signals detected" note, or nothing at all if never scanned. Use **Refresh**'s tech-rescan or the RESCAN_TECH action to re-check.
-- **Edit Lead Details**: an Edit/Save/Cancel form for `entity_name`, `url`, `address`, `general_contact`, `size`, `industry`, `sport_or_sector`, `level_league`, `value_proposition`, `notes`, `tags`. Contacts themselves aren't editable from this form (add/remove/toggle decision-maker isn't wired up yet) — existing contacts are left untouched by a save here.
+- **Edit Lead Details**: an Edit/Save/Cancel form for `entity_name`, `url`, `address`, `general_contact`, `size`, `industry`, `sport_or_sector`, `level_league`, `value_proposition`, `notes`, `tags`.
 - **Actual deal value** (only shown once a lead is WON): capture the real, closed contract value — this feeds Ticket-Size Calibration on the Forecast page.
 - **Manual ticket-size override**: from the same edit form, override the computed Ticket Size with your own number and a required reason (a rep's direct knowledge of a specific deal). "Clear override" reverts to the modelled estimate immediately.
+
+---
+
+## Deals
+
+Deals are separate from the automatic **Ticket Size** estimate below — Ticket Size is always a modelled guess; a Deal is something a rep has typed in themselves and is always managed manually (nothing here is ever auto-created, auto-edited, or auto-removed by the system). A lead can carry multiple deals at once (e.g. a base contract plus a later add-on).
+
+- **Add a deal**: tap **Edit** under Deals, then **Add deal**, enter a value (and an optional label like "Renewal"), and **Save**.
+- **Convert ticket estimate to a Deal**: a one-tap shortcut that pre-fills a new deal's value from the current Ticket Size estimate — the value is fully editable before you save, it never saves automatically.
+- **Deal currency** always matches the brand's own forecast currency (USD for CogMap, EUR for Seyu) — there's no per-deal currency picker.
+- **Once a lead has any deal**, the Forecast page uses the sum of its deals instead of the Ticket Size estimate for that lead's revenue contribution — the Ticket Size estimate keeps recalculating in the background as a reference figure, it just stops being the number that counts toward Forecast.
+- Every lead with at least one deal shows a **DEAL** badge on its kanban card, in every column, alongside (not replacing) the quality-status badge.
+
+---
+
+## Checklist
+
+A per-lead to-do list, separate from the free-text Notes field — useful for a repeatable sequence of steps (e.g. "Send proposal," "Confirm budget," "Schedule demo"). Tap **Edit** under Checklist to add an item, check/uncheck items, edit their text, or remove them, then **Save**. The kanban card shows a compact "N/M" progress count once a checklist exists.
+
+---
+
+## Follow-ups
+
+A scheduled reminder for a lead — set a due date and an optional note, then **Save follow-up**. This is a deliberate commitment you set yourself, different from the automatic "next step" suggestion the app computes on its own (missing contact, stale, needs verification) which still appears separately below it. **Clear** removes an existing reminder. The kanban card shows "Follow-up due today," "Follow-up Nd overdue" (in red), or "Follow-up in Nd" once a due date is set.
+
+---
+
+## Qualification
+
+A lightweight (BANT-style) qualification checklist: Budget confirmed, Budget notes, Buying authority confirmed, Need/pain point, and a Timeline estimate. This is purely informational — filling it in (or leaving it blank) has no effect on whether a lead can move to ENGAGED or PROPOSAL; the [required fields](#required-fields-to-move-into-engaged-or-proposal) for that are still just a contact and a value proposition.
 
 ---
 
@@ -142,6 +193,8 @@ Every real estimate shows a range (low–high), never just one number, plus a co
 - *Unverified estimate — predates the firmographic estimation engine* — an old lead not yet recalculated
 
 **Ticket-Size Calibration** (on the [Forecast](#forecast) page) shows how accurate these estimates have historically been, once enough deals have closed WON with a real deal value captured — use it to spot a tier that's consistently under- or over-estimated and adjust that tier's deal-size band in Sales Settings accordingly.
+
+Once a lead has at least one entry under [Deals](#deals), the Forecast page uses the sum of its deals instead of this estimate — see that section for details. The Ticket Size figure keeps computing regardless, as a reference.
 
 ---
 
@@ -220,6 +273,7 @@ Switch to Metrics via the hamburger menu's View section (or `?view=metrics`), fo
 - **Regional Breakdown** — US/CEE/MENA counts
 - **Pipeline Velocity** — average and median days a lead spends moving from one stage to the next, over a rolling 30-day window, with a trend arrow versus the prior 30 days. A stage-to-stage pair with too few samples shows as low-confidence rather than a misleadingly precise number.
 - **"What Worked" — Outcome Correlation** — two read-only tables: which industries convert best (WON vs. LOST, all-time), and which of your saved search queries produce leads worth keeping (accept rate). Both suppress a rate as "Insufficient data" below 10 samples. The search-query table is global across all brands, not brand-specific.
+- **Lead Source** — leads and win rate grouped by the `source` field (see [Lead Detail](#lead-detail)); leads with no recorded source are grouped under "unknown" rather than dropped.
 
 ---
 
@@ -339,7 +393,9 @@ These require `x-api-key` auth. There is no browser button for any of them — t
 - Table view mobile density/readability may still need additional tuning.
 - Country filter population depends on lead `country` data; some datasets may need backfill from `region`.
 - Outreach template deletion isn't implemented — only create and edit.
-- Lead-detail contact editing (add/remove a contact, toggle decision-maker) isn't wired up in the "Edit Lead Details" form yet — only the top-level lead fields are editable there.
+- Deals only affect the CogMap-style Forecast pipeline (`ticketSizeEstimate`-based revenue). Seyu's forecast is built entirely from its own `pricingByCompany` data and doesn't yet look at a lead's Deals — a Seyu deal is saved and shown on the card/detail, but won't change Seyu's Forecast numbers.
+- Follow-up reminders and the Win probability figure are shared across the whole team, not per-rep — this app has no individual user/ownership model yet, so there's no personal "my follow-ups" queue.
+- Qualification fields are informational only and can't yet be required before a lead moves to ENGAGED/PROPOSAL.
 
 ---
 

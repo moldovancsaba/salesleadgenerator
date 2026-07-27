@@ -17,6 +17,14 @@ describe('isEmptyFilter', () => {
   it('treats a set industry as non-empty', () => {
     expect(isEmptyFilter({ industry: 'Academy' })).toBe(false);
   });
+
+  it('treats an empty tags array as empty', () => {
+    expect(isEmptyFilter({ tags: [] })).toBe(true);
+  });
+
+  it('treats a non-empty tags array as non-empty', () => {
+    expect(isEmptyFilter({ tags: ['hot-lead'] })).toBe(false);
+  });
 });
 
 describe('addSavedFilter', () => {

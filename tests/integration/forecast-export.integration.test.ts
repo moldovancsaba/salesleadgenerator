@@ -57,6 +57,45 @@ async function seedSeyuLead(): Promise<void> {
   });
 }
 
+// Issue #114 — a lead's manually-managed deals[] takes priority over both
+// ticketSizeEstimate.expected and the legacy estimated_annual_revenue_usd
+// once at least one deal exists.
+async function seedCogmapLeadWithDeal(): Promise<void> {
+  const clientPromise = (await import('../../lib/mongodb')).default;
+  const client = await clientPromise;
+  const db = client.db();
+  // Deliberately ENGAGED, not WON — the sibling describe block below seeds
+  // its own WON cogmap lead and asserts an exact rawRevenue sum for that
+  // column; sharing one in-memory Mongo instance for the whole file (see
+  // beforeAll) means a second WON lead here would silently change that
+  // other test's expected total.
+  await db.collection('leads').insertOne({
+    entity_name: 'Deal Priority FC',
+    tenantId: 'default',
+    kanbanColumn: 'ENGAGED',
+    ice: { impact: 5, confidence: 5, ease: 5 },
+    contacts: [],
+    estimated_annual_revenue_usd: 999999,
+    ticketSizeEstimate: { method: 'tier_band', computedAt: new Date().toISOString(), expected: 888888, currency: 'USD' },
+    deals: [
+      { id: 'd1', value: 12000, currency: 'USD', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), source: 'manual' },
+      { id: 'd2', value: 3000, currency: 'USD', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), source: 'manual' },
+    ],
+  });
+}
+
+describe('GET /api/forecast/export — deals take priority (issue #114)', () => {
+  it('sums deals[] instead of using ticketSizeEstimate or the legacy revenue field', async () => {
+    await seedCogmapLeadWithDeal();
+    const res = await exportGET(req('/api/forecast/export?format=json&brand=cogmap'));
+    const body = await res.json();
+    const engaged = body.pipeline.find((row: any) => row.column === 'ENGAGED');
+    expect(engaged.rawRevenue).toBe(15000);
+    expect(engaged.rawRevenue).not.toBe(999999);
+    expect(engaged.rawRevenue).not.toBe(888888);
+  });
+});
+
 describe('GET /api/forecast/export', () => {
   it('exports the requested brand, not always cogmap', async () => {
     await seedCogmapLead();

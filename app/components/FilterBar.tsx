@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ActionIcon, Drawer, Group, Select, TextInput, Button, Pill, UnstyledButton, Indicator, Stack, Text } from '@mantine/core'
+import { ActionIcon, Drawer, Group, Select, TextInput, TagsInput, Button, Pill, UnstyledButton, Indicator, Stack, Text } from '@mantine/core'
 import { IconFilter, IconDeviceFloppy } from '@tabler/icons-react'
 import { showNotification } from '@mantine/notifications'
 import type { LeadFilter, SavedFilter } from '@/lib/saved-filters'
@@ -64,7 +64,7 @@ export function FilterBar({ brand, value, onChange }: Props) {
     persistSavedFilters(brand, next)
   }, [brand, savedFilters])
 
-  const hasActiveFilter = Boolean(value.region || (value.industry && value.industry.trim()))
+  const hasActiveFilter = Boolean(value.region || (value.industry && value.industry.trim()) || (value.tags && value.tags.length > 0))
 
   return (
     <>
@@ -94,6 +94,14 @@ export function FilterBar({ brand, value, onChange }: Props) {
             placeholder="e.g. Academy"
             value={value.industry || ''}
             onChange={(e) => onChange({ ...value, industry: e.currentTarget.value || undefined })}
+          />
+          <TagsInput
+            label="Tags"
+            aria-label="Filter by tags"
+            placeholder="Type a tag and press Enter"
+            description="Matches leads with any of these tags"
+            value={value.tags || []}
+            onChange={(tags) => onChange({ ...value, tags: tags.length > 0 ? tags : undefined })}
           />
 
           <Group gap="xs">

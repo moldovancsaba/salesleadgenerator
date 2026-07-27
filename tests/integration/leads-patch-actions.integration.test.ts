@@ -181,6 +181,135 @@ describe('PATCH /api/leads — required-fields-per-stage gating (issue #72)', ()
   });
 });
 
+describe('PATCH /api/leads — MODIFY: deals (issue #114)', () => {
+  it('saves a manual deal and sums it', async () => {
+    const id = await seedLead('Deal Co');
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', deals: [{ value: 50000, currency: 'USD', label: 'Renewal' }] }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.deals).toHaveLength(1);
+    expect(body.lead.deals[0].value).toBe(50000);
+    expect(body.lead.deals[0].source).toBe('manual');
+  });
+
+  it('drops an invalid deal row (non-positive value) rather than storing it', async () => {
+    const id = await seedLead('Bad Deal Co');
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', deals: [{ value: -100 }] }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.deals).toHaveLength(0);
+  });
+
+  it('clamps an implausible deal value to the absolute ceiling', async () => {
+    const id = await seedLead('Huge Deal Co');
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', deals: [{ value: 999_999_999 }] }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.deals[0].value).toBe(50_000_000);
+  });
+
+  it('preserves createdAt/source across an edit of an existing deal (matched by id)', async () => {
+    const id = await seedLead('Edit Deal Co');
+    const first = await PATCH(patchReq(id, { action: 'MODIFY', deals: [{ value: 1000, source: 'converted_ticket_estimate' }] }));
+    const firstBody = await first.json();
+    const dealId = firstBody.lead.deals[0].id;
+    const createdAt = firstBody.lead.deals[0].createdAt;
+
+    const second = await PATCH(patchReq(id, { action: 'MODIFY', deals: [{ id: dealId, value: 2000 }] }));
+    const secondBody = await second.json();
+    expect(secondBody.lead.deals[0].value).toBe(2000);
+    expect(secondBody.lead.deals[0].createdAt).toBe(createdAt);
+    expect(secondBody.lead.deals[0].source).toBe('converted_ticket_estimate');
+  });
+});
+
+describe('PATCH /api/leads — MODIFY: checklist (issue #117)', () => {
+  it('saves checklist items', async () => {
+    const id = await seedLead('Checklist Co');
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', checklist: [{ text: 'Send proposal', done: false }] }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.checklist).toHaveLength(1);
+    expect(body.lead.checklist[0].text).toBe('Send proposal');
+    expect(body.lead.checklist[0].done).toBe(false);
+  });
+
+  it('drops a blank-text checklist row', async () => {
+    const id = await seedLead('Blank Checklist Co');
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', checklist: [{ text: '   ' }] }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.checklist).toHaveLength(0);
+  });
+});
+
+describe('PATCH /api/leads — MODIFY: follow-up reminder (issue #121)', () => {
+  it('sets nextActionDueAt and nextActionNote', async () => {
+    const id = await seedLead('Followup Co');
+    const due = new Date('2026-08-01T00:00:00.000Z').toISOString();
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', nextActionDueAt: due, nextActionNote: 'Call about renewal' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.nextActionDueAt).toBe(due);
+    expect(body.lead.nextActionNote).toBe('Call about renewal');
+  });
+
+  it('explicitly clears nextActionDueAt when sent as null (vs. omission leaving it unchanged)', async () => {
+    const id = await seedLead('Clear Followup Co');
+    const due = new Date('2026-08-01T00:00:00.000Z').toISOString();
+    await PATCH(patchReq(id, { action: 'MODIFY', nextActionDueAt: due }));
+
+    const clearRes = await PATCH(patchReq(id, { action: 'MODIFY', nextActionDueAt: null }));
+    const clearBody = await clearRes.json();
+    expect(clearBody.lead.nextActionDueAt).toBeNull();
+  });
+
+  it('omitting nextActionDueAt leaves an existing reminder untouched', async () => {
+    const id = await seedLead('Untouched Followup Co');
+    const due = new Date('2026-08-01T00:00:00.000Z').toISOString();
+    await PATCH(patchReq(id, { action: 'MODIFY', nextActionDueAt: due }));
+
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', notes: 'unrelated edit' }));
+    const body = await res.json();
+    expect(body.lead.nextActionDueAt).toBe(due);
+  });
+});
+
+describe('PATCH /api/leads — MODIFY: qualification (issue #122)', () => {
+  it('saves qualification fields', async () => {
+    const id = await seedLead('Qual Co');
+    const res = await PATCH(patchReq(id, {
+      action: 'MODIFY',
+      qualification: { budgetConfirmed: true, budgetNotes: '$50k approved', timelineEstimate: 'This quarter' },
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.qualification.budgetConfirmed).toBe(true);
+    expect(body.lead.qualification.budgetNotes).toBe('$50k approved');
+    expect(body.lead.qualification.timelineEstimate).toBe('This quarter');
+  });
+
+  it('merges field-by-field rather than replacing the whole object', async () => {
+    const id = await seedLead('Qual Merge Co');
+    await PATCH(patchReq(id, { action: 'MODIFY', qualification: { budgetConfirmed: true, timelineEstimate: 'This quarter' } }));
+
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', qualification: { authorityConfirmed: true } }));
+    const body = await res.json();
+    expect(body.lead.qualification.budgetConfirmed).toBe(true);
+    expect(body.lead.qualification.timelineEstimate).toBe('This quarter');
+    expect(body.lead.qualification.authorityConfirmed).toBe(true);
+  });
+
+  it('does not gate any stage transition on qualification fields', async () => {
+    const id = await seedLead('Qual No Gate Co', {
+      contacts: [{ isDecisionMaker: true }],
+      value_proposition: 'Cognitive performance training',
+    });
+    const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'ENGAGED', sortOrder: Date.now() }));
+    expect(res.status).toBe(200);
+  });
+});
+
 describe('DELETE /api/leads/[id] — action succeeds with valid credentials (issue #91/#104)', () => {
   it('succeeds with a valid credential and no browser session, matching the machine-caller path requireBrandAccessApi supports', async () => {
     const id = await seedLead('No Auth Delete Co');
