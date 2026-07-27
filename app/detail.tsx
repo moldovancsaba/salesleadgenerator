@@ -28,6 +28,7 @@ import {
 } from '@tabler/icons-react';
 import { OutreachComposeModal } from './outreach/compose-modal';
 import { TABLET_LANDSCAPE_MAX } from './constants';
+import { useIsCompactViewport } from './lib/use-is-compact-viewport';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -246,7 +247,11 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   const [unbacklogTarget, setUnbacklogTarget] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [outreachOpen, setOutreachOpen] = useState(false);
-  const [fullScreen, setFullScreen] = useState(true);
+  // Below desktop width, render as a full-screen AdminModal instead of the
+  // side AdminDetailDrawer — a drawer is too cramped on tablet/mobile
+  // viewports. `initialValue: true` preserves this modal's pre-#130
+  // default of assuming compact until the real viewport is known.
+  const fullScreen = useIsCompactViewport(TABLET_LANDSCAPE_MAX, true);
   // Closed-won calibration capture (issue #83) — kept as its own standalone
   // mini-flow (own local state + save action) rather than folded into the
   // "Edit Lead Details" form below: at the time this was written,
@@ -372,17 +377,6 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   useEffect(() => {
     setActualDealValueInput(typeof lead?.actualDealValueUsd === 'number' ? lead.actualDealValueUsd : '');
   }, [lead?._id, lead?.actualDealValueUsd]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    // Below desktop width, render as a full-screen AdminModal instead of the
-    // side AdminDetailDrawer — a drawer is too cramped on tablet/mobile viewports.
-    const mql = window.matchMedia(`(max-width: ${TABLET_LANDSCAPE_MAX}px)`);
-    setFullScreen(mql.matches);
-    const handler = (event: MediaQueryListEvent) => setFullScreen(event.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, []);
 
   if (!lead || !opened) {
     return null;
