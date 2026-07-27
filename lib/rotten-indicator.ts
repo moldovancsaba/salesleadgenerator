@@ -4,7 +4,7 @@
 // The two coexist by design; this one never suppresses or replaces that one.
 // No Date.now() inside — caller supplies `now`, mirroring stale-deal.ts.
 
-export type RottenColumn = 'DISCOVERED' | 'QUALIFIED' | 'ENGAGED' | 'PROPOSAL' | 'WON' | 'LOST';
+export type RottenColumn = 'DISCOVERED' | 'QUALIFIED' | 'ENGAGED' | 'PROPOSAL' | 'WON' | 'LOST' | 'BACKLOG';
 
 export interface RottenIndicatorInput {
   kanbanColumn: RottenColumn;
@@ -23,7 +23,10 @@ const GREEN_MAX_DAYS = 3;
 const YELLOW_MAX_DAYS = 7;
 
 export function computeRottenLevel(lead: RottenIndicatorInput, now: Date): RottenIndicatorResult | null {
-  if (lead.kanbanColumn === 'WON' || lead.kanbanColumn === 'LOST') return null;
+  // Issue #126 — a Backlog lead is deliberately parked, not neglected; this
+  // indicator exists to flag active-pipeline leads going stale, which
+  // doesn't apply to a lead nobody's meant to be touching right now.
+  if (lead.kanbanColumn === 'WON' || lead.kanbanColumn === 'LOST' || lead.kanbanColumn === 'BACKLOG') return null;
   if (!lead.updatedAt) return null;
 
   const updated = new Date(lead.updatedAt);

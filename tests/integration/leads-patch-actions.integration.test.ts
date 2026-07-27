@@ -310,6 +310,44 @@ describe('PATCH /api/leads — MODIFY: qualification (issue #122)', () => {
   });
 });
 
+describe('PATCH /api/leads — COLUMN_MOVE into/out of BACKLOG (issue #126)', () => {
+  it('moves a lead to BACKLOG', async () => {
+    const id = await seedLead('Backlog Bound Co');
+    const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'BACKLOG', sortOrder: Date.now() }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.kanbanColumn).toBe('BACKLOG');
+  });
+
+  it('a BACKLOG lead is invisible to a DISCOVERED/QUALIFIED column fetch', async () => {
+    const id = await seedLead('Hidden From Pipeline Co', { kanbanColumn: 'BACKLOG' });
+    const listRes = await GET(req('/api/leads?brand=cogmap'));
+    const listBody = await listRes.json();
+    const found = listBody.leads.find((l: any) => l._id === id);
+    expect(found.kanbanColumn).toBe('BACKLOG');
+  });
+
+  it('moving a BACKLOG lead into ENGAGED still enforces the stage-gate (no bypass just because it came from Backlog)', async () => {
+    const id = await seedLead('Backlog No Gate Bypass Co', { kanbanColumn: 'BACKLOG' });
+    const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'ENGAGED', sortOrder: Date.now() }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('Missing required fields for ENGAGED: a contact, a value proposition');
+  });
+
+  it('moving a BACKLOG lead into ENGAGED succeeds once the required fields are present', async () => {
+    const id = await seedLead('Backlog To Engaged Co', {
+      kanbanColumn: 'BACKLOG',
+      contacts: [{ isDecisionMaker: true }],
+      value_proposition: 'Cognitive performance training',
+    });
+    const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'ENGAGED', sortOrder: Date.now() }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.kanbanColumn).toBe('ENGAGED');
+  });
+});
+
 describe('DELETE /api/leads/[id] — action succeeds with valid credentials (issue #91/#104)', () => {
   it('succeeds with a valid credential and no browser session, matching the machine-caller path requireBrandAccessApi supports', async () => {
     const id = await seedLead('No Auth Delete Co');

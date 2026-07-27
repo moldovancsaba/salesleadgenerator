@@ -7,6 +7,8 @@ export const DEFAULT_PIPELINE_WEIGHTS: Record<string, number> = {
   PROPOSAL: 0.25,
   WON: 1.0,
   LOST: 0.0,
+  // Issue #126 — a lead nobody's actively working, same treatment as LOST.
+  BACKLOG: 0.0,
 };
 
 export async function getPipelineWeights(db: Db): Promise<Record<string, number>> {
