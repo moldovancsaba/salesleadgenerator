@@ -16,11 +16,9 @@ import { computeTicketSizeForLead } from '../../lib/ticket-size-store'
 import { escapeRegExp } from '../../lib/search/tagged-content-filter'
 import { computeIceScore, buildScoreProfile } from '../../../lib/score-profile'
 
-// Normalize address - ensure country is included if missing
 function normalizeAddress(address: string, country: string): string {
   if (!address) return address
   const addr = address.trim()
-  // If address doesn't contain country name and no ZIP pattern, add country
   const country_names: Record<string, string> = {
     'US': 'United States', 'GB': 'United Kingdom', 'FR': 'France',
     'DE': 'Germany', 'IT': 'Italy', 'ES': 'Spain', 'SA': 'Saudi Arabia',
@@ -35,7 +33,6 @@ function normalizeAddress(address: string, country: string): string {
   return addr
 }
 
-// Shared JSON body reader for route handlers
 async function readBody(request: Request) {
   return request.json()
 }
@@ -72,7 +69,6 @@ function getBrand(request: Request): Brand {
   return resolveBrand(brandParam);
 }
 
-// GET - List leads with filters
 export async function GET(request: NextRequest) {
   try {
     const brand = getBrand(request);

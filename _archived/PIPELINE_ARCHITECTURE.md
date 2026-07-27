@@ -1,4 +1,6 @@
-# Sales Lead Generator Pipeline Architecture
+# Sales Lead Generator Pipeline Architecture (ARCHIVED)
+
+> **⚠️ ARCHIVED — historical snapshot, not current.** Superseded by `docs/ARCHITECTURE.md`, which covers ICE scoring, dedup, and the research-agent pipeline and is kept up to date. Do not use this for current system behavior — in particular, its Security section only describes `x-api-key`/CORS and predates the SSO/session-auth system entirely (shipped 2.4.71+). Archived during the 2026-07-27 documentation audit. See `README.md`'s "Archived Documentation" table.
 
 **Version:** 2.4.84
 

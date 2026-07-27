@@ -19,7 +19,7 @@ export type SnapshotWriteResult = {
 // write is safe and requires no separate migration script. This has not
 // been verified against a live Atlas cluster from this sandbox (no
 // MONGODB_URI here); it is a real code-level attempt, not a documentation
-// claim of an index that already exists (see PIPELINE_ARCHITECTURE.md's
+// claim of an index that already exists (see _archived/PIPELINE_ARCHITECTURE.md's
 // Deduplication section for the same distinction on the `fingerprint` index).
 let indexesEnsured = false
 async function ensureIndexes(db: Db): Promise<void> {

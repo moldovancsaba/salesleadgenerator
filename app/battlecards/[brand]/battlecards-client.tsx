@@ -35,7 +35,7 @@ type Props = {
 // both documented rather than silently substituted:
 // 1. Repeatable proofPoints/objections rows — gds-admin has no repeatable-
 //    rows primitive (the same gap already documented for the sales-settings
-//    form, roadmap.md) — plain Mantine Stack/Group/ActionIcon rows instead.
+//    form, _archived/roadmap.md) — plain Mantine Stack/Group/ActionIcon rows instead.
 // 2. Save/Reset/Delete actions use plain Mantine Buttons, not
 //    AdminFormActions/ActionBar — those require resolving each action to a
 //    SemanticActionId from GDS's internal vocabulary registry

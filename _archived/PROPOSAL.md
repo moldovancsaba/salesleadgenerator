@@ -1,4 +1,6 @@
-# SLG App — Improvement Proposal
+# SLG App — Improvement Proposal (ARCHIVED)
+
+> **⚠️ ARCHIVED — historical snapshot, not current.** Superseded by `CHANGELOG.md`, which now covers every workstream this proposal tracked (and dozens shipped since 2.4.61). Do not use this for current status. Archived during the 2026-07-27 documentation audit. See `README.md`'s "Archived Documentation" table.
 
 **Version:** 2.4.61
 

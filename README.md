@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.99  
+**Version:** 2.4.101  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -11,6 +11,9 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 
 - Next.js 16 app with API routes
 - Mobile-first kanban board, table view, metrics dashboard, and search-learning panel
+- Backlog board (`view=backlog`) for leads parked outside the main kanban flow
+- Add Lead modal for manually creating leads (shares its contact editor with the detail-page edit form)
+- Duplicate-lead review queue and merge UI (`/admin/duplicates`) — fuzzy near-duplicate detection with a conflict-resolution merge flow
 - Lead detail actions and outreach compose flow
 - Outreach template management UI
 - Company Setup / Sales Settings page (`/salessettings/[client]`) — a plain-language questionnaire on what a brand sells, who buys it, and how, so the research agent can refine forecasts
@@ -42,7 +45,9 @@ Run tests (required before any change ships, per `CLAUDE.md`'s quality gate):
 
 ```bash
 npx vitest run
+npm run test:integration
 npm run test:smoke
+npm run audit:gds-style
 ```
 
 Deploy to Vercel:
@@ -51,13 +56,25 @@ Deploy to Vercel:
 vercel deploy --prod
 ```
 
-Required environment variable: `MONGODB_URI`
+Environment variables (all read via `process.env.*` in `app/` and `lib/` — see `docs/STACK_AND_DEPENDENCIES.md` for details):
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `MONGODB_URI` | Yes | Database connection |
+| `SLG_API_KEY` | Yes | `x-api-key` auth for API clients (research agent, scripts) |
+| `CRON_SECRET` | Yes | Auth for scheduled/cron-triggered admin routes |
+| `CONTACT_STALENESS_THRESHOLD_DAYS` | No | Days before a contact is flagged stale (has a code default) |
+| `SSO_BASE_URL` | For SSO | SSO provider base URL |
+| `SSO_CLIENT_ID` | For SSO | SSO OAuth client ID |
+| `SSO_CLIENT_SECRET` | For SSO | SSO OAuth client secret |
+| `SSO_REDIRECT_URI` | For SSO | SSO OAuth callback URL |
+| `SSO_SUPER_ADMIN_EMAILS` | For SSO | Comma-separated emails granted super-admin access |
 
 ---
 
 ## Versioning
 
-Current app version is **2.4.99**. (Corrected 2026-07-25 — this line had drifted to a stale `2.4.29` for a long stretch of releases; `package.json` remains the single source of truth per the line below.)
+Current app version is **2.4.101**. (Corrected 2026-07-25 — this line had previously drifted to a stale `2.4.29` for a long stretch of releases; `package.json` remains the single source of truth per the line below.)
 
 Single source of truth: `package.json`
 
@@ -76,9 +93,7 @@ This README is the single source of truth for documentation paths and descriptio
 | `README.md` | Onboarding, quick start, and documentation index |
 | `CLAUDE.md` | Mandatory operating rules for any Claude session working in this repo (quality gate, issue-driven workflow, DoD, branch/push authorization) |
 | `CHANGELOG.md` | Version history, shipped features, and known limitations |
-| `PIPELINE_ARCHITECTURE.md` | Pipeline stages, ICE scoring, dedup, and research agent behavior |
-| `PROPOSAL.md` | Improvement proposal with completed and remaining workstreams |
-| `roadmap.md` | Phased roadmap with shipped, in-progress, and planned items |
+| `docs/LESSONS_LEARNED.md` | Recurring mistake patterns, sandbox/verification limitations, and the "why" behind key architectural decisions |
 
 ### Detailed Documentation
 
@@ -89,7 +104,6 @@ This README is the single source of truth for documentation paths and descriptio
 | `docs/STACK_AND_DEPENDENCIES.md` | Runtime, framework, UI, DB, hosting, agent/runtime stack |
 | `docs/INDEX.md` | Documentation index |
 | `docs/DOC_LINT.md` | Doc lint checklist for maintaining documentation quality |
-| `deployment.md` | Deployment log — recent commits, build status, files changed |
 
 ### Archived Documentation
 
@@ -99,18 +113,22 @@ This README is the single source of truth for documentation paths and descriptio
 | `_archived/STACK_DECISION.md` | Historical stack decision |
 | `_archived/architecture.md` | Historical architecture doc |
 | `_archived/user-guide.md` | Historical user guide |
+| `_archived/PIPELINE_ARCHITECTURE.md` | Historical pipeline architecture doc (superseded by `docs/ARCHITECTURE.md`) |
+| `_archived/PROPOSAL.md` | Historical improvement proposal (superseded by `CHANGELOG.md`) |
+| `_archived/roadmap.md` | Historical roadmap (superseded by `CHANGELOG.md`) |
+| `_archived/deployment.md` | Historical deployment log (superseded by `CHANGELOG.md`) |
 
 ---
 
 ## API Overview
 
-Health is the only fully public endpoint. Every lead endpoint (listings included) requires either an `x-api-key` header or an authenticated browser session with access to the requested `brand` (issue #104) — there is no unauthenticated read path.
+Health is the only fully public endpoint. Every lead endpoint (listings included) requires either an `x-api-key` header or an authenticated browser session with access to the requested `brand` (issue #104) — there is no unauthenticated read path. One exception: `PUT /api/leads/[id]` (the research agent's enrichment path) accepts `x-api-key` only, not a session — see `docs/OPERATOR_GUIDE.md`'s Auth section.
 
 Key endpoints:
 - `GET /api/leads?brand=<brand>` — list leads (page-based by default; cursor pagination via `?cursor=`)
 - `GET /api/leads/columns?brand=<brand>&column=<col>` — cursor-paginated per-column kanban loading, ICE-score sorted for DISCOVERED/QUALIFIED
 - `POST /api/leads?brand=<brand>` — create lead
-- `PUT /api/leads/[id]?brand=<brand>` — update lead fields (enrichment)
+- `PUT /api/leads/[id]?brand=<brand>` — update lead fields (enrichment, `x-api-key` only)
 - `PATCH /api/leads?brand=<brand>&id=<id>` — action lead
 - `GET /api/search?q=<query>&brand=<brand>` — predictive lead search
 - `GET /api/health` — service health (the one endpoint with no auth requirement)

@@ -64,7 +64,7 @@ function contactKey(c: NormalizedMigrationContact): string {
 }
 
 // decision_maker_contact is free-form (may be an email, a phone, or neither
-// — see PIPELINE_ARCHITECTURE.md's historical schema note), so it's only
+// — see _archived/PIPELINE_ARCHITECTURE.md's historical schema note), so it's only
 // assigned to email/phone when it's recognizably one of those.
 function buildLegacyContact(doc: Record<string, any>): NormalizedMigrationContact | null {
   const name = asString(doc.decision_maker_name);
