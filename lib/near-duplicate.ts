@@ -1,6 +1,7 @@
 // Issue #73 — near-duplicate review queue. Dedup today (lib/fingerprint.ts)
 // is exact-hash-only; this adds fuzzy candidate-pair detection for a human
-// to dismiss or flag. Never merges — that's explicitly out of scope.
+// to dismiss, flag, or merge (issues #128-130 built the merge engine and UI
+// directly on top of the candidate pairs this file produces).
 
 export function normalizeForMatch(name: string, url: string): { name: string; domain: string } {
   const normalizedName = (name || '').toLowerCase().trim().replace(/\s+/g, ' ');

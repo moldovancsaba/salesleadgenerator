@@ -1,4 +1,6 @@
-# Deployment Log
+# Deployment Log (ARCHIVED)
+
+> **⚠️ ARCHIVED — historical snapshot, not current.** Describes version 2.4.20/2.4.21, ~80 versions behind. Superseded by `CHANGELOG.md`'s per-version entries, which is now the single record of what shipped and when. Do not use this for current deployment status. Archived during the 2026-07-27 documentation audit. See `README.md`'s "Archived Documentation" table.
 
 ## Latest Deployment — Company Setup / Sales Settings page
 - **Commit**: 0c17104

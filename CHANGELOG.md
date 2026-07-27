@@ -1,5 +1,35 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.101
+
+### Documentation audit (owner report: "Please do a documentation audit, I miss a lot of learning information what went wrong and what have to we care in the future, also why do we do what we do, the known limitations, the tech stack, the user guide, even the readme.md… and I see a lot of code documentation inconsistency")
+
+Six parallel research agents each verified specific docs/code against the real, current state of the repo (not against what the docs claimed) — every finding below was independently confirmed against the actual source before fixing, per CLAUDE.md Rule 5.
+
+**New:** `docs/LESSONS_LEARNED.md` — the doc that didn't exist and was the core of the request: recurring mistake patterns (the `$or`-spread bug class below), sandbox/verification limitations, and the "why" behind decisions that look arbitrary without the history. Cites the real incident behind every claim.
+
+**Archived** (moved to `_archived/` with a banner, per this repo's existing archival convention): `PIPELINE_ARCHITECTURE.md` (21KB, stamped 2.4.84, 15 versions stale — its Security section predates the entire SSO/session-auth system, a dangerous gap for a doc someone might trust), `PROPOSAL.md` and `roadmap.md` (both stamped 2.4.61, 40 versions stale, fully superseded by `CHANGELOG.md`), `deployment.md` (describes version 2.4.20/21, ~80 versions stale). `docs/ARCHITECTURE.md` already covers ICE scoring/dedup/pipeline behavior these docs duplicated, so nothing is lost. Three code comments referencing these paths as current (`app/battlecards/[brand]/battlecards-client.tsx`, `app/lib/forecast-snapshot.ts`, `lib/migrate-decision-maker.ts`) updated to point at `_archived/`.
+
+**Fixed — real factual errors, not just staleness:**
+- `docs/ARCHITECTURE.md`'s "Action Lead" flow said `PATCH /api/leads` is gated by `requireApiKey`; the route's own code uses `requireBrandAccessApi` (session or `x-api-key`) — this contradicted the same file's own "Core Lead API Access Control" section a few hundred lines down.
+- `docs/OPERATOR_GUIDE.md`'s Auth section said `PUT /api/leads/[id]` accepts a session or `x-api-key`; the route's own code (`requireApiKey` only, confirmed by reading `app/api/leads/[id]/route.ts`) shows it's `x-api-key`-only — the one exception among lead-mutating endpoints, easy to assume otherwise without checking.
+- `docs/OPERATOR_GUIDE.md`'s bulk-action example message ("8 of 10 declined — 2 blocked: Missing required fields for ENGAGED") described an impossible state: the ENGAGED stage-gate can only block a **Pin**, never a **Decline** (which targets LOST, ungated). Corrected to use Pin.
+- `docs/OPERATOR_GUIDE.md`'s Known Issues bullet described a "country filter" that has never existed anywhere in `FilterBar.tsx`. Replaced with the real, permanent limitation: `country` was validated on write but never actually persisted until 2.4.98, so any lead created before that fix has no recoverable value — there's nothing to backfill it from.
+- `docs/ARCHITECTURE.md` had two headings both literally titled "Forecast integration (2.4.59, issue #85)" — the second was a mislabel; its actual content (traced via `CHANGELOG.md`) is issue #80's UI display work from 2.4.55, not #85.
+- `docs/ARCHITECTURE.md` had a dangling cross-reference to a heading name ("Item-count badge and column visibility toggle") that never existed as written — corrected to the real heading, "Item-count badge".
+- `docs/STACK_AND_DEPENDENCIES.md` internally contradicted itself: said SSO env vars were "unset in every environment today," then 15 lines later said real credentials were obtained 2026-07-26 and are in `.env.local` (still true, re-verified live for this audit). Corrected to the real, more precise state: set locally, still unset in Vercel production.
+- `docs/DOC_LINT.md`'s own checklist referenced `middleware.ts`, which was renamed to `proxy.ts` in the Next.js 16 upgrade (2.4.26) — a dead reference in the doc whose whole job is catching dead references.
+- `docs/INDEX.md` was stamped version 2.4.61, 40 versions behind.
+- `lib/near-duplicate.ts`'s header comment said "Never merges — that's explicitly out of scope" — false since issues #128-130 built a full merge engine directly on top of this file's candidate pairs.
+- `README.md`'s feature list omitted Backlog, Add Lead, and Duplicate Merge (all shipped, all missing from "What This Repo Contains"); its env var list named only `MONGODB_URI`, missing 8 others actually read via `process.env.*` (confirmed via a repo-wide grep) — `SLG_API_KEY`, `CRON_SECRET`, `CONTACT_STALENESS_THRESHOLD_DAYS`, and 5 SSO vars, now all documented with purpose and required/optional status. Quick Start gained `npm run test:integration` and `npm run audit:gds-style`, previously undocumented despite being part of the mandatory quality gate.
+
+**Also found and fixed (higher severity, shipped separately and first as 2.4.100):** the audit's own methodology surfaced a live, confirmed cross-tenant data leak in `GET /api/search` — same root cause, independently discovered, as the `tryFindLead()` bug fixed one commit earlier in 2.4.99. See that version's entry.
+
+**Also fixed** — low-priority code-comment cleanup per CLAUDE.md's WHY-not-WHAT convention: four pure "what" comments removed from `app/api/leads/route.ts` (`normalizeAddress`, `readBody`, `GET` — the code was already self-explanatory); `app/detail.tsx`'s `handleModify()` comment corrected from an absolute "contacts editing is out of scope (issue #88)" claim to reflect that contacts editing shipped in issue #113, just via a separate form/handler — not a remaining gap.
+
+### Testing
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest unit 520/520, integration 114/114, smoke 5/5, GDS style audit clean. Documentation-only + comment changes; no route logic touched in this entry beyond what already shipped as 2.4.100.
+
 ## 2.4.100
 
 ### Fixed — GET /api/search leaked leads across tenants (found during a documentation audit, owner report: "Please do a documentation audit")

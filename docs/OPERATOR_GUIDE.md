@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.99
+**Version:** 2.4.101
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -99,7 +99,7 @@ Tap a column's own header to collapse it down to just its title and count — us
 
 ### Bulk actions (Select mode)
 
-Tap the **Select** icon in the toolbar above the board to enter select mode — a checkbox appears on every card. Selection is limited to one column at a time (picking a card in a different column is rejected with a notification). Once you've checked at least one card, a bulk action bar appears with **Decline selected** / **Pin selected**. Each lead is actioned individually server-side, so a partial failure (e.g. one lead blocked by the required-fields gate above) doesn't fail the whole batch — you'll see a summary like "8 of 10 declined — 2 blocked: Missing required fields for ENGAGED: ...". Tap the Select icon again (now an ✕) to leave select mode.
+Tap the **Select** icon in the toolbar above the board to enter select mode — a checkbox appears on every card. Selection is limited to one column at a time (picking a card in a different column is rejected with a notification). Once you've checked at least one card, a bulk action bar appears with **Decline selected** / **Pin selected**. Each lead is actioned individually server-side, so a partial failure (e.g. one lead blocked by the required-fields gate above) doesn't fail the whole batch — you'll see a summary like "8 of 10 pinned — 2 blocked: Missing required fields for ENGAGED: ..." (the required-fields gate above only blocks a move into ENGAGED/PROPOSAL, so this message can only appear for **Pin selected**, which always targets ENGAGED — not Decline, which targets LOST and is never gated). Tap the Select icon again (now an ✕) to leave select mode.
 
 ---
 
@@ -338,7 +338,7 @@ The app can be installed as a Progressive Web App (add-to-home-screen from your 
 
 Base URL: `https://salesleadgenerator.vercel.app`
 
-**Auth:** every lead endpoint below (`GET`/`POST`/`PATCH /api/leads`, `GET /api/leads/columns`, `PATCH /api/leads/bulk`, `GET`/`PUT`/`DELETE /api/leads/[id]`) requires either an `x-api-key` header (shown below) or an authenticated browser session with access to the requested `brand`. There is no unauthenticated read path. `POST /api/leads` previously required `x-api-key` exclusively (only the research agent ever called it); as of 2.4.96 it accepts a browser session too, so the in-app **Add Lead** button (see [Add Lead](#add-lead)) can call it directly — the `x-api-key` path is unchanged for existing callers.
+**Auth:** every lead endpoint below (`GET`/`POST`/`PATCH /api/leads`, `GET /api/leads/columns`, `PATCH /api/leads/bulk`, `GET`/`DELETE /api/leads/[id]`) requires either an `x-api-key` header (shown below) or an authenticated browser session with access to the requested `brand`. There is no unauthenticated read path. `POST /api/leads` previously required `x-api-key` exclusively (only the research agent ever called it); as of 2.4.96 it accepts a browser session too, so the in-app **Add Lead** button (see [Add Lead](#add-lead)) can call it directly — the `x-api-key` path is unchanged for existing callers. **`PUT /api/leads/[id]` is the one exception**: it requires `x-api-key` only, never a session — it's the research agent's own enrichment path and has no in-app browser caller (corrected during the 2026-07-27 documentation audit; previously grouped in with the session-accepting endpoints above).
 
 ### Read Leads
 ```bash
@@ -419,7 +419,7 @@ These require `x-api-key` auth. There is no browser button for any of them — t
 - Some leads (a real, ongoing minority — confirmed in production: dozens per brand) have a `size` value that's missing, or free text instead of one of the four valid tiers (Small/Medium/Large/Enterprise) — usually from research-agent writes that predate the current enum enforcement, or a size description rather than a size tier. These leads still get a Ticket Size estimate (the smallest configured tier, clearly labeled — see [Ticket Size](#ticket-size)), but their Metrics/Forecast tier-breakdown numbers group under "Unknown" rather than a real tier. Editing the lead's `size` field to a real tier value corrects this.
 - Table view mobile density/readability may still need additional tuning.
 - The desktop trackpad "natural scroll" fix over the kanban board (2.4.95) was built and verified in a Linux/headless-Chromium sandbox that can't fully replicate real trackpad-driver behavior (macOS Safari/WebKit, Windows Precision Touchpad). If scrolling still misbehaves over a card on your real machine after this update, report it — it needs confirmation on real hardware, not just assumed fixed.
-- Country filter population depends on lead `country` data; some datasets may need backfill from `region`.
+- There is no country filter in the UI (corrected during the 2026-07-27 documentation audit — this bullet previously described one that doesn't exist; `FilterBar.tsx` filters only on region and industry). The real, permanent limitation: `country` was validated on write but silently never persisted or editable anywhere in the app until 2.4.98 fixed it — every lead created before that fix has no recoverable `country` value (there was nothing to backfill it from; the field was simply never stored). 1,730 CSV-imported leads from the same date were backfilled as part of that fix, but any other pre-2.4.98 lead's `country` is permanently blank unless corrected manually.
 - Outreach template deletion isn't implemented — only create and edit.
 - Deals only affect the CogMap-style Forecast pipeline (`ticketSizeEstimate`-based revenue). Seyu's forecast is built entirely from its own `pricingByCompany` data and doesn't yet look at a lead's Deals — a Seyu deal is saved and shown on the card/detail, but won't change Seyu's Forecast numbers.
 - Follow-up reminders and the Win probability figure are shared across the whole team, not per-rep — this app has no individual user/ownership model yet, so there's no personal "my follow-ups" queue.
