@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.96
+**Version:** 2.4.97
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -310,7 +310,17 @@ Every person who has ever signed in via SSO appears here automatically (there's 
 
 ### Duplicate Review
 
-Click **Scan for duplicates** for a brand to compare leads by name/domain similarity and file new candidate pairs for review (capped at the 2000 most recent leads per scan — if the brand has more, a notification says the scan was truncated). Each pending pair shows both leads side by side (name, URL, kanban column) with a similarity score. Two actions only: **Not a duplicate** (dismiss) or **Confirm duplicate**. Neither action merges the two lead records — this only labels the pair; an actual merge feature doesn't exist yet.
+Click **Scan for duplicates** for a brand to compare leads by name/domain similarity and file new candidate pairs for review (capped at the 2000 most recent leads per scan — if the brand has more, a notification says the scan was truncated). Use the **Status** switcher (Pending / Confirmed / Dismissed / Merged) to move between stages — a pair leaves the Pending list the moment you decide on it, so Confirmed is where you'll find pairs waiting to be merged.
+
+On a **Pending** pair: **Not a duplicate** (dismiss, no further action) or **Confirm duplicate** (moves it to the Confirmed list).
+
+On a **Confirmed** pair: **Merge**. This opens a screen that:
+- Combines contacts, tags, deals, and checklist items from both leads automatically — nothing is dropped.
+- Only asks you something when the two leads genuinely disagree on a field (e.g. different value propositions, or one says Won and the other says Lost) — pick which value to keep for each. If the two leads don't actually conflict on anything, there's nothing to pick — just confirm and it's done.
+- Lets you pick which of the two leads survives (a suggestion is pre-selected, based on which is further along the pipeline) — this only controls bookkeeping like sort order, not which values end up in the final record.
+- On mobile, walks through one disagreement at a time with a progress indicator; on desktop, shows them all in one list.
+
+**Merging is permanent.** The losing lead is deleted, not archived — there's no undo. Its outreach and outcome history moves onto the surviving lead, so nothing is lost, but the merge decision itself can't be reversed. Only merge a pair you're genuinely confident is the same organization.
 
 ### Prompt Editor
 
@@ -414,6 +424,7 @@ These require `x-api-key` auth. There is no browser button for any of them — t
 - Deals only affect the CogMap-style Forecast pipeline (`ticketSizeEstimate`-based revenue). Seyu's forecast is built entirely from its own `pricingByCompany` data and doesn't yet look at a lead's Deals — a Seyu deal is saved and shown on the card/detail, but won't change Seyu's Forecast numbers.
 - Follow-up reminders and the Win probability figure are shared across the whole team, not per-rep — this app has no individual user/ownership model yet, so there's no personal "my follow-ups" queue.
 - Qualification fields are informational only and can't yet be required before a lead moves to ENGAGED/PROPOSAL.
+- Duplicate-lead merging (2.4.97) is permanent — the losing lead is deleted, not archived, with no undo. It was verified via a real database-backed test suite and a live dev-server smoke check, but the authenticated click-through (opening the merge screen and confirming a real merge as a signed-in super admin) hasn't been walked through in a browser yet — the first real merge should be watched closely.
 
 ---
 

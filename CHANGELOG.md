@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.97
+
+### Added — duplicate lead merge (owner request, issues #128/#129/#130)
+`/admin/duplicates` (the near-duplicate review queue from issue #73) can now actually merge a confirmed duplicate pair, not just dismiss/confirm it. Split across three issues:
+
+- **#128 — `lib/lead-merge.ts`**: a pure field-diff/merge-rule engine. Contacts, tags, deals, and checklist items combine automatically (contacts via the existing `dedupeContacts()`, reused not reimplemented); timestamps, counters, quality status, tech-signal scans, next-action reminders, and pipeline stage all resolve by a deterministic, documented rule — except `WON` vs `LOST`, which is a real contradiction and always requires a human pick. Every other field only surfaces as a conflict when both leads have a genuinely different, non-empty value. `scoreProfile` and `fingerprint` are recomputed from the final merged values, never carried over stale.
+- **#129 — `GET`/`POST /api/duplicate-reviews/merge`**: preview and commit endpoints. Repoints every collection that references the losing lead by `_id` (`outcomelogs`, `outreach_logs`, other `duplicate_reviews` rows) before hard-deleting it — a gap the app's pre-existing exact-fingerprint dedup logic had. Re-diffs server-side on commit rather than trusting the client's claimed conflicts.
+- **#130 — `MergeConflictModal`**: one responsive component (not two separate mobile/desktop implementations, matching this app's existing convention) — a full conflict list on desktop, a one-conflict-per-screen wizard on mobile/PWA. A zero-conflict pair skips the picker screens entirely. Required adding a status filter (Pending/Confirmed/Dismissed/Merged) to the review queue itself, since a confirmed pair previously vanished from view the instant it was confirmed with no way back to merge it.
+
+**Merging is permanent** — the losing lead is hard-deleted, not archived, per the owner's own explicit choice; there is no undo.
+
+**Refactors along the way, not incidental**: `lib/score-profile.ts` extracted from `app/api/leads/route.ts`'s previously-private `buildScoreProfile()`/`computeIceScore()` so the merge engine can recompute a merged lead's score without duplicating that logic. `app/lib/use-is-compact-viewport.ts` extracted from `app/detail.tsx`'s own inline `matchMedia` breakpoint effect, now shared by both the Lead Detail modal and the new merge modal.
+
+### Testing
+`tests/lib/lead-merge.test.ts` (19 cases covering every classification bucket). `tests/integration/duplicate-review-merge.integration.test.ts` (8 cases, `mongodb-memory-server`-backed) — `requireSuperAdminSession` mocked via `vi.mock()` (a dependency-boundary mock, not a forged token — a real signed SSO JWT can't be fabricated in this sandbox) so the actual merge sequence could be exercised end to end, including FK-repointing verification, rather than only the auth-gate 401 this app's other session-gated route tests are limited to.
+
+Verified against a real `next dev` server connected to the actual production MongoDB Atlas cluster: `/admin/duplicates` redirects unauthenticated (307), the new merge endpoint returns a real 401. **Disclosed limitation**: the authenticated click-through (opening the modal, resolving a real conflict, confirming a merge as a signed-in super admin) could not be performed in this sandbox — no way to complete a real SSO login flow headlessly here, the same constraint already documented for every other session-gated route in this app. Needs a real walkthrough after deploy.
+
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest unit 520/520, smoke 5/5, `next build --webpack` (all routes, including the two new ones), GDS style audit clean. The 13 pre-existing integration-test failures documented in 2.4.96 (an unrelated test-fixture/quality-gate gap) remain unchanged.
+
 ## 2.4.96
 
 ### Added — Backlog board (owner report, issue #126)
