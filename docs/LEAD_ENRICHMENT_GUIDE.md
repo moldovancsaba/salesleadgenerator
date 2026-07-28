@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.109
+**Version:** 2.4.110
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -298,11 +298,63 @@ has — do not attempt to fill in fields that are already fresh and correct:
      name to offer; never just copy `entity_name` into it.
    Never write `classificationTags` or `mergeKey` yourself — both are
    always server-derived from the fields above and any value you send is
-   ignored. The full controlled vocabularies are in `lib/lead-taxonomy.ts`
-   in this repo (`SPORT_CODES`, `ORG_TYPE_CODES`, `BUSINESS_UNIT_CODES`,
-   `GENDER_CODES`, `DEMOGRAPHIC_CODES`, `COMPETITION_LEVEL_CODES`,
-   `RELATIONSHIP_CODES`) — your run context should supply you with the
-   current list; if it doesn't, ask for it rather than guessing values.
+   ignored.
+
+   **Controlled vocabularies — use ONLY a value from the matching list
+   below (exact spelling, lowercase, hyphens not spaces/underscores), or
+   the literal string `"unknown"`/`"not-applicable"` where offered, or omit
+   the field. This is the complete, authoritative list — nothing outside
+   it is valid, and the API will reject a value that isn't on it.**
+
+   `sportCode` — one of: `football`, `basketball`, `cricket`, `rugby-union`,
+   `rugby-league`, `tennis`, `volleyball`, `handball`, `baseball`,
+   `softball`, `ice-hockey`, `field-hockey`, `american-football`, `futsal`,
+   `beach-soccer`, `beach-volleyball`, `athletics`, `swimming`, `cycling`,
+   `triathlon`, `golf`, `padel`, `table-tennis`, `badminton`, `gymnastics`,
+   `boxing`, `martial-arts`, `rowing`, `sailing`, `esports`, `multi-sport`,
+   `unknown`, `not-applicable`.
+   (Common free-text you'll see and how to read it: "Soccer",
+   "Association Football", "Football (Soccer)" → `football`; "Gridiron" →
+   `american-football`; "Ice Hockey"/"Icehockey" → `ice-hockey`;
+   "E-Sports"/"Esport" → `esports`; "Track and Field"/"Track & Field" →
+   `athletics`; "Ping Pong"/"Pingpong" → `table-tennis`; bare "Rugby" →
+   `rugby-union`.)
+
+   `orgTypeCode` — one of: `club`, `academy`, `federation`, `association`,
+   `league`, `confederation`, `tournament`, `event-organiser`,
+   `competition-organiser`, `training-centre`, `performance-centre`,
+   `sports-school`, `school`, `college`, `university`, `municipality`,
+   `sports-council`, `government-body`, `facility-operator`, `stadium`,
+   `arena`, `venue`, `sports-complex`, `foundation`, `ngo`, `sponsor`,
+   `brand`, `agency`, `broadcaster`, `media`, `unknown`.
+
+   `businessUnitCode` — one of: `first-team`, `women`, `men`, `youth`,
+   `youth-academy`, `academy`, `grassroots`, `community`, `foundation`,
+   `commercial`, `partnerships`, `sponsorship`, `marketing`, `digital`,
+   `fan-engagement`, `ticketing`, `merchandise`, `events`, `competition`,
+   `operations`, `performance`, `medical`, `coaching`, `education`,
+   `development`, `communications`, `media`, `esports`, `regional-office`,
+   `general`.
+
+   `genderCode` — one of: `men`, `women`, `mixed`, `unknown`,
+   `not-applicable`.
+
+   `demographicCodes` (array — zero or more of, non-exclusive): `children`,
+   `youth`, `adult`, `masters`, `senior`, `mixed-age`, `unknown`,
+   `not-applicable`.
+
+   `competitionLevelCode` — one of: `recreational`, `grassroots`,
+   `developmental`, `school`, `amateur`, `semi-professional`,
+   `professional`, `elite`, `national`, `international`, `unknown`,
+   `not-applicable`.
+
+   `relationshipToParent` — one of: `owned`, `operated`, `licensed`,
+   `franchise`, `affiliate`, `partner`, `unverified`.
+
+   `cityName` is free text (the real, source-spelled city name, e.g.
+   `"München"` — not on a controlled list, and never a slug you construct
+   yourself). `parentOrgName`/`canonicalLeadName` are also free text, per
+   the field descriptions above.
 
 ## Hard rules — a violation here is worse than doing nothing
 - Never fabricate a name, email, phone, or any other fact. An honest gap

@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.110
+
+### Fixed — enrichment prompt referenced the controlled vocabularies by file path instead of listing them (owner report, 2026-07-28: "Did you updated the md prompt that I have to give to the enrichment agents?")
+
+2.4.109's prompt update (`docs/LEAD_ENRICHMENT_GUIDE.md` §5 step 7) told the agent to classify each lead against `lib/lead-taxonomy.ts`'s controlled vocabularies but only pointed at that repo file rather than listing the actual values — correct for an agent with repo read access, but the guide's own header says this prompt is meant to be pasted directly into `/admin/prompts/[brand]`'s `enrichment` slot, where the runtime that executes it has no reason to have repo access. An agent running from that pasted text alone would have had no valid values to choose from for `sportCode`/`orgTypeCode`/etc.
+
+Inlined the complete, current contents of all seven controlled vocabularies (`SPORT_CODES`, `ORG_TYPE_CODES`, `BUSINESS_UNIT_CODES`, `GENDER_CODES`, `DEMOGRAPHIC_CODES`, `COMPETITION_LEVEL_CODES`, `RELATIONSHIP_CODES`) directly into the prompt text, copied exactly from `lib/lead-taxonomy.ts` (same spelling, same order — verified value-by-value, not retyped from memory), plus a short free-text-to-canonical guide for the sport aliases most likely to be seen in research (Soccer→football, Ice Hockey→ice-hockey, etc.). The prompt is now fully self-contained — no repo access required to use it correctly. **Known tradeoff, disclosed rather than silently accepted**: because the lists are now copy-pasted text rather than a live reference, they will drift out of sync with `lib/lead-taxonomy.ts` if that file's vocabularies are ever extended (per its own module comment, aliases/values are expected to grow during migration) — whoever edits that file going forward should also update this prompt's inlined lists in the same change, or re-paste the prompt into `/admin/prompts/[brand]` after any vocabulary change.
+
+Doc-only change — no code, schema, or API behavior touched. All version stamps (`README.md`, `docs/INDEX.md`, `docs/ARCHITECTURE.md`, `docs/OPERATOR_GUIDE.md`, `docs/STACK_AND_DEPENDENCIES.md`, `docs/LESSONS_LEARNED.md`, `docs/LEAD_ENRICHMENT_GUIDE.md`, `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`) brought up to 2.4.110 in the same change, correcting a minor gap from 2.4.109 where three docs (`OPERATOR_GUIDE.md`/`STACK_AND_DEPENDENCIES.md`/`LESSONS_LEARNED.md`) were left un-bumped despite `docs/DOC_LINT.md`'s own checklist requiring every doc's version stamp to match `package.json`.
+
+### Testing
+Doc-only change. tsc/lint/vitest unaffected (no `.ts`/`.tsx` files touched) — re-ran the full gate anyway per CLAUDE.md Rule 1: tsc 0 errors, lint 0 errors/warnings, vitest unit 550/550, integration 114/114, smoke 5/5, GDS style audit clean. Manually cross-checked every inlined vocabulary value against `lib/lead-taxonomy.ts`'s current source (`SPORT_CODES` 33/33, `ORG_TYPE_CODES` 31/31, `BUSINESS_UNIT_CODES` 30/30, `GENDER_CODES` 5/5, `DEMOGRAPHIC_CODES` 8/8, `COMPETITION_LEVEL_CODES` 12/12, `RELATIONSHIP_CODES` 7/7) — exact match, no drift.
+
 ## 2.4.109
 
 ### Added — controlled sports-industry taxonomy, Phase 1 (owner spec, 2026-07-28: "Sport Sales Lead Catalogue and Deduplication Rulebook v1.0"; issues #131/#132)
