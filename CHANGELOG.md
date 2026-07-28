@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.102
+
+### Added — docs/LEAD_ENRICHMENT_GUIDE.md (owner report: "I am thinking about an ongoing enrichment process to improve our lead quality with ai research. I need you to collect all information that can be enriched time to time in a well structured format and a well planned prompt that can be used by ai agents.")
+
+New doc, no code changes. A structured catalog of every field on a Lead worth periodically re-researching, grouped by re-check cadence and by exactly what happens server-side when each is written (whole-array-replace, field-merge, auto-computed-don't-touch, or rep-owned-don't-touch) — verified against the real write paths (`app/api/leads/[id]/route.ts`'s `PUT` handler, `app/lib/lead-actions.ts`'s `MODIFY` branch, `lib/contacts.ts`'s dedup/staleness semantics), not written from a generic CRM-fields assumption. Includes a ready-to-use enrichment prompt designed to slot directly into this repo's existing (and previously undocumented outside its own UI) `type: 'enrichment'` prompt slot (`/admin/prompts/[brand]`, `app/api/prompts/route.ts`) — a mechanism that already existed for exactly this purpose but had no design document behind it.
+
+Key findings baked into the guide:
+- `PUT /api/leads/[id]` — not `PATCH ... MODIFY` — is the confirmed agent-enrichment write path (the route's own code comments describe it that way twice) and is `x-api-key`-only, matching an unattended agent.
+- Every contact included in a `PUT` payload gets `lastVerifiedAt` stamped to *now*, unconditionally — a previously-undocumented gotcha: an agent that resends an unconfirmed contact just to keep the array populated silently marks stale data as fresh.
+- Unlike `POST` (lead creation), `PUT` does **not** recompute `ice.ease` server-side — an enrichment agent must set it itself, and the guide documents the exact rubric (`computeEase()`, `app/api/leads/route.ts`) to keep it consistent with contact-completeness.
+- A `PUT` with `ice` but no `kanbanColumn` auto-moves a `DISCOVERED`/`QUALIFIED` lead based on the new score — documented as an intentional side effect, not something to work around.
+- A precise "never write these" list (`techSignals`, `emailVerificationStatus`, `ticketSizeEstimate`, per-contact `seniorityTier`/`department`, `deals`/`checklist`/`qualification` — all either server-computed or rep-owned) prevents an enrichment agent from silently duplicating or fighting existing automation.
+- Cross-references `docs/LESSONS_LEARNED.md` for the creation-time-quality-gate-vs-enrichment distinction and the general "never fabricate" convention, so the guide doesn't re-litigate rationale already recorded elsewhere.
+
+### Testing
+Documentation only. `tsc`/`lint` re-run clean (no code touched, verified rather than assumed).
+
 ## 2.4.101
 
 ### Documentation audit (owner report: "Please do a documentation audit, I miss a lot of learning information what went wrong and what have to we care in the future, also why do we do what we do, the known limitations, the tech stack, the user guide, even the readme.md… and I see a lot of code documentation inconsistency")

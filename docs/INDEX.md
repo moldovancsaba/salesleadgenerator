@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Version:** 2.4.101
+**Version:** 2.4.102
 
 ---
 
@@ -24,6 +24,7 @@
 - `CLAUDE.md` — mandatory operating rules for any Claude session working in this repo
 - `CHANGELOG.md` — version history, feature baselines, and (since 2026-07-27) documented root causes for real bugs found post-release
 - `docs/LESSONS_LEARNED.md` — recurring mistake patterns, sandbox/verification limitations, and architectural rationale ("why do we do what we do")
+- `docs/LEAD_ENRICHMENT_GUIDE.md` — enrichable lead-field catalog and the ready-to-use AI enrichment-agent prompt
 
 ## Archived Documentation
 
