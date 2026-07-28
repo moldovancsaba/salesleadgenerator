@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.103
+
+### Fixed — docs/LEAD_ENRICHMENT_GUIDE.md's contact schema was underspecified (owner report: "I want you to test the prompt for 5 random CogMap leads")
+
+Live-tested the 2.4.102 enrichment prompt against 5 real, randomly-sampled CogMap leads (5 independent research agents, real web research, dry-run only — no production writes until this fix landed). Found one real bug in the prompt itself: **3 of 5 test runs independently invented a wrong JSON key name for the decision-maker flag** (`decision_maker` or `decisionMaker` instead of the actual API field `isDecisionMaker`) — the prior revision only described the field in prose, never showed a literal example, so a plausible-but-wrong key name was a predictable outcome, not a fluke. A contact sent under the wrong key silently defaults to `isDecisionMaker: false` server-side, with no error.
+
+Fixed by adding an explicit, literal JSON example of a contact object to both §2.1 and the embedded prompt itself (§5), with an explicit warning that field names are exact and unmatched variants are silently ignored, not rejected.
+
+Also fixed a related, smaller finding: the `ice.ease` rubric's "named contact + address" tier (4) didn't specify whether "address" meant the lead's structured `address` field or just something mentioned in research notes — one test run scored ease=4 on an address that only appeared in `notes`, with the structured field left unset. Clarified in both the field catalog and the embedded prompt: "address" means the structured field is actually set, not just known contextually.
+
+Added a new §7 "Real-world test findings" section documenting both fixes plus two non-bug observations from the same test worth keeping on record for anyone extending this process: JS-rendered club websites (SportsEngine/Blue Sombrero) return empty content to a plain fetch, and AI-summarized fetches can misattribute a title on a page listing multiple people — a raw-fetch cross-check caught this in one test run.
+
+### Testing
+Documentation only. `tsc`/`lint` re-run clean.
+
+## Data operation — 2026-07-28, enrichment prompt live test applied to 5 CogMap leads
+
+Following the prompt test above, applied the 5 researched payloads to production via real `PUT /api/leads/[id]?brand=cogmap` calls (all 200 OK, verified against the returned lead documents): `FC Cincinnati Academy` (6a623178f14a810aee2048cf), `Ballard FC` (6a67447ad1e151dfa27aa558), `Louisiana Elite SP` (6a6742a2d1e151dfa27aa08c), `Sporting Blue Valley Soccer Club` (6a67429cd1e151dfa27aa07c), `CASL / NCFC Youth` (6a6742ded1e151dfa27aa129).
+
+Each payload used the corrected `isDecisionMaker` field name (the bug this version's guide fix addresses) — confirmed live in the response bodies that the flag is now actually set `true` for genuine decision-makers found (Sam Zisette; Kiran Booluck and Louie Smothermon; Gary Buete, Katharine Kelley Eberhardt, and Marlow Campbell), where the original wrong-key-name payloads would have silently stored `false`. `qualityStatus` promoted `DRAFT` → `CHECKED` for all 5; none crossed the `QUALIFIED` (500) ICE threshold, so `kanbanColumn` was unaffected (expected, not a bug). `entity_name`/`url` deliberately left untouched on all 4 CSV-import-batch leads despite the real correct URL being found for each — routed to `notes` instead, per the guide's identity-correction policy; a human still needs to apply those 4 corrections manually.
+
 ## 2.4.102
 
 ### Added — docs/LEAD_ENRICHMENT_GUIDE.md (owner report: "I am thinking about an ongoing enrichment process to improve our lead quality with ai research. I need you to collect all information that can be enriched time to time in a well structured format and a well planned prompt that can be used by ai agents.")
