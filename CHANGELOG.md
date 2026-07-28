@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.111
+
+### Fixed — closed the drift risk 2.4.110 disclosed but didn't eliminate (owner instruction: "Fix the trade off")
+
+2.4.110 inlined the controlled taxonomy vocabularies into `docs/LEAD_ENRICHMENT_GUIDE.md`'s prompt so it's self-contained, but disclosed a real tradeoff: the inlined copy could silently drift from `lib/lead-taxonomy.ts` if a vocabulary is ever extended without also editing the prompt text. Fixed with two complementary changes rather than just re-documenting the risk:
+
+**New `GET /api/lead-taxonomy`** (`app/api/lead-taxonomy/route.ts`) — unauthenticated (matching `GET /api/health`'s no-auth precedent for non-sensitive, static metadata), serves the exact same arrays `lib/lead-taxonomy.ts` exports (and by extension, the same source `lib/validate-lead.ts` checks a `PUT` against) as JSON. The enrichment prompt (§5 step 7) now instructs the agent to fetch this endpoint at the start of every classification pass and treat its response as authoritative — eliminating staleness at the source for any agent runtime that can make an HTTP GET, which every prior live test of this prompt already demonstrated (real web-research access). The prompt's inlined lists remain only as an explicit fallback for a runtime that genuinely can't make an out-of-band call.
+
+**New `tests/lib/lead-taxonomy-doc-sync.test.ts`** — parses the guide's inlined vocabulary lists directly out of the markdown and asserts an exact, in-order match against the real exported arrays on every `vitest run`. This is the fallback copy's actual guardrail: a future edit to `lib/lead-taxonomy.ts` that forgets to update the prompt's reference text now fails the zero-tolerance quality gate (CLAUDE.md Rule 1) instead of silently shipping a stale fallback. Verified the test actually catches drift, not just trivially passing: temporarily removed one value from the doc's `sportCode` list, confirmed a real failure, restored it, confirmed a pass again.
+
+Also documented the endpoint in `docs/ARCHITECTURE.md`'s "Controlled Sports-Industry Taxonomy" section and added §3.2 to `docs/LEAD_ENRICHMENT_GUIDE.md`'s API contract (renumbering the former §3.2/§3.3 to §3.3/§3.4 and fixing every internal cross-reference).
+
+### Testing
+New `tests/lib/lead-taxonomy-route.test.ts` (endpoint returns the live source arrays verbatim) and `tests/lib/lead-taxonomy-doc-sync.test.ts` (7 cases, one per vocabulary — drift-detection verified working, not just passing). Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest unit 558/558, integration 114/114, smoke 5/5, GDS style audit clean, `next build --webpack` (confirms `/api/lead-taxonomy` is registered in the compiled route list).
+
 ## 2.4.110
 
 ### Fixed — enrichment prompt referenced the controlled vocabularies by file path instead of listing them (owner report, 2026-07-28: "Did you updated the md prompt that I have to give to the enrichment agents?")
