@@ -22,19 +22,25 @@ function bigrams(value: string): Set<string> {
   return result;
 }
 
-// Dice's coefficient over character bigrams — cheap, no new dependency,
-// tolerant of word-order/suffix noise ("Acme Corp" vs "Corp Acme").
-export function similarity(a: string, b: string): number {
-  if (a === b) return 1;
-  const bigramsA = bigrams(a);
-  const bigramsB = bigrams(b);
+// Extracted so findCandidatePairs() can pass precomputed bigram sets (issue
+// found 2026-07-28: a full-database scan at ~2189 leads timed out — this
+// function was being recomputed on every single pairwise comparison inside
+// findCandidatePairs()'s O(n^2) loop, i.e. O(n^2) bigram-set constructions
+// instead of O(n), the actual bottleneck at that scale).
+function diceCoefficient(bigramsA: Set<string>, bigramsB: Set<string>): number {
   if (bigramsA.size === 0 || bigramsB.size === 0) return 0;
-
   let intersection = 0;
   for (const bg of bigramsA) {
     if (bigramsB.has(bg)) intersection++;
   }
   return (2 * intersection) / (bigramsA.size + bigramsB.size);
+}
+
+// Dice's coefficient over character bigrams — cheap, no new dependency,
+// tolerant of word-order/suffix noise ("Acme Corp" vs "Corp Acme").
+export function similarity(a: string, b: string): number {
+  if (a === b) return 1;
+  return diceCoefficient(bigrams(a), bigrams(b));
 }
 
 export type CandidateLead = {
@@ -53,10 +59,15 @@ export type CandidatePair = {
 const DEFAULT_THRESHOLD = 0.82;
 
 export function findCandidatePairs(leads: CandidateLead[], threshold: number = DEFAULT_THRESHOLD): CandidatePair[] {
-  const normalized = leads.map((lead) => ({
-    ...lead,
-    ...normalizeForMatch(lead.entity_name, lead.url || ''),
-  }));
+  // Each lead's bigram set is computed exactly once here (O(n)), not once
+  // per pairwise comparison (O(n^2)) — see diceCoefficient()'s comment.
+  // Mirrors similarity()'s own a===b/empty-set branches exactly below, so
+  // scores are identical to calling similarity(a.name, b.name) per pair;
+  // only the redundant repeat work is eliminated, not the matching logic.
+  const normalized = leads.map((lead) => {
+    const { name, domain } = normalizeForMatch(lead.entity_name, lead.url || '');
+    return { ...lead, name, domain, nameBigrams: bigrams(name) };
+  });
 
   const pairs: CandidatePair[] = [];
 
@@ -65,7 +76,7 @@ export function findCandidatePairs(leads: CandidateLead[], threshold: number = D
       const a = normalized[i];
       const b = normalized[j];
 
-      const nameScore = similarity(a.name, b.name);
+      const nameScore = a.name === b.name ? 1 : diceCoefficient(a.nameBigrams, b.nameBigrams);
       const domainMatch = Boolean(a.domain && b.domain && a.domain === b.domain);
 
       if (!domainMatch && nameScore < threshold) continue;
