@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.116
+**Version:** 2.4.117
 **App:** https://salesleadgenerator.vercel.app
 
 ---

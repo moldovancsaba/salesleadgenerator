@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.117
+
+### Fixed — real production data corruption caught and corrected by the loop's own post-write verification: phone extension notation silently fused into wrong numbers (loop iteration 5, 2026-07-28; server-side fix tracked as issue #133)
+
+Iteration 5 ("FC Richmond", Midlothian VA — deliberately a plain community-club case to test convergence) wrote three contacts whose only published phones are the club main line plus per-person extensions, naturally formatted as `"+1-804-823-9191 ext. 5"`. **The post-write verification read caught all three stored as corrupted numbers** (`+180482391915` etc.): `lib/contacts.ts`'s `normalizePhone()` strips every non-digit, so the extension digit fused onto the subscriber number — silently, on every write path, for any caller. Corrected within minutes via a follow-up `PUT` (plain dialable main line in `phone`, extensions preserved in each contact's `role` text) and re-verified clean.
+
+Two layers of response, deliberately separated per CLAUDE.md Rule 2:
+- **Prompt (this release)**: §5 gains an explicit phone-format warning — only a plain dialable number ever goes in `phone`; extensions go in `role`/`notes` — citing the observed corruption. Also closed iteration 5's one reported gray zone: a published person-specific extension counts as the named contact's phone for the ease rubric; a bare switchboard does not.
+- **Server (tracked, not rushed)**: the underlying `normalizePhone()` behavior is a real footgun for every caller including the browser ContactsEditor — filed as **issue #133** with reproduction, fix options, and acceptance criteria, rather than folding an untested code change into a doc-only release.
+
+### Data operation — fifth production lead classified; convergence signal (2026-07-28, owner-directed, same loop)
+
+Applied iteration 5's payload via a real `PUT /api/leads/6a674361d1e151dfa27aa27f?brand=cogmap` (plus the corrective contacts `PUT` above): "FC Richmond" — identity cleanly disambiguated from Richmond United/Strikers/Kickers — gained 3 first-party-verified decision-maker contacts (Executive/Technical Director, boys DOC, girls DOC), `general_contact`, mailing address, `size: Large`, `estimated_participants: 2500` (sourced, basis in notes), and full taxonomy (`football`/`club`/`general`/`mixed`/`[children, youth]`/`elite`/`cityName: Midlothian`). Post-write: `mergeKey: unknown|football|club|general|mixed|US|midlothian`, ticket recomputed to $200k. **Convergence evidence**: the agent followed every previously-codified rule without prompting (whole-org → `general`, span → highest level with span noted, identity fields untouched, `general_contact` structured) and reported the run "essentially unambiguous" — the phone gray zone above was the only residual, and it's now closed. Five prompt versions in, new findings have shifted from prompt-wording gaps to a genuine server-side bug — the loop is now finding different (deeper) classes of problem, which is what a maturing process should do.
+
+### Testing
+Prompt/docs-only changes; `tests/lib/lead-taxonomy-doc-sync.test.ts` re-verified passing. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit 558/558, integration 114/114, smoke 5/5, GDS audit clean.
+
 ## 2.4.116
 
 ### Changed — enrichment prompt: whole-org `businessUnitCode` rule + multi-level `competitionLevelCode` rule (loop iteration 4, owner-directed "continue the process", 2026-07-28)
