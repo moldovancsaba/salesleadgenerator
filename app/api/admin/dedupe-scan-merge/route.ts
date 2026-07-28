@@ -226,6 +226,18 @@ export async function POST(request: NextRequest) {
     await db.collection('duplicate_reviews').insertMany(pendingReviewRows);
   }
 
+  // Cap what's actually returned in the response body — found 2026-07-28
+  // running this against CogMap: at this collection's real scale and naming
+  // patterns (lots of shared vocabulary — "FC", "SC", "Academy", "Youth" —
+  // across genuinely different organizations), the 0.82 similarity
+  // threshold this app's own existing near-duplicate feature already uses
+  // produced ~977,535 candidate pairs, and returning full detail for
+  // hundreds of thousands of "needs review" rows serialized into a >250MB
+  // response that made the route look like it was still hanging when it had
+  // actually completed. The full counts below are exact regardless of the
+  // cap; only the itemized arrays are bounded.
+  const DETAIL_CAP = 25;
+
   return NextResponse.json({
     dryRun,
     brand,
@@ -237,7 +249,9 @@ export async function POST(request: NextRequest) {
     safelyMergeable: merged.length,
     needsHumanReview: skippedForReview.length,
     alreadyGone: skippedAlreadyGone.length,
-    merged,
-    needsReviewDetail: skippedForReview,
+    mergedSample: merged.slice(0, DETAIL_CAP),
+    mergedSampleTruncated: merged.length > DETAIL_CAP,
+    needsReviewSample: skippedForReview.slice(0, DETAIL_CAP),
+    needsReviewSampleTruncated: skippedForReview.length > DETAIL_CAP,
   });
 }
