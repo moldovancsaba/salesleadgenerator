@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.112
+
+### Fixed — the operator guide and README never actually documented the new taxonomy data structure (owner report: "Did you updated the user guide and all architecture documentation about the new data structure?")
+
+Audited every doc against the real current state and found genuine gaps: `docs/ARCHITECTURE.md` (the developer-facing architecture doc) already had a thorough "Controlled Sports-Industry Taxonomy" section from 2.4.109, but `docs/OPERATOR_GUIDE.md` — the actual day-to-day user guide — had nothing about it at all, and two other docs had real factual drift.
+
+- **`docs/OPERATOR_GUIDE.md`**: added a new "Lead Taxonomy" API example (`GET /api/lead-taxonomy`); updated "Update Lead" to note it now also accepts the taxonomy fields; updated "Lead Detail"'s Edit Lead Details description to state plainly that the edit form does **not** include the new fields yet; updated "Duplicate Review" to describe the real matching gate (`sportCode` preferred, `sport_or_sector` fallback) instead of the pre-existing, always-slightly-inaccurate "name/domain similarity" description; and added a new "Known Issues" bullet disclosing the real, current gap plainly: **the new taxonomy fields have no UI anywhere in the app** — no way to see, filter, or edit them from the kanban board, table view, or lead detail modal; they're API-only until a lead is individually classified (see `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`) or a future UI issue is scoped.
+- **`README.md`**: fixed a factual error introduced by 2.4.111 — the API Overview claimed `/api/health` was "the one endpoint with no auth requirement," which stopped being true the moment `GET /api/lead-taxonomy` shipped. Also fixed a stale hardcoded `2.4.108` in the Versioning section (should always track `package.json`, the doc's own stated source of truth).
+- **`docs/ARCHITECTURE.md`**: added the missing `GET /api/lead-taxonomy` bullet to the "API Layer → Leads" route inventory (the endpoint itself was already documented in prose under "Controlled Sports-Industry Taxonomy," but the top-level route list — this doc's own established per-area inventory convention — had been left out).
+
+Doc-only change — no code touched. All version stamps brought to 2.4.112 in the same change.
+
+### Testing
+Doc-only. Full gate re-run anyway per CLAUDE.md Rule 1: tsc 0 errors, lint 0 errors/warnings, vitest unit 558/558, integration 114/114, smoke 5/5, GDS style audit clean.
+
 ## 2.4.111
 
 ### Fixed — closed the drift risk 2.4.110 disclosed but didn't eliminate (owner instruction: "Fix the trade off")
