@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.114
+**Version:** 2.4.115
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -320,7 +320,10 @@ has — do not attempt to fill in fields that are already fresh and correct:
    "(email or phone)" in the 5–7 tiers means the NAMED contact's own
    direct channel, carried in that contact's `email`/`phone` fields — a
    company-level inbox (`info@...`, stored in `general_contact`) counts
-   only toward tier 2, never toward 5–7.
+   only toward tier 2, never toward 5–7. `general_contact` itself IS a
+   writable field in your payload: free text for the org-level channel
+   (e.g. "info@example.com / +1-555-0100") — when you confirm a company
+   inbox or switchboard number, write it there, not only into `notes`.
 6. **Promote `qualityStatus`** from DRAFT toward CHECKED or VERIFIED as your
    confidence in the lead's overall data quality genuinely increases through
    this research pass — don't promote it reflexively just because you ran.
@@ -350,7 +353,12 @@ has — do not attempt to fill in fields that are already fresh and correct:
    - `cityName` — the source-spelled city name (e.g. `"München"`, not a
      slug — the server derives the tag slug itself).
    - `parentOrgName` (and `parentOrgId` if you can confidently identify an
-     existing lead as the parent), `relationshipToParent`.
+     existing lead as the parent), `relationshipToParent`. When more than
+     one organisation plausibly fills the parent slot (e.g. a current
+     OWNER and a separate management-company OPERATOR), prefer the
+     current owner for `parentOrgName`/`relationshipToParent` and record
+     the other relationship in `notes` — there is only one parent pair,
+     and ownership is the more durable, identity-relevant fact.
    - `canonicalLeadName` — only if you have a genuinely better normalized
      name to offer; never just copy `entity_name` into it.
    Never write `classificationTags` or `mergeKey` yourself — both are

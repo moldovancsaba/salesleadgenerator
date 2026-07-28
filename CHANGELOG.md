@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.115
+
+### Changed — enrichment prompt: owner-vs-operator parent rule + `general_contact` writability (iteration 3 of the owner-directed loop, 2026-07-28)
+
+Iteration 3 ran the freshly-improved 2.4.114 prompt against "United Sports Training Center" (Downingtown, PA) — deliberately a facility-type lead, a different organizational shape from iterations 1 (club) and 2 (pro-club academy). The run was clean against every previously-fixed rule (identity fields untouched, contacts semantics handled, ease scored 6-not-7 exactly per the newly clarified rubric since neither contact has a published direct phone) and surfaced two last small gaps, both now fixed in §5:
+
+- **One parent slot, two plausible parents**: the lead has both a current owner (Capacity Sports Group, acquired April 2026) and a possibly-still-current management-company operator (Eastern Sports Management) — the prompt had no preference rule for the single `parentOrgName`/`relationshipToParent` pair. Now explicit: prefer the current owner; record the other relationship in `notes`.
+- **`general_contact` was never stated to be writable**: the agent confirmed a real company phone + inbox but parked them in `notes` only, because the prompt never said `general_contact` is a payload field. Now explicit, with its free-text format.
+
+### Data operation — third production lead classified; multi-sport facility shape proven (2026-07-28, owner-directed, same loop)
+
+Applied iteration 3's validated payload via a real `PUT /api/leads/6a67432bd1e151dfa27aa1f2?brand=cogmap`: "United Sports Training Center" gained 2 first-party-verified decision-maker contacts with direct emails (President + VP Programming, from the org's own staff directory, LinkedIn-corroborated), a real street address, `size: Large`, an updated multi-sport `industry`/`sport_or_sector`, and full taxonomy: **`sportCode: multi-sport`** (the agent verified soccer runs alongside 8+ other sports under shared league directors — correctly NOT forced to `football` despite the lead's stored "Soccer" free text), `orgTypeCode: sports-complex`, `competitionLevelCode: recreational`, `parentOrgName: "Capacity Sports Group"` / `owned` (a genuine research find: the facility was acquired in April 2026 — the ownership change also correctly excluded the still-listed founder from contacts pending role verification). Post-write verification: `mergeKey: capacity-sports-group|multi-sport|sports-complex|general|mixed|US|downingtown` — the third distinct merge-key shape proven live (after iteration 1's no-parent club and iteration 2's owned academy), ticket size recomputed to $200k expected off the now-real `size: Large`.
+
+### Testing
+Prompt/docs-only changes; `tests/lib/lead-taxonomy-doc-sync.test.ts` re-verified passing. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit 558/558, integration 114/114, smoke 5/5, GDS audit clean.
+
 ## 2.4.114
 
 ### Changed — enrichment prompt: ICE bounds stated explicitly, ease-rubric "(email or phone)" clarified (owner-directed iterative enrichment loop, 2026-07-28)
