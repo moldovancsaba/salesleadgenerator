@@ -71,6 +71,25 @@ export async function POST(request: NextRequest) {
   const alreadySeen = new Set(existingReviews.map((r: any) => `${r.leadIdA}:${r.leadIdB}`));
   const newPairs = pairs.filter((p) => !alreadySeen.has(`${p.leadIdA}:${p.leadIdB}`));
 
+  // Diagnostic short-circuit — returns immediately after the cheap counting
+  // stage, skipping the batch fetch and per-pair loop entirely. Added
+  // 2026-07-28 while isolating a real timeout against CogMap's ~2189 leads
+  // that survived two separate performance fixes already in this route's
+  // history (see CHANGELOG 2.4.105/2.4.106) — this tells us whether the
+  // remaining cost is in candidate-pair volume itself or still downstream.
+  if (body.diagnosticOnly === true) {
+    return NextResponse.json({
+      diagnosticOnly: true,
+      brand,
+      scanned: scanDocs.length,
+      totalAvailable,
+      truncatedScan: totalAvailable > scanDocs.length,
+      candidatePairsFound: pairs.length,
+      existingReviewRows: existingReviews.length,
+      newPairsThisRun: newPairs.length,
+    });
+  }
+
   // Batch-fetch every lead referenced by any new candidate pair exactly
   // once, instead of two findOne() round-trips per pair (found while
   // running this against real CogMap data, 2026-07-28: with thousands of
