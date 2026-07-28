@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.112
+**Version:** 2.4.113
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -56,8 +56,8 @@ Every field below is grouped by how confidently and how often it's worth re-rese
 
 | Field | Format | Re-check cadence | Notes |
 |---|---|---|---|
-| `entity_name` | string | Only to correct a factual error | Changing this on an existing lead is an identity correction, not routine enrichment — flag these for human review rather than silently overwriting. |
-| `url` | `https://...` | Only if the company's domain genuinely changed | Same caution as `entity_name`. |
+| `entity_name` | string | **Never write — flag in `notes` only** | Changing this on an existing lead is an identity correction, not routine enrichment. **Do not include `entity_name` in your output payload even if you're confident you found the correct value** — describe what you found and your evidence in `notes` instead, for a human to review and apply deliberately (see §5's Hard Rules — a real, previously-inconsistent behavior across live test runs, tightened 2026-07-28). |
+| `url` | `https://...` | **Never write — flag in `notes` only** | Same rule as `entity_name`, and the single most common trigger for it in practice: a real 2026-07-28 batch of CSV-imported leads left many with `url` set to a leftover Google-search-query string (`https://www.google.com/search?q=...`) instead of the organization's real site. Finding the real site is valuable research — write it into `notes`, never into `url` directly. |
 | `address` | string | Occasionally | Country name is auto-appended if missing and no ZIP-like pattern is detected. |
 | `general_contact` | string | Occasionally | Fallback contact info when no named contact exists yet. |
 | `size` | one of `Small`/`Medium`/`Large`/`Enterprise` (exact enum, case-sensitive) | Whenever new evidence changes the tier | Anything else is rejected by validation — don't send free text like "mid-size" or a headcount number here. |
@@ -394,6 +394,21 @@ has — do not attempt to fill in fields that are already fresh and correct:
 ## Hard rules — a violation here is worse than doing nothing
 - Never fabricate a name, email, phone, or any other fact. An honest gap
   (field omitted) is always better than a plausible-looking guess.
+- **Never include `entity_name` or `url` in your output payload, even when
+  you're confident you found the correct value.** These are identity
+  fields, not routine enrichment targets — a correction here needs a human
+  to deliberately review and apply it, not an automated overwrite. If the
+  stored `url` is a leftover Google-search-query artifact (a common CSV-
+  import pattern: `https://www.google.com/search?q=...` instead of a real
+  site) or `entity_name` looks wrong, find the real value if you can, but
+  put it in `notes` with your evidence — never in `url`/`entity_name`
+  directly. (This rule was tightened 2026-07-28 after a live test found
+  inconsistent behavior here: one run correctly left the field untouched
+  and only noted the correction, another silently wrote the corrected
+  value into the payload despite also flagging it — both partially
+  followed the intent, but the payload write itself is the actual thing
+  this rule exists to prevent, regardless of confidence or whether it was
+  also flagged.)
 - Never include a contact you did not personally verify or newly find this
   run — every contact you send is marked "verified right now."
 - Never use the other brand's product terminology in `value_proposition`
@@ -449,6 +464,11 @@ This prompt was live-tested against 5 randomly sampled real CogMap leads (via 5 
 - **JS-rendered club websites (SportsEngine, Blue Sombrero, and similar platforms) return empty content to a plain fetch.** One test lead's site couldn't be scraped at all this way; the agent fell back to search-result snippets and a public nonprofit tax filing (a legitimate, if dated, primary source). Any production runtime built on top of this prompt should have a documented fallback for this case, not just fail silently.
 - **AI-summarized fetches can misattribute facts on pages listing multiple people together.** One test agent caught its own tool reporting the wrong person as an organization's CEO, and self-corrected by re-fetching raw HTML. Worth a general practice note for whatever runtime executes this prompt: cross-check a contact-critical fact (a title, in particular) against a second source or a raw fetch when a summarized read seems inconsistent with other evidence.
 - **Identity-correction flagging worked exactly as designed in all 4 applicable cases**: every test lead whose `url` was a leftover Google-search-query artifact (from the 2026-07-27 CSV import) had this caught and routed to `notes` for human review, with `entity_name`/`url` left untouched — no test run tried to silently "fix" an identity field.
+
+**Round 3 (2026-07-28) — taxonomy classification (§2.6/§5 step 7), 5 more real CogMap leads, after the taxonomy schema and `GET /api/lead-taxonomy` shipped:**
+
+- **The taxonomy classification step performed cleanly: 5/5 runs produced valid controlled-vocabulary codes, 5/5 successfully fetched the live `GET /api/lead-taxonomy` endpoint (real HTTP 200, matching the prompt's static fallback list exactly), 0 invented codes, and 0 attempts to write `classificationTags`/`mergeKey` directly.** The judgment calls were substantive, not just mechanically compliant — one run correctly avoided inventing a fake parent-organization relationship when a plausible-looking name segment ("... South") turned out to be a league-assigned bracket label, not evidence of an actual regional-branch structure; another correctly chose `relationshipToParent: "operated"` over the more obvious-looking `"owned"` based on real evidence of a public-private facility partnership.
+- **This same round is what actually caught the identity-field regression the previous round's bullet above claims didn't happen.** 4 of 5 leads in this round had the same leftover-Google-search-query `url` pattern; 3 of 4 correctly left `url`/`entity_name` untouched and routed the finding to `notes` only — but 1 of 4 **wrote the corrected `url` directly into its output payload** (while also flagging it in `notes`), a real, reproduced instance of exactly the failure mode the earlier claim said didn't occur. Root cause, on inspection: the actual prompt text (the fenced block meant to be pasted into `/admin/prompts/[brand]`) never explicitly stated this rule at all — it lived only in this guide's own §2.2 field-catalog table, which is *not* part of what gets pasted into a real agent runtime. **Fixed 2026-07-28**: the rule is now an explicit Hard Rule inside the prompt itself (§5), not just prose in the surrounding guide — see the Hard Rules section above. If you're auditing this prompt again later, treat "is every behavioral rule actually inside the fenced block, not just describing it nearby" as its own checklist item; this was a real, reproducible gap, not a one-off fluke.
 
 ---
 

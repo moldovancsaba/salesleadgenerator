@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.113
+
+### Fixed — a real, reproduced enrichment-prompt inconsistency found by a live taxonomy-classification test (owner instruction: "improve than and make it better based on your recommendation")
+
+Live-tested the current enrichment prompt (verbatim, including 2.4.109-2.4.112's taxonomy classification step) against 5 more random real CogMap leads via 5 independent research agents with real web access, output checked but never written to production. Results on the thing actually being tested — taxonomy classification — were clean: 5/5 runs produced valid controlled-vocabulary codes, 5/5 successfully fetched the live `GET /api/lead-taxonomy` endpoint (real HTTP 200, matching the static fallback list exactly), 0 invented codes, 0 attempts to write `classificationTags`/`mergeKey` directly, and several substantive judgment calls (declining to invent a fake parent-org relationship, correctly distinguishing "operated" from "owned" based on real evidence).
+
+**One real inconsistency did surface, unrelated to taxonomy**: the guide's own field catalog (§2.2) has always said an `entity_name`/`url` identity correction should be "flagged for human review rather than silently overwritten," but — found on inspection — that rule lived only in the surrounding guide prose, never in the actual fenced prompt block that gets pasted into `/admin/prompts/[brand]`. 3 of 4 applicable test runs this round correctly left `url` untouched and routed the correction to `notes` only; 1 of 4 wrote the corrected `url` directly into its output payload (while also flagging it in `notes`) — a real, reproduced instance of the exact failure mode a prior test round's own changelog entry (2.4.102/103) had claimed didn't happen. It didn't happen *then*; it happened *this time*, because the rule the earlier claim relied on was never actually inside the prompt being tested.
+
+Fixed by moving the rule from prose into an explicit, prominent Hard Rule inside the prompt itself (`docs/LEAD_ENRICHMENT_GUIDE.md` §5): never include `entity_name` or `url` in the output payload, regardless of confidence — always `notes` only. Also tightened §2.2's field-catalog wording for both fields from "flag rather than overwrite" (ambiguous — permits writing as long as it's also flagged) to an unambiguous "never write — flag in `notes` only." Recorded this round's full findings in §7 (Real-world test findings), including the direct correction to the earlier round's now-inaccurate claim, per this repo's own standing rule to record what actually happened rather than let a stale claim stand uncorrected.
+
+**General lesson worth keeping**: a behavioral rule stated only in the guide's surrounding prose, and not inside the actual fenced prompt block, is invisible to whatever runtime executes the real prompt. Any future audit of this prompt should explicitly check "is every rule this guide describes actually inside the pasted block" as its own item — this was a real, reproducible gap, not a one-off.
+
+Doc-only change — no code touched (`tests/lib/lead-taxonomy-doc-sync.test.ts` re-verified passing, confirming the taxonomy vocabulary lists themselves were untouched by this edit).
+
+### Testing
+Doc-only. Full gate re-run per CLAUDE.md Rule 1: tsc 0 errors, lint 0 errors/warnings, vitest unit 558/558 (including the taxonomy doc-sync test), integration 114/114, smoke 5/5, GDS style audit clean.
+
 ## 2.4.112
 
 ### Fixed — the operator guide and README never actually documented the new taxonomy data structure (owner report: "Did you updated the user guide and all architecture documentation about the new data structure?")
