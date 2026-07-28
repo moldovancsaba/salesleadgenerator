@@ -71,6 +71,31 @@ export async function POST(request: NextRequest) {
   const alreadySeen = new Set(existingReviews.map((r: any) => `${r.leadIdA}:${r.leadIdB}`));
   const newPairs = pairs.filter((p) => !alreadySeen.has(`${p.leadIdA}:${p.leadIdB}`));
 
+  // Batch-fetch every lead referenced by any new candidate pair exactly
+  // once, instead of two findOne() round-trips per pair (found while
+  // running this against real CogMap data, 2026-07-28: with thousands of
+  // new candidate pairs on a first-ever scan, that was thousands of
+  // sequential network round-trips to MongoDB Atlas and the request never
+  // completed within any reasonable timeout — a much bigger cost than the
+  // O(n^2) bigram-computation fix in the same release). A lead referenced
+  // by an earlier pair in this same run may get merged away (deleted) or
+  // updated (become a merge's primary) — the map below is kept in sync as
+  // merges happen, so a later pair sharing that lead sees its current
+  // state without any further DB read.
+  const referencedIds = new Set<string>();
+  for (const p of newPairs) {
+    referencedIds.add(p.leadIdA);
+    referencedIds.add(p.leadIdB);
+  }
+  const leadDocs = referencedIds.size
+    ? await db.collection(config.dbCollection)
+        .find({ _id: { $in: Array.from(referencedIds).map((id) => new ObjectId(id)) } })
+        .toArray()
+    : [];
+  const leadMap = new Map<string, Lead>(
+    leadDocs.map((doc: any) => [doc._id.toString(), { ...doc, _id: doc._id.toString() } as unknown as Lead])
+  );
+
   const merged: MergedRecord[] = [];
   const skippedForReview: SkippedRecord[] = [];
   const skippedAlreadyGone: Array<{ leadIdA: string; leadIdB: string }> = [];
@@ -78,22 +103,13 @@ export async function POST(request: NextRequest) {
   let mergeCount = 0;
 
   for (const pair of newPairs) {
-    // Always re-fetch fresh — a lead referenced by an earlier pair in this
-    // same run may have already been merged away (deleted) or updated
-    // (became the primary of a prior merge), and a later pair sharing that
-    // lead must see its current state, not the initial scan snapshot.
-    const [leadADoc, leadBDoc] = await Promise.all([
-      db.collection(config.dbCollection).findOne({ _id: new ObjectId(pair.leadIdA) }),
-      db.collection(config.dbCollection).findOne({ _id: new ObjectId(pair.leadIdB) }),
-    ]);
+    const leadA = leadMap.get(pair.leadIdA);
+    const leadB = leadMap.get(pair.leadIdB);
 
-    if (!leadADoc || !leadBDoc) {
+    if (!leadA || !leadB) {
       skippedAlreadyGone.push({ leadIdA: pair.leadIdA, leadIdB: pair.leadIdB });
       continue;
     }
-
-    const leadA = { ...leadADoc, _id: leadADoc._id.toString() } as unknown as Lead;
-    const leadB = { ...leadBDoc, _id: leadBDoc._id.toString() } as unknown as Lead;
 
     const classifications = diffLeads(leadA, leadB);
     const conflicts = classifications.filter((c) => c.kind === 'conflict');
@@ -172,6 +188,12 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(), reviewedAt: new Date(),
       reviewedBy: 'automated-dedupe-2026-07-28', mergedInto: primaryId,
     });
+
+    // Keep the in-memory map consistent with what's now actually in the DB,
+    // so a later pair in this same run that also references either lead
+    // sees the merge's outcome without a further round-trip.
+    leadMap.set(primaryId, mergedLead);
+    leadMap.delete(secondaryId);
 
     merged.push({
       leadIdA: pair.leadIdA, leadIdB: pair.leadIdB, primaryId, secondaryId,
