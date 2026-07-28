@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.111
+**Version:** 2.4.112
 
 ---
 
@@ -182,6 +182,7 @@ Before this, `POST /api/leads` had exactly one caller: the external research age
 - `DELETE /api/leads/[id]?brand=<brand>` — delete lead
 - `PUT /api/leads/[id]?brand=<brand>` — update lead fields for enrichment without requiring action workflow; validated the same as `POST`, but only for fields present in the request. As of 2.4.48, also writes an `outcomelogs` entry (`action: 'PUT_COLUMN_CHANGE'`) when the request changes `kanbanColumn` — every other column-changing path already did this; see "Win-Rate Calibration" below for why this mattered
 - `GET /api/leads/columns?brand=<brand>&column=<col>` — cursor-paginated (`cursor`/`hasMore`) per-column lead loading, used by the kanban board's lazy column loading
+- `GET /api/lead-taxonomy` — unauthenticated, brand-agnostic; serves `lib/lead-taxonomy.ts`'s controlled vocabularies as JSON (2.4.111) — see "Controlled Sports-Industry Taxonomy" below
 - Both `GET /api/leads` and `GET /api/leads/columns` accept `tags=<comma-separated>` (2.4.93, issue #116) — OR-matched (`$in`) against `Lead.tags[]`, alongside the existing `region`/`industry` filters
 
 ### Boards and Metrics
