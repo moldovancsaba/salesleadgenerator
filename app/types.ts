@@ -41,6 +41,46 @@ export type Lead = {
   industry?: string;
   sport_or_sector?: string;
   level_league?: string;
+  // Controlled sports-industry taxonomy — owner spec, 2026-07-28 ("Sport
+  // Sales Lead Catalogue and Deduplication Rulebook v1.0"), see
+  // lib/lead-taxonomy.ts for the enums and lib/lead-classification.ts for
+  // tag/merge-key generation. Deliberately additive and fully optional: a
+  // lead with none of these set is exactly as valid as before this change
+  // — see docs/LEAD_TAXONOMY_MIGRATION_PLAN.md for the backfill plan.
+  // `sport_or_sector`/`industry` above are untouched free text, kept for
+  // backward compatibility; these are the new, validated, controlled
+  // equivalents the enrichment process should populate going forward.
+  sportCode?: string;
+  orgTypeCode?: string;
+  businessUnitCode?: string;
+  genderCode?: string;
+  demographicCodes?: string[];
+  competitionLevelCode?: string;
+  // Structured city, distinct from the free-text `address` field above —
+  // this app had no structured city field at all before this change.
+  cityName?: string;
+  // Parent-organisation linkage (rulebook §2.2/§14). `parentOrgId` points at
+  // a `parent_organisations` collection document once that concept exists
+  // in this app (tracked separately, not part of this initial rollout);
+  // `parentOrgName` is a denormalized display value usable immediately.
+  parentOrgId?: string;
+  parentOrgName?: string;
+  relationshipToParent?: string;
+  // Rulebook naming convention (§13): `entity_name` above is the
+  // "source_name" equivalent (verbatim, never overwritten); this is the
+  // normalized display name built from the classification fields.
+  canonicalLeadName?: string;
+  // Rulebook §5: generated from the structured fields above, never
+  // hand-authored — kept separate from the pre-existing free-text `tags`
+  // field below, which is operator-authored labels (issue #116), a
+  // different concept with its own established filter UI.
+  classificationTags?: string[];
+  // Rulebook §15: deterministic candidate-identity key for duplicate
+  // detection — a match makes two leads worth comparing, it never proves
+  // they're the same lead (see lib/near-duplicate.ts).
+  mergeKey?: string;
+  classificationConfidence?: number;
+  classificationEvidence?: string[];
   // Decision-maker status is a flag on a contact (isDecisionMaker), not a
   // separate set of top-level fields — see lib/contacts.ts. Retired top-level
   // decision_maker_name/title/contact and contact_phone in the hard cutover

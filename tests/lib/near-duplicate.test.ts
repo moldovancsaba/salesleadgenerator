@@ -125,4 +125,36 @@ describe('findCandidatePairs', () => {
     expect(findCandidatePairs([], 0.82)).toEqual([]);
     expect(findCandidatePairs([{ _id: '1', entity_name: 'Solo Co', url: 'solo.com', sport_or_sector: 'Soccer' }], 0.82)).toEqual([]);
   });
+
+  // Rulebook v1.0 rollout, 2026-07-28: real production data stores the same
+  // sport as "Soccer"/"Football"/"Football (Soccer)" interchangeably — the
+  // alias table must unify these so genuine duplicates aren't split apart.
+  it('resolves sport_or_sector aliases so "Soccer" and "Football" are treated as the same sport', () => {
+    const leads = [
+      { _id: '1', entity_name: 'Acme Corp', url: 'acme-corp.com', sport_or_sector: 'Soccer' },
+      { _id: '2', entity_name: 'Acme Corporation', url: 'acme-corporation.com', sport_or_sector: 'Football' },
+    ];
+    const pairs = findCandidatePairs(leads, 0.7);
+    expect(pairs).toHaveLength(1);
+  });
+
+  it('prefers the controlled sportCode over sport_or_sector when both are present', () => {
+    const leads = [
+      { _id: '1', entity_name: 'Acme Corp', url: 'acme-corp.com', sport_or_sector: 'Soccer', sportCode: 'basketball' },
+      { _id: '2', entity_name: 'Acme Corporation', url: 'acme-corporation.com', sport_or_sector: 'Soccer', sportCode: 'handball' },
+    ];
+    // sport_or_sector matches on both sides ("Soccer") but the controlled
+    // sportCode values disagree — sportCode wins, so this must not match.
+    const pairs = findCandidatePairs(leads, 0.7);
+    expect(pairs).toHaveLength(0);
+  });
+
+  it('falls back to sport_or_sector when sportCode is not a valid controlled code', () => {
+    const leads = [
+      { _id: '1', entity_name: 'Acme Corp', url: 'acme-corp.com', sport_or_sector: 'Soccer', sportCode: 'not-a-real-code' },
+      { _id: '2', entity_name: 'Acme Corporation', url: 'acme-corporation.com', sport_or_sector: 'Football', sportCode: '' },
+    ];
+    const pairs = findCandidatePairs(leads, 0.7);
+    expect(pairs).toHaveLength(1);
+  });
 });

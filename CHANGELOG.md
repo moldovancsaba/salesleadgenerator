@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.109
+
+### Added — controlled sports-industry taxonomy, Phase 1 (owner spec, 2026-07-28: "Sport Sales Lead Catalogue and Deduplication Rulebook v1.0"; issues #131/#132)
+
+Owner request: *"I need you to use this to improve the enrichment process and the data structure in general and make a plan to convert our existing data into the delivered new structure."* Implemented as an additive, backward-compatible schema extension — every new field is optional, and every existing feature (kanban, forecast, ticket-size estimation, near-duplicate matching, the merge engine) works unchanged on the 2,725 real leads (2,189 CogMap + 536 Seyu) that don't have any of it set yet.
+
+**New modules**: `lib/lead-taxonomy.ts` (controlled vocabularies for sport/org-type/business-unit/gender/demographics/competition-level/relationship, plus `resolveSportAlias()` and `slugifyForTag()`) and `lib/lead-classification.ts` (`generateClassificationTags()`/`buildMergeKey()`, deriving the rulebook's `#namespace:value` tags and `parent|sport|org_type|business_unit|gender|country|city` merge key from structured fields only). New `Lead` fields: `sportCode`, `orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes[]`, `competitionLevelCode`, `cityName`, `parentOrgId`, `parentOrgName`, `relationshipToParent`, `canonicalLeadName`, plus server-derived `classificationTags[]`/`mergeKey` (never client-writable, same pattern as `fingerprint`/`scoreProfile`/`ticketSizeEstimate`).
+
+**Wired into every existing lead-mutation and matching path**: `lib/validate-lead.ts` (format-checked-only-when-present, real controlled values or rejected), `PUT /api/leads/[id]` and `PATCH ... MODIFY` (recompute `classificationTags`/`mergeKey` from effective post-update state), `lib/near-duplicate.ts` (`sportCode` preferred over `sport_or_sector`, both resolved through the same alias table — fixes a real fragmentation bug: a live sample of ~1,968 CogMap leads found the same sport stored as "Soccer" (1,635), "Football" (131), and "Football (Soccer)" (16), three strings the old exact-match gate treated as three different sports), `lib/lead-merge.ts` (the eleven identity fields are real conflict candidates in `diffLeads()`, `demographicCodes[]` auto-unions since the rulebook's own vocabulary is explicitly non-exclusive, `buildMergedLead()` recomputes `classificationTags`/`mergeKey` from the final merged fields).
+
+**Deliberate, disclosed deviations from the rulebook's literal text**: country stays ISO 3166-1 alpha-2 (`US`), not the rulebook's alpha-3 (`USA`) — the entire existing codebase already uses alpha-2 throughout, and converting for literal compliance would be a large, purely cosmetic, cross-cutting change with no functional benefit. `classificationTags[]` is a new field kept separate from the pre-existing free-text `tags[]` (issue #116) — mixing controlled and operator-authored tags would break both systems.
+
+**Enrichment guide** (`docs/LEAD_ENRICHMENT_GUIDE.md`): new §2.6 documents the full taxonomy field catalog; the ready-to-use prompt (§5) gained a classification step instructing the agent to write a real controlled value, an explicit `"unknown"`, or omit the field entirely — never invent a plausible-sounding code, per the rulebook's own single most-repeated rule.
+
+**Migration plan** (`docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`, new): the second half of the owner's request — a plan, not an execution, for converting the ~2,725 existing leads into this schema. Covers gap analysis, a dry-run → sample → full-batch phased approach (reusing the same pattern already proven twice this session: the CSV import and the full-database duplicate search), verification approach, and risk/rollback. Actual execution is tracked separately as issue #132, not started — it requires individual AI classification per lead, which cannot be safely batch-scripted and is out of scope for this delivery per CLAUDE.md Rule 2.
+
+**Not in this delivery, tracked as Phase 3+ in the migration plan**: a formal Parent Organisation object/collection (rulebook §2.2) and a formal Opportunity object distinct from a lead (rulebook §2.4) — deferred until real classified data from the Phase 2 backfill makes the need concrete.
+
+### Testing
+New `tests/lib/lead-taxonomy.test.ts` (18 cases), `tests/lib/lead-classification.test.ts` (9 cases); 3 new cases in `tests/lib/near-duplicate.test.ts` (alias equivalence, `sportCode` preference, invalid-code fallback); 4 new cases in `tests/lib/lead-merge.test.ts` (`demographicCodes` auto-union, identity-critical conflict surfacing, merge-time `classificationTags`/`mergeKey` recomputation, no-taxonomy-data no-op). Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest unit 550/550, integration 114/114, smoke 5/5, GDS style audit clean, `next build --webpack` (all 51 routes compile, confirms no leftover temp routes).
+
 ## 2.4.108
 
 ### Removed — temporary admin route `app/api/admin/dedupe-scan-merge`, task complete (owner report: "run a full duplication search for all leads we have so far and merge all safely mergeable")

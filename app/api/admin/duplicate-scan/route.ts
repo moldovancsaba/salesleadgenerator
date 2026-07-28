@@ -39,12 +39,15 @@ export async function POST(request: NextRequest) {
   const totalAvailable = await db.collection(config.dbCollection).countDocuments(filter);
 
   const leads = await db.collection(config.dbCollection)
-    .find(filter, { projection: { _id: 1, entity_name: 1, url: 1, sport_or_sector: 1 } })
+    .find(filter, { projection: { _id: 1, entity_name: 1, url: 1, sport_or_sector: 1, sportCode: 1 } })
     .sort({ createdAt: -1 })
     .limit(MAX_SCAN_SIZE)
     .toArray();
 
-  const candidates = leads.map((l: any) => ({ _id: l._id.toString(), entity_name: l.entity_name, url: l.url, sport_or_sector: l.sport_or_sector }));
+  const candidates = leads.map((l: any) => ({
+    _id: l._id.toString(), entity_name: l.entity_name, url: l.url,
+    sport_or_sector: l.sport_or_sector, sportCode: l.sportCode,
+  }));
   const pairs = findCandidatePairs(candidates);
 
   // Every prior scan's rows (any status) mark a pair as already reviewed —

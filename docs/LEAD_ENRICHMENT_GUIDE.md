@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.108
+**Version:** 2.4.109
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -101,7 +101,29 @@ These feed `ticketSizeEstimate` (the number an operator actually reads), which i
 
 **Side effect to know about**: if you send `ice` without also sending `kanbanColumn`, and the lead is currently in `DISCOVERED` or `QUALIFIED` (the two auto-managed columns), the server **automatically recomputes and moves the card** based on the new ICE score. This is intentional and correct — enriching a lead's contact completeness is exactly the kind of update that should be able to promote it from DISCOVERED to QUALIFIED. Do **not** send `kanbanColumn` yourself for one of these two columns; let the auto-classification do its job. If the lead has already been moved to `ENGAGED`/`PROPOSAL`/`WON`/`LOST` (by a human action), it's permanently opted out of auto-classification and a `PUT` with `ice` alone won't move it — that's also correct, leave it alone.
 
-### 2.6 Fields the enrichment agent should never write
+### 2.6 Controlled sports-industry taxonomy — rulebook v1.0 (2026-07-28)
+
+These fields are new, additive, and entirely optional — a lead written before this version has none of them set, and that's fine; nothing in this app requires them. They exist to classify a lead's true commercial identity (sport, organisation type, business unit, geography) using a **controlled vocabulary** instead of free text, per the owner-supplied "Sport Sales Lead Catalogue and Deduplication Rulebook v1.0." The full vocabulary lists live in code, not duplicated here — `lib/lead-taxonomy.ts` is the single source of truth; `PUT` rejects any value not in the matching list.
+
+| Field | Format | Notes |
+|---|---|---|
+| `sportCode` | one of `SPORT_CODES` (`lib/lead-taxonomy.ts`) | The lead's **single** sport — a rulebook non-negotiable (§3.1): if an organisation genuinely runs two sports as separately manageable units, that is two leads, never one lead with two sports. Use `'multi-sport'` only when the buying unit itself is genuinely sport-agnostic (e.g. a multi-sport facility operator), not as a shortcut for "didn't research this." Use `'unknown'` rather than guessing. |
+| `orgTypeCode` | one of `ORG_TYPE_CODES` | What kind of organisation this is (club, federation, academy, venue, agency, etc.) — orthogonal to sport. |
+| `businessUnitCode` | one of `BUSINESS_UNIT_CODES` | Which internal unit this lead represents when a parent organisation has more than one (first-team vs. youth-academy vs. commercial, etc.) — a rulebook non-negotiable (§3.2): one business unit per lead. |
+| `genderCode` | one of `GENDER_CODES` | `men`/`women`/`mixed`/`unknown`/`not-applicable` — identity-critical per the rulebook (§3.5) when the organisation itself splits by gender (e.g. a club's separate women's team is a separate lead, not a footnote on the men's team's record). |
+| `demographicCodes` | `string[]`, each one of `DEMOGRAPHIC_CODES` | Non-exclusive — a youth academy that also runs adult classes can legitimately carry both `youth` and `adult`. |
+| `competitionLevelCode` | one of `COMPETITION_LEVEL_CODES` | Recreational through international/elite. |
+| `cityName` | string, free text (source spelling) | The rulebook's "source name must always be preserved" rule (§3.7/§13) — this is the human-readable city as found, e.g. `"München"`. Never write a slug here yourself; the server derives the `#city:` tag slug automatically. |
+| `parentOrgId` | string (a Lead `_id` or external identifier) | Links a business-unit lead to its parent organisation record, when one exists as a lead. This app does not yet have a dedicated Parent Organisation object (see `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`'s Phase 2/3 notes) — treat this as best-effort until that lands. |
+| `parentOrgName` | string, free text (source spelling) | The parent's name, kept even when `parentOrgId` is unknown — per the same "never discard a source name" rule as `cityName`. |
+| `relationshipToParent` | one of `RELATIONSHIP_CODES` | How this lead relates to its parent (`owned`/`operated`/`licensed`/`franchise`/`affiliate`/`partner`/`unverified`) — use `unverified` rather than guessing. |
+| `canonicalLeadName` | string | The rulebook's normalized display name (§13.2), kept separate from `entity_name` (this app's pre-existing, source-preserved name field). Only set this when you have a genuinely better canonical form to offer — omit it otherwise, don't just copy `entity_name` into it. |
+
+**Never write `classificationTags` or `mergeKey` yourself.** Both are always recomputed server-side from the fields above on every write that touches any of them (`lib/lead-classification.ts`'s `generateClassificationTags()`/`buildMergeKey()`) — the exact same "derived, not client-supplied" pattern this app already uses for `fingerprint`/`scoreProfile`/`ticketSizeEstimate`. Anything you send in either field is silently ignored.
+
+**Use explicit `'unknown'` (or the field's own `not-applicable`, where offered), never omit a taxonomy field you attempted but couldn't resolve, and never guess a plausible-sounding value.** This is the rulebook's single most-repeated rule (§3.6, §15.2, §21, §34): an incorrect guess is far more damaging than an honest "unknown," because it produces false-confidence duplicate matches and wrong classification tags that are hard to notice and undo later. It's fine to omit the field entirely from your `PUT` payload if you have no evidence at all and no example yet.
+
+### 2.7 Fields the enrichment agent should never write
 
 | Field(s) | Why not |
 |---|---|
@@ -109,6 +131,7 @@ These feed `ticketSizeEstimate` (the number an operator actually reads), which i
 | `emailVerificationStatus` | Server-computed asynchronously after any write that changes an email. Setting it yourself has no effect — it'll be overwritten. |
 | `ticketSizeEstimate` | Server-computed from §2.4's raw signals on every `PUT` (unless `manual_override` is active — see above). |
 | `seniorityTier`, `department` (per-contact) | Rule-derived from `title` on every write. Setting them has no effect. |
+| `classificationTags`, `mergeKey` | Server-computed from §2.6's structured fields on every write (see §2.6) — never accepted as raw input. |
 | `deals[]`, `checklist[]`, `qualification`, `nextActionDueAt`/`nextActionNote` | These are rep-owned CRM fields — nothing in this codebase auto-populates them, by design (`docs/ARCHITECTURE.md`'s Deal CRUD section: "nothing in this codebase ever creates, edits, or removes [a deal] automatically"). An enrichment agent writing to these would be a new, undocumented behavior change, not routine enrichment. |
 | `kanbanColumn`, `sortOrder`, `status` | Pipeline/workflow state, owned by the rep (drag-and-drop, Accept/Decline/Pin) or by auto-classification (§2.5) — not a research-agent concern. |
 | `actualDealValueUsd` | The real, closed contract value — only meaningful once `WON`, captured by a human, not researched. |
@@ -131,7 +154,12 @@ Body: only the fields being changed, e.g.
   ],
   "ice": { "impact": 7, "confidence": 6, "ease": 6 },
   "estimated_participants": 450,
-  "country": "US"
+  "country": "US",
+  "sportCode": "football",
+  "orgTypeCode": "club",
+  "businessUnitCode": "youth-academy",
+  "genderCode": "mixed",
+  "cityName": "Munich"
 }
 ```
 
@@ -169,7 +197,8 @@ These aren't optional style preferences; they're either enforced by the API (you
 - **Never write brand-crossed terminology into `value_proposition`.** Know which brand (`cogmap` or `seyu`) you're enriching before generating this text — see §2.3's forbidden-terms list.
 - **Respect `manual_override`.** If `ticketSizeEstimate.method === 'manual_override'`, don't try to work around it by writing `estimated_annual_revenue_usd` or similar expecting it to change the displayed estimate — it won't, and that's correct behavior, not a bug.
 - **`size` is a strict 4-value enum.** Sending anything else (a headcount, a description) fails validation. If you're not confident which of the four tiers applies, leave `size` out of the payload entirely rather than guessing.
-- **Don't set any of the server-computed fields listed in §2.6.** They'll be silently overwritten regardless, so writing them just adds noise to your payload.
+- **Don't set any of the server-computed fields listed in §2.7.** They'll be silently overwritten regardless, so writing them just adds noise to your payload.
+- **Never guess a taxonomy code.** `sportCode`/`orgTypeCode`/`businessUnitCode`/`genderCode`/`demographicCodes`/`competitionLevelCode`/`relationshipToParent` must be a real value from `lib/lead-taxonomy.ts`'s controlled lists or the request is rejected outright (§2.6) — use `'unknown'` (or `'not-applicable'` where offered) rather than inventing a plausible-sounding value or a close-but-wrong spelling.
 - **A rejected request isn't a system worth retrying blindly.** Read the actual `details` array in a 400 response and fix the named field(s) — this mirrors this repo's own standing rule to verify real output rather than assume a plausible-looking payload will work.
 
 ---
@@ -247,6 +276,33 @@ has — do not attempt to fill in fields that are already fresh and correct:
 6. **Promote `qualityStatus`** from DRAFT toward CHECKED or VERIFIED as your
    confidence in the lead's overall data quality genuinely increases through
    this research pass — don't promote it reflexively just because you ran.
+7. **Classify the lead against the controlled sports-industry taxonomy**
+   (rulebook v1.0, §21/§31) — this is what lets duplicate detection and
+   reporting work on structured facts instead of free text. For each of the
+   fields below, either write a real value from its controlled list, write
+   the literal string `"unknown"` (or `"not-applicable"` where that's an
+   offered value), or omit the field entirely if you have no evidence at
+   all — **never invent a plausible-sounding code that isn't in the list
+   you were given**, and never guess when evidence conflicts:
+   - `sportCode` — the lead's single sport. If the organisation genuinely
+     runs more than one sport as separately manageable units, say so in
+     `notes` and flag it for human review rather than picking one; don't
+     silently collapse two real leads into one sport code.
+   - `orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`,
+     `competitionLevelCode` — as directly evidenced by your research.
+   - `cityName` — the source-spelled city name (e.g. `"München"`, not a
+     slug — the server derives the tag slug itself).
+   - `parentOrgName` (and `parentOrgId` if you can confidently identify an
+     existing lead as the parent), `relationshipToParent`.
+   - `canonicalLeadName` — only if you have a genuinely better normalized
+     name to offer; never just copy `entity_name` into it.
+   Never write `classificationTags` or `mergeKey` yourself — both are
+   always server-derived from the fields above and any value you send is
+   ignored. The full controlled vocabularies are in `lib/lead-taxonomy.ts`
+   in this repo (`SPORT_CODES`, `ORG_TYPE_CODES`, `BUSINESS_UNIT_CODES`,
+   `GENDER_CODES`, `DEMOGRAPHIC_CODES`, `COMPETITION_LEVEL_CODES`,
+   `RELATIONSHIP_CODES`) — your run context should supply you with the
+   current list; if it doesn't, ask for it rather than guessing values.
 
 ## Hard rules — a violation here is worse than doing nothing
 - Never fabricate a name, email, phone, or any other fact. An honest gap
@@ -260,9 +316,16 @@ has — do not attempt to fill in fields that are already fresh and correct:
   omitted. Never send free text or a raw number in this field.
 - Do not set `kanbanColumn`, `sortOrder`, `status`, `techSignals`,
   `emailVerificationStatus`, `ticketSizeEstimate`, `deals`, `checklist`,
-  `qualification`, or any per-contact `seniorityTier`/`department` — these
-  are either server-computed or owned by a human rep, and setting them has
-  no effect or is out of scope for this role.
+  `qualification`, `classificationTags`, `mergeKey`, or any per-contact
+  `seniorityTier`/`department` — these are either server-computed or owned
+  by a human rep, and setting them has no effect or is out of scope for
+  this role.
+- Every taxonomy code you send (`sportCode`, `orgTypeCode`,
+  `businessUnitCode`, `genderCode`, `demographicCodes`,
+  `competitionLevelCode`, `relationshipToParent`) must be a real value from
+  the controlled list you were given — send `"unknown"` (or
+  `"not-applicable"` where offered) or omit the field, never a
+  plausible-sounding value that isn't literally in the list.
 - If the lead's `ticketSizeEstimate.method` is `manual_override`, do not
   attempt to research or write forecast-input fields expecting them to
   change the displayed estimate — a human has already overridden it.
@@ -302,4 +365,4 @@ This prompt was live-tested against 5 randomly sampled real CogMap leads (via 5 
 
 ---
 
-See also: `docs/ARCHITECTURE.md` (Data Model section, for the authoritative field-by-field write-path documentation this guide summarizes), `docs/LESSONS_LEARNED.md` (the `$or`-spread bug class, the creation-time-gate-vs-enrichment distinction, and other real incidents relevant to any future agent-facing work), `docs/OPERATOR_GUIDE.md` (Auth section for the full endpoint auth matrix), `app/lib/sales-settings.ts` (the per-brand business context an enrichment run should be given).
+See also: `docs/ARCHITECTURE.md` (Data Model section, for the authoritative field-by-field write-path documentation this guide summarizes, including the §2.6 controlled-taxonomy schema added in 2.4.109), `docs/LESSONS_LEARNED.md` (the `$or`-spread bug class, the creation-time-gate-vs-enrichment distinction, and other real incidents relevant to any future agent-facing work), `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` (the plan for backfilling §2.6's taxonomy fields onto the ~2,725 leads that predate this schema), `docs/OPERATOR_GUIDE.md` (Auth section for the full endpoint auth matrix), `app/lib/sales-settings.ts` (the per-brand business context an enrichment run should be given), `lib/lead-taxonomy.ts` (the controlled vocabularies themselves — the single source of truth, not this document).
