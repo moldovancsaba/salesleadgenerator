@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.113
+**Version:** 2.4.114
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -272,6 +272,24 @@ has — do not attempt to fill in fields that are already fresh and correct:
    Omit any key you don't have a confirmed value for — never invent a
    variant spelling (`decision_maker`, `decisionMaker`, etc.); it will be
    silently ignored server-side, not an error.
+
+   **How the `contacts` key itself behaves — read before deciding what to
+   send.** Omitting the `contacts` key entirely leaves the lead's stored
+   contacts completely untouched. Including it REPLACES the stored array
+   wholesale AND marks every contact you send as verified-right-now. So:
+   - Found/re-verified nothing this run → omit the `contacts` key.
+   - Lead has no stored contacts (or only obvious junk/placeholder rows)
+     and you found real ones → send just your verified finds; junk rows
+     being replaced is correct, and say so in `notes`.
+   - Lead HAS real stored contacts you did not re-verify, and you found a
+     new one → re-verify the stored ones as part of this same pass (they
+     are usually quick to re-check at the same sources) and send the full
+     combined array. If a stored contact can no longer be confirmed
+     (person left, role gone), drop it from the array and record why in
+     `notes`. Never send a partial array that silently deletes stored
+     contacts you simply didn't get to — and never resend a stored
+     contact unchanged without actually re-checking it, since sending it
+     is itself the claim "I verified this person just now."
 2. **Missing `country`.** If blank, determine the lead's actual country
    (2-letter ISO code) from public sources (official site, registry,
    address) — this is a safe, high-value, low-risk fill-in.
@@ -287,7 +305,10 @@ has — do not attempt to fill in fields that are already fresh and correct:
    `notes`; don't delete existing notes unless they're factually wrong.
 5. **Re-score.** After your research, set `ice.impact` and `ice.confidence`
    to reflect your updated assessment, and set `ice.ease` yourself using
-   this rubric (the server does NOT recompute this on update):
+   this rubric (the server does NOT recompute this on update). Each of
+   `ice.impact`/`ice.confidence`/`ice.ease` must be an integer from 1 to
+   10; never send an `iceScore` field (the server validates it against
+   impact×confidence×ease and rejects a mismatch — just omit it):
    - 1 = no named contact found at all
    - 2 = only a general/company-level contact found
    - 3 = a named contact, but no email or phone
@@ -296,6 +317,10 @@ has — do not attempt to fill in fields that are already fresh and correct:
      but no email or phone
    - 5–6 = named contact + (email or phone), `address` optional
    - 7 = named contact + `address` + email + phone, all present
+   "(email or phone)" in the 5–7 tiers means the NAMED contact's own
+   direct channel, carried in that contact's `email`/`phone` fields — a
+   company-level inbox (`info@...`, stored in `general_contact`) counts
+   only toward tier 2, never toward 5–7.
 6. **Promote `qualityStatus`** from DRAFT toward CHECKED or VERIFIED as your
    confidence in the lead's overall data quality genuinely increases through
    this research pass — don't promote it reflexively just because you ran.
