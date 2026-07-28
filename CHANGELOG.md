@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.114
+
+### Changed — enrichment prompt: ICE bounds stated explicitly, ease-rubric "(email or phone)" clarified (owner-directed iterative enrichment loop, 2026-07-28)
+
+First improvement round from the owner's live iterative process ("use the prompt in the following 30 minutes... enrich, update the db, confirm if the prompt was perfect or improve"). Iteration 1 ran the 2.4.113 prompt verbatim against a real random CogMap lead ("The Football Academy", NJ) via a research agent with real web access; the payload was validated and applied to production. The agent's own compliance feedback surfaced two real prompt gaps, both now fixed in `docs/LEAD_ENRICHMENT_GUIDE.md` §5 step 5:
+
+- **ICE bounds were never stated in the prompt** — `ice.impact`/`ice.confidence`/`ice.ease` must each be an integer 1–10, and `iceScore` must not be sent (the server rejects a mismatched product). Now explicit.
+- **The ease rubric's "(email or phone)" for tiers 5–7 was ambiguous** — the agent read it (correctly) as the named contact's own direct channel, but nothing said so; a company-level inbox (`info@...`, stored in `general_contact`) could plausibly have been counted toward tier 5–6 by a different run. Now explicit: role inboxes count only toward tier 2.
+
+### Data operation — first production lead enriched under the controlled taxonomy schema (2026-07-28, owner-directed)
+
+Applied iteration 1's validated payload via a real `PUT /api/leads/6a6742edd1e151dfa27aa152?brand=cogmap`: "The Football Academy" (verified as The Football Academy NJ, Florham Park — dual MLS NEXT/Girls Academy club) gained 3 multi-source-verified decision-maker contacts, a real street address, `size: Medium`, and the full taxonomy classification (`sportCode: football`, `orgTypeCode: club`, `businessUnitCode: general`, `genderCode: mixed`, `demographicCodes: [children, youth, adult]`, `competitionLevelCode: elite`, `cityName: Florham Park`, `canonicalLeadName: "The Football Academy NJ"`). **End-to-end verification of the 2.4.109 data structure in production, confirmed by an independent post-write `GET`**: the server derived `classificationTags` (9 tags, `#sport:football` ... `#city:florham-park`) and `mergeKey` (`unknown|football|club|general|mixed|US|florham-park`) exactly per the rulebook spec — the first real lead to carry the new structure. Ticket size recomputed off the now-real `size` tier ($50k–$200k, medium confidence, `sizeAssumed` cleared). The stored `url` (a CSV-import search-query artifact) was correctly left untouched per the 2.4.113 hard rule, with the real site recorded in `notes` for human review.
+
+### Changed — enrichment prompt: `contacts` replace-semantics made explicit (iteration 2 of the same loop)
+
+Iteration 2 deliberately targeted a lead with 3 real stored contacts ("FC Cincinnati Academy") to probe a suspected trap: `PUT`'s `contacts` handling **replaces** the stored array wholesale (`app/api/leads/[id]/route.ts:185-186`, confirmed by reading the code, and independently re-discovered by the iteration-2 agent reading the same file) — while the prompt's own rule "only include contacts you re-verified this pass" says nothing about the consequence, so a run that found one new contact could send a partial array and silently delete the stored ones while falsely re-stamping whatever it sent. The iteration-2 agent resolved the ambiguity correctly (omitted the `contacts` key entirely; all 3 stored contacts survived with their original `lastVerifiedAt` stamps, verified post-write) and explicitly recommended the prompt state the semantics. Now it does (§5 step 1): omit the key to leave stored contacts untouched; replacing junk/placeholder rows is fine; on a lead with real stored contacts, re-verify them in the same pass and send the full combined array — never a partial array that deletes what you didn't get to.
+
+### Data operation — second production lead classified; first real parent-organisation merge key (2026-07-28, owner-directed, same loop)
+
+Applied iteration 2's validated payload via a real `PUT /api/leads/6a623178f14a810aee2048cf?brand=cogmap`: "FC Cincinnati Academy" (already contact/notes-enriched by a prior pass earlier the same day; the sole gap was taxonomy) gained `sportCode: football`, `orgTypeCode: academy`, `businessUnitCode: youth-academy`, `genderCode: men` (boys-only U13-U18 — the vocabulary has no "boys"; men + youth demographic is the expressible equivalent, same convention as the GFI test round), `competitionLevelCode: elite`, `cityName: Cincinnati` (entity identity/market per the club's own site — the Milford, OH training venue stays in notes as facility context), `parentOrgName: "FC Cincinnati"`, `relationshipToParent: owned`. Post-write verification: server derived `mergeKey: fc-cincinnati|football|academy|youth-academy|men|US|cincinnati` — **the first production merge key carrying a real parent-organisation slug** (iteration 1's began with the `unknown` placeholder), proving both §15 forms live — and all 3 stored contacts and the full stored notes were untouched, exactly as intended by the omit-the-key strategy.
+
+### Testing
+Prompt/docs-only changes; `tests/lib/lead-taxonomy-doc-sync.test.ts` re-verified passing after both §5 edits. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit 558/558, integration 114/114 (first run hit the known transient `mongodb-memory-server` flake on 2 files — `docs/LESSONS_LEARNED.md` §5 — immediate retry passed 114/114 clean), smoke 5/5, GDS audit clean.
+
 ## 2.4.113
 
 ### Fixed — a real, reproduced enrichment-prompt inconsistency found by a live taxonomy-classification test (owner instruction: "improve than and make it better based on your recommendation")
