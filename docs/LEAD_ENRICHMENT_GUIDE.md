@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.117
+**Version:** 2.4.118
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -372,7 +372,15 @@ has — do not attempt to fill in fields that are already fresh and correct:
        multiple levels (recreational through elite is common for large
        clubs), set the HIGHEST level it genuinely competes at and record
        the full span in `notes` — don't pick a middle value or `unknown`
-       when the top of the pyramid is evidenced.
+       when the top of the pyramid is evidenced. `national`/
+       `international` are for genuinely national-team/international
+       representative competition (a country's senior/youth national
+       team, continental club competitions) — a club or academy in a
+       top domestic youth platform (MLS NEXT, Girls Academy, ECNL, a
+       national league's own top division) is `elite`, even though that
+       platform itself is nationally organized. The distinction is
+       WHO is competing (a club/academy vs. a representative national
+       side), not how the competition is scoped geographically.
    - `cityName` — the source-spelled city name (e.g. `"München"`, not a
      slug — the server derives the tag slug itself).
    - `parentOrgName` (and `parentOrgId` if you can confidently identify an

@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.118
+
+### Changed — enrichment prompt: `elite` vs `national`/`international` disambiguated (loop iteration 6, owner-directed "push and continue", 2026-07-28)
+
+Iteration 6 ("Baltimore Armour", MD) was another clean run against every previously-codified rule — no phone corruption this time (the agent correctly omitted `phone` entirely since the switchboard publishes no personal extensions, applying 2.4.117's warning correctly) — and surfaced one last genuine gray zone: whether a club competing in a top *domestic* youth platform (MLS NEXT, Girls Academy, ECNL) should be `elite` or `national`/`international`, since those platforms are themselves nationally organized. Codified in §5 step 7: `national`/`international` are reserved for genuinely representative competition (a country's national team, continental club competitions) — a club or academy in a national platform's top tier is `elite`; the distinction is WHO competes (club/academy vs. representative side), not how the competition is geographically scoped.
+
+### Data operation — sixth production lead classified; academy-of-alliance shape resolved correctly (2026-07-28, owner-directed, same loop)
+
+Applied iteration 6's payload via a real `PUT /api/leads/6a6742b1d1e151dfa27aa0b5?brand=cogmap`: "Baltimore Armour" gained 2 first-party-verified contacts (Academy Director + Program Operations), `general_contact`, address, `size: Medium`, a corrected `estimated_participants` (500→250, since Armour is an elite-pathway-only academy with no recreational base of its own), and full taxonomy (`football`/`academy`/`youth-academy`/`mixed`/`[youth]`/`elite`/`cityName: Ellicott City`/`parentOrgName: "Soccer Association of Columbia"`/`operated`). Two real research finds: the club's own domain (`baltimorearmour.com`) returned HTTP 503 — the agent correctly fell back to the parent club's hosted page rather than reporting failure or fabricating; and it correctly resolved a historical complication (Armour was founded 2015 as a four-club alliance, but today operates solely under one parent, SAC, with `operated` rather than `owned` since legal ownership of the original entity is unverifiable). Post-write verification: `mergeKey: soccer-association-of-columbia|football|academy|youth-academy|mixed|US|ellicott-city`, ticket recomputed to $100k off `size: Medium`.
+
+### Testing
+Prompt/docs-only changes; `tests/lib/lead-taxonomy-doc-sync.test.ts` re-verified passing. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit 558/558, integration 114/114, smoke 5/5, GDS audit clean.
+
 ## 2.4.117
 
 ### Fixed — real production data corruption caught and corrected by the loop's own post-write verification: phone extension notation silently fused into wrong numbers (loop iteration 5, 2026-07-28; server-side fix tracked as issue #133)
