@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.115
+**Version:** 2.4.116
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -350,6 +350,17 @@ has — do not attempt to fill in fields that are already fresh and correct:
      silently collapse two real leads into one sport code.
    - `orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`,
      `competitionLevelCode` — as directly evidenced by your research.
+     Two disambiguation rules, both from real runs hitting the ambiguity:
+     - `businessUnitCode`: when the lead represents the WHOLE organisation
+       (not one internal unit of a parent), use `general` — the specific
+       unit codes (`youth-academy`, `first-team`, `commercial`, ...) are
+       reserved for leads that represent an actual sub-unit. Describe
+       what the whole org spans in `notes` instead of encoding it here.
+     - `competitionLevelCode`: when one organisation verifiably spans
+       multiple levels (recreational through elite is common for large
+       clubs), set the HIGHEST level it genuinely competes at and record
+       the full span in `notes` — don't pick a middle value or `unknown`
+       when the top of the pyramid is evidenced.
    - `cityName` — the source-spelled city name (e.g. `"München"`, not a
      slug — the server derives the tag slug itself).
    - `parentOrgName` (and `parentOrgId` if you can confidently identify an
