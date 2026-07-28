@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.111
+**Version:** 2.4.112
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -155,7 +155,7 @@ Tapping a card (or a table row) opens the full detail view:
 - **Source / Created / Last Updated**: a small metadata row shows the lead's acquisition channel (`manual`, `research_agent`, or whatever a caller sets — `—` if never recorded) and the full date+time it was created and last touched.
 - **Contacts**: each contact shows a "Decision Maker" flag (informational — no longer required to move a lead forward, see the workflow section above), an email-verification badge (Checking… / Verified domain / Undeliverable domain / Check failed — retry pending — this only confirms the *domain* can receive mail, never that the specific mailbox exists), and rule-based seniority/department badges derived from the contact's title (e.g. "VP" + "Sales" for "VP of Sales"). A contact not re-confirmed in 180 days shows a "Needs re-verification" badge. Tap **Edit** on the Contacts section to add a new contact, edit an existing one's fields, toggle its decision-maker flag, or remove it — each contact is its own row with its own remove button; **Save** replaces the whole contact list, **Cancel** discards changes.
 - **Tech Signals**: badges for anything detected on the lead's own website homepage (WordPress, Google Analytics, HubSpot, etc.), a "No tech signals detected" note, or nothing at all if never scanned. Use **Refresh**'s tech-rescan or the RESCAN_TECH action to re-check.
-- **Edit Lead Details**: an Edit/Save/Cancel form for `entity_name`, `url`, `address`, `general_contact`, `size`, `industry`, `sport_or_sector`, `level_league`, `value_proposition`, `notes`, `tags`.
+- **Edit Lead Details**: an Edit/Save/Cancel form for `entity_name`, `url`, `address`, `general_contact`, `size`, `industry`, `sport_or_sector`, `level_league`, `value_proposition`, `notes`, `tags`. This form does **not** yet include the newer controlled-taxonomy fields (`sportCode`, `orgTypeCode`, `businessUnitCode`, etc., added 2.4.109) — those are API-only for now; see [Lead Taxonomy](#lead-taxonomy) and [Known Issues and Limitations](#known-issues-and-limitations).
 - **Actual deal value** (only shown once a lead is WON): capture the real, closed contract value — this feeds Ticket-Size Calibration on the Forecast page.
 - **Manual ticket-size override**: from the same edit form, override the computed Ticket Size with your own number and a required reason (a rep's direct knowledge of a specific deal). "Clear override" reverts to the modelled estimate immediately.
 
@@ -310,7 +310,7 @@ Every person who has ever signed in via SSO appears here automatically (there's 
 
 ### Duplicate Review
 
-Click **Scan for duplicates** for a brand to compare leads by name/domain similarity and file new candidate pairs for review (capped at the 2000 most recent leads per scan — if the brand has more, a notification says the scan was truncated). Use the **Status** switcher (Pending / Confirmed / Dismissed / Merged) to move between stages — a pair leaves the Pending list the moment you decide on it, so Confirmed is where you'll find pairs waiting to be merged.
+Click **Scan for duplicates** for a brand to compare leads by name similarity — gated on matching activity (a lead's controlled `sportCode` when set, 2.4.109, otherwise its free-text `sport_or_sector`; two leads with different or unknown sports/sectors are never flagged, even with identical names) — and file new candidate pairs for review (capped at the 2000 most recent leads per scan — if the brand has more, a notification says the scan was truncated). Domain match is shown as extra context on a flagged pair, never a reason to flag one by itself. Use the **Status** switcher (Pending / Confirmed / Dismissed / Merged) to move between stages — a pair leaves the Pending list the moment you decide on it, so Confirmed is where you'll find pairs waiting to be merged.
 
 On a **Pending** pair: **Not a duplicate** (dismiss, no further action) or **Confirm duplicate** (moves it to the Confirmed list).
 
@@ -387,6 +387,14 @@ curl -X PUT "https://salesleadgenerator.vercel.app/api/leads/<LEAD_ID>?brand=cog
   -d '{"contacts": [{"name": "New Name", "isDecisionMaker": true}]}'
 ```
 
+As of 2.4.109 this same call also accepts the new controlled-taxonomy fields (`sportCode`, `orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`, `competitionLevelCode`, `cityName`, `parentOrgId`, `parentOrgName`, `relationshipToParent`, `canonicalLeadName`) — see [Lead Taxonomy](#lead-taxonomy) below for where the valid values come from. **There is no UI for these fields yet** — see [Known Issues and Limitations](#known-issues-and-limitations).
+
+### Lead Taxonomy
+```bash
+curl "https://salesleadgenerator.vercel.app/api/lead-taxonomy"
+```
+No auth required. Returns the current controlled vocabularies (`sportCodes`, `orgTypeCodes`, `businessUnitCodes`, `genderCodes`, `demographicCodes`, `competitionLevelCodes`, `relationshipCodes`, `sportAliases`) as JSON — the same values `PUT /api/leads/[id]` validates the fields above against. This is what the enrichment agent's prompt (see `docs/LEAD_ENRICHMENT_GUIDE.md`) fetches before classifying a lead, so the values it writes are always current.
+
 ### Health Check
 ```bash
 curl "https://salesleadgenerator.vercel.app/api/health"
@@ -425,6 +433,7 @@ These require `x-api-key` auth. There is no browser button for any of them — t
 - Follow-up reminders and the Win probability figure are shared across the whole team, not per-rep — this app has no individual user/ownership model yet, so there's no personal "my follow-ups" queue.
 - Qualification fields are informational only and can't yet be required before a lead moves to ENGAGED/PROPOSAL.
 - Duplicate-lead merging (2.4.97) is permanent — the losing lead is deleted, not archived, with no undo. It was verified via a real database-backed test suite and a live dev-server smoke check, but the authenticated click-through (opening the merge screen and confirming a real merge as a signed-in super admin) hasn't been walked through in a browser yet — the first real merge should be watched closely.
+- **The new controlled sports-industry taxonomy (2.4.109 — `sportCode`, `orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`, `competitionLevelCode`, `cityName`, `parentOrgId`/`parentOrgName`, `relationshipToParent`, `canonicalLeadName`) has no UI yet.** You can't see, filter, or edit these fields anywhere in the app today — they're API-only (`PUT /api/leads/[id]`, see [Update Lead](#update-lead)), written by the enrichment agent. No existing lead has any of them set until it's individually classified — see `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` for the plan to backfill the ~2,725 existing leads. A UI to view/edit/filter on these fields is a real, disclosed gap, not yet scheduled.
 
 ---
 
