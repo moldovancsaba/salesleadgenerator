@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.104
+
+### Added — temporary admin route `app/api/admin/dedupe-scan-merge` (owner report: "I need you to run a full duplication search for all leads we have so far and merge all safely mergeable")
+
+One-time-use, `x-api-key`-gated route enabling this exact request. The real near-duplicate scan (`POST /api/admin/duplicate-scan`), review queue (`GET`/`PATCH /api/duplicate-reviews`), and merge action (`POST /api/duplicate-reviews/merge`) — issues #73/#128/#129/#130 — are all session-only (`requireSuperAdminSession`), with no `x-api-key` path, matching every other `/admin/*` UI-only route in this app. This session cannot fabricate a real signed SSO session token (`docs/LESSONS_LEARNED.md` §5), so none of those three routes were callable directly to perform this request end-to-end. Rather than inventing new detection/merge logic, this route reuses the real, already-tested engine directly — `lib/near-duplicate.ts`'s `findCandidatePairs()` and `lib/lead-merge.ts`'s `diffLeads()`/`buildMergedLead()`/`suggestPrimaryId()` — and writes to the same `duplicate_reviews` collection those routes use, so `/admin/duplicates` shows a normal, consistent history afterward: any pair with real field-level conflicts is inserted as `status: 'pending'` (same as a normal scan) for the owner to review through the existing UI, and every pair this route actually merges gets a `status: 'merged'` row with `reviewedBy: 'automated-dedupe-2026-07-28'`, clearly distinguishing it from a human merge in the audit trail.
+
+"Safely mergeable" is not a new bar invented for this route — it's `diffLeads()` finding **zero** `'conflict'`-kind field classifications for a candidate pair, the exact same standard the real merge UI already uses to decide a pair needs no human judgment call. Everything else — entity_name/url conflicts, a WON-vs-LOST kanbanColumn clash, differing size/industry/value_proposition, etc. — is routed to the normal pending-review queue, never auto-merged.
+
+Does not raise `lib/near-duplicate.ts`'s `MAX_SCAN_SIZE=2000` cap the real scan route uses — CogMap alone is ~2178 leads as of this writing, above that cap — this route scans up to 5000 per brand instead, and reports `truncatedScan` honestly if a brand ever exceeds that too, rather than silently missing leads the way a straight reuse of the capped route would.
+
+Supports `dryRun` (default `true`, reports counts/pairs without writing anything) so the real scale of "safely mergeable" is known before any irreversible write — merging is a hard delete of the losing lead with no undo (`docs/OPERATOR_GUIDE.md`'s Known Issues section), the same caution CLAUDE.md's own "Executing actions with care" section calls for.
+
+### Testing
+Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest unit 520/520, integration 114/114, smoke 5/5, `next build --webpack` clean (new route registered), GDS style audit clean. Deliberately no new automated test for this route's own logic — one-time operational tooling to be deleted after use, same precedent as the 2026-07-27 CSV bulk-import temp route; the logic it calls (`findCandidatePairs`, `diffLeads`, `buildMergedLead`) is already covered by existing unit tests.
+
 ## Data operation — 2026-07-28, enrichment prompt validation run applied to 5 more CogMap leads
 
 Second live test of the fixed 2.4.103 prompt, against 5 fresh, randomly-sampled CogMap leads (excluding the 5 from the run above), specifically to check whether the `isDecisionMaker` field-name fix held: `Virginia Revolution` (6a674364d1e151dfa27aa286), `ALBION SC Denver` (6a674254d1e151dfa27a9fc0), `Cleveland Cavaliers Academy` (6a588430f3f51e4c389d3e84), `International Paralympic Committee` (6a5a5d5cb28be14a2558e76f), `Dakota SC` (6a67441bd1e151dfa27aa463).
