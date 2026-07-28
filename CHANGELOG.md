@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.108
+
+### Removed — temporary admin route `app/api/admin/dedupe-scan-merge`, task complete (owner report: "run a full duplication search for all leads we have so far and merge all safely mergeable")
+
+Deleted per the same precedent as the 2026-07-27 CSV bulk-import temp route: built for one specific operation, used, then removed rather than left as permanent unreviewed surface area. `next build` confirmed the route is gone from the compiled route list.
+
+**Final outcome of the full search, both brands, corrected matching criteria (2.4.107):**
+
+| Brand | Leads scanned | Candidate pairs | Safely mergeable | Written to review queue |
+|---|---|---|---|---|
+| CogMap | 2,189 (100%) | 348 (259 new) | **0** | 259 `pending` rows |
+| Seyu | 536 (100%) | 224 (0 new — already reviewed in a prior real scan) | **0** | 0 (nothing new) |
+
+**Zero leads were merged.** Every candidate pair — including exact-`entity_name` pairs like two separate "Seattle Sounders FC" records — had at least one genuine, non-empty, differing field (`url`, `address`, `industry`, `value_proposition`, etc.) once actually compared, which correctly routes to human review under this app's own existing safety bar (a merge requires *zero* field conflicts) rather than an automatic merge. The 259 new CogMap pairs were written to the real `duplicate_reviews` collection as `status: 'pending'` (owner-approved, non-destructive — the same write the real "Scan for duplicates" button performs) and are now visible in `/admin/duplicates` for manual review/confirm/merge through the actual UI.
+
+Two real, permanent fixes shipped along the way, both already recorded in their own entries above: `lib/near-duplicate.ts`'s O(n²) bigram recomputation (2.4.105), and its matching criteria — `sport_or_sector` now required, domain match no longer an independent qualifying path (2.4.107). Both improve the production `/admin/duplicates` feature itself, not just this temporary tooling.
+
+### Testing
+Full gate clean: tsc, lint, vitest unit 524/524, integration 114/114 (one run hit a transient `mongodb-memory-server` stdout-parsing flake — a known sandbox-network-dependent issue per `docs/LESSONS_LEARNED.md` §5, not a regression; retry passed clean), smoke 5/5, GDS audit, `next build --webpack` (confirms the deleted route no longer appears in the compiled output).
+
 ## 2.4.107
 
 ### Fixed — lib/near-duplicate.ts's matching criteria were wrong for this domain (owner correction, mid-run on 2.4.106's own diagnostic output: "You have to considering if a club has different sports e.g handball and soccer. They are different entities... real duplicates are not based on webdomain but organization, activity. One lead can have multiple domains.")
