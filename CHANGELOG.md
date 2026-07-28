@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.107
+
+### Fixed — lib/near-duplicate.ts's matching criteria were wrong for this domain (owner correction, mid-run on 2.4.106's own diagnostic output: "You have to considering if a club has different sports e.g handball and soccer. They are different entities... real duplicates are not based on webdomain but organization, activity. One lead can have multiple domains.")
+
+Running the corrected-for-performance 2.4.106 route against real CogMap data surfaced the real problem underneath the earlier timeouts: at CogMap's actual scale, the existing 0.82 name-similarity-OR-domain-match algorithm (unchanged since issue #73, used by both the temp route and the real production `/admin/duplicates` scan) produced **~977,535 candidate pairs out of ~2,189 leads** — almost entirely false positives from coincidental name overlap between genuinely different sports organizations sharing common vocabulary ("FC", "SC", "Academy", "Youth"; e.g. "DC United" vs "CFC United" scored 0.82). The app's own safety check (a merge requires *zero* real field conflicts) correctly rejected every single one from auto-merging — so no bad merge happened — but the owner's own correction, given while reviewing that output, identifies the actual bug: the matching *criteria* themselves, not just the false-positive volume.
+
+Two hard-coded corrections to `findCandidatePairs()`:
+1. **Different activity is a different entity for sales purposes, not a duplicate** — a club's soccer section and its handball section are two real, separate leads even sharing an identical name and domain. A pair is now only a candidate when both leads' `sport_or_sector` is present *and* equal (case-insensitive, trimmed); missing on either side means "unknown," never assumed equal.
+2. **Domain match is no longer an independent path to candidacy** — "one lead can have multiple domains," so domain equality doesn't establish sameness (and this run's own sample showed unrelated organizations sharing a domain too, e.g. a shared venue page). The old "domain match alone qualifies even at a low name score" branch is removed; domain equality is still reported in `matchedOn` as a corroborating fact for a human reviewer, never a standalone gate.
+
+Both production call sites (`app/api/admin/duplicate-scan/route.ts` and the temp `app/api/admin/dedupe-scan-merge/route.ts`) now project and pass `sport_or_sector` into the candidate set — this is a real, permanent fix to the production near-duplicate feature, not scoped to the temp route.
+
+**Merge output already preserves all useful parent data for any pair that does qualify** (a separate point raised in the same correction: "I need a positive merge where the merged outcome is included all useful information from the parents") — `lib/lead-merge.ts`'s existing `buildMergedLead()`/`diffLeads()` engine (2.4.97) already guarantees this by construction for the zero-conflict pairs this route auto-merges: `contacts`/`tags`/`deals`/`checklist`/pros/cons are unioned from both leads, every other field is filled from whichever side actually has it, and a field that's genuinely different and non-empty on both sides is a hard `conflict` requiring resolution — never silently dropped. No code change was needed there; the existing design already matches this requirement for the safe-merge case.
+
+### Testing
+`tests/lib/near-duplicate.test.ts`: 8 new/rewritten cases (was 12, now 16) covering the `sport_or_sector` gate (match required, case/whitespace-insensitive, missing-on-either-side rejected, cross-activity rejected even at identical name+domain) and the removed domain-only path (a shared domain with a low name score no longer qualifies). Full gate clean: tsc, lint, vitest unit 524/524, integration 114/114, smoke 5/5, GDS audit.
+
 ## 2.4.106
 
 ### Fixed — dedupe-scan-merge's own per-pair sequential DB reads were the real remaining bottleneck after 2.4.105

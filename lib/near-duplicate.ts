@@ -47,6 +47,14 @@ export type CandidateLead = {
   _id: string;
   entity_name: string;
   url?: string;
+  // Owner requirement, 2026-07-28: a real duplicate is the same
+  // organization doing the same activity, not just a similar name/domain —
+  // a club's soccer section and its handball section are two genuinely
+  // different leads even if they share a name, and must never be
+  // considered duplicate candidates. Optional to match Lead.sport_or_sector
+  // itself, but functionally required for a match: missing on either side
+  // means "unknown activity," never treated as "same activity."
+  sport_or_sector?: string;
 };
 
 export type CandidatePair = {
@@ -66,7 +74,8 @@ export function findCandidatePairs(leads: CandidateLead[], threshold: number = D
   // only the redundant repeat work is eliminated, not the matching logic.
   const normalized = leads.map((lead) => {
     const { name, domain } = normalizeForMatch(lead.entity_name, lead.url || '');
-    return { ...lead, name, domain, nameBigrams: bigrams(name) };
+    const sport = (lead.sport_or_sector || '').trim().toLowerCase();
+    return { ...lead, name, domain, sport, nameBigrams: bigrams(name) };
   });
 
   const pairs: CandidatePair[] = [];
@@ -76,13 +85,26 @@ export function findCandidatePairs(leads: CandidateLead[], threshold: number = D
       const a = normalized[i];
       const b = normalized[j];
 
+      // Hard gate, checked first and cheaply: different (or unknown)
+      // activity means never a duplicate candidate, regardless of how
+      // similar the names or domains look. A blank sport_or_sector on
+      // either side is "unknown," not "same" — never assumed to match.
+      if (!a.sport || !b.sport || a.sport !== b.sport) continue;
+
       const nameScore = a.name === b.name ? 1 : diceCoefficient(a.nameBigrams, b.nameBigrams);
+      if (nameScore < threshold) continue;
+
+      // Domain match is recorded as a corroborating signal only, never an
+      // independent path to candidacy — a single real organization can
+      // legitimately be recorded under more than one domain (owner
+      // requirement, 2026-07-28: "One lead can have multiple domains"), so
+      // domain equality alone doesn't establish sameness, and this app has
+      // separately observed unrelated organizations sharing a domain (e.g.
+      // a shared venue/booking page). Organization identity is judged by
+      // name + activity; domain match is just extra context for whoever
+      // reviews the pair.
       const domainMatch = Boolean(a.domain && b.domain && a.domain === b.domain);
-
-      if (!domainMatch && nameScore < threshold) continue;
-
-      const matchedOn: CandidatePair['matchedOn'] =
-        domainMatch && nameScore >= threshold ? 'both' : domainMatch ? 'domain' : 'name';
+      const matchedOn: CandidatePair['matchedOn'] = domainMatch ? 'both' : 'name';
 
       // Sorted lexicographically so a pair's identity is stable regardless
       // of the input array's iteration order — Mongo's find() gives no
@@ -90,12 +112,7 @@ export function findCandidatePairs(leads: CandidateLead[], threshold: number = D
       // (A, B) must still be recognized as the same pair already reviewed.
       const [leadIdA, leadIdB] = [a._id, b._id].sort();
 
-      pairs.push({
-        leadIdA,
-        leadIdB,
-        score: domainMatch ? Math.max(nameScore, threshold) : nameScore,
-        matchedOn,
-      });
+      pairs.push({ leadIdA, leadIdB, score: nameScore, matchedOn });
     }
   }
 

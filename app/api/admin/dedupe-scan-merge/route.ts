@@ -55,11 +55,11 @@ export async function POST(request: NextRequest) {
   const totalAvailable = await db.collection(config.dbCollection).countDocuments(filter);
 
   const scanDocs = await db.collection(config.dbCollection)
-    .find(filter, { projection: { _id: 1, entity_name: 1, url: 1 } })
+    .find(filter, { projection: { _id: 1, entity_name: 1, url: 1, sport_or_sector: 1 } })
     .limit(MAX_LEADS_PER_SCAN)
     .toArray();
 
-  const candidates = scanDocs.map((l: any) => ({ _id: l._id.toString(), entity_name: l.entity_name, url: l.url }));
+  const candidates = scanDocs.map((l: any) => ({ _id: l._id.toString(), entity_name: l.entity_name, url: l.url, sport_or_sector: l.sport_or_sector }));
   const pairs = findCandidatePairs(candidates);
 
   // Same "don't resurface an already-reviewed pair" rule the real scan route
