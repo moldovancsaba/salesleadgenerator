@@ -3,6 +3,8 @@
 // to dismiss, flag, or merge (issues #128-130 built the merge engine and UI
 // directly on top of the candidate pairs this file produces).
 
+import { resolveSportAlias, SPORT_CODE_SET } from './lead-taxonomy';
+
 export function normalizeForMatch(name: string, url: string): { name: string; domain: string } {
   const normalizedName = (name || '').toLowerCase().trim().replace(/\s+/g, ' ');
 
@@ -55,6 +57,17 @@ export type CandidateLead = {
   // itself, but functionally required for a match: missing on either side
   // means "unknown activity," never treated as "same activity."
   sport_or_sector?: string;
+  // Controlled taxonomy code (lib/lead-taxonomy.ts), preferred over
+  // sport_or_sector when present — added 2026-07-28 alongside the rulebook
+  // rollout. Also fixes a real gap the free-text-only gate above had: real
+  // production data stores the same sport as "Soccer", "Football", and
+  // "Football (Soccer)" interchangeably (verified via a live CogMap
+  // sample), which an exact-string gate treats as three different sports,
+  // wrongly splitting genuine duplicate candidates apart. Both this and
+  // sport_or_sector are resolved through the same alias table below, so a
+  // lead with only the free-text field still benefits from that
+  // normalization even before it's been backfilled with sportCode.
+  sportCode?: string;
 };
 
 export type CandidatePair = {
@@ -74,7 +87,15 @@ export function findCandidatePairs(leads: CandidateLead[], threshold: number = D
   // only the redundant repeat work is eliminated, not the matching logic.
   const normalized = leads.map((lead) => {
     const { name, domain } = normalizeForMatch(lead.entity_name, lead.url || '');
-    const sport = (lead.sport_or_sector || '').trim().toLowerCase();
+    // Prefer the controlled sportCode when it's a real, valid code; fall
+    // back to resolving the free-text sport_or_sector through the same
+    // alias table lib/lead-taxonomy.ts uses elsewhere — so "Soccer" and
+    // "Football" resolve to the same canonical value instead of being
+    // treated as different sports.
+    const sportCandidate = lead.sportCode && SPORT_CODE_SET.has(lead.sportCode)
+      ? lead.sportCode
+      : resolveSportAlias(lead.sport_or_sector);
+    const sport = sportCandidate || '';
     return { ...lead, name, domain, sport, nameBigrams: bigrams(name) };
   });
 

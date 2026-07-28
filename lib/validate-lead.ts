@@ -1,4 +1,10 @@
 import { PRO_FIELD, CON_FIELD } from '../app/lib/brand';
+import {
+  isValidSportCode, isValidOrgTypeCode, isValidBusinessUnitCode,
+  isValidGenderCode, isValidDemographicCode, isValidCompetitionLevelCode,
+  isValidRelationshipCode, SPORT_CODES, ORG_TYPE_CODES, BUSINESS_UNIT_CODES,
+  GENDER_CODES, DEMOGRAPHIC_CODES, COMPETITION_LEVEL_CODES, RELATIONSHIP_CODES,
+} from './lead-taxonomy';
 
 export interface ValidationResult {
   valid: boolean;
@@ -136,6 +142,35 @@ export function validateLeadPayload(body: any, brand: string, options?: { partia
   if (body.size !== undefined && body.size !== null && body.size !== '') {
     if (typeof body.size !== 'string' || !ORG_SIZE_SET.has(body.size)) {
       errors.push('size must be one of: ' + ORG_SIZES.join(', '));
+    }
+  }
+
+  // Controlled sports-industry taxonomy (rulebook v1.0, 2026-07-28) — same
+  // format-checked-only-when-present convention as `size` above: none of
+  // these are required, but a value that IS sent must be a real controlled
+  // code, per the rulebook's own "API must reject ... free-text tags" rule
+  // (§26.1) applied to these underlying fields, not just generated tags.
+  if (body.sportCode !== undefined && body.sportCode !== null && body.sportCode !== '' && !isValidSportCode(body.sportCode)) {
+    errors.push('sportCode must be one of: ' + SPORT_CODES.join(', '));
+  }
+  if (body.orgTypeCode !== undefined && body.orgTypeCode !== null && body.orgTypeCode !== '' && !isValidOrgTypeCode(body.orgTypeCode)) {
+    errors.push('orgTypeCode must be one of: ' + ORG_TYPE_CODES.join(', '));
+  }
+  if (body.businessUnitCode !== undefined && body.businessUnitCode !== null && body.businessUnitCode !== '' && !isValidBusinessUnitCode(body.businessUnitCode)) {
+    errors.push('businessUnitCode must be one of: ' + BUSINESS_UNIT_CODES.join(', '));
+  }
+  if (body.genderCode !== undefined && body.genderCode !== null && body.genderCode !== '' && !isValidGenderCode(body.genderCode)) {
+    errors.push('genderCode must be one of: ' + GENDER_CODES.join(', '));
+  }
+  if (body.competitionLevelCode !== undefined && body.competitionLevelCode !== null && body.competitionLevelCode !== '' && !isValidCompetitionLevelCode(body.competitionLevelCode)) {
+    errors.push('competitionLevelCode must be one of: ' + COMPETITION_LEVEL_CODES.join(', '));
+  }
+  if (body.relationshipToParent !== undefined && body.relationshipToParent !== null && body.relationshipToParent !== '' && !isValidRelationshipCode(body.relationshipToParent)) {
+    errors.push('relationshipToParent must be one of: ' + RELATIONSHIP_CODES.join(', '));
+  }
+  if (body.demographicCodes !== undefined) {
+    if (!Array.isArray(body.demographicCodes) || !body.demographicCodes.every((v: any) => isValidDemographicCode(v))) {
+      errors.push('demographicCodes must be an array of: ' + DEMOGRAPHIC_CODES.join(', '));
     }
   }
 

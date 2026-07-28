@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.108  
+**Version:** 2.4.109  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -95,6 +95,7 @@ This README is the single source of truth for documentation paths and descriptio
 | `CHANGELOG.md` | Version history, shipped features, and known limitations |
 | `docs/LESSONS_LEARNED.md` | Recurring mistake patterns, sandbox/verification limitations, and the "why" behind key architectural decisions |
 | `docs/LEAD_ENRICHMENT_GUIDE.md` | Structured catalog of every enrichable lead field plus a ready-to-use AI research-agent prompt for ongoing lead enrichment |
+| `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` | Plan for converting existing leads into the controlled sports-industry taxonomy schema (rulebook v1.0, 2.4.109) — design document, not an execution log |
 
 ### Detailed Documentation
 

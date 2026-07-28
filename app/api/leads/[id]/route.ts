@@ -10,6 +10,7 @@ import { dedupeContacts } from '../../../../lib/contacts'
 import { verifyLeadContactsAsync } from '../../../lib/email-verification-store'
 import { computeTicketSizeForLead } from '../../../lib/ticket-size-store'
 import { getTenantId, tenantFilter as buildTenantFilter } from '../../../../lib/tenant'
+import { generateClassificationTags, buildMergeKey } from '../../../../lib/lead-classification'
 
 function getBrand(request: Request): 'cogmap' | 'seyu' {
   const url = new URL(request.url);
@@ -141,7 +142,16 @@ export async function PUT(
       'kanbanColumn', 'sortOrder', 'status', 'ice', 'iceScore',
       PRO_FIELD, CON_FIELD, 'contacts', 'qualityStatus',
       'recommended_tier', 'estimated_participants', 'estimated_annual_revenue_usd',
-      'revenue_model', 'product_fit_notes', 'pricingByCompany'
+      'revenue_model', 'product_fit_notes', 'pricingByCompany',
+      // Controlled sports-industry taxonomy (rulebook v1.0, 2026-07-28) —
+      // classificationTags/mergeKey are deliberately excluded here: both are
+      // always server-generated from the fields below (lib/lead-classification.ts),
+      // never accepted as raw client input, so they can't silently drift
+      // from what the other fields actually say.
+      'sportCode', 'orgTypeCode', 'businessUnitCode', 'genderCode',
+      'demographicCodes', 'competitionLevelCode', 'cityName',
+      'parentOrgId', 'parentOrgName', 'relationshipToParent',
+      'canonicalLeadName', 'classificationConfidence', 'classificationEvidence',
     ];
 
     for (const field of allowedFields) {
@@ -201,6 +211,38 @@ export async function PUT(
         ) || undefined,
         region: updateData.region !== undefined ? updateData.region : existing.region,
       })
+    }
+
+    // classificationTags/mergeKey are always server-generated, never
+    // accepted as raw input (see the allowedFields comment above) —
+    // recomputed here from the effective post-update state (existing
+    // fields merged with whatever this request just changed), the same
+    // "always recompute the derived value on every write of its source
+    // fields" convention this route already applies to ticketSizeEstimate
+    // above and fingerprint/scoreProfile do elsewhere in this codebase.
+    // Only actually generated once at least one classification field is
+    // present (on this update or already stored) — a lead with none of
+    // this taxonomy populated yet gets no tags/key rather than an
+    // all-"unknown" placeholder that looks meaningful but isn't.
+    const effectiveClassification = {
+      parentOrgName: updateData.parentOrgName ?? existing.parentOrgName,
+      sportCode: updateData.sportCode ?? existing.sportCode,
+      orgTypeCode: updateData.orgTypeCode ?? existing.orgTypeCode,
+      businessUnitCode: updateData.businessUnitCode ?? existing.businessUnitCode,
+      genderCode: updateData.genderCode ?? existing.genderCode,
+      demographicCodes: updateData.demographicCodes ?? existing.demographicCodes,
+      country: updateData.country ?? existing.country,
+      cityName: updateData.cityName ?? existing.cityName,
+    };
+    const hasAnyClassification = Boolean(
+      effectiveClassification.sportCode || effectiveClassification.orgTypeCode
+      || effectiveClassification.businessUnitCode || effectiveClassification.genderCode
+      || (effectiveClassification.demographicCodes && effectiveClassification.demographicCodes.length > 0)
+      || effectiveClassification.cityName || effectiveClassification.parentOrgName
+    );
+    if (hasAnyClassification) {
+      updateData.classificationTags = generateClassificationTags(effectiveClassification);
+      updateData.mergeKey = buildMergeKey(effectiveClassification);
     }
 
     const result = await dbInstance.collection(config.dbCollection).findOneAndUpdate(

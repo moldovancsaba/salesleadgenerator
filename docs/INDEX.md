@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Version:** 2.4.108
+**Version:** 2.4.109
 
 ---
 
@@ -25,6 +25,7 @@
 - `CHANGELOG.md` — version history, feature baselines, and (since 2026-07-27) documented root causes for real bugs found post-release
 - `docs/LESSONS_LEARNED.md` — recurring mistake patterns, sandbox/verification limitations, and architectural rationale ("why do we do what we do")
 - `docs/LEAD_ENRICHMENT_GUIDE.md` — enrichable lead-field catalog and the ready-to-use AI enrichment-agent prompt
+- `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` — plan for converting existing leads into the controlled sports-industry taxonomy schema (rulebook v1.0)
 
 ## Archived Documentation
 

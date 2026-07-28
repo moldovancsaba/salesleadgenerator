@@ -136,6 +136,27 @@ describe('diffLeads', () => {
     expect((classifications.find((c) => c.field === 'declineCount') as any).mergedValue).toBe(1);
     expect((classifications.find((c) => c.field === 'acceptanceCount') as any).mergedValue).toBe(3);
   });
+
+  // Rulebook v1.0 (§10): demographic tags are non-exclusive — a lead can
+  // legitimately be both "youth" and "adult" — so both sides' values are
+  // always safe to union, unlike sportCode/genderCode/etc which are real
+  // identity-critical conflict candidates (see SIMPLE_CONFLICT_FIELDS).
+  it('auto-unions demographicCodes without dropping either side', () => {
+    const a = baseLead({ _id: 'a1', demographicCodes: ['youth', 'mixed-age'] } as any);
+    const b = baseLead({ _id: 'b1', demographicCodes: ['adult'] } as any);
+    const classifications = diffLeads(a, b);
+    const demo = classifications.find((c) => c.field === 'demographicCodes') as any;
+    expect(demo.kind).toBe('auto-union');
+    expect(demo.mergedValue.sort()).toEqual(['adult', 'mixed-age', 'youth']);
+  });
+
+  it('surfaces a real conflict for identity-critical taxonomy fields like sportCode/cityName', () => {
+    const a = baseLead({ _id: 'a1', sportCode: 'football', cityName: 'Munich' } as any);
+    const b = baseLead({ _id: 'b1', sportCode: 'handball', cityName: 'Berlin' } as any);
+    const classifications = diffLeads(a, b);
+    expect(classifications.find((c) => c.field === 'sportCode')?.kind).toBe('conflict');
+    expect(classifications.find((c) => c.field === 'cityName')?.kind).toBe('conflict');
+  });
 });
 
 describe('buildMergedLead', () => {
@@ -191,6 +212,23 @@ describe('buildMergedLead', () => {
     const merged = buildMergedLead(a, b, 'a1', { entity_name: 'B' });
     expect(merged.fingerprint).not.toBe('stale-a');
     expect(merged.fingerprint).not.toBe('stale-b');
+  });
+
+  it('recomputes classificationTags/mergeKey from the final merged taxonomy fields when either side has taxonomy data', () => {
+    const a = baseLead({ _id: 'a1', sportCode: 'football', cityName: 'Munich', country: 'DE', classificationTags: ['stale'], mergeKey: 'stale|key' } as any);
+    const b = baseLead({ _id: 'b1', sportCode: 'football', cityName: 'Munich', country: 'DE' } as any);
+    const merged = buildMergedLead(a, b, 'a1', {});
+    expect(merged.classificationTags).toEqual(expect.arrayContaining(['#sport:football', '#city:munich', '#country:DE']));
+    expect((merged as any).mergeKey).toContain('football');
+    expect((merged as any).mergeKey).not.toBe('stale|key');
+  });
+
+  it('does not manufacture classificationTags/mergeKey for a merge of two leads with no taxonomy data', () => {
+    const a = baseLead({ _id: 'a1' });
+    const b = baseLead({ _id: 'b1' });
+    const merged = buildMergedLead(a, b, 'a1', {});
+    expect((merged as any).classificationTags).toBeUndefined();
+    expect((merged as any).mergeKey).toBeUndefined();
   });
 
   it('recomputes scoreProfile from the final resolved ice values', () => {

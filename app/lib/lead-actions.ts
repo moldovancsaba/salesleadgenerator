@@ -11,6 +11,7 @@ import { defaultRevenueTargetCurrency } from './sales-settings'
 import { checkStageGate, formatStageGateError } from '../../lib/stage-gate'
 import { sanitizeDeals } from '../../lib/deals'
 import { sanitizeChecklist } from '../../lib/checklist'
+import { generateClassificationTags, buildMergeKey } from '../../lib/lead-classification'
 
 export type LeadActionInput = {
   brand: string
@@ -106,7 +107,15 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
   if (action === 'MODIFY') {
     const fields = ['entity_name', 'url', 'country', 'address', 'general_contact', 'size', 'industry',
                     'sport_or_sector', 'level_league', 'value_proposition', 'notes', 'tags',
-                    'actualDealValueUsd', 'source']
+                    'actualDealValueUsd', 'source',
+                    // Controlled sports-industry taxonomy (rulebook v1.0,
+                    // 2026-07-28) — classificationTags/mergeKey excluded,
+                    // always server-generated below, same as PUT
+                    // /api/leads/[id]'s own convention.
+                    'sportCode', 'orgTypeCode', 'businessUnitCode', 'genderCode',
+                    'demographicCodes', 'competitionLevelCode', 'cityName',
+                    'parentOrgId', 'parentOrgName', 'relationshipToParent',
+                    'canonicalLeadName', 'classificationConfidence', 'classificationEvidence']
     fields.forEach(field => {
       if (normalizedBody[field] !== undefined) updateData[field] = normalizedBody[field]
     })
@@ -234,6 +243,30 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
       const { enforceQualityCeiling } = await import('../../lib/quality-registry')
       const upstreamQuality = normalizedBody.upstreamQualityStatuses || ['DRAFT']
       updateData.qualityStatus = enforceQualityCeiling(normalizedBody.qualityStatus, upstreamQuality)
+    }
+
+    // classificationTags/mergeKey are always server-generated (rulebook
+    // v1.0, 2026-07-28) — same "recompute from effective post-update state,
+    // never accept as raw input" convention as PUT /api/leads/[id].
+    const effectiveClassification = {
+      parentOrgName: updateData.parentOrgName ?? existing.parentOrgName,
+      sportCode: updateData.sportCode ?? existing.sportCode,
+      orgTypeCode: updateData.orgTypeCode ?? existing.orgTypeCode,
+      businessUnitCode: updateData.businessUnitCode ?? existing.businessUnitCode,
+      genderCode: updateData.genderCode ?? existing.genderCode,
+      demographicCodes: updateData.demographicCodes ?? existing.demographicCodes,
+      country: updateData.country ?? existing.country,
+      cityName: updateData.cityName ?? existing.cityName,
+    }
+    const hasAnyClassification = Boolean(
+      effectiveClassification.sportCode || effectiveClassification.orgTypeCode
+      || effectiveClassification.businessUnitCode || effectiveClassification.genderCode
+      || (effectiveClassification.demographicCodes && effectiveClassification.demographicCodes.length > 0)
+      || effectiveClassification.cityName || effectiveClassification.parentOrgName
+    )
+    if (hasAnyClassification) {
+      updateData.classificationTags = generateClassificationTags(effectiveClassification)
+      updateData.mergeKey = buildMergeKey(effectiveClassification)
     }
   }
 

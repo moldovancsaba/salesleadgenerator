@@ -13,6 +13,7 @@ import type { Lead, KanbanColumn, QualityStatus } from '../app/types';
 import { dedupeContacts } from './contacts';
 import { buildFingerprint } from './fingerprint';
 import { buildScoreProfile } from './score-profile';
+import { generateClassificationTags, buildMergeKey } from './lead-classification';
 
 export type FieldClassification =
   | { kind: 'auto-union'; field: string; mergedValue: unknown }
@@ -166,6 +167,16 @@ const SIMPLE_CONFLICT_FIELDS: Array<keyof Lead> = [
   'product_fit_notes', 'status', 'source', 'region', 'country',
   'actualDealValueUsd', 'estimated_annual_revenue_usd', 'estimated_participants',
   'recommended_tier', 'revenue_model', 'ice',
+  // Controlled sports-industry taxonomy (rulebook v1.0, 2026-07-28) —
+  // genuinely different values here are exactly the rulebook's "never
+  // merge" identity-critical signals (different sport, city, gender,
+  // business unit, or parent organisation are different entities, never
+  // silently auto-resolved). `classificationTags`/`mergeKey` are
+  // deliberately excluded — both are recomputed from these fields below,
+  // never independent conflict candidates.
+  'sportCode', 'orgTypeCode', 'businessUnitCode', 'genderCode',
+  'competitionLevelCode', 'cityName', 'parentOrgId', 'parentOrgName',
+  'relationshipToParent', 'canonicalLeadName',
 ];
 
 const QUALIFICATION_FIELDS = ['budgetConfirmed', 'budgetNotes', 'authorityConfirmed', 'needNotes', 'timelineEstimate'] as const;
@@ -197,6 +208,11 @@ export function diffLeads(leadA: Lead, leadB: Lead): FieldClassification[] {
   out.push({ kind: 'auto-union', field: 'checklist', mergedValue: unionById([...(leadA.checklist || []), ...(leadB.checklist || [])]) });
   out.push({ kind: 'auto-union', field: 'pro_for_organization', mergedValue: Array.from(new Set([...ensureArray(leadA.pro_for_organization), ...ensureArray(leadB.pro_for_organization)])) });
   out.push({ kind: 'auto-union', field: 'con_for_organization', mergedValue: Array.from(new Set([...ensureArray(leadA.con_for_organization), ...ensureArray(leadB.con_for_organization)])) });
+  // Rulebook demographic tags (§10) are non-exclusive by nature — a lead can
+  // legitimately be both "youth" and "adult" (a multi-age academy) — so
+  // unioning both sides' values is always safe, unlike the identity-critical
+  // scalars in SIMPLE_CONFLICT_FIELDS below.
+  out.push({ kind: 'auto-union', field: 'demographicCodes', mergedValue: Array.from(new Set([...ensureArray(leadA.demographicCodes), ...ensureArray(leadB.demographicCodes)])) });
 
   // Bucket 2 — auto-resolved by a genuinely correct, non-arbitrary rule.
   out.push(resolveEarlier('createdAt', leadA.createdAt, leadB.createdAt));
@@ -337,6 +353,36 @@ export function buildMergedLead(
   // fingerprint must reflect the lead's actual final identity fields, not a
   // stale one that no longer matches what's stored.
   merged.fingerprint = buildFingerprint(merged.entity_name, merged.url || '', merged.region);
+
+  // classificationTags/mergeKey are always derived from the merged entity's
+  // own final taxonomy fields (rulebook v1.0, §15/§5) — same reasoning as
+  // fingerprint above: recomputed from the post-merge state, never carried
+  // over stale from whichever side happened to become primary.
+  const classificationInput = {
+    parentOrgName: merged.parentOrgName,
+    sportCode: merged.sportCode,
+    orgTypeCode: merged.orgTypeCode,
+    businessUnitCode: merged.businessUnitCode,
+    genderCode: merged.genderCode,
+    demographicCodes: merged.demographicCodes,
+    country: merged.country,
+    cityName: merged.cityName,
+  };
+  // Gated the same way as the PUT/MODIFY handlers (app/api/leads/[id]/route.ts,
+  // app/lib/lead-actions.ts): only write classificationTags/mergeKey when the
+  // merged lead actually carries some taxonomy data, so leads never touched by
+  // the rulebook classification workflow don't get a synthetic all-"unknown"
+  // mergeKey manufactured purely as a side effect of an unrelated merge.
+  const hasAnyClassification = Boolean(
+    classificationInput.sportCode || classificationInput.orgTypeCode
+    || classificationInput.businessUnitCode || classificationInput.genderCode
+    || (classificationInput.demographicCodes && classificationInput.demographicCodes.length > 0)
+    || classificationInput.cityName || classificationInput.parentOrgName
+  );
+  if (hasAnyClassification) {
+    merged.classificationTags = generateClassificationTags(classificationInput);
+    merged.mergeKey = buildMergeKey(classificationInput);
+  }
 
   return merged as Lead;
 }
