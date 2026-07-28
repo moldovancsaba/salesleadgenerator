@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.106
+
+### Fixed — dedupe-scan-merge's own per-pair sequential DB reads were the real remaining bottleneck after 2.4.105
+
+The 2.4.105 bigram fix didn't fully resolve the CogMap scan timeout — re-testing against real production data after that fix still timed out past 60s. Root cause was a second, separate inefficiency in the temporary route itself (`app/api/admin/dedupe-scan-merge/route.ts`), not `lib/near-duplicate.ts`: for every candidate pair, the route ran two fresh `findOne()` calls against MongoDB Atlas to re-fetch both leads. CogMap's first-ever scan through this route found far more *new* (never-reviewed) candidate pairs than Seyu's did (Seyu already had 352 of 355 pairs reviewed from a prior real scan, so only 3 needed a fresh fetch) — meaning CogMap's run needed on the order of thousands of sequential network round-trips to Atlas, one pair at a time, awaited in a loop.
+
+Fixed by batch-fetching every lead referenced by any new candidate pair exactly once via a single `$in` query into an in-memory `Map`, then reading from (and updating) that map for the rest of the run instead of hitting the database again per pair. The map is kept in sync as merges happen — a merge's primary is updated in place, its secondary removed — so a later pair in the same run that references either lead still sees the correct, current state without a further DB read. Actual DB writes remain exactly as before, scoped to real merges only (a much smaller set than total candidate pairs).
+
+### Testing
+`tsc`/`lint` clean, full existing suite unaffected (this route has no dedicated tests — one-time operational tooling, see 2.4.104's entry).
+
 ## 2.4.105
 
 ### Fixed — lib/near-duplicate.ts's findCandidatePairs() was O(n²) in bigram computation, not just pair comparison (found while running the 2.4.104 dedupe route against real production data)
