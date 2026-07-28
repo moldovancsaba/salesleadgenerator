@@ -1,5 +1,15 @@
 # Changelog — Sales Lead Generator
 
+## Data operation — 2026-07-28, enrichment prompt validation run applied to 5 more CogMap leads
+
+Second live test of the fixed 2.4.103 prompt, against 5 fresh, randomly-sampled CogMap leads (excluding the 5 from the run above), specifically to check whether the `isDecisionMaker` field-name fix held: `Virginia Revolution` (6a674364d1e151dfa27aa286), `ALBION SC Denver` (6a674254d1e151dfa27a9fc0), `Cleveland Cavaliers Academy` (6a588430f3f51e4c389d3e84), `International Paralympic Committee` (6a5a5d5cb28be14a2558e76f), `Dakota SC` (6a67441bd1e151dfa27aa463).
+
+**Fix confirmed: 5 of 5 runs used the correct `isDecisionMaker` key this time**, versus 3 of 5 wrong before the fix. Two runs also explicitly reasoned through the new "address must be the structured field, not just mentioned in notes" ease-rubric clarification correctly. Applied all 5 to production (all 200 OK, verified live).
+
+Two notable non-schema findings from this run, also applied: the IPC's stored contacts included one — "Andreas Zagklis, Secretary General" — who is actually FIBA's (basketball) Secretary General, not affiliated with the IPC at all; the research agent caught this and replaced it with the IPC's real CEO. Separately, Cleveland Cavaliers Academy's stored contact email (`l*******@cavs.com`) turned out to be an unusable masking artifact; the agent correctly refused to "fix" it with a plausible-but-unconfirmed guess from a data-broker aggregator, and instead flagged it as unresolved in `notes` — a real, direct demonstration of the prompt's anti-fabrication rule working as intended against existing bad data, not just new research.
+
+**Real side effect, flagged before applying and confirmed live afterward**: `Cleveland Cavaliers Academy` and `International Paralympic Committee` were both already sitting in `QUALIFIED` from an earlier, higher score. Their corrected scores (144 and 448 — lower now that unconfirmed/wrong contact data was removed) are both still under the 500 `QUALIFIED` threshold, so applying the `ice` update auto-demoted both back to `DISCOVERED`. This is the auto-classification system working as designed, not a bug — a score inflated by bad contact data settling to a more honest one — but it's a real, visible change worth this explicit record.
+
 ## 2.4.103
 
 ### Fixed — docs/LEAD_ENRICHMENT_GUIDE.md's contact schema was underspecified (owner report: "I want you to test the prompt for 5 random CogMap leads")
