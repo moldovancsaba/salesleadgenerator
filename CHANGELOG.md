@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.105
+
+### Fixed — lib/near-duplicate.ts's findCandidatePairs() was O(n²) in bigram computation, not just pair comparison (found while running the 2.4.104 dedupe route against real production data)
+
+Running the new temporary dedupe-scan-merge route (2.4.104) against CogMap's real ~2189 leads timed out — over 90 seconds with no response, versus the same call against Seyu's ~536 leads completing in 3.6s. The Seyu/CogMap size ratio (~4x) doesn't explain a jump from 3.6s to "still not done past 90s" on its own; the real cause was a latent inefficiency in `findCandidatePairs()` itself, not scan size alone: `similarity(a.name, b.name)` was called fresh inside the O(n²) pair-comparison loop, and `similarity()` recomputes each string's bigram `Set` from scratch every call — so a lead compared against 2188 others had its own bigram set rebuilt 2188 times, redundantly. At n leads there are O(n²) pairs, but each lead's bigram set only ever needs computing once (O(n)); the loop was doing O(n²) bigram-set constructions instead.
+
+Fixed by precomputing each lead's normalized name and bigram set exactly once before the comparison loop, and extracting the intersection-counting step (`diceCoefficient()`) so the loop reuses the precomputed sets instead of calling `similarity()` (which still exists, unchanged, computing its own bigrams inline — used as-is by its own unit tests and any other future caller). Verified byte-for-byte identical output: `similarity()`'s exact branch order (`a === b` shortcut, then Dice's coefficient, empty-set short-circuit) is mirrored precisely in the loop, and all 12 existing `tests/lib/near-duplicate.test.ts` cases pass unchanged. Local benchmark at 2200 synthetic leads: **15.1s before this fix, 2.0s after** — a ~7.5x speedup from eliminating the redundant work, not a change in what gets matched.
+
+This also fixes the same latent bottleneck in the **production** `/api/admin/duplicate-scan` route (issue #107's own `MAX_SCAN_SIZE = 2000` cap was tuned assuming "sub-few-second" performance at that size — a ceiling that, per this benchmark, the pre-fix code was nowhere close to actually meeting once real leads pushed a brand's collection size up near it). Not a new bug from this session's work — a real, pre-existing latent bug this task's real-data test run happened to surface.
+
+### Testing
+`tsc`/`lint` clean. `tests/lib/near-duplicate.test.ts` — all 12 pass, confirming identical match results pre/post fix. Full gate: vitest unit 520/520, integration 114/114, smoke 5/5, GDS audit clean.
+
 ## 2.4.104
 
 ### Added — temporary admin route `app/api/admin/dedupe-scan-merge` (owner report: "I need you to run a full duplication search for all leads we have so far and merge all safely mergeable")
