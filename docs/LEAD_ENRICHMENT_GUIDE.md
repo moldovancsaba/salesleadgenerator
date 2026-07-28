@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.102
+**Version:** 2.4.103
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -33,6 +33,22 @@ Every field below is grouped by how confidently and how often it's worth re-rese
 | `isDecisionMaker` | boolean | Whenever your research changes this judgment | Multiple contacts may carry this flag (co-decision-makers). |
 
 **Send the whole `contacts[]` array, not a delta.** `PUT` replaces it entirely (deduped by name+phone, falling back to name+email, falling back to bare name — see `lib/contacts.ts`'s `contactKey()`). Every contact you include in a `PUT` payload gets `lastVerifiedAt` stamped to *now*, unconditionally — this is exactly what separates "I re-confirmed this contact" from "I'm just passing through data I didn't touch." **Concretely: if you didn't personally re-verify a contact this run, don't include it in the payload's `contacts[]` at all — omit it, don't resend it unchanged**, or you'll falsely mark stale data as fresh. (This is a real, previously-undocumented gotcha — see `docs/LESSONS_LEARNED.md` for the general pattern of write-path assumptions not being written down anywhere until an audit surfaces them.)
+
+**Use this exact shape for each contact object — field names are case-sensitive and there is no fuzzy matching:**
+
+```json
+{
+  "name": "Jane Doe",
+  "title": "VP Marketing",
+  "email": "jane@example.com",
+  "phone": "+1-555-0100",
+  "linkedin": "https://www.linkedin.com/in/janedoe",
+  "role": "Primary buyer",
+  "isDecisionMaker": true
+}
+```
+
+`isDecisionMaker` (this exact camelCase spelling) is the only key the server reads for the decision-maker flag — `decision_maker`, `decisionMaker`, `is_decision_maker`, or any other variant is silently ignored (the server only ever reads the literal key `isDecisionMaker`), so a contact sent under a wrong key name defaults to `false` with no error and no warning. **This is a real failure mode, not a hypothetical one**: in a live test of this prompt against 5 real leads (2026-07-28), 3 of 5 test runs independently invented a plausible-but-wrong key name (`decision_maker` twice, `decisionMaker` once) for exactly this field, because earlier revisions of this guide only described the field in prose. Omit any field you don't have a value for rather than guessing its name — every other field in the object above (`name` through `role`) follows the same exact-key-name rule.
 
 **Staleness signal to query against**: `lib/contact-freshness.ts`'s `isContactStale()` — a contact with no `lastVerifiedAt`, or one older than `CONTACT_STALENESS_THRESHOLD_DAYS` (180 by default), is stale. Prioritize leads with stale contacts, especially ones still active in the pipeline (not `WON`/`LOST`).
 
@@ -80,7 +96,7 @@ These feed `ticketSizeEstimate` (the number an operator actually reads), which i
 |---|---|---|
 | `ice.impact` | 1–10 | Your assessment of deal impact if won. |
 | `ice.confidence` | 1–10 | Your assessment of how confident the research is. |
-| `ice.ease` | 1–10 | **Unlike lead creation, `PUT` does not recompute this for you — you must set it yourself.** Use the same rubric `computeEase()` (`app/api/leads/route.ts`) applies at creation: roughly, 1 = no named contact at all, 2 = only a general contact, 3 = named contact but no email/phone, 5–6 = named contact plus email or phone, 7 = named contact, address, email, *and* phone all present. Sending a `ice.ease` that doesn't reflect actual contact completeness will desynchronize the score from reality. |
+| `ice.ease` | 1–10 | **Unlike lead creation, `PUT` does not recompute this for you — you must set it yourself.** Use the same rubric `computeEase()` (`app/api/leads/route.ts`) applies at creation: roughly, 1 = no named contact at all, 2 = only a general contact, 3 = named contact but no email/phone, 4 = named contact plus the lead's own `address` field, but no email/phone, 5–6 = named contact plus email or phone, 7 = named contact, `address`, email, *and* phone all present. **"Address" here means the lead's top-level `address` field is actually set in this payload (or was already stored) — not that an address merely appears somewhere in your research notes.** Sending a `ice.ease` that doesn't reflect actual contact completeness will desynchronize the score from reality; a live test (2026-07-28) caught one run scoring ease=4 on the strength of an address mentioned only in `notes`, with the structured `address` field left unset — that should have scored 3. |
 | `qualityStatus` | `DRAFT`/`CHECKED`/`VERIFIED` | Promote this as your confidence in the lead's overall data quality increases through successive enrichment passes — this is exactly what the field exists for. |
 
 **Side effect to know about**: if you send `ice` without also sending `kanbanColumn`, and the lead is currently in `DISCOVERED` or `QUALIFIED` (the two auto-managed columns), the server **automatically recomputes and moves the card** based on the new ICE score. This is intentional and correct — enriching a lead's contact completeness is exactly the kind of update that should be able to promote it from DISCOVERED to QUALIFIED. Do **not** send `kanbanColumn` yourself for one of these two columns; let the auto-classification do its job. If the lead has already been moved to `ENGAGED`/`PROPOSAL`/`WON`/`LOST` (by a human action), it's permanently opted out of auto-classification and a `PUT` with `ice` alone won't move it — that's also correct, leave it alone.
@@ -186,7 +202,24 @@ has — do not attempt to fill in fields that are already fresh and correct:
    LinkedIn profile, and whether they're a genuine decision-maker for a
    purchase like this one. Only include a contact in your output if you
    actually found/re-confirmed it this pass — never carry forward an old,
-   unconfirmed contact just to keep the array populated.
+   unconfirmed contact just to keep the array populated. Use this exact
+   object shape — field names are case-sensitive, there is no fuzzy
+   matching, and `isDecisionMaker` (this exact spelling) is the only key
+   name the server reads for that flag:
+   ```json
+   {
+     "name": "Jane Doe",
+     "title": "VP Marketing",
+     "email": "jane@example.com",
+     "phone": "+1-555-0100",
+     "linkedin": "https://www.linkedin.com/in/janedoe",
+     "role": "Primary buyer",
+     "isDecisionMaker": true
+   }
+   ```
+   Omit any key you don't have a confirmed value for — never invent a
+   variant spelling (`decision_maker`, `decisionMaker`, etc.); it will be
+   silently ignored server-side, not an error.
 2. **Missing `country`.** If blank, determine the lead's actual country
    (2-letter ISO code) from public sources (official site, registry,
    address) — this is a safe, high-value, low-risk fill-in.
@@ -206,9 +239,11 @@ has — do not attempt to fill in fields that are already fresh and correct:
    - 1 = no named contact found at all
    - 2 = only a general/company-level contact found
    - 3 = a named contact, but no email or phone
-   - 4 = named contact + address, but no email or phone
-   - 5–6 = named contact + (email or phone), address optional
-   - 7 = named contact + address + email + phone, all present
+   - 4 = named contact + the lead's own `address` field actually set in
+     this payload (or already stored) — not merely mentioned in `notes` —
+     but no email or phone
+   - 5–6 = named contact + (email or phone), `address` optional
+   - 7 = named contact + `address` + email + phone, all present
 6. **Promote `qualityStatus`** from DRAFT toward CHECKED or VERIFIED as your
    confidence in the lead's overall data quality genuinely increases through
    this research pass — don't promote it reflexively just because you ran.
@@ -252,6 +287,18 @@ This repo already establishes a precedent for periodic sweeps: the ticket-size r
 - **Weekly sweep**: pull the top N (e.g. 50–100) highest-priority leads per §3.3's ranking, run one enrichment pass each, write results via §3.1/§3.2.
 - **Event-triggered**: if the research-agent runtime supports it, an immediate enrichment pass on any lead a rep opens in the UI that has stale contacts (an in-context "this data might be out of date" nudge) is a natural extension — out of scope for this document since it would require UI/API work in this repo, not just a prompt, but worth flagging as a real follow-up (`docs/LESSONS_LEARNED.md` §7's spirit: record it rather than silently deferring it).
 - **Budget per run**: cap the number of leads enriched per sweep and log/report the count actually processed — per this repo's own "no silent caps" convention, if a sweep can't cover its intended worklist, that should be visible, not silently truncated.
+
+---
+
+## 7. Real-world test findings (2026-07-28)
+
+This prompt was live-tested against 5 randomly sampled real CogMap leads (via 5 independent research agents, each given the prompt verbatim and real web-research access, output checked but never written to production until after this test). Findings, for anyone extending this process further:
+
+- **The contact-schema bug this version fixes was real, not theoretical**: 3 of 5 test runs independently invented a wrong key name for the decision-maker flag (`decision_maker` or `decisionMaker` instead of `isDecisionMaker`) before §2.1/§5 included an explicit JSON example. That gap is now closed above — if you're revising this prompt further, keep the literal example, prose alone reliably produces plausible-but-wrong field names.
+- **Zero fabrication across all 5 runs.** Every agent found candidate contact details via data-broker sites (ZoomInfo, RocketReach, SignalHire) and correctly withheld them as unconfirmed, using only primary-source (the organization's own site) data. This judgment call — primary source trusted, third-party aggregator not — wasn't spelled out in the prompt and the agents inferred it correctly regardless; still worth stating explicitly in a future revision rather than relying on it being inferred every time.
+- **JS-rendered club websites (SportsEngine, Blue Sombrero, and similar platforms) return empty content to a plain fetch.** One test lead's site couldn't be scraped at all this way; the agent fell back to search-result snippets and a public nonprofit tax filing (a legitimate, if dated, primary source). Any production runtime built on top of this prompt should have a documented fallback for this case, not just fail silently.
+- **AI-summarized fetches can misattribute facts on pages listing multiple people together.** One test agent caught its own tool reporting the wrong person as an organization's CEO, and self-corrected by re-fetching raw HTML. Worth a general practice note for whatever runtime executes this prompt: cross-check a contact-critical fact (a title, in particular) against a second source or a raw fetch when a summarized read seems inconsistent with other evidence.
+- **Identity-correction flagging worked exactly as designed in all 4 applicable cases**: every test lead whose `url` was a leftover Google-search-query artifact (from the 2026-07-27 CSV import) had this caught and routed to `notes` for human review, with `entity_name`/`url` left untouched — no test run tried to silently "fix" an identity field.
 
 ---
 
