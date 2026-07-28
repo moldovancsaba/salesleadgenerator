@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.116
+
+### Changed — enrichment prompt: whole-org `businessUnitCode` rule + multi-level `competitionLevelCode` rule (loop iteration 4, owner-directed "continue the process", 2026-07-28)
+
+Iteration 4 targeted "St. Louis Scott Gallagher" — deliberately the multi-branch/regional-network edge case (rulebook §24) untested by iterations 1-3. The agent's structural analysis was the highlight: it verified SLSG's historical Missouri/Illinois sides now operate as internal branches under one leadership team/staff directory/email domain, classified the lead as the umbrella organisation, deliberately omitted `parentOrgName` (no real parent exists), and wrote a forward-looking do-not-merge instruction into `notes` for any future "SLSG Illinois" lead — exactly the rulebook's "preserve separate records and link them" behavior. It also correctly used the just-shipped `general_contact` rule (org phone + inbox landed in the structured field) and resolved a real stale-source conflict (Wikipedia/ZoomInfo still list the former President; the club's own staff page was treated as authoritative).
+
+Two rules codified from this run's reported ambiguities (§5 step 7):
+- **`businessUnitCode` for whole-org leads**: use `general` when the lead represents the entire organisation; specific unit codes are reserved for actual sub-units of a parent. This run chose `youth` (defensible under the old wording); applied precedent (iterations 1 and 3) and the vocabulary's own intent say `general` — the applied payload carries `general` as a disclosed reviewer override, and the rule now exists so future runs don't diverge.
+- **`competitionLevelCode` for orgs spanning multiple levels**: set the highest level genuinely competed at, record the span in `notes` (this run already did exactly that; now it's written down).
+
+### Data operation — fourth production lead classified; umbrella multi-branch club (2026-07-28, owner-directed, same loop)
+
+Applied iteration 4's payload (with the one disclosed override above) via a real `PUT /api/leads/6a6742cbd1e151dfa27aa0f8?brand=cogmap`: "St. Louis Scott Gallagher" gained 5 staff-directory-verified contacts with direct emails (Executive Director, President, MLS NEXT/Academy Director, plus the two branch directors), `general_contact` (org phone + inbox), a real HQ address, `size: Large`, `estimated_participants: 3500` (explicit teams×roster estimate, flagged for verification in notes), and full taxonomy (`football`/`club`/`general`/`mixed`/`[children, youth]`/`elite`/`cityName: Fenton`/`canonicalLeadName: "St. Louis Scott Gallagher Soccer Club"`). Post-write verification: `mergeKey: unknown|football|club|general|mixed|US|fenton`, 8 classification tags, ticket size recomputed to $200k expected off `size: Large`, ICE 8/9/6 (ease 6 per the clarified rubric — direct emails, no direct phones).
+
+### Testing
+Prompt/docs-only changes; `tests/lib/lead-taxonomy-doc-sync.test.ts` re-verified passing. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit 558/558, integration 114/114, smoke 5/5, GDS audit clean.
+
 ## 2.4.115
 
 ### Changed — enrichment prompt: owner-vs-operator parent rule + `general_contact` writability (iteration 3 of the owner-directed loop, 2026-07-28)
