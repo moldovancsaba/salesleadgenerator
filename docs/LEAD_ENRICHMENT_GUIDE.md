@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.110
+**Version:** 2.4.111
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -103,7 +103,7 @@ These feed `ticketSizeEstimate` (the number an operator actually reads), which i
 
 ### 2.6 Controlled sports-industry taxonomy — rulebook v1.0 (2026-07-28)
 
-These fields are new, additive, and entirely optional — a lead written before this version has none of them set, and that's fine; nothing in this app requires them. They exist to classify a lead's true commercial identity (sport, organisation type, business unit, geography) using a **controlled vocabulary** instead of free text, per the owner-supplied "Sport Sales Lead Catalogue and Deduplication Rulebook v1.0." The full vocabulary lists live in code, not duplicated here — `lib/lead-taxonomy.ts` is the single source of truth; `PUT` rejects any value not in the matching list.
+These fields are new, additive, and entirely optional — a lead written before this version has none of them set, and that's fine; nothing in this app requires them. They exist to classify a lead's true commercial identity (sport, organisation type, business unit, geography) using a **controlled vocabulary** instead of free text, per the owner-supplied "Sport Sales Lead Catalogue and Deduplication Rulebook v1.0." The full vocabulary lists live in code, not duplicated here — `lib/lead-taxonomy.ts` is the single source of truth; `PUT` rejects any value not in the matching list. `GET /api/lead-taxonomy` (§3.2) serves that same source as JSON, no auth required — the way to get the current list at run time without repo access.
 
 | Field | Format | Notes |
 |---|---|---|
@@ -127,7 +127,7 @@ These fields are new, additive, and entirely optional — a lead written before 
 
 | Field(s) | Why not |
 |---|---|
-| `techSignals`, `techSignalsScannedAt`, `techSignalsScanStatus` | Server-computed only, by an SSRF-guarded homepage scan. To refresh these, trigger the `RESCAN_TECH` action (§3.2) — don't attempt to set the values directly, they'll be silently overwritten by the next real scan anyway. |
+| `techSignals`, `techSignalsScannedAt`, `techSignalsScanStatus` | Server-computed only, by an SSRF-guarded homepage scan. To refresh these, trigger the `RESCAN_TECH` action (§3.3) — don't attempt to set the values directly, they'll be silently overwritten by the next real scan anyway. |
 | `emailVerificationStatus` | Server-computed asynchronously after any write that changes an email. Setting it yourself has no effect — it'll be overwritten. |
 | `ticketSizeEstimate` | Server-computed from §2.4's raw signals on every `PUT` (unless `manual_override` is active — see above). |
 | `seniorityTier`, `department` (per-contact) | Rule-derived from `title` on every write. Setting them has no effect. |
@@ -165,7 +165,30 @@ Body: only the fields being changed, e.g.
 
 A 400 response means validation failed — read `details` in the response body, it lists every specific rule broken (format, forbidden brand term, wrong enum value). Do not retry with the same payload; fix the specific field(s) named in the error.
 
-### 3.2 Refresh a lead's detected tech stack
+### 3.2 Get the current controlled taxonomy vocabularies
+
+```
+GET /api/lead-taxonomy
+```
+
+No auth required, no params, no request body. Returns the exact same arrays `lib/lead-taxonomy.ts` exports — the live, always-current source of truth §2.6's `sportCode`/`orgTypeCode`/`businessUnitCode`/`genderCode`/`demographicCodes`/`competitionLevelCode`/`relationshipToParent` values are validated against:
+
+```json
+{
+  "sportCodes": ["football", "basketball", "..."],
+  "orgTypeCodes": ["club", "academy", "..."],
+  "businessUnitCodes": ["first-team", "women", "..."],
+  "genderCodes": ["men", "women", "mixed", "unknown", "not-applicable"],
+  "demographicCodes": ["children", "youth", "..."],
+  "competitionLevelCodes": ["recreational", "grassroots", "..."],
+  "relationshipCodes": ["owned", "operated", "..."],
+  "sportAliases": { "soccer": "football", "ice hockey": "ice-hockey", "...": "..." }
+}
+```
+
+**Call this before classifying, on every run, if your runtime can make an HTTP GET request** — it's cheap (static data, no DB read) and it's the one value that can never be stale, unlike §5's inlined reference lists below, which are a text copy that could theoretically lag behind this endpoint if the underlying vocabulary is ever extended (an automated test in this repo — `tests/lib/lead-taxonomy-doc-sync.test.ts` — fails the build if that ever happens, but this endpoint is the authoritative source regardless of whether that test has run recently). If your runtime genuinely cannot make an out-of-band HTTP call, fall back to §5's inlined lists.
+
+### 3.3 Refresh a lead's detected tech stack
 
 ```
 PATCH /api/leads?brand={cogmap|seyu}&id={leadId}
@@ -177,7 +200,7 @@ Body: { "action": "RESCAN_TECH" }
 
 Scans the lead's own already-stored `url` (never a URL you supply) — this is not a general-purpose fetch endpoint. Returns immediately with the scan result (5-second ceiling, never throws).
 
-### 3.3 Which leads to enrich, and in what order
+### 3.4 Which leads to enrich, and in what order
 
 There's no dedicated "list stale leads" endpoint today — build the priority queue from `GET /api/leads?brand=<brand>` (or `GET /api/leads/columns` for a specific kanban column) and rank by, in order:
 1. **Active pipeline leads only** — skip `WON`/`LOST` (terminal, no further enrichment value) and generally skip `BACKLOG` (deliberately deprioritized by a rep) unless specifically asked to also sweep it.
@@ -198,7 +221,7 @@ These aren't optional style preferences; they're either enforced by the API (you
 - **Respect `manual_override`.** If `ticketSizeEstimate.method === 'manual_override'`, don't try to work around it by writing `estimated_annual_revenue_usd` or similar expecting it to change the displayed estimate — it won't, and that's correct behavior, not a bug.
 - **`size` is a strict 4-value enum.** Sending anything else (a headcount, a description) fails validation. If you're not confident which of the four tiers applies, leave `size` out of the payload entirely rather than guessing.
 - **Don't set any of the server-computed fields listed in §2.7.** They'll be silently overwritten regardless, so writing them just adds noise to your payload.
-- **Never guess a taxonomy code.** `sportCode`/`orgTypeCode`/`businessUnitCode`/`genderCode`/`demographicCodes`/`competitionLevelCode`/`relationshipToParent` must be a real value from `lib/lead-taxonomy.ts`'s controlled lists or the request is rejected outright (§2.6) — use `'unknown'` (or `'not-applicable'` where offered) rather than inventing a plausible-sounding value or a close-but-wrong spelling.
+- **Never guess a taxonomy code.** `sportCode`/`orgTypeCode`/`businessUnitCode`/`genderCode`/`demographicCodes`/`competitionLevelCode`/`relationshipToParent` must be a real value from `lib/lead-taxonomy.ts`'s controlled lists (fetch `GET /api/lead-taxonomy`, §3.2, for the live list) or the request is rejected outright (§2.6) — use `'unknown'` (or `'not-applicable'` where offered) rather than inventing a plausible-sounding value or a close-but-wrong spelling.
 - **A rejected request isn't a system worth retrying blindly.** Read the actual `details` array in a 400 response and fix the named field(s) — this mirrors this repo's own standing rule to verify real output rather than assume a plausible-looking payload will work.
 
 ---
@@ -278,12 +301,21 @@ has — do not attempt to fill in fields that are already fresh and correct:
    this research pass — don't promote it reflexively just because you ran.
 7. **Classify the lead against the controlled sports-industry taxonomy**
    (rulebook v1.0, §21/§31) — this is what lets duplicate detection and
-   reporting work on structured facts instead of free text. For each of the
-   fields below, either write a real value from its controlled list, write
-   the literal string `"unknown"` (or `"not-applicable"` where that's an
-   offered value), or omit the field entirely if you have no evidence at
-   all — **never invent a plausible-sounding code that isn't in the list
-   you were given**, and never guess when evidence conflicts:
+   reporting work on structured facts instead of free text.
+
+   **Before classifying, if you can make an HTTP GET request: fetch
+   `GET /api/lead-taxonomy` (no auth, no params) and use ITS values as
+   authoritative** — it's always current, unlike the reference lists
+   below, which are a static copy that could in principle lag behind it.
+   If you cannot make an out-of-band HTTP call, use the reference lists
+   below instead.
+
+   For each of the fields below, either write a real value from its
+   controlled list, write the literal string `"unknown"` (or
+   `"not-applicable"` where that's an offered value), or omit the field
+   entirely if you have no evidence at all — **never invent a
+   plausible-sounding code that isn't in the list you were given**, and
+   never guess when evidence conflicts:
    - `sportCode` — the lead's single sport. If the organisation genuinely
      runs more than one sport as separately manageable units, say so in
      `notes` and flag it for human review rather than picking one; don't
@@ -300,11 +332,14 @@ has — do not attempt to fill in fields that are already fresh and correct:
    always server-derived from the fields above and any value you send is
    ignored.
 
-   **Controlled vocabularies — use ONLY a value from the matching list
-   below (exact spelling, lowercase, hyphens not spaces/underscores), or
-   the literal string `"unknown"`/`"not-applicable"` where offered, or omit
-   the field. This is the complete, authoritative list — nothing outside
-   it is valid, and the API will reject a value that isn't on it.**
+   **Controlled vocabularies (fallback reference — prefer `GET
+   /api/lead-taxonomy`'s live response above whenever you can reach it) —
+   use ONLY a value from the matching list below (exact spelling,
+   lowercase, hyphens not spaces/underscores), or the literal string
+   `"unknown"`/`"not-applicable"` where offered, or omit the field. This
+   is the complete, authoritative list as of this prompt's last edit —
+   nothing outside it is valid, and the API will reject a value that
+   isn't on it.**
 
    `sportCode` — one of: `football`, `basketball`, `cricket`, `rugby-union`,
    `rugby-league`, `tennis`, `volleyball`, `handball`, `baseball`,
@@ -399,7 +434,7 @@ return an empty object `{}` rather than forcing a change.
 
 This repo already establishes a precedent for periodic sweeps: the ticket-size recalculation runs weekly via Vercel Cron (`GET/POST /api/admin/ticket-size-recalc`, see `docs/STACK_AND_DEPENDENCIES.md`'s Hosting and Delivery section). A reasonable enrichment cadence follows the same shape:
 
-- **Weekly sweep**: pull the top N (e.g. 50–100) highest-priority leads per §3.3's ranking, run one enrichment pass each, write results via §3.1/§3.2.
+- **Weekly sweep**: pull the top N (e.g. 50–100) highest-priority leads per §3.4's ranking, run one enrichment pass each, write results via §3.1/§3.3.
 - **Event-triggered**: if the research-agent runtime supports it, an immediate enrichment pass on any lead a rep opens in the UI that has stale contacts (an in-context "this data might be out of date" nudge) is a natural extension — out of scope for this document since it would require UI/API work in this repo, not just a prompt, but worth flagging as a real follow-up (`docs/LESSONS_LEARNED.md` §7's spirit: record it rather than silently deferring it).
 - **Budget per run**: cap the number of leads enriched per sweep and log/report the count actually processed — per this repo's own "no silent caps" convention, if a sweep can't cover its intended worklist, that should be visible, not silently truncated.
 
