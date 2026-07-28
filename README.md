@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.101  
+**Version:** 2.4.102  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -74,7 +74,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.101**. (Corrected 2026-07-25 — this line had previously drifted to a stale `2.4.29` for a long stretch of releases; `package.json` remains the single source of truth per the line below.)
+Current app version is **2.4.102**. (Corrected 2026-07-25 — this line had previously drifted to a stale `2.4.29` for a long stretch of releases; `package.json` remains the single source of truth per the line below.)
 
 Single source of truth: `package.json`
 
@@ -94,6 +94,7 @@ This README is the single source of truth for documentation paths and descriptio
 | `CLAUDE.md` | Mandatory operating rules for any Claude session working in this repo (quality gate, issue-driven workflow, DoD, branch/push authorization) |
 | `CHANGELOG.md` | Version history, shipped features, and known limitations |
 | `docs/LESSONS_LEARNED.md` | Recurring mistake patterns, sandbox/verification limitations, and the "why" behind key architectural decisions |
+| `docs/LEAD_ENRICHMENT_GUIDE.md` | Structured catalog of every enrichable lead field plus a ready-to-use AI research-agent prompt for ongoing lead enrichment |
 
 ### Detailed Documentation
 
