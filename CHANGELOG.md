@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.120
+
+### Fixed — `normalizePhone()` silently corrupted phone numbers carrying extension notation (issue #133)
+
+Real production bug, found live 2026-07-28 by the enrichment loop's own post-write verification: `lib/contacts.ts`'s `normalizePhone()` strips every non-digit character before formatting, so `"+1-804-823-9191 ext. 5"` was silently stored as the wrong, non-existent number `"+180482391915"` — the extension digit fused directly onto the subscriber number, with no error and no warning. This is the shared normalization path for every contact write (`POST`/`PUT`/`PATCH MODIFY` — issue #45's unification), so the bug affected any caller, not just the enrichment agent.
+
+Fixed by recognizing common extension markers (`ext`, `ext.`, `extension`, `x`, `#`, a comma-pause — case-insensitive, in any common spacing, including no separator at all) and truncating the phone string at the first one found *before* digit-stripping runs. A negative lookbehind keeps the matcher from firing inside an ordinary word (`"extra"`, `"text"`) while still correctly catching a real business-card convention like `"5551234567x54"` (extension appended with no space at all, distinguished from a word only by what precedes the `x` — a digit, not a letter). The extension itself is dropped, not preserved in `phone`, consistent with 2.4.117's existing guidance to keep extensions in a contact's `role`/`notes` instead — `docs/LEAD_ENRICHMENT_GUIDE.md`'s phone-format warning updated to describe the new (fixed) behavior rather than the bug.
+
+**Production scan, both brands (2,187 CogMap + 536 Seyu leads with contacts), found zero other corrupted numbers** beyond the three on FC Richmond discovered and manually corrected live on 2026-07-28 — those remain correct and were re-verified unaffected by this fix.
+
+### Testing
+New `tests/lib/contacts.test.ts` coverage (10 cases): the exact real-world corruption string, `ext`/`ext.`/`extension` with and without a period, `x` with and without a separator (including the no-space "x54" case), `#`, comma-pause, a false-positive guard (`"extra54"` must not truncate), and the edge case of nothing but an extension remaining (returns `''`, not a bare `"+"`). Full gate clean: tsc 0 errors, lint 0 errors/warnings, vitest unit 568/568, integration 114/114, smoke 5/5, GDS audit clean, `next build --webpack`.
+
 ## 2.4.119
 
 ### Changed — enrichment prompt: real-name-vs-placeholder contact rule (loop iteration 7, owner-directed "continue the process", 2026-07-28/29)

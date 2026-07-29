@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.119
+**Version:** 2.4.120
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -339,14 +339,17 @@ has — do not attempt to fill in fields that are already fresh and correct:
    "info@example.com / +1-555-0100") — when you confirm a company inbox
    or switchboard number, write it there, not only into `notes`.
 
-   **`phone` format warning — a real corruption happened here.** The
-   server normalizes every contact phone by stripping ALL non-digit
-   characters. Extension notation appended to the number ("+1-804-823-
-   9191 ext. 5") therefore gets silently fused into a WRONG number
-   ("+180482391915" — observed in production, 2026-07-28). Put ONLY the
-   plain dialable number in `phone`; put the extension in the contact's
-   `role` text (e.g. "— main line ext. 5") or in `notes`, never in
-   `phone`.
+   **`phone` and extension notation.** A real corruption happened here on
+   2026-07-28 ("+1-804-823-9191 ext. 5" silently stored as the wrong
+   "+180482391915") and is now fixed server-side (issue #133,
+   `lib/contacts.ts`'s `normalizePhone()`): a recognized extension marker
+   (`ext`/`ext.`/`extension`/`x`/`#`/a comma-pause, in any common spacing)
+   is now truncated off before the number is normalized, so it can no
+   longer fuse into the subscriber number. Still write ONLY the plain
+   dialable number in `phone` and keep the extension in the contact's
+   `role` text or in `notes` — the server drops the extension entirely
+   rather than storing it, so it's lost from `phone` either way; keeping
+   it in `role`/`notes` is the only way it survives at all.
 6. **Promote `qualityStatus`** from DRAFT toward CHECKED or VERIFIED as your
    confidence in the lead's overall data quality genuinely increases through
    this research pass — don't promote it reflexively just because you ran.
