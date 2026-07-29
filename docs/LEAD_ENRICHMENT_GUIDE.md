@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.118
+**Version:** 2.4.119
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -272,6 +272,17 @@ has — do not attempt to fill in fields that are already fresh and correct:
    Omit any key you don't have a confirmed value for — never invent a
    variant spelling (`decision_maker`, `decisionMaker`, etc.); it will be
    silently ignored server-side, not an error.
+
+   **A stored contact whose `name` is a generic placeholder (e.g. "Acme
+   Corp Contact", the org name plus the literal word "Contact") is not a
+   real, named individual, even if its `email` is a genuine, MX-verified
+   inbox.** Treat it the same as "no contact found" for research purposes
+   — replace it with a real named person if you find one this pass (the
+   verified org-level inbox, if still current, belongs in `general_contact`
+   instead — see §2.2/§4), or leave it as the sole entry if you can't. A
+   contact with an actual person's name, even one you're only partially
+   re-verifying, is the "old, unconfirmed contact" the rule above means —
+   don't drop a real name just because you couldn't reach them this pass.
 
    **How the `contacts` key itself behaves — read before deciding what to
    send.** Omitting the `contacts` key entirely leaves the lead's stored

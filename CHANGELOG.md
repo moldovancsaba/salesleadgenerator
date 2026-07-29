@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.119
+
+### Changed — enrichment prompt: real-name-vs-placeholder contact rule (loop iteration 7, owner-directed "continue the process", 2026-07-28/29)
+
+Iteration 7 ("Valor Soccer", WA) deliberately targeted a case the loop hadn't hit yet: the lead already carried one real, MX-verified contact — but a generic role-inbox placeholder (`"Valor Soccer Contact"` / `info@valorsoccer.com`), not a named person. The agent reasoned through this correctly (found a real named Director of Coaching, moved the still-current org inbox into `general_contact`, replaced the placeholder row entirely) but flagged, honestly, that the prompt's own "never drop an old, unconfirmed contact" rule doesn't say what to do with a placeholder that technically passes MX verification. Codified in §5 step 1: a stored contact whose `name` is a generic org-name-plus-"Contact" placeholder is not a real individual regardless of email verification status — treat it like "no contact found," not like a real name you'd otherwise be obligated to preserve.
+
+Also confirmed, via direct code inspection, that `general_contact` is a plain free-text pass-through field (never routed through `normalizePhone()`), so the phone/inbox string this run wrote there was safe from 2.4.117's extension-fusion bug by construction — not by luck.
+
+### Data operation — seventh production lead classified; identity-noise case resolved cleanly (2026-07-28/29, owner-directed, same loop)
+
+Applied iteration 7's payload via a real `PUT /api/leads/6a67436ed1e151dfa27aa2a2?brand=cogmap`: "Valor Soccer" (Maple Valley, WA) gained a real named contact (Director of Coaching, first-party staff-page + hire-announcement corroborated), the org inbox correctly relocated to `general_contact`, a real street address, and full taxonomy. The agent also correctly discarded an unrelated same-name entity that surfaced in search noise (an Arena Football League team called "Washington Valor" — different sport, different organisation) without confusing the two. Post-write verification: `mergeKey: unknown|football|club|general|mixed|US|maple-valley`, ticket recomputed to $50k off the still-DRAFT-era `size` (unchanged this pass — not evidenced strongly enough to revise).
+
+**Process note**: this iteration's first attempt failed mid-research on a session usage-limit error; retried once the stated reset window had passed and completed cleanly on the second attempt — no payload was applied from the failed run.
+
+### Testing
+Prompt/docs-only changes; `tests/lib/lead-taxonomy-doc-sync.test.ts` re-verified passing. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit 558/558, integration 114/114, smoke 5/5, GDS audit clean.
+
 ## 2.4.118
 
 ### Changed — enrichment prompt: `elite` vs `national`/`international` disambiguated (loop iteration 6, owner-directed "push and continue", 2026-07-28)
