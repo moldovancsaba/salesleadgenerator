@@ -47,13 +47,32 @@ export type NormalizeContactOptions = {
   now?: Date;
 };
 
+// Extension notation ("ext. 5", "ext5", "x54", "#54", ",54") must never reach
+// the digit-stripping below as part of the dialable number — issue #133,
+// found live 2026-07-28: "+1-804-823-9191 ext. 5" was silently normalized to
+// "+180482391915", a real but wrong number (the extension digit fused onto
+// the subscriber number). The negative lookbehind keeps this from matching
+// inside an ordinary word ("extra", "text") — it requires the character
+// immediately before the marker to not be a letter, so "1234567x54"
+// (extension with no separator, a real business-card convention) still
+// matches correctly via its preceding digit, while "extra54" does not.
+const EXTENSION_MARKER_RE = /(?<![a-z])(?:ext(?:ension)?\.?|x\.?)\s*\d+|[#,]+\s*\d+/i;
+
 // Previously only POST applied phone/email formatting to contacts[] (a
 // separate step in app/api/leads/route.ts) — PUT and PATCH MODIFY wrote
 // contacts[] verbatim. Moved here so every write path gets the same
 // formatting, closing that inconsistency along with the rest of this module.
 export function normalizePhone(phone: string): string {
   if (!phone) return phone;
-  const cleaned = phone.replace(/[^\d+]/g, '');
+  // Truncate at the first recognized extension marker before any
+  // digit-stripping — the extension itself is dropped, not preserved.
+  // Callers that need to keep it should carry it in a separate field
+  // (contacts[].role, notes), per docs/LEAD_ENRICHMENT_GUIDE.md's
+  // phone-format guidance.
+  const extMatch = EXTENSION_MARKER_RE.exec(phone);
+  const withoutExtension = extMatch ? phone.slice(0, extMatch.index) : phone;
+  const cleaned = withoutExtension.replace(/[^\d+]/g, '');
+  if (!cleaned) return '';
   if (cleaned.startsWith('+')) return cleaned;
   if (cleaned.length === 10 && /^\d{10}$/.test(cleaned)) {
     return '+1' + cleaned; // Assume US

@@ -221,6 +221,56 @@ describe('normalizePhone', () => {
   it('leaves an already-international number untouched', () => {
     expect(normalizePhone('+44 20 7946 0958')).toBe('+442079460958');
   });
+
+  // Issue #133 — extension notation was silently fusing into the subscriber
+  // number ("+1-804-823-9191 ext. 5" -> the real, wrong "+180482391915").
+  // Every notation below must now truncate at the marker, never fuse.
+  describe('extension notation (issue #133)', () => {
+    it('drops "ext. N" — the exact real-world corruption case', () => {
+      expect(normalizePhone('+1-804-823-9191 ext. 5')).toBe('+18048239191');
+    });
+
+    it('drops "ext N" (no period)', () => {
+      expect(normalizePhone('+1-804-823-9191 ext 4')).toBe('+18048239191');
+    });
+
+    it('drops "extension N" (spelled out)', () => {
+      expect(normalizePhone('+1-804-823-9191 extension 10')).toBe('+18048239191');
+    });
+
+    it('drops "extN" with no separator at all', () => {
+      expect(normalizePhone('+18048239191ext5')).toBe('+18048239191');
+    });
+
+    it('drops "xN" appended directly with no space — a real business-card convention', () => {
+      expect(normalizePhone('5551234567x54')).toBe('+15551234567');
+    });
+
+    it('drops "x N" with a space', () => {
+      expect(normalizePhone('555-123-4567 x 54')).toBe('+15551234567');
+    });
+
+    it('drops "#N"', () => {
+      expect(normalizePhone('555-123-4567#54')).toBe('+15551234567');
+    });
+
+    it('drops ",N" (comma-pause notation)', () => {
+      expect(normalizePhone('555-123-4567,54')).toBe('+15551234567');
+    });
+
+    it('does not treat "x"/"ext" inside an ordinary word as an extension marker', () => {
+      // "extra54" contains neither "ext" immediately followed by digits nor
+      // a standalone "x" followed by digits (the "x" in "extra" is preceded
+      // by the letter "e", failing the marker's lookbehind guard) — so
+      // nothing is truncated, proving the matcher doesn't fire inside a
+      // word. All digits survive, digit-stripped and +-prefixed as normal.
+      expect(normalizePhone('extra54')).toBe('+54');
+    });
+
+    it('returns an empty string rather than a bare "+" when nothing but an extension remains', () => {
+      expect(normalizePhone('ext. 5')).toBe('');
+    });
+  });
 });
 
 describe('normalizeEmail', () => {
