@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.129
+
+### Fixed — a real, recurring `businessUnitCode` mistake, reinforced directly in the prompt (issue #132, iterations 36-39)
+
+The "multi-sport club, sport-specific lead" `businessUnitCode` mistake recurred a second time (Persepolis, after Beşiktaş in 2.4.125) — an agent defaulted to `general` for a lead that its own notes explicitly identified as football-specific within a multi-sport parent club, rather than `first-team`. Caught and corrected before applying, matching the established precedent. Since this is now a *repeated* pattern rather than a one-off, `docs/LEAD_ENRICHMENT_GUIDE.md` §5 now states the rule explicitly with a worked example, rather than relying on this session's own task-instruction reminders each time. Verified `tests/lib/lead-taxonomy-doc-sync.test.ts` still passes (still 7/7) — the new prose sits outside the parser's captured vocabulary-list spans.
+
+### Changed — enrichment loop, iterations 36-39 (issue #132)
+
+4 more real leads:
+
+- **Persepolis** (Seyu): real Chairman (Peyman Haddadi, appointed Oct 2025) found; the `businessUnitCode` fix above; correctly flagged a real, evidence-based commercial-viability caveat (international sanctions context) without letting it block factual research.
+- **Al Sadd** (Seyu): real Club President (H.E. Sheikh Mohammed bin Khalifa Al-Thani) found; correctly applied `businessUnitCode: first-team` from the start; correctly declined to guess between two conflicting general-contact sources rather than picking one arbitrarily.
+- **Alexandria SA** (CogMap, real name Alexandria Soccer Association): two real named contacts found; correctly omitted personal email/phone after the org's own site's Cloudflare email obfuscation blocked verification, declining unverified third-party masked-email guesses.
+- **Coppell FC** (CogMap): a good example of evidence-based restraint — correctly coded `competitionLevelCode: amateur` (not `elite`) after confirming no ECNL/MLS NEXT/Girls Academy affiliation exists, rather than defaulting to the `elite` code that similar-shaped leads this session have mostly gotten. Three real named contacts found, with an administrator correctly marked `isDecisionMaker: false` rather than defaulting every contact to `true`.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: 38 of ~2,723 leads fully processed.
+
+### Testing
+Prompt/docs-only changes plus real production writes via the existing, already-tested `PUT /api/leads/[id]` path. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit/integration/smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.128
 
 ### Fixed — a real `sportCode` mechanical-backfill error, found and corrected (issue #132, iterations 32-35)
