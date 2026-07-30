@@ -1,8 +1,8 @@
 # Lead Taxonomy Migration Plan — Rulebook v1.0 Backfill
 
-**Version:** 2.4.120
+**Version:** 2.4.121
 
-**Status:** Plan / design document. This is **not** an execution log — no production lead has been touched by this plan. It describes how to convert the app's existing leads into the controlled taxonomy schema shipped in 2.4.109 (`lib/lead-taxonomy.ts`, `lib/lead-classification.ts`, the new `Lead` fields documented in `docs/ARCHITECTURE.md`'s "Controlled Sports-Industry Taxonomy" section).
+**Status:** Plan / design document, now with one completed execution slice. Phase 2's mechanical `sportCode` sub-step (see §4) has actually run against production — the rest of Phase 2 (every other identity field, and the 299 leads `sportCode` couldn't mechanically resolve) is still unstarted. It describes how to convert the app's existing leads into the controlled taxonomy schema shipped in 2.4.109 (`lib/lead-taxonomy.ts`, `lib/lead-classification.ts`, the new `Lead` fields documented in `docs/ARCHITECTURE.md`'s "Controlled Sports-Industry Taxonomy" section).
 
 ---
 
@@ -12,15 +12,19 @@ The owner's request was two-part: "use this [rulebook] to improve the enrichment
 
 ## 2. Current state (gap analysis)
 
-As of this writing:
+Updated 2026-07-30, after the mechanical `sportCode` backfill (`scripts/taxonomy-sportcode-backfill.ts`, §4 Phase 2 sub-step) ran against production for real via the deployed HTTPS API:
 
-| Brand | Collection | Total leads | Leads with any new taxonomy field set |
-|---|---|---|---|
-| CogMap | `leads` | 2,189 | 0 |
-| Seyu | `seyu_leads` | 536 | 0 |
-| **Total** | | **2,725** | **0** |
+| Brand | Collection | Total leads | `sportCode` set | `sportCode` unresolved | Any *other* new taxonomy field set |
+|---|---|---|---|---|---|
+| CogMap | `leads` | 2,187 | 2,051 | 136 | 0 |
+| Seyu | `seyu_leads` | 536 | 373 | 163 | 0 |
+| **Total** | | **2,723** | **2,424** | **299** | **0** |
 
-Every existing lead has `sport_or_sector` (free text, inconsistent — see the "Soccer"/"Football"/"Football (Soccer)" fragmentation documented in `docs/ARCHITECTURE.md`'s Near-Duplicate section) and `industry` (free text), but none of the controlled `*Code` fields, `cityName`, `parentOrgName`, `classificationTags`, or `mergeKey`. `country` (ISO alpha-2) is already populated for leads created after 2.4.98 and remains permanently blank for a real, counted set of leads created before it (see `docs/LESSONS_LEARNED.md`) — those pre-2.4.98 leads are lower-confidence candidates for `#country:` tag generation until `country` itself is separately backfilled or re-researched.
+(Total lead counts shifted slightly from the 2,189/536 originally recorded here — normal churn from leads created/removed since this doc was first written, not a discrepancy in the backfill itself.)
+
+`sportCode` was chosen as the first field to backfill because it's the rulebook's one non-negotiable field (§3.1) and the only one mechanically derivable from data already on every lead, via the existing tested `resolveSportAlias()` (`lib/lead-taxonomy.ts`) applied to the free-text `sport_or_sector`. Of the 2,723 leads scanned, 107 already had `sportCode` set (from the enrichment-loop pilot, CHANGELOG 2.4.114-2.4.119) and were skipped as idempotent no-ops; of the remaining 2,616, 2,317 resolved mechanically and were written with **0 apply failures**; 299 could not be resolved from stored free text (102 blank `sport_or_sector`, the rest values with no alias-table entry — e.g. "Entertainment", "Sports Media", "Multi-Sport High Performance" — see the script's own frequency-ranked output for the full list). Those 299 remain candidates for the evidence-based agent-research path (§5), not a second mechanical pass — a blank or off-vocabulary `sport_or_sector` free text is exactly the case the rulebook expects a human/agent judgment call to resolve, not a string transform.
+
+Every existing lead has `sport_or_sector` (free text, inconsistent — see the "Soccer"/"Football"/"Football (Soccer)" fragmentation documented in `docs/ARCHITECTURE.md`'s Near-Duplicate section) and `industry` (free text). Beyond the `sportCode` slice above, none of the leads have the remaining controlled `*Code` fields, `cityName`, `parentOrgName`, `classificationTags`, or `mergeKey` populated with anything beyond the server-derived defaults (`mergeKey` is always computed on write, even from a lead with only `sportCode` set — e.g. `unknown|football|unknown|unknown|unknown|US|unknown` — see `docs/ARCHITECTURE.md`). `country` (ISO alpha-2) is already populated for leads created after 2.4.98 and remains permanently blank for a real, counted set of leads created before it (see `docs/LESSONS_LEARNED.md`) — those pre-2.4.98 leads are lower-confidence candidates for `#country:` tag generation until `country` itself is separately backfilled or re-researched.
 
 Nothing in the app **requires** any lead to have taxonomy data — every existing feature (kanban, forecast, ticket-size estimation, near-duplicate matching, the merge engine) already tolerates its total absence, and will continue to for as long as the backfill takes. This is a quality/coverage improvement, not a blocking migration.
 
@@ -42,8 +46,10 @@ Nothing in the app **requires** any lead to have taxonomy data — every existin
 ### Phase 1 — Schema and tooling (shipped, 2.4.109)
 Controlled vocabularies, validation, server-derived `classificationTags`/`mergeKey`, near-duplicate `sportCode` preference, merge-engine taxonomy conflict handling, and the updated enrichment-agent prompt (`docs/LEAD_ENRICHMENT_GUIDE.md` §2.6/§5 step 7). This is the foundation every later phase writes through — no backfill work could safely start before this existed, since there would be nowhere valid to write a classification to.
 
-### Phase 2 — Sample-validated batch classification (proposed, not started)
+### Phase 2 — Sample-validated batch classification (`sportCode` sub-step shipped 2.4.121; every other field not started)
 The actual backfill, run in the same **dry-run → small sample → full batch** shape already proven twice in this session (the CSV-import path and the full-database duplicate-search path), because both times a step directly to "run it on everything" would have been the wrong call — the duplicate-search work specifically caught a real matching-criteria bug (§18 in `CHANGELOG.md`'s 2.4.107 entry) only because a real diagnostic run against production-scale data surfaced it before any destructive action was taken.
+
+**Status update (2.4.121):** the one field with a reliable mechanical source — `sportCode`, via `resolveSportAlias(sport_or_sector)` — has been backfilled for real, following exactly this dry-run → sample → full-batch sequence (`scripts/taxonomy-sportcode-backfill.ts`; results in §2 above). Every *other* identity field (`orgTypeCode`, `businessUnitCode`, `genderCode`, `cityName`, `parentOrgName`, `demographicCodes`, etc.) has no mechanical source and still requires the full evidence-based agent-research process below, at the per-lead cost proven in the 7-lead pilot loop (CHANGELOG 2.4.114-2.4.119, roughly 5 minutes/lead of agent research) — applying that to the remaining ~2,700 leads is a large, not-yet-scheduled undertaking, not a follow-up script.
 
 1. **Dry-run, 0 writes.** Run the classification agent (the same underlying research/reasoning capability as the enrichment prompt, but a distinct run mode — see §5 below) against every lead, but only *report* proposed classifications; write nothing. Produces a spreadsheet-shape summary: how many leads got a confident `sportCode`, how many resolved to `unknown`, how many the agent flagged as genuinely ambiguous (e.g. a name suggesting two sports) for human review before any write happens.
 2. **Sample, ~25-50 leads per brand, real writes.** Apply the dry-run's proposed classifications to a small, real sample (mixing high-confidence and edge-case leads deliberately, not just the easiest ones), then have a human (or a second, independent verification agent — see §6) spot-check the results against the source evidence. This is where a systematic error (a bad alias mapping, a misread evidence rule) gets caught while the blast radius is 50 leads, not 2,725 — exactly the lesson from the 2.4.106→2.4.107 correction earlier in this project's history.

@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.121
+
+### Added — `scripts/taxonomy-sportcode-backfill.ts` (issue #132, Phase 2 first mechanical sub-step)
+
+New dry-run/sample/apply script that backfills `sportCode` — the rulebook's one non-negotiable identity field (§3.1) and the only one mechanically derivable from data already stored on every lead, via the existing tested `resolveSportAlias(sport_or_sector)` (`lib/lead-taxonomy.ts`, unchanged). Deliberately deviates from this repo's other backfill scripts (`scripts/backfill-ticket-size.ts`, `scripts/backfill-title-normalization.ts`), which connect to MongoDB directly and are explicitly disclosed as unrunnable from this sandbox (no network path to MongoDB Atlas — confirmed via a real `MongoServerSelectionError`). This script instead reads/writes through the real deployed HTTPS API (`GET`/`PUT /api/leads`, `x-api-key` auth) specifically so it could be exercised and verified for real, matching the same path used throughout the enrichment loop and the issue #133 phone-corruption scan. Idempotent — only ever targets leads with no `sportCode` set, so a re-run after a partial apply skips everything already classified. Supports `--brand=`, `--sample=N`, and `--apply` (defaults to a reporting-only dry run).
+
+### Data operation — production `sportCode` backfill, both brands, dry-run → sample → full batch (2026-07-30, issue #132)
+
+Followed `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`'s §4 Phase 2 sequence exactly: (1) dry run against all 2,723 leads across both brands — 2,417 mechanically resolvable, 299 not (blank or off-vocabulary `sport_or_sector`), 7 already classified; (2) `--apply --sample=50` (100 leads total) — 0 failures, independently spot-checked via a fresh Python re-fetch against 15 leads (8 CogMap + 7 Seyu), all correct including correctly server-derived `mergeKey` values; (3) full-batch `--apply` across the remaining resolvable leads, both brands — **2,317 written, 0 failures**. Final state, independently re-verified via a second fresh API re-fetch (not just the script's own reported totals): CogMap 2,051/2,187 leads now carry `sportCode` (136 unresolved), Seyu 373/536 (163 unresolved) — `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §2's gap-analysis table updated with these real numbers. The 299 unresolved leads (102 blank `sport_or_sector`, the rest off-vocabulary values like "Entertainment", "Sports Media", "Multi-Sport High Performance") are not a second mechanical pass — they're candidates for the evidence-based agent-research path already proven in the 7-lead pilot loop (CHANGELOG 2.4.114-2.4.119). Every *other* taxonomy field, on every lead including the newly `sportCode`-classified ones, remains unclassified — issue #132 stays open with this scope explicitly recorded.
+
+### Testing
+Script-only change to production data via the existing, already-tested `resolveSportAlias()` and the existing, already-tested `PUT /api/leads/[id]` write path — no new application code, so no new unit tests were added; correctness was verified against real production data instead (dry-run counts cross-checked, sample spot-checked lead-by-lead, full-batch totals independently re-fetched and reconciled). Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit/integration/smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.120
 
 ### Fixed — `normalizePhone()` silently corrupted phone numbers carrying extension notation (issue #133)
