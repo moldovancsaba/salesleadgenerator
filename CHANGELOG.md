@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.123
+
+### Changed — enrichment loop, iterations 10-11 (issue #132), plus a real prompt fix (`demographicCodes` senior/masters ambiguity)
+
+Continued the same loop as 2.4.122 with two more real leads, one per brand.
+
+**Iteration 10 ("Slovenian Handball Federation," Seyu):** replaced a placeholder contact ("Unknown President" — a guessed title with no real name) with two verified named individuals (President Bor Rozman, Secretary General Miha Pantelič, with a direct email/phone for Pantelič), a street-level address, `country: SI`, and full taxonomy (`handball`/`federation`/`general`/`mixed`/`[youth, adult]`/`international`/`cityName: Ljubljana`) — `competitionLevelCode: international` correctly reflects the federation having organized/hosted EHF Euro 2022 Women's, the top of its evidenced span. `value_proposition` stayed correctly in Seyu's own sponsor-activation terminology throughout (no CogMap cross-contamination). Post-write verification: `mergeKey: unknown|handball|federation|general|mixed|SI|ljubljana`, ICE promoted to impact 6/confidence 8/ease 7 (two named contacts, one with full email+phone, address on file).
+
+**Iteration 11 ("Polk United FC," CogMap):** a deliberately thin/hard-to-research small UPSL Division 1 club — the agent confirmed it's real via the club's own site and independent news coverage of a 2024 state championship, found one on-record named contact (General Manager Andy Albrecht) and a second named individual with unconfirmed purchasing authority (team manager Tawanda Kaseke), and correctly left the stored `url` (a leftover CSV-import Google-search-query artifact) completely untouched, routing the real site to `notes` only — the Hard Rule held under a direct real-world test. **A real search-tool hallucination was caught and self-corrected**: WebSearch's synthesized summary initially asserted a fabricated name ("Timothy Albrecht is Admin") for the club; the agent caught this by independently reading the underlying source article rather than trusting the summary, and used the real, article-sourced name instead. Post-write: `mergeKey: unknown|football|club|general|mixed|US|winter-haven`.
+
+**Real prompt fix, not just a finding**: the Slovenian Handball Federation run surfaced that `demographicCodes` offers both `senior` and `masters` with no guidance distinguishing sports-industry "senior" (a top competitive tier — a senior national team, a club's senior squad) from the literal age-based veterans/masters demographic. `docs/LEAD_ENRICHMENT_GUIDE.md` §5 now has an explicit disambiguation paragraph for this, mirroring the existing `competitionLevelCode` disambiguation already in the prompt. This is a genuine prompt-wording fix (not a controlled-vocabulary/schema change like issue #135) — verified not to break `tests/lib/lead-taxonomy-doc-sync.test.ts`'s drift-detection parser (the new prose sits in its own paragraph, outside the parser's captured vocabulary-list span).
+
+Both payloads independently re-verified via a fresh API re-fetch before being logged here.
+
+### Testing
+Prompt/docs-only changes plus two real production writes via the existing, already-tested `PUT /api/leads/[id]` path. `tests/lib/lead-taxonomy-doc-sync.test.ts` re-run in isolation to confirm the new `demographicCodes` disambiguation paragraph doesn't shift the parser's captured span — still 7/7 passing. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit/integration/smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.122
 
 ### Changed — enrichment loop resumed (iterations 8-9, issue #132's remaining full-taxonomy scope, 2026-07-30)
