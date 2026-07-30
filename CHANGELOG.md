@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.128
+
+### Fixed — a real `sportCode` mechanical-backfill error, found and corrected (issue #132, iterations 32-35)
+
+The NFL lead had `sportCode: "football"` — this app's taxonomy code for *association* football (soccer), not American football (`american-football` is the distinct correct code). Root cause: the 2.4.121 mechanical `sportCode` backfill (`scripts/taxonomy-sportcode-backfill.ts`) resolved ambiguous free-text `sport_or_sector: "Football"` via `resolveSportAlias()` without US-context disambiguation, defaulting every bare "Football" to soccer's code. Caught and corrected this instance during the research loop; **not** a scan-and-fix-all-instances effort in this release — flagging as a class of risk worth a future targeted scan (any US pro/college football org that went through the mechanical backfill is a candidate for the same miscode) rather than assuming this was the only one.
+
+### Changed — enrichment loop, iterations 32-35 (issue #132)
+
+4 more real leads:
+
+- **NFL** (Seyu): the `sportCode` fix above, plus real named Commissioner (Roger Goodell) and the more commercially-relevant EVP/Chief Revenue Officer (Renie Anderson) found; `size` upgraded to `Enterprise` based on real evidence (~$24.1B 2025 league revenue).
+- **Sting Dallas ECNL** (CogMap, real name Sting Soccer Club's North Texas division): two real named contacts with cross-verified emails; a title discrepancy across sources kept correctly in `role`, not `title`.
+- **FC Seoul** (Seyu): real President of parent company GS Sports (Yeo Eun-ju) found; correctly declined to use an ambiguous shared K-League-office contact as `general_contact` rather than a low-confidence guess.
+- **Let's Play Soccer Utah** (CogMap): discovered this is actually three separate facilities under one national parent, not a single Salt Lake City location — flagged for human review whether to split into per-facility leads rather than silently deciding.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: 34 of ~2,723 leads fully processed.
+
+### Testing
+Prompt/docs-only changes plus real production writes via the existing, already-tested `PUT /api/leads/[id]` path. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit/integration/smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.127
 
 ### Changed — enrichment loop, iterations 28-31 (issue #132), precedents holding under repeated independent runs
