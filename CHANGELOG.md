@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.131
+
+### Changed — enrichment loop resumes after a session handoff, first batch (issue #132)
+
+Session handoff note: this batch was picked up cold in a fresh session/environment after the prior session's handoff (see docs/LEAD_TAXONOMY_MIGRATION_PLAN.md §9 and issue #132's history) — required re-provisioning `SLG_API_KEY`/`MONGODB_URI` for this environment (not carried over automatically between sessions) before any of this could run.
+
+4 more real leads:
+
+- **Austin FC Academy** (CogMap): confirmed via the club's own `/academy`, `/academy/staff/`, and `/academy/center-of-excellence/` pages — a genuine MLS NEXT (U13-U19) academy with in-house sports-science/performance-coaching staff and its own training facility (St. David's Performance Center). `businessUnitCode: "youth-academy"`, `competitionLevelCode: "elite"` (correct for a top-tier domestic youth platform). Two real named staff contacts found (no public email/LinkedIn for either).
+- **La Roca FC** (CogMap): stored `url` was literally a Google search URL, not the club's real site — found and flagged the real site (`https://larocafc.com/`) in `notes` for a human to update (an identity-field correction this loop cannot make directly, per the enrichment prompt's own rules). A large, well-established multi-region Utah club (150+ teams, 5 regions) already running its own "Sports Psychology / Mental Toughness" program — a strong existing-buyer-readiness signal for CogMap's product. 3 real named contacts (Chairman, Founder/Technical Director, Director of Operations with a working email) found via the club's board/staff pages.
+- **Fenerbahçe** (Seyu): football specifically operated through the publicly traded subsidiary Fenerbahçe Futbol A.Ş.; `businessUnitCode: "first-team"` (not `"general"`, correctly scoped to the football section of this multi-sport club per the recurring rule from #135/#136-adjacent findings). Real current club president (Aziz Yıldırım, elected 7 June 2026) found and replaced the prior "Unknown President" placeholder — flagged in `notes` that the presidency has changed twice in under a year, so this contact should be re-verified before outreach if the lead sits untouched.
+- **Melbourne Victory** (Seyu): corrected a fabricated-looking stored contact — no "President" role actually exists at this club; real governance is Chairman (John Dovaston, LinkedIn-verified) and Managing Director (Caroline Carnegie), both found via the club's own official season-welcome letter. Resolved the men's/women's scope ambiguity flagged when this lead was picked: confirmed the stored `value_proposition`'s AFC Champions League Two berth is earned via the A-League **Men's** team specifically (the women's side plays in a separate competition that doesn't feed AFC club competitions) — `genderCode: "men"` set accordingly, with a note flagging for a human whether Melbourne Victory Women should become its own tracked lead.
+
+All 4 payloads independently re-verified via a fresh API re-fetch (not trusting the agent's or the PUT response's self-report). Running total: **46 of ~2,723 leads fully processed.**
+
+### Testing
+Docs/prompt unchanged this batch; real production writes via the existing, already-tested `PUT /api/leads/[id]` path, each independently re-verified via a fresh `GET`. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (568/568) and integration (114/114 — `mongodb-memory-server`'s binary download was reachable this session, per the documented "re-verify each session" pattern in `docs/LESSONS_LEARNED.md` §5) and smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.130
 
 ### Changed — enrichment loop, iterations 40-43 (issue #132), a genuine taxonomy scope test
