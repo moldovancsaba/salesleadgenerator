@@ -90,6 +90,90 @@ Reuses the same infrastructure as ongoing enrichment (`docs/LEAD_ENRICHMENT_GUID
 - Post-batch near-duplicate scan comparison (§6) is reviewed before considering the brand's batch complete.
 - This document, `docs/ARCHITECTURE.md`, and `CHANGELOG.md` are updated with the actual outcome once Phase 2 runs — matching this project's own standing rule that a plan document is not itself a substitute for recording what actually shipped.
 
+## 9. Session handoff — resuming the agent-research classification loop (as of 2026-07-30, v2.4.130)
+
+Phase 2's evidence-based agent-research classification (§5 above) is **actually running**, not just planned — it started as a live pilot (CHANGELOG 2.4.114-2.4.119, 7 leads) and has continued as an ongoing autonomous loop through 2.4.130. This section is a literal resume-from-here runbook for whichever session (this one or a fresh one) picks it up next, since the process itself lives only in conversation history and scratch files that don't survive a session handoff.
+
+**Progress as of this checkpoint:** **42 of ~2,723 leads have full taxonomy** (`orgTypeCode` set, meaning the classification pass genuinely ran on them — either with real evidence or with an honest `orgTypeCode: "unknown"` after a real search found nothing). Separately, **2,424 of 2,723 leads have `sportCode` set** from the earlier mechanical backfill (§2/§4 above) — that's a much larger number but is *not* the same thing as full classification; those leads still need this same evidence-based pass for every other field. ~2,681 leads remain untouched by this loop. At the proven pace (~4 leads fully classified per ~15-20 minute batch cycle, run continuously), this is a genuinely large, multi-session undertaking — budget accordingly, don't assume it finishes in one sitting.
+
+### The exact working pattern (repeat this loop)
+
+1. **Pick a batch of 4 leads** (2 CogMap + 2 Seyu), prioritizing leads with the most missing signal (no `orgTypeCode`, active pipeline only — skip `WON`/`LOST`). This Python script (recreate it in scratch, it does not persist across sessions) does the picking:
+
+```python
+import os, random, urllib.request, json
+
+API_BASE = 'https://salesleadgenerator.vercel.app'
+API_KEY = os.environ['SLG_API_KEY']  # already set in this environment
+
+def fetch_all(brand):
+    leads = []
+    page = 1
+    while True:
+        req = urllib.request.Request(f"{API_BASE}/api/leads?brand={brand}&page={page}&limit=1000", headers={'x-api-key': API_KEY})
+        with urllib.request.urlopen(req) as r:
+            data = json.load(r)
+        leads.extend(data['leads'])
+        if not data.get('hasMore'):  # NEVER use len(batch) < limit -- a middle page can legitimately be short with hasMore still true
+            break
+        page += 1
+    return leads
+
+def score(l):
+    s = 0
+    if not l.get('contacts'):
+        s += 100
+    elif all(not c.get('name') or 'unknown' in c.get('name','').lower() for c in l.get('contacts', [])):
+        s += 60
+    if not l.get('country'):
+        s += 30
+    if l.get('qualityStatus') == 'DRAFT':
+        s += 10
+    s += (l.get('ice', {}).get('impact', 0) or 0)
+    return s
+
+for brand in ['cogmap', 'seyu']:
+    leads = fetch_all(brand)
+    candidates = [l for l in leads if not l.get('orgTypeCode') and l.get('kanbanColumn') not in ('WON', 'LOST')]
+    candidates.sort(key=score, reverse=True)
+    picks = random.sample(candidates[:40], 2)  # top-40 pool, randomized within it, for variety without always picking the literal top score
+    for p in picks:
+        print(json.dumps(p, indent=2))
+```
+
+2. **Freeze the exact current production prompt** from `docs/LEAD_ENRICHMENT_GUIDE.md` §5's fenced ` ```markdown ` block to a scratch file before each batch (the guide changes as real prompt bugs get fixed — always use the current version, never a stale copy). **Verify the frozen file's tail contains `## Output format` and the closing fence** — a truncated snapshot happened once (2.4.126) when a fence-line-number shift wasn't accounted for after an edit; both affected agents recovered by inferring the format from context, but don't rely on that.
+
+3. **Launch 4 parallel research agents** (Agent tool, `general-purpose`, `run_in_background: true`, all 4 in one message), each given: the frozen prompt text, the lead's full current JSON, brand context (CogMap = cognitive-assessment product; Seyu = fan-engagement/sponsor-activation product — never let one brand's terminology leak into the other's `value_proposition`), and instructions to do real web research and fetch `GET /api/lead-taxonomy` (no auth) for the live controlled vocabulary.
+
+4. **Validate every returned payload before applying — do not trust it blindly.** Checklist, all confirmed real, recurring issues this loop has actually caught:
+   - Valid taxonomy codes (real values from `lib/lead-taxonomy.ts` / the live `/api/lead-taxonomy` response).
+   - `isDecisionMaker` exact-spelling key (not `decision_maker`/`decisionMaker`).
+   - Never `entity_name`/`url` written directly — corrections go in `notes` only.
+   - Never server-computed fields (`classificationTags`, `mergeKey`, `seniorityTier`, `department`, `ticketSizeEstimate`, etc.).
+   - `ice.impact`/`confidence`/`ease` are 1-10 integers **and internally consistent with the agent's own stated reasoning** — a real, caught case: an agent's notes said "tier 4" but the submitted `ease` was 3; caught and corrected before applying.
+   - No `kanbanColumn` sent unless intentionally leaving `DISCOVERED`/`QUALIFIED` alone (sending `ice` on those two auto-reclassifies the card — expected, not a bug).
+   - `name`/`title` fields contain **only** the clean confirmed value — no inline sourcing caveats or alternate-title notes (those belong in `role`/`notes`); this rule was added directly to the prompt (2.4.129) after a real violation.
+   - **`businessUnitCode: "general"` vs `"first-team"`/`"youth-academy"`/etc.**: a lead representing one sport-specific unit of a multi-sport parent club must NOT default to `general` just because the parent is multi-sport — check the lead's own `sport_or_sector`/`value_proposition` scope. This exact mistake recurred twice (Beşiktaş, Persepolis) before being written into the prompt explicitly (2.4.129).
+   - **`competitionLevelCode: "elite"` vs `"professional"`**: `elite` is reserved for top-tier domestic *youth* platforms (MLS NEXT, ECNL, Girls Academy); a senior/first-team squad in a top-flight professional league (Süper Lig, J1 League, Saudi Pro League, NFL, NBA, ...) is `professional`. This was a real, reproduced miscode before being fixed directly in the prompt (2.4.125).
+   - For a lead where research genuinely finds no verifiable identity (multiple similarly-named orgs, no confirmable match): apply with `orgTypeCode: "unknown"` **explicitly set** (not omitted) plus honest `notes` — this marks the lead as processed so future batches don't re-pick it, while still respecting the rulebook's "never guess" rule.
+   - Watch for `sportCode`/`sport_or_sector` mismatches surviving from the mechanical backfill (e.g. a US-context "Football" org mechanically coded as soccer's `football` instead of `american-football` — a real, confirmed, NOT-fully-scanned-for-recurrence bug, see CHANGELOG 2.4.128). Correct these when spotted; a full targeted scan for other instances has not been done.
+   - Watch for genuinely out-of-taxonomy leads (Seyu's pipeline includes at least one non-sport entertainment property, "Tomorrowland" — a music festival). Use `sportCode: "not-applicable"` and flag the scope question in `notes`; don't force a sports-taxonomy fit and don't decide the underlying business-scope question yourself (see issue reference below).
+
+5. **Apply via real `PUT /api/leads/{id}?brand={brand}`** with header `x-api-key: $SLG_API_KEY`, `Content-Type: application/json`, body = the validated (and if needed, corrected) payload.
+
+6. **Independently re-fetch and verify every write** — a fresh `GET`, not trusting the agent's or the PUT response's self-report. Print the key fields (`orgTypeCode`, `businessUnitCode`, `genderCode`, `competitionLevelCode`, `cityName`, `mergeKey`, `qualityStatus`, `ice`, `contacts`) and eyeball them against what was intended.
+
+7. **Every ~4 leads (one batch), ship a checkpoint**: write a CHANGELOG entry (what was found/fixed, not just what was written), bump `package.json` + every doc's `**Version:**` stamp by one patch version, run the full quality gate (`npx tsc --noEmit`, `npm run lint`, `npx vitest run`, `npm run test:integration`, `npm run test:smoke`, `npm run audit:gds-style`, `npx next build --webpack` — all clean, per CLAUDE.md Rule 1), commit, push to `claude/knowledge-update-44cuix` (standing authorization, no need to ask). **Never push to `main`** without a fresh, explicit "push to main" instruction for that specific work.
+
+8. **Every ~20-30 leads, post a progress comment on GitHub issue #132** with the running total and any new findings/issues filed — issue #132 is the durable, cross-session source of truth for exact progress; read its comment history first when resuming, don't trust this document's own snapshot numbers as more current than the issue.
+
+### Open questions this loop has surfaced but explicitly not resolved (per CLAUDE.md Rule 5 — business-taxonomy structure needs owner judgment, not an agent's unilateral guess)
+
+- **Issue #135**: no `orgTypeCode` value fits a platform/tech-brand lead (e.g. "Strava"). Needs an owner decision: extend the vocabulary, accept `unknown` as the permanent answer, or something else.
+- **Issue #136**: a recurring "is this a tournament or the federation that runs it" ambiguity for major global sports properties with no clean separate legal identity — 5 leads so far have landed on 3 different `orgTypeCode` answers (`tournament` ×3, `federation` ×1, `competition-organiser` ×2) via genuinely defensible but inconsistent reasoning each time.
+- **Not yet filed as an issue, but flagged in notes on the Tomorrowland lead (2.4.130)**: whether non-sport entertainment properties (music festivals, etc.) that Seyu's own pipeline apparently includes belong in this sports-industry taxonomy's scope at all, or need separate handling. Consider filing this as its own issue if a second non-sport lead turns up.
+- **Not yet scanned**: the NFL `sportCode` miscode (2.4.128, `football` → `american-football`) was a real bug in the mechanical backfill's alias resolution for US-context sports terms. Only that one instance was fixed; no full database scan for similar miscodes (any other US "Football" org, or comparable ambiguous-alias sports) has been run.
+
 ---
 
-See also: `docs/ARCHITECTURE.md`'s "Controlled Sports-Industry Taxonomy" section (the schema this plan backfills), `docs/LEAD_ENRICHMENT_GUIDE.md` (the classification/enrichment prompt this plan's execution reuses), `docs/LESSONS_LEARNED.md` (the general pattern of dry-run-first validation this plan follows, and the real incidents — e.g. the 2.4.106→2.4.107 matching-criteria correction — that motivate it), `CHANGELOG.md` (2.4.107/2.4.108 entries, the most directly analogous prior large-scale data operation in this repo's history).
+See also: `docs/ARCHITECTURE.md`'s "Controlled Sports-Industry Taxonomy" section (the schema this plan backfills), `docs/LEAD_ENRICHMENT_GUIDE.md` (the classification/enrichment prompt this plan's execution reuses — §5's fenced block is the literal text to give each research agent), `docs/LESSONS_LEARNED.md` (the general pattern of dry-run-first validation this plan follows, and the real incidents — e.g. the 2.4.106→2.4.107 matching-criteria correction — that motivate it), `CHANGELOG.md` (2.4.107/2.4.108 entries, the most directly analogous prior large-scale data operation in this repo's history; 2.4.121 onward for this loop's own real-time history), GitHub issue #132 (the tracking issue with the fullest real-time progress history), issues #135/#136 (open taxonomy-vocabulary questions this loop surfaced but did not resolve).
