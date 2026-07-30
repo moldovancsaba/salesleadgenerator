@@ -1,6 +1,6 @@
 # Lead Taxonomy Migration Plan — Rulebook v1.0 Backfill
 
-**Version:** 2.4.132
+**Version:** 2.4.133
 
 **Status:** Plan / design document, now with one completed execution slice. Phase 2's mechanical `sportCode` sub-step (see §4) has actually run against production — the rest of Phase 2 (every other identity field, and the 299 leads `sportCode` couldn't mechanically resolve) is still unstarted. It describes how to convert the app's existing leads into the controlled taxonomy schema shipped in 2.4.109 (`lib/lead-taxonomy.ts`, `lib/lead-classification.ts`, the new `Lead` fields documented in `docs/ARCHITECTURE.md`'s "Controlled Sports-Industry Taxonomy" section).
 
@@ -94,9 +94,11 @@ Reuses the same infrastructure as ongoing enrichment (`docs/LEAD_ENRICHMENT_GUID
 
 Phase 2's evidence-based agent-research classification (§5 above) is **actually running**, not just planned — it started as a live pilot (CHANGELOG 2.4.114-2.4.119, 7 leads) and has continued as an ongoing autonomous loop through 2.4.130. This section is a literal resume-from-here runbook for whichever session (this one or a fresh one) picks it up next, since the process itself lives only in conversation history and scratch files that don't survive a session handoff.
 
-**Progress as of this checkpoint:** **50 of ~2,723 leads have full taxonomy** (`orgTypeCode` set, meaning the classification pass genuinely ran on them — either with real evidence or with an honest `orgTypeCode: "unknown"` after a real search found nothing). Separately, **2,424 of 2,723 leads have `sportCode` set** from the earlier mechanical backfill (§2/§4 above) — that's a much larger number but is *not* the same thing as full classification; those leads still need this same evidence-based pass for every other field. ~2,681 leads remain untouched by this loop. At the proven pace (~4 leads fully classified per ~15-20 minute batch cycle, run continuously), this is a genuinely large, multi-session undertaking — budget accordingly, don't assume it finishes in one sitting.
+**Progress as of this checkpoint:** **54 of ~2,723 leads have full taxonomy** (`orgTypeCode` set, meaning the classification pass genuinely ran on them — either with real evidence or with an honest `orgTypeCode: "unknown"` after a real search found nothing). Separately, **2,424 of 2,723 leads have `sportCode` set** from the earlier mechanical backfill (§2/§4 above) — that's a much larger number but is *not* the same thing as full classification; those leads still need this same evidence-based pass for every other field. ~2,681 leads remain untouched by this loop. At the proven pace (~4 leads fully classified per ~15-20 minute batch cycle, run continuously), this is a genuinely large, multi-session undertaking — budget accordingly, don't assume it finishes in one sitting.
 
 ### The exact working pattern (repeat this loop)
+
+0. **Before spending research effort on a pick, check for pre-existing un-merged duplicate records of the same real-world org.** Confirmed real (owner QA on the 2.4.131 batch, 2026-07-30): this database has multiple un-merged duplicate `entity_name` records that near-duplicate detection never caught — e.g. 4 separate "Austin FC Academy" CogMap records from different CSV-import dates, 2 "Melbourne Victory" Seyu records, and 2 "Fenerbahçe"/"Fenerbahce" Seyu records where an accent-spelling variant is exactly why exact-match dedup missed it. Classifying one copy while its sibling(s) sit fully unenriched wastes a research pass and risks two independent, possibly-inconsistent classifications of the same org. Before finalizing a batch pick, grep the candidate pool for `entity_name` near-duplicates (case/accent/spacing-insensitive) and skip or flag any hit rather than researching it blind. **Do not try to merge these yourself mid-loop** — that's exactly what `/admin/duplicates` exists for; flag found duplicate clusters in the batch's CHANGELOG entry for a human to review/merge there.
 
 1. **Pick a batch of 4 leads** (2 CogMap + 2 Seyu), prioritizing leads with the most missing signal (no `orgTypeCode`, active pipeline only — skip `WON`/`LOST`). This Python script (recreate it in scratch, it does not persist across sessions) does the picking:
 
@@ -147,6 +149,9 @@ for brand in ['cogmap', 'seyu']:
 
 4. **Validate every returned payload before applying — do not trust it blindly.** Checklist, all confirmed real, recurring issues this loop has actually caught:
    - Valid taxonomy codes (real values from `lib/lead-taxonomy.ts` / the live `/api/lead-taxonomy` response).
+   - `pro_for_organization`/`con_for_organization` must be JSON arrays of strings, never a plain string — `lib/validate-lead.ts`'s `PRO_FIELD`/`CON_FIELD` checks reject anything else; a real agent output returned these as plain strings once (caught before applying, 2.4.132).
+   - **`country` should be set whenever it's trivially derivable from the lead's own `address` field** (e.g. an address ending "...Istanbul, Turkey" or "...Melbourne, Australia") even if the research pass didn't touch it directly — the enrichment prompt calls this out as a priority, low-risk fill-in (§2.2/§5 step 2). A real, caught gap: two applied leads (Fenerbahçe, Melbourne Victory, batch 2.4.131) had derivable countries left null and needed a follow-up `PUT` to fix, per owner QA.
+   - HTML-entity artifacts (`&amp;` for `&`, etc.) sometimes appear in agent output text fields — strip these before applying, they should never be written literally to the database.
    - `isDecisionMaker` exact-spelling key (not `decision_maker`/`decisionMaker`).
    - Never `entity_name`/`url` written directly — corrections go in `notes` only.
    - Never server-computed fields (`classificationTags`, `mergeKey`, `seniorityTier`, `department`, `ticketSizeEstimate`, etc.).
@@ -165,7 +170,7 @@ for brand in ['cogmap', 'seyu']:
 
 7. **Every ~4 leads (one batch), ship a checkpoint**: write a CHANGELOG entry (what was found/fixed, not just what was written), bump `package.json` + every doc's `**Version:**` stamp by one patch version, run the full quality gate (`npx tsc --noEmit`, `npm run lint`, `npx vitest run`, `npm run test:integration`, `npm run test:smoke`, `npm run audit:gds-style`, `npx next build --webpack` — all clean, per CLAUDE.md Rule 1), commit, push to `claude/knowledge-update-44cuix` (standing authorization, no need to ask). **Never push to `main`** without a fresh, explicit "push to main" instruction for that specific work.
 
-8. **Every ~20-30 leads, post a progress comment on GitHub issue #132** with the running total and any new findings/issues filed — issue #132 is the durable, cross-session source of truth for exact progress; read its comment history first when resuming, don't trust this document's own snapshot numbers as more current than the issue.
+8. **Every ~20-30 leads, post a progress comment on GitHub issue #132** with the running total and any new findings/issues filed — issue #132 is the durable, cross-session source of truth for exact progress; read its comment history first when resuming, don't trust this document's own snapshot numbers as more current than the issue. **Use a real comment-adding call (`add_issue_comment` or equivalent), never `issue_write` with `method: update`** — the latter overwrites the issue's own body instead of appending, silently destroying the running log and leaving only the latest snapshot (this happened at least once before 2.4.131; caught via owner QA, not caught internally). `CHANGELOG.md` + git history remain the accurate record regardless of which method was used for any given past update.
 
 ### Open questions this loop has surfaced but explicitly not resolved (per CLAUDE.md Rule 5 — business-taxonomy structure needs owner judgment, not an agent's unilateral guess)
 

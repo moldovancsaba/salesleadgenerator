@@ -1,5 +1,33 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.133
+
+### Fixed — owner QA on the 2.4.131 batch: 2 missing `country` fields
+
+Real, quick follow-up fixes: Fenerbahçe and Melbourne Victory (both Seyu, applied in 2.4.131) had `country: null` despite it being trivially derivable from their already-set `address` field ("...Istanbul, Turkey" / "...Melbourne, Australia") — the enrichment prompt calls this out as a priority, low-risk fill-in (§2.2/§5 step 2 of `docs/LEAD_ENRICHMENT_GUIDE.md`) that got missed in that batch. Fixed with a targeted `PUT` setting `country: "TR"`/`country: "AU"` respectively, independently re-verified via a fresh `GET` (both `mergeKey`s recomputed correctly to include the country segment).
+
+### Found — real, pre-existing un-merged duplicate lead records (owner-reported, not something this loop should fix mid-run)
+
+Owner QA also surfaced multiple un-merged duplicate `entity_name` records that near-duplicate detection never caught: 4 separate "Austin FC Academy" CogMap records from different CSV-import dates (one of which was classified in 2.4.131), 2 "Melbourne Victory" Seyu records (one classified), and 2 "Fenerbahçe"/"Fenerbahce" Seyu records with an accent-spelling variant — likely exactly why exact-match dedup missed that last pair. These are real data-quality issues but are explicitly out of this loop's scope to resolve unilaterally — `/admin/duplicates` exists precisely for human-reviewed merge decisions, and flagging here rather than merging mid-loop. **Process change**: `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9 now includes a new step 0 — before finalizing a batch pick, check the candidate pool for `entity_name` near-duplicates so future batches don't burn a research pass reclassifying one copy while a sibling sits untouched.
+
+### Corrected — issue #132 comment methodology
+
+Owner flagged that at least one prior progress update on issue #132 used `issue_write` with `method: update`, which overwrites the issue's own body rather than adding a comment — silently destroying the running log, leaving only the latest snapshot instead of a durable trail. `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9 step 8 now explicitly calls for a real comment-adding call going forward. `CHANGELOG.md` and git history remain the accurate record regardless of which method was used for any given past update.
+
+### Changed — enrichment loop, batch 3 (issue #132)
+
+4 more real leads:
+
+- **McLean Youth Soccer** (CogMap): confirmed as an active 2025-26 MLS NEXT Academy Division member (2 boys tiers, U13-U19) that *also* runs a girls elite pathway under "VA Union ECNL" — corrected the implicit boys-only framing with `genderCode: "mixed"`. Found and verified a real, reachable Executive Director (with email, LinkedIn) and a newly-appointed Technical Director (a former US Men's National Team player).
+- **Soccer Central San Antonio** (CogMap): the org's own site is currently down for maintenance (a real, verified WordPress holding page) — worked around it by cross-referencing third-party sources (US Sports Camps, ZoomInfo, a Prezi doc) to find 2 real named leaders, while correctly flagging a title-source conflict (COO vs. COO & President) in `notes` rather than guessing which is current.
+- **Kashima Antlers** (Seyu): fixed a real pre-existing data inconsistency in the stored placeholder contact (`role: "decision_maker"` but `isDecisionMaker: false`) by replacing it with 2 verified current officers from the club's own April 2026 AGM notice. Correctly identified majority owner Mercari, Inc. (61.6% stake since 2019) as `parentOrgName`, and used `competitionLevelCode: "professional"` (not `"elite"`) for this senior J1 League squad, per the established rule.
+- **TikTok** (Seyu): the **second** platform/tech-brand lead to hit issue #135's open taxonomy gap (after Strava) — the agent explicitly checked issue #135 for precedent and applied the same `orgTypeCode: "unknown"` treatment for consistency, correctly flagging this as another data point rather than resolving the question unilaterally. Also surfaced and documented a real, nuanced ownership structure (ByteDance's global ownership vs. a 2026 US joint-venture restructuring with Oracle/MGX/Silver Lake) rather than oversimplifying it.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **54 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (568/568) + integration (114/114) + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.132
 
 ### Changed — enrichment loop, batch 2 (issue #132)
