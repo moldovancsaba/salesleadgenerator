@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.126
+
+### Changed — enrichment loop, iterations 24-27 (issue #132), the two prior prompt fixes verified working
+
+4 more real leads, one per brand pair, confirming both 2.4.125 fixes hold under fresh runs:
+
+- **Al Ahli Saudi** (Seyu): correctly applied `businessUnitCode: first-team` and `competitionLevelCode: professional` from the start, no correction needed — matching the Al Ittihad/Beşiktaş precedent without being told to. Also caught a real, current club-leadership transition (interim Chairman appointed 2026-07-29, days before this research pass) and a stale/dead `url` (the stored domain doesn't resolve), both correctly routed to `notes`.
+- **Billie Jean King Cup** (Seyu): confirmed Billie Jean King Cup Limited is a genuine separate legal joint venture (ITF 51% / TWG Global 49%) with its own CEO — classified `orgTypeCode: competition-organiser`, a *third* distinct answer to the same "event vs. governing body" question this session (after `tournament` ×2 and `federation` ×1). Filed **issue #136** to track this as a real, recurring controlled-vocabulary ambiguity needing an owner decision, per CLAUDE.md Rule 5 — not a prompt-wording fix.
+- **ISC GUNNERS** (CogMap): resolved a genuinely confusing multi-brand identity (Issaquah Soccer Club / "ISC Gunners" / "LFC IA Washington," a Liverpool FC academy licensing partnership) and correctly declined to name an Executive Director after finding three conflicting names across three sources with no way to determine which is current.
+- **Springfield SYC** (CogMap): resolved the real legal name (Springfield/South County Youth Club), correctly avoided inventing a spurious parent-org relationship for what's actually the same legal nonprofit, and correctly scoped `businessUnitCode: youth-academy` (not the whole multi-sport nonprofit) since this specific lead targets the soccer academy pathway.
+
+**A real process bug in the loop itself, caught by two independent agent runs**: the loop's own frozen prompt snapshot file was truncated mid-sentence (missing the "Output Format" section) after an earlier edit shifted the fenced block's closing line without the snapshot being re-taken at the new boundary. Both affected agents correctly inferred the expected output shape from context rather than failing, so no bad data resulted — but the snapshot process itself is now corrected (verify the re-frozen file's tail includes the closing fence and Output Format section before launching agents on it).
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: 26 of ~2,723 leads fully processed.
+
+### Testing
+Prompt/docs-only changes plus real production writes via the existing, already-tested `PUT /api/leads/[id]` path. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit/integration/smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.125
 
 ### Fixed — two real prompt bugs, both caught mid-loop by validation before they shipped bad data (issue #132, iterations 20-23)
