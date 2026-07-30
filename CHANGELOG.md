@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.134
+
+### Found — real duplicate lead records at scale (filed as issue #137)
+
+While applying the new near-duplicate batch-picking filter (§9 step 0 added in 2.4.133), a full scan of both brands' entire lead collections found the duplicate-record problem is far larger than the 3 pairs spot-checked by owner QA on the 2.4.131 batch: **108 duplicate-name groups (233 records, 10.7%) in CogMap**, and **112 duplicate-name groups (235 records, 43.8%) in Seyu**. Verified these are real duplicates, not a normalization artifact (checked for empty-string false-positive collisions — found zero); confirmed examples include exact-name repeats (`World Rugby` ×3, `Sphere Entertainment` ×3, `DAZN` ×2) and case/accent-only variants (`La Liga`/`LaLiga`/`LALIGA` ×4) that plausibly explain why existing near-duplicate matching missed them. Filed as issue #137 (report-only, scoped to human review via `/admin/duplicates` — not something this loop should merge itself).
+
+### Changed — enrichment loop, batch 4 (issue #132)
+
+4 more real leads:
+
+- **Virginia Revolution SC** (CogMap): confirmed active MLS NEXT Academy Division member (Boys Tier 2, U13-U19) based at a dedicated Leesburg, VA facility; found real, verifiable leadership (President Niko Eckart, Principal Owner Jim Miller) via an April 2025 merger/partnership announcement with Loudoun United FC (USL Championship) — correctly captured `parentOrgName`/`relationshipToParent: "partner"` for the new institutional relationship rather than treating it as full ownership.
+- **Polo Fields / Austin Soccer Foundation** (CogMap): a genuinely ambiguous conflated-entity name — confirmed "Austin Soccer Foundation" as a real, verifiable all-volunteer 501(c)(3), but could not verify "Polo Fields" as any real distinct soccer facility in Austin despite multiple targeted searches. Correctly declined to force a connection between the two names, flagged the likely record-conflation for human review (possible CSV-row split), and honestly revised `ice` sharply downward (6/7/1 → 3/4/2) given the real finding that an all-volunteer, near-zero-overhead nonprofit is a poor fit for the paid facility-license framing this lead was originally scored against.
+- **Kashima Antlers correction carried forward from batch 3, Slovenian Football Federation** (Seyu): unambiguous federation identity — found and applied a real, well-sourced correction to the stored `address`/`cityName` (NZS's actual headquarters moved from Ljubljana to Kranj in 2016, confirmed via business-registry/LEI data), plus the current federation president (re-elected unopposed, 2024).
+- **Marvel Entertainment** (Seyu): the **second** non-sport entertainment property found in Seyu's pipeline (after Tomorrowland, 2.4.130) — correctly used `not-applicable` across the sport-specific fields, confirmed The Walt Disney Company as parent owner, and correctly declined to guess a successor for Marvel Entertainment's own recently-vacated President role (a real, verified May 2026 leadership restructuring) rather than fabricate a name.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. One agent (Virginia Revolution SC) nested a `notes` sub-field inside individual `contacts[]` entries — not part of the `Contact` schema (confirmed against `app/types.ts`/`lib/contacts.ts`'s `normalizeContact()`, which whitelists known fields and would have silently dropped it) — folded into the top-level `notes` field instead of losing that information. Running total: **58 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (568/568) + integration (114/114) + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.133
 
 ### Fixed — owner QA on the 2.4.131 batch: 2 missing `country` fields
