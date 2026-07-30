@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.130
+
+### Changed — enrichment loop, iterations 40-43 (issue #132), a genuine taxonomy scope test
+
+4 more real leads:
+
+- **Sparta United Soccer Club** (CogMap): two real named contacts with email+phone found via the club's own staff directory; correctly left `estimated_participants` unchanged after confirming no real figure is publicly published, rather than guessing.
+- **Regional Athletic Complex** (CogMap, Salt Lake City municipal facility): correctly re-scoped the buyer persona from "private facility owner" to "public-sector program manager, likely routed through city procurement" after confirming city ownership — a real, useful sales-motion correction the original CSV import got wrong. **A 5th instance this session of a caught search-tool hallucination**: WebSearch invented a "Wyndham Harman, Parks District Supervisor"; the agent verified against the facility's raw official contact page and found the real name (Trevis Andersen) instead.
+- **Davis Cup** (Seyu): confirmed it's organized directly by the ITF (unlike the Billie Jean King Cup's separate commercial joint venture) — real Chief Executive Ross Hutchins found (correctly distinguished from ITF's elected but less operationally-relevant President); `businessUnitCode: "competition"` used, a more precise fit than the generic `general` other tournament leads have gotten. A useful additional data point for issue #136's ongoing pattern (now 5 leads: `tournament` ×3, `federation` ×1, `competition-organiser` ×2).
+- **Tomorrowland** (Seyu): a genuine taxonomy scope test — this is a music festival, not a sports property. Correctly used the controlled vocabulary's `not-applicable` value for `sportCode`/`genderCode`/`competitionLevelCode` rather than forcing a sports fit, and explicitly flagged in `notes` (without deciding) the real business question of whether non-sport entertainment properties like this belong in the sports-industry taxonomy's scope at all. Real named CEO and Head of Partnerships found; `size` upgraded to `Enterprise` based on real evidence (~€244M 2024 revenue).
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: 42 of ~2,723 leads fully processed.
+
+### Testing
+Prompt/docs-only changes plus real production writes via the existing, already-tested `PUT /api/leads/[id]` path. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit/integration/smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.129
 
 ### Fixed — a real, recurring `businessUnitCode` mistake, reinforced directly in the prompt (issue #132, iterations 36-39)
