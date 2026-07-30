@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.124
+
+### Changed — enrichment loop, iterations 12-19 (issue #132), autonomous dynamic-loop session
+
+Continued the same proven per-lead loop under a self-pacing `/loop` session (owner: "Keep it loop until it finishes"), processing 8 more real leads across both brands:
+
+- **Intermountain Soccer** (CogMap): genuine "insufficient evidence" case — several similarly-named Utah orgs exist and none could be confirmed as this lead's real identity. Correctly left un-guessed; applied with `orgTypeCode: "unknown"` (explicit, not omitted) plus honest notes, so this lead counts as processed and isn't re-picked by future iterations.
+- **Houston Dynamo Academy** (CogMap): real Academy GM (Bryan Scales) found; correctly identified as a `youth-academy` business unit of parent Houston Dynamo FC; caught and flagged (notes only, not `entity_name`) that the stored name "Houston Dynamo Youth Programs" doesn't match the real org's name.
+- **Urawa Red Diamonds** (Seyu): real new Club President (Minoru Shimizu, took office July 2026) replacing a placeholder; `competitionLevelCode: professional` correctly distinguished from `elite` (reserved for top domestic *youth* platforms, not senior pro leagues).
+- **Al Ittihad** (Seyu): real Chairman (Fahd bin Hamza Sindi) confirmed; a real search-tool hallucination ("Paul O'Callaghan" as commercial director) was caught and rejected after direct source verification — third occurrence of this exact failure mode across the loop, still handled correctly every time.
+- **EW SURF SC** (CogMap): resolved a genuinely confusing identity (legal name "Eastern Washington Surf Sc," public brand "Washington East Surf SC") via IRS Form 990 filings cross-referenced against the club's own current staff page — caught a real staleness trap (a 2020 press quote's "Executive Director" no longer holds that title per the FY2025 filing).
+- **Richmond Strikers** (CogMap): discovered the club merged into a new entity, "Richmond United," in Jan 2025 — correctly left `entity_name`/`url`/`sportCode` untouched despite the identity shift and flagged everything for human review rather than guessing.
+- **ICC Cricket World Cup** (Seyu): real Chair (Jay Shah) and CEO (Sanjog Gupta) found; a genuine `orgTypeCode` ambiguity (tournament vs. federation — the event has no separate legal identity from the ICC) was explicitly flagged in notes for human review rather than silently resolved.
+- **Commonwealth Games** (Seyu): real President (Dr Donald Rukare) and CEO (Katie Sadleir) found; caught a real, very recent (19 Jan 2026) legal rename to "Commonwealth Sport" via a UK Companies House filing, correctly routed to `notes`/`canonicalLeadName` rather than `entity_name`.
+
+**Observation, not a fix**: the ICC and Commonwealth Games leads are structurally similar (an entity_name matching a flagship event with no separate legal existence from its governing federation), yet were independently classified `orgTypeCode: tournament` vs `federation` respectively — both defensible, both reasoned in notes, but a mild real-world inconsistency worth revisiting if this shape recurs. Not treated as a prompt bug this round since each agent's specific reasoning held up under review.
+
+All 8 payloads independently re-verified via a fresh API re-fetch (not just each agent's self-report) before being logged here.
+
+### Testing
+Prompt/docs-only changes plus real production writes via the existing, already-tested `PUT /api/leads/[id]` path. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit/integration/smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.123
 
 ### Changed — enrichment loop, iterations 10-11 (issue #132), plus a real prompt fix (`demographicCodes` senior/masters ambiguity)
