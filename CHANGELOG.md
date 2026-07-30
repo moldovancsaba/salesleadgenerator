@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.125
+
+### Fixed — two real prompt bugs, both caught mid-loop by validation before they shipped bad data (issue #132, iterations 20-23)
+
+**`name`/`title` field pollution**: one run embedded a sourcing caveat directly into a contact's `name` and `title` (e.g. `"title": "GM (also seen as Interim GM elsewhere)"`) rather than into `role`/`notes`. Caught before applying — `title` in particular drives the server's auto-derived `seniorityTier`/`department` on every write, so polluting it isn't just a display nit, it degrades that derivation. `docs/LEAD_ENRICHMENT_GUIDE.md` §5 now has an explicit rule: `name`/`title` carry only the clean confirmed value, caveats go in `role`/`notes`.
+
+**`competitionLevelCode` `elite` vs `professional`, a real bug in the prompt's own wording, not just a misread**: the existing disambiguation text listed "a national league's own top division" as an example of `elite` in the same breath as youth platforms (MLS NEXT, Girls Academy, ECNL) — genuinely ambiguous, and it produced a real, reproduced miscode: a senior professional club (Beşiktaş, Süper Lig) was coded `elite` by one run, while two earlier same-shape leads this session (Urawa Red Diamonds/J1 League, Al Ittihad/Saudi Pro League) were correctly coded `professional`. Fixed directly in the prompt text: `elite` is now explicitly scoped to top-tier domestic *youth* pathways only; a senior/first-team squad in a top-flight professional league is always `professional`.
+
+### Changed — enrichment loop, iterations 20-23 (issue #132), autonomous dynamic-loop session continued
+
+4 more real leads, one per corrected finding above plus two clean runs:
+
+- **Philadelphia Union Academy** (CogMap): real Academy Director (Paul Killian) found; correctly distinguished from his predecessor (now the club's Sporting Director) rather than confusing the two; correctly declined an unverifiable third-party contact/phone rather than fabricating.
+- **Dulles SportsPlex** (CogMap): the `name`/`title` pollution case above — corrected before applying. Also a good `orgTypeCode` fit test: `sports-complex` used instead of forcing `club` onto a facility, and `sportCode: multi-sport` correctly used for a venue that genuinely runs soccer, basketball, baseball, lacrosse, volleyball, and flag football as separate programs (contrast with the Beşiktaş correction below, where the same `multi-sport` reasoning was wrongly applied to a lead that isn't sport-agnostic).
+- **Rugby World Cup** (Seyu): independently verified Rugby World Cup Limited is a genuine separate legal subsidiary of World Rugby (not just a brand name) before landing on `orgTypeCode: tournament` — a stronger evidentiary basis than the earlier, more ambiguous ICC Cricket World Cup call.
+- **Beşiktaş** (Seyu): the `competitionLevelCode` bug above, plus a related correction — the agent's proposed `businessUnitCode: general` + `sportCode: multi-sport` contradicted the lead's own football/Süper-Lig-specific `value_proposition`; corrected to `businessUnitCode: first-team` (sportCode left as the already-correct `football`), matching the established Al Ittihad precedent for the identical lead shape (a multi-sport club's football-specific lead).
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: 22 of ~2,723 leads fully processed.
+
+### Testing
+`tests/lib/lead-taxonomy-doc-sync.test.ts` re-run in isolation after both prompt edits — still 7/7 passing (new prose sits outside the parser's captured vocabulary-list spans). Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit/integration/smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.124
 
 ### Changed — enrichment loop, iterations 12-19 (issue #132), autonomous dynamic-loop session

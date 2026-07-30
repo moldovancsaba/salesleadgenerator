@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.124
+**Version:** 2.4.125
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -273,6 +273,16 @@ has — do not attempt to fill in fields that are already fresh and correct:
    variant spelling (`decision_maker`, `decisionMaker`, etc.); it will be
    silently ignored server-side, not an error.
 
+   **`name` and `title` must contain ONLY the clean, confirmed value —
+   never append a sourcing caveat, confidence qualifier, or alternate
+   spelling inline** (e.g. `"name": "Jane Doe (site lists as \"J. Doe\")"`
+   or `"title": "GM (also seen as Interim GM elsewhere)"` are both wrong).
+   `title` in particular drives the server's auto-derived
+   `seniorityTier`/`department` on every write — polluting it with
+   parenthetical text degrades that derivation, not just the display. Put
+   every caveat, alternate title, or source-disagreement note in `role`
+   or `notes` instead, where it belongs and does no harm.
+
    **A stored contact whose `name` is a generic placeholder (e.g. "Acme
    Corp Contact", the org name plus the literal word "Contact") is not a
    real, named individual, even if its `email` is a genuine, MX-verified
@@ -390,11 +400,24 @@ has — do not attempt to fill in fields that are already fresh and correct:
        `international` are for genuinely national-team/international
        representative competition (a country's senior/youth national
        team, continental club competitions) — a club or academy in a
-       top domestic youth platform (MLS NEXT, Girls Academy, ECNL, a
-       national league's own top division) is `elite`, even though that
-       platform itself is nationally organized. The distinction is
-       WHO is competing (a club/academy vs. a representative national
-       side), not how the competition is scoped geographically.
+       top domestic YOUTH platform (MLS NEXT, Girls Academy, ECNL, or
+       an equivalent country's own top domestic YOUTH league) is
+       `elite`, even though that platform itself is nationally
+       organized. The distinction is WHO is competing (a club/academy
+       vs. a representative national side), not how the competition is
+       scoped geographically. **A club's SENIOR/first-team squad
+       competing in its country's top-flight professional league
+       (Süper Lig, J1 League, Saudi Pro League, Premier League, and
+       equivalents) is `professional`, not `elite`** — `elite` in this
+       vocabulary is specifically reserved for top-tier domestic YOUTH
+       pathways, never for senior professional leagues, even though a
+       senior top-flight league is also, informally, "elite" in
+       everyday English. This exact confusion produced a real,
+       reproduced miscode (2026-07-30): a senior professional club was
+       coded `elite` by one run and correctly `professional` by two
+       others for the identically-shaped case — if you're ever unsure
+       whether a competition is senior-professional or top-youth,
+       default to `professional` for a senior/first-team squad.
    - `cityName` — the source-spelled city name (e.g. `"München"`, not a
      slug — the server derives the tag slug itself).
    - `parentOrgName` (and `parentOrgId` if you can confidently identify an
@@ -555,7 +578,7 @@ This prompt was live-tested against 5 randomly sampled real CogMap leads (via 5 
 - **The taxonomy classification step performed cleanly: 5/5 runs produced valid controlled-vocabulary codes, 5/5 successfully fetched the live `GET /api/lead-taxonomy` endpoint (real HTTP 200, matching the prompt's static fallback list exactly), 0 invented codes, and 0 attempts to write `classificationTags`/`mergeKey` directly.** The judgment calls were substantive, not just mechanically compliant — one run correctly avoided inventing a fake parent-organization relationship when a plausible-looking name segment ("... South") turned out to be a league-assigned bracket label, not evidence of an actual regional-branch structure; another correctly chose `relationshipToParent: "operated"` over the more obvious-looking `"owned"` based on real evidence of a public-private facility partnership.
 - **This same round is what actually caught the identity-field regression the previous round's bullet above claims didn't happen.** 4 of 5 leads in this round had the same leftover-Google-search-query `url` pattern; 3 of 4 correctly left `url`/`entity_name` untouched and routed the finding to `notes` only — but 1 of 4 **wrote the corrected `url` directly into its output payload** (while also flagging it in `notes`), a real, reproduced instance of exactly the failure mode the earlier claim said didn't occur. Root cause, on inspection: the actual prompt text (the fenced block meant to be pasted into `/admin/prompts/[brand]`) never explicitly stated this rule at all — it lived only in this guide's own §2.2 field-catalog table, which is *not* part of what gets pasted into a real agent runtime. **Fixed 2026-07-28**: the rule is now an explicit Hard Rule inside the prompt itself (§5), not just prose in the surrounding guide — see the Hard Rules section above. If you're auditing this prompt again later, treat "is every behavioral rule actually inside the fenced block, not just describing it nearby" as its own checklist item; this was a real, reproducible gap, not a one-off fluke.
 
-**Loop resumed (2026-07-30, 2.4.124-2.4.124) — 4 more real leads (3 CogMap, 1 Seyu), picking up issue #132's remaining full-taxonomy backfill:**
+**Loop resumed (2026-07-30, 2.4.125-2.4.125) — 4 more real leads (3 CogMap, 1 Seyu), picking up issue #132's remaining full-taxonomy backfill:**
 
 - **A genuine, recurring `orgTypeCode` gap for platform/tech-brand leads**: enriching "Strava" (a consumer software/data platform, not a club/federation/academy) found no controlled `orgTypeCode` value that fits — the closest near-misses, `brand` and `media`, both felt like a forced stretch for a company whose own self-description is "software company / technology platform / social network." The agent correctly used the explicit `unknown` escape hatch per §2.6's own rule (never force a plausible-sounding-but-wrong code) rather than guessing. This is not fixed here — extending `ORG_TYPE_CODES` (`lib/lead-taxonomy.ts`) is a controlled-vocabulary/schema change, not a prompt-wording fix, and per CLAUDE.md Rule 5 a business-taxonomy decision like this isn't this guide's call to make unilaterally — tracked as **issue #135** for the owner to decide whether/how to extend the rulebook's vocabulary.
 - **`sportCode: multi-sport` worked exactly as designed** for the same lead — a platform spanning all endurance sports as one unified product is precisely the case that code exists for, and the agent correctly did not force a single-sport pick.
