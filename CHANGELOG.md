@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.127
+
+### Changed — enrichment loop, iterations 28-31 (issue #132), precedents holding under repeated independent runs
+
+4 more real leads. The `businessUnitCode: first-team` (multi-sport club, football-specific lead) and `competitionLevelCode: professional` (senior top-flight league) precedents now held correctly across 3 consecutive fresh runs with zero corrections needed:
+
+- **NBA** (Seyu): clean `orgTypeCode: league` fit (the clearest case of this shape so far — an ongoing league, not a one-off event, unlike issues #135/#136's ambiguous cases). Real named Commissioner (Adam Silver) and the more commercially-relevant President of Global Partnerships (Salvatore LaRocca) found. **Caught a real numeric/reasoning mismatch**: the agent's own notes stated ICE-ease tier 4 (named contact + address, no email/phone) but submitted `ease: 3` — corrected before applying.
+- **Trabzonspor** (Seyu): real President (Ertuğrul Doğan) found; correctly applied `businessUnitCode: first-team` and `competitionLevelCode: professional` without needing correction, confirming the 2.4.125/2.4.126 fixes are holding.
+- **Virginia Rush** (CogMap): real Sporting Director found with an email cross-verified against a second independent source (not just a search-snippet summary); correctly declined a second staff member with conflicting role/employer evidence across sources rather than guessing.
+- **Toyota Soccer Center** (CogMap, FC Dallas's training complex): a good example of the rulebook's own "omit rather than force" principle working as designed — `businessUnitCode` correctly left unset entirely (the facility genuinely spans academy/camps/operations with no single code fitting), and `relationshipToParent: operated`/`parentOrgName: FC Dallas` correctly distinguished the sports-org operator from the real-estate owner (City of Frisco), which was not set as parent.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: 30 of ~2,723 leads fully processed.
+
+### Testing
+Prompt/docs-only changes plus real production writes via the existing, already-tested `PUT /api/leads/[id]` path. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit/integration/smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.126
 
 ### Changed — enrichment loop, iterations 24-27 (issue #132), the two prior prompt fixes verified working
