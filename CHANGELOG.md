@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.132
+
+### Changed — enrichment loop, batch 2 (issue #132)
+
+4 more real leads:
+
+- **Katy Premier Sports Complex** (CogMap): a genuine no-verifiable-identity case. Found 3 distinct, similarly-named entities in Katy, TX (a placeholder "coming soon" site at an address independently tied to a different club, a real soccer complex missing "Premier" from its name, a real club — not a facility — with the closest name match) and could not confidently confirm any of them as the correct match. Applied with `orgTypeCode: "unknown"` explicitly set and `ice.confidence` lowered (7→3) to reflect the genuine identity uncertainty, per the enrichment prompt's own rule for this exact situation — marks the lead as processed without guessing.
+- **RSL Arizona North / Utah Pathway** (CogMap): confirmed as the North (Phoenix/Scottsdale) region of Real Salt Lake Arizona, RSL's officially recognized Arizona youth pathway feeding the RSL Academy in Herriman, UT and ultimately Real Salt Lake (MLS)/Utah Royals FC (NWSL) — resolving what looked like an odd, possibly-garbled entity name into a real, verified structure. Leadership names found were sourced only from an ~8-year-old merger announcement and correctly withheld from `contacts[]` as too stale to trust. Also flagged (not changed, out of this task's scope) that the stored `address` ("UT") doesn't match the region's real Phoenix-area footprint.
+- **UEFA Champions League** (Seyu): another data point for issue #136's recurring tournament/federation/competition-organiser ambiguity (now 4×tournament, 1×federation, 2×competition-organiser) — chose `orgTypeCode: "tournament"` for the competition entity itself (as distinct from UEFA the federation, which would be a separate lead), explicitly flagged in `notes` as this pattern's known ambiguity rather than presented as resolved. Also correctly declined to fabricate a specific-title contact for a plausible-but-unconfirmed UEFA executive, leaving the existing placeholder contact untouched rather than writing a hedged guess.
+- **ESPN** (Seyu): a genuine cross-sport-taxonomy-scope case — a broadcaster, not a sport-specific organization. Used the controlled vocabulary's `not-applicable` value for `sportCode`/`genderCode`/`demographicCodes`/`competitionLevelCode` rather than forcing a single-sport fit, `orgTypeCode: "broadcaster"`. Corrected a stale contact title (James Pitaro's real current title is "Chairman, ESPN," not "President" as two public sources still show) via a more authoritative, more recently-dated source, and correctly declined to add other surfaced-but-unconfirmed advertising/partnerships names.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. One research-agent output for RSL Arizona North came back with `pro_for_organization`/`con_for_organization` as plain strings instead of the schema's required string arrays (confirmed against `lib/validate-lead.ts`'s `PRO_FIELD`/`CON_FIELD` checks, which would have rejected the raw payload) — caught and fixed before applying, not after a failed write. Running total: **50 of ~2,723 leads fully processed.**
+
+### Testing
+Prompt/docs unchanged this batch; real production writes via the existing `PUT /api/leads/[id]` path, each independently re-verified via a fresh `GET`. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit/integration/smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.131
 
 ### Changed — enrichment loop resumes after a session handoff, first batch (issue #132)
