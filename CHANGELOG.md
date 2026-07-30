@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.135
+
+### Changed — enrichment loop, batch 5 (issue #132)
+
+4 more real leads:
+
+- **Houston Indoor Sports** (CogMap): a real, well-documented `sportCode` correction — this is primarily an inline/roller hockey and multi-sport recreational complex (roller hockey, box lacrosse, dodgeball, badminton), with indoor soccer/futsal as only one of several offerings, not a dedicated soccer facility as the original CSV import assumed. Corrected `sportCode` from `football` to `multi-sport`, per the same "watch for sportCode mismatches" rule that caught the 2.4.128 NFL miscode. Found the facility's current name (rebranded "Houston Premier Sportsplex" in 2017) and a real, reachable owner with phone number.
+- **IDEA Toros Futbol Academy** (CogMap): confirmed org structure — not an independent club, but the soccer program of a single IDEA Public Schools charter campus (197 students, grades 8-12). Found 3 real, verified contacts (Principal, Assistant Principal of Operations, Interim MLS Next Head Coach). **Caught a real hallucination**: a web-search summary surfaced a plausible-looking email for the head coach that could not be verified on the club's own official staff page — correctly excluded rather than trusted, per this loop's established anti-hallucination discipline.
+- **Football Federation of Belarus** (Seyu): unambiguous federation identity. Real, nuanced research correctly distinguished the domestic Belarusian Premier League (still played normally, with fans) from national-team fixtures (played at neutral venues abroad without fans since 2022, per UEFA sanctions) rather than treating the whole federation as uniformly suspended or unaffected — `ice` honestly revised down to reflect the national-team activation gap specifically.
+- **Estonian Basketball Association** (Seyu): fixed a real, pre-existing data-validity bug — the stored `ice.impact` was `5.5`, a non-integer value the schema requires to be a clean integer. Found 2 real verified contacts, including one with an actual email and phone.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **62 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (568/568) + integration (114/114) + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.134
 
 ### Found — real duplicate lead records at scale (filed as issue #137)
