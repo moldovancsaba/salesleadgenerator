@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.122
+
+### Changed — enrichment loop resumed (iterations 8-9, issue #132's remaining full-taxonomy scope, 2026-07-30)
+
+Picked back up the per-lead, evidence-based enrichment/classification loop proven in 2.4.114-2.4.119, now against leads whose `sportCode` was just mechanically backfilled (2.4.121) but have no other taxonomy field set — the large remaining scope #132 explicitly stays open for.
+
+**Iteration 8 ("LA Galaxy Academy," CogMap):** replaced a generic placeholder contact ("LA Galaxy Academy" / "Academy Contact") with a real named Academy Director (Tyson Wahl, confirmed via the club's own staff page and a promotion announcement), moved the still-plausible org inbox into `general_contact`, added a real address (Dignity Health Sports Park, Carson, CA), and full taxonomy (`football`/`academy`/`youth-academy`/`mixed`/`[youth]`/`elite`/`cityName: Carson`/`parentOrgName: "LA Galaxy"`/`owned`). Two real judgment calls surfaced no existing rule directly covered: (1) the org runs both boys' (MLS NEXT) and girls' (Girls Academy) programs under one lead — `genderCode: mixed` set at the brand level, flagged for possible future lead-splitting; (2) `relationshipToParent` has no value phrased for "this lead IS an internal department of its own parent" (an in-house academy, not a separate legal entity) — `owned` used as the closest defensible fit. Post-write verification: `mergeKey: la-galaxy|football|academy|youth-academy|mixed|US|carson`.
+
+**Iteration 9 ("Strava," CogMap):** corrected a stale stored HQ address (the lead had "28 2nd Street, Suite 400" — no verified match to any real current or prior Strava SF address found; real HQ confirmed as 181 Fremont Street via official press materials and independent reporting), replaced two role-inbox placeholder contacts with the one real named executive found with a partnerships-relevant mandate (CMO Louisa Wee), and set `sportCode: multi-sport` correctly (a platform spanning all endurance sports as one product, not a forced single-sport pick). **Surfaced a real, reusable taxonomy gap**: no `orgTypeCode` value fits a consumer software/data-platform company — the agent correctly used the explicit `unknown` escape hatch (§2.6) rather than forcing `brand`/`media`. Filed as **issue #135** (needs an owner decision — vocabulary extension vs. accepted convention vs. deliberate permanent-`unknown` — not a prompt-wording fix, per CLAUDE.md Rule 5's business-taxonomy-decision guardrail). Post-write: ICE re-scored down (no confirmed direct contact for the one named exec found) correctly triggered auto-reclassification from QUALIFIED back to DISCOVERED — expected, documented behavior, not a bug.
+
+Both payloads independently re-verified via a fresh API re-fetch (not just each agent's self-report) before being logged here — matching this loop's own established discipline.
+
+### Documentation
+`docs/LEAD_ENRICHMENT_GUIDE.md` §7 gets a new dated findings entry for this round (the `orgTypeCode` gap and the `relationshipToParent` internal-department edge case). New GitHub issue #135 tracks the taxonomy-vocabulary decision.
+
+### Testing
+Prompt/docs-only changes plus two real production writes via the existing, already-tested `PUT /api/leads/[id]` path — no new application code, so no new unit tests. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit/integration/smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.121
 
 ### Added — `scripts/taxonomy-sportcode-backfill.ts` (issue #132, Phase 2 first mechanical sub-step)
