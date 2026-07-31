@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.142
+
+### Added — unified activity timeline (issue #140, second delivery of #138)
+
+Second sub-issue of #138's sales-support plan (after #139's Contacts view): a genuinely unified per-lead activity timeline, prerequisite plumbing for #141 (inbound email webhook) and #142 (reply matching + contact enrichment).
+
+- **New collection `activityLog`** (`app/lib/activity-log-store.ts`) — not embedded on the lead (bodies can be large, expected to grow fast). Indexed on `{leadId, createdAt}` via a lazily-ensured, idempotent `createIndex()` call, same pattern as `app/lib/forecast-snapshot.ts`'s `ensureIndexes()`. **Nothing writes to this collection yet** — issue #141 is its first real writer; this is honest, expected state for a feature built in dependency order, not a gap.
+- **`GET /api/leads/[id]/activity?brand=&tenantId=&limit=`** (`app/api/leads/[id]/activity/route.ts`) — merges `activityLog` with the pre-existing `outreach_logs` collection (populated by the outreach compose modal's "Log outreach" button) for the same lead, sorted newest-first. `outcomelogs`/`checklist[]`/`notes` are deliberately **not** part of this merge — each has its own real consumers (win-rate calibration, the Metrics report, the per-lead checklist UI) this must not disturb. Same `requireBrandAccessApi` auth as every other `/api/leads/*` route.
+- **`mergeActivityTimeline()`**: a pure, unit-tested merge — each source is queried already sorted and capped at the request's `limit`, which is provably sufficient to produce a correct top-`limit` merged result without ever needing a source's full unbounded history.
+- **`app/components/ActivityPanel.tsx`**: a new self-fetching component mounted inline in `app/detail.tsx`'s lead detail content. Found and preserved a real, previously-undocumented architectural convention while building this: `LeadDetailModal` makes zero direct `fetch()` calls anywhere — every mutation goes through `onAction`/`onDelete`/`onUpdated` props from its parent. `ActivityPanel` follows the precedent `app/outreach/compose-modal.tsx` already set for a child component that needs its own read.
+
+**Verification**: unauthenticated and `x-api-key`-authenticated requests behave correctly against a local dev server (401 vs. auth-accepted respectively); full end-to-end data-flow verification against real production data remains blocked by the same pre-existing sandbox limitation as #139 (direct MongoDB access unreachable from this environment) — the integration tests run against a real MongoDB engine (`mongodb-memory-server`), just not the production one.
+
+### Testing
+New: 8 unit tests (`tests/lib/activity-log-store.test.ts` — mapping + merge logic), 5 integration tests (`tests/integration/leads-activity.integration.test.ts` — cross-source merge/sort, lead isolation, empty state, both auth paths). Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS style audit clean, `next build --webpack` clean.
+
 ## 2.4.141
 
 ### Changed — enrichment loop, batch 10 (issue #132)

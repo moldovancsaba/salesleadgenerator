@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.141
+**Version:** 2.4.142
 
 ---
 
@@ -481,6 +481,18 @@ Collection: `battlecards`, one document per competitor, scoped by `{tenantId, br
 `app/contacts/[brand]/page.tsx` + `contacts-client.tsx` — read-only page, same Server Component (`resolveBrand()`/`requireBrandAccess()`) + Client Component split as every other per-brand page. Search box (debounced, matching the sales board's own search-box pattern) plus a GDS `AdminDataTable` listing name/title/email/phone/decision-maker flag/connected-lead chips. No create/edit affordance anywhere on this page — a contact is only ever edited from inside its own lead's detail modal (`app/components/ContactsEditor.tsx`); this page would otherwise imply an edit capability it doesn't have, which CLAUDE.md's UI-affordance rule forbids.
 
 **Deep-linking to a specific lead (2.4.137).** Clicking a connected-lead chip navigates to `/sales/[brand]?leadId=<id>`. Previously `app/sales/[brand]/sales-page-client.tsx` had no way to open a specific lead's detail modal except by clicking an already-rendered card/row/search-result on that same page — there was no URL-driven entry point. A small addition: when `?leadId=` is present, the page fetches that lead via the existing `GET /api/leads/[id]?brand=` and opens the detail modal with it; the param is stripped from the URL again on close (via `router.replace`) so refreshing after dismissing the modal doesn't reopen it. This capability is genuinely real (not a cosmetic link) — it was added specifically so the Contacts view's chips are honest per-lead links rather than only pointing at the board in general.
+
+### Unified activity timeline (2.4.142, issue #140)
+
+**The first genuinely unified per-lead activity/conversation timeline this app has ever had.** Before this, activity was scattered across 4 disconnected stores with no merged read path: `outcomelogs` (kanban/status-action audit log, read only by cron-status/win-rate calibration/the Metrics correlation report), `checklist[]`, `outreach_logs` (populated only when a rep clicks "Log outreach" in the compose modal), and the free-text `notes` field. None of those are migrated, renamed, or touched by this work — each keeps serving its own existing consumers; this is additive.
+
+**New collection `activityLog`** (`app/lib/activity-log-store.ts`), NOT embedded on the lead — email bodies can be large and this is expected to grow fast, and `GET /api/leads` already returns enough payload for a board view that never renders timeline history. Shape: `{leadId, tenantId, brand, type: 'email-outbound'|'email-inbound'|'note'|'system', direction: 'outbound'|'inbound'|null, fromAddress, toAddresses[], ccAddresses[], subject, bodyExcerpt, matchedContactKey, source: 'inbound-webhook'|'manual'|'outreach-log', createdAt}`. Indexed on `{leadId:1, createdAt:-1}` via a lazily-ensured, idempotent `createIndex()` call on every request — the same pattern `app/lib/forecast-snapshot.ts`'s `ensureIndexes()` already established, not verified against a live Atlas cluster from this sandbox (no `MONGODB_URI` here).
+
+**Nothing writes to `activityLog` yet.** Issue #141 (the inbound-email webhook) is this collection's first real writer. Until that ships, `GET /api/leads/[id]/activity?brand=&tenantId=&limit=` (`app/api/leads/[id]/activity/route.ts`) legitimately returns only the `outreach_logs` half of the merge below — that's the honest state of a feature built in dependency order, not a bug. Same auth as every other `/api/leads/*` route (`requireBrandAccessApi`).
+
+**The merge itself** (`mergeActivityTimeline()`) is a pure, unit-tested function: each source (activityLog docs mapped via `mapActivityLogDoc()`, `outreach_logs` docs for the same `leadId` mapped via `mapOutreachLogToActivityEntry()`) is queried already sorted newest-first and capped at the request's `limit`; concatenating and re-sorting those capped lists is sufficient to produce a correct top-`limit` merged result, since any entry in the true top-N of the union must already be in the top-N of its own source — no need to pull a source's full unbounded history to get this right. `bodyExcerpt` is truncated to 280 characters at map time (a storage-bloat/display guard, not a security one — sanitizing raw inbound HTML before it ever reaches `activityLog` is issue #141's job, since #141 is the collection's first writer of untrusted external content).
+
+**UI**: `app/components/ActivityPanel.tsx`, a self-fetching component mounted inline (unconditionally, not behind a toggle) inside `LeadDetailModal`'s content stack (`app/detail.tsx`). `LeadDetailModal` itself makes zero direct `fetch()` calls anywhere — every data mutation goes through the `onAction`/`onDelete`/`onUpdated` callback props its parent (`app/sales/[brand]/sales-page-client.tsx`) supplies. `ActivityPanel` follows the same precedent `app/outreach/compose-modal.tsx` already established for a child component that needs its own read: fetch inside a `useEffect` keyed on `[leadId, brand]`. Since `LeadDetailModal` returns `null` whenever `!opened` (its very first line of JSX logic), `ActivityPanel` never mounts — and therefore never fetches — until the lead detail is actually visible; no separate `opened` gate was needed on the panel itself.
 
 ### Search Learning
 Collection: `searchlearnings`
