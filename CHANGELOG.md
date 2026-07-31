@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.159
+
+### Added — automated email-step send infrastructure (issue #124/#150)
+
+Second delivered piece of issue #124: `lib/outreach-send.ts`'s `sendAutomatedEmail()` — the module that actually sends a cadence's email step with no human clicking send. Nothing calls it on a schedule yet (that's #151); this is purely "given a lead and a template, send the email and log it," built and fully tested in isolation.
+
+- Reuses this app's existing outreach machinery unchanged: `evaluateOutreachRouting('email', ...)` for eligibility, `interpolate()` for `{key}` template substitution (including `{contact_name}` resolved from the decision-maker contact).
+- Writes to the existing `outreach_logs` collection, extended with 3 purely additive fields: `cadenceId`, `stepIndex`, `sentAutomatically: true`. Every call — success or failure — writes exactly one log row, unlike the manual `POST /api/outreach-logs` path which 400s and writes nothing on a routing block.
+- Never throws: a missing/deleted template, a routing block, a Resend-side rejection (bounce, suppression list), or a network-level failure all resolve to `{sent: false, reason, outreachLogId}` instead.
+- Idempotent by construction — `resend.emails.send()`'s `idempotencyKey` option (confirmed against the installed SDK's compiled source to become a real `Idempotency-Key` header) is keyed on `cadence-<cadenceId>-<leadId>-<stepIndex>`, so a retried cron tick (#151) can't double-send the same step.
+- From-address is real, configurable infrastructure with a disclosed, not-yet-live-verified default (`<brand>@haho.ai`, overridable via `RESEND_FROM_<BRAND>`/`RESEND_OUTBOUND_DOMAIN`) — same honest "built, not yet confirmed live" posture as issue #141's inbound webhook. See `docs/STACK_AND_DEPENDENCIES.md`.
+
+### Testing
+6 new unit tests (`tests/lib/outreach-send.test.ts` — from-address resolution, config detection) + 7 new integration tests (`tests/integration/outreach-send.integration.test.ts`, mocking Resend's real `/emails` endpoint at the fetch layer — routing failure, missing template, successful send with correct interpolation/idempotency-key, a Resend API rejection, and a network-level throw, none of which ever hit the real network). Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (681 passing) + integration (164 passing) + smoke all green, `next build --webpack` clean.
+
 ## 2.4.158
 
 ### Fixed — sales cadence review findings (PR #153, issue #124/#149)
