@@ -301,6 +301,17 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     outcomeValue = `Tech scan: ${scan.status}`
   }
 
+  // Issue #124/#149: Lead.activeCadence's own doc comment (app/types.ts)
+  // promises auto-cancel on DECLINE/LOST — enforced here, the one place
+  // every action path that can move a lead to LOST (DECLINE above, or an
+  // explicit COLUMN_MOVE into LOST) converges. A lead no longer being
+  // pursued must stop counting as an active enrollment (it otherwise blocks
+  // cadence-template deletion) and must never be picked up by the future
+  // cadence-tick scheduler (#151).
+  if (updateData.kanbanColumn === 'LOST' && existing.activeCadence) {
+    updateData.activeCadence = null
+  }
+
   const updateOperation: Record<string, any> = { $set: updateData }
   if (Object.keys(incData).length > 0) {
     updateOperation.$inc = incData
