@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.158
+
+### Fixed — sales cadence review findings (PR #153, issue #124/#149)
+
+Five real, tractable findings from automated PR review, all fixed in the same PR before merge:
+
+- **Auto-cancel on terminal LOST (P1).** `Lead.activeCadence`'s own doc comment promised auto-cancel on DECLINE/LOST, but nothing implemented it — an enrolled lead moved to LOST kept its stale enrollment, blocking template deletion and remaining eligible for the future scheduler (#151) to process despite being terminal. Fixed in both places a lead can reach LOST: `app/lib/lead-actions.ts`'s `executeLeadAction()` (DECLINE/COLUMN_MOVE) and `PUT /api/leads/[id]` (the agent-enrichment direct-write path).
+- **Email steps must reference a template.** `validateCadence()` accepted (and could enable) an `email` step with no `templateId` — unsendable once #150 ships. Now rejected at save time; `linkedin`/`call` steps are unaffected (never auto-sent, legitimately templateless).
+- **Enrollment race condition.** Two concurrent `POST /api/leads/[id]/cadence` requests for the same lead could both pass the `activeCadence` read-check before either wrote, silently letting the later one replace the earlier enrollment. The write is now atomic — `findOneAndUpdate` matches only a document still at `activeCadence: null`, so a losing concurrent request gets a real `409` instead of clobbering the winner.
+- **Cross-brand cadence enrollment.** The cadence lookup in the enroll route filtered by tenant only, so a cadence id from a different brand in the same tenant was enrollable — exposing a lead to the wrong brand's future messaging and letting the cadence-deletion guard (which checks only its own brand's lead collection) miss the enrollment. Now scoped to the lead's own `brand` too.
+- **Delete guard missed legacy leads.** The cadence-deletion enrollment count used a literal `{tenantId: 'default'}` match, while every other lookup in this feature (and the rest of the codebase) uses `tenantFilter()`, which also matches legacy leads with no `tenantId` field at all for the `'default'` tenant. Fixed to use the same predicate, so a legacy lead's active enrollment is no longer invisible to the delete guard.
+
+### Testing
+9 new integration tests covering all five fixes (auto-cancel via PATCH/PUT, cross-brand rejection, concurrent-enroll race, legacy-tenant delete guard, missing-templateId rejection) plus 3 new unit tests for the `templateId` validation rule. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (675 passing) + integration (157 passing) + smoke all green, `next build --webpack` clean.
+
 ## 2.4.157
 
 ### Added — sales cadences: data model + CRUD (issue #124/#149, first of 4 sub-issues)

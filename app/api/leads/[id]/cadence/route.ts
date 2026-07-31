@@ -75,7 +75,13 @@ export async function POST(
       return NextResponse.json({ error: 'Lead already has an active cadence enrollment' }, { status: 409 })
     }
 
-    const cadenceDoc = await db.collection('cadences').findOne({ _id: cadenceObjectId, ...tenantFilter(tenantId) })
+    // Scoped to this lead's own brand, not just tenant — a cadence id from a
+    // different brand in the same tenant must never be enrollable (it would
+    // expose the lead to the wrong brand's future messaging, and the
+    // cadence-deletion guard below only checks each cadence's own brand's
+    // lead collection, so a cross-brand enrollment would go unnoticed there
+    // too).
+    const cadenceDoc = await db.collection('cadences').findOne({ _id: cadenceObjectId, brand, ...tenantFilter(tenantId) })
     if (!cadenceDoc) {
       return NextResponse.json({ error: 'Cadence not found' }, { status: 404 })
     }
@@ -85,10 +91,20 @@ export async function POST(
       return NextResponse.json({ error: 'Cadence has no steps' }, { status: 400 })
     }
 
-    await db.collection(config.dbCollection).updateOne(
-      { _id: leadObjectId, ...tenantFilter(tenantId) },
-      { $set: { activeCadence, updatedAt: new Date() } }
+    // The `lead.activeCadence` check above is a fast-path only — two
+    // concurrent enroll requests for the same lead could both pass it before
+    // either writes. The `activeCadence: null` clause in this filter makes
+    // the actual write atomic: only one of two racing requests can match a
+    // document still at `null`, so the loser gets a real 409 instead of
+    // silently overwriting the winner's enrollment.
+    const enrollResult = await db.collection(config.dbCollection).findOneAndUpdate(
+      { _id: leadObjectId, ...tenantFilter(tenantId), activeCadence: null },
+      { $set: { activeCadence, updatedAt: new Date() } },
+      { returnDocument: 'after' }
     )
+    if (!enrollResult) {
+      return NextResponse.json({ error: 'Lead already has an active cadence enrollment' }, { status: 409 })
+    }
 
     return NextResponse.json({ ok: true, activeCadence })
   } catch (error: any) {

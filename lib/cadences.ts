@@ -138,11 +138,22 @@ export function sanitizeCadence(
 
 // A cadence with no name or no steps is never meaningfully usable — reject
 // at save time rather than silently persisting a cadence that can never do
-// anything once enrolled (issue #149's own edge case).
+// anything once enrolled (issue #149's own edge case). An `email` step with
+// no `templateId` is the same class of problem: it's the one channel this
+// app actually auto-sends (see this module's own header comment), so a
+// templateId-less email step can never execute once #150 ships — caught
+// here rather than persisted as a silently-broken enabled sequence. A
+// `linkedin`/`call` step is never auto-sent and legitimately has no
+// template (CadenceStep's own doc comment), so neither is required here.
 export function validateCadence(cadence: Pick<Cadence, 'name' | 'steps'>): string[] {
   const errors: string[] = [];
   if (!cadence.name) errors.push('name is required');
   if (cadence.steps.length === 0) errors.push('at least one step is required');
+  cadence.steps.forEach((step, index) => {
+    if (step.channel === 'email' && !step.templateId) {
+      errors.push(`step ${index + 1} (email): templateId is required`);
+    }
+  });
   return errors;
 }
 

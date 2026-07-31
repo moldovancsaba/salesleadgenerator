@@ -19,6 +19,8 @@ let cadenceIdPUT: typeof import('../../app/api/cadences/[id]/route').PUT;
 let cadenceIdDELETE: typeof import('../../app/api/cadences/[id]/route').DELETE;
 let leadCadencePOST: typeof import('../../app/api/leads/[id]/cadence/route').POST;
 let leadCadenceDELETE: typeof import('../../app/api/leads/[id]/cadence/route').DELETE;
+let leadsPATCH: typeof import('../../app/api/leads/route').PATCH;
+let leadIdPUT: typeof import('../../app/api/leads/[id]/route').PUT;
 
 beforeAll(async () => {
   mongod = await startTestMongo();
@@ -32,6 +34,8 @@ beforeAll(async () => {
   const leadCadenceMod = await import('../../app/api/leads/[id]/cadence/route');
   leadCadencePOST = leadCadenceMod.POST;
   leadCadenceDELETE = leadCadenceMod.DELETE;
+  leadsPATCH = (await import('../../app/api/leads/route')).PATCH;
+  leadIdPUT = (await import('../../app/api/leads/[id]/route')).PUT;
 }, 60000);
 
 afterAll(async () => {
@@ -57,13 +61,36 @@ async function seedLead(entityName: string, overrides: Record<string, unknown> =
   return result.insertedId.toString();
 }
 
-async function createCadence(body: Record<string, unknown>): Promise<{ status: number; body: any }> {
-  const res = await cadencesPOST(req('/api/cadences?brand=cogmap', {
+async function createCadence(body: Record<string, unknown>, brand = 'cogmap'): Promise<{ status: number; body: any }> {
+  const res = await cadencesPOST(req(`/api/cadences?brand=${brand}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   }));
   return { status: res.status, body: await res.json() };
+}
+
+async function seedSeyuLead(entityName: string, overrides: Record<string, unknown> = {}): Promise<string> {
+  const clientPromise = (await import('../../lib/mongodb')).default;
+  const client = await clientPromise;
+  const db = client.db();
+  const result = await db.collection('seyu_leads').insertOne({
+    entity_name: entityName,
+    tenantId: 'default',
+    kanbanColumn: 'DISCOVERED',
+    ice: { impact: 5, confidence: 5, ease: 5 },
+    contacts: [],
+    ...overrides,
+  });
+  return result.insertedId.toString();
+}
+
+function patchReq(id: string, body: Record<string, unknown>) {
+  return req(`/api/leads?brand=cogmap&tenantId=default&id=${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, ...body }),
+  });
 }
 
 describe('POST /api/cadences (issue #149)', () => {
@@ -139,7 +166,7 @@ describe('Lead enroll/cancel lifecycle (issue #149)', () => {
     const created = await createCadence({
       name: 'Enroll Test Cadence',
       steps: [
-        { channel: 'email', waitDaysAfterPrevious: 2 },
+        { channel: 'email', waitDaysAfterPrevious: 2, templateId: 'tpl-enroll-1' },
         { channel: 'call', waitDaysAfterPrevious: 5 },
       ],
     });
@@ -275,5 +302,174 @@ describe('GET /api/cadences/[id] (issue #149)', () => {
       { params: Promise.resolve({ id: 'not-an-object-id' }) }
     );
     expect(res.status).toBe(404);
+  });
+});
+
+describe('activeCadence auto-cancelled on terminal LOST transitions (review finding, issue #149)', () => {
+  it('PATCH ... DECLINE clears an enrolled lead\'s activeCadence', async () => {
+    const created = await createCadence({ name: 'Decline Clears Cadence', steps: [{ channel: 'call' }] });
+    const leadId = await seedLead('Decline Clears Co');
+    await leadCadencePOST(
+      req(`/api/leads/${leadId}/cadence?brand=cogmap&tenantId=default`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cadenceId: created.body.id }),
+      }),
+      { params: Promise.resolve({ id: leadId }) }
+    );
+
+    const res = await leadsPATCH(patchReq(leadId, { action: 'DECLINE', declineReason: 'OTHER' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.activeCadence).toBeNull();
+  });
+
+  it('PATCH ... COLUMN_MOVE into LOST clears an enrolled lead\'s activeCadence', async () => {
+    const created = await createCadence({ name: 'Column Move Lost Clears Cadence', steps: [{ channel: 'call' }] });
+    const leadId = await seedLead('Column Move Lost Co');
+    await leadCadencePOST(
+      req(`/api/leads/${leadId}/cadence?brand=cogmap&tenantId=default`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cadenceId: created.body.id }),
+      }),
+      { params: Promise.resolve({ id: leadId }) }
+    );
+
+    const res = await leadsPATCH(patchReq(leadId, { action: 'COLUMN_MOVE', kanbanColumn: 'LOST', sortOrder: 1 }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.activeCadence).toBeNull();
+  });
+
+  it('PUT /api/leads/[id] moving kanbanColumn to LOST clears an enrolled lead\'s activeCadence', async () => {
+    const created = await createCadence({ name: 'PUT Lost Clears Cadence', steps: [{ channel: 'call' }] });
+    const leadId = await seedLead('PUT Lost Co');
+    await leadCadencePOST(
+      req(`/api/leads/${leadId}/cadence?brand=cogmap&tenantId=default`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cadenceId: created.body.id }),
+      }),
+      { params: Promise.resolve({ id: leadId }) }
+    );
+
+    const res = await leadIdPUT(
+      req(`/api/leads/${leadId}?brand=cogmap&tenantId=default`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-api-key': 'integration-test-key' },
+        body: JSON.stringify({ kanbanColumn: 'LOST' }),
+      }),
+      { params: Promise.resolve({ id: leadId }) }
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.activeCadence).toBeNull();
+  });
+
+  it('a non-LOST COLUMN_MOVE leaves an enrolled lead\'s activeCadence untouched', async () => {
+    const created = await createCadence({ name: 'Non Lost Move Keeps Cadence', steps: [{ channel: 'call' }] });
+    const leadId = await seedLead('Non Lost Move Co');
+    const enrollRes = await leadCadencePOST(
+      req(`/api/leads/${leadId}/cadence?brand=cogmap&tenantId=default`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cadenceId: created.body.id }),
+      }),
+      { params: Promise.resolve({ id: leadId }) }
+    );
+    const enrollBody = await enrollRes.json();
+
+    const res = await leadsPATCH(patchReq(leadId, { action: 'COLUMN_MOVE', kanbanColumn: 'QUALIFIED', sortOrder: 1 }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.activeCadence.cadenceId).toBe(enrollBody.activeCadence.cadenceId);
+  });
+});
+
+describe('Cross-brand cadence enrollment is rejected (review finding, issue #149)', () => {
+  it('404s enrolling a CogMap lead into a Seyu cadence in the same tenant', async () => {
+    const seyuCadence = await createCadence({ name: 'Seyu Only Cadence', steps: [{ channel: 'call' }] }, 'seyu');
+    const cogmapLeadId = await seedLead('Cross Brand Lead Co');
+
+    const res = await leadCadencePOST(
+      req(`/api/leads/${cogmapLeadId}/cadence?brand=cogmap&tenantId=default`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cadenceId: seyuCadence.body.id }),
+      }),
+      { params: Promise.resolve({ id: cogmapLeadId }) }
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('a Seyu lead can enroll in its own brand\'s cadence', async () => {
+    const seyuCadence = await createCadence({ name: 'Seyu Own Cadence', steps: [{ channel: 'call' }] }, 'seyu');
+    const seyuLeadId = await seedSeyuLead('Seyu Enroll Co');
+
+    const res = await leadCadencePOST(
+      req(`/api/leads/${seyuLeadId}/cadence?brand=seyu&tenantId=default`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cadenceId: seyuCadence.body.id }),
+      }),
+      { params: Promise.resolve({ id: seyuLeadId }) }
+    );
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('Concurrent enroll requests cannot both win (review finding, issue #149)', () => {
+  it('exactly one of two racing enroll requests for the same lead succeeds', async () => {
+    const created = await createCadence({ name: 'Race Cadence', steps: [{ channel: 'call' }] });
+    const leadId = await seedLead('Race Enroll Co');
+
+    const [first, second] = await Promise.all([
+      leadCadencePOST(
+        req(`/api/leads/${leadId}/cadence?brand=cogmap&tenantId=default`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cadenceId: created.body.id }),
+        }),
+        { params: Promise.resolve({ id: leadId }) }
+      ),
+      leadCadencePOST(
+        req(`/api/leads/${leadId}/cadence?brand=cogmap&tenantId=default`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cadenceId: created.body.id }),
+        }),
+        { params: Promise.resolve({ id: leadId }) }
+      ),
+    ]);
+    const statuses = [first.status, second.status].sort();
+    expect(statuses).toEqual([200, 409]);
+  });
+});
+
+describe('DELETE /api/cadences/[id] enrollment guard counts legacy (tenantId-less) leads (review finding, issue #149)', () => {
+  it('blocks deletion when a legacy lead with no tenantId field is enrolled', async () => {
+    const created = await createCadence({ name: 'Legacy Tenant Cadence', steps: [{ channel: 'call' }] });
+    const cadenceId = created.body.id;
+
+    const clientPromise = (await import('../../lib/mongodb')).default;
+    const client = await clientPromise;
+    const db = client.db();
+    await db.collection('leads').insertOne({
+      entity_name: 'Legacy Tenant Lead Co',
+      // No tenantId field at all — simulates a pre-tenant-field legacy lead.
+      kanbanColumn: 'DISCOVERED',
+      ice: { impact: 5, confidence: 5, ease: 5 },
+      contacts: [],
+      activeCadence: { cadenceId, currentStepIndex: 0, stepDueAt: new Date().toISOString(), enrolledAt: new Date().toISOString() },
+    });
+
+    const res = await cadenceIdDELETE(
+      req(`/api/cadences/${cadenceId}?brand=cogmap&tenantId=default`, { method: 'DELETE' }),
+      { params: Promise.resolve({ id: cadenceId }) }
+    );
+    expect(res.status).toBe(409);
+  });
+});
+
+describe('validateCadence rejects an email step with no templateId at the API boundary (review finding, issue #149)', () => {
+  it('POST /api/cadences 400s for an email step missing templateId', async () => {
+    const { status, body } = await createCadence({
+      name: 'Missing Template Cadence',
+      steps: [{ channel: 'email', waitDaysAfterPrevious: 0 }],
+    });
+    expect(status).toBe(400);
+    expect(body.error).toContain('templateId is required');
   });
 });

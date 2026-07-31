@@ -120,7 +120,34 @@ describe('validateCadence', () => {
   });
 
   it('passes with a name and at least one step', () => {
-    const errors = validateCadence({ name: 'Cadence', steps: [{ id: '1', channel: 'email', waitDaysAfterPrevious: 0 }] });
+    const errors = validateCadence({ name: 'Cadence', steps: [{ id: '1', channel: 'call', waitDaysAfterPrevious: 0 }] });
+    expect(errors).toEqual([]);
+  });
+
+  it('rejects an email step with no templateId, reporting its 1-based index', () => {
+    const errors = validateCadence({
+      name: 'Cadence',
+      steps: [{ id: '1', channel: 'email', waitDaysAfterPrevious: 0 }],
+    });
+    expect(errors).toContain('step 1 (email): templateId is required');
+  });
+
+  it('passes an email step that has a templateId', () => {
+    const errors = validateCadence({
+      name: 'Cadence',
+      steps: [{ id: '1', channel: 'email', waitDaysAfterPrevious: 0, templateId: 'tpl-1' }],
+    });
+    expect(errors).toEqual([]);
+  });
+
+  it('does not require a templateId for linkedin/call steps', () => {
+    const errors = validateCadence({
+      name: 'Cadence',
+      steps: [
+        { id: '1', channel: 'linkedin', waitDaysAfterPrevious: 0 },
+        { id: '2', channel: 'call', waitDaysAfterPrevious: 1 },
+      ],
+    });
     expect(errors).toEqual([]);
   });
 });

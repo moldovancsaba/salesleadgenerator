@@ -147,8 +147,13 @@ export async function DELETE(
     const config = (await import('../../../../app/lib/brand')).BRAND_CONFIG[existing.brand]
     if (config) {
       const leadsCollection = db.collection(config.dbCollection)
+      // tenantFilter(), not a literal `{tenantId}` match — for the 'default'
+      // tenant this also matches legacy leads with no tenantId field at all
+      // (the same convention every lead lookup in this codebase uses), so a
+      // legacy lead's enrollment isn't missed here while it's correctly
+      // counted by the enroll/lookup paths above.
       const enrolledCount = await leadsCollection.countDocuments({
-        tenantId,
+        ...tenantFilter(tenantId),
         'activeCadence.cadenceId': id,
       })
       if (enrolledCount > 0) {
