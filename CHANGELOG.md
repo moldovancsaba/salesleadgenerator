@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.153
+
+### Changed — enrichment loop, batch 15 (issue #132)
+
+4 more real leads:
+
+- **Capital City South** (CogMap): identified "Capital City South" as the South Austin/MLS NEXT Academy Division designation of Capital City Soccer Club (Austin, TX) — not a separate organization — via cross-checked press coverage (SoccerWire, The League for Clubs). Found the club's current Executive Director (Kai Gockell) and its real address; correction recorded via `canonicalLeadName`/`notes` without touching the protected `entity_name`/`url` fields.
+- **Blue Sky Sports Center Carrollton** (CogMap): unlike its Mansfield sibling researched in batch 14, confirmed Carrollton IS one of the 4 real original Blue Sky Sports Center locations (with Allen, Keller, The Colony), now operating as TOCA Soccer Center Carrollton post-2022 acquisition. The stored domain resolves but only serves a stale hosting-provider placeholder page — real facility address/phone/email confirmed independently.
+- **Lithuanian Basketball Federation** (Seyu): replaced the placeholder "Unknown President" contact with two real, cross-verified named officers (President Mindaugas Balčiūnas, Secretary General Dominykas Domarkas), both with MX-verified work emails and matching LinkedIn profiles.
+- **Guangzhou FC** (Seyu): critical real-status finding — the club (formerly Guangzhou Evergrande Taobao, an 8-time CSL champion) officially disbanded in January 2025 after failing the CFA's financial entry requirements, following the Evergrande Group collapse. `value_proposition`/`notes` updated to flag the club's non-viability for outreach rather than treating it as an active target; no successor entity confirmed.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **103 of ~2,723 leads fully processed.**
+
+Also merges in a parallel-session change that landed on the shared branch ahead of this checkpoint (fast-forward, no conflicts): 2.4.152 (DVSC sponsorship pricing/forecast model) — see its own entry below.
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.152
 
 ### Added — DVSC sponsorship pricing/forecast model (issue #148)
