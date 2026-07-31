@@ -24,9 +24,18 @@ const CONTACT_CONFIDENCE_RE = /[A-Za-z]{2,}/;
 // Shared with app/api/battlecards/route.ts's own content validation (issue
 // #65) — one source of truth for which terms belong to which brand, rather
 // than a second copy that could drift from this one.
+// Issue #147 — DVSC added as a third brand: each brand's list now names both
+// other brands (kept symmetric on purpose — a lead for any one brand must
+// never mention either of the other two by name or distinctive product
+// vocabulary). DVSC's own list borrows CogMap's/Seyu's already-vetted
+// product-specific terms above rather than inventing new ones, since DVSC's
+// real risk is the same class of mistake (a CogMap/Seyu product term
+// leaking into a DVSC sponsorship lead), not a DVSC-specific vocabulary of
+// its own yet to be established.
 export const FORBIDDEN_BRAND_TERMS: Record<string, string[]> = {
-  COGMAP: ['seyu', 'fan selfie', 'led screen', 'jumbotron', 'sponsor activation', 'revenue-share', 'revenue share', 'second screen', 'second-screen'],
-  SEYU: ['cogmap', 'cognitive assessment', 'player performance analytics', 'decision-making profiling', 'sports science', 'situational awareness'],
+  COGMAP: ['seyu', 'dvsc', 'fan selfie', 'led screen', 'jumbotron', 'sponsor activation', 'revenue-share', 'revenue share', 'second screen', 'second-screen'],
+  SEYU: ['cogmap', 'dvsc', 'cognitive assessment', 'player performance analytics', 'decision-making profiling', 'sports science', 'situational awareness'],
+  DVSC: ['cogmap', 'seyu', 'cognitive assessment', 'player performance analytics', 'decision-making profiling', 'fan selfie', 'led screen', 'second screen', 'second-screen'],
 };
 
 export function findForbiddenBrandTerms(text: string | undefined | null, brand: string): string[] {

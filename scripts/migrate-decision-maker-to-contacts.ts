@@ -30,9 +30,12 @@ dotenv.config({ path: path.join(__dirname, '../.env.local') });
 
 import mongoose from 'mongoose';
 import { migrateDecisionMakerCollection } from '../lib/migrate-decision-maker';
+import { BRAND_CONFIG } from '../app/lib/brand';
 
 const APPLY = process.argv.includes('--apply');
-const COLLECTIONS = ['leads', 'seyu_leads'];
+// Issue #147 — derived from BRAND_CONFIG's own dbCollection values, not a
+// hardcoded 2-brand array, so a future brand is picked up automatically.
+const COLLECTIONS = Object.values(BRAND_CONFIG).map((c) => c.dbCollection);
 
 async function run() {
   if (!process.env.MONGODB_URI) {

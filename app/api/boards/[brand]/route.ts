@@ -8,6 +8,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
   try {
     const { brand: brandParam } = await params
     const brand = resolveBrand(brandParam)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const config = BRAND_CONFIG[brand]
     const tenantId = getTenantId(request)
 

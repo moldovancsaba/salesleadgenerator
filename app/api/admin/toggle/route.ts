@@ -12,6 +12,7 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
     const brand = resolveBrand(body.brand || 'cogmap')
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const tenantId = body.tenantId || brand
     const operation = body.operation
     const enabled = body.enabled
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const brand = resolveBrand(searchParams.get('brand') || 'cogmap')
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const tenantId = searchParams.get('tenantId') || brand
 
     if (!process.env.MONGODB_URI) {

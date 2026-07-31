@@ -239,3 +239,43 @@ describe('POST /api/leads — manual Add Lead flow (issue #127)', () => {
     expect(second.status).toBe(409);
   });
 });
+
+// Issue #147 — DVSC as a genuine third brand: a full create-then-read
+// lifecycle under brand=dvsc, mirroring the cogmap coverage above, proving
+// the brand isn't just type-widened but actually functional end-to-end
+// (own collection, own write/read path, no cross-brand bleed).
+describe('brand=dvsc lead lifecycle', () => {
+  it('creates a DVSC lead into its own collection and it is retrievable via GET, isolated from cogmap', async () => {
+    const payload = {
+      entity_name: 'DVSC Sponsor Prospect Kft.',
+      url: 'https://dvsc-sponsor-prospect.example.hu',
+      country: 'HU',
+      kanbanColumn: 'DISCOVERED',
+      ice: { impact: 7, confidence: 6, ease: 5 },
+      contacts: [{ name: 'Marketing Lead', email: 'marketing@dvsc-sponsor-prospect.example.hu', isDecisionMaker: true }],
+    };
+
+    const postRes = await POST(req('/api/leads?brand=dvsc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }));
+    expect(postRes.status).toBe(201);
+
+    const dvscGet = await GET(req('/api/leads?brand=dvsc'));
+    const dvscBody = await dvscGet.json();
+    expect(dvscBody.total).toBe(1);
+    expect(dvscBody.leads[0].entity_name).toBe('DVSC Sponsor Prospect Kft.');
+
+    // Isolation: a DVSC-only lead must never appear under CogMap's own
+    // collection/read path (dbCollection: 'dvsc_leads' vs 'leads').
+    const cogmapGet = await GET(req('/api/leads?brand=cogmap'));
+    const cogmapBody = await cogmapGet.json();
+    expect(cogmapBody.leads.some((l: any) => l.entity_name === 'DVSC Sponsor Prospect Kft.')).toBe(false);
+  });
+
+  it('rejects a genuinely unrecognized brand with 400, never silently falling back to cogmap (issue #147 regression)', async () => {
+    const res = await GET(req('/api/leads?brand=not_a_real_brand'));
+    expect(res.status).toBe(400);
+  });
+});
