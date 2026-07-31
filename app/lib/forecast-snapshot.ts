@@ -1,6 +1,7 @@
 import type { Db } from 'mongodb'
 import { computeForecast } from './forecast'
 import { BRAND_CONFIG } from './brand'
+import type { Brand } from './brand'
 
 export const FORECAST_SNAPSHOT_COLLECTION = 'forecast_snapshots'
 
@@ -38,7 +39,7 @@ async function ensureIndexes(db: Db): Promise<void> {
 // automatically — rather than a hardcoded tenant list, this discovers every
 // distinct tenantId actually present in a brand's collection (plus
 // 'default', matching lib/tenant.ts's treatment of a missing tenantId).
-export async function discoverTenantIds(db: Db, brand: 'cogmap' | 'seyu'): Promise<string[]> {
+export async function discoverTenantIds(db: Db, brand: Brand): Promise<string[]> {
   const config = BRAND_CONFIG[brand]
   const ids = new Set<string>(['default'])
   try {
@@ -54,7 +55,7 @@ export async function discoverTenantIds(db: Db, brand: 'cogmap' | 'seyu'): Promi
 
 export async function writeForecastSnapshot(
   db: Db,
-  brand: 'cogmap' | 'seyu',
+  brand: Brand,
   tenantId: string,
   periodKey: string,
   source: SnapshotSource

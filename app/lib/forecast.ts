@@ -1,5 +1,6 @@
 import type { Db } from 'mongodb'
 import { BRAND_CONFIG } from './brand'
+import type { Brand } from './brand'
 import { getPipelineWeights } from '../../lib/pipeline-weights'
 import { tenantFilter } from '../../lib/tenant'
 import { computeConcentration, getConcentrationRiskSettings } from '../../lib/forecast-concentration'
@@ -85,7 +86,7 @@ export type ForecastComputation = {
   weightsUsed: Record<string, number>
 }
 
-export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId: string): Promise<ForecastComputation> {
+export async function computeForecast(db: Db, brand: Brand, tenantId: string): Promise<ForecastComputation> {
   const config = BRAND_CONFIG[brand]
   const filter = tenantFilter(tenantId)
   // Issue #126 — Backlog leads are excluded from every revenue/forecast
@@ -404,6 +405,18 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
       calibration: calibrationInfo,
       currency: 'EUR',
     }
+  }
+
+  // DVSC (issue #147) deliberately has no forecast branch of its own yet —
+  // its sponsorship-deal pricing/forecast model is sub-issue #148's own
+  // scope, not this one's. An explicit no-op branch here (rather than
+  // silently falling through both the cogmap/seyu checks above with no
+  // trace) documents that this is a known, tracked gap, not an oversight:
+  // `forecast` stays `null`, the same honest "not yet configured" shape
+  // this app already uses elsewhere (e.g. lib/ticket-size.ts's
+  // 'unconfigured' method) rather than a fabricated number.
+  if (brand === 'dvsc') {
+    // No-op: forecast remains null until #148 implements DVSC's own model.
   }
 
   return { totalLeads, updatedAt, columnCounts, regionCounts, forecast, weightsUsed }

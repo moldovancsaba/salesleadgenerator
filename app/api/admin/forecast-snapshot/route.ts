@@ -4,10 +4,14 @@ import { requireCronOrApiKey, requireApiKey, isCronRequest } from '../../../../l
 import { isoWeekKey } from '../../../../lib/iso-week'
 import { discoverTenantIds, writeForecastSnapshot } from '../../../lib/forecast-snapshot'
 import type { SnapshotSource, SnapshotWriteResult } from '../../../lib/forecast-snapshot'
+import { BRAND_CONFIG } from '../../../lib/brand'
+import type { Brand } from '../../../lib/brand'
 
 export const dynamic = 'force-dynamic'
 
-const BRANDS: Array<'cogmap' | 'seyu'> = ['cogmap', 'seyu']
+// Issue #147 — derived from BRAND_CONFIG's own keys, not a hardcoded
+// 2-brand array, so a future brand is picked up automatically.
+const BRANDS = Object.keys(BRAND_CONFIG) as Brand[]
 
 // GET is the Vercel Cron target (automatic `Authorization: Bearer
 // $CRON_SECRET`) but also accepts the standard x-api-key admin auth for a

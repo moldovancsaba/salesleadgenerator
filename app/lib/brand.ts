@@ -1,4 +1,4 @@
-export type Brand = 'cogmap' | 'seyu';
+export type Brand = 'cogmap' | 'seyu' | 'dvsc';
 
 // Generic, organization-agnostic value-proposition fields — shared across every
 // brand/tenant. Not brand-specific: any organization onboarded onto this
@@ -45,11 +45,40 @@ export const BRAND_CONFIG: Record<string, {
     apiPrefix: '/api/leads',
     currency: 'EUR',
   },
+  dvsc: {
+    label: 'DVSC',
+    dbCollection: 'dvsc_leads',
+    apiPrefix: '/api/leads',
+    currency: 'EUR',
+  },
 };
 
-export function resolveBrand(value: string | undefined | null): Brand {
+// Aliases accepted alongside a brand's own BRAND_CONFIG key (e.g. the legacy
+// SSO org-name convention "<brand>sales") — kept as an explicit map rather
+// than a string-suffix guess, so a brand with no alias simply has none here.
+const BRAND_ALIASES: Record<string, Brand> = {
+  cogmap: 'cogmap',
+  cogmapsales: 'cogmap',
+  seyu: 'seyu',
+  seyusales: 'seyu',
+  dvsc: 'dvsc',
+  dvscsales: 'dvsc',
+};
+
+// Issue #147 — previously hardcoded exactly 2 string checks with an
+// `else -> 'cogmap'` fallback: ANY unrecognized value (a typo, a stale
+// bookmark, a not-yet-configured brand) silently resolved to CogMap,
+// causing silent wrong-brand reads/writes rather than a visible error. Now
+// derived from BRAND_ALIASES (so a future brand needs no change here) and
+// returns `null` — not a guessed brand — for a genuinely unrecognized,
+// non-empty value; callers must handle that explicitly (404/400), the same
+// way they'd handle any other not-found route param. An empty/missing value
+// (no brand specified at all, distinct from an invalid one) still resolves
+// to 'cogmap', unchanged — every existing caller either supplies a real
+// dynamic-route brand segment (never empty) or explicitly relies on this
+// default for a legitimate no-brand-specified request.
+export function resolveBrand(value: string | undefined | null): Brand | null {
   const normalized = String(value || '').toLowerCase();
-  if (normalized === 'cogmap' || normalized === 'cogmapsales') return 'cogmap';
-  if (normalized === 'seyu' || normalized === 'seyusales') return 'seyu';
-  return 'cogmap';
+  if (!normalized) return 'cogmap';
+  return BRAND_ALIASES[normalized] ?? null;
 }

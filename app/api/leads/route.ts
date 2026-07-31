@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
 import { BRAND_CONFIG, resolveBrand, PRO_FIELD, CON_FIELD } from '../../lib/brand'
+import type { Brand } from '../../lib/brand'
 import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
@@ -37,8 +38,6 @@ async function readBody(request: Request) {
   return request.json()
 }
 
-type Brand = 'cogmap' | 'seyu';
-
 // Ease scoring reads contacts[] only (no more top-level decision-maker
 // fields — see lib/contacts.ts and issue #45). effectiveAddress is the
 // organization-level address (contacts[] has never had a per-contact
@@ -63,7 +62,7 @@ function computeEase(body: any): number {
   return 4;
 }
 
-function getBrand(request: Request): Brand {
+function getBrand(request: Request): Brand | null {
   const url = new URL(request.url);
   const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || url.pathname.split('/')[2] || 'cogmap';
   return resolveBrand(brandParam);
@@ -72,6 +71,7 @@ function getBrand(request: Request): Brand {
 export async function GET(request: NextRequest) {
   try {
     const brand = getBrand(request);
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;
 
@@ -212,6 +212,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const brand = getBrand(request);
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;
 
@@ -440,6 +441,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const brand = getBrand(request);
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;
 

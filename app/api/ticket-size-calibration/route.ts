@@ -14,6 +14,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url)
     const brand = resolveBrand(url.searchParams.get('brand') || 'cogmap')
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const tenantId = (url.searchParams.get('tenantId') || 'default').trim() || 'default'
     const minSampleSizeParam = Number(url.searchParams.get('minSampleSize'))
     const minSampleSize = Number.isFinite(minSampleSizeParam) && minSampleSizeParam > 0

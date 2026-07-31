@@ -47,9 +47,9 @@ Pipeline operators and sales researchers who manage leads in the kanban board, r
 The app uses DoneIsBetter SSO — there is no local username/password login. Tap **Sign in** in the hamburger menu to start the SSO flow.
 
 After signing in, one of three things happens:
-- **No organization access yet** — you're signed in, but nobody has assigned you to a brand (CogMap or Seyu). You'll see "We'll be in touch soon once you have access to your organization." Contact your admin.
+- **No organization access yet** — you're signed in, but nobody has assigned you to a brand (CogMap, Seyu, or DVSC). You'll see "We'll be in touch soon once you have access to your organization." Contact your admin.
 - **Access to exactly one brand** — the hamburger menu shows that brand's Pipeline/Sales Settings/Reporting links directly.
-- **Access to more than one brand** — the hamburger menu shows an **Organization** switcher (a dropdown) above the same links, so you can browse either brand's Reporting section without navigating away first. Actually opening a page for a brand still requires clicking its link.
+- **Access to more than one brand** — the hamburger menu shows an **Organization** switcher (a dropdown) above the same links, so you can browse any of your brands' Reporting sections without navigating away first. Actually opening a page for a brand still requires clicking its link.
 
 Access is granted per-brand by a super admin in **Users & Access** (see [Admin Tools](#admin-tools-super-admin-only)) — there's no self-service way to request or grant it. If your access is revoked or the SSO app itself denies you, you'll land on an "Access Denied" page with a reason.
 
@@ -168,7 +168,7 @@ Deals are separate from the automatic **Ticket Size** estimate below — Ticket 
 
 - **Add a deal**: tap **Edit** under Deals, then **Add deal**, enter a value (and an optional label like "Renewal"), and **Save**.
 - **Convert ticket estimate to a Deal**: a one-tap shortcut that pre-fills a new deal's value from the current Ticket Size estimate — the value is fully editable before you save, it never saves automatically.
-- **Deal currency** always matches the brand's own forecast currency (USD for CogMap, EUR for Seyu) — there's no per-deal currency picker.
+- **Deal currency** always matches the brand's own forecast currency (USD for CogMap, EUR for Seyu and DVSC) — there's no per-deal currency picker.
 - **Once a lead has any deal**, the Forecast page uses the sum of its deals instead of the Ticket Size estimate for that lead's revenue contribution — the Ticket Size estimate keeps recalculating in the background as a reference figure, it just stops being the number that counts toward Forecast.
 - Every lead with at least one deal shows a **DEAL** badge on its kanban card, in every column, alongside (not replacing) the quality-status badge.
 

@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import clientPromise from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
 import { getTenantId } from '../../../../lib/tenant'
+import { BRAND_CONFIG } from '../../../lib/brand'
 
 const COLLECTION = 'outcomelogs'
-const LEAD_COLLECTION_PATTERN = (brand: string) => (brand === 'seyu' ? 'seyu_leads' : 'leads')
 
 type CronStatus = {
   brand: string
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
 
     const statuses: CronStatus[] = []
 
-    for (const brand of ['cogmap', 'seyu'] as const) {
+    for (const brand of Object.keys(BRAND_CONFIG)) {
       const logs24 = byBrand24h.get(brand) || []
       const logs168 = byBrand168h.get(brand) || []
 

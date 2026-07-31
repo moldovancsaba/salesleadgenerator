@@ -33,6 +33,7 @@
 // re-run after a partial apply skips everything already classified.
 
 import { resolveSportAlias } from '../lib/lead-taxonomy';
+import { BRAND_CONFIG } from '../app/lib/brand';
 
 const API_BASE = process.env.SLG_API_BASE || 'https://salesleadgenerator.vercel.app';
 const API_KEY = process.env.SLG_API_KEY;
@@ -42,8 +43,10 @@ const brandArg = process.argv.find((a) => a.startsWith('--brand='));
 const sampleArg = process.argv.find((a) => a.startsWith('--sample='));
 const SAMPLE_SIZE = sampleArg ? parseInt(sampleArg.split('=')[1], 10) : null;
 
-const ALL_BRANDS = ['cogmap', 'seyu'] as const;
-const BRANDS = brandArg ? [brandArg.split('=')[1] as (typeof ALL_BRANDS)[number]] : [...ALL_BRANDS];
+// Issue #147 — derived from BRAND_CONFIG's own keys, not a hardcoded
+// 2-brand array, so a future brand is picked up automatically.
+const ALL_BRANDS = Object.keys(BRAND_CONFIG);
+const BRANDS = brandArg ? [brandArg.split('=')[1]] : [...ALL_BRANDS];
 
 type LeadSummary = {
   _id: string;

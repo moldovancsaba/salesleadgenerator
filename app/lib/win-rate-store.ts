@@ -1,4 +1,5 @@
 import type { Db } from 'mongodb'
+import type { Brand } from './brand'
 import { tenantFilter } from '../../lib/tenant'
 import {
   computeWinRatesFromLogs,
@@ -11,7 +12,7 @@ export const WIN_RATE_COLLECTION = 'winrate_calibration'
 
 export type WinRateDoc = {
   tenantId: string
-  brand: 'cogmap' | 'seyu'
+  brand: Brand
   stages: WinRateStats
   computedAt: Date
   windowDays: number | null
@@ -46,7 +47,7 @@ export async function fetchOutcomeLogs(
 
 export async function computeAndPersistWinRates(
   db: Db,
-  brand: 'cogmap' | 'seyu',
+  brand: Brand,
   tenantId: string,
   minSampleSize: number = DEFAULT_MIN_SAMPLE_SIZE,
   windowDays: number | null = null
@@ -66,7 +67,7 @@ export async function computeAndPersistWinRates(
 
 export async function getCachedWinRates(
   db: Db,
-  brand: 'cogmap' | 'seyu',
+  brand: Brand,
   tenantId: string
 ): Promise<WinRateDoc | null> {
   try {
@@ -101,7 +102,7 @@ export function isStale(doc: WinRateDoc | null, now: Date): boolean {
 // dedicated endpoint, and only when the cache is missing or >24h stale.
 export async function getOrRecomputeWinRates(
   db: Db,
-  brand: 'cogmap' | 'seyu',
+  brand: Brand,
   tenantId: string,
   minSampleSize: number,
   windowDays: number | null,

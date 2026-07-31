@@ -8,13 +8,14 @@ import { getTenantId, tenantFilter } from '@/lib/tenant'
 
 const CHUNK_SIZE = 50
 
-function resolveBrandFrom(request: Request): Brand {
+function resolveBrandFrom(request: Request): Brand | null {
   return resolveBrand(new URL(request.url).searchParams.get('brand') || 'cogmap')
 }
 
 export async function GET(request: NextRequest) {
   try {
     const brand = resolveBrandFrom(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const authError = await requireBrandAccessApi(request, brand)
     if (authError) return authError
 

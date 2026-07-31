@@ -29,15 +29,16 @@ dotenv.config({ path: path.join(__dirname, '../.env.local') });
 import mongoose from 'mongoose';
 import { backfillTicketSizeCollection } from '../lib/backfill-ticket-size';
 import { defaultRevenueTargetCurrency } from '../app/lib/sales-settings';
+import { BRAND_CONFIG } from '../app/lib/brand';
 
 const APPLY = process.argv.includes('--apply');
 const brandArg = process.argv.find((a) => a.startsWith('--brand='));
 const TENANT_ID = 'default';
 
-const ALL_BRANDS: Array<{ brand: string; collection: string }> = [
-  { brand: 'cogmap', collection: 'leads' },
-  { brand: 'seyu', collection: 'seyu_leads' },
-];
+// Issue #147 — derived from BRAND_CONFIG's own entries, not a hardcoded
+// 2-brand array, so a future brand is picked up automatically.
+const ALL_BRANDS: Array<{ brand: string; collection: string }> = Object.entries(BRAND_CONFIG)
+  .map(([brand, config]) => ({ brand, collection: config.dbCollection }));
 
 const BRANDS = brandArg
   ? ALL_BRANDS.filter((b) => b.brand === brandArg.split('=')[1])

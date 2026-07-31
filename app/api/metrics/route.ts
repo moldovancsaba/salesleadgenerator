@@ -103,6 +103,7 @@ async function computeOutcomeCorrelationMetrics(db: any, leadsCollection: any, l
 export async function GET(request: Request) {
   try {
     const brand = resolveBrand(new URL(request.url).searchParams.get('brand') || 'cogmap')
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const config = BRAND_CONFIG[brand]
     const tenantId = getTenantId(request)
     const filter = tenantFilter(tenantId)

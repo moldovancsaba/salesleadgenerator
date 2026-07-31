@@ -5,6 +5,7 @@ import { Container, Title, Text, Paper, SimpleGrid, Group, Badge, TextInput, Loa
 import { StatusBadge, InlineAlert, MetricCard, MissingDataPrompt } from '@sovereignsquad/gds-core/client';
 import { AdminSelect, AdminDataTable, AdminResourceEmptyState, AdminFormStatus } from '@sovereignsquad/gds-admin/client';
 import { CALIBRATABLE_STAGES } from '@/lib/win-rate-calibration';
+import { BRAND_CONFIG } from '@/app/lib/brand';
 import type { CurrencyCode } from '@/app/lib/brand';
 
 type ConcentrationRisk = {
@@ -104,7 +105,12 @@ export function ForecastClient({ brand }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const tenantId = brandKey === 'cogmap' ? 'cogmap' : 'seyu';
+      // Issue #147 — this page's own tenantId has always equalled brandKey
+      // itself (not lib/tenant.ts's generic 'default'); previously written
+      // as `brandKey === 'cogmap' ? 'cogmap' : 'seyu'`, which silently
+      // mapped any brand other than 'cogmap' to 'seyu' — wrong for a third
+      // brand. Equivalent for both existing brands, correct for any brand.
+      const tenantId = brandKey;
       const [boardRes, settingsRes] = await Promise.all([
         fetch(`/api/boards/${encodeURIComponent(brandKey)}?tenantId=${encodeURIComponent(tenantId)}`),
         fetch('/api/settings'),
@@ -137,7 +143,12 @@ export function ForecastClient({ brand }: Props) {
     setWinRatesLoading(true);
     setWinRatesError(null);
     try {
-      const tenantId = brandKey === 'cogmap' ? 'cogmap' : 'seyu';
+      // Issue #147 — this page's own tenantId has always equalled brandKey
+      // itself (not lib/tenant.ts's generic 'default'); previously written
+      // as `brandKey === 'cogmap' ? 'cogmap' : 'seyu'`, which silently
+      // mapped any brand other than 'cogmap' to 'seyu' — wrong for a third
+      // brand. Equivalent for both existing brands, correct for any brand.
+      const tenantId = brandKey;
       const res = await fetch(`/api/win-rates?brand=${encodeURIComponent(brandKey)}&tenantId=${encodeURIComponent(tenantId)}`);
       if (!res.ok) throw new Error(`Win-rates API: ${res.status}`);
       const json = await res.json();
@@ -157,7 +168,12 @@ export function ForecastClient({ brand }: Props) {
     setTicketSizeCalibrationLoading(true);
     setTicketSizeCalibrationError(null);
     try {
-      const tenantId = brandKey === 'cogmap' ? 'cogmap' : 'seyu';
+      // Issue #147 — this page's own tenantId has always equalled brandKey
+      // itself (not lib/tenant.ts's generic 'default'); previously written
+      // as `brandKey === 'cogmap' ? 'cogmap' : 'seyu'`, which silently
+      // mapped any brand other than 'cogmap' to 'seyu' — wrong for a third
+      // brand. Equivalent for both existing brands, correct for any brand.
+      const tenantId = brandKey;
       const res = await fetch(`/api/ticket-size-calibration?brand=${encodeURIComponent(brandKey)}&tenantId=${encodeURIComponent(tenantId)}`);
       if (!res.ok) throw new Error(`Ticket-size calibration API: ${res.status}`);
       const json = await res.json();
@@ -250,7 +266,7 @@ export function ForecastClient({ brand }: Props) {
   return (
     <Container py="md">
       <Group justify="space-between" mb="md">
-        <Title order={2}>{isSeyu ? 'Seyu Forecast' : 'CogMap Forecast'}</Title>
+        <Title order={2}>{(BRAND_CONFIG[brand]?.label ?? brand) + ' Forecast'}</Title>
         <Button
           size="xs"
           variant="light"
