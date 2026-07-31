@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.138
+
+### Changed — enrichment loop, batch 8 (issue #132)
+
+4 more real leads:
+
+- **River City Rangers** (CogMap): a genuinely ambiguous generic name (multiple TX cities are nicknamed "River City") — confirmed via real research this is a single real 501(c)3 in Austin, TX with no competing same-named club found, so applied a confident match rather than defaulting to `unknown`. Found real evidence contradicting the imported "Large Regional Club"/`elite` framing (3 of 7 board seats vacant, one shared field, no ECNL/MLS NEXT affiliation) and correctly downgraded `competitionLevelCode` to `amateur`, flagging the stored `recommended_tier` for human re-review. **Caught HTML-entity artifacts again** (`&amp;`, `&gt;`) despite this being a previously-fixed recurring issue — stripped before applying. Also had to resume the research agent mid-batch because its first completion message referenced the final JSON payload as "provided above" without the JSON actually being present.
+- **Stampede Sports Arena** (CogMap): confirmed via the facility's own live site that it hosts both indoor soccer and indoor flag football (not soccer-only as the CSV import assumed), correcting `sportCode` to `multi-sport`. Found the real current owner/GM (Julia Ermish) and 2 assistant GMs, noting a stale "Rick/Richard Byrd" owner record found on secondary sources should not be used. **Caught a schema-usage mistake**: the agent put contacts' real job titles in the `role` field and left `title` empty — `title` is what drives the server's auto-derived `seniorityTier`/`department`, so this was fixed before applying.
+- **Croatian Football Federation** (Seyu): unambiguous federation identity. Confirmed current president Marijan Kustić (re-elected unopposed February 2025) via hns.family/Wikipedia/Index.hr.
+- **Romanian Football Federation** (Seyu): unambiguous federation identity. Confirmed current president Răzvan Burleanu (re-elected March 2026, term to 2030) via frf.ro's own contact page plus independent sources.
+
+Runbook (`docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9 step 4) updated with 2 new checklist items from this batch's real catches: title-vs-role field misuse, and verifying an agent's final message actually contains the JSON payload rather than just referencing it.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **74 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.137
 
 ### Changed — enrichment loop, batch 7 (issue #132)
