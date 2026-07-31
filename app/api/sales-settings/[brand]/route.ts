@@ -11,6 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
   try {
     const { brand: brandParam } = await params
     const brand = resolveBrand(brandParam)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const tenantId = getTenantId(request)
 
     if (!process.env.MONGODB_URI) {
@@ -55,6 +56,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ bran
   try {
     const { brand: brandParam } = await params
     const brand = resolveBrand(brandParam)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const tenantId = getTenantId(request)
 
     if (!process.env.MONGODB_URI) {

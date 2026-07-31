@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateBattlecardPayload, normalizeProofPoints, normalizeObjections } from '../../app/lib/battlecards/validate-battlecard';
-import { findForbiddenBrandTerms } from '../../lib/validate-lead';
+import { findForbiddenBrandTerms, FORBIDDEN_BRAND_TERMS } from '../../lib/validate-lead';
 
 describe('findForbiddenBrandTerms', () => {
   it('flags a CogMap-forbidden Seyu term', () => {
@@ -22,6 +22,31 @@ describe('findForbiddenBrandTerms', () => {
 
   it('is case-insensitive', () => {
     expect(findForbiddenBrandTerms('We compete with SEYU directly', 'cogmap')).toEqual(['seyu']);
+  });
+
+  // Issue #147 — DVSC added as a third brand: each brand's list now names
+  // both other brands, kept symmetric on purpose.
+  describe('DVSC symmetry (issue #147)', () => {
+    it('flags a CogMap or Seyu mention in a DVSC lead', () => {
+      expect(findForbiddenBrandTerms('Similar to cogmap', 'dvsc')).toEqual(['cogmap']);
+      expect(findForbiddenBrandTerms('Like seyu for fan engagement', 'dvsc')).toEqual(['seyu']);
+    });
+
+    it('flags a DVSC mention in a CogMap or Seyu lead', () => {
+      expect(findForbiddenBrandTerms('We already work with dvsc', 'cogmap')).toEqual(['dvsc']);
+      expect(findForbiddenBrandTerms('DVSC is a client', 'seyu')).toEqual(['dvsc']);
+    });
+
+    it('every brand names both other brands in its own forbidden list — fully symmetric across all 3', () => {
+      const brands = Object.keys(FORBIDDEN_BRAND_TERMS);
+      expect(brands.sort()).toEqual(['COGMAP', 'DVSC', 'SEYU']);
+      for (const brand of brands) {
+        const others = brands.filter((b) => b !== brand).map((b) => b.toLowerCase());
+        for (const other of others) {
+          expect(FORBIDDEN_BRAND_TERMS[brand]).toContain(other);
+        }
+      }
+    });
   });
 });
 

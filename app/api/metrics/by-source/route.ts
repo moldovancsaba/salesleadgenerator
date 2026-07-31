@@ -15,6 +15,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const brand = resolveBrand(searchParams.get('brand') || 'cogmap')
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const config = BRAND_CONFIG[brand]
     const tenantId = getTenantId(request)
 

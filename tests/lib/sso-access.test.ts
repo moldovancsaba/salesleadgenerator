@@ -62,8 +62,10 @@ describe('lib/sso-access', () => {
       // Deliberately empty/undefined orgAccess — this is the safety-net
       // scenario issue #103 exists to guarantee: a super admin is never
       // locked out by a bug or gap in the per-org assignment data.
-      expect(getAccessibleBrands('moldovancsaba@gmail.com', undefined).sort()).toEqual(['cogmap', 'seyu']);
-      expect(getAccessibleBrands('moldovancsaba@gmail.com', {}).sort()).toEqual(['cogmap', 'seyu']);
+      // Issue #147 — DVSC added as a third brand: a super admin now
+      // legitimately sees all 3 configured brands, not just the original 2.
+      expect(getAccessibleBrands('moldovancsaba@gmail.com', undefined).sort()).toEqual(['cogmap', 'dvsc', 'seyu']);
+      expect(getAccessibleBrands('moldovancsaba@gmail.com', {}).sort()).toEqual(['cogmap', 'dvsc', 'seyu']);
     });
 
     it('returns only brands with a truthy role for a regular user', () => {
