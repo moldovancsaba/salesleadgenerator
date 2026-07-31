@@ -5,6 +5,7 @@ import { Container, Title, Text, Paper, SimpleGrid, Group, Badge, TextInput, Loa
 import { StatusBadge, InlineAlert, MetricCard, MissingDataPrompt } from '@sovereignsquad/gds-core/client';
 import { AdminSelect, AdminDataTable, AdminResourceEmptyState, AdminFormStatus } from '@sovereignsquad/gds-admin/client';
 import { CALIBRATABLE_STAGES } from '@/lib/win-rate-calibration';
+import type { CurrencyCode } from '@/app/lib/brand';
 
 type ConcentrationRisk = {
   topLeadId: string;
@@ -19,7 +20,7 @@ type ConcentrationRisk = {
 type Coverage = {
   target: number;
   targetPeriod: 'monthly' | 'quarterly' | 'annual';
-  targetCurrency: 'USD' | 'EUR';
+  targetCurrency: CurrencyCode;
   weightedPipeline: number;
   ratio: number;
   benchmark: 'below' | 'in_range' | 'above' | 'unset';

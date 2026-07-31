@@ -9,6 +9,7 @@ import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
 import { PRO_FIELD, CON_FIELD } from './lib/brand';
+import type { CurrencyCode } from './lib/brand';
 import { getTicketSize, SIZE_FIELD_OPTIONS } from './constants';
 import { isContactStale, DEFAULT_STALENESS_THRESHOLD_DAYS } from '@/lib/contact-freshness';
 import { computeStaleness, DEFAULT_STALE_THRESHOLDS } from '@/lib/stale-deal';
@@ -109,7 +110,7 @@ function techSignalsSection(lead: Lead) {
   return <Text size="sm" c="dimmed">Scan unavailable</Text>;
 }
 
-function formatTicketSizeCurrency(value: number, currency: 'USD' | 'EUR'): string {
+function formatTicketSizeCurrency(value: number, currency: CurrencyCode): string {
   const symbol = currency === 'USD' ? '$' : '€';
   return `${symbol}${Math.round(value).toLocaleString()}`;
 }
@@ -303,7 +304,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
   // Manually-managed deals (issue #114) — always distinct from the
   // auto-computed ticketSizeEstimate above; nothing here ever runs
   // automatically.
-  type DealRow = { id?: string; value: number | ''; currency: 'USD' | 'EUR'; label: string; source?: Deal['source'] };
+  type DealRow = { id?: string; value: number | ''; currency: CurrencyCode; label: string; source?: Deal['source'] };
   const [editingDeals, setEditingDeals] = useState(false);
   const [dealsForm, setDealsForm] = useState<DealRow[]>([]);
   const [savingDeals, setSavingDeals] = useState(false);
@@ -321,7 +322,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
     const ticketSize = getTicketSize(lead);
     if (!ticketSize || ticketSize.kind === 'unconfigured') return;
     const expected = ticketSize.kind === 'legacy' ? ticketSize.value : ticketSize.expected;
-    const currency: 'USD' | 'EUR' = ticketSize.kind === 'legacy' ? ticketSize.currency : ticketSize.currency;
+    const currency: CurrencyCode = ticketSize.kind === 'legacy' ? ticketSize.currency : ticketSize.currency;
     openEditDeals();
     setDealsForm((rows) => [...rows, { value: expected, currency, label: 'Converted from ticket estimate', source: 'converted_ticket_estimate' }]);
   }
