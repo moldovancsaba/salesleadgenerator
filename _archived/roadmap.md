@@ -230,4 +230,4 @@ Real-device confirmation for the iOS focus-zoom fix and PWA installability both 
 - Architecture and data flow: `docs/ARCHITECTURE.md`
 - Operator workflows: `docs/OPERATOR_GUIDE.md`
 - Stack and dependencies: `docs/STACK_AND_DEPENDENCIES.md`
-- Operating rules for Claude sessions: `CLAUDE.md`
+- Operating rules for AI coding assistants: `CLAUDE.md`
