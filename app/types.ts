@@ -1,6 +1,7 @@
 // Types shared across Kanban components
 
 import type { CurrencyCode } from './lib/brand';
+import type { ActiveCadence } from '../lib/cadences';
 
 // Kanban columns
 export type KanbanColumn =
@@ -187,6 +188,12 @@ export type Lead = {
   // an existing reminder (vs. omission, which leaves it unchanged).
   nextActionDueAt?: string | null;
   nextActionNote?: string;
+  // A lead's own position on a sales cadence template (lib/cadences.ts,
+  // issue #124/#149) — which step it's on and when the next one is due.
+  // Exactly one active cadence per lead at a time (enforced at enroll time,
+  // not here); `null` explicitly clears it (cancel/complete/auto-cancel on
+  // DECLINE or LOST), same convention as nextActionDueAt above.
+  activeCadence?: ActiveCadence | null;
   // Lightweight BANT-style qualification signals, informational only — not
   // wired into lib/stage-gate.ts's required-fields gate. See issue #122.
   // authorityConfirmed is a deal-level judgment call, distinct from any

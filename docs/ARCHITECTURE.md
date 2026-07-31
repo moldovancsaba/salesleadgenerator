@@ -346,6 +346,7 @@ Key fields:
 - `techSignals[]`, `techSignalsScannedAt`, `techSignalsScanStatus` (issue #69, top-level, server-computed by the SSRF-guarded homepage scan — see above)
 - `ticketSizeEstimate` (issue #79, top-level, server-computed firmographic-tiered deal-size band — see above)
 - `deals[]`, `checklist[]`, `nextActionDueAt`/`nextActionNote`, `qualification`, `source` (issues #113–#123, all manually/user-managed — see above)
+- `activeCadence` (issue #124/#149, `{cadenceId, currentStepIndex, stepDueAt, enrolledAt} | null`) — a lead's own position on a sales cadence template; see "Sales cadences" below
 - Organization-agnostic pros/cons (as of 2.3.0): `pro_for_organization`, `con_for_organization` — one shared field name across every brand/tenant, not brand-specific (`PRO_FIELD`/`CON_FIELD` in `app/lib/brand.ts`)
 - `kanbanColumn`, `sortOrder`
 - `fingerprint` — SHA1 of `url + entity_name + region`
@@ -487,6 +488,43 @@ Collection: `battlecards`, one document per competitor, scoped by `{tenantId, br
 `app/battlecards/[brand]/battlecards-client.tsx` — admin CRUD page, built with GDS Admin field/table/status primitives (`AdminTextInput`, `AdminTextarea`, `AdminDataTable`, `AdminFormStatus`) per repo policy, with two documented exceptions: (1) the repeatable `proofPoints`/`objections` rows use plain Mantine `Stack`/`Group`/`ActionIcon` — gds-admin has no repeatable-rows primitive (the same gap already documented for the sales-settings form); (2) Save/Reset/Delete use plain Mantine `Button`s rather than `AdminFormActions`/`ActionBar` — those require resolving each action to a `SemanticActionId` registered in GDS's internal vocabulary (`GdsVocabulary`, a runtime object, not reliably inferable from the installed type definitions alone — see the "Lead detail modal" fix, issue #78, for what happens when a `namespace:action` id isn't actually registered via a vocabulary pack: `ActionBar` throws at render time despite the broader `SemanticActionId` *type* accepting it).
 
 `app/outreach/compose-modal.tsx` gains a `SectionPanel` (`@sovereignsquad/gds-core/client`) titled "Battlecards" below the template list, re-querying `GET /api/battlecards` on the exact same tag filter the template list already uses (no second, independent filter control) — content renders as plain read-only text, never auto-inserted into the outreach `body`.
+
+### Sales cadences — data model + CRUD (issue #124/#149)
+
+**Parent tracking issue #124** decomposes "automated sales cadences" into 4 sub-issues, built in dependency order: #149 (this section — data model + CRUD), #150 (automated email-step sends via Resend), #151 (the daily cadence-tick scheduler), #152 (cadence-builder + lead enroll/cancel UI). Only #149 has shipped as of this entry — a cadence can be authored and a lead can be enrolled/cancelled, but no step is actually sent or reminded on yet; that's #150/#151's job.
+
+**Real, verified scope boundary, not an assumed one**: LinkedIn's own User Agreement and developer docs (read directly, not recalled from training data) confirm there is no self-service API for sending LinkedIn messages, and Sales Navigator's Application Platform is enterprise-partner-only — automating LinkedIn message sends is genuinely infeasible, not merely inconvenient. Consequently a `linkedin`/`call` cadence step is **never** auto-sent by design; only an `email` step is. `lib/cadences.ts` itself doesn't encode this distinction (see below) — it belongs to the scheduler (#151), which hasn't shipped yet.
+
+**New pure module `lib/cadences.ts`** — the same "shared math no two callers can disagree on" role `lib/deals.ts`/`lib/checklist.ts` play for their own collections:
+
+```typescript
+type CadenceStep = {
+  id: string
+  channel: 'email' | 'linkedin' | 'call'
+  waitDaysAfterPrevious: number  // days after the *previous* step; step 0's own value is honored as-is, no forced-zero
+  templateId?: string            // references an OutreachTemplate; absent for a `call` step
+  reminderNote?: string          // shown as Lead.nextActionNote for a linkedin/call reminder (issue #151)
+}
+
+type Cadence = {
+  id: string; brand: string; tenantId: string; name: string
+  steps: CadenceStep[]
+  enabled: boolean   // defaults false — must be explicitly activated before any lead on it can trigger a real send (this app's first cron with a genuine external side effect)
+  createdAt: string; updatedAt: string
+}
+```
+
+`sanitizeCadenceStep()`/`sanitizeCadenceSteps()` follow `lib/deals.ts`'s drop-invalid-entries convention (an unrecognized `channel` is dropped, not defaulted or rejected wholesale), capped at 20 steps. `validateCadence()` rejects a cadence with no name or zero steps at save time — one with either could never do anything once enrolled. `computeStepDueAt()`, `buildInitialActiveCadence()`, and `advanceActiveCadence()` are the shared due-date math both the enroll API (below) and the future cadence-tick scheduler (#151) call, so the two can never silently disagree about when a step is due; `advanceActiveCadence()` returns `null` once the current step was the last one, signaling the caller to clear the enrollment entirely rather than store a dangling out-of-range step index.
+
+**Collection `cadences`**, one document per template, scoped by `{tenantId, brand}` — same isolation model as `outreach_templates`/`battlecards`. `GET/POST /api/cadences` and `GET/PUT/DELETE /api/cadences/[id]` follow `battlecards`' own CRUD precedent exactly: `GET` unauthenticated (read-only reference data, same trust level as every other per-brand template list), mutations gated by `x-api-key` (`requireApiKey`). `DELETE` adds a real safety check absent from the battlecards precedent: it counts leads in that brand's own collection with `activeCadence.cadenceId` equal to the id being deleted and returns `409` if any are still enrolled, rather than leaving those leads pointing at a vanished template — the operator must cancel each lead's enrollment first.
+
+**`Lead.activeCadence?: ActiveCadence | null`** (`app/types.ts`) — a lead's own position on a cadence (`{cadenceId, currentStepIndex, stepDueAt, enrolledAt}`), exactly one at a time. This deliberately reuses issue #121's exact `nextActionDueAt`/`nextActionNote` mechanism for `linkedin`/`call` step reminders rather than building a second due/overdue system (#151's job to wire up) — `activeCadence` itself only tracks cadence progress, not a rendered reminder.
+
+**`POST/DELETE /api/leads/[id]/cadence`** (`app/api/leads/[id]/cadence/route.ts`) — enroll/cancel, gated by `requireBrandAccessApi`, matching `PATCH /api/leads`'s own dual-auth convention for lead-scoped actions (ACCEPT/DECLINE/PIN/etc.) rather than `requireApiKey` alone, since this is the same class of browser-triggered lead action, not admin template management. `POST` body `{cadenceId}`: 404s if the lead or the cadence doesn't exist (the cadence lookup is scoped to the lead's own `brand`, not just tenant — a cadence id from a different brand in the same tenant is never enrollable), 409s if the lead already has an `activeCadence`. The one-at-a-time invariant is enforced in the update filter itself (`findOneAndUpdate` matching `activeCadence: null`), not just a preceding read — two concurrent enroll requests for the same lead can't both win; the loser's write matches zero documents and gets a real `409`. Otherwise computes the first step's `stepDueAt` via `buildInitialActiveCadence()` and stores it. `DELETE` clears `activeCadence` to `null`; called on a lead with no active cadence, it's treated as an already-achieved end state (`200`, not `404`).
+
+**Auto-cancelled on a terminal LOST transition.** `Lead.activeCadence`'s own doc comment (`app/types.ts`) documents this as an invariant of the field: an enrolled lead that's DECLINEd or otherwise `COLUMN_MOVE`d into `LOST` has its `activeCadence` cleared automatically. Enforced at the one point every kanbanColumn-changing write path converges — `app/lib/lead-actions.ts`'s `executeLeadAction()` (covers `PATCH ... DECLINE`/`COLUMN_MOVE`) and `PUT /api/leads/[id]` (the agent-enrichment direct-write path) both check `updateData.kanbanColumn === 'LOST'` and null out `activeCadence` in the same write, rather than a separate cleanup pass. A lead no longer being pursued must stop counting as an active enrollment (it would otherwise keep blocking cadence-template deletion) and must never be picked up by the future cadence-tick scheduler (#151).
+
+**`validateCadence()` requires a `templateId` on every `email` step.** The one channel this app actually auto-sends (once #150 ships) can't execute without a template to send — a `linkedin`/`call` step legitimately has none (per `CadenceStep`'s own doc comment) and isn't required to.
 
 ### Contacts view (2.4.137, issue #139)
 

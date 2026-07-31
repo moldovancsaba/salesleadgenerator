@@ -270,6 +270,14 @@ export async function PUT(
       updateData.mergeKey = buildMergeKey(effectiveClassification);
     }
 
+    // Issue #124/#149: Lead.activeCadence's own doc comment (app/types.ts)
+    // promises auto-cancel on DECLINE/LOST — this direct-write path
+    // (the agent enrichment path's `kanbanColumn` field) can also move a
+    // lead to LOST, same as app/lib/lead-actions.ts's DECLINE/COLUMN_MOVE.
+    if (updateData.kanbanColumn === 'LOST' && existing.activeCadence) {
+      updateData.activeCadence = null;
+    }
+
     const result = await dbInstance.collection(config.dbCollection).findOneAndUpdate(
       { _id: existing._id, ...buildTenantFilter(tenantId) },
       { $set: updateData },

@@ -1,5 +1,37 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.158
+
+### Fixed — sales cadence review findings (PR #153, issue #124/#149)
+
+Five real, tractable findings from automated PR review, all fixed in the same PR before merge:
+
+- **Auto-cancel on terminal LOST (P1).** `Lead.activeCadence`'s own doc comment promised auto-cancel on DECLINE/LOST, but nothing implemented it — an enrolled lead moved to LOST kept its stale enrollment, blocking template deletion and remaining eligible for the future scheduler (#151) to process despite being terminal. Fixed in both places a lead can reach LOST: `app/lib/lead-actions.ts`'s `executeLeadAction()` (DECLINE/COLUMN_MOVE) and `PUT /api/leads/[id]` (the agent-enrichment direct-write path).
+- **Email steps must reference a template.** `validateCadence()` accepted (and could enable) an `email` step with no `templateId` — unsendable once #150 ships. Now rejected at save time; `linkedin`/`call` steps are unaffected (never auto-sent, legitimately templateless).
+- **Enrollment race condition.** Two concurrent `POST /api/leads/[id]/cadence` requests for the same lead could both pass the `activeCadence` read-check before either wrote, silently letting the later one replace the earlier enrollment. The write is now atomic — `findOneAndUpdate` matches only a document still at `activeCadence: null`, so a losing concurrent request gets a real `409` instead of clobbering the winner.
+- **Cross-brand cadence enrollment.** The cadence lookup in the enroll route filtered by tenant only, so a cadence id from a different brand in the same tenant was enrollable — exposing a lead to the wrong brand's future messaging and letting the cadence-deletion guard (which checks only its own brand's lead collection) miss the enrollment. Now scoped to the lead's own `brand` too.
+- **Delete guard missed legacy leads.** The cadence-deletion enrollment count used a literal `{tenantId: 'default'}` match, while every other lookup in this feature (and the rest of the codebase) uses `tenantFilter()`, which also matches legacy leads with no `tenantId` field at all for the `'default'` tenant. Fixed to use the same predicate, so a legacy lead's active enrollment is no longer invisible to the delete guard.
+
+### Testing
+9 new integration tests covering all five fixes (auto-cancel via PATCH/PUT, cross-brand rejection, concurrent-enroll race, legacy-tenant delete guard, missing-templateId rejection) plus 3 new unit tests for the `templateId` validation rule. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (675 passing) + integration (157 passing) + smoke all green, `next build --webpack` clean.
+
+## 2.4.157
+
+### Added — sales cadences: data model + CRUD (issue #124/#149, first of 4 sub-issues)
+
+First delivered piece of issue #124 ("sales cadences: multi-step, multi-day automated outreach sequences"), decomposed per CLAUDE.md's issue-driven workflow into 4 sub-issues (#149-#152) built in dependency order. This delivery: the data model and CRUD only — no step is actually sent or reminded on yet (that's #150/#151); no builder/enroll UI yet (that's #152).
+
+**Real, verified scope boundary**: LinkedIn's own User Agreement and developer docs (read directly) confirm there is no self-service API for sending LinkedIn messages — automating LinkedIn message sends is genuinely infeasible, not merely inconvenient. A `linkedin`/`call` cadence step is therefore never auto-sent by design; only an `email` step will be, once #150 ships.
+
+- New `lib/cadences.ts` — pure module: `CadenceStep`/`Cadence`/`ActiveCadence` types, `sanitizeCadenceStep`/`sanitizeCadenceSteps` (drops invalid entries, caps at 20 steps — same convention as `lib/deals.ts`/`lib/checklist.ts`), `sanitizeCadence`/`validateCadence` (rejects a cadence with no name or zero steps), and the shared due-date math `computeStepDueAt`/`buildInitialActiveCadence`/`advanceActiveCadence` that both the enroll API here and the future cadence-tick scheduler (#151) will call, so the two can never disagree about when a step is due.
+- New collection `cadences` — `GET/POST /api/cadences`, `GET/PUT/DELETE /api/cadences/[id]`, following `battlecards`' own CRUD precedent (unauthenticated `GET`, `x-api-key`-gated mutations). `DELETE` blocks (409) deleting a cadence template that still has leads actively enrolled on it.
+- New `Lead.activeCadence?: {cadenceId, currentStepIndex, stepDueAt, enrolledAt} | null` (`app/types.ts`) — exactly one active cadence per lead at a time.
+- New `POST/DELETE /api/leads/[id]/cadence` (`app/api/leads/[id]/cadence/route.ts`) — enroll (body `{cadenceId}`, 409 if already enrolled, 404 if lead/cadence not found) and cancel (idempotent — clearing an already-cleared enrollment is a 200, not a 404), gated by `requireBrandAccessApi` matching `PATCH /api/leads`'s own dual-auth convention for lead-scoped actions.
+- `docs/ARCHITECTURE.md` gains a new "Sales cadences" section documenting the model, the LinkedIn-infeasibility finding, and the CRUD/enroll contracts.
+
+### Testing
+27 new unit tests (`tests/lib/cadences.test.ts` — sanitizers, validation, due-date math, step advancement) + 12 new integration tests (`tests/integration/cadences.integration.test.ts` — cadence CRUD, enroll/cancel lifecycle, duplicate-enroll rejection, delete-blocked-while-enrolled). Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (672 passing) + integration (148 passing) + smoke all green, `next build --webpack` clean.
+
 ## 2.4.156
 
 ### Added — CLAUDE.md Rule 8: no AI-assistant branding, anywhere (owner request)
