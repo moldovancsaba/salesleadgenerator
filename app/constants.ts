@@ -1,5 +1,6 @@
 // Column metadata
 import type { KanbanColumn } from "./types";
+import type { CurrencyCode } from "./lib/brand";
 
 export const COLUMNS: { key: KanbanColumn; label: string; description: string; color: string; icon: string }[] = [
   { key: "DISCOVERED", label: "Discovered", description: "Auto-managed: ICE < 500, sorted high to low", color: "blue", icon: "🔍" },
@@ -60,7 +61,7 @@ export type TicketSizeDisplay =
       low: number;
       expected: number;
       high: number;
-      currency: 'USD' | 'EUR';
+      currency: CurrencyCode;
       method: 'tier_band' | 'per_unit' | 'manual_override';
       confidence: 'low' | 'medium' | 'high';
       // Present only when method === 'manual_override' (issue #86).
@@ -73,7 +74,7 @@ export type TicketSizeDisplay =
       sizeAssumed?: boolean;
     }
   | { kind: 'unconfigured' }
-  | { kind: 'legacy'; value: number; currency: 'USD' | 'EUR' }
+  | { kind: 'legacy'; value: number; currency: CurrencyCode }
   | null;
 
 export function getTicketSize(lead: {
@@ -82,7 +83,7 @@ export function getTicketSize(lead: {
     low?: number;
     expected?: number;
     high?: number;
-    currency?: 'USD' | 'EUR';
+    currency?: CurrencyCode;
     confidence?: 'low' | 'medium' | 'high';
     overrideReason?: string;
     overriddenBy?: string;

@@ -7,6 +7,7 @@ import { showNotification } from '@mantine/notifications';
 import { KanbanBoard as GdsKanbanBoard } from '@sovereignsquad/gds-core/client';
 import type { KanbanItem as GdsKanbanItem, KanbanColumnData as GdsKanbanColumnData } from '@sovereignsquad/gds-core/client';
 import type { Lead, KanbanColumn } from './types';
+import type { CurrencyCode } from './lib/brand';
 import { LeadCard } from './card';
 import { COLUMNS } from './constants';
 import { computeStaleness, DEFAULT_STALE_THRESHOLDS, type KanbanColumn as StaleDealColumn } from '../lib/stale-deal';
@@ -34,7 +35,7 @@ type BoardProps = {
   tenantId?: string;
   onOpenLead: (lead: Lead) => void;
   forecast?: Record<string, ColumnForecast> | null;
-  forecastCurrency?: 'USD' | 'EUR';
+  forecastCurrency?: CurrencyCode;
   filter?: LeadFilter;
   // Owned by the parent (app/sales/[brand]/sales-page-client.tsx) so the
   // toggle button can live in the same slim toolbar row as the Filters

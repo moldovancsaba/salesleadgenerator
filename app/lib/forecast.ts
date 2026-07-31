@@ -9,10 +9,6 @@ import type { RevenueTargetInput } from '../../lib/pipeline-coverage'
 import { getForecastCalibrationSettings, mergeCalibratedWeights } from '../../lib/win-rate-calibration'
 import { getCachedWinRates } from './win-rate-store'
 
-// CogMap forecasts in USD, Seyu in EUR — matches app/lib/sales-settings.ts's
-// defaultRevenueTargetCurrency(), the source of truth this mirrors.
-const FORECAST_CURRENCY: Record<'cogmap' | 'seyu', 'USD' | 'EUR'> = { cogmap: 'USD', seyu: 'EUR' }
-
 // Coverage is looked up under the exact same {brand, tenantId} key
 // app/api/sales-settings/[brand]/route.ts's own GET/PUT already use — not
 // lib/tenant.ts's tenantFilter() $or-default special-casing, an exact match
@@ -232,7 +228,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
     const concentrationSettings = await getConcentrationRiskSettings(db)
     const brandConcentrationRisk = attachConcentrationRisk(perLeadValues, pipeline, totalWeighted, weightsUsed, concentrationSettings)
     const revenueTarget = await fetchRevenueTarget(db, brand, tenantId)
-    const coverage = computeCoverage(revenueTarget, totalWeighted, FORECAST_CURRENCY[brand])
+    const coverage = computeCoverage(revenueTarget, totalWeighted, BRAND_CONFIG[brand].currency)
 
     forecast = {
       pipeline,
@@ -396,7 +392,7 @@ export async function computeForecast(db: Db, brand: 'cogmap' | 'seyu', tenantId
     const concentrationSettingsSeyu = await getConcentrationRiskSettings(db)
     const brandConcentrationRiskSeyu = attachConcentrationRisk(perLeadValuesSeyu, pipelineSeyu, totalWeightedSeyu, weightsUsed, concentrationSettingsSeyu)
     const revenueTargetSeyu = await fetchRevenueTarget(db, brand, tenantId)
-    const coverageSeyu = computeCoverage(revenueTargetSeyu, totalWeightedSeyu, FORECAST_CURRENCY[brand])
+    const coverageSeyu = computeCoverage(revenueTargetSeyu, totalWeightedSeyu, BRAND_CONFIG[brand].currency)
 
     forecast = {
       byCompany: annualizedByCompany,
