@@ -3,7 +3,11 @@
 // (app/lib/forecast.ts) supplies the already-fetched target and weighted
 // total.
 
-export type RevenueTargetCurrency = 'USD' | 'EUR'
+import type { CurrencyCode } from '@/app/lib/brand'
+
+// Issue #145 — re-exported from app/lib/brand.ts's single currency source of
+// truth rather than an independent 'USD' | 'EUR' union.
+export type RevenueTargetCurrency = CurrencyCode
 export type RevenueTargetPeriod = 'monthly' | 'quarterly' | 'annual'
 
 export type RevenueTargetInput = {

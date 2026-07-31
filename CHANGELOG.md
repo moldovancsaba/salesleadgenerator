@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.147
+
+### Changed — de-hardcode currency: unify into one BRAND_CONFIG-owned source of truth (issue #145)
+
+First of 4 sub-issues under #144 (onboarding DVSC as a third brand). Currency was previously hardcoded to a fixed `'USD' | 'EUR'` union in three independent places kept in sync only by convention — `lib/ticket-size.ts`'s `TicketSizeCurrency`, `app/lib/sales-settings.ts`'s `RevenueTargetCurrency` (plus its own `brand === 'seyu' ? 'EUR' : 'USD'` ternary), and `app/lib/forecast.ts`'s `FORECAST_CURRENCY` map — with no way for a new brand to declare its own currency without hand-editing all three.
+
+- `app/lib/brand.ts` now owns a single `CurrencyCode` type plus `CURRENCY_CODES`/`CURRENCY_CODE_OPTIONS` (a real, named, extensible set, matching `lib/lead-taxonomy.ts`'s controlled-vocabulary pattern), and each `BRAND_CONFIG` entry declares its own `currency: CurrencyCode` (`cogmap: 'USD'`, `seyu: 'EUR'`) alongside its existing `label`/`dbCollection`/`apiPrefix`.
+- `lib/ticket-size.ts`'s `TicketSizeCurrency`, `lib/deals.ts`'s `DealCurrency`, `lib/pipeline-coverage.ts`'s `RevenueTargetCurrency`, and `app/lib/sales-settings.ts`'s own `RevenueTargetCurrency` are now type aliases of the one shared `CurrencyCode` — no independent duplicate unions remain anywhere in the codebase.
+- `defaultRevenueTargetCurrency(brand)` now reads `BRAND_CONFIG[brand]?.currency ?? 'USD'` instead of a hand-written ternary; `app/lib/forecast.ts`'s `FORECAST_CURRENCY` map is removed entirely, replaced by the same `BRAND_CONFIG[brand].currency` read at both call sites (cogmap/seyu coverage computation).
+- `REVENUE_TARGET_CURRENCIES`/`REVENUE_TARGET_CURRENCY_OPTIONS` (Sales Settings validation + the currency `Select` in the UI) now derive from `CURRENCY_CODES`/`CURRENCY_CODE_OPTIONS` instead of hand-maintained duplicate arrays.
+- Every remaining `'USD' | 'EUR'` inline literal union across the frontend (`app/types.ts`, `app/card.tsx`, `app/detail.tsx`, `app/kanban.tsx`, `app/constants.ts`, `app/forecast/[brand]/forecast-client.tsx`) now references the shared `CurrencyCode` type instead — confirmed via repo-wide grep that no independent `'USD' | 'EUR'` union remains outside `app/lib/brand.ts`'s own definition.
+
+Pure mechanism refactor, zero behavior change: CogMap continues to report/forecast in USD and Seyu in EUR, and `lib/pipeline-coverage.ts`'s no-FX-conversion currency-mismatch detection is unchanged. The full pre-existing test suite passes unmodified (no currency-dependent test needed its expected value changed).
+
+### Testing
+New: `tests/lib/brand.test.ts` (`BRAND_CONFIG` currency per brand, `CURRENCY_CODES`/`CURRENCY_CODE_OPTIONS` derivation, `resolveBrand`), plus a new `defaultRevenueTargetCurrency` describe block in `tests/lib/sales-settings.test.ts` (both existing brands + unrecognized-brand fallback). Full gate: tsc 0 errors, lint 0 errors/warnings, vitest 630/630 passing (622 pre-existing + 8 new, all pre-existing tests unmodified), smoke suite passing.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s Company Settings section documents the new single currency source of truth and why the prior 3-independent-definitions state was a real bug risk, not a style preference.
+
 ## 2.4.146
 
 ### Fixed — root-cause fixes for the lead-taxonomy loop's two most frequent recurring mistakes (issue #132)

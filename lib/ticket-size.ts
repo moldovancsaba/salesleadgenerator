@@ -7,9 +7,13 @@
 // Pure module — no React/Mongo/internal Date.now(), mirroring
 // lib/tech-stack-scan.ts's/lib/title-normalization.ts's shape.
 
+import type { CurrencyCode } from '@/app/lib/brand';
+
 export type TicketSizeMethod = 'tier_band' | 'per_unit' | 'unconfigured' | 'manual_override';
 export type TicketSizeConfidence = 'low' | 'medium' | 'high';
-export type TicketSizeCurrency = 'USD' | 'EUR';
+// Issue #145 — re-exported from app/lib/brand.ts's single currency source of
+// truth rather than an independent 'USD' | 'EUR' union.
+export type TicketSizeCurrency = CurrencyCode;
 export type TicketSizeTier = 'Small' | 'Medium' | 'Large' | 'Enterprise';
 
 export interface TicketSizeEstimate {

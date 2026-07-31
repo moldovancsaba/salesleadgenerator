@@ -2,6 +2,7 @@
 
 import { Badge, Button, Group, Stack, Text } from '@mantine/core';
 import type { Lead } from './types';
+import type { CurrencyCode } from './lib/brand';
 import { getIceScore, getTicketSize } from './constants';
 import type { TicketSizeDisplay } from './constants';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
@@ -64,7 +65,7 @@ const ROTTEN_COLOR: Record<'green' | 'yellow' | 'red', string> = { green: 'green
 // a bare crisp number is exactly the CLAUDE.md Rule 7 violation issue #80
 // exists to fix (an unvalidated $8,000,000,000 estimate reading as fact).
 // The full range/method/confidence lives in the detail drawer instead.
-function formatCompactTicketSize(value: number, currency: 'USD' | 'EUR'): string {
+function formatCompactTicketSize(value: number, currency: CurrencyCode): string {
   const symbol = currency === 'USD' ? '$' : '€';
   const abs = Math.abs(value);
   if (abs >= 1_000_000) return `${symbol}${(value / 1_000_000).toFixed(1)}M`;

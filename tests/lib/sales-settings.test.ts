@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeSalesSettings, emptySalesSettings, emptyProductLine } from '../../app/lib/sales-settings';
+import { sanitizeSalesSettings, emptySalesSettings, emptyProductLine, defaultRevenueTargetCurrency } from '../../app/lib/sales-settings';
+
+// Issue #145 — defaultRevenueTargetCurrency() now reads BRAND_CONFIG[brand].currency
+// (app/lib/brand.ts) instead of a hand-written `brand === 'seyu' ? 'EUR' : 'USD'` ternary.
+describe('defaultRevenueTargetCurrency', () => {
+  it('returns USD for cogmap and EUR for seyu, unchanged from the prior ternary', () => {
+    expect(defaultRevenueTargetCurrency('cogmap')).toBe('USD');
+    expect(defaultRevenueTargetCurrency('seyu')).toBe('EUR');
+  });
+
+  it('falls back to USD for an unrecognized brand instead of throwing', () => {
+    expect(defaultRevenueTargetCurrency('not_a_real_brand')).toBe('USD');
+  });
+});
 
 describe('emptySalesSettings', () => {
   it('fills brand and tenantId with safe empty defaults', () => {

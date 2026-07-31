@@ -1,5 +1,7 @@
 // Types shared across Kanban components
 
+import type { CurrencyCode } from './lib/brand';
+
 // Kanban columns
 export type KanbanColumn =
   | "DISCOVERED"
@@ -141,7 +143,7 @@ export type Lead = {
     low?: number;
     expected?: number;
     high?: number;
-    currency?: 'USD' | 'EUR';
+    currency?: CurrencyCode;
     confidence?: 'low' | 'medium' | 'high';
     // Present only when method === 'manual_override' (issue #86) — a rep's
     // direct override, permanently exempt from automated recompute (#82)
@@ -164,7 +166,7 @@ export type Lead = {
   deals?: Array<{
     id: string;
     value: number;
-    currency: 'USD' | 'EUR';
+    currency: CurrencyCode;
     label?: string;
     createdAt: string;
     updatedAt: string;
