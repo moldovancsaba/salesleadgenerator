@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
   const brand = resolveBrand(body.brand);
+  if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
   const tenantId = (body.tenantId || 'default').trim() || 'default';
   const config = BRAND_CONFIG[brand];
 

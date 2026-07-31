@@ -13,6 +13,10 @@ describe('BRAND_CONFIG currency', () => {
     expect(BRAND_CONFIG.seyu.currency).toBe('EUR');
   });
 
+  it('reports DVSC in EUR (issue #147)', () => {
+    expect(BRAND_CONFIG.dvsc.currency).toBe('EUR');
+  });
+
   it('every BRAND_CONFIG entry has a currency drawn from CURRENCY_CODES', () => {
     for (const config of Object.values(BRAND_CONFIG)) {
       expect(CURRENCY_CODES).toContain(config.currency);
@@ -30,17 +34,34 @@ describe('CURRENCY_CODE_OPTIONS / CURRENCY_CODES', () => {
   });
 });
 
+// Issue #147 — resolveBrand()'s single highest-priority fix: a genuinely
+// unrecognized, non-empty brand value previously silently resolved to
+// 'cogmap' (a real, silent wrong-brand-read/write risk). It now returns
+// null, distinct from the legitimate "no brand specified at all" default.
 describe('resolveBrand', () => {
-  it('resolves known brand keys and their *sales aliases', () => {
+  it('resolves all 3 known brand keys and their *sales aliases', () => {
     expect(resolveBrand('cogmap')).toBe('cogmap');
     expect(resolveBrand('cogmapsales')).toBe('cogmap');
     expect(resolveBrand('seyu')).toBe('seyu');
     expect(resolveBrand('seyusales')).toBe('seyu');
+    expect(resolveBrand('dvsc')).toBe('dvsc');
+    expect(resolveBrand('dvscsales')).toBe('dvsc');
   });
 
-  it('falls back to cogmap for an unrecognized value', () => {
-    expect(resolveBrand('not_a_real_brand')).toBe('cogmap');
+  it('is case-insensitive', () => {
+    expect(resolveBrand('DVSC')).toBe('dvsc');
+    expect(resolveBrand('CogMap')).toBe('cogmap');
+  });
+
+  it('still defaults to cogmap for a genuinely empty/absent value (distinct from an invalid one)', () => {
     expect(resolveBrand(undefined)).toBe('cogmap');
     expect(resolveBrand(null)).toBe('cogmap');
+    expect(resolveBrand('')).toBe('cogmap');
+  });
+
+  it('returns null — never a silently guessed brand — for a genuinely unrecognized, non-empty value', () => {
+    expect(resolveBrand('not_a_real_brand')).toBeNull();
+    expect(resolveBrand('cogmap; DROP TABLE leads')).toBeNull();
+    expect(resolveBrand('seyuu')).toBeNull();
   });
 });

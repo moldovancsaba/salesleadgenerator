@@ -80,7 +80,7 @@ export async function GET(request: Request) {
     // which is an honest reflection of what it actually does rather than a
     // fake cursor that can't be resumed correctly.
     if (brand) {
-      const config = BRAND_CONFIG[brand as 'cogmap' | 'seyu']
+      const config = BRAND_CONFIG[brand]
       if (!config) {
         return NextResponse.json({ error: `Unknown brand: ${brand}` }, { status: 400 })
       }
@@ -126,7 +126,9 @@ export async function GET(request: Request) {
       })
     }
 
-    const brands: Array<'cogmap' | 'seyu'> = ['cogmap', 'seyu']
+    // Issue #147 — derived from BRAND_CONFIG's own keys, not a hardcoded
+    // 2-brand array, so a future brand is picked up automatically.
+    const brands = Object.keys(BRAND_CONFIG)
     const leads: any[] = []
     let count = 0
 

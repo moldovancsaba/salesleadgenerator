@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
 import { BRAND_CONFIG, resolveBrand, PRO_FIELD, CON_FIELD } from '../../../lib/brand'
+import type { Brand } from '../../../lib/brand'
 import { normalizeLead } from '../../../lib/normalize-lead'
 import { requireApiKey } from '../../../../lib/api-auth'
 import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
@@ -13,7 +14,7 @@ import { getTenantId, tenantFilter as buildTenantFilter } from '../../../../lib/
 import { generateClassificationTags, buildMergeKey } from '../../../../lib/lead-classification'
 import { decodeHtmlEntities, decodeHtmlEntitiesInArray } from '../../../../lib/text-sanitize'
 
-function getBrand(request: Request): 'cogmap' | 'seyu' {
+function getBrand(request: Request): Brand | null {
   const url = new URL(request.url);
   const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || 'cogmap';
   return resolveBrand(brandParam);
@@ -66,6 +67,7 @@ export async function GET(
   try {
     const { id } = await params;
     const brand = getBrand(request);
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;
 
@@ -111,6 +113,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const brand = getBrand(request);
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const config = BRAND_CONFIG[brand];
     const tenantId = getTenantId(request);
 
@@ -338,6 +341,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     const brand = getBrand(request);
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;
 

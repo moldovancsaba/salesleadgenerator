@@ -26,8 +26,11 @@ export async function POST(request: Request) {
     const tenantId = (typeof body.tenantId === 'string' ? body.tenantId.trim() : '') || 'default'
     const apply = body.apply === true
 
+    if (typeof body.brand === 'string' && !resolveBrand(body.brand)) {
+      return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    }
     const brands = typeof body.brand === 'string'
-      ? [resolveBrand(body.brand)]
+      ? [resolveBrand(body.brand)!]
       : (Object.keys(BRAND_CONFIG) as Array<keyof typeof BRAND_CONFIG>)
 
     const client = await clientPromise

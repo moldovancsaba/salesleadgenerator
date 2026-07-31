@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const brand = resolveBrand(searchParams.get('brand') || undefined);
+  if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
   const tenantId = (searchParams.get('tenantId') || 'default').trim() || 'default';
   const status = (searchParams.get('status') || 'pending').trim();
   const config = BRAND_CONFIG[brand];

@@ -1,5 +1,32 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.150
+
+### Added — DVSC onboarded as a third brand (issue #147)
+
+Third of 4 sub-issues under #144. DVSC (Debreceni Vasutas Sport Club) wired up as a genuine third brand — `Brand` widens to `'cogmap' | 'seyu' | 'dvsc'`, `BRAND_CONFIG.dvsc` added (`label: 'DVSC'`, `dbCollection: 'dvsc_leads'`, `currency: 'EUR'`). A full repo-wide sweep confirmed most of the app (auth, taxonomy, nav, every brand-scoped page) was already brand-count-agnostic; the real fixes were bounded and specific:
+
+### Changed — BREAKING: `resolveBrand()` no longer silently defaults an unrecognized brand to CogMap
+
+Previously hardcoded exactly 2 string checks with `else -> 'cogmap'` — the single highest-priority defect this issue found: any unrecognized brand value (typo, stale bookmark, not-yet-configured brand) silently resolved to CogMap, a real silent wrong-brand read/write risk. `resolveBrand()` now returns `Brand | null` — `null` for a genuinely unrecognized, non-empty value. Every one of its ~30 call sites now explicitly handles this: brand-scoped Server Component pages call `notFound()` (real 404, not a silent wrong-brand render); API routes return `400 { error: 'Invalid brand' }`. A genuinely empty/missing brand value (distinct from an invalid one) still defaults to `'cogmap'`, unchanged — every real caller either supplies a non-empty dynamic-route segment or explicitly relies on this default.
+
+### Fixed
+- `lib/validate-lead.ts`'s `FORBIDDEN_BRAND_TERMS` gains a `DVSC` entry, fully symmetric across all 3 brands.
+- `app/forecast/[brand]/forecast-client.tsx`: page title now reads `${BRAND_CONFIG[brand].label} Forecast` instead of a `brand === 'seyu' ? ... : 'CogMap Forecast'` ternary that would have shown "CogMap Forecast" for DVSC; `tenantId` is now `brandKey` directly instead of a ternary that silently mapped any non-cogmap brand to `'seyu'`.
+- `app/lib/forecast.ts`'s `computeForecast()` widens to accept `Brand`; adds an explicit (currently no-op) `dvsc` branch documenting that DVSC's forecast model is issue #148's own scope.
+- Every hardcoded `['cogmap', 'seyu']` array (`app/api/admin/forecast-snapshot/route.ts`, `app/api/search/route.ts`, `scripts/taxonomy-sportcode-backfill.ts`) and every script hardcoding a collection-name literal (`scripts/backfill-title-normalization.ts`, `scripts/migrate-decision-maker-to-contacts.ts`, `scripts/backfill-ticket-size.ts`) now derives from `BRAND_CONFIG`'s own keys/entries.
+- Removed `app/api/admin/cron-status/route.ts`'s dead, unused `LEAD_COLLECTION_PATTERN` (hardcoded, wrong for 3 brands, never called).
+- Several duplicated local `'cogmap' | 'seyu'` type unions now import the shared `Brand` type from `app/lib/brand.ts`.
+
+### Testing
+New: `resolveBrand()` coverage for all 3 brands plus the new null-on-invalid/empty-still-defaults behavior (`tests/lib/brand.test.ts`), `FORBIDDEN_BRAND_TERMS` full 3-way symmetry test (`tests/lib/validate-battlecard.test.ts`), a `brand=dvsc` full create-then-read integration lifecycle test proving collection isolation from CogMap plus a 400-on-invalid-brand regression test (`tests/integration/leads.integration.test.ts`). One pre-existing test's expected value updated, not a regression: `tests/lib/sso-access.test.ts`'s super-admin `getAccessibleBrands()` test now expects all 3 brands (was 2) — this function has always derived "every configured brand" from `BRAND_CONFIG`'s own keys by design (issue #103), so a 3rd configured brand correctly appearing there is the intended behavior. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest 643/643 unit + 135/135 integration passing, smoke suite passing, `next build --webpack` clean.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s Tenant Isolation and Company Settings sections document DVSC's onboarding and explicitly call out `resolveBrand()`'s fallback-behavior change as a real, deliberate breaking change (not purely additive). `docs/OPERATOR_GUIDE.md` updated to mention DVSC alongside CogMap/Seyu in the brand-access and deal-currency sections.
+
+### Not in scope (tracked separately)
+DVSC's actual Sales Settings defaults (customer types, buyer roles, product lines) and forecast/pricing model are sub-issue #148's own scope — DVSC is a fully functional, isolated brand as of this change, but its forecast stays `null` (explicitly, not silently) until #148 ships.
+
 ## 2.4.149
 
 ### Changed — enrichment loop, batch 13 (issue #132)

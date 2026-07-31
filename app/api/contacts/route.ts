@@ -1,14 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
 import { BRAND_CONFIG, resolveBrand } from '../../lib/brand'
+import type { Brand } from '../../lib/brand'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { aggregateContactsAcrossLeads } from '../../../lib/contacts'
 import { escapeRegExp } from '../../lib/search/tagged-content-filter'
 
-type Brand = 'cogmap' | 'seyu';
-
-function getBrand(request: Request): Brand {
+function getBrand(request: Request): Brand | null {
   const url = new URL(request.url);
   const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || 'cogmap';
   return resolveBrand(brandParam);
@@ -22,6 +21,7 @@ function getBrand(request: Request): Brand {
 export async function GET(request: NextRequest) {
   try {
     const brand = getBrand(request);
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;
 
