@@ -117,3 +117,36 @@ describe('GET /api/boards/[brand] — cogmap forecast', () => {
     expect(afterBody.forecast.totals.revenue).not.toBe(revenueBefore + 777777);
   });
 });
+
+// Issue #148 — DVSC shares CogMap's deal-size-band forecast model
+// (computeDealSizeBandForecast() in app/lib/forecast.ts). This proves DVSC
+// produces a real, non-null forecast once a lead has a value, not the
+// `forecast: null` "no branch yet" state issue #147 explicitly left it in.
+describe('GET /api/boards/[brand] — dvsc forecast', () => {
+  it('computes weighted revenue for a DVSC lead using the same deal-size-band model as CogMap', async () => {
+    const res = await leadsPOST(buildApiRequest('/api/leads?brand=dvsc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entity_name: 'DVSC Sponsorship Forecast Kft.',
+        url: 'https://dvsc-sponsorship-forecast.example.hu',
+        country: 'HU',
+        kanbanColumn: 'WON',
+        ice: { impact: 8, confidence: 8, ease: 8 },
+        contacts: [{ name: 'Marketing Lead', email: 'marketing@dvsc-sponsorship-forecast.example.hu', isDecisionMaker: true }],
+        estimated_annual_revenue_usd: 20000,
+      }),
+    }));
+    expect(res.status).toBe(201);
+
+    const boardRes = await boardsGET(
+      req('/api/boards/dvsc?tenantId=default'),
+      { params: Promise.resolve({ brand: 'dvsc' }) }
+    );
+    expect(boardRes.status).toBe(200);
+    const body = await boardRes.json();
+    expect(body.forecast).not.toBeNull();
+    expect(body.forecast.pipeline.WON.rawRevenue).toBe(20000);
+    expect(body.forecast.pipeline.WON.weightedRevenue).toBe(20000);
+  });
+});

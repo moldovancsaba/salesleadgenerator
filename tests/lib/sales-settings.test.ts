@@ -31,6 +31,16 @@ describe('brand-scoped CustomerType/BuyerRole', () => {
     expect(getAllowedBuyerRoles('not_a_real_brand')).toEqual(['ceo', 'marketing', 'commercial', 'brand', 'other']);
     expect(getAllowedCustomerTypes('not_a_real_brand')).toEqual(['sponsors', 'brands', 'government', 'other']);
   });
+
+  // Issue #148 — DVSC's confirmed vocabulary decision: its real customers
+  // (sponsor companies) and buyer personas are already fully covered by the
+  // universal base set, so its own explicit BRAND_SALES_VOCABULARY entry
+  // has empty extensions (not the sport-specific values CogMap/Seyu use,
+  // which describe who *they* sell to, not who buys sponsorship from DVSC).
+  it("DVSC's options are exactly the universal base set — no sport-specific extension", () => {
+    expect(getBuyerRoleOptions('dvsc').map((o) => o.value)).toEqual(['ceo', 'marketing', 'commercial', 'brand', 'other']);
+    expect(getCustomerTypeOptions('dvsc').map((o) => o.value)).toEqual(['sponsors', 'brands', 'government', 'other']);
+  });
 });
 
 describe('sanitizeSalesSettings — brand-scoped vocabulary validation', () => {
@@ -93,6 +103,17 @@ describe('emptySalesSettings', () => {
   it('defaults revenueTarget currency to match the brand\'s own forecast currency, amount unset', () => {
     expect(emptySalesSettings('cogmap').revenueTarget).toEqual({ currency: 'USD', period: 'annual' });
     expect(emptySalesSettings('seyu').revenueTarget).toEqual({ currency: 'EUR', period: 'annual' });
+  });
+
+  // Issue #148 — DVSC's real, sane, DVSC-appropriate default (correct EUR
+  // currency from #145, correct empty-extension vocabulary from #146/#148),
+  // not a generic CogMap-shaped default for a brand-new client with no data yet.
+  it('produces a DVSC-appropriate default: EUR currency, empty starting vocabulary', () => {
+    const settings = emptySalesSettings('dvsc');
+    expect(settings.brand).toBe('dvsc');
+    expect(settings.revenueTarget).toEqual({ currency: 'EUR', period: 'annual' });
+    expect(settings.customerTypes).toEqual([]);
+    expect(settings.products).toEqual([]);
   });
 });
 
