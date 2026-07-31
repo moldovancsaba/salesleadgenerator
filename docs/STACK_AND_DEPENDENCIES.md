@@ -131,6 +131,15 @@ Real credentials (`SSO_CLIENT_ID`/`SSO_CLIENT_SECRET`) obtained 2026-07-26 and s
 
 Until both are done, this remains fully built and tested code with real Resend-side configuration in place, but no live trigger yet.
 
+**Outbound (sending) side, issue #150 — `lib/outreach-send.ts`'s `sendAutomatedEmail()`.** Distinct from the inbound webhook above: only needs `RESEND_API_KEY` (not `RESEND_WEBHOOK_SECRET`, which is inbound-signature-only), plus two optional, sensible-default env vars for the sender identity:
+
+| Env var | Purpose | Default if unset |
+|---------|---------|---------|
+| `RESEND_OUTBOUND_DOMAIN` | Domain used to build a brand's from-address as `<brand>@<domain>` | `haho.ai` |
+| `RESEND_FROM_<BRAND>` (e.g. `RESEND_FROM_COGMAP`) | Pins the exact from-address for one brand, overriding the domain default | none — falls through to the domain default |
+
+**Disclosed, not assumed**: `haho.ai` (the root domain) is the domain `docs/STACK_AND_DEPENDENCIES.md`'s own "Status as of 2026-07-31" note above confirms is sending-verified on the real Resend account — but the exact per-brand local part this module defaults to (`cogmap@haho.ai`, `seyu@haho.ai`, `dvsc@haho.ai`) has not itself been verified live against that account from this sandbox. Before #151's scheduler can trigger a real send, whoever holds Resend dashboard access should confirm each brand's from-address is actually deliverable (or set `RESEND_FROM_<BRAND>` to a confirmed one) — same "fully built, real infra in place, no live trigger confirmed yet" posture as the inbound side above.
+
 ---
 
 ## Outbound Requests / SSRF Guard (2.4.52, issue #69)
