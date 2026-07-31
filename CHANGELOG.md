@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.145
+
+### Changed — enrichment loop, batch 12 (issue #132)
+
+4 more real leads:
+
+- **Wasatch SC** (CogMap): confirmed a real, genuinely distinct third Utah youth club from the two already processed in this loop (Utah Celtic FC, City SC Utah) — Wasatch Soccer Club, a 501(c)3 based in Kaysville, UT, whose U19 girls team won the 2024-25 Girls Academy national title. Found a real Technical Director contact, though flagged that the CSV's intended Owner/ED/DOC buyer persona is not yet directly identified.
+- **Houston Sports Park** (CogMap): confirmed via Wikipedia's infobox this is a genuine multi-sport municipal facility (also home to Major League Rugby's Houston SaberCats), correcting `sportCode` from `football` to `multi-sport`. Confirmed the joint City of Houston / Houston Dynamo / Houston Parks Board operating structure and found a real named facilities contact, while explicitly distinguishing the facilities-side contact from the more likely sporting-side buyer (Dynamo Academy leadership) rather than conflating the two.
+- **Estonian Football Association** (Seyu): unambiguous federation identity. Confirmed current president Aivar Põhlak (re-elected June 2025, in office continuously since 2007). Explicitly double-checked pro/con text was genuinely about Estonia, not copy-pasted (per the Polish Handball Federation bug caught in batch 10) — confirmed clean.
+- **IHF World Handball Championship** (Seyu): the 9th data point for issue #136's open tournament/league/federation ambiguity, reasoned to `orgTypeCode: "tournament"` (grouped with FIFA World Cup and UEFA Champions League as quadrennial/biennial mega-competitions). Confirmed this refers to the men's edition specifically (a separate Women's World Championship exists) and verified current IHF president Dr. Hassan Moustafa's real, documented controversy history rather than assuming clean continuity.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **90 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.144
 
 ### Changed — enrichment loop, batch 11 (issue #132)
