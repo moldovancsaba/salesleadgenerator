@@ -114,7 +114,19 @@ Real credentials (`SSO_CLIENT_ID`/`SSO_CLIENT_SECRET`) obtained 2026-07-26 and s
 | `RESEND_API_KEY` | Resend account API key — authenticates the follow-up "fetch full email content" call (`resend.emails.receiving.get()`); obtained from a Resend account the owner needs to create |
 | `RESEND_WEBHOOK_SECRET` | The signing secret Resend shows on a webhook's own details page after it's created in their dashboard — verifies every inbound POST actually came from Resend (`resend.webhooks.verify()`) |
 
-`lib/resend-webhook.ts`'s `isResendConfigured()` reports whether both are set; `POST /api/webhooks/inbound-email` returns `503` (fails closed, confirmed live against a local dev server with both vars unset) rather than crashing or silently accepting unverifiable requests when they aren't. **Nothing beyond code exists yet** — no Resend account, no webhook configured in Resend's dashboard pointing at this route, no domain/address chosen. The owner needs to: (1) create a Resend account, (2) add an inbound domain (or use Resend's zero-DNS default `<id>.resend.app`), (3) create a webhook in Resend's dashboard for the `email.received` event pointing at `https://salesleadgenerator.vercel.app/api/webhooks/inbound-email`, (4) set both env vars above in Vercel. Until then this is fully built and tested code with no live trigger.
+`lib/resend-webhook.ts`'s `isResendConfigured()` reports whether both are set; `POST /api/webhooks/inbound-email` returns `503` (fails closed, confirmed live against a local dev server with both vars unset) rather than crashing or silently accepting unverifiable requests when they aren't.
+
+**Status as of 2026-07-31**: the owner's real Resend account already had `haho.ai` added and verified for sending (predates this feature). Real, verified live findings from this account (via its own API, not assumed):
+- `haho.ai` already carries live Google Workspace MX records (confirmed via a public DNS lookup) — real company email is in active use on this domain. Resend's own receiving docs confirm MX is domain-wide, not scoped to one address (`you will receive emails for any address at that domain`); the owner was shown this exact tradeoff and explicitly chose to proceed on the root domain anyway, rather than the safer subdomain alternative this doc would otherwise recommend.
+- The domain's `receiving` capability was enabled via the Resend API (`PATCH /domains/{id}`, `capabilities.receiving: enabled`) — this step alone touches nothing outside Resend's own account and is trivially reversible from their dashboard.
+- A webhook was created (`POST /webhooks`) for `email.received`, pointed at `https://salesleadgenerator.vercel.app/api/webhooks/inbound-email`, and its signing secret captured.
+- Both real credentials (`RESEND_API_KEY`, the webhook's `RESEND_WEBHOOK_SECRET`) are stored only in this sandbox's gitignored `.env.local` — **not set in Vercel**. A locally-signed test request against the real production secret was verified end-to-end (passed signature verification, failed only on this sandbox's separately-documented "no reachable MongoDB" limitation) — confirming the credential itself is live and correct.
+
+**What remains, and what only the owner (or whoever holds DNS/Vercel access) can do — this session has no access to either:**
+1. Add the DNS record Resend now requires for `haho.ai` (visible on the domain's own page in Resend's dashboard, or via `GET /domains/{id}`): an `MX` record on the domain's root, value `inbound-smtp.eu-west-1.amazonaws.com`, priority `0`. **This is the actual point-of-no-return step** — adding it is what will start affecting the domain's existing Google Workspace mail routing, not the API toggle above.
+2. Set `RESEND_API_KEY` and `RESEND_WEBHOOK_SECRET` in Vercel's Project → Environment Variables.
+
+Until both are done, this remains fully built and tested code with real Resend-side configuration in place, but no live trigger yet.
 
 ---
 
