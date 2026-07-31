@@ -1,4 +1,4 @@
-import type { Db } from 'mongodb'
+import type { Db, Collection } from 'mongodb'
 import { BRAND_CONFIG } from './brand'
 import type { Brand } from './brand'
 import { getPipelineWeights } from '../../lib/pipeline-weights'
@@ -86,6 +86,112 @@ export type ForecastComputation = {
   weightsUsed: Record<string, number>
 }
 
+// Issue #148 — DVSC's own sponsorship-deal pipeline is structurally the same
+// shape as CogMap's: a deal-size-band/ticketSizeEstimate-driven revenue
+// figure per lead (a sponsorship ask scaling with company size), not Seyu's
+// per-company recurring pricingByCompany model (a different sales motion).
+// Extracted from the original cogmap-only branch so CogMap and DVSC share
+// one implementation rather than two copies that could silently drift —
+// the same anti-duplication reasoning issue #57 already established for
+// computeForecast() itself. `estimated_participants` stays in the shape for
+// parity with CogMap's output contract; it's simply always 0 for DVSC leads
+// (no participant concept in a sponsorship deal), an honest empty value, not
+// a fabricated one.
+async function computeDealSizeBandForecast(
+  db: Db,
+  collection: Collection,
+  brand: Brand,
+  tenantId: string,
+  revenueFilter: Record<string, any>,
+  weightsUsed: Record<string, number>,
+  probabilitySources: Record<string, string>,
+  calibrationInfo: { mode: string; lastComputedAt: string | null },
+  revenueExpr: Record<string, any>
+): Promise<Record<string, any>> {
+  const pipelineForecast = await collection.aggregate([
+    { $match: revenueFilter },
+    {
+      $group: {
+        _id: '$kanbanColumn',
+        leads: { $sum: 1 },
+        participants: { $sum: { $ifNull: ['$estimated_participants', 0] } },
+        revenue: { $sum: revenueExpr },
+      },
+    },
+  ]).toArray()
+
+  const rawByColumn: Record<string, any> = {}
+  for (const item of pipelineForecast) {
+    rawByColumn[(item._id || 'UNKNOWN') as string] = item
+  }
+
+  const pipeline: Record<string, any> = {}
+  for (const col of PIPELINE_COLUMNS) {
+    const item = rawByColumn[col] || { leads: 0, participants: 0, revenue: 0 }
+    const rate = weightsUsed[col] ?? 0
+    pipeline[col] = {
+      leads: item.leads,
+      participants: item.participants,
+      rawRevenue: item.revenue,
+      probability: rate,
+      weightedRevenue: Math.round(item.revenue * rate),
+      probabilitySource: probabilitySources[col] ?? 'static',
+    }
+  }
+
+  const totalWeighted = Object.values(pipeline as Record<string, { weightedRevenue: number }>)
+    .reduce((sum: number, col) => sum + (col.weightedRevenue || 0), 0)
+
+  const revenueByModel = await collection.aggregate([
+    { $match: revenueFilter },
+    {
+      $group: {
+        _id: '$revenue_model',
+        leads: { $sum: 1 },
+        revenue: { $sum: revenueExpr },
+      },
+    },
+    { $sort: { revenue: -1 } },
+  ]).toArray()
+
+  const totalRevenue = await collection.aggregate([
+    { $match: revenueFilter },
+    {
+      $group: {
+        _id: null,
+        revenue: { $sum: revenueExpr },
+        participants: { $sum: { $ifNull: ['$estimated_participants', 0] } },
+      },
+    },
+  ]).toArray()
+
+  const perLeadValues = await collection.aggregate<PerLeadValueDoc>([
+    { $match: revenueFilter },
+    { $project: { entity_name: 1, kanbanColumn: 1, value: revenueExpr } },
+  ]).toArray()
+  const concentrationSettings = await getConcentrationRiskSettings(db)
+  const brandConcentrationRisk = attachConcentrationRisk(perLeadValues, pipeline, totalWeighted, weightsUsed, concentrationSettings)
+  const revenueTarget = await fetchRevenueTarget(db, brand, tenantId)
+  const coverage = computeCoverage(revenueTarget, totalWeighted, BRAND_CONFIG[brand].currency)
+
+  return {
+    pipeline,
+    totalWeightedRevenue: totalWeighted,
+    concentrationRisk: brandConcentrationRisk,
+    coverage,
+    calibration: calibrationInfo,
+    byTier: pipelineForecast.reduce((acc: Record<string, { leads: number; participants: number; revenue: number }>, item: any) => {
+      acc[item._id || 'UNSET'] = { leads: item.leads, participants: item.participants, revenue: item.revenue }
+      return acc
+    }, {}),
+    byModel: revenueByModel.reduce((acc: Record<string, { leads: number; revenue: number }>, item: any) => {
+      acc[item._id || 'UNSET'] = { leads: item.leads, revenue: item.revenue }
+      return acc
+    }, {}),
+    totals: totalRevenue[0] || { revenue: 0, participants: 0 },
+  }
+}
+
 export async function computeForecast(db: Db, brand: Brand, tenantId: string): Promise<ForecastComputation> {
   const config = BRAND_CONFIG[brand]
   const filter = tenantFilter(tenantId)
@@ -163,90 +269,12 @@ export async function computeForecast(db: Db, brand: Brand, tenantId: string): P
     ],
   }
 
-  if (brand === 'cogmap') {
-    const pipelineForecast = await collection.aggregate([
-      { $match: revenueFilter },
-      {
-        $group: {
-          _id: '$kanbanColumn',
-          leads: { $sum: 1 },
-          participants: { $sum: { $ifNull: ['$estimated_participants', 0] } },
-          revenue: { $sum: REVENUE_EXPR },
-        },
-      },
-    ]).toArray()
-
-    const pipelineColumns = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST']
-    const rawByColumn: Record<string, any> = {}
-    for (const item of pipelineForecast) {
-      rawByColumn[(item._id || 'UNKNOWN') as string] = item
-    }
-
-    const pipeline: Record<string, any> = {}
-    for (const col of pipelineColumns) {
-      const item = rawByColumn[col] || { leads: 0, participants: 0, revenue: 0 }
-      const rate = weightsUsed[col] ?? 0
-      pipeline[col] = {
-        leads: item.leads,
-        participants: item.participants,
-        rawRevenue: item.revenue,
-        probability: rate,
-        weightedRevenue: Math.round(item.revenue * rate),
-        probabilitySource: probabilitySources[col] ?? 'static',
-      }
-    }
-
-    const totalWeighted = Object.values(pipeline as Record<string, { weightedRevenue: number }>)
-      .reduce((sum: number, col) => sum + (col.weightedRevenue || 0), 0)
-
-    const revenueByModel = await collection.aggregate([
-      { $match: revenueFilter },
-      {
-        $group: {
-          _id: '$revenue_model',
-          leads: { $sum: 1 },
-          revenue: { $sum: REVENUE_EXPR },
-        },
-      },
-      { $sort: { revenue: -1 } },
-    ]).toArray()
-
-    const totalRevenue = await collection.aggregate([
-      { $match: revenueFilter },
-      {
-        $group: {
-          _id: null,
-          revenue: { $sum: REVENUE_EXPR },
-          participants: { $sum: { $ifNull: ['$estimated_participants', 0] } },
-        },
-      },
-    ]).toArray()
-
-    const perLeadValues = await collection.aggregate<PerLeadValueDoc>([
-      { $match: revenueFilter },
-      { $project: { entity_name: 1, kanbanColumn: 1, value: REVENUE_EXPR } },
-    ]).toArray()
-    const concentrationSettings = await getConcentrationRiskSettings(db)
-    const brandConcentrationRisk = attachConcentrationRisk(perLeadValues, pipeline, totalWeighted, weightsUsed, concentrationSettings)
-    const revenueTarget = await fetchRevenueTarget(db, brand, tenantId)
-    const coverage = computeCoverage(revenueTarget, totalWeighted, BRAND_CONFIG[brand].currency)
-
-    forecast = {
-      pipeline,
-      totalWeightedRevenue: totalWeighted,
-      concentrationRisk: brandConcentrationRisk,
-      coverage,
-      calibration: calibrationInfo,
-      byTier: pipelineForecast.reduce((acc: Record<string, { leads: number; participants: number; revenue: number }>, item: any) => {
-        acc[item._id || 'UNSET'] = { leads: item.leads, participants: item.participants, revenue: item.revenue }
-        return acc
-      }, {}),
-      byModel: revenueByModel.reduce((acc: Record<string, { leads: number; revenue: number }>, item: any) => {
-        acc[item._id || 'UNSET'] = { leads: item.leads, revenue: item.revenue }
-        return acc
-      }, {}),
-      totals: totalRevenue[0] || { revenue: 0, participants: 0 },
-    }
+  // CogMap and DVSC (issue #148) share the same deal-size-band forecast
+  // model — see computeDealSizeBandForecast()'s own header comment for why.
+  if (brand === 'cogmap' || brand === 'dvsc') {
+    forecast = await computeDealSizeBandForecast(
+      db, collection, brand, tenantId, revenueFilter, weightsUsed, probabilitySources, calibrationInfo, REVENUE_EXPR
+    )
   }
 
   if (brand === 'seyu') {
@@ -405,18 +433,6 @@ export async function computeForecast(db: Db, brand: Brand, tenantId: string): P
       calibration: calibrationInfo,
       currency: 'EUR',
     }
-  }
-
-  // DVSC (issue #147) deliberately has no forecast branch of its own yet —
-  // its sponsorship-deal pricing/forecast model is sub-issue #148's own
-  // scope, not this one's. An explicit no-op branch here (rather than
-  // silently falling through both the cogmap/seyu checks above with no
-  // trace) documents that this is a known, tracked gap, not an oversight:
-  // `forecast` stays `null`, the same honest "not yet configured" shape
-  // this app already uses elsewhere (e.g. lib/ticket-size.ts's
-  // 'unconfigured' method) rather than a fabricated number.
-  if (brand === 'dvsc') {
-    // No-op: forecast remains null until #148 implements DVSC's own model.
   }
 
   return { totalLeads, updatedAt, columnCounts, regionCounts, forecast, weightsUsed }

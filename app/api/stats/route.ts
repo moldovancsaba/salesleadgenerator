@@ -40,7 +40,12 @@ export async function GET(request: Request) {
         .toArray()
 
       let forecast = null
-      if (brandKey === 'cogmap') {
+      // Issue #148 — DVSC shares CogMap's deal-size-band forecast shape (see
+      // app/lib/forecast.ts's computeDealSizeBandForecast() for the full
+      // reasoning); this route's own independent aggregation (issue #111's
+      // documented pre-existing drift risk vs. computeForecast(), not
+      // introduced or resolved here) gets the same brand condition applied.
+      if (brandKey === 'cogmap' || brandKey === 'dvsc') {
         const pipelineForecast = await collection.aggregate([
           { $match: filter },
           {

@@ -239,9 +239,24 @@ const CUSTOMER_TYPE_SPORT_SPECIFIC: CustomerType[] = ['sports_clubs', 'federatio
 const BUYER_ROLE_BASE: BuyerRole[] = ['ceo', 'marketing', 'commercial', 'brand', 'other'];
 const BUYER_ROLE_SPORT_SPECIFIC: BuyerRole[] = ['coach', 'federation', 'club', 'parent', 'athlete'];
 
+// Issue #148 — DVSC's own confirmed vocabulary decision (real, researched,
+// not a guess): DVSC sells sponsorship inventory to companies. Its real
+// customers (dvsc.hu's own current partners — Tranzit-Food, Primavera Víz,
+// Tippmix, Lemon Casino) are all sponsor companies/brands, already fully
+// covered by the universal CUSTOMER_TYPE_BASE ('sponsors'/'brands') — none
+// of the sport-specific extension values (sports_clubs/federations/schools/
+// academies/event_organisers, who CogMap/Seyu sell *to*) describe who buys
+// *from* DVSC. Its real buyer personas (a sponsor's marketing/sponsorship/
+// commercial lead, or its CEO) are equally already covered by
+// BUYER_ROLE_BASE — DVSC's own extension is empty, explicit rather than
+// left to the base-set fallback, so this decision is recorded, not implicit.
+const DVSC_CUSTOMER_TYPES: CustomerType[] = [];
+const DVSC_BUYER_ROLES: BuyerRole[] = [];
+
 export const BRAND_SALES_VOCABULARY: Record<string, { customerTypes: CustomerType[]; buyerRoles: BuyerRole[] }> = {
   cogmap: { customerTypes: CUSTOMER_TYPE_SPORT_SPECIFIC, buyerRoles: BUYER_ROLE_SPORT_SPECIFIC },
   seyu: { customerTypes: CUSTOMER_TYPE_SPORT_SPECIFIC, buyerRoles: [] },
+  dvsc: { customerTypes: DVSC_CUSTOMER_TYPES, buyerRoles: DVSC_BUYER_ROLES },
 };
 
 // A brand with no explicit BRAND_SALES_VOCABULARY entry falls back to the

@@ -240,6 +240,8 @@ A one-time (then occasionally revisited) questionnaire per brand, reached via th
 - **Revenue Target**: target amount, currency, and period. Drives the Pipeline Coverage indicator on Forecast — leave the amount blank to hide that indicator rather than show a misleading number.
 - **Notes**: free text for pricing exceptions, discounts, renewal terms, or anything else worth recording.
 
+**DVSC-specific**: DVSC's customer-type/buyer-role checkboxes show only the universal set (Sponsors/Brands/Government/Other; CEO/Marketing/Commercial/Brand/Other) — DVSC sells sponsorship to companies, not to sports organizations, so the sport-specific options CogMap's form shows (Coach, Federation, Club, etc.) don't appear here. See `docs/ARCHITECTURE.md`'s "DVSC's recommended starting product-line catalogue" for a real, sourced list of sponsorship inventory categories (shirt/kit, stadium naming, hospitality, digital, official-supplier, section-specific) to use as a starting point when filling in "What do you sell?" — real HUF/EUR deal-size figures still need to come from DVSC directly; nothing is pre-filled.
+
 Click **Save** at the bottom. Saving also triggers a recalculation of Ticket Size across every existing lead for that brand in the background — if you don't see updated numbers within a minute or two, they'll catch up on the next scheduled recalculation regardless.
 
 ---
