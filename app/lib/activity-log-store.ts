@@ -31,15 +31,53 @@ export type ActivityEntry = {
   createdAt: string
 }
 
-// Lazily ensures the documented index exists — same idempotent,
+// The write-side shape for a new activityLog document (issue #141, this
+// collection's first real writer). `leadId` is nullable here — unlike
+// ActivityEntry's read-side `leadId: string` (a display convenience, `''`
+// when absent) — because a captured inbound-email event may not resolve to
+// any known lead yet (no contactEmails[] cross-lead index exists until
+// issue #142 ships). A null-leadId document is intentionally invisible to
+// GET /api/leads/[id]/activity (which filters by a real leadId) rather than
+// dropped — it stays queryable for future manual triage / reprocessing once
+// #142's matching exists.
+export type ActivityLogDocument = {
+  leadId: string | null
+  tenantId: string
+  brand: string
+  type: ActivityEntryType
+  direction: 'outbound' | 'inbound' | null
+  fromAddress?: string
+  toAddresses?: string[]
+  ccAddresses?: string[]
+  subject?: string
+  bodyExcerpt?: string
+  matchedContactKey: string | null
+  source: ActivitySource
+  // The originating provider's own message identifier (Resend's email_id).
+  // Only ever set by inbound-webhook writes — outreach-log-derived entries
+  // aren't stored in this collection at all, they're only read/mapped from
+  // outreach_logs. Backs the unique index that makes a webhook retry (an
+  // expected, documented behavior for Resend and every other inbound-email
+  // provider) a no-op instead of a duplicate.
+  externalId?: string
+  createdAt: Date
+}
+
+// Lazily ensures the documented indexes exist — same idempotent,
 // call-on-every-request pattern as app/lib/forecast-snapshot.ts's
 // ensureIndexes(), not verified against a live Atlas cluster from this
-// sandbox (no MONGODB_URI here).
+// sandbox (no MONGODB_URI here). The externalId index is sparse + unique:
+// sparse because outreach-log-mapped entries never have one (they aren't
+// stored in this collection), unique so a webhook retry's insert fails with
+// a duplicate-key error the caller treats as "already processed," not a
+// distinct index-per-write existence check.
 let indexesEnsured = false
 export async function ensureActivityLogIndexes(db: Db): Promise<void> {
   if (indexesEnsured) return
   try {
-    await db.collection(ACTIVITY_LOG_COLLECTION).createIndex({ leadId: 1, createdAt: -1 })
+    const collection = db.collection(ACTIVITY_LOG_COLLECTION)
+    await collection.createIndex({ leadId: 1, createdAt: -1 })
+    await collection.createIndex({ externalId: 1 }, { unique: true, sparse: true })
     indexesEnsured = true
   } catch (error) {
     console.error('[activity-log-store] index creation failed', error)
