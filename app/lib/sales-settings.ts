@@ -6,6 +6,9 @@
 // in favor of the way a founder or small commercial team already thinks
 // about their business — see GitHub issue #24 for the full rationale.
 
+import { BRAND_CONFIG, CURRENCY_CODES, CURRENCY_CODE_OPTIONS } from './brand';
+import type { CurrencyCode } from './brand';
+
 export type CustomerType =
   | 'sports_clubs'
   | 'federations'
@@ -127,7 +130,9 @@ export interface Seasonality {
   specificMonths: string;
 }
 
-export type RevenueTargetCurrency = 'USD' | 'EUR';
+// Issue #145 — re-exported from app/lib/brand.ts's single currency source of
+// truth rather than an independent 'USD' | 'EUR' union.
+export type RevenueTargetCurrency = CurrencyCode;
 export type RevenueTargetPeriod = 'monthly' | 'quarterly' | 'annual';
 
 // Pipeline coverage ratio (issue #60) reads this against the brand's own
@@ -178,14 +183,13 @@ export function emptyProductLine(id: string): ProductLine {
   };
 }
 
-// CogMap forecasts in USD, Seyu in EUR (see app/lib/forecast.ts, and issue
-// #79's app/lib/ticket-size-store.ts) — the default currency here matches
-// that brand's real forecast currency, though revenueTarget itself remains
-// freely editable and is never auto-converted. Exported as the one shared
-// source of truth for brand->currency, rather than each caller re-deriving
-// its own copy of the same mapping.
+// Issue #145 — reads BRAND_CONFIG[brand].currency, the single source of
+// truth for brand->currency, instead of a hand-written per-brand ternary.
+// Falls back to 'USD' for an unrecognized brand key, matching the prior
+// ternary's own implicit default (never throws — this is called from
+// sanitize paths that must always return a value).
 export function defaultRevenueTargetCurrency(brand: string): RevenueTargetCurrency {
-  return brand === 'seyu' ? 'EUR' : 'USD';
+  return BRAND_CONFIG[brand]?.currency ?? 'USD';
 }
 
 export function emptySalesSettings(brand: string, tenantId = 'default'): SalesSettings {
@@ -236,7 +240,9 @@ const REVENUE_PREDICTABILITY: RevenuePredictability[] = [
   'very_predictable', 'predictable', 'medium', 'difficult',
 ];
 const QUARTERS: Quarter[] = ['Q1', 'Q2', 'Q3', 'Q4'];
-const REVENUE_TARGET_CURRENCIES: RevenueTargetCurrency[] = ['USD', 'EUR'];
+// Issue #145 — derived from app/lib/brand.ts's CURRENCY_CODES, not a
+// hand-maintained duplicate list.
+const REVENUE_TARGET_CURRENCIES: RevenueTargetCurrency[] = CURRENCY_CODES;
 const REVENUE_TARGET_PERIODS: RevenueTargetPeriod[] = ['monthly', 'quarterly', 'annual'];
 
 function sanitizeString(value: unknown, maxLength = 2000): string {
@@ -478,10 +484,9 @@ export const QUARTER_OPTIONS: { value: Quarter; label: string }[] = [
   { value: 'Q4', label: 'Q4' },
 ];
 
-export const REVENUE_TARGET_CURRENCY_OPTIONS: { value: RevenueTargetCurrency; label: string }[] = [
-  { value: 'USD', label: 'USD' },
-  { value: 'EUR', label: 'EUR' },
-];
+// Issue #145 — derived from app/lib/brand.ts's CURRENCY_CODE_OPTIONS, not a
+// hand-maintained duplicate list.
+export const REVENUE_TARGET_CURRENCY_OPTIONS: { value: RevenueTargetCurrency; label: string }[] = CURRENCY_CODE_OPTIONS;
 
 export const REVENUE_TARGET_PERIOD_OPTIONS: { value: RevenueTargetPeriod; label: string }[] = [
   { value: 'monthly', label: 'Monthly' },

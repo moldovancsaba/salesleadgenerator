@@ -3,9 +3,13 @@
 // here ever runs automatically, only in response to an explicit user action
 // (add, convert-from-estimate, edit, remove).
 
+import type { CurrencyCode } from '@/app/lib/brand';
+
 const ABSOLUTE_CEILING = 50_000_000; // Same ceiling as lib/ticket-size.ts's own ABSOLUTE_CEILING / app/lib/sales-settings.ts's MAX_DEAL_SIZE_INPUT — one deal shouldn't be able to enter a figure the rest of this app treats as implausible.
 
-export type DealCurrency = 'USD' | 'EUR';
+// Issue #145 — re-exported from app/lib/brand.ts's single currency source of
+// truth rather than an independent 'USD' | 'EUR' union.
+export type DealCurrency = CurrencyCode;
 
 export type DealInput = Record<string, any>;
 
