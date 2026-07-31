@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.141
+
+### Changed — enrichment loop, batch 10 (issue #132)
+
+4 more real leads:
+
+- **Toyota Soccer Center** (CogMap): confirmed this 17-field complex in Frisco, TX is not an independent facility but the City-of-Frisco-owned, FC-Dallas-operated training/tournament complex adjacent to Toyota Stadium (lease recently extended through 2057). Found real named FC Dallas Complex Management contacts (VP Tom Jones, Complex Manager Jonathan Figueroa) — reframed outreach as a facility-programming conversation with FC Dallas corporate rather than an independent GM/owner.
+- **Virginia Revolution Sportsplex** (CogMap): found strong evidence (identical address, phone, and Tax ID) this is the same operating organization as "Virginia Revolution SC" (already processed in batch 4) rather than an independent facility — flagged for `/admin/duplicates` review rather than merging unilaterally, per this loop's own standing rule. Also caught that the stored lead `url` is a parked domain redirecting to a generic lander page, with the real active site at a different URL.
+- **Glastonbury Festival** (Seyu): the **second non-sport entertainment-property lead** found in this loop, after Tomorrowland (2.4.130) — filed as **issue #143** per this runbook's own standing instruction to file once a second data point turned up. Classified `sportCode: "not-applicable"` rather than forced into a sports fit; confirmed real current organizer (Emily Eavis) and a confirmed 2026 fallow year affecting near-term outreach timing.
+- **Polish Handball Federation** (Seyu): found and fixed a **real data-corruption bug** — the stored `value_proposition`/pro/con fields were entirely about the Czech Handball Federation (wrong country's facts on the Polish federation's record), an apparent copy-paste error. Rewrote all three fields to be genuinely about ZPRP/Poland and flagged the bug explicitly in `notes`. Confirmed current president Sławomir Szmal (elected November 2024).
+
+Posted a progress comment on issue #132 covering batches 6-9 before starting this batch (running total was 78 at that point).
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **82 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.140
 
 ### Changed — enrichment loop, batch 9 (issue #132)

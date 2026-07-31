@@ -1,6 +1,6 @@
 # Lessons Learned — Sales Lead Generator
 
-**Version:** 2.4.140
+**Version:** 2.4.141
 
 This document exists because the operator asked directly: *"I miss a lot of learning information — what went wrong, what do we have to care about in the future, why do we do what we do, the known limitations."* It is not a changelog (see `CHANGELOG.md` for the full, dated, per-release record) — it's the synthesis: recurring mistake patterns worth watching for, the sandbox's real limitations, and the reasoning behind decisions that look arbitrary without the history. Every claim below cites the real incident it's drawn from; treat this as a companion to `CHANGELOG.md`, not a replacement.
 
