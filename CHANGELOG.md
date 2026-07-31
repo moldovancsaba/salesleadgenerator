@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.144
+
+### Changed — enrichment loop, batch 11 (issue #132)
+
+4 more real leads:
+
+- **GFI Academy South** (CogMap): confirmed "GFI" stands for Global Football Innovation (per founder/CEO Joel Vergés, quoted in PaperCity Magazine); the org is legally registered as Total Football Club, a 501(c)3 nonprofit (EIN 47-1082520) formed via a 2015 merger. Found "South" is not one of GFI's own branded locations but maps to the MLS NEXT Academy Division's own conference-naming convention for GFI's boys team. Found 4 real named contacts (CEO, Executive Director, Academy Director, Boys High Performance Director) directly from the club's own site.
+- **Houston Rangers** (CogMap): another generic-sounding club name (like River City Rangers, batch 8) — this time confirmed as a single, real, independently-identifiable club (not conflated with Houston Dynamo, a separate MLS NEXT member on the same official list). Confirmed via an official MLS press release that the CSV's "MLS_NEXT_HOMEGROWN" source group reflects a competition-tier grouping, not a corporate parent relationship to any MLS pro club — resolved the opposite way from the earlier Real Salt Lake Academy case, on real evidence either way.
+- **Armenian Football Federation** (Seyu): unambiguous federation identity. Confirmed current president Armen Melikbekyan (re-elected December 2023). Explicitly double-checked the pro/con text was genuinely about Armenia, not copy-pasted from another country's lead (per the Polish Handball Federation bug caught in batch 10) — confirmed clean.
+- **Football Federation of Bosnia and Herzegovina** (Seyu): unambiguous federation identity. Confirmed current president Vico Zeljković (re-elected April 2025). Verified the federation's real 2011 FIFA/UEFA suspension history but correctly did not carry it forward as a current risk factor, since it was resolved the same year and leadership has been stable through two consecutive elections since — a real, evidence-based judgment call rather than either ignoring the history or overstating stale risk.
+
+This batch's research agents hit the environment's session usage-limit wall mid-batch (GFI Academy South and Houston Rangers both failed cleanly with zero writes); the 6-hour heartbeat routine caught the failure and the batch was retried successfully once past the reset, with no cleanup needed. Separately, one apply command (Armenian Football Federation) failed due to a transient tool-availability error after its payload was validated but before the `PUT` executed — caught via the same independent-refetch verification step this loop always runs, and reapplied successfully.
+
+Merged in two unrelated parallel-session deliveries that landed on this branch first (2.4.142 unified activity timeline, 2.4.143 inbound email webhook, both part of issue #138's sales-support plan) via a clean fast-forward — no conflicts, no renumbering needed this time.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **86 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.143
 
 ### Added — inbound email webhook via Resend (issue #141, third delivery of #138)
