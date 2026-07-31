@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.138
+**Version:** 2.4.139
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -61,7 +61,7 @@ Everything in the app is reachable from one place: the hamburger icon (☰), alw
 - **Organization** switcher (only shown if you have access to 2+ brands)
 - **\<Brand\>** section: **Backlog** (leads parked for later, see [Backlog](#backlog)), **Pipeline** (the kanban/table board), **Sales Settings** (Company Setup)
 - **View** (only shown while already on the Pipeline page for a brand): Kanban, Table, Metrics, Search Learning — these four views live at the same URL with a `?view=` parameter, not separate pages
-- **Reporting**: Forecast, Battlecards, Outreach Templates
+- **Reporting**: Forecast, Battlecards, Outreach Templates, Contacts
 - **Admin** (super admins only): Prompt Editor, Users & Access, Duplicate Review
 - **Sign out**
 
@@ -260,6 +260,10 @@ Battlecards are competitor positioning summaries and objection responses — ref
 4. Tags reuse the same mechanism as outreach templates — a battlecard tagged `enterprise` shows up alongside a template tagged `enterprise`, and both surface together in the Outreach panel above.
 
 Content can't mention the other brand's product terms — the same forbidden-terms check applied to a lead's own value proposition.
+
+### Contacts
+
+Go to **Reporting → Contacts** for a brand to search every contact across that brand's leads by name. Each row shows a contact's name, title, email, phone, and every lead they're listed on — click a lead chip to open that lead's detail modal directly. This is a read-only view: it's a second lens onto the same `contacts[]` data already visible inside each lead's own detail modal, not a separate contact list — editing a contact still happens only there (add/edit/remove a contact, toggle Decision Maker). The same person listed on two different leads shows up as one row with both leads attached; two different people who happen to share only a name (no matching phone or email) show up as two separate rows.
 
 ---
 
