@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.156
+
+### Added — CLAUDE.md Rule 8: no AI-assistant branding, anywhere (owner request)
+
+Codifies 2.4.155's cleanup as a standing, durable rule instead of a one-time fix, so it's automatically enforced on every future session in this repo without re-pasting an instruction each time. Covers commits (no `Co-Authored-By`/session-link trailers), branches (no assistant-name prefix; rename any harness-auto-created prefixed branch before it accumulates work or merges), PRs, documentation, and code/UI/API surfaces — plus a retroactive-cleanup clause (fix branding found while doing unrelated work, don't just avoid adding new instances).
+
+Also updated `CLAUDE.md`'s own two pre-existing "Claude session"/"Claude Code" mentions (its opening line and Rule 6) to generic "AI coding assistant" wording — leaving them as literal contradictions right next to the new rule banning that exact language would have undermined it.
+
+**Documented, not silently worked around — the one genuine limit this rule can't erase**: the session-hosting harness mints a `claude/`-prefixed branch at the start of every new session; no repo-level rule can change that platform behavior. Rule 8's actual fix is a mitigation (rename off that branch immediately, before any real work accumulates on it), not a claim that the harness's naming behavior itself is disabled. Separately, a model's honest self-disclosure when directly asked "are you an AI" is explicitly carved out as safety/honesty behavior, not branding — this rule does not instruct any assistant to deny or hide what it is.
+
+### Testing
+No code changed — full gate re-run anyway per CLAUDE.md Rule 1: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.155
 
 ### Changed — remove AI-assistant branding from public docs and commit history (owner request)
