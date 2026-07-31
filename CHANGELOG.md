@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.149
+
+### Changed — enrichment loop, batch 13 (issue #132)
+
+4 more real leads:
+
+- **Sting Austin** (CogMap): confirmed the club was acquired by FC Westlake in 2026 and is mid-merger, winding down as a standalone brand. Did not attempt to resolve the identity/re-mapping question unilaterally — applied enrichment using the acquiring org's current leadership and flagged the acquisition explicitly in `notes` for human review of whether this lead record itself needs re-mapping or merging into FC Westlake's own record.
+- **Dynamic Indoor Soccer** (CogMap): corrected a multi-sport/location mismatch found during research (facility is in Katy, TX, not the location implied by the CSV import) and confirmed real named contacts.
+- **Ukrainian Association of Football** (Seyu): unambiguous federation identity. Research handled the real wartime operating context (matches played outside Ukraine since 2022, federation leadership and administrative continuity during the war) factually, without speculation beyond documented sources.
+- **FIVB Volleyball World Championship** (Seyu): the 10th data point for issue #136's open tournament/league/federation ambiguity, reasoned to `orgTypeCode: "tournament"` (grouped with FIFA World Cup, UEFA Champions League, and the IHF World Handball Championship as quadrennial/biennial mega-competitions rather than a recurring domestic-season `league`).
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **95 of ~2,723 leads fully processed.**
+
+Also merges in two parallel-session changes that landed on the shared branch ahead of this checkpoint (fast-forward, no conflicts): 2.4.147 (currency de-hardcoding) and 2.4.148 (Sales Settings vocabulary de-hardcoding) — see their own entries below.
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.148
 
 ### Changed — de-hardcode Sales Settings vocabulary: CustomerType/BuyerRole become brand-specific (issue #146)
