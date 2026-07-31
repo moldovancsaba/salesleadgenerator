@@ -7,7 +7,7 @@ import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Load
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
-  IconArchive,
+  IconArchive, IconAddressBook,
 } from '@tabler/icons-react';
 import { BRAND_CONFIG, type Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -45,6 +45,8 @@ function currentBrandFromPath(pathname: string): Brand | null {
   if (battlecardsMatch && battlecardsMatch[1] in BRAND_CONFIG) return battlecardsMatch[1] as Brand;
   const templatesMatch = pathname.match(/^\/outreach\/templates\/([^/]+)/);
   if (templatesMatch && templatesMatch[1] in BRAND_CONFIG) return templatesMatch[1] as Brand;
+  const contactsMatch = pathname.match(/^\/contacts\/([^/]+)/);
+  if (contactsMatch && contactsMatch[1] in BRAND_CONFIG) return contactsMatch[1] as Brand;
   return null;
 }
 
@@ -258,6 +260,14 @@ function AppNavInner() {
                     label="Outreach Templates"
                     leftSection={<IconMail size={18} />}
                     active={pathname === `/outreach/templates/${effectiveBrand}`}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
+                    href={`/contacts/${effectiveBrand}`}
+                    label="Contacts"
+                    leftSection={<IconAddressBook size={18} />}
+                    active={pathname === `/contacts/${effectiveBrand}`}
                     onClick={close}
                   />
                 </>

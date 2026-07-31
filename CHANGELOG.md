@@ -1,5 +1,24 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.139
+
+### Added — Contacts view (issue #139, first delivered piece of #138)
+
+Owner requested a "sales support" feature set (parent tracking issue #138): email outreach capture into activity history, reply-based conversation logging + contact enrichment, and a Contacts menu. Decomposed into 4 independently executable sub-issues per CLAUDE.md's issue-driven workflow: #139 (Contacts view), #140 (unified activity store), #141 (inbound email webhook), #142 (reply matching + enrichment). This delivers #139, the first and lowest-risk of the four — a read-only aggregation, no new collection, no external dependency.
+
+- **`lib/contacts.ts`**: new `aggregateContactsAcrossLeads()` — groups every lead's own `contacts[]` (via the existing `dedupeContacts()`/`contactKey()`) across a set of leads into one directory entry per distinct contact, each carrying every lead it appears on. A nameless contact is excluded (no key to group/search by, same rule `dedupeContacts()` already applies).
+- **`GET /api/contacts?brand=&tenantId=&q=`** (`app/api/contacts/route.ts`) — same auth/brand/tenant resolution as `GET /api/leads`; projects only `entity_name`/`contacts` per lead, aggregates, then filters by case-insensitive substring match on `q` against name.
+- **`/contacts/[brand]`** (`app/contacts/[brand]/page.tsx` + `contacts-client.tsx`) — searchable, read-only contacts table (GDS `AdminDataTable`/`AdminResourceEmptyState`/`AdminFormStatus`). No create/edit affordance anywhere on this page — a contact is only ever edited from inside its own lead's detail modal, per CLAUDE.md's UI-affordance rule (this page must never imply an edit capability it doesn't have).
+- **Nav**: new "Contacts" entry in `AppNav.tsx`'s Reporting section (alongside Battlecards/Outreach Templates), with a matching `currentBrandFromPath()` matcher.
+- **`app/sales/[brand]/sales-page-client.tsx`**: new `?leadId=` deep-link support — fetches the referenced lead via the existing `GET /api/leads/[id]` and opens its detail modal, stripping the param from the URL on close. Added specifically so the Contacts view's per-lead chips are genuine, working navigation rather than only linking to the board in general (again, CLAUDE.md's UI-affordance rule — a chip that looked like it opened a specific lead but didn't would be a real violation).
+
+**Verification**: unauthenticated requests to both the page and the API correctly redirect to real SSO login / return 401 respectively (confirmed live against a local dev server). Full end-to-end data-flow verification against real production data was not possible in this sandbox — direct MongoDB access from this environment remains unreachable (a pre-existing, previously-documented sandbox limitation); the unit tests (in-memory) and integration tests (`mongodb-memory-server`, a real MongoDB engine, just not the production one) exercise the actual aggregation and route logic end-to-end instead.
+
+**Not built in this delivery** (tracked separately, in build order): #140 (unified activity store — prerequisite for #141/#142), #141 (inbound email webhook — requires an owner decision on which provider to use, plus DNS/Vercel secret provisioning), #142 (reply matching + contact-enrichment suggestions).
+
+### Testing
+New: 6 unit tests for `aggregateContactsAcrossLeads` (`tests/lib/contacts.test.ts`), 4 integration tests for `GET /api/contacts` (`tests/integration/contacts.integration.test.ts` — cross-lead grouping, `q` search, brand isolation, auth rejection). Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS style audit clean, `next build --webpack` clean.
+
 ## 2.4.138
 
 ### Changed — enrichment loop, batch 8 (issue #132)

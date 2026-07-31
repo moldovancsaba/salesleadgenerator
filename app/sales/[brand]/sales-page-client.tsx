@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Group, Text, Paper, Loader, Container, Box, TextInput, UnstyledButton, ActionIcon, Tooltip } from '@mantine/core';
 import { IconChecklist, IconX, IconPlus } from '@tabler/icons-react';
 import type { Lead } from '@/app/types';
@@ -32,7 +32,29 @@ export function SalesPageClient({ brand }: Props) {
   // the on-page "Kanban ▾" Select was removed because it duplicated the
   // hamburger's job and was visually competing with it (issue #95).
   const searchParams = useSearchParams();
+  const router = useRouter();
   const viewParam = searchParams.get('view');
+  // Issue #139 — the Contacts view links to a specific lead via
+  // `?leadId=`, so a lead can be opened directly from outside the board
+  // (previously the only way to open the detail modal was clicking a
+  // card/row already rendered on this page). Fetched once per leadId value;
+  // cleared from the URL on close so refreshing after dismissing the modal
+  // doesn't reopen it.
+  const leadIdParam = searchParams.get('leadId');
+  useEffect(() => {
+    if (!leadIdParam) return;
+    let cancelled = false;
+    fetch(`/api/leads/${encodeURIComponent(leadIdParam)}?brand=${encodeURIComponent(brand)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Lead not found (${res.status})`);
+        return res.json();
+      })
+      .then((lead) => {
+        if (!cancelled) setSelectedLead(lead);
+      })
+      .catch((err) => console.error('Failed to open lead from leadId param:', err));
+    return () => { cancelled = true; };
+  }, [leadIdParam, brand]);
   const view: ViewMode = viewParam === 'table' || viewParam === 'metrics' || viewParam === 'search' || viewParam === 'backlog'
     ? viewParam
     : 'kanban';
@@ -351,7 +373,14 @@ export function SalesPageClient({ brand }: Props) {
           lead={selectedLead}
           brand={brand}
           opened
-          onClose={() => setSelectedLead(null)}
+          onClose={() => {
+            setSelectedLead(null);
+            if (leadIdParam) {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('leadId');
+              router.replace(`${url.pathname}${url.search}`);
+            }
+          }}
           onAction={handleAction}
           onDelete={handleDelete}
           onUpdated={() => setSelectedLead(null)}

@@ -209,3 +209,59 @@ export function getDecisionMakerContact(
   const dm = contacts.find((c) => c && c.isDecisionMaker === true);
   return dm ? normalizeContact(dm) : null;
 }
+
+export type ContactDirectoryEntry = {
+  key: string;
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+  isDecisionMaker: boolean;
+  leads: Array<{ leadId: string; entity_name: string }>;
+};
+
+// Cross-lead contact directory (issue #139) — contacts[] has never had a
+// concept of identity beyond a single lead's own array (contactKey() below
+// is deliberately scoped to one lead). This groups by that same key across
+// every lead passed in, so the same person listed on two leads collapses
+// into one directory entry with both leads attached, while two different
+// people who happen to share only a name (no matching phone/email) do not
+// collapse — contactKey() already encodes that distinction.
+//
+// A contact with no name is excluded (contactKey() returns '' for those,
+// same as dedupeContacts()) — there's nothing to search/display by name for
+// a directory whose only listing key is the name.
+export function aggregateContactsAcrossLeads(
+  leads: Array<{ _id: string; entity_name: string; contacts?: ContactInput[] | null }>
+): ContactDirectoryEntry[] {
+  const byKey = new Map<string, ContactDirectoryEntry>();
+
+  for (const lead of leads) {
+    const leadId = lead._id;
+    const entityName = lead.entity_name || '';
+    for (const c of dedupeContacts(lead.contacts)) {
+      const key = contactKey(c);
+      if (!key) continue;
+
+      const existing = byKey.get(key);
+      if (existing) {
+        if (!existing.leads.some((l) => l.leadId === leadId)) {
+          existing.leads.push({ leadId, entity_name: entityName });
+        }
+        continue;
+      }
+
+      byKey.set(key, {
+        key,
+        name: c.name,
+        title: c.title,
+        email: c.email,
+        phone: c.phone,
+        isDecisionMaker: c.isDecisionMaker,
+        leads: [{ leadId, entity_name: entityName }],
+      });
+    }
+  }
+
+  return Array.from(byKey.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
