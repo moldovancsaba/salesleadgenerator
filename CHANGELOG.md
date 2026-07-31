@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.152
+
+### Added — DVSC sponsorship pricing/forecast model (issue #148)
+
+Last of 4 sub-issues under #144 — parent issue #144 is now fully delivered. Real, sourced research (dvsc.hu, Wikipedia, 2026-07-31): DVSC's current partners (Tranzit-Food, Primavera Víz, Tippmix/Lemon Casino — betting/gaming is a real, active sponsorship category, and this app has no gambling-sector guardrails to consider, confirmed via repo-wide search), stadium (Nagyerdei Stadion), and multi-sport structure (men's football + women's handball, already fitting `lib/lead-taxonomy.ts`'s existing `businessUnitCode` values with zero new taxonomy vocabulary needed).
+
+- **Forecast model**: DVSC's sponsorship-ask business is structurally the same shape as CogMap's (a deal-size band scaled by buyer company size), not Seyu's per-company recurring `pricingByCompany` model. `app/lib/forecast.ts` extracts the former cogmap-only forecast body into a shared `computeDealSizeBandForecast()` (avoiding a second ~85-line copy that would reintroduce issue #111's documented drift risk) and calls it for both `'cogmap'` and `'dvsc'`. `app/api/stats/route.ts`'s own independent duplicate aggregation gets the same brand condition applied.
+- **Sales Settings vocabulary**: `BRAND_SALES_VOCABULARY.dvsc` (`app/lib/sales-settings.ts`) is now an explicit, real decision — DVSC's customers (companies) and buyer personas (marketing/sponsorship/commercial/CEO roles) are already fully covered by the universal base set established in issue #146; DVSC's own extension is empty for both `customerTypes` and `buyerRoles`, recorded explicitly rather than left to the implicit fallback.
+- **No fabricated data**: per this app's own never-fabricate convention, no specific HUF/EUR deal-size figures or seed product-line data were invented — DVSC has no Sales Settings seeding mechanism (every brand's data is operator-filled through the UI), so real figures must come from the owner/DVSC directly. A comprehensive, sourced starting product-line catalogue (shirt/kit, stadium/infrastructure, hospitality/matchday, digital/fan engagement, official-supplier categories, section-specific) is documented in `docs/ARCHITECTURE.md` as guidance, not pre-populated data.
+
+### Testing
+New: `BRAND_SALES_VOCABULARY.dvsc`/`emptySalesSettings('dvsc')` unit tests (`tests/lib/sales-settings.test.ts`) proving DVSC gets the universal base vocabulary and a real EUR-currency default; a `brand=dvsc` forecast integration test (`tests/integration/boards.integration.test.ts`) proving DVSC produces a real, non-null weighted-revenue forecast using the same model as CogMap. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest 645/645 unit + 136/136 integration passing, smoke suite passing, `next build --webpack` clean.
+
+### Documentation
+`docs/ARCHITECTURE.md` documents DVSC's real business model, its forecast-model decision (and why), its Sales Settings vocabulary decision, and its recommended starting product-line catalogue with full sourcing, at the same level of detail as the existing CogMap/Seyu forecast documentation. `docs/OPERATOR_GUIDE.md`'s Sales Settings section notes DVSC's vocabulary scope and points to the product-line catalogue as a starting reference.
+
 ## 2.4.151
 
 ### Changed — enrichment loop, batch 14 (issue #132)
