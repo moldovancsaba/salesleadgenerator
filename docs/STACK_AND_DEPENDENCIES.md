@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.135
+**Version:** 2.4.136
 
 ---
 

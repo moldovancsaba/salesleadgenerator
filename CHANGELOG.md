@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.136
+
+### Changed — enrichment loop, batch 6 (issue #132)
+
+4 more real leads (this batch was retried after 2.4.135's original batch-6 attempt failed cleanly with zero writes due to a session usage-limit reset):
+
+- **UTAH CELTIC FC** (CogMap): the CSV source's "Type: Girls Academy / Elite Girls Club" label was a signal worth verifying rather than trusting outright — confirmed via the club's own site that it is genuinely dual-gender (Girls Academy pathway *and* MLS NEXT Academy boys pathway), so `genderCode` was set to `mixed`, not `women`. Found real named contacts (Director of Coaching, Technical Director/Girls Director) and confirmed 4 USYS National Championships plus 1 MLS NEXT Cup, supporting `competitionLevelCode: "elite"`.
+- **Arlington Soccer Association** (CogMap): confirmed a large (9,000+ players/year, 95+ travel teams) Northern Virginia 501(c)3 club spanning recreational through ECNL-National travel; found 6 real named staff contacts with working emails directly from the club's own staff page. Correctly downgraded the stored `competitionLevelCode` recommendation from `elite` to `developmental` since the club spans recreational-through-developmental levels, not uniformly elite, and correctly kept `businessUnitCode: "general"` since this is a genuinely club-wide, multi-division record.
+- **The Hundred** (Seyu): the first cricket lead in this loop. Another data point for issue #136's open tournament/federation/organiser ambiguity — this time reasoned to `orgTypeCode: "league"` (a round-robin, table-based domestic season with 8 city franchises, distinct from a single knockout `tournament`), a 4th distinct answer this loop has produced for this recurring ambiguity. Confirmed real current leadership (Managing Director Vikram Banerjee, appointed Feb 2025, replacing the previously-departed Sanjay Patel) and the 2025 "Project Gemini" private-investment restructuring (8 franchises, combined £975m valuation) via ECB's own site and independent cricket press.
+- **Montenegrin Football Association** (Seyu): unambiguous federation identity (not subject to issue #136). Confirmed current president Dejan Savićević (in post since 2001, re-elected 2 July 2025 for a 2025-2029 term) via fscg.me and multiple independent Balkan outlets.
+
+**Recurring gap caught again**: The Hundred and Montenegrin Football Association both had a country trivially derivable from their stored `address` field left null by their research agents, the same class of gap first caught by owner QA on the 2.4.131 batch. Fixed both with a targeted follow-up `PUT` before checkpointing; the runbook (`docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9 step 4) now flags this as an expected-recurring check rather than a one-off.
+
+All 4 payloads independently re-verified via a fresh API re-fetch, including the country follow-up fixes. Running total: **66 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.135
 
 ### Changed — enrichment loop, batch 5 (issue #132)
