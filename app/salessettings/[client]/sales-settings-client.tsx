@@ -10,7 +10,7 @@ import { BRAND_CONFIG, type Brand } from '@/app/lib/brand'
 import {
   type SalesSettings, type ProductLine, type PricingModel,
   emptySalesSettings, emptyProductLine,
-  CUSTOMER_TYPE_OPTIONS, BUYER_ROLE_OPTIONS, CUSTOMER_SIZE_OPTIONS, PRICING_MODEL_OPTIONS,
+  getCustomerTypeOptions, getBuyerRoleOptions, CUSTOMER_SIZE_OPTIONS, PRICING_MODEL_OPTIONS,
   PURCHASE_FREQUENCY_OPTIONS, SALES_CYCLE_OPTIONS, REVENUE_PREDICTABILITY_OPTIONS, QUARTER_OPTIONS,
   REVENUE_TARGET_CURRENCY_OPTIONS, REVENUE_TARGET_PERIOD_OPTIONS,
 } from '@/app/lib/sales-settings'
@@ -221,7 +221,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
               onChange={(value) => setSettings((s) => ({ ...s, customerTypes: value as SalesSettings['customerTypes'] }))}
             >
               <Group gap="sm" mt="xs">
-                {CUSTOMER_TYPE_OPTIONS.map((opt) => (
+                {getCustomerTypeOptions(brand).map((opt) => (
                   <Checkbox key={opt.value} value={opt.value} label={opt.label} />
                 ))}
               </Group>
@@ -285,7 +285,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
                     onChange={(value) => updateProduct(product.id, { typicalBuyer: value as ProductLine['typicalBuyer'] })}
                   >
                     <Group gap="sm" mt="xs">
-                      {BUYER_ROLE_OPTIONS.map((opt) => (
+                      {getBuyerRoleOptions(brand).map((opt) => (
                         <Checkbox key={opt.value} value={opt.value} label={opt.label} />
                       ))}
                     </Group>
