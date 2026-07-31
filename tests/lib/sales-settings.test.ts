@@ -1,5 +1,67 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeSalesSettings, emptySalesSettings, emptyProductLine, defaultRevenueTargetCurrency } from '../../app/lib/sales-settings';
+import {
+  sanitizeSalesSettings, emptySalesSettings, emptyProductLine, defaultRevenueTargetCurrency,
+  getAllowedCustomerTypes, getAllowedBuyerRoles, getCustomerTypeOptions, getBuyerRoleOptions,
+} from '../../app/lib/sales-settings';
+
+// Issue #146 — CustomerType/BuyerRole are now brand-scoped: a universal base
+// set plus each brand's own extension, replacing one universal list applied
+// identically to every brand. Confirmed real mismatch this fixes: BuyerRole's
+// 'coach'/'athlete'/'federation'/'club'/'parent' fit CogMap's own product but
+// have no place in Seyu's real business (fan engagement services).
+describe('brand-scoped CustomerType/BuyerRole', () => {
+  it("CogMap's buyer-role options are unchanged from the full pre-refactor list", () => {
+    const values = getBuyerRoleOptions('cogmap').map((o) => o.value);
+    expect(values).toEqual(['ceo', 'marketing', 'commercial', 'coach', 'federation', 'club', 'brand', 'parent', 'athlete', 'other']);
+  });
+
+  it("Seyu's buyer-role options no longer include coach/athlete/federation/club/parent", () => {
+    const values = getBuyerRoleOptions('seyu').map((o) => o.value);
+    expect(values).toEqual(['ceo', 'marketing', 'commercial', 'brand', 'other']);
+    expect(values).not.toContain('coach');
+    expect(values).not.toContain('athlete');
+  });
+
+  it("CogMap's customer-type options are unchanged from the full pre-refactor list", () => {
+    const values = getCustomerTypeOptions('cogmap').map((o) => o.value);
+    expect(values).toEqual(['sports_clubs', 'federations', 'schools', 'academies', 'event_organisers', 'sponsors', 'brands', 'government', 'other']);
+  });
+
+  it('a brand with no explicit BRAND_SALES_VOCABULARY entry falls back to the universal base set only', () => {
+    expect(getAllowedBuyerRoles('not_a_real_brand')).toEqual(['ceo', 'marketing', 'commercial', 'brand', 'other']);
+    expect(getAllowedCustomerTypes('not_a_real_brand')).toEqual(['sponsors', 'brands', 'government', 'other']);
+  });
+});
+
+describe('sanitizeSalesSettings — brand-scoped vocabulary validation', () => {
+  it('drops a CogMap-only buyer role from a product saved under Seyu, not silently stores it', () => {
+    const result = sanitizeSalesSettings({
+      products: [{ name: 'Fan App', typicalBuyer: ['coach', 'marketing', 'athlete'] }],
+    }, 'seyu', 'default');
+    expect(result.products[0].typicalBuyer).toEqual(['marketing']);
+  });
+
+  it('keeps a CogMap-only buyer role when saved under CogMap (no behavior change)', () => {
+    const result = sanitizeSalesSettings({
+      products: [{ name: 'Assessment', typicalBuyer: ['coach', 'athlete'] }],
+    }, 'cogmap', 'default');
+    expect(result.products[0].typicalBuyer).toEqual(['coach', 'athlete']);
+  });
+
+  // GET /api/sales-settings/[brand] runs every stored document through this
+  // same sanitizer before returning it to the client (issue #101's GET/PUT
+  // consistency guarantee) — so a Seyu document saved before this brand-
+  // scoping existed, still holding a now-out-of-scope value like 'coach',
+  // must never throw when re-sanitized on its next read. sanitizeEnumArray's
+  // existing drop-not-throw contract already covers this; this test proves
+  // it still holds now that the allowed set is brand-scoped, not global.
+  it('never throws re-sanitizing a stale document with a now-out-of-scope value (GET-path safety)', () => {
+    expect(() => sanitizeSalesSettings({
+      customerTypes: ['schools', 'sponsors'],
+      products: [{ name: 'Legacy', typicalBuyer: ['coach'] }],
+    }, 'seyu', 'default')).not.toThrow();
+  });
+});
 
 // Issue #145 — defaultRevenueTargetCurrency() now reads BRAND_CONFIG[brand].currency
 // (app/lib/brand.ts) instead of a hand-written `brand === 'seyu' ? 'EUR' : 'USD'` ternary.
