@@ -1,6 +1,6 @@
 # Lead Taxonomy Migration Plan — Rulebook v1.0 Backfill
 
-**Version:** 2.4.155
+**Version:** 2.4.156
 
 **Status:** Plan / design document, now with one completed execution slice. Phase 2's mechanical `sportCode` sub-step (see §4) has actually run against production — the rest of Phase 2 (every other identity field, and the 299 leads `sportCode` couldn't mechanically resolve) is still unstarted. It describes how to convert the app's existing leads into the controlled taxonomy schema shipped in 2.4.109 (`lib/lead-taxonomy.ts`, `lib/lead-classification.ts`, the new `Lead` fields documented in `docs/ARCHITECTURE.md`'s "Controlled Sports-Industry Taxonomy" section).
 
