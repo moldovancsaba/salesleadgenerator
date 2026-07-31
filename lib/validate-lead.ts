@@ -110,14 +110,22 @@ export function validateLeadPayload(body: any, brand: string, options?: { partia
       const confidence = Number(ice.confidence);
       const ease = Number(ice.ease);
 
-      if (!Number.isFinite(impact) || impact < 1 || impact > 10) {
-        errors.push('ice.impact must be a number between 1 and 10');
+      // Integers only, per docs/LEAD_ENRICHMENT_GUIDE.md's own contract — a
+      // Number.isFinite()-only check previously let a non-integer (e.g.
+      // 5.5) through undetected, and this exact bug recurred independently
+      // on two unrelated leads found by the taxonomy classification loop
+      // (issue #132: Estonian Basketball Association, Slovak Football
+      // Association) before either was caught by manual review. Rejecting
+      // it here closes the bug at the write boundary instead of relying on
+      // every future caller to self-police.
+      if (!Number.isInteger(impact) || impact < 1 || impact > 10) {
+        errors.push('ice.impact must be an integer between 1 and 10');
       }
-      if (!Number.isFinite(confidence) || confidence < 1 || confidence > 10) {
-        errors.push('ice.confidence must be a number between 1 and 10');
+      if (!Number.isInteger(confidence) || confidence < 1 || confidence > 10) {
+        errors.push('ice.confidence must be an integer between 1 and 10');
       }
-      if (!Number.isFinite(ease) || ease < 1 || ease > 10) {
-        errors.push('ice.ease must be a number between 1 and 10');
+      if (!Number.isInteger(ease) || ease < 1 || ease > 10) {
+        errors.push('ice.ease must be an integer between 1 and 10');
       }
 
       const expectedScore = impact * confidence * ease;

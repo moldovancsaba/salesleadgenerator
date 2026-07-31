@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.146
+
+### Fixed — root-cause fixes for the lead-taxonomy loop's two most frequent recurring mistakes (issue #132)
+
+Twelve batches into the ongoing classification loop (issue #132), two mistake classes had recurred independently across many separate, unrelated leads despite every batch's prompt explicitly warning against them — a real, repeated failure of the "catch it manually every time" approach. Fixed both at the source instead of relying on every future prompt/agent to remember:
+
+- **HTML-entity artifacts** (`&amp;` for `&`, `&gt;`/`&lt;` for `>`/`<`, etc.) — empirically the single most frequent real mistake this loop's manual validation caught, recurring across batches 2.4.132, 2.4.138, 2.4.140, 2.4.141, and 2.4.144. New `lib/text-sanitize.ts` (`decodeHtmlEntities()`/`decodeHtmlEntitiesInArray()`) is now wired into every lead write/read path: `app/lib/normalize-lead.ts`'s `sanitizeString()` (covers `entity_name`, `value_proposition`, `notes`, and — via `ensureArrayField()` → `ensureString()` — `pro_for_organization`/`con_for_organization` on every `POST` and every `GET`), `lib/contacts.ts`'s `normalizeContact()` (covers every contact's `name`/`title`/`role` on every write path: `POST`, `PUT`, `PATCH MODIFY`), and directly in `PUT /api/leads/[id]`'s route handler for `value_proposition`/`notes`/pro-con arrays, since that route builds its update body from the raw request verbatim and never calls `normalizeLead()` at all. A useful side effect: because `GET` also normalizes through `sanitizeString()`, any lead already corrupted by a past batch self-heals on its next read, with no backfill script needed.
+- **Non-integer `ice.impact`/`confidence`/`ease`** (e.g. `5.5`) — recurred independently on two unrelated leads (Estonian Basketball Association, Slovak Football Association) despite the enrichment prompt's own documented contract already saying "integer." The actual bug was server-side: `lib/validate-lead.ts` only checked `Number.isFinite()`, which a decimal value passes. Tightened to `Number.isInteger()` — a non-integer now gets rejected with a 400 on every write path, closing the class of bug rather than the one instance.
+
+`docs/LEAD_ENRICHMENT_GUIDE.md`'s canonical Hard Rules section (the actual `/admin/prompts` production prompt template, not just this loop's own ad-hoc wrapper instructions) hardened with explicit warnings for all 4 real mistakes this loop has caught and not previously documented there: HTML entities, the `linkedin`-not-`linkedinUrl` field name, a contact's job title belonging in `title` not `role`, and the now-server-enforced integer requirement on `ice` fields.
+
+### Testing
+New: 8 unit tests for `decodeHtmlEntities`/`decodeHtmlEntitiesInArray` (`tests/lib/text-sanitize.test.ts`), 1 for `normalizeContact`'s entity decoding (`tests/lib/contacts.test.ts`), 1 for `normalizeLead`'s entity decoding (`tests/lib/normalize-lead.test.ts`), 1 for the PUT route's entity decoding end-to-end (`tests/integration/leads-id.integration.test.ts`), 1 for the tightened non-integer `ice` rejection (`tests/lib/validate-lead.test.ts`) — plus 2 existing `validate-lead.test.ts` assertions updated for the new "must be an integer" error wording. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.145
 
 ### Changed — enrichment loop, batch 12 (issue #132)
