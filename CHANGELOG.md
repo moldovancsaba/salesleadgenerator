@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.140
+
+### Changed — enrichment loop, batch 9 (issue #132)
+
+4 more real leads:
+
+- **Real Salt Lake (Academy)** (CogMap): correctly disambiguated a lead named after a well-known MLS club — confirmed via rsl.com/ksl.com this specific lead represents Real Salt Lake's MLS NEXT Homegrown-pathway youth academy (Zions Bank Real Academy campus, Herriman, UT), not the professional first team, and set `businessUnitCode: "youth-academy"` accordingly rather than defaulting to `"general"`. Found current academy leadership (Academy Director Jon Spencer, Assistant Sporting Director Tony Beltran) and corrected the actual residential population (~60 players) against the CSV's unverified 500+ estimate.
+- **Loudoun Soccer Club** (CogMap): confirmed via mlssoccer.com's own MLS NEXT Academy Division member list that this is a real, distinct club from both Loudoun United FC (a separate USL pro club) and Northern Virginia Alliance (another Leesburg-based MLS NEXT club) — three easily-conflated same-region organizations kept correctly separate. Found current CEO Mark Ryan.
+- **Slovak Football Association** (Seyu): fixed another pre-existing non-integer `ice.impact` bug (`5.5` → `6`), the same class of bug caught earlier for Estonian Basketball Association. Confirmed current president Ján Kováčik (re-elected February 2026, 5th term) and surfaced a real, material governance/budget risk — suspended state funding pending a procurement-scandal audit and a cancelled lottery-operator sponsorship — as a genuine con rather than glossing over it.
+- **Bulgarian Football Union** (Seyu): unambiguous federation identity. Confirmed current president Georgi Ivanov (since March 2024) and surfaced real governance history (2019 UEFA sanctions, a 2023 fan-protest crisis, a 2025 match-fixing investigation, a reported 2025 operating loss) as genuine cons.
+
+**HTML-entity artifacts (`&amp;`/`&gt;`) recurred twice more this batch** (Real Salt Lake Academy, Loudoun Soccer Club) despite this being flagged as a fixed pattern since early batches — stripped before applying both times. This remains the single most frequent real mistake this loop catches; worth treating as a near-certain per-batch occurrence rather than an edge case.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **78 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.139
 
 ### Added — Contacts view (issue #139, first delivered piece of #138)
