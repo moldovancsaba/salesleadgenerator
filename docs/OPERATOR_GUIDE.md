@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.142
+**Version:** 2.4.143
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -196,7 +196,7 @@ A lightweight (BANT-style) qualification checklist: Budget confirmed, Budget not
 
 A unified, time-ordered timeline of email activity for this lead — the first place in this app that shows real conversation history in one place, rather than only the record of outreach you sent (previously scattered, with no dedicated view of its own). Each entry shows its type (Outbound email / Inbound reply), a timestamp, and a subject/excerpt where available. Read-only — nothing here is editable from this panel.
 
-As of this writing, entries only appear here from outreach sent via the **Outreach** compose modal's "Log outreach" button (see [Outreach](#outreach) below); inbound-reply capture (a lead's own email response landing here automatically) is a separate, not-yet-shipped piece of work — an empty Activity section on most leads today reflects that, not a bug.
+As of this writing, entries only appear here from outreach sent via the **Outreach** compose modal's "Log outreach" button (see [Outreach](#outreach) below). Automatic email capture (a dedicated inbound address the system can receive at) is built but not yet live — it still needs a Resend account and a couple of settings only someone with dashboard/Vercel access can provide (see `docs/STACK_AND_DEPENDENCIES.md`'s "Inbound email webhook" section); once it is, captured emails still won't appear here automatically either, until a further piece of work (matching a sender's address to the right lead) ships. An empty Activity section on most leads today reflects that, not a bug.
 
 ---
 

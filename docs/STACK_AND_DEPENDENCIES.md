@@ -1,6 +1,6 @@
 # Stack and Dependencies — Sales Lead Generator
 
-**Version:** 2.4.142
+**Version:** 2.4.143
 
 ---
 
@@ -40,6 +40,7 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 | MongoDB | Atlas hosted | Active | Persistence |
 | dotenv | ^17.4.2 | Scripts-only | Used in `scripts/*.js` and `scripts/*.mjs`; not used in app code |
 | Node `dns` (built-in) | Node runtime version | Active (2.4.50, issue #67) | `lib/email-verification.ts`'s MX/A-record deliverability check (`dns.promises.Resolver`) — **no package dependency, no paid third-party API**, per the issue's explicit constraint. Proves domain-level mail acceptance only, never a specific mailbox. |
+| resend | ^6.18.1, added 2.4.143 | Active | Inbound-email provider SDK (issue #141) — verifies the `email.received` webhook's signature (`resend.webhooks.verify()`) and fetches a received email's full body (`resend.emails.receiving.get()`, the webhook payload itself is metadata-only). Not deprecated (`npm view resend deprecated` — empty); brings in `postal-mime@2.7.5` and `standardwebhooks@1.0.0` as its own dependencies, neither deprecated either. `standardwebhooks` is also declared as a direct devDependency here, used only to construct validly-signed test requests (`tests/lib/resend-webhook.test.ts`, `tests/integration/inbound-email-webhook.integration.test.ts`) — it's already a real transitive dependency of `resend` at runtime, declaring it directly for tests avoids relying on undeclared hoisting, the same precedent this repo already set for `mongodb`/`@dnd-kit/*` (see `mongodb driver` row above). |
 
 ---
 
@@ -105,6 +106,15 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 | `SSO_SUPER_ADMIN_EMAILS` | Comma-separated list of emails (case-insensitive) with unconditional access to every brand and to `/admin/users`. **Must include the owner's email** (`moldovancsaba@gmail.com`) — every brand page now requires login, and only a super admin can grant anyone (including the owner) per-brand access via `/admin/users`. If this var is unset or wrong when phase 2 deploys, **nobody can access anything**, including the person who'd otherwise fix it — there is no other way to bootstrap the first grant. |
 
 Real credentials (`SSO_CLIENT_ID`/`SSO_CLIENT_SECRET`) obtained 2026-07-26 and stored only in this sandbox's gitignored `.env.local` (confirmed still present there as of this 2026-07-27 audit) — **set locally, but not in Vercel**; setting all five vars (`SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`, `SSO_REDIRECT_URI`, `SSO_BASE_URL`, `SSO_SUPER_ADMIN_EMAILS`) in Vercel's Project → Environment Variables is a manual step for whoever has dashboard access — this session has no Vercel API/CLI credentials to do it programmatically (confirmed: `vercel whoami` requires an interactive browser login this headless environment can't complete).
+
+**Inbound email webhook (2.4.143, issue #141 — see `docs/ARCHITECTURE.md`'s "Inbound email webhook" section for the full writeup):** two more env vars, neither set anywhere yet — this is the first sub-issue of #138's sales-support plan that requires real infra the owner has to provision, not just code:
+
+| Env var | Purpose |
+|---------|---------|
+| `RESEND_API_KEY` | Resend account API key — authenticates the follow-up "fetch full email content" call (`resend.emails.receiving.get()`); obtained from a Resend account the owner needs to create |
+| `RESEND_WEBHOOK_SECRET` | The signing secret Resend shows on a webhook's own details page after it's created in their dashboard — verifies every inbound POST actually came from Resend (`resend.webhooks.verify()`) |
+
+`lib/resend-webhook.ts`'s `isResendConfigured()` reports whether both are set; `POST /api/webhooks/inbound-email` returns `503` (fails closed, confirmed live against a local dev server with both vars unset) rather than crashing or silently accepting unverifiable requests when they aren't. **Nothing beyond code exists yet** — no Resend account, no webhook configured in Resend's dashboard pointing at this route, no domain/address chosen. The owner needs to: (1) create a Resend account, (2) add an inbound domain (or use Resend's zero-DNS default `<id>.resend.app`), (3) create a webhook in Resend's dashboard for the `email.received` event pointing at `https://salesleadgenerator.vercel.app/api/webhooks/inbound-email`, (4) set both env vars above in Vercel. Until then this is fully built and tested code with no live trigger.
 
 ---
 
