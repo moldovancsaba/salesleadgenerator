@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.151
+
+### Changed — enrichment loop, batch 14 (issue #132)
+
+4 more real leads:
+
+- **Blue Sky Sports Center Mansfield** (CogMap): confirmed the stored `url` (blueskysportscenter.com) does not correspond to any Mansfield location at all — that domain belongs to the legacy "Blue Sky Sports Center" brand's 4 DFW-area centers (Allen, Carrollton, Keller, The Colony), none in Mansfield. TOCA Football acquired those 4 centers in 2022 and separately operates a distinct facility, "TOCA Soccer Center - Mansfield," at 201 Sentry Dr — almost certainly the real business this lead represents. Per the Hard Rules, `entity_name`/`url` were left untouched; the correction lives in `canonicalLeadName` and `notes` for human review instead.
+- **Meyer Park Soccer Complex** (CogMap): confirmed the 180-acre, 26-field complex is owned/operated by Harris County Precinct 4 (county government), with Klein Soccer Club Inc. (a 501(c)3 nonprofit) as its long-term resident tenant and real named president (Ryan Bence, via IRS Form 990 aggregator data). Flagged an explicit structural ambiguity in `notes` for human review: the lead conflates the county-owned facility with the actual nonprofit tenant that would be the realistic buyer, rather than silently picking one.
+- **YouTube** (Seyu): a second data point for issue #135's open "no `orgTypeCode` fits a platform/tech brand" question (first was Strava) — classified `orgTypeCode: "media"` and `sportCode: "not-applicable"` per this section's own "never force a sports-taxonomy fit" guidance, flagged in `notes` as another instance of the open question, not a resolution. No real named partnerships contact is discoverable at Alphabet/Google's scale; the stored placeholder contact was left untouched (contacts key omitted) rather than replaced with a guess, and ICE re-scored to 1/1/1 per the rubric's literal "no named contact found" tier.
+- **Shandong Taishan** (Seyu): confirmed the club's current real name and continued Chinese Super League top-flight status (renamed from Shandong Luneng Taishan under the CFA's 2020 neutral-name policy, no further rename since). Replaced the placeholder "Unknown President" contact with the club's actual chairman, Sun Hua. Corrected `competitionLevelCode` to `professional` (not `elite` — a senior/first-team squad in a top-flight professional league, per the prompt's own disambiguation rule) and `demographicCodes` to include `senior` alongside `adult`, matching the prompt's own worked example ("a club's senior/first squad").
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **99 of ~2,723 leads fully processed.**
+
+Also merges in a parallel-session change that landed on the shared branch ahead of this checkpoint (fast-forward, no conflicts): 2.4.150 (DVSC onboarded as a third brand) — see its own entry below.
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.150
 
 ### Added — DVSC onboarded as a third brand (issue #147)
