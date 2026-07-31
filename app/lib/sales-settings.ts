@@ -217,14 +217,48 @@ export function emptySalesSettings(brand: string, tenantId = 'default'): SalesSe
   };
 }
 
-const CUSTOMER_TYPES: CustomerType[] = [
-  'sports_clubs', 'federations', 'schools', 'academies',
-  'event_organisers', 'sponsors', 'brands', 'government', 'other',
-];
-const BUYER_ROLES: BuyerRole[] = [
-  'ceo', 'marketing', 'commercial', 'coach', 'federation',
-  'club', 'brand', 'parent', 'athlete', 'other',
-];
+// Issue #146 — CustomerType/BuyerRole are brand-scoped: a small, genuinely
+// universal base set every brand shares, plus each brand's own extension of
+// business-specific values. Confirmed real mismatch, not a guess: BuyerRole's
+// 'coach'/'federation'/'club'/'parent'/'athlete' fit CogMap's own product
+// (coaches assessing athletes at clubs/federations) but have no place in
+// Seyu's real business — fan engagement services, sold to marketing/
+// commercial/CEO buyers, never coaches or athletes. CogMap keeps its full
+// current set unchanged (zero behavior change); Seyu's extension is empty,
+// so its form now only shows the universal base roles.
+//
+// CustomerType's own per-brand split is deliberately left unnarrowed for
+// Seyu (unlike BuyerRole): no equivalently confirmed real mismatch exists
+// for CustomerType today, and CLAUDE.md Rule 5 forbids narrowing it from an
+// unconfirmed business-logic guess. Both brands currently get the same
+// CustomerType extension (the full sport-specific set) — the mechanism below
+// is brand-ready so a future confirmed finding (or a new brand) can narrow
+// it later without another architecture change.
+const CUSTOMER_TYPE_BASE: CustomerType[] = ['sponsors', 'brands', 'government', 'other'];
+const CUSTOMER_TYPE_SPORT_SPECIFIC: CustomerType[] = ['sports_clubs', 'federations', 'schools', 'academies', 'event_organisers'];
+const BUYER_ROLE_BASE: BuyerRole[] = ['ceo', 'marketing', 'commercial', 'brand', 'other'];
+const BUYER_ROLE_SPORT_SPECIFIC: BuyerRole[] = ['coach', 'federation', 'club', 'parent', 'athlete'];
+
+export const BRAND_SALES_VOCABULARY: Record<string, { customerTypes: CustomerType[]; buyerRoles: BuyerRole[] }> = {
+  cogmap: { customerTypes: CUSTOMER_TYPE_SPORT_SPECIFIC, buyerRoles: BUYER_ROLE_SPORT_SPECIFIC },
+  seyu: { customerTypes: CUSTOMER_TYPE_SPORT_SPECIFIC, buyerRoles: [] },
+};
+
+// A brand with no explicit BRAND_SALES_VOCABULARY entry falls back to the
+// universal base set only, never crashes and never shows every brand's
+// combined vocabulary.
+function brandVocabularyExtension(brand: string): { customerTypes: CustomerType[]; buyerRoles: BuyerRole[] } {
+  return BRAND_SALES_VOCABULARY[brand] ?? { customerTypes: [], buyerRoles: [] };
+}
+
+export function getAllowedCustomerTypes(brand: string): CustomerType[] {
+  return [...CUSTOMER_TYPE_BASE, ...brandVocabularyExtension(brand).customerTypes];
+}
+
+export function getAllowedBuyerRoles(brand: string): BuyerRole[] {
+  return [...BUYER_ROLE_BASE, ...brandVocabularyExtension(brand).buyerRoles];
+}
+
 const CUSTOMER_SIZES: CustomerSize[] = ['individual', 'small', 'medium', 'large', 'enterprise'];
 const PRICING_MODELS: PricingModel[] = [
   'one_time', 'monthly_subscription', 'annual_subscription', 'framework_agreement',
@@ -332,14 +366,18 @@ function sanitizeRevenueTarget(value: unknown, brand: string): RevenueTarget {
   };
 }
 
-function sanitizeProductLine(value: unknown, index: number): ProductLine {
+// Issue #146 — typicalBuyer is validated against the brand-scoped allowed
+// set (getAllowedBuyerRoles), not the global BuyerRole union: a value valid
+// for one brand but not the brand actually being saved is dropped, matching
+// this function's own existing sanitize-not-throw convention (sanitizeEnumArray).
+function sanitizeProductLine(value: unknown, index: number, brand: string): ProductLine {
   const raw = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
   return {
     id: sanitizeString(raw.id, 100) || `product-${index}`,
     name: sanitizeString(raw.name, 200),
     description: sanitizeString(raw.description, 1000),
     whyTheyBuy: sanitizeString(raw.whyTheyBuy, 1000),
-    typicalBuyer: sanitizeEnumArray(raw.typicalBuyer, BUYER_ROLES),
+    typicalBuyer: sanitizeEnumArray(raw.typicalBuyer, getAllowedBuyerRoles(brand)),
     typicalBuyerOther: sanitizeString(raw.typicalBuyerOther, 200),
     customerSize: sanitizeEnumArray(raw.customerSize, CUSTOMER_SIZES),
     pricingModels: sanitizeEnumArray(raw.pricingModels, PRICING_MODELS),
@@ -374,9 +412,9 @@ export function sanitizeSalesSettings(body: unknown, brand: string, tenantId: st
     contactPerson: sanitizeString(raw.contactPerson, 200),
     website: sanitizeString(raw.website, 300),
     mainIndustry: sanitizeString(raw.mainIndustry, 200),
-    customerTypes: sanitizeEnumArray(raw.customerTypes, CUSTOMER_TYPES),
+    customerTypes: sanitizeEnumArray(raw.customerTypes, getAllowedCustomerTypes(brand)),
     customerTypesOther: sanitizeString(raw.customerTypesOther, 200),
-    products: Array.isArray(raw.products) ? raw.products.map((p, i) => sanitizeProductLine(p, i)) : [],
+    products: Array.isArray(raw.products) ? raw.products.map((p, i) => sanitizeProductLine(p, i, brand)) : [],
     dealSize: {
       small: sanitizeOptionalNumber(dealSizeRaw.small, MAX_DEAL_SIZE_INPUT),
       medium: sanitizeOptionalNumber(dealSizeRaw.medium, MAX_DEAL_SIZE_INPUT),
@@ -432,6 +470,19 @@ export const BUYER_ROLE_OPTIONS: { value: BuyerRole; label: string }[] = [
   { value: 'athlete', label: 'Athlete' },
   { value: 'other', label: 'Other' },
 ];
+
+// Issue #146 — the brand-scoped views of the two option lists above, for the
+// Company Setup UI to render: only options that fit what the given brand
+// actually sells, in the same fixed display order as the full lists.
+export function getCustomerTypeOptions(brand: string): { value: CustomerType; label: string }[] {
+  const allowed = new Set(getAllowedCustomerTypes(brand));
+  return CUSTOMER_TYPE_OPTIONS.filter((opt) => allowed.has(opt.value));
+}
+
+export function getBuyerRoleOptions(brand: string): { value: BuyerRole; label: string }[] {
+  const allowed = new Set(getAllowedBuyerRoles(brand));
+  return BUYER_ROLE_OPTIONS.filter((opt) => allowed.has(opt.value));
+}
 
 export const CUSTOMER_SIZE_OPTIONS: { value: CustomerSize; label: string }[] = [
   { value: 'individual', label: 'Individual' },

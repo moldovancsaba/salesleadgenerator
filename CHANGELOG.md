@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.148
+
+### Changed — de-hardcode Sales Settings vocabulary: CustomerType/BuyerRole become brand-specific (issue #146)
+
+Second of 4 sub-issues under #144. `CustomerType`/`BuyerRole` were one fixed, closed vocabulary applied identically to every brand's Company Setup form — confirmed real mismatch: `BuyerRole` included `'coach'`/`'athlete'`/`'federation'`/`'club'`/`'parent'` (CogMap's own product) with no place in Seyu's real business (fan engagement services, sold to marketing/commercial/CEO buyers).
+
+- `app/lib/sales-settings.ts` now splits both vocabularies into a small universal base set every brand shares, plus a new `BRAND_SALES_VOCABULARY` map declaring each brand's own extension of business-specific values. CogMap's extension keeps its full current set (zero behavior change, confirmed via an explicit-list regression test); Seyu's `BuyerRole` extension is empty, so `'coach'`/`'athlete'`/`'federation'`/`'club'`/`'parent'` no longer appear on its form. Seyu's `CustomerType` extension is deliberately left unnarrowed — no equivalently confirmed real mismatch exists for that field, and narrowing it would be an unconfirmed business-logic guess (CLAUDE.md Rule 5).
+- New `getBuyerRoleOptions(brand)`/`getCustomerTypeOptions(brand)` (brand-filtered UI option lists) and `getAllowedBuyerRoles(brand)`/`getAllowedCustomerTypes(brand)` (validation) replace the old flat, brand-agnostic option constants; a brand with no `BRAND_SALES_VOCABULARY` entry falls back to the base set only, never crashes.
+- `sanitizeSalesSettings()`/`sanitizeProductLine()` now validate `customerTypes`/`typicalBuyer` against the brand-scoped allowed set for the specific brand being saved — a foreign-brand value is dropped, not stored. Since `GET /api/sales-settings/[brand]` re-runs stored documents through this same sanitizer (the existing 2.4.101 GET/PUT consistency guarantee), a legacy document holding a now-out-of-scope value is silently filtered on its next read too, never a crash.
+- `app/salessettings/[client]/sales-settings-client.tsx` now renders `getCustomerTypeOptions(brand)`/`getBuyerRoleOptions(brand)` instead of the flat global option arrays.
+
+### Testing
+New: 7 tests in `tests/lib/sales-settings.test.ts` — CogMap's buyer-role/customer-type options unchanged (explicit list), Seyu's buyer-role options exclude the CogMap-only values, fallback for an unconfigured brand, a foreign-brand value dropped on save, a CogMap-only value preserved when saved under CogMap, and a stale-document re-sanitize never throwing. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest 637/637 passing (630 pre-existing + 7 new, all pre-existing tests unmodified), smoke suite passing, `next build --webpack` clean.
+
+### Documentation
+`docs/ARCHITECTURE.md`'s Company Settings section documents the brand-scoped vocabulary mechanism and the real bug it fixes; `docs/OPERATOR_GUIDE.md`'s Sales Settings section notes that buyer-role/customer-type options are brand-specific.
+
 ## 2.4.147
 
 ### Changed — de-hardcode currency: unify into one BRAND_CONFIG-owned source of truth (issue #145)
