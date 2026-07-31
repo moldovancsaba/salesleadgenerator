@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.143
+
+### Added — inbound email webhook via Resend (issue #141, third delivery of #138)
+
+Third sub-issue of #138's sales-support plan. Provider locked to **Resend** after real, verified research (not from memory — Resend's own docs and the actual installed `resend` npm package's compiled source were both read directly): a genuine "Inbound" feature (~Nov 2025) matching exactly what this issue needs, with a zero-DNS-setup default domain and Svix-compatible signature verification. Chosen over the originally-listed Postmark/SendGrid/Mailgun.
+
+- **New dependency `resend` (^6.18.1)** — not deprecated, brings in `postal-mime`/`standardwebhooks` (neither deprecated either); `standardwebhooks` also declared as a direct devDependency for test-signing. Zero new `npm audit` findings (the 12 pre-existing high-severity findings in this repo's dependency tree — eslint/next/postcss/sharp/etc. — are unchanged by this addition, confirmed by diffing `npm audit` before/after).
+- **`lib/resend-webhook.ts`**: signature verification, built against the real installed SDK's compiled source rather than assumed from docs — the SDK's own `.d.ts` types `headers` as the Fetch API's `Headers`, but the actual runtime implementation expects a plain `{id, timestamp, signature}` object; this module's types reflect the real behavior.
+- **`app/lib/inbound-email.ts`**: brand routing (Resend has no documented plus-addressing, so distinct addresses per brand instead — `cogmap@...`/`seyu@...`) and direction classification derived from data already in the payload (To/Cc presence = inbound reply; Bcc-only/received_for-only = outbound capture) rather than a rep-domain configuration list, with a documented known limitation (some mail clients strip the Bcc header before delivery).
+- **`app/api/webhooks/inbound-email/route.ts`** — the first real writer to `activityLog` (issue #140). Verifies the signed `email.received` event, fetches the real body via a follow-up API call (the webhook payload itself is metadata-only), resolves brand/direction, and writes to `activityLog` with `leadId: null` — cross-lead contact matching is issue #142's job, so a captured event is honestly invisible under any specific lead until #142 ships. Idempotent under Resend's at-least-once webhook retries via a sparse unique index on `externalId` (Resend's `email_id`).
+- **`isResendConfigured()`** gates the route with a `503` (confirmed live against a local dev server with the new env vars unset) rather than crashing — matches this app's `isMongoConfigured()` precedent.
+
+**Not yet live.** No Resend account exists, no webhook is configured in Resend's dashboard, no domain/address chosen — this is fully built and tested code with no live trigger. `docs/STACK_AND_DEPENDENCIES.md` documents exactly what the owner needs to provision (Resend account, inbound domain or the zero-DNS default, a webhook pointed at this route, `RESEND_API_KEY`/`RESEND_WEBHOOK_SECRET` in Vercel).
+
+### Testing
+New: 20 unit tests for brand/direction resolution and doc-building (`tests/lib/inbound-email.test.ts`), 7 unit tests for signature verification including negative cases — tampered payload, wrong secret, expired timestamp, missing headers (`tests/lib/resend-webhook.test.ts`, signed with `standardwebhooks`'s own `Webhook.sign()` against a real secret), 9 integration tests for the full route including idempotent-retry and full-body-fetch-failure cases (`tests/integration/inbound-email-webhook.integration.test.ts`), plus 1 new unit test locking in `mapActivityLogDoc`'s handling of a null `leadId`. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS style audit clean, `next build --webpack` clean.
+
 ## 2.4.142
 
 ### Added — unified activity timeline (issue #140, second delivery of #138)
