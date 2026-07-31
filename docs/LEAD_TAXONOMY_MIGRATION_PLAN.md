@@ -1,6 +1,6 @@
 # Lead Taxonomy Migration Plan — Rulebook v1.0 Backfill
 
-**Version:** 2.4.149
+**Version:** 2.4.151
 
 **Status:** Plan / design document, now with one completed execution slice. Phase 2's mechanical `sportCode` sub-step (see §4) has actually run against production — the rest of Phase 2 (every other identity field, and the 299 leads `sportCode` couldn't mechanically resolve) is still unstarted. It describes how to convert the app's existing leads into the controlled taxonomy schema shipped in 2.4.109 (`lib/lead-taxonomy.ts`, `lib/lead-classification.ts`, the new `Lead` fields documented in `docs/ARCHITECTURE.md`'s "Controlled Sports-Industry Taxonomy" section).
 
@@ -90,11 +90,11 @@ Reuses the same infrastructure as ongoing enrichment (`docs/LEAD_ENRICHMENT_GUID
 - Post-batch near-duplicate scan comparison (§6) is reviewed before considering the brand's batch complete.
 - This document, `docs/ARCHITECTURE.md`, and `CHANGELOG.md` are updated with the actual outcome once Phase 2 runs — matching this project's own standing rule that a plan document is not itself a substitute for recording what actually shipped.
 
-## 9. Session handoff — resuming the agent-research classification loop (as of 2026-07-31, v2.4.149)
+## 9. Session handoff — resuming the agent-research classification loop (as of 2026-07-31, v2.4.151)
 
 Phase 2's evidence-based agent-research classification (§5 above) is **actually running**, not just planned — it started as a live pilot (CHANGELOG 2.4.114-2.4.119, 7 leads) and has continued as an ongoing autonomous loop through 2.4.130. This section is a literal resume-from-here runbook for whichever session (this one or a fresh one) picks it up next, since the process itself lives only in conversation history and scratch files that don't survive a session handoff.
 
-**Progress as of this checkpoint:** **95 of ~2,723 leads have full taxonomy** (`orgTypeCode` set, meaning the classification pass genuinely ran on them — either with real evidence or with an honest `orgTypeCode: "unknown"` after a real search found nothing). Separately, **2,424 of 2,723 leads have `sportCode` set** from the earlier mechanical backfill (§2/§4 above) — that's a much larger number but is *not* the same thing as full classification; those leads still need this same evidence-based pass for every other field. ~2,681 leads remain untouched by this loop. At the proven pace (~4 leads fully classified per ~15-20 minute batch cycle, run continuously), this is a genuinely large, multi-session undertaking — budget accordingly, don't assume it finishes in one sitting.
+**Progress as of this checkpoint:** **99 of ~2,723 leads have full taxonomy** (`orgTypeCode` set, meaning the classification pass genuinely ran on them — either with real evidence or with an honest `orgTypeCode: "unknown"` after a real search found nothing). Separately, **2,424 of 2,723 leads have `sportCode` set** from the earlier mechanical backfill (§2/§4 above) — that's a much larger number but is *not* the same thing as full classification; those leads still need this same evidence-based pass for every other field. ~2,681 leads remain untouched by this loop. At the proven pace (~4 leads fully classified per ~15-20 minute batch cycle, run continuously), this is a genuinely large, multi-session undertaking — budget accordingly, don't assume it finishes in one sitting.
 
 ### The exact working pattern (repeat this loop)
 
@@ -177,7 +177,7 @@ for brand in ['cogmap', 'seyu']:
 
 ### Open questions this loop has surfaced but explicitly not resolved (per CLAUDE.md Rule 5 — business-taxonomy structure needs owner judgment, not an agent's unilateral guess)
 
-- **Issue #135**: no `orgTypeCode` value fits a platform/tech-brand lead (e.g. "Strava"). Needs an owner decision: extend the vocabulary, accept `unknown` as the permanent answer, or something else.
+- **Issue #135**: no `orgTypeCode` value fits a platform/tech-brand lead (e.g. "Strava"). Needs an owner decision: extend the vocabulary, accept `unknown` as the permanent answer, or something else. **YouTube (batch 2.4.150) is a second data point**, classified `orgTypeCode: "media"` (closest available fit, per this section's own "never force a sports-taxonomy fit" guidance) with `sportCode: "not-applicable"` — flagged in the lead's own `notes` as another instance of this same open question, not a resolution of it.
 - **Issue #136**: a recurring "is this a tournament, league, or the federation/organiser that runs it" ambiguity for major global sports properties with no clean separate legal identity — 10 leads so far have landed on 4 different `orgTypeCode` answers (`tournament`, `federation`, `competition-organiser`, and `league` for The Hundred, batch 2.4.136 — reasoned as a round-robin/table-based domestic season rather than a single knockout event). The FIFA World Cup (batch 2.4.137), the IHF World Handball Championship (batch 2.4.145), and the FIVB Volleyball World Championship (batch 2.4.149) are the three newest data points, all reasoned to `tournament` (grouped with UEFA Champions League as quadrennial/biennial knockout-style mega-competitions rather than a recurring domestic-season `league`) — via genuinely defensible but inconsistent reasoning each time. Still not resolved; needs owner adjudication across all data points collected so far.
 - **Issue #143** (filed 2026-07-31, batch 10): Seyu's pipeline includes non-sport entertainment properties — Tomorrowland (2.4.130) and now Glastonbury Festival (2.4.141) are both music festivals, not sports organizations. Filed per this section's own standing instruction once a second data point turned up. Both leads were classified with `sportCode: "not-applicable"` rather than forced into a sports fit; awaiting an owner decision on whether this class of lead belongs in Seyu's scope at all.
 - **Not yet scanned**: the NFL `sportCode` miscode (2.4.128, `football` → `american-football`) was a real bug in the mechanical backfill's alias resolution for US-context sports terms. Only that one instance was fixed; no full database scan for similar miscodes (any other US "Football" org, or comparable ambiguous-alias sports) has been run.
