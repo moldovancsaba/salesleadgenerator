@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.145
+**Version:** 2.4.146
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -271,7 +271,9 @@ has — do not attempt to fill in fields that are already fresh and correct:
    ```
    Omit any key you don't have a confirmed value for — never invent a
    variant spelling (`decision_maker`, `decisionMaker`, etc.); it will be
-   silently ignored server-side, not an error.
+   silently ignored server-side, not an error. The LinkedIn URL key is
+   `linkedin`, never `linkedinUrl` or any other variant — same silent-drop
+   behavior applies to a misspelled key here.
 
    **`name` and `title` must contain ONLY the clean, confirmed value —
    never append a sourcing caveat, confidence qualifier, or alternate
@@ -281,7 +283,11 @@ has — do not attempt to fill in fields that are already fresh and correct:
    `seniorityTier`/`department` on every write — polluting it with
    parenthetical text degrades that derivation, not just the display. Put
    every caveat, alternate title, or source-disagreement note in `role`
-   or `notes` instead, where it belongs and does no harm.
+   or `notes` instead, where it belongs and does no harm. **A contact's
+   actual job title belongs in `title`, not `role`** — a real, caught
+   case put a genuine title ("Owner / General Manager") only into `role`
+   and left `title` empty, silently degrading the seniority/department
+   derivation even though the payload otherwise looked complete.
 
    **A stored contact whose `name` is a generic placeholder (e.g. "Acme
    Corp Contact", the org name plus the literal word "Contact") is not a
@@ -328,8 +334,11 @@ has — do not attempt to fill in fields that are already fresh and correct:
    to reflect your updated assessment, and set `ice.ease` yourself using
    this rubric (the server does NOT recompute this on update). Each of
    `ice.impact`/`ice.confidence`/`ice.ease` must be an integer from 1 to
-   10; never send an `iceScore` field (the server validates it against
-   impact×confidence×ease and rejects a mismatch — just omit it):
+   10 — **the server rejects a non-integer value with a 400 as of 2.4.146**
+   (a real, twice-independently-recurring bug before that: a decimal like
+   `5.5` previously passed silently and got stored); never send an
+   `iceScore` field (the server validates it against impact×confidence×ease
+   and rejects a mismatch — just omit it):
    - 1 = no named contact found at all
    - 2 = only a general/company-level contact found
    - 3 = a named contact, but no email or phone
@@ -530,6 +539,16 @@ has — do not attempt to fill in fields that are already fresh and correct:
   also flagged.)
 - Never include a contact you did not personally verify or newly find this
   run — every contact you send is marked "verified right now."
+- **Never write an HTML-entity artifact (`&amp;`, `&gt;`, `&lt;`, `&quot;`,
+  `&#39;`) in place of the literal character it represents** — write `&`,
+  `>`, `<`, `"`, `'` directly. This is, empirically, the single most
+  frequent real mistake found in this prompt's output across dozens of
+  real production runs (issue #132's lead-taxonomy classification loop) —
+  it recurs in `value_proposition`, `notes`, `pro_for_organization`/
+  `con_for_organization`, and contact `name`/`title`/`role` fields alike.
+  The server now decodes these defensively at the storage boundary as of
+  2.4.146, but that is a safety net for what slips through, not a license
+  to keep producing them — get it right the first time.
 - Never use the other brand's product terminology in `value_proposition`
   or `notes` (you will be told which brand you're writing for, and its
   specific forbidden-terms list, in your run context).

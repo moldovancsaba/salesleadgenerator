@@ -11,6 +11,7 @@ import { verifyLeadContactsAsync } from '../../../lib/email-verification-store'
 import { computeTicketSizeForLead } from '../../../lib/ticket-size-store'
 import { getTenantId, tenantFilter as buildTenantFilter } from '../../../../lib/tenant'
 import { generateClassificationTags, buildMergeKey } from '../../../../lib/lead-classification'
+import { decodeHtmlEntities, decodeHtmlEntitiesInArray } from '../../../../lib/text-sanitize'
 
 function getBrand(request: Request): 'cogmap' | 'seyu' {
   const url = new URL(request.url);
@@ -158,6 +159,27 @@ export async function PUT(
       if (body[field] !== undefined) {
         updateData[field] = body[field];
       }
+    }
+
+    // Unlike POST (which runs the whole body through normalizeLead()'s
+    // sanitizeString(), which decodes HTML-entity artifacts like "&amp;"),
+    // this route copies these fields from the request body verbatim. The
+    // agent-enrichment path (this route's most frequent caller) has
+    // repeatedly produced literal "&amp;"/"&gt;"/"&lt;" instead of the plain
+    // character across many separate real batches (issue #132) — decoding
+    // here closes that at the storage boundary instead of relying on manual
+    // per-batch catch-and-fix.
+    if (typeof updateData.value_proposition === 'string') {
+      updateData.value_proposition = decodeHtmlEntities(updateData.value_proposition);
+    }
+    if (typeof updateData.notes === 'string') {
+      updateData.notes = decodeHtmlEntities(updateData.notes);
+    }
+    if (Array.isArray(updateData[PRO_FIELD])) {
+      updateData[PRO_FIELD] = decodeHtmlEntitiesInArray(updateData[PRO_FIELD]);
+    }
+    if (Array.isArray(updateData[CON_FIELD])) {
+      updateData[CON_FIELD] = decodeHtmlEntitiesInArray(updateData[CON_FIELD]);
     }
 
     // Unlike POST (which runs the whole body through normalizeLead()'s

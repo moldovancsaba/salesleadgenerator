@@ -15,6 +15,13 @@ describe('normalizeContact', () => {
     expect(normalizeContact({ name: 'A', isDecisionMaker: true }).isDecisionMaker).toBe(true);
   });
 
+  it('decodes stray HTML-entity artifacts in name/title/role (issue #132, the loop\'s single most frequent real mistake)', () => {
+    const c = normalizeContact({ name: 'Bed &amp; Breakfast Owner', title: 'Owner &amp; General Manager', role: 'Communications &amp; Marketing Director' });
+    expect(c.name).toBe('Bed & Breakfast Owner');
+    expect(c.title).toBe('Owner & General Manager');
+    expect(c.role).toBe('Communications & Marketing Director');
+  });
+
   it('tolerates non-string/missing fields without throwing', () => {
     expect(() => normalizeContact({})).not.toThrow();
     expect(() => normalizeContact(null as any)).not.toThrow();

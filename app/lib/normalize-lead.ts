@@ -1,4 +1,5 @@
 import { PRO_FIELD, CON_FIELD } from './brand';
+import { decodeHtmlEntities } from '../../lib/text-sanitize';
 
 export type LeadRaw = Record<string, any>;
 
@@ -10,10 +11,12 @@ export interface NormalizedLead extends LeadRaw {
 
 function sanitizeString(value: any, maxLength = 5000): string {
   if (typeof value !== 'string') return '';
-  return value
-    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
-    .trim()
-    .slice(0, maxLength);
+  return decodeHtmlEntities(
+    value
+      .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
+      .trim()
+      .slice(0, maxLength)
+  );
 }
 
 function ensureString(value: any, maxLength = 5000): string {

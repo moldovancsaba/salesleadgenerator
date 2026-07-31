@@ -7,6 +7,7 @@
 import type { EmailVerificationStatus } from './email-verification';
 import { normalizeTitle } from './title-normalization';
 import type { SeniorityTier, Department } from './title-normalization';
+import { decodeHtmlEntities } from './text-sanitize';
 
 export type ContactInput = Record<string, any>;
 
@@ -109,17 +110,17 @@ export function toNameCase(name: string): string {
 export function normalizeContact(c: ContactInput, options?: NormalizeContactOptions): NormalizedContact {
   const rawEmail = typeof c?.email === 'string' ? c.email.trim() : '';
   const rawPhone = typeof c?.phone === 'string' ? c.phone.trim() : '';
-  const title = typeof c?.title === 'string' ? c.title.trim() : '';
+  const title = typeof c?.title === 'string' ? decodeHtmlEntities(c.title.trim()) : '';
   const verify = options?.verify === true;
   const now = options?.now ?? new Date();
   const { seniorityTier, department } = normalizeTitle(title);
   return {
-    name: typeof c?.name === 'string' ? toNameCase(c.name.trim()) : '',
+    name: typeof c?.name === 'string' ? toNameCase(decodeHtmlEntities(c.name.trim())) : '',
     title,
     email: rawEmail ? normalizeEmail(rawEmail) : '',
     phone: rawPhone ? normalizePhone(rawPhone) : '',
     linkedin: typeof c?.linkedin === 'string' ? c.linkedin.trim() : '',
-    role: typeof c?.role === 'string' ? c.role.trim() : '',
+    role: typeof c?.role === 'string' ? decodeHtmlEntities(c.role.trim()) : '',
     isDecisionMaker: c?.isDecisionMaker === true,
     seniorityTier,
     department,

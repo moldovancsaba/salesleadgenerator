@@ -133,6 +133,29 @@ describe('PUT /api/leads/[id]', () => {
     expect(body.ice.ease).toBe(7);
   });
 
+  it('decodes stray HTML-entity artifacts in value_proposition/notes/pro_for_organization/contacts (issue #132, the loop\'s single most frequent real mistake)', async () => {
+    const id = await createLead('Entity Artifact FC');
+    const res = await idPUT(
+      req(`/api/leads/${id}?brand=cogmap`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          value_proposition: 'Serving clients &amp; partners',
+          notes: 'confidence raised 7-&gt;9',
+          pro_for_organization: ['Owner &amp; General Manager confirmed'],
+          contacts: [{ name: 'Jordan Smith', title: 'Owner &amp; General Manager', isDecisionMaker: true }],
+        }),
+      }),
+      { params: Promise.resolve({ id }) }
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.value_proposition).toBe('Serving clients & partners');
+    expect(body.notes).toBe('confidence raised 7->9');
+    expect(body.pro_for_organization).toEqual(['Owner & General Manager confirmed']);
+    expect(body.contacts[0].title).toBe('Owner & General Manager');
+  });
+
   it('auto-reclassifies a DISCOVERED lead to QUALIFIED when its ICE score crosses the 500 threshold', async () => {
     // impact*confidence*ease = 3*3*3 = 27 -> starts DISCOVERED
     const id = await createLead('Reclassify Test FC', { impact: 3, confidence: 3, ease: 3 });

@@ -39,8 +39,19 @@ describe('validateLeadPayload', () => {
   it('rejects invalid ICE values', () => {
     const result = validateLeadPayload({ ...basePayload, ice: { impact: 0, confidence: 11, ease: 5 } }, 'cogmap');
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes('ice.impact must be a number between 1 and 10'))).toBe(true);
-    expect(result.errors.some((e) => e.includes('ice.confidence must be a number between 1 and 10'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('ice.impact must be an integer between 1 and 10'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('ice.confidence must be an integer between 1 and 10'))).toBe(true);
+  });
+
+  // Real, twice-independently-recurring bug (issue #132: Estonian Basketball
+  // Association, Slovak Football Association) — a Number.isFinite()-only
+  // check previously let a non-integer ICE value through undetected. This
+  // guards the fix at the write boundary rather than relying on every
+  // caller to self-police.
+  it('rejects a non-integer ICE value even when in range', () => {
+    const result = validateLeadPayload({ ...basePayload, ice: { impact: 5.5, confidence: 5, ease: 5 } }, 'cogmap');
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('ice.impact must be an integer between 1 and 10'))).toBe(true);
   });
 
   it('allows a payload with no size field at all (not required)', () => {
@@ -87,7 +98,7 @@ describe('validateLeadPayload with { partial: true } (used by PUT /api/leads/:id
   it('still rejects an out-of-range ICE value if ice is included in the partial payload', () => {
     const result = validateLeadPayload({ ice: { impact: 0, confidence: 5, ease: 5 } }, 'cogmap', { partial: true });
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes('ice.impact must be a number between 1 and 10'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('ice.impact must be an integer between 1 and 10'))).toBe(true);
   });
 
   it('still rejects a non-array pro_for_organization value on a partial update', () => {
