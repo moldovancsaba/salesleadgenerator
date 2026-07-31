@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.137
+
+### Changed — enrichment loop, batch 7 (issue #132)
+
+4 more real leads:
+
+- **Fairfax Sportsplex** (CogMap): resolved a real name/address discrepancy — the facility is branded "Fairfax" but its actual address is in Springfield, VA (both are within Fairfax County, but Springfield is a distinct unincorporated community from the separate independent City of Fairfax). Confirmed `orgTypeCode: "facility-operator"` (a single independently-owned indoor complex since 1992, not a club) with 3 real named contacts from the site's own Contact Us page. **Two payload corrections caught before applying**: the agent used a non-schema `linkedinUrl` key instead of `linkedin`, and embedded a phone extension (`"703-750-9521 x2"`) directly in the `phone` field instead of the extension-notation convention (issue #133) — both fixed before the `PUT`.
+- **City SC Utah** (CogMap): confirmed a real, distinct organization from Utah Celtic FC (processed earlier in this loop) — a separate 501(c)3 running both MLS NEXT Academy (boys) and Girls Academy League (girls) programs, ~90 teams/1,300+ players, with 4 real named leadership contacts (President, DOC, Academy Director, Technical Director) from the club's own site.
+- **German Handball Federation** (Seyu): unambiguous federation identity. Confirmed current president Andreas Michelmann (in office since 2015, re-elected through 2029) and DHB's real scale (~3,720 clubs, 765,000+ members per DOSB 2024) via independent sources after dhb.de itself returned HTTP 403 to both WebFetch and curl.
+- **FIFA World Cup** (Seyu): another data point for issue #136's open tournament/league/federation ambiguity — reasoned to `orgTypeCode: "tournament"` (grouped with UEFA Champions League as a quadrennial mega-competition, distinct from The Hundred's `league` classification). Confirmed `genderCode: "men"` (a separate FIFA Women's World Cup exists), corrected the stored "Unknown President" placeholder to the real FIFA President (Gianni Infantino), and recorded the confirmed 2030 centenary edition (Morocco/Portugal/Spain, with ceremonial opening matches in Uruguay/Argentina/Paraguay) as the next activation window.
+
+This batch's research agents were explicitly reminded in-prompt about the country-omission gap first caught in batch 2.4.131 and repeated in batch 2.4.136 — all 4 leads in this batch either already had `country` set or the agent filled it in correctly, with no follow-up fix needed.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **70 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.136
 
 ### Changed — enrichment loop, batch 6 (issue #132)
