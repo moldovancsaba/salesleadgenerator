@@ -1,6 +1,6 @@
 {
   "name": "slg-leads",
-  "version": "2.4.154",
+  "version": "2.4.155",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",

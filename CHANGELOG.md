@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.155
+
+### Changed — remove AI-assistant branding from public docs and commit history (owner request)
+
+Owner directive: Claude is delivery infrastructure, not a feature to showcase in this repo's public-facing material. `CLAUDE.md` itself (the repo's operating-rules file) stays as-is — it's internal governance, not user-facing branding — but every other active doc's descriptive "Claude session"/"Claude Code" language is now generic ("AI coding assistant"): `README.md`, `docs/INDEX.md`, `docs/LESSONS_LEARNED.md`, and one historical `CHANGELOG.md` entry. `_archived/deployment.md`'s literal historical branch-name references are left untouched as an accurate point-in-time record.
+
+- Rewrote this repository's entire `main` branch commit history to strip the `Co-Authored-By: Claude ...`/`Claude-Session: ...` trailer from all commits that had it (a message-only rewrite — every commit's tree/file content is byte-identical before and after, verified via `git diff` against the pre-rewrite tip).
+- Future commits in this repo no longer add that trailer.
+- Both `claude/`-prefixed branches on this repo are being removed: `claude/project-overview-kvj36v` (a stale, fully-merged branch with zero commits not already on `main`) is deleted outright; the active feature branch this work happened on is renamed to a plain, non-branded name.
+
+### Testing
+No code changed — full gate re-run anyway per CLAUDE.md Rule 1: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.154
 
 ### Changed — enrichment loop, batch 16 (issue #132)
@@ -1702,7 +1715,7 @@ Two ways to run it, mirroring the established backfill pattern (issue #68) plus 
 ### Verification
 Full quality gate: `tsc --noEmit` (0 errors), `eslint .` (0 errors/warnings), `vitest run` (310/310), smoke suite (5/5), `next build --webpack` (33 routes — one new route, `/api/admin/ticket-size-backfill`).
 
-**Not run against production**: this sandbox has no `MONGODB_URI` (the same documented gap affecting every Mongo-integration path in this repo, including every prior backfill script) — both the CLI script and the admin endpoint were verified via unit tests against a mocked driver, not a real dry-run against live data. Running this for real against production is disclosed, genuine follow-up work: the repo owner (or a future Claude Code session with `MONGODB_URI` configured) needs to call `POST /api/admin/ticket-size-backfill` with `apply: false` first to review the dry-run counts, then `apply: true` to commit.
+**Not run against production**: this sandbox has no `MONGODB_URI` (the same documented gap affecting every Mongo-integration path in this repo, including every prior backfill script) — both the CLI script and the admin endpoint were verified via unit tests against a mocked driver, not a real dry-run against live data. Running this for real against production is disclosed, genuine follow-up work: the repo owner (or a future AI-assisted session with `MONGODB_URI` configured) needs to call `POST /api/admin/ticket-size-backfill` with `apply: false` first to review the dry-run counts, then `apply: true` to commit.
 
 Version bumped 2.4.53 -> 2.4.54. Next: issue #80 (full detail-drawer UI).
 
@@ -2787,7 +2800,7 @@ Security, dependency, and code-quality remediation following a two-pass engineer
 - Fixed a filter bug in `/api/health`'s opt-in `tenantLeadCounts`: it used a raw exact-match `{ tenantId }` filter instead of the `tenantFilter()` pattern (matching both `'default'` and documents with no `tenantId` field) used everywhere else, undercounting when a caller explicitly requested `?tenantId=default`.
 
 ### Documentation
-- Added `CLAUDE.md`, recording mandatory operating rules for any Claude session working in this repo (zero-tolerance quality gate, work-from-issues, documentation-mandatory, DoD, verify-don't-guess, and branch/push authorization for `dev`/`preview`/`main`).
+- Added `CLAUDE.md`, recording mandatory operating rules for any AI coding assistant working in this repo (zero-tolerance quality gate, work-from-issues, documentation-mandatory, DoD, verify-don't-guess, and branch/push authorization for `dev`/`preview`/`main`).
 - Updated `README.md`, `docs/ARCHITECTURE.md`, `docs/STACK_AND_DEPENDENCIES.md`, `docs/OPERATOR_GUIDE.md`, `PIPELINE_ARCHITECTURE.md`, `roadmap.md`, `PROPOSAL.md`, and `deployment.md` to reflect the above and correct several pre-existing documentation/reality drifts found along the way (stale package references, a corrupted architecture diagram, broken cross-links to non-existent files, and a security description matching the pre-fix auth-bypass behavior).
 
 ### Known issues carried forward as of 2.2.0 (all since resolved — kept here as the historical record, not current status)
