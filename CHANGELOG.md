@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.154
+
+### Changed — enrichment loop, batch 16 (issue #132)
+
+4 more real leads:
+
+- **Sol Sports Club** (CogMap): another CSV-name-mismatch case (like Capital City South, batch 15) — identified as Solar Soccer Club, a real 225-team, 2,000+ player MLS NEXT Academy Division member in Allen, TX, with a currently-serving Executive Director (Adrian Solca) confirmed via a November 2025 sponsorship announcement.
+- **MoneyGram Soccer Park** (CogMap): major real operational finding — the City of Dallas ended its long-running lease with FC Dallas for this facility and transferred operation to Atlético Dallas, a new USL Championship expansion club debuting 2027; the facility is also being rebranded "Dallas Soccer Park" as the naming-rights deal winds down. Recorded via `canonicalLeadName`/`notes` without touching the protected `entity_name`/`url`.
+- **Bangkok United** (Seyu): replaced the placeholder contact with the club's real chairman (Kachorn Chiaravanont) and corrected ownership (True Corporation) and home ground (Pathum Thani, not central Bangkok).
+- **ICC T20 World Cup** (Seyu): 11th data point for issue #136's open tournament/league/federation ambiguity, reasoned to `orgTypeCode: "tournament"` consistent with the established pattern. Found the ICC's real current CEO (Sanjog Gupta). Deliberately left `estimated_participants` unset — a subagent's initial draft conflated real TV-viewership figures (500M+) with the field's actual participant/player-count meaning; caught and corrected during validation before applying.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **107 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.153
 
 ### Changed — enrichment loop, batch 15 (issue #132)
