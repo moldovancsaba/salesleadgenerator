@@ -1,6 +1,6 @@
 {
   "name": "slg-leads",
-  "version": "2.4.142",
+  "version": "2.4.143",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -35,7 +35,8 @@
     "postcss-preset-mantine": "^1.18.0",
     "postcss-simple-vars": "^7.0.1",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "resend": "^6.18.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -45,6 +46,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.2.11",
     "mongodb-memory-server": "^11.2.0",
+    "standardwebhooks": "^1.0.0",
     "tsx": "^4.7.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"

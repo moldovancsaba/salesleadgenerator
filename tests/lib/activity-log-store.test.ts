@@ -48,6 +48,19 @@ describe('mapActivityLogDoc (issue #140)', () => {
     expect(entry.source).toBe('inbound-webhook');
   });
 
+  // Issue #141 writes leadId: null for a captured event that doesn't yet
+  // resolve to a known lead (no contactEmails[] index exists until #142) —
+  // mapActivityLogDoc must not throw on that, and the resulting '' leadId
+  // must never coincidentally match a real lead's id in the GET
+  // /api/leads/[id]/activity route's {leadId: id} filter.
+  it('maps a null leadId to an empty string rather than throwing', () => {
+    const entry = mapActivityLogDoc({
+      _id: new ObjectId(), leadId: null, type: 'email-outbound', direction: 'outbound',
+      source: 'inbound-webhook', createdAt: new Date(),
+    });
+    expect(entry.leadId).toBe('');
+  });
+
   it('preserves an explicit matchedContactKey', () => {
     const entry = mapActivityLogDoc({
       _id: new ObjectId(), leadId: 'lead-1', type: 'email-inbound', direction: 'inbound',
