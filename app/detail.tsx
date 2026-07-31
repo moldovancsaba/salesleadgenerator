@@ -16,6 +16,7 @@ import { getNextStepNudge } from '@/lib/next-step-nudge';
 import { sumDeals } from '@/lib/deals';
 import type { Deal } from '@/lib/deals';
 import { ContactsEditor, type ContactRow } from './components/ContactsEditor';
+import { ActivityPanel } from './components/ActivityPanel';
 import {
   IconX,
   IconThumbUp,
@@ -1221,6 +1222,10 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
           <Button size="xs" variant="light" onClick={handleSaveQualification} loading={savingQualification}>Save qualification</Button>
         </Group>
       </Stack>
+
+      <Divider />
+
+      <ActivityPanel leadId={lead._id} brand={brand} />
 
       {((normalizedPro && normalizedPro.length > 0) || (normalizedCon && normalizedCon.length > 0)) && (
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">

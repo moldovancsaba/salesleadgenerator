@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.141
+**Version:** 2.4.142
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -20,6 +20,7 @@
 - [Checklist](#checklist)
 - [Follow-ups](#follow-ups)
 - [Qualification](#qualification)
+- [Activity](#activity)
 - [Ticket Size](#ticket-size)
 - [Sales Settings (Company Setup)](#sales-settings-company-setup)
 - [Outreach](#outreach)
@@ -188,6 +189,14 @@ A scheduled reminder for a lead — set a due date and an optional note, then **
 ## Qualification
 
 A lightweight (BANT-style) qualification checklist: Budget confirmed, Budget notes, Buying authority confirmed, Need/pain point, and a Timeline estimate. This is purely informational — filling it in (or leaving it blank) has no effect on whether a lead can move to ENGAGED or PROPOSAL; the [required fields](#required-fields-to-move-into-engaged-or-proposal) for that are still just a contact and a value proposition.
+
+---
+
+## Activity
+
+A unified, time-ordered timeline of email activity for this lead — the first place in this app that shows real conversation history in one place, rather than only the record of outreach you sent (previously scattered, with no dedicated view of its own). Each entry shows its type (Outbound email / Inbound reply), a timestamp, and a subject/excerpt where available. Read-only — nothing here is editable from this panel.
+
+As of this writing, entries only appear here from outreach sent via the **Outreach** compose modal's "Log outreach" button (see [Outreach](#outreach) below); inbound-reply capture (a lead's own email response landing here automatically) is a separate, not-yet-shipped piece of work — an empty Activity section on most leads today reflects that, not a bug.
 
 ---
 
