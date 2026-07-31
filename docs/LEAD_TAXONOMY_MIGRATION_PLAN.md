@@ -1,6 +1,6 @@
 # Lead Taxonomy Migration Plan — Rulebook v1.0 Backfill
 
-**Version:** 2.4.151
+**Version:** 2.4.153
 
 **Status:** Plan / design document, now with one completed execution slice. Phase 2's mechanical `sportCode` sub-step (see §4) has actually run against production — the rest of Phase 2 (every other identity field, and the 299 leads `sportCode` couldn't mechanically resolve) is still unstarted. It describes how to convert the app's existing leads into the controlled taxonomy schema shipped in 2.4.109 (`lib/lead-taxonomy.ts`, `lib/lead-classification.ts`, the new `Lead` fields documented in `docs/ARCHITECTURE.md`'s "Controlled Sports-Industry Taxonomy" section).
 
@@ -90,11 +90,11 @@ Reuses the same infrastructure as ongoing enrichment (`docs/LEAD_ENRICHMENT_GUID
 - Post-batch near-duplicate scan comparison (§6) is reviewed before considering the brand's batch complete.
 - This document, `docs/ARCHITECTURE.md`, and `CHANGELOG.md` are updated with the actual outcome once Phase 2 runs — matching this project's own standing rule that a plan document is not itself a substitute for recording what actually shipped.
 
-## 9. Session handoff — resuming the agent-research classification loop (as of 2026-07-31, v2.4.151)
+## 9. Session handoff — resuming the agent-research classification loop (as of 2026-07-31, v2.4.153)
 
 Phase 2's evidence-based agent-research classification (§5 above) is **actually running**, not just planned — it started as a live pilot (CHANGELOG 2.4.114-2.4.119, 7 leads) and has continued as an ongoing autonomous loop through 2.4.130. This section is a literal resume-from-here runbook for whichever session (this one or a fresh one) picks it up next, since the process itself lives only in conversation history and scratch files that don't survive a session handoff.
 
-**Progress as of this checkpoint:** **99 of ~2,723 leads have full taxonomy** (`orgTypeCode` set, meaning the classification pass genuinely ran on them — either with real evidence or with an honest `orgTypeCode: "unknown"` after a real search found nothing). Separately, **2,424 of 2,723 leads have `sportCode` set** from the earlier mechanical backfill (§2/§4 above) — that's a much larger number but is *not* the same thing as full classification; those leads still need this same evidence-based pass for every other field. ~2,681 leads remain untouched by this loop. At the proven pace (~4 leads fully classified per ~15-20 minute batch cycle, run continuously), this is a genuinely large, multi-session undertaking — budget accordingly, don't assume it finishes in one sitting.
+**Progress as of this checkpoint:** **103 of ~2,723 leads have full taxonomy** (`orgTypeCode` set, meaning the classification pass genuinely ran on them — either with real evidence or with an honest `orgTypeCode: "unknown"` after a real search found nothing). Separately, **2,424 of 2,723 leads have `sportCode` set** from the earlier mechanical backfill (§2/§4 above) — that's a much larger number but is *not* the same thing as full classification; those leads still need this same evidence-based pass for every other field. ~2,681 leads remain untouched by this loop. At the proven pace (~4 leads fully classified per ~15-20 minute batch cycle, run continuously), this is a genuinely large, multi-session undertaking — budget accordingly, don't assume it finishes in one sitting.
 
 ### The exact working pattern (repeat this loop)
 
