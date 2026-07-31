@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeContact, dedupeContacts, getDecisionMakerContact, normalizePhone, normalizeEmail, contactKey, verifiableFieldsDiffer, toNameCase } from '../../lib/contacts';
+import { normalizeContact, dedupeContacts, getDecisionMakerContact, normalizePhone, normalizeEmail, contactKey, verifiableFieldsDiffer, toNameCase, aggregateContactsAcrossLeads } from '../../lib/contacts';
 
 describe('normalizeContact', () => {
   it('trims fields and formats email/phone', () => {
@@ -276,5 +276,57 @@ describe('normalizePhone', () => {
 describe('normalizeEmail', () => {
   it('lowercases and trims', () => {
     expect(normalizeEmail(' JOHN@Example.com ')).toBe('john@example.com');
+  });
+});
+
+describe('aggregateContactsAcrossLeads (issue #139)', () => {
+  it('groups the same contact (by contactKey) across two leads into one entry with both leads attached', () => {
+    const result = aggregateContactsAcrossLeads([
+      { _id: 'lead-1', entity_name: 'Acme FC', contacts: [{ name: 'Jane Doe', phone: '5551234567', isDecisionMaker: true }] },
+      { _id: 'lead-2', entity_name: 'Acme Agency', contacts: [{ name: 'Jane Doe', phone: '5551234567' }] },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].leads).toEqual([
+      { leadId: 'lead-1', entity_name: 'Acme FC' },
+      { leadId: 'lead-2', entity_name: 'Acme Agency' },
+    ]);
+  });
+
+  it('keeps two different people with only a shared name as separate entries', () => {
+    const result = aggregateContactsAcrossLeads([
+      { _id: 'lead-1', entity_name: 'Team A', contacts: [{ name: 'Jane Doe', email: 'jane@team-a.com' }] },
+      { _id: 'lead-2', entity_name: 'Team B', contacts: [{ name: 'Jane Doe', email: 'jane@team-b.com' }] },
+    ]);
+    expect(result).toHaveLength(2);
+  });
+
+  it('excludes nameless contacts (no key to group or search by)', () => {
+    const result = aggregateContactsAcrossLeads([
+      { _id: 'lead-1', entity_name: 'Team A', contacts: [{ email: 'noname@team-a.com' }] },
+    ]);
+    expect(result).toHaveLength(0);
+  });
+
+  it('does not duplicate the same lead twice on one entry when a lead lists the same contact more than once', () => {
+    const result = aggregateContactsAcrossLeads([
+      { _id: 'lead-1', entity_name: 'Team A', contacts: [
+        { name: 'Jane Doe', phone: '5551234567' },
+        { name: 'Jane Doe', phone: '5551234567' },
+      ] },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].leads).toHaveLength(1);
+  });
+
+  it('sorts entries by name', () => {
+    const result = aggregateContactsAcrossLeads([
+      { _id: 'lead-1', entity_name: 'Team A', contacts: [{ name: 'Zoe', email: 'z@a.com' }] },
+      { _id: 'lead-2', entity_name: 'Team B', contacts: [{ name: 'Amy', email: 'a@b.com' }] },
+    ]);
+    expect(result.map((c) => c.name)).toEqual(['Amy', 'Zoe']);
+  });
+
+  it('returns [] for an empty lead list', () => {
+    expect(aggregateContactsAcrossLeads([])).toEqual([]);
   });
 });
