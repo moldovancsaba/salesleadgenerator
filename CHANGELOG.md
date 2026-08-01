@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.160
+
+### Changed — enrichment loop, batch 20 (issue #132)
+
+Caught 3 pre-existing un-merged duplicate clusters before researching the initial pick — skipped all 3 and flagged for `/admin/duplicates` review rather than researching blind: "Dallas Texans Soccer Club" (duplicate of the existing "Dallas Texans" lead, same real club), "Capital City SC" (duplicate of the existing "Capital City Soccer Club" lead), and "Al Hilal" (a 4-copy cluster: "Al Hilal", "Al Hilal SFC", "Al Hilal SFC Academy" across both CogMap and Seyu, all sharing the same `alhilal.com` domain). Replaced with Memphis Lobos Rush, Round Rock Multipurpose Complex, and Asian Games.
+
+4 real leads processed:
+
+- **Memphis Lobos Rush** (CogMap): confirmed the real legal entity (Lobos Soccer Association, dba Lobos Rush, a 2012 merger of Tennessee Rush and the original Lobos club, now a Rush Soccer network affiliate) and its Executive Director (Paul Furlong). Corrected `competitionLevelCode` to `developmental` rather than `elite` after confirming via independent web search that the club's top competitive tier is ECNL Regional League (not full ECNL/MLS NEXT/Girls Academy), matching this loop's own North Texas Celtic Futbol Club precedent for the identically-shaped case.
+- **Round Rock Multipurpose Complex** (CogMap): confirmed this is a City of Round Rock-owned, genuinely multi-sport public facility (football, soccer, volleyball, basketball, athlete fitness), not a soccer-only private operator — `sportCode` and `orgTypeCode` corrected accordingly (`sports-complex`). Found two real named contacts (a facility/sponsorship-sales coordinator with full contact info, and the City department director). Caught and fixed HTML-entity (`&amp;`) artifacts across multiple fields before applying.
+- **Croatian Handball Federation** (Seyu): replaced the placeholder contact with the real sitting president (Tomislav Grahovac) and the federation's Secretary General. Explicitly re-checked this lead's own stored text against the known Polish/Czech Handball Federation cross-contamination bug — confirmed clean.
+- **Asian Games** (Seyu): replaced the placeholder contact with the real current President of the Olympic Council of Asia (Sheikh Joaan bin Hamad Al Thani), and corrected a wrong stored address (previously "Singapore, SG"; OCA's real registered office is in Hawalli, Kuwait). Reasoned through a third genuinely novel GitHub issue #136 classification shape — a quadrennial multi-sport Games event run by a permanent continental confederation, distinct from every prior data point (none of which are multi-sport) — landing on `orgTypeCode: "event-organiser"`.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **123 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.159
 
 ### Changed — enrichment loop, batch 19 (issue #132)
