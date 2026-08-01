@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.160
+
+### Added — daily cadence-tick scheduler (issue #124/#151)
+
+Third delivered piece of issue #124 — the actual automation. `GET/POST /api/admin/cadence-tick` is a new daily cron (`0 8 * * *`, `vercel.json`) that drives every enrolled lead through its cadence with no human involved: finds leads whose step is due, auto-sends an email step via #150's `sendAutomatedEmail()`, and turns a linkedin/call step into a human reminder using issue #121's existing follow-up mechanism (`nextActionDueAt`/`nextActionNote`) rather than a second one. Only #152 (the builder/enroll UI) remains before issue #124 is fully shipped.
+
+- Per-brand, capped at 200 leads per run (matching `MAX_SCAN_SIZE`/`MAX_BULK_SIZE`'s existing precedent), oldest-due-first — a lead past the cap is picked up on tomorrow's tick, never dropped.
+- A disabled cadence's due leads are actively cleared, not silently skipped forever; a deleted-while-enrolled cadence template or an out-of-range step index gets the same clear-and-log treatment rather than crashing the whole run over one bad lead.
+- A failed/blocked email send still advances the cadence — no retry-with-backoff within a tick — while remaining fully visible via the `outreach_logs` row `sendAutomatedEmail()` always writes.
+- `DECLINE`/move-to-`LOST` auto-cancel is deliberately not part of this cron — it's immediate, at the transition itself (already shipped in #149's own review-fix commit), not deferred to the next day's tick.
+- `docs/OPERATOR_GUIDE.md` gains a "Sales Cadences" section (API-only until #152 ships) explaining what a cadence-driven reminder looks like on a lead's card and how to safely disable a runaway cadence.
+
+### Testing
+11 new integration tests (`tests/integration/cadence-tick.integration.test.ts`, mocking `sendAutomatedEmail()` at the module boundary since it already has its own independent coverage) — email-vs-reminder branching, step advancement/completion, the disabled/missing-cadence/out-of-range clear paths, multi-brand independence, and the per-tick cap (seeded 205 due leads, confirmed exactly 200 process). Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (681 passing) + integration (175 passing) + smoke all green, `next build --webpack` clean.
+
 ## 2.4.159
 
 ### Added — automated email-step send infrastructure (issue #124/#150)
