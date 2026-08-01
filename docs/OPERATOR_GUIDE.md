@@ -196,7 +196,16 @@ A lightweight (BANT-style) qualification checklist: Budget confirmed, Budget not
 
 A unified, time-ordered timeline of email activity for this lead — the first place in this app that shows real conversation history in one place, rather than only the record of outreach you sent (previously scattered, with no dedicated view of its own). Each entry shows its type (Outbound email / Inbound reply), a timestamp, and a subject/excerpt where available. Read-only — nothing here is editable from this panel.
 
-As of this writing, entries only appear here from outreach sent via the **Outreach** compose modal's "Log outreach" button (see [Outreach](#outreach) below). Automatic email capture (a dedicated inbound address the system can receive at) is built but not yet live — it still needs a Resend account and a couple of settings only someone with dashboard/Vercel access can provide (see `docs/STACK_AND_DEPENDENCIES.md`'s "Inbound email webhook" section); once it is, captured emails still won't appear here automatically either, until a further piece of work (matching a sender's address to the right lead) ships. An empty Activity section on most leads today reflects that, not a bug.
+As of this writing, entries only appear here from outreach sent via the **Outreach** compose modal's "Log outreach" button (see [Outreach](#outreach) below). Automatic email capture (a dedicated inbound address the system can receive at) and reply-to-lead matching are both fully built, but capture isn't live yet — it still needs a Resend account and a couple of settings only someone with dashboard/Vercel access can provide (see `docs/STACK_AND_DEPENDENCIES.md`'s "Inbound email webhook" section). An empty Activity section on most leads today reflects that, not a bug. Once inbound capture is live, a genuine reply from a lead you've contacted will match to this lead automatically and appear here as an "Inbound reply" entry.
+
+### Suggested contact updates
+
+When a lead's reply includes a signature block with a new or changed detail — a different title, a direct phone number that wasn't on file — the system never overwrites your existing contact record on its own. Instead, a **SUGGESTED CONTACT UPDATES** section appears above the Activity timeline, one card per suggestion, showing each changed field as a struck-through current value → the new suggested value (e.g. `Title: ~~Manager~~ → Director of Partnerships`).
+
+- **Accept** applies the suggested field(s) to that contact immediately — the same update path as editing the contact by hand, so it shows up wherever that contact's details are used elsewhere in the app right away.
+- **Reject** discards the suggestion. Nothing about the contact changes, and the suggestion doesn't reappear.
+
+Nothing is ever applied without one of these two actions — a suggestion sits pending indefinitely until you review it. If a reply's sender address doesn't match any contact already on a lead, or the reply has no readable signature block, no suggestion is generated at all; the reply is still logged in Activity either way.
 
 ---
 

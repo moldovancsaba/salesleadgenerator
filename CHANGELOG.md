@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.165
+
+### Added — reply matching + contact-enrichment suggestions (issue #142)
+
+Closes the gap issue #141 deliberately left open (`ActivityLogDocument.leadId` always `null` on write): a genuine inbound reply from a lead now matches to the lead it came from and, when its signature block reveals a changed contact detail, surfaces a review-and-accept suggestion — never an automatic overwrite, matching this repo's established non-auto-merge stance (issue #137).
+
+- **`contactEmails: string[]`** — new denormalized, indexed field on every lead document (`lib/contacts.ts`'s `deriveContactEmails()`), kept in sync on all three contact write paths (`POST`/`PUT /api/leads`, PATCH MODIFY). Powers a direct `{contactEmails: email}` lookup instead of a full-collection scan.
+- **`lib/contact-reply-matching.ts`** (new) — `matchReplyToLeads()` (single/zero/multi-match branching, email-exact only, never fuzzy), `findMatchedContact()`, `generateContactSuggestion()` (writes a new `contactSuggestions` collection, `status: 'pending'|'accepted'|'rejected'`).
+- **`lib/signature-parser.ts`** (new) — regex-only signature-block parser (name/title/phone), no NLP dependency, matching `lib/title-normalization.ts`'s existing lightweight-heuristics style.
+- **`GET /api/contact-suggestions`** / **`PATCH /api/contact-suggestions/[id]`** (new) — list pending suggestions for a lead; accept (applies via the existing `dedupeContacts({verify: true})` path, recomputing `contactEmails`) or reject.
+- `app/api/webhooks/inbound-email/route.ts` now invokes the full matching + suggestion flow for every inbound-classified event; `ActivityLogDocument` gains `matchedLeadIds?: string[]` for the multi-match case.
+- `app/components/ActivityPanel.tsx` gains a "SUGGESTED CONTACT UPDATES" section (struck-through current → suggested per field, Accept/Reject) rendered above the Activity timeline.
+
+Full architecture writeup: `docs/ARCHITECTURE.md`'s "Reply matching + contact-enrichment suggestions" section. Operator-facing review flow: `docs/OPERATOR_GUIDE.md`'s new "Suggested contact updates" section.
+
+**Real-data verification status**: the full webhook-triggered cycle can't be exercised live yet — `RESEND_API_KEY`/`RESEND_WEBHOOK_SECRET` are still unset in Vercel and DNS for `leads.haho.ai` isn't added (pre-existing, owner-only blockers from #141, unchanged here; see `docs/STACK_AND_DEPENDENCIES.md`). Verified instead: the full matching → suggestion → accept/reject flow against a real MongoDB engine (`mongodb-memory-server`, not a mocked `Db`) end-to-end through the actual webhook route, plus the two new API routes verified live against the real production database over HTTPS post-deploy.
+
+### Testing
+New: `tests/lib/signature-parser.test.ts` (8 cases), `tests/lib/contacts.test.ts`'s `deriveContactEmails` suite, `tests/integration/contact-reply-matching.integration.test.ts` (matching/suggestion logic against a real Mongo engine), and 3 new end-to-end cases in `tests/integration/inbound-email-webhook.integration.test.ts` (single-match → suggestion, multi-match → flagged, no-match → unmatched). Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (699) + integration (191) + smoke (5) all passing, `next build --webpack` clean.
+
 ## 2.4.164
 
 ### Fixed — resolved taxonomy issues #135, #136, #143 per owner decision (2026-08-01)

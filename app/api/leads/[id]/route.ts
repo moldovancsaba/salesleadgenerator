@@ -7,7 +7,7 @@ import { requireApiKey } from '../../../../lib/api-auth'
 import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 import { validateLeadPayload } from '../../../../lib/validate-lead'
 import { deriveKanbanColumn, isAutoManagedColumn } from '../../../../lib/kanban-column'
-import { dedupeContacts } from '../../../../lib/contacts'
+import { dedupeContacts, deriveContactEmails } from '../../../../lib/contacts'
 import { verifyLeadContactsAsync } from '../../../lib/email-verification-store'
 import { computeTicketSizeForLead } from '../../../lib/ticket-size-store'
 import { getTenantId, tenantFilter as buildTenantFilter } from '../../../../lib/tenant'
@@ -209,6 +209,8 @@ export async function PUT(
     // fields"), so a contact appearing here has just been confirmed (issue #66).
     if (body.contacts && Array.isArray(body.contacts)) {
       updateData.contacts = dedupeContacts(body.contacts, { verify: true });
+      // Issue #142 — kept in sync alongside contacts[] on every write path.
+      updateData.contactEmails = deriveContactEmails(updateData.contacts);
     }
 
     // Discovered/Qualified are auto-managed by ICE score alone: a score change

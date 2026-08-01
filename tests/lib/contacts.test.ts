@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeContact, dedupeContacts, getDecisionMakerContact, normalizePhone, normalizeEmail, contactKey, verifiableFieldsDiffer, toNameCase, aggregateContactsAcrossLeads } from '../../lib/contacts';
+import { normalizeContact, dedupeContacts, getDecisionMakerContact, normalizePhone, normalizeEmail, contactKey, verifiableFieldsDiffer, toNameCase, aggregateContactsAcrossLeads, deriveContactEmails } from '../../lib/contacts';
 
 describe('normalizeContact', () => {
   it('trims fields and formats email/phone', () => {
@@ -335,5 +335,35 @@ describe('aggregateContactsAcrossLeads (issue #139)', () => {
 
   it('returns [] for an empty lead list', () => {
     expect(aggregateContactsAcrossLeads([])).toEqual([]);
+  });
+});
+
+describe('deriveContactEmails (issue #142)', () => {
+  it('collects lowercased emails from every contact that has one', () => {
+    const contacts = [
+      normalizeContact({ name: 'Jane', email: 'JANE@Example.com' }),
+      normalizeContact({ name: 'Bob', email: 'bob@example.com' }),
+    ];
+    expect(deriveContactEmails(contacts)).toEqual(['jane@example.com', 'bob@example.com']);
+  });
+
+  it('skips contacts with no email', () => {
+    const contacts = [
+      normalizeContact({ name: 'Jane', email: 'jane@example.com' }),
+      normalizeContact({ name: 'No Email Contact' }),
+    ];
+    expect(deriveContactEmails(contacts)).toEqual(['jane@example.com']);
+  });
+
+  it('dedupes emails shared by more than one contact entry', () => {
+    const contacts = [
+      normalizeContact({ name: 'Jane', email: 'jane@example.com' }),
+      normalizeContact({ name: 'Jane Alt Spelling', email: 'JANE@example.com' }),
+    ];
+    expect(deriveContactEmails(contacts)).toEqual(['jane@example.com']);
+  });
+
+  it('returns [] for an empty contacts array', () => {
+    expect(deriveContactEmails([])).toEqual([]);
   });
 });
