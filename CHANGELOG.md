@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.158
+
+### Changed — enrichment loop, batch 18 (issue #132)
+
+Caught a genuine near-duplicate before researching it: the initial batch pick included "UFC," which is the same real organization as an existing separate lead, "Ultimate Fighting Championship (UFC)" — skipped per this loop's own step-0 duplicate-check rule and flagged for `/admin/duplicates` review rather than researched blind. Replaced with Polish Football Federation.
+
+4 real leads processed:
+
+- **Space City Futbol Club** (CogMap): traced a genuinely complex identity chain — the 2017 Space City FC/Texas Rush merger (co-branded with Houston Dynamo/Dash) rebranded again around 2023 to HTX Soccer, now the largest youth club in Greater Houston (8,500+ players). Confirmed personnel continuity (a 2017-era leader still on staff, now under a different title) via matching phone number and live staff-page cross-reference.
+- **North Texas Celtic Futbol Club** (CogMap): found the real founder/CEO (Carrie Langford) and Boys Academy Director (Fab Salas) with direct phone numbers, and correctly reasoned `competitionLevelCode: developmental` rather than defaulting to `elite`, since the club's actual competition tier (ECNL Regional League, not full ECNL/MLS NEXT/Girls Academy) doesn't meet this loop's own `elite` bar. Caught and fixed an `&amp;` HTML-entity artifact in a contact's title and in `notes` before applying, plus an `ease` score that didn't match its own confirmed-phone-number evidence.
+- **Czech Handball Federation** (Seyu): replaced the placeholder contact with the real sitting president (Ondřej Zdráhala). Explicitly re-checked this lead's own stored text against the known Polish/Czech Handball Federation cross-contamination bug (a real, previously-caught copy-paste corruption between the two) — confirmed clean.
+- **Polish Football Federation** (Seyu): replaced the placeholder contact with two real named officers (President Cezary Kulesza, Director of Marketing and Sponsorship Kornel Eljaszewicz). Also explicitly re-checked against the same cross-contamination pattern (a different federation, same country) — confirmed clean. Raised `size` from Medium to Large based on the federation's own published 2024 financial statement (~498M PLN statutory revenue).
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **115 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.157
 
 ### Changed — enrichment loop, batch 17 (issue #132)
