@@ -71,7 +71,7 @@ Every field below is grouped by how confidently and how often it's worth re-rese
 
 | Field | Format | Notes |
 |---|---|---|
-| `value_proposition` | string | **Checked against a forbidden-terms list per brand** (`lib/validate-lead.ts`'s `FORBIDDEN_BRAND_TERMS`, symmetric across all 3 brands as of issue #147) — a CogMap lead's value proposition must never mention Seyu- or DVSC-specific terms (fan selfies, LED screens, sponsor activation, cognitive assessment, player performance analytics, etc.), and the same rule applies in every direction between all 3 brands. A payload that trips this is rejected outright; know which brand you're writing for before generating this text. |
+| `value_proposition` | string | **Checked against a forbidden-terms list per brand** (`lib/validate-lead.ts`'s `FORBIDDEN_BRAND_TERMS`) — each brand's list names the *other two* brands' terminology, never its own: a CogMap lead must never mention Seyu/DVSC-specific terms (fan selfies, LED screens, sponsor activation), a Seyu lead must never mention CogMap/DVSC-specific terms (cognitive assessment, player performance analytics, decision-making profiling), and a DVSC lead must never mention CogMap/Seyu-specific terms (cognitive assessment, player performance analytics, fan selfies, LED screens). Do not treat this as one universal forbidden list — a term forbidden for one brand is exactly the vocabulary that brand's own value proposition needs. A payload that trips its own brand's list is rejected outright; know which brand you're writing for, and check `FORBIDDEN_BRAND_TERMS` itself if unsure which list applies. |
 | `notes` | string | Free-form research notes. Append, don't replace, unless you're correcting something wrong — this field has no structured merge behavior, a `PUT` overwrites it entirely. |
 | `tags` | `string[]` | Short freeform labels, filterable in the UI. |
 | `product_fit_notes` | string | Specifically for *why this lead fits the product*, distinct from the general `notes` field. |
@@ -88,7 +88,7 @@ These feed `ticketSizeEstimate` (the number an operator actually reads), which i
 | `revenue_model` | CogMap | `per_participant`/`revenue_share`/`hybrid` | |
 | `pricingByCompany` | Seyu | object: `{currency, upfront_eur, monthly_eur, annual_fee_eur, discount_percent, revenue_share_percent, pricing_model, notes}` | Seyu's forecast is built entirely from this field, not from a computed `ticketSizeEstimate` the way CogMap's is. |
 
-**DVSC (issue #148) reuses CogMap's own deal-size-band model rather than having its own field set.** DVSC sells sponsorship inventory (shirt/kit sponsorship, stadium/naming rights, LED perimeter boards, hospitality/VIP, digital/social sponsorship, official-supplier categories, section-specific sponsorship) to companies, scaled by the buying company's size tier — the same shape as CogMap's model, computed via the shared `ticketSizeEstimate` (driven by `size`, §2.2 — that's the one real research signal worth pursuing for a DVSC lead's deal size). Do **not** try to research or write `recommended_tier`/`revenue_model`/`estimated_annual_revenue_usd` for a DVSC lead — those are CogMap-only legacy fields DVSC's forecast never reads. DVSC also has no Seyu-style `pricingByCompany` field of its own.
+**DVSC (issue #148) reuses CogMap's own deal-size-band model rather than having its own field set.** DVSC sells sponsorship inventory (shirt/kit sponsorship, stadium/naming rights, LED perimeter boards, hospitality/VIP, digital/social sponsorship, official-supplier categories, section-specific sponsorship) to companies, scaled by the buying company's size tier — the same shape as CogMap's model, computed via the shared `ticketSizeEstimate` (driven by `size`, §2.2 — that's the one real research signal worth pursuing for a DVSC lead's deal size). Do **not** try to research or write `estimated_participants`/`recommended_tier`/`revenue_model`/`estimated_annual_revenue_usd` for a DVSC lead — those are CogMap-only legacy fields DVSC's forecast never reads. `estimated_participants` in particular is not brand-gated server-side: `PUT` accepts and stores it for any brand, and `estimateTicketSize()` (`lib/ticket-size.ts`) will switch to a `per_unit` estimate the moment DVSC's Sales Settings ever configures a matching per-unit product — writing it on a DVSC lead can silently override the intended size-band-only model, not just add a meaningless number. DVSC also has no Seyu-style `pricingByCompany` field of its own.
 
 **Exception that must be respected**: if the lead's `ticketSizeEstimate.method === 'manual_override'`, a rep has personally overridden the modeled estimate with direct deal knowledge, and the server automatically skips recomputation on every write. Nothing you do to the fields above will visibly change the estimate for that lead, by design — this isn't a bug to work around.
 
@@ -324,13 +324,20 @@ has — do not attempt to fill in fields that are already fresh and correct:
    address) — this is a safe, high-value, low-risk fill-in.
 3. **Firmographic signals** relevant to deal sizing: organization size tier
    (Small/Medium/Large/Enterprise — pick the closest real match, or omit
-   the field if genuinely unclear), estimated participant/user count,
-   industry, sport/sector, and (CogMap only) revenue model / recommended
-   tier, or (Seyu only) pricing signals if publicly discoverable. **DVSC
-   has no field set of its own here** — its forecast reuses CogMap's
-   deal-size-band model, driven entirely by `size`; never write
-   `recommended_tier`/`revenue_model`/`estimated_annual_revenue_usd` or a
-   `pricingByCompany` object for a DVSC lead, none of them apply.
+   the field if genuinely unclear), industry, sport/sector, and
+   (CogMap only) estimated participant/user count + revenue model /
+   recommended tier, or (Seyu only) pricing signals if publicly
+   discoverable. **DVSC has no field set of its own here** — its forecast
+   reuses CogMap's deal-size-band model, driven entirely by `size`; never
+   write `estimated_participants`, `recommended_tier`, `revenue_model`,
+   `estimated_annual_revenue_usd`, or a `pricingByCompany` object for a
+   DVSC lead, none of them apply. `estimated_participants` is not
+   brand-gated server-side — `PUT` accepts and stores it for any brand,
+   and `estimateTicketSize()` (`lib/ticket-size.ts`) will use it to switch
+   to a `per_unit` estimate the moment DVSC's Sales Settings configures a
+   matching per-unit product, silently overriding the intended
+   size-band-only model. Leaving the field unset is what actually keeps
+   DVSC on the deal-size-band model — omitting it is not optional here.
 4. **Value proposition and notes.** Only update `value_proposition` if you
    have a materially better, more specific articulation of why this brand's
    product fits this lead than what's currently stored — don't rewrite
