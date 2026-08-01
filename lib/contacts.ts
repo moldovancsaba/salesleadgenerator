@@ -4,6 +4,7 @@
 // exact bug this module replaces (see issue #45): each route previously had
 // its own near-duplicate normalization, and PATCH MODIFY had none at all.
 
+import type { Db } from 'mongodb';
 import type { EmailVerificationStatus } from './email-verification';
 import { normalizeTitle } from './title-normalization';
 import type { SeniorityTier, Department } from './title-normalization';
@@ -198,6 +199,36 @@ export function dedupeContacts(
   }
 
   return deduped;
+}
+
+// Issue #142 — the denormalized index that makes "which lead does this
+// inbound email address belong to" a direct lookup instead of a full-collection
+// scan. Callers write this alongside contacts[] on every write path (POST,
+// PUT, PATCH MODIFY) so it can never drift from what contacts[] actually
+// contains. Lowercased (matches normalizeEmail()) and deduped; a contact
+// with no email contributes nothing.
+export function deriveContactEmails(contacts: NormalizedContact[]): string[] {
+  const emails = new Set<string>();
+  for (const c of contacts) {
+    if (c.email) emails.add(c.email.toLowerCase());
+  }
+  return Array.from(emails);
+}
+
+// Lazily ensures the contactEmails[] index exists on a given brand's lead
+// collection — same idempotent, call-on-every-request pattern as
+// app/lib/activity-log-store.ts's ensureActivityLogIndexes(). Keyed per
+// collection name (not a single module-level flag) since each brand has its
+// own collection (leads/seyu_leads/dvsc_leads) and each needs its own index.
+const contactEmailsIndexEnsured = new Set<string>();
+export async function ensureContactEmailsIndex(db: Db, collectionName: string): Promise<void> {
+  if (contactEmailsIndexEnsured.has(collectionName)) return;
+  try {
+    await db.collection(collectionName).createIndex({ contactEmails: 1 });
+    contactEmailsIndexEnsured.add(collectionName);
+  } catch (error) {
+    console.error('[contacts] contactEmails index creation failed', { collectionName, error });
+  }
 }
 
 // The contact flagged as the decision maker, if any. Multiple contacts may

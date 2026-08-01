@@ -4,6 +4,14 @@ import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
 import { extractResendWebhookHeaders, verifyResendWebhook, isResendConfigured } from '../../../../lib/resend-webhook'
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes } from '../../../lib/activity-log-store'
 import { buildActivityLogDoc, type ReceivedEmailEvent } from '../../../lib/inbound-email'
+import {
+  matchReplyToLeads,
+  findMatchedContact,
+  generateContactSuggestion,
+  ensureContactSuggestionsIndexes,
+} from '../../../../lib/contact-reply-matching'
+import { contactKey } from '../../../../lib/contacts'
+import type { Brand } from '../../../lib/brand'
 
 // A generous cap for what should be a small, metadata-only payload
 // (resend.com/docs/dashboard/receiving/introduction confirms the webhook
@@ -104,8 +112,34 @@ export async function POST(request: NextRequest) {
 
     const doc = buildActivityLogDoc(receivedEvent, bodyExcerpt, new Date())
 
+    // Issue #142 — reply-to-lead matching + contact-enrichment suggestion.
+    // Only for a genuine inbound reply with a brand we recognize; an
+    // outbound-capture entry or an unresolved brand has nothing to match
+    // against. `receivedEvent.from` is the lead's own address here (the
+    // "non-our-address party" for an inbound-classified event is always the
+    // sender, never to/cc, which is why direction resolved 'inbound' in the
+    // first place).
+    if (doc.direction === 'inbound' && doc.brand !== 'unresolved') {
+      const brand = doc.brand as Brand
+      await ensureContactSuggestionsIndexes(db)
+      const match = await matchReplyToLeads(db, brand, doc.tenantId, receivedEvent.from)
+      if (match.kind === 'single-match') {
+        doc.leadId = match.leadId
+        const contact = await findMatchedContact(db, brand, doc.tenantId, match.leadId, receivedEvent.from)
+        if (contact) {
+          doc.matchedContactKey = contactKey(contact)
+        }
+      } else if (match.kind === 'multi-match') {
+        // Flagged for manual disambiguation, not guessed — leadId stays
+        // null, same as the zero-match case, per issue #142's own spec.
+        doc.matchedLeadIds = match.leadIds
+      }
+    }
+
+    let insertedId: unknown
     try {
-      await db.collection(ACTIVITY_LOG_COLLECTION).insertOne(doc)
+      const result = await db.collection(ACTIVITY_LOG_COLLECTION).insertOne(doc)
+      insertedId = result.insertedId
     } catch (err: any) {
       if (err?.code === 11000) {
         // Duplicate externalId — a webhook retry (at-least-once delivery is
@@ -114,6 +148,27 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true, duplicate: true })
       }
       throw err
+    }
+
+    // Enrichment suggestion generation happens after the activityLog write
+    // succeeds (needs its _id as sourceActivityLogId) and never fails the
+    // request — a signature-parsing miss or a transient error here must not
+    // turn an already-successfully-logged reply into a 500 the webhook
+    // sender would retry.
+    if (doc.leadId) {
+      try {
+        await generateContactSuggestion(
+          db,
+          doc.brand as Brand,
+          doc.tenantId,
+          doc.leadId,
+          receivedEvent.from,
+          bodyExcerpt,
+          String(insertedId)
+        )
+      } catch (err) {
+        console.error('[inbound-email webhook] contact-suggestion generation failed', err)
+      }
     }
 
     return NextResponse.json({ ok: true })

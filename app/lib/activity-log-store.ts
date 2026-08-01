@@ -27,6 +27,12 @@ export type ActivityEntry = {
   subject?: string
   bodyExcerpt?: string
   matchedContactKey?: string | null
+  // Issue #142 — populated only when the same sender email matched more
+  // than one lead's contactEmails[] (e.g. an agency contact listed on
+  // multiple leads). leadId stays '' in this case, same as the unmatched
+  // (zero-match) case — this is the signal that distinguishes "genuinely
+  // unmatched" from "matched, but ambiguously" for manual triage.
+  matchedLeadIds?: string[]
   source: ActivitySource
   createdAt: string
 }
@@ -52,6 +58,8 @@ export type ActivityLogDocument = {
   subject?: string
   bodyExcerpt?: string
   matchedContactKey: string | null
+  // Issue #142 — see ActivityEntry's own doc comment on this same field.
+  matchedLeadIds?: string[]
   source: ActivitySource
   // The originating provider's own message identifier (Resend's email_id).
   // Only ever set by inbound-webhook writes — outreach-log-derived entries
@@ -122,6 +130,7 @@ export function mapActivityLogDoc(doc: any): ActivityEntry {
     subject: doc.subject || undefined,
     bodyExcerpt: truncateBody(doc.bodyExcerpt),
     matchedContactKey: doc.matchedContactKey ?? null,
+    matchedLeadIds: Array.isArray(doc.matchedLeadIds) ? doc.matchedLeadIds : undefined,
     source: doc.source,
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
   }

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { Webhook } from 'standardwebhooks';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
+import { buildApiRequest } from './helpers/api-request';
 
 const TEST_SECRET = 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw';
 
@@ -10,11 +11,14 @@ process.env.RESEND_WEBHOOK_SECRET = TEST_SECRET;
 
 let mongod: MongoMemoryServer;
 let inboundPOST: typeof import('../../app/api/webhooks/inbound-email/route').POST;
+let leadsPOST: typeof import('../../app/api/leads/route').POST;
 
 beforeAll(async () => {
   mongod = await startTestMongo();
   const mod = await import('../../app/api/webhooks/inbound-email/route');
   inboundPOST = mod.POST;
+  const leadsMod = await import('../../app/api/leads/route');
+  leadsPOST = leadsMod.POST;
 }, 60000);
 
 afterAll(async () => {
@@ -75,6 +79,33 @@ async function insertedActivityLogDocs(): Promise<any[]> {
   const docs = await client.db().collection('activityLog').find({}).toArray();
   await client.close();
   return docs;
+}
+
+async function insertedContactSuggestionDocs(): Promise<any[]> {
+  const { MongoClient } = await import('mongodb');
+  const client = new MongoClient(process.env.MONGODB_URI!);
+  await client.connect();
+  const docs = await client.db().collection('contactSuggestions').find({}).toArray();
+  await client.close();
+  return docs;
+}
+
+async function createLead(brand: 'cogmap' | 'seyu', entityName: string, contacts: any[]): Promise<string> {
+  const res = await leadsPOST(buildApiRequest(`/api/leads?brand=${brand}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      entity_name: entityName,
+      url: `https://${entityName.toLowerCase().replace(/\s+/g, '-')}.example.com`,
+      country: 'US',
+      kanbanColumn: 'DISCOVERED',
+      ice: { impact: 5, confidence: 5, ease: 5 },
+      contacts,
+    }),
+  }));
+  expect(res.status).toBe(201);
+  const body = await res.json();
+  return body.lead._id;
 }
 
 describe('POST /api/webhooks/inbound-email', () => {
@@ -228,5 +259,93 @@ describe('POST /api/webhooks/inbound-email', () => {
     } finally {
       process.env.RESEND_API_KEY = savedKey;
     }
+  });
+
+  // Issue #142 — end-to-end from a simulated inbound-reply payload through to
+  // a stored contact-enrichment suggestion, per the issue's own acceptance
+  // criteria. Builds on the matching/suggestion unit coverage in
+  // tests/integration/contact-reply-matching.integration.test.ts by proving
+  // the full webhook wiring (route -> matching -> suggestion) end-to-end.
+  describe('reply matching + contact-enrichment suggestions (issue #142)', () => {
+    it('matches a reply to its lead, sets leadId/matchedContactKey, and stores a pending suggestion', async () => {
+      const leadId = await createLead('cogmap', 'Reply Match FC', [
+        { name: 'Pat Morgan', email: 'pat.morgan@example.com', title: 'Manager' },
+      ]);
+      mockReceivingApi({
+        text: ['Sounds great, let us proceed.', '', 'Best,', 'Pat Morgan', 'Director of Sponsorships', '+1 555 222 3333'].join('\n'),
+      });
+      const req = await buildRequest({
+        type: 'email.received',
+        created_at: new Date().toISOString(),
+        data: {
+          email_id: 'email-match-1', from: 'pat.morgan@example.com', to: ['cogmap@abc123.resend.app'],
+          bcc: [], cc: [], received_for: ['cogmap@abc123.resend.app'], message_id: '<match1@example.com>',
+          subject: 'Re: intro', attachments: [],
+        },
+      });
+      const res = await inboundPOST(req);
+      expect(res.status).toBe(200);
+
+      const docs = await insertedActivityLogDocs();
+      const doc = docs.find((d) => d.externalId === 'email-match-1');
+      expect(doc.leadId).toBe(leadId);
+      expect(doc.matchedContactKey).toBeTruthy();
+      expect(doc.matchedLeadIds).toBeUndefined();
+
+      const suggestions = await insertedContactSuggestionDocs();
+      const suggestion = suggestions.find((s) => s.leadId === leadId);
+      expect(suggestion).toBeDefined();
+      expect(suggestion.status).toBe('pending');
+      expect(suggestion.suggested.title).toBe('Director of Sponsorships');
+      expect(suggestion.sourceActivityLogId).toBe(String(doc._id));
+    });
+
+    it('flags matchedLeadIds and generates no suggestion when the sender email matches more than one lead', async () => {
+      await createLead('cogmap', 'Multi Match Reply A', [{ name: 'Shared Rep', email: 'shared.rep@example.com' }]);
+      await createLead('cogmap', 'Multi Match Reply B', [{ name: 'Shared Rep', email: 'shared.rep@example.com' }]);
+      mockReceivingApi({ text: 'Following up on this.' });
+      const req = await buildRequest({
+        type: 'email.received',
+        created_at: new Date().toISOString(),
+        data: {
+          email_id: 'email-multi-1', from: 'shared.rep@example.com', to: ['cogmap@abc123.resend.app'],
+          bcc: [], cc: [], received_for: ['cogmap@abc123.resend.app'], message_id: '<multi1@example.com>',
+          subject: 'Re: intro', attachments: [],
+        },
+      });
+      const res = await inboundPOST(req);
+      expect(res.status).toBe(200);
+
+      const docs = await insertedActivityLogDocs();
+      const doc = docs.find((d) => d.externalId === 'email-multi-1');
+      expect(doc.leadId).toBeNull();
+      expect(doc.matchedLeadIds).toHaveLength(2);
+
+      const suggestions = await insertedContactSuggestionDocs();
+      expect(suggestions.find((s) => s.sourceActivityLogId === String(doc._id))).toBeUndefined();
+    });
+
+    it('logs the reply with no leadId and generates no suggestion when the sender matches no lead', async () => {
+      mockReceivingApi({ text: 'Regards,\nUnknown Sender\nCEO\n+1 555 000 1111' });
+      const req = await buildRequest({
+        type: 'email.received',
+        created_at: new Date().toISOString(),
+        data: {
+          email_id: 'email-nomatch-1', from: 'no-such-contact@example.com', to: ['cogmap@abc123.resend.app'],
+          bcc: [], cc: [], received_for: ['cogmap@abc123.resend.app'], message_id: '<nomatch1@example.com>',
+          subject: 'Re: intro', attachments: [],
+        },
+      });
+      const res = await inboundPOST(req);
+      expect(res.status).toBe(200);
+
+      const docs = await insertedActivityLogDocs();
+      const doc = docs.find((d) => d.externalId === 'email-nomatch-1');
+      expect(doc.leadId).toBeNull();
+      expect(doc.matchedLeadIds).toBeUndefined();
+
+      const suggestions = await insertedContactSuggestionDocs();
+      expect(suggestions.find((s) => s.sourceActivityLogId === String(doc._id))).toBeUndefined();
+    });
   });
 });

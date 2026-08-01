@@ -3,7 +3,7 @@ import { normalizeLead } from './normalize-lead'
 import { validatePatchPayload } from '../../lib/validate-lead'
 import { isMongoConfigured } from '../../lib/mongodb'
 import { tenantFilter as buildTenantFilter } from '../../lib/tenant'
-import { dedupeContacts, normalizeContact, contactKey, verifiableFieldsDiffer } from '../../lib/contacts'
+import { dedupeContacts, deriveContactEmails, normalizeContact, contactKey, verifiableFieldsDiffer } from '../../lib/contacts'
 import { scanTechStack } from '../../lib/tech-stack-scan'
 import { computeTicketSizeForLead } from './ticket-size-store'
 import { createManualTicketSizeOverride } from '../../lib/ticket-size'
@@ -204,6 +204,8 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
         return { ...raw, lastVerifiedAt: changed ? now.toISOString() : match?.lastVerifiedAt }
       })
       updateData.contacts = dedupeContacts(stamped)
+      // Issue #142 — kept in sync alongside contacts[] on every write path.
+      updateData.contactEmails = deriveContactEmails(updateData.contacts)
     }
     // Deals (issue #114) — whole-array replace, same convention as
     // contacts[] above. Never auto-populated; only present when the UI

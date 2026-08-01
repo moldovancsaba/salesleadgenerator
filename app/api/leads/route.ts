@@ -10,7 +10,7 @@ import { generateRequestId } from '../../lib/request-id'
 import { executeLeadAction } from '../../lib/lead-actions'
 import { deriveKanbanColumn } from '../../../lib/kanban-column'
 import { buildFingerprint } from '../../../lib/fingerprint'
-import { dedupeContacts } from '../../../lib/contacts'
+import { dedupeContacts, deriveContactEmails } from '../../../lib/contacts'
 import { verifyLeadContactsAsync } from '../../lib/email-verification-store'
 import { scanLeadTechStackAsync } from '../../lib/tech-stack-scan-store'
 import { computeTicketSizeForLead } from '../../lib/ticket-size-store'
@@ -245,6 +245,10 @@ export async function POST(request: NextRequest) {
     // { verify: true } stamps lastVerifiedAt unconditionally — a brand-new
     // lead's contacts are fresh by definition (issue #66).
     normalizedBody.contacts = dedupeContacts(normalizedBody.contacts || [], { verify: true })
+    // Issue #142 — kept in sync with contacts[] on every write path so
+    // inbound-email reply matching can look a lead up by contact email
+    // directly instead of scanning every lead's contacts[] array.
+    const contactEmails = deriveContactEmails(normalizedBody.contacts)
 
     const fingerprint = buildFingerprint(
       normalizedBody.entity_name || normalizedBody.name || '',
@@ -330,6 +334,7 @@ export async function POST(request: NextRequest) {
       entity_name: normalizedBody.entity_name || normalizedBody.name,
       url: normalizedBody.url || '',
       contacts: normalizedBody.contacts || [],
+      contactEmails,
       address: normalizedBody.address || '',
       general_contact: normalizedBody.general_contact || '',
       size: normalizedBody.size || '',
