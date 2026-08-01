@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.163
+
+### Changed — enrichment loop, batch 23 (issue #132)
+
+4 real leads processed:
+
+- **Cookeville United Soccer Club** (CogMap): traced a real identity chain — no organization by that exact name exists; this is Upper Cumberland United Soccer Club (est. 1995, Cookeville, TN), which entered a 2023 relationship with Tennessee Soccer Club and now operates as "TSC Upper Cumberland." Found the real current location director; correctly reasoned `competitionLevelCode: amateur` rather than `elite` since this specific location doesn't run TSC's ECNL/Girls Academy programming (that sits at other TSC locations). Flagged for human review whether Tennessee Soccer Club itself should be tracked as its own parent lead.
+- **SA United SC** (CogMap): confirmed this is San Antonio United Soccer Club, genuinely distinct from the existing "Santa Rosa United" lead (different city, state, and legal entity — "SA" abbreviates San Antonio, not Santa Rosa, confirmed via the club's own branding and independent listings). Found two real named leaders; correctly reasoned `competitionLevelCode: elite` given genuine MLS NEXT/Girls DPL participation.
+- **Atlanta United FC** (Seyu): resolved a real, pre-existing data corruption — a stored contact "Chris Henderson" (Chief Soccer Officer) was paired with an email that independently belongs to a different real staff member, Chris Winkler (Senior Director of Communications). Un-merged both into their own correct records and added the actual commercial decision-maker (SVP & Chief Business Officer) for a sponsorship-product pitch, matching the same sporting-vs-commercial-contact pattern found for Seattle Sounders FC.
+- **IMG Academy Soccer Program** (Seyu): confirmed the real, currently-serving Soccer Director (Simon Collins, appointed June 2024) and correctly reasoned `businessUnitCode: youth-academy` rather than `general`, since this lead represents only the soccer section of IMG Academy's larger multi-sport campus.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **135 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.162
 
 ### Changed — enrichment loop, batch 22 (issue #132)
