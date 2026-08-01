@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.162
+
+### Changed — enrichment loop, batch 22 (issue #132)
+
+Caught a duplicate cluster before finalizing the pick — "Al Nassr" (3 exact-name copies) skipped and flagged for `/admin/duplicates`; replaced with Turkish Football Federation.
+
+4 real leads processed:
+
+- **956 United** (CogMap): confirmed a genuinely real, legitimately-named South Texas youth soccer collaboration (McAllen Youth Soccer Association + Ontiveros Performance Academy, launched 2022). Found two real named directors; correctly declined to include one contact's email after spotting a typo'd domain (`the966united.com`, NXDOMAIN) rather than guessing the correct spelling. Fixed a follow-up gap: the applied payload omitted `qualityStatus`, leaving it at DRAFT despite substantial new evidence — corrected with a second `PUT` to CHECKED, consistent with the other 3 leads this batch.
+- **Sofive Richmond** (CogMap): confirmed this is the Sofive chain's rebrand of a facility formerly named "XL Sports World Richmond"/"RISE Indoor" — explicitly checked this CRM for any surviving lead under those old names before applying (per the duplicate-risk the research pass itself flagged) and confirmed none exists, so no merge was needed. Fixed an HTML-entity (`&amp;`) artifact in a contact's title before applying.
+- **Serbian Handball Federation** and **Turkish Football Federation** (Seyu): replaced placeholder contacts with real sitting officers for both (Božidar Đurković; İbrahim Ethem Hacıosmanoğlu). Both explicitly re-checked against the known Polish/Czech Handball Federation cross-contamination bug — both confirmed clean (neither had pre-existing free text to contaminate). Corrected Turkish Football Federation's `demographicCodes` from the generic `mixed-age` catch-all to the specific `["children","youth","adult","senior"]` enumeration this loop uses for federations spanning grassroots through senior international, matching the Serbian Football/Handball and Croatian Handball precedent.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **131 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.161
 
 ### Changed — enrichment loop, batch 21 (issue #132)
