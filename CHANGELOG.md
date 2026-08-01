@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.164
+
+### Fixed — resolved taxonomy issues #135, #136, #143 per owner decision (2026-08-01)
+
+Three controlled-taxonomy questions the classification backfill loop (issue #132) had surfaced but explicitly deferred to the owner (per CLAUDE.md Rule 5) were resolved:
+
+- **#135**: `orgTypeCode: "brand"` is now the standing convention for platform/tech-brand leads with no clean taxonomy fit (e.g. Strava — "software company / technology platform / social network"). No code change (`brand` already existed in `ORG_TYPE_CODES`) — documented in `docs/LEAD_ENRICHMENT_GUIDE.md` §2.6. Retroactively applied to both known data points: Strava (`unknown` → `brand`) and YouTube (`media` → `brand`).
+- **#136**: codified the decision rule for global sports events entangled with a parent federation — a confirmed separate legal entity gets `competition-organiser`; no confirmed separate identity gets the federation's own `orgTypeCode` (`federation`); `tournament` is never the default for this shape. Documented in `docs/LEAD_ENRICHMENT_GUIDE.md` §2.6. Retroactively applied to the 2 leads issue #136 had already researched: ICC Cricket World Cup (`tournament` → `federation`) and Rugby World Cup (`tournament` → `competition-organiser`). Commonwealth Games and Billie Jean King Cup already matched the rule, no change needed. **Not yet fixed**: FIFA World Cup, IHF World Handball Championship, FIVB Volleyball World Championship, and ICC T20 World Cup are still `tournament` — applying the rule to these needs the same per-lead legal-entity research the first two got, not a mechanical reclassification; left honest rather than guessed.
+- **#143**: owner confirmed Seyu's fan-engagement/sponsor-activation product genuinely targets non-sport entertainment properties (music festivals). `ORG_TYPE_CODES` (`lib/lead-taxonomy.ts`) extended with a new `entertainment-event` value, distinct from the generic `event-organiser`. Retroactively applied to both known data points: Tomorrowland and Glastonbury Festival (both were `event-organiser` stretch-fits, now `entertainment-event`).
+
+`docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`'s "Open questions" section rewritten to reflect these resolutions and the remaining #136 scope.
+
+### Testing
+`tests/lib/lead-taxonomy-doc-sync.test.ts` (the existing doc/vocabulary drift guardrail) confirms the new `entertainment-event` value stays in sync between `lib/lead-taxonomy.ts` and the guide's inlined reference list. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (687) + integration (177) + smoke (5) all passing, `next build --webpack` clean.
+
 ## 2.4.163
 
 ### Changed — extend enrichment agent prompt/instructions to cover DVSC (owner request)
