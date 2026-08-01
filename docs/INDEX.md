@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Version:** 2.4.156
+**Version:** 2.4.164
 
 ---
 
@@ -16,6 +16,7 @@
 - `docs/OPERATOR_GUIDE.md` — daily workflow, outreach, filters, API examples, known issues
 - `docs/STACK_AND_DEPENDENCIES.md` — runtime, framework, UI, DB, hosting, agent/runtime stack
 - `docs/DOC_LINT.md` — doc lint checklist for maintaining documentation quality
+- `docs/PROJECT_BOARD.md` — the label-based project board taxonomy (no Projects v2 API in scope)
 
 ---
 

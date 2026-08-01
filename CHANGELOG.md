@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.164
+
+### Added — label-based project board (CLAUDE.md Rule 2, owner request)
+
+`CLAUDE.md` Rule 2's standing note that "no workaround exists" for the missing GitHub Projects (v2) board API was true only in the narrowest sense (no drag-and-drop board, no custom fields) — it doesn't mean an open issue's status is unknowable. Replaced the "hand off and don't re-litigate" language with a real, working substitute:
+
+- A `status:` label per open issue (`backlog` / `ready` / `in progress` / `in review` / `blocked`) stands in for a Kanban column; closing an issue is the "Done" column instead of a `status: done` label.
+- Optional `priority:` (`p0`/`p1`/`p2`, at most one) and `area:` (one or more — `taxonomy`, `leads`, `enrichment`, `kanban`, `admin`, `docs`, `tooling`) labels.
+- Verified live against this repo: `issue_write`'s `labels` array auto-creates a label that doesn't exist yet (default color, no description — cosmetic only) — no separate label-provisioning step or direct GitHub API access is needed to stand this up.
+- Applied the full taxonomy to all 8 currently-open issues (#125, #132, #135, #136, #137, #138, #142, #143) as the initial board state.
+- New `docs/PROJECT_BOARD.md` documents the taxonomy, the verified auto-create behavior, and the current label snapshot.
+- `CLAUDE.md`: Rule 2 rewritten to describe the label mechanics above (rather than only stating the gap); Rule 6 gained a recorded environment quirk (this session's git remote returns HTTP 403 on branch deletion and tag force-update/deletion even under explicit owner authorization — a platform guardrail, not a chat-permission gate, so don't retry or route around it); Rule 8 gained a concrete one-line verification command (`git log -1 --format=%B | grep -i -E 'co-authored|session|generated with'`) for confirming a commit carries no AI-attribution trailer.
+
+**Explicitly not adopted from the source request**: a separate, pasted "GDS Agent Operating Prompt" this change was compared against also describes a large multi-package design-system monorepo's release mechanics — Mantine/`@dnd-kit`/`@tabler` API-surface boundary governance, a DTCG token export, a ~30-gate `verify:release` chain, `packages/*`/`apps/*` structure. None of that applies here: this repo is a single Next.js app with no `packages/*`/`apps/*` split, no Mantine dependency of its own to govern, and no such release-gate chain — importing those rules verbatim into this repo's `CLAUDE.md` would describe infrastructure that doesn't exist. Rule 1 (this repo's own zero-tolerance quality gate: tsc/lint/vitest/smoke/GDS-style-audit/build) remains the operative equivalent.
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean. No application code changed — docs/CLAUDE.md-only change, gate re-run per Rule 1's own "always verify" requirement.
+
 ## 2.4.163
 
 ### Changed — extend enrichment agent prompt/instructions to cover DVSC (owner request)

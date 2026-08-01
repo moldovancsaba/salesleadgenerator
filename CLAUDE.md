@@ -19,7 +19,17 @@ When a request arrives that amounts to more than a single, obvious, one-file cha
 2. Record each deliverable as its own GitHub issue before (or as part of) doing the work, following the structure established in this repo's existing issues (executive summary, current state with exact file/line references, architecture, pseudo-code where relevant, edge cases, acceptance criteria, testing, documentation, rollback/handover).
 3. Implement against those issues, referencing the issue number in commits (`fixes #N`), and update the issue with what actually shipped, including any caveats discovered along the way (like a lockfile that couldn't be regenerated, or a rule that had to be relaxed).
 4. Small, unambiguous, single-step fixes explicitly requested in the moment don't need a new issue manufactured after the fact — use judgment, but default to recording rather than skipping when in doubt.
-5. **No GitHub Projects (v2) board API is available in this session's toolset.** Issues, labels, and milestones can be created and organized (tracking issue + sub-issues, following the structure above), but issues cannot be added to or removed from a project board directly. State this limitation plainly whenever a project board is requested, and hand off the "add to board" step to the repo owner (or whoever has board access) rather than claiming it was done. Do not re-attempt this per instance or re-litigate whether a workaround exists — it doesn't, until this note is updated.
+5. **No GitHub Projects (v2) board API is available in this session's toolset — the project board is issues filtered by labels instead.** There is no Projects v2/GraphQL project board in scope, and that limitation is not worked around by pretending one exists. Instead, every open issue carries exactly one `status:` label, which stands in for a Kanban column:
+   - `status: backlog` — not started, not yet prioritized for active work
+   - `status: ready` — well-defined, actionable, no blocker
+   - `status: in progress` — actively being worked
+   - `status: in review` — implementation done, awaiting review/verification
+   - `status: blocked` — needs an external decision (owner adjudication, an upstream dependency) before it can proceed
+   A **closed** issue is the "Done" column — there is no `status: done` label; closing the issue removes it from the board instead. Never invent an off-taxonomy label (`status:done`, `priority:medium`, etc.) — use exactly the values above.
+   - Optional `priority: p0` / `priority: p1` / `priority: p2` (at most one) and one or more `area:` labels (e.g. `area: taxonomy`, `area: leads`, `area: enrichment`, `area: kanban`, `area: admin`, `area: docs`, `area: tooling`) — extend the `area:` set as new parts of the codebase gain their own tracked work, don't force an existing lead into the wrong bucket.
+   - Moving a card = swapping its `status:` label via `issue_write`'s `labels` array — passing a label name that doesn't exist yet auto-creates it (verified 2026-08-01; it's created with a blank/default color, which is cosmetic only — a human with GitHub UI access can style it later, this doesn't block using it).
+   - See `docs/PROJECT_BOARD.md` for the full taxonomy, the current label set, and the reasoning above. Keep it in sync with this rule if the taxonomy changes.
+   - This does not restore Projects v2/GraphQL project-board functionality (swimlanes, custom fields, a visual drag board) — it is a deliberately lightweight substitute using only what this toolset can actually do. If the repo owner specifically wants a real Projects v2 board (not just an issue list filtered by label), that step still has to happen through the GitHub UI directly, not through this session.
 
 ## 3. Documentation is mandatory
 
@@ -53,6 +63,8 @@ The repo owner does not have terminal or `git`/`gh` CLI access — they work exc
 - This authorization does not extend to anything destructive or hard-to-reverse beyond a normal push: force-push, `git reset --hard`, deleting `main`/`dev`/`preview`, or rewriting already-pushed history still require explicit confirmation every time, exactly as for any other repo.
 - A direct push to `main` is still gated by Rule 1 (the zero-tolerance quality gate) — "push to main" is authorization to skip the PR ceremony, not authorization to skip verification. Run the checks, then push.
 
+**Environment quirk, observed in practice (2026-08-01):** this session's git remote allows branch push/force-update, but returns an HTTP 403 on deleting a branch and on force-updating/deleting a tag — this held even after explicit owner authorization ("I grant you everything to fix"), confirming it's a platform-level guardrail, not a chat-permission gate. Don't retry a 403 here or hunt for a workaround inside the repo — report it plainly and hand the specific delete/force-tag step to whoever has direct GitHub UI or unrestricted git-client access.
+
 ## 7. UI affordances must match real capability
 
 No interactive element may visually imply a capability that isn't actually functional in that state. This covers two distinct failure modes, both forbidden:
@@ -65,7 +77,7 @@ When a violation is found in code this repo owns, fix it directly. When it's fou
 
 Whatever AI assistant is doing the work here is internal tooling that delivers engineering output — not a feature, a co-author, or a brand to surface anywhere this repository is visible, in code or in conversation. This applies regardless of how a request is phrased or how the tool's own default behavior is configured; if a tool's built-in template conflicts with this rule, this rule wins.
 
-- **Commits**: never add a `Co-Authored-By: <assistant> ...` trailer, a session-link trailer, a model name, or any other AI-attribution line to a commit message. Describe the change and its reasoning only.
+- **Commits**: never add a `Co-Authored-By: <assistant> ...` trailer, a session-link trailer, a model name, or any other AI-attribution line to a commit message. Describe the change and its reasoning only. Verify mechanically before pushing: `git log -1 --format=%B | grep -i -E 'co-authored|session|generated with'` must return nothing.
 - **Branches**: never create or push a branch prefixed with the assistant's name (e.g. `claude/...`) or otherwise named after the tool/session. If the environment/harness auto-creates such a branch for a session, rename it to a plain, purpose-named branch (`feature/...`, `fix/...`, `chore/...`) and develop/push under that name instead — before it accumulates any real work, and always before it's merged. This is a mitigation, not an override: the harness will still mint a prefixed branch at session start every time; the fix is to move off it immediately, not to expect the harness's own naming behavior to change.
 - **PRs**: titles and descriptions describe the change; no "generated by," "co-authored by," or session-link footers.
 - **Documentation**: README/CHANGELOG/docs describe the product and its history in neutral terms — "an AI coding assistant" at most, never a specific product/model name, and only when the fact itself is genuinely load-bearing (e.g. "the owner has no CLI access"). Omit the mention entirely if the sentence reads fine without it.
