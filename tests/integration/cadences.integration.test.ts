@@ -126,6 +126,41 @@ describe('GET /api/cadences (issue #149)', () => {
     const body = await res.json();
     expect(body.cadences.some((c: any) => c.name === 'Brand Scoped Cadence')).toBe(true);
   });
+
+  it('reports enrolledCount: 0 for a cadence with no active leads (issue #152)', async () => {
+    await createCadence({ name: 'No Enrollees Cadence', steps: [{ channel: 'call' }] });
+    const res = await cadencesGET(req('/api/cadences?brand=cogmap&tenantId=default'));
+    const body = await res.json();
+    const cadence = body.cadences.find((c: any) => c.name === 'No Enrollees Cadence');
+    expect(cadence.enrolledCount).toBe(0);
+  });
+
+  it('reports a real leads-currently-enrolled count per cadence (issue #152)', async () => {
+    const created = await createCadence({ name: 'Enrolled Count Cadence', steps: [{ channel: 'call' }] });
+    const cadenceId = created.body.id;
+    const leadA = await seedLead('Enrolled Count Lead A');
+    const leadB = await seedLead('Enrolled Count Lead B');
+
+    await leadCadencePOST(
+      req(`/api/leads/${leadA}/cadence?brand=cogmap&tenantId=default`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cadenceId }),
+      }),
+      { params: Promise.resolve({ id: leadA }) }
+    );
+    await leadCadencePOST(
+      req(`/api/leads/${leadB}/cadence?brand=cogmap&tenantId=default`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cadenceId }),
+      }),
+      { params: Promise.resolve({ id: leadB }) }
+    );
+
+    const res = await cadencesGET(req('/api/cadences?brand=cogmap&tenantId=default'));
+    const body = await res.json();
+    const cadence = body.cadences.find((c: any) => c.id === cadenceId);
+    expect(cadence.enrolledCount).toBe(2);
+  });
 });
 
 describe('PUT /api/cadences/[id] (issue #149)', () => {

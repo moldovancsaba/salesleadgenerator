@@ -274,8 +274,6 @@ Content can't mention the other brand's product terms — the same forbidden-ter
 
 ### Sales Cadences (automated outreach sequences)
 
-**API-only for now** — the cadence builder and enroll/cancel buttons aren't in the UI yet (that's still to come). Until then, a cadence template is created via `POST /api/cadences` and a lead is enrolled via `POST /api/leads/[id]/cadence`; both require an `x-api-key`, same as every other admin write in this app. This section describes what's already live behind those endpoints, since a cadence quietly running in the background is worth understanding even before it has a UI.
-
 **What a cadence does**: a template of ordered steps (email, LinkedIn, or call), each with a number of days to wait after the previous one. Once a lead is enrolled, a daily automated check ("the tick") looks for leads whose next step is due and acts on it:
 
 - An **email** step is sent automatically — no rep involved, no "Log outreach" click needed. This is the one channel this app actually sends on your behalf.
@@ -283,7 +281,22 @@ Content can't mention the other brand's product terms — the same forbidden-ter
 
 **A lead moves through at most one cadence at a time.** Enrolling a lead that's already on a cadence is rejected — cancel it first. Declining a lead, or otherwise moving it to Lost, immediately cancels its cadence enrollment — it will never fire another step after that, cadence-driven or not.
 
-**Safely disabling a runaway cadence**: every cadence template has an `enabled` flag, off by default when created. If a cadence is misbehaving (wrong template, sending too often, anything you want to stop immediately), set `enabled: false` via `PUT /api/cadences/[id]`. The very next daily tick will clear the enrollment for every lead still on that cadence — rather than skip them silently forever — so nothing keeps firing, and nothing is left in a stuck, invisible state. A cadence template can't be deleted while leads are still actively enrolled on it (a `409` explains this) — cancel each lead's enrollment first, or disable the cadence and let the tick clear them.
+#### Building a cadence
+
+Go to **Reporting → Cadences** for a brand. Click **New Cadence**, give it a name, and add steps with **Add step** — each step has a channel (Email/LinkedIn/Call), a number of days to wait after the previous step, and — for an Email or LinkedIn step — a template picked from that channel's own templates (an Email step requires one; it can't be saved without it, since that's the one channel this app actually sends). A LinkedIn or Call step can carry a reminder note instead, shown on the lead's card when that step comes due. Steps run in the order they're listed — there's no drag-to-reorder yet, only add/remove.
+
+The **Enabled** toggle is off by default and its own copy always says plainly what turning it on does — "Disabled — no message will ever be sent automatically" vs. "Enabled — sending real, automated messages to enrolled leads." Leave it off while you're still drafting a cadence's content; turn it on only once you're ready for it to actually run. The cadence list shows each template's step count, status, and how many leads are currently enrolled on it, so you can see real impact before editing or disabling one.
+
+Deleting a cadence that still has leads enrolled on it is blocked with a clear count — cancel each lead's enrollment first (from that lead's own detail view, below), or disable the cadence and let the next day's tick clear them automatically (see "Safely disabling a runaway cadence" below).
+
+#### Enrolling and cancelling a lead
+
+Open a lead's detail view and scroll to the **Cadence** section.
+
+- **Not enrolled**: pick an enabled cadence from the dropdown and click **Enroll**. If the brand has no enabled cadences yet, this section says so and links straight to the builder page instead of showing an empty, unexplained dropdown.
+- **Enrolled**: shows the cadence's name, which step it's on ("Step 2 of 4 · LinkedIn touch"), and when the next step is due — using the same red/orange/dimmed overdue-vs-upcoming coloring as [Follow-ups](#follow-ups). A **Cancel cadence** button stops it; you'll be asked to confirm, since this is a real action that stops future automated sends for that lead. Cancelling clears immediately — reload the page and the Cadence section correctly shows "not enrolled" again, it isn't just an optimistic UI state that reverts on its own.
+
+**Safely disabling a runaway cadence**: if a cadence is misbehaving (wrong template, sending too often, anything you want to stop immediately), flip its **Enabled** toggle off in the builder. The very next daily tick will clear the enrollment for every lead still on that cadence — rather than skip them silently forever — so nothing keeps firing, and nothing is left in a stuck, invisible state.
 
 ### Contacts
 

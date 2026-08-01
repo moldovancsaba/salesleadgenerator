@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.161
+
+### Added — cadence builder + lead enroll/cancel UI (issue #124/#152, final piece)
+
+Fourth and final delivered piece of issue #124. Everything up to this point (#149-#151) was pure backend infrastructure reachable only via direct API calls; this ships the UI wiring against those already-tested endpoints.
+
+- New page `/outreach/cadences/[brand]` — create/edit cadence templates: name, an `enabled` toggle (off by default; its own copy is always explicit about causing real automated sends the moment it's on, CLAUDE.md Rule 7), and a repeatable step editor (channel, wait-days, a template picker scoped to that step's own channel, an optional reminder note). Lists existing cadences with step count, status, and a real leads-currently-enrolled count. New "Cadences" nav link under Reporting.
+- `GET /api/cadences` now returns a computed `enrolledCount` per cadence (same query `DELETE /api/cadences/[id]`'s own safety check already runs) — so the builder shows real impact before an operator edits or disables a cadence.
+- New `app/components/CadencePanel.tsx` — a self-fetching lead-detail section (mounted in `app/detail.tsx`, same pattern `ActivityPanel` established) for enroll/cancel/progress: shows "Step N of M · channel" and the next due date with the same red/orange/dimmed coloring `nextActionDueAt` already uses, an honest empty state when a brand has zero enabled cadences, and a confirmed cancel action.
+- `docs/OPERATOR_GUIDE.md`'s Sales Cadences section rewritten to describe the real UI in place of the previous API-only placeholder.
+
+### Testing
+2 new integration tests for the `enrolledCount` addition (`tests/integration/cadences.integration.test.ts`). No new pure-function unit-test surface beyond what #149's own CRUD API already covers, per this issue's own Testing Requirements — this is UI wiring, not new business logic. Real browser verification was done against a temporary, uncommitted harness page (this sandbox's SSO auth gate and MongoDB Atlas connectivity are both independently unreachable here, same disclosed class of gap as issue #141's own testing section) — confirmed live: required-template validation, cadence create/list/edit round-trip, the Rule 7 toggle copy, enroll rendering a real due date, cancel clearing back to the empty state after a full reload, and the zero-enabled-cadences empty state. See `docs/ARCHITECTURE.md`'s own Testing note for the full detail. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (681 passing) + integration (177 passing) + smoke all green, `next build --webpack` clean.
+
+Issue #124 (sales cadences) is now fully shipped across all 4 sub-issues.
+
 ## 2.4.160
 
 ### Added — daily cadence-tick scheduler (issue #124/#151)
