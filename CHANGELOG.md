@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.161
+
+### Changed — enrichment loop, batch 21 (issue #132)
+
+Caught 4 pre-existing un-merged duplicate clusters before finalizing the initial pick — skipped all 4 and flagged for `/admin/duplicates` review rather than researching blind: "FC Bayern Munich" (3 exact-name copies), "Latvian Basketball Association" (2 copies), "UFC" (a recurring known duplicate of the existing "Ultimate Fighting Championship (UFC)" lead, first caught in batch 18 and picked again this batch), "Jeonbuk Hyundai Motors" (3 exact-name copies), and "ATK Mohun Bagan" (2 copies). Replaced with Serbian Football Federation, Seattle Sounders FC, and (after confirming both "Blue Sky Sports Center" picks were genuinely distinct facility locations, not duplicates) Blue Sky Sports Center The Colony and Allen.
+
+4 real leads processed:
+
+- **Blue Sky Sports Center The Colony** and **Blue Sky Sports Center Allen** (CogMap): confirmed both are real, distinct DFW-area facilities now operated by TOCA Football, Inc., which acquired Blue Sky's Allen/Carrollton/Keller/The Colony locations on 2022-06-02. Two independent research passes both surfaced the same finding — TOCA's own acquisition announcement excludes "Mansfield" (a separate 2021 new-build TOCA center, not a Blue Sky rebrand) — conflicting with the already-applied Mansfield sibling record's stored `parentOrgName`. Flagged for human review in `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` rather than silently resolved either way. The Colony's payload correctly omitted a stale, currency-uncertain contact (a "President & COO" title that predates the 2022 acquisition) rather than including unconfirmed data.
+- **Seattle Sounders FC** (Seyu): replaced the club's only stored contact (a Director of Performance — a sporting-staff role, not a commercial one) with the correct decision-maker type for a sponsorship pitch (VP of Partnership Marketing), and confirmed the previously-stored phone number was actually the club's general ticket hotline, not a personal line. Correctly reasoned `competitionLevelCode: "professional"` for a senior MLS first-team squad rather than `elite`.
+- **Serbian Football Federation** (Seyu): replaced the placeholder contact with the real sitting president (Dragan Džajić), while flagging that a presidential election is scheduled for September 2026 and this contact should be re-checked afterward. Explicitly re-checked against the known Polish/Czech Handball Federation cross-contamination bug — confirmed clean (the record had no free text to check).
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **127 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.160
 
 ### Changed — enrichment loop, batch 20 (issue #132)
