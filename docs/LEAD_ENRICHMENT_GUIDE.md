@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.156
+**Version:** 2.4.163
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -71,7 +71,7 @@ Every field below is grouped by how confidently and how often it's worth re-rese
 
 | Field | Format | Notes |
 |---|---|---|
-| `value_proposition` | string | **Checked against a forbidden-terms list per brand** (`lib/validate-lead.ts`'s `FORBIDDEN_BRAND_TERMS`) — a CogMap lead's value proposition must never mention Seyu-specific terms (fan selfies, LED screens, sponsor activation, etc.) and vice versa. A payload that trips this is rejected outright; know which brand you're writing for before generating this text. |
+| `value_proposition` | string | **Checked against a forbidden-terms list per brand** (`lib/validate-lead.ts`'s `FORBIDDEN_BRAND_TERMS`, symmetric across all 3 brands as of issue #147) — a CogMap lead's value proposition must never mention Seyu- or DVSC-specific terms (fan selfies, LED screens, sponsor activation, cognitive assessment, player performance analytics, etc.), and the same rule applies in every direction between all 3 brands. A payload that trips this is rejected outright; know which brand you're writing for before generating this text. |
 | `notes` | string | Free-form research notes. Append, don't replace, unless you're correcting something wrong — this field has no structured merge behavior, a `PUT` overwrites it entirely. |
 | `tags` | `string[]` | Short freeform labels, filterable in the UI. |
 | `product_fit_notes` | string | Specifically for *why this lead fits the product*, distinct from the general `notes` field. |
@@ -87,6 +87,8 @@ These feed `ticketSizeEstimate` (the number an operator actually reads), which i
 | `recommended_tier` | CogMap | `essential`/`performance`/`elite`/`multiple` | |
 | `revenue_model` | CogMap | `per_participant`/`revenue_share`/`hybrid` | |
 | `pricingByCompany` | Seyu | object: `{currency, upfront_eur, monthly_eur, annual_fee_eur, discount_percent, revenue_share_percent, pricing_model, notes}` | Seyu's forecast is built entirely from this field, not from a computed `ticketSizeEstimate` the way CogMap's is. |
+
+**DVSC (issue #148) reuses CogMap's own deal-size-band model rather than having its own field set.** DVSC sells sponsorship inventory (shirt/kit sponsorship, stadium/naming rights, LED perimeter boards, hospitality/VIP, digital/social sponsorship, official-supplier categories, section-specific sponsorship) to companies, scaled by the buying company's size tier — the same shape as CogMap's model, computed via the shared `ticketSizeEstimate` (driven by `size`, §2.2 — that's the one real research signal worth pursuing for a DVSC lead's deal size). Do **not** try to research or write `recommended_tier`/`revenue_model`/`estimated_annual_revenue_usd` for a DVSC lead — those are CogMap-only legacy fields DVSC's forecast never reads. DVSC also has no Seyu-style `pricingByCompany` field of its own.
 
 **Exception that must be respected**: if the lead's `ticketSizeEstimate.method === 'manual_override'`, a rep has personally overridden the modeled estimate with direct deal knowledge, and the server automatically skips recomputation on every write. Nothing you do to the fields above will visibly change the estimate for that lead, by design — this isn't a bug to work around.
 
@@ -143,7 +145,7 @@ These fields are new, additive, and entirely optional — a lead written before 
 ### 3.1 Enrich a lead's fields
 
 ```
-PUT /api/leads/{leadId}?brand={cogmap|seyu}
+PUT /api/leads/{leadId}?brand={cogmap|seyu|dvsc}
 Headers: x-api-key: <SLG_API_KEY>
 Content-Type: application/json
 
@@ -191,7 +193,7 @@ No auth required, no params, no request body. Returns the exact same arrays `lib
 ### 3.3 Refresh a lead's detected tech stack
 
 ```
-PATCH /api/leads?brand={cogmap|seyu}&id={leadId}
+PATCH /api/leads?brand={cogmap|seyu|dvsc}&id={leadId}
 Headers: x-api-key: <SLG_API_KEY>
 Content-Type: application/json
 
@@ -217,7 +219,7 @@ These aren't optional style preferences; they're either enforced by the API (you
 
 - **Never fabricate a contact, email, or phone number.** An absent or unconfirmed value should be omitted, not guessed. This app has a "never fabricate" convention (CLAUDE.md Rule 7) that extends to every field you touch — a wrong confident-looking number is worse than an honest gap.
 - **Only include a contact in `contacts[]` if you actually re-confirmed it this run.** Every contact sent gets `lastVerifiedAt` stamped to now, unconditionally (§2.1). Silently re-sending old, unverified data marks it as fresh and defeats the entire staleness-tracking system.
-- **Never write brand-crossed terminology into `value_proposition`.** Know which brand (`cogmap` or `seyu`) you're enriching before generating this text — see §2.3's forbidden-terms list.
+- **Never write brand-crossed terminology into `value_proposition`.** Know which brand (`cogmap`, `seyu`, or `dvsc`) you're enriching before generating this text — see §2.3's forbidden-terms list.
 - **Respect `manual_override`.** If `ticketSizeEstimate.method === 'manual_override'`, don't try to work around it by writing `estimated_annual_revenue_usd` or similar expecting it to change the displayed estimate — it won't, and that's correct behavior, not a bug.
 - **`size` is a strict 4-value enum.** Sending anything else (a headcount, a description) fails validation. If you're not confident which of the four tiers applies, leave `size` out of the payload entirely rather than guessing.
 - **Don't set any of the server-computed fields listed in §2.7.** They'll be silently overwritten regardless, so writing them just adds noise to your payload.
@@ -324,7 +326,11 @@ has — do not attempt to fill in fields that are already fresh and correct:
    (Small/Medium/Large/Enterprise — pick the closest real match, or omit
    the field if genuinely unclear), estimated participant/user count,
    industry, sport/sector, and (CogMap only) revenue model / recommended
-   tier, or (Seyu only) pricing signals if publicly discoverable.
+   tier, or (Seyu only) pricing signals if publicly discoverable. **DVSC
+   has no field set of its own here** — its forecast reuses CogMap's
+   deal-size-band model, driven entirely by `size`; never write
+   `recommended_tier`/`revenue_model`/`estimated_annual_revenue_usd` or a
+   `pricingByCompany` object for a DVSC lead, none of them apply.
 4. **Value proposition and notes.** Only update `value_proposition` if you
    have a materially better, more specific articulation of why this brand's
    product fits this lead than what's currently stored — don't rewrite

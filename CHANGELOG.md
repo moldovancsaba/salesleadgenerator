@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.163
+
+### Changed — extend enrichment agent prompt/instructions to cover DVSC (owner request)
+
+`docs/LEAD_ENRICHMENT_GUIDE.md` — the one prompt/agent-instruction document maintained in this repo (the actual runtime prompt files live in a separate app, `Agents/contentcreator`, outside this repo's access — see below) — only ever enumerated `cogmap`/`seyu` in its brand-parameterized API examples and forecast-field guidance, even though DVSC was onboarded as a third brand in issue #147/#148. Updated for parity:
+
+- §2.3's forbidden-terms note and the Hard Rules section now name all 3 brands (the underlying `FORBIDDEN_BRAND_TERMS` list has been symmetric across all 3 since issue #147 — this was a doc-only gap, not a code gap).
+- §2.4's forecast-field table gains a DVSC note: DVSC has no field set of its own (no `recommended_tier`/`revenue_model`/`estimated_annual_revenue_usd`, no `pricingByCompany`) — it reuses CogMap's own deal-size-band model, driven by `size`. Added identically to the fenced prompt block's own step 3 (§5), not just the surrounding guide prose — matching this doc's own documented lesson (2.4.109) that a behavioral rule only living in the guide's prose and not inside the actual fenced prompt block is a real, previously-reproduced gap.
+- Both `PUT`/`PATCH` API contract examples' `?brand={cogmap|seyu}` become `?brand={cogmap|seyu|dvsc}`.
+
+**Disclosed, not performed here**: this guide is a reference an operator copies into `/admin/prompts/dvsc` by hand (`GET`/`PUT /api/prompts`) — updating this document doesn't itself change any live prompt content in the `prompts` collection or the `Agents/contentcreator` disk mirror. That paste-in step, and the separate app's own discovery-prompt content (entirely outside this repo), remain the operator's/owner's own follow-up. Not urgent in practice yet — DVSC has zero real leads today (deliberately not seeded, per its own Sales Settings section in `docs/ARCHITECTURE.md`), so no enrichment run against it is imminent; this is forward-looking parity, not a fix for an active gap.
+
+### Testing
+No code changed — full gate re-run anyway per CLAUDE.md Rule 1: tsc 0 errors, lint 0 errors/warnings, vitest unit (687) + integration (177) + smoke all passing, `next build --webpack` clean. `tests/lib/lead-taxonomy-doc-sync.test.ts` (the existing doc/vocabulary drift check) still passes unchanged.
+
 ## 2.4.162
 
 ### Fixed — near-duplicate matching missed diacritic/spacing-only variants (issue #137)
