@@ -10,6 +10,14 @@ describe('normalizeForMatch', () => {
     expect(normalizeForMatch('', 'https://www.acme.com/about').domain).toBe('acme.com');
     expect(normalizeForMatch('', 'http://acme.com').domain).toBe('acme.com');
   });
+
+  // Issue #137: found while investigating why real production duplicates
+  // (case-only and diacritic-only name variants) weren't being caught by
+  // findCandidatePairs()'s bigram threshold.
+  it('folds diacritics so an accented and unaccented spelling normalize identically', () => {
+    expect(normalizeForMatch('Fenerbahçe', '').name).toBe(normalizeForMatch('Fenerbahce', '').name);
+    expect(normalizeForMatch('Fenerbahçe', '').name).toBe('fenerbahce');
+  });
 });
 
 describe('similarity', () => {
@@ -156,5 +164,63 @@ describe('findCandidatePairs', () => {
     ];
     const pairs = findCandidatePairs(leads, 0.7);
     expect(pairs).toHaveLength(1);
+  });
+
+  // Issue #137: real production duplicates missed by the pre-fix algorithm.
+  // Both cases score below the default 0.82 bigram threshold even after
+  // lowercasing alone — confirmed via a standalone Dice-coefficient
+  // computation before writing this fix (diacritic pair: 0.778, spacing
+  // pair: 0.727).
+  describe('real duplicates found in production (issue #137)', () => {
+    it('flags a diacritic-only variant at the default threshold', () => {
+      const leads = [
+        { _id: '1', entity_name: 'Fenerbahçe', url: 'fenerbahce.org', sport_or_sector: 'Soccer' },
+        { _id: '2', entity_name: 'Fenerbahce', url: 'fenerbahce.org/en', sport_or_sector: 'Soccer' },
+      ];
+      const pairs = findCandidatePairs(leads);
+      expect(pairs).toHaveLength(1);
+      expect(pairs[0].score).toBe(1);
+    });
+
+    it('flags a spacing-only variant ("La Liga" vs "LaLiga") at the default threshold', () => {
+      const leads = [
+        { _id: '1', entity_name: 'La Liga', url: 'laliga.com', sport_or_sector: 'Soccer' },
+        { _id: '2', entity_name: 'LaLiga', url: 'laliga.es', sport_or_sector: 'Soccer' },
+      ];
+      const pairs = findCandidatePairs(leads);
+      expect(pairs).toHaveLength(1);
+      expect(pairs[0].score).toBe(1);
+    });
+
+    it('flags a punctuation-only variant ("U.S. Soccer Federation" vs "US Soccer Federation")', () => {
+      const leads = [
+        { _id: '1', entity_name: 'U.S. Soccer Federation', url: 'ussoccer.com', sport_or_sector: 'Soccer' },
+        { _id: '2', entity_name: 'US Soccer Federation', url: 'ussoccer.com/about', sport_or_sector: 'Soccer' },
+      ];
+      const pairs = findCandidatePairs(leads);
+      expect(pairs).toHaveLength(1);
+    });
+
+    it('still never flags a tight-key match across different sport_or_sector (the hard gate still applies)', () => {
+      const leads = [
+        { _id: '1', entity_name: 'La Liga', url: 'laliga.com', sport_or_sector: 'Soccer' },
+        { _id: '2', entity_name: 'LaLiga', url: 'laliga.es', sport_or_sector: 'Basketball' },
+      ];
+      const pairs = findCandidatePairs(leads);
+      expect(pairs).toHaveLength(0);
+    });
+
+    // A different-letter-order acronym shares no tight-key equality (tight
+    // keys are alphanumeric-stripped, not sorted/anagram-normalized) and
+    // scores low on bigrams too — confirms this fix doesn't loosen matching
+    // for genuinely unrelated short names.
+    it('does not flag two different acronyms sharing the same letters in a different order', () => {
+      const leads = [
+        { _id: '1', entity_name: 'AFC', url: 'afc.com', sport_or_sector: 'Soccer' },
+        { _id: '2', entity_name: 'FCA', url: 'fca.com', sport_or_sector: 'Soccer' },
+      ];
+      const pairs = findCandidatePairs(leads);
+      expect(pairs).toHaveLength(0);
+    });
   });
 });

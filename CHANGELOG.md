@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.162
+
+### Fixed — near-duplicate matching missed diacritic/spacing-only variants (issue #137)
+
+Investigated issue #137's own finding (43.8% of Seyu's, 10.7% of CogMap's leads sit in duplicate-name groups, far above what `/admin/duplicates` was surfacing) and root-caused why real duplicates weren't being flagged: `lib/near-duplicate.ts`'s `normalizeForMatch()` lowercased names but never folded diacritics, and a spacing/punctuation difference shifts every neighboring character bigram enough to fall under the 0.82 similarity threshold. Confirmed by direct computation before writing the fix — a diacritic-only pair (`Fenerbahçe`/`Fenerbahce`) scored 0.778, a spacing-only pair (`"la liga"`/`"laliga"`) scored 0.727, both below threshold.
+
+- `normalizeForMatch()` now folds diacritics, reusing `lib/lead-taxonomy.ts`'s existing `slugifyForTag()` technique rather than a second implementation.
+- New `tightKey()` (alphanumeric-only) computed alongside the existing bigram set, checked as an additional exact-match fast path for spacing/punctuation-only-different names — additive to the existing algorithm, not a replacement; genuinely different names are unaffected.
+- No API/schema change — applies automatically on the next `POST /api/admin/duplicate-scan` run.
+- **Disclosed, not performed here**: the comprehensive re-scan against real production data and the human merge-decision review itself (issue #137's remaining acceptance criteria) require real MongoDB access this sandbox doesn't have.
+
+### Testing
+6 new unit tests (`tests/lib/near-duplicate.test.ts`) covering the diacritic-fold, spacing/punctuation tight-key match, the sport_or_sector hard gate still applying to a tight-key match, and a false-positive guard (different-letter-order acronyms still don't match). Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (687 passing) + integration (177 passing) + smoke all green, `next build --webpack` clean.
+
 ## 2.4.161
 
 ### Added — cadence builder + lead enroll/cancel UI (issue #124/#152, final piece)

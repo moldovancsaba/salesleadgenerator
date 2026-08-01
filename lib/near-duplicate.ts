@@ -5,13 +5,36 @@
 
 import { resolveSportAlias, SPORT_CODE_SET } from './lead-taxonomy';
 
+// Issue #137, found while investigating why real production duplicates
+// (case-only and diacritic-only name variants) weren't being caught: this
+// codebase already has exactly this diacritic-folding technique in
+// lib/lead-taxonomy.ts's slugifyForTag() (NFKD decompose, strip combining
+// marks) — reused here rather than a second implementation.
+const COMBINING_DIACRITICS = /[̀-ͯ]/g;
+function foldDiacritics(value: string): string {
+  return value.normalize('NFKD').replace(COMBINING_DIACRITICS, '');
+}
+
 export function normalizeForMatch(name: string, url: string): { name: string; domain: string } {
-  const normalizedName = (name || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const normalizedName = foldDiacritics((name || '').toLowerCase().trim().replace(/\s+/g, ' '));
 
   let domain = (url || '').toLowerCase().trim();
   domain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
 
   return { name: normalizedName, domain };
+}
+
+// Issue #137's own root-cause finding: real duplicate pairs whose names
+// differ only by spacing/punctuation ("La Liga" vs "LaLiga", "U.S. Soccer
+// Federation" vs "US Soccer Federation") score below the bigram threshold
+// even after diacritic folding, since the bigram sets themselves differ
+// (a space or period shifts every neighboring bigram). Stripping to
+// alphanumeric-only collapses these to an identical key — used as an
+// additional exact-match fast path below, not a replacement for bigram
+// similarity (which still handles genuinely different names, e.g. "Acme
+// Corp" vs "Acme Corporation", where a tight key would legitimately differ).
+function tightKey(normalizedName: string): string {
+  return normalizedName.replace(/[^a-z0-9]+/g, '');
 }
 
 function bigrams(value: string): Set<string> {
@@ -96,7 +119,7 @@ export function findCandidatePairs(leads: CandidateLead[], threshold: number = D
       ? lead.sportCode
       : resolveSportAlias(lead.sport_or_sector);
     const sport = sportCandidate || '';
-    return { ...lead, name, domain, sport, nameBigrams: bigrams(name) };
+    return { ...lead, name, domain, sport, nameBigrams: bigrams(name), tightKey: tightKey(name) };
   });
 
   const pairs: CandidatePair[] = [];
@@ -112,7 +135,15 @@ export function findCandidatePairs(leads: CandidateLead[], threshold: number = D
       // either side is "unknown," not "same" — never assumed to match.
       if (!a.sport || !b.sport || a.sport !== b.sport) continue;
 
-      const nameScore = a.name === b.name ? 1 : diceCoefficient(a.nameBigrams, b.nameBigrams);
+      // Issue #137: a spacing/punctuation-only-different tight-key match
+      // ("la liga" vs "laliga") is treated as certain (score 1) even when
+      // the bigram sets themselves differ enough to fall under threshold —
+      // checked before the bigram fallback, not instead of it, since two
+      // genuinely different short names could coincidentally share bigrams
+      // without sharing a tight key.
+      const nameScore = a.name === b.name || (a.tightKey && a.tightKey === b.tightKey)
+        ? 1
+        : diceCoefficient(a.nameBigrams, b.nameBigrams);
       if (nameScore < threshold) continue;
 
       // Domain match is recorded as a corroborating signal only, never an
