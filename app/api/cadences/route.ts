@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import clientPromise, { isMongoConfigured } from '../../../lib/mongodb'
 import { requireApiKey } from '../../../lib/api-auth'
-import { getTenantId } from '../../../lib/tenant'
+import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { sanitizeCadence, validateCadence } from '../../../lib/cadences'
 import type { Cadence } from '../../../lib/cadences'
+import { BRAND_CONFIG } from '../../lib/brand'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,9 +45,25 @@ export async function GET(request: Request) {
     const db = client.db()
     const docs = await db.collection(COLLECTION).find({ tenantId, brand }).sort({ name: 1 }).toArray()
 
+    // Issue #152's own Architecture: the builder's list view shows a
+    // leads-currently-enrolled count per cadence, so an operator can see
+    // real impact before editing/disabling one — same countDocuments query
+    // DELETE /api/cadences/[id]'s own safety check already uses.
+    const config = BRAND_CONFIG[brand]
+    const cadences = await Promise.all(docs.map(async (doc) => {
+      const shape = toResponseShape(doc)
+      const enrolledCount = config
+        ? await db.collection(config.dbCollection).countDocuments({
+            ...tenantFilter(tenantId),
+            'activeCadence.cadenceId': shape.id,
+          })
+        : 0
+      return { ...shape, enrolledCount }
+    }))
+
     return NextResponse.json({
-      cadences: docs.map(toResponseShape),
-      total: docs.length,
+      cadences,
+      total: cadences.length,
       source: 'mongodb',
       brand,
     })
