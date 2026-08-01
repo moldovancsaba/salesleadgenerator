@@ -131,6 +131,8 @@ Real credentials (`SSO_CLIENT_ID`/`SSO_CLIENT_SECRET`) obtained 2026-07-26 and s
 
 Until both are done, this remains fully built and tested code with real Resend-side configuration in place, but no live trigger yet.
 
+**Reply matching + contact-enrichment suggestions (2.4.165, issue #142 — see `docs/ARCHITECTURE.md`'s own section) builds directly on top of this webhook and needs no additional infra of its own** — once the two items above are done, a real inbound reply exercises #142's matching/suggestion code for the first time along with #141's own logging path, with nothing further to provision.
+
 **Outbound (sending) side, issue #150 — `lib/outreach-send.ts`'s `sendAutomatedEmail()`.** Distinct from the inbound webhook above: only needs `RESEND_API_KEY` (not `RESEND_WEBHOOK_SECRET`, which is inbound-signature-only), plus two optional, sensible-default env vars for the sender identity:
 
 | Env var | Purpose | Default if unset |

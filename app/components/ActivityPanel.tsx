@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Box, Text, Stack, Badge, Loader, Group } from '@mantine/core'
+import { Box, Text, Stack, Badge, Loader, Group, Button } from '@mantine/core'
 
 type ActivityEntry = {
   id: string
@@ -12,6 +12,20 @@ type ActivityEntry = {
   source: 'inbound-webhook' | 'manual' | 'outreach-log'
   createdAt: string
 }
+
+// Issue #142 — a suggested contacts[] update from a matched inbound reply's
+// signature block. Never auto-applied; accept/reject are the only way its
+// fields ever reach contacts[].
+type ContactSuggestion = {
+  id: string
+  matchedContactKey: string
+  current: { name?: string; title?: string; phone?: string }
+  suggested: { name?: string; title?: string; phone?: string }
+  status: 'pending' | 'accepted' | 'rejected'
+  createdAt: string
+}
+
+const SUGGESTION_FIELD_LABEL: Record<string, string> = { name: 'Name', title: 'Title', phone: 'Phone' }
 
 type Props = {
   leadId: string
@@ -38,6 +52,8 @@ export function ActivityPanel({ leadId, brand }: Props) {
   const [activity, setActivity] = useState<ActivityEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [suggestions, setSuggestions] = useState<ContactSuggestion[]>([])
+  const [resolvingId, setResolvingId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -60,8 +76,64 @@ export function ActivityPanel({ leadId, brand }: Props) {
     return () => { cancelled = true }
   }, [leadId, brand])
 
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/contact-suggestions?leadId=${encodeURIComponent(leadId)}&brand=${encodeURIComponent(brand)}`)
+      .then((res) => (res.ok ? res.json() : { suggestions: [] }))
+      .then((data) => {
+        if (!cancelled) setSuggestions(data.suggestions || [])
+      })
+      .catch(() => {
+        // Non-fatal — the activity timeline above is the primary content;
+        // a failed suggestions fetch just means no badge shows this pass.
+      })
+    return () => { cancelled = true }
+  }, [leadId, brand])
+
+  function resolveSuggestion(id: string, action: 'ACCEPT' | 'REJECT') {
+    setResolvingId(id)
+    fetch(`/api/contact-suggestions/${encodeURIComponent(id)}?brand=${encodeURIComponent(brand)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to ${action.toLowerCase()} suggestion (${res.status})`)
+        setSuggestions((prev) => prev.filter((s) => s.id !== id))
+      })
+      .catch(() => {
+        // Leave the suggestion in place on failure — the user can retry;
+        // no silent removal of something that didn't actually resolve.
+      })
+      .finally(() => setResolvingId(null))
+  }
+
   return (
     <Box>
+      {suggestions.length > 0 && (
+        <Box mb="sm">
+          <Text size="xs" c="dimmed" fw={600} mb={4}>SUGGESTED CONTACT UPDATES</Text>
+          <Stack gap="xs">
+            {suggestions.map((s) => (
+              <Box key={s.id} p="xs" style={{ border: '1px solid var(--mantine-color-yellow-4)', borderRadius: 6, background: 'var(--mantine-color-yellow-0)' }}>
+                <Stack gap={2} mb="xs">
+                  {(Object.keys(s.suggested) as Array<keyof typeof s.suggested>).map((field) => (
+                    <Text size="xs" key={field}>
+                      <Text span fw={600}>{SUGGESTION_FIELD_LABEL[field] || field}:</Text>{' '}
+                      {s.current[field] ? <Text span td="line-through" c="dimmed">{s.current[field]}</Text> : null}{' '}
+                      {s.current[field] ? '→ ' : ''}{s.suggested[field]}
+                    </Text>
+                  ))}
+                </Stack>
+                <Group gap="xs">
+                  <Button size="xs" color="teal" loading={resolvingId === s.id} onClick={() => resolveSuggestion(s.id, 'ACCEPT')}>Accept</Button>
+                  <Button size="xs" variant="subtle" color="gray" loading={resolvingId === s.id} onClick={() => resolveSuggestion(s.id, 'REJECT')}>Reject</Button>
+                </Group>
+              </Box>
+            ))}
+          </Stack>
+        </Box>
+      )}
       <Text size="xs" c="dimmed" fw={600} mb={4}>ACTIVITY</Text>
       {loading ? (
         <Group gap="xs"><Loader size="xs" /><Text size="xs" c="dimmed">Loading…</Text></Group>
