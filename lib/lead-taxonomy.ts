@@ -65,13 +65,21 @@ export function resolveSportAlias(freeText: string | undefined | null): SportCod
   return SPORT_ALIASES[key] ?? null;
 }
 
+// 'entertainment-event' added per issue #143 (2026-08-01): Seyu's own
+// fan-engagement/sponsor-activation product genuinely targets non-sport
+// recurring public events (music festivals, e.g. Tomorrowland, Glastonbury
+// Festival) — an owner-confirmed scope extension, not a guess. Distinct
+// from 'event-organiser' (a general org-type fit for any large recurring
+// event, sport or not) so a lead can be tagged specifically as
+// entertainment-industry rather than only generically "runs events."
 export const ORG_TYPE_CODES = [
   'club', 'academy', 'federation', 'association', 'league', 'confederation',
-  'tournament', 'event-organiser', 'competition-organiser', 'training-centre',
-  'performance-centre', 'sports-school', 'school', 'college', 'university',
-  'municipality', 'sports-council', 'government-body', 'facility-operator',
-  'stadium', 'arena', 'venue', 'sports-complex', 'foundation', 'ngo',
-  'sponsor', 'brand', 'agency', 'broadcaster', 'media', 'unknown',
+  'tournament', 'event-organiser', 'entertainment-event', 'competition-organiser',
+  'training-centre', 'performance-centre', 'sports-school', 'school', 'college',
+  'university', 'municipality', 'sports-council', 'government-body',
+  'facility-operator', 'stadium', 'arena', 'venue', 'sports-complex',
+  'foundation', 'ngo', 'sponsor', 'brand', 'agency', 'broadcaster', 'media',
+  'unknown',
 ] as const;
 export type OrgTypeCode = (typeof ORG_TYPE_CODES)[number];
 export const ORG_TYPE_CODE_SET = new Set<string>(ORG_TYPE_CODES);
