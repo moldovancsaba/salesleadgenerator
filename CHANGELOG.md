@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.159
+
+### Changed — enrichment loop, batch 19 (issue #132)
+
+4 more real leads:
+
+- **Dallas Hornets** (CogMap): investigated against "Dallas Hornets North," an existing separate lead, before researching — confirmed via independent sourcing that the club's real regional sub-programs (RDC North/East, Youth/Plano) make these likely genuinely distinct branches rather than duplicates. Proceeded to research this lead on its own merits (found the real Executive Director and Technical Director) and flagged the distinction explicitly in `notes` for human confirmation via `/admin/duplicates` rather than assuming either way.
+- **AC River** (CogMap): both of the organization's known sites (`acriversa.com`, and its listing on `soccercentralsa.com`) returned live 200s but were confirmed unreachable/under maintenance in practice at fetch time. Declined to attach a name despite one candidate turning up across secondary sources, since the spelling was inconsistent between sources (`David Kenney` vs. `David Keeney`) and the role wasn't clearly a decision-maker — recommended a follow-up pass once the primary site returns rather than guessing.
+- **Six Nations Championship** (Seyu): reasoned through a genuinely novel classification shape and logged it as GitHub issue #136 data point #12 — a recurring annual round-robin among a *fixed* set of 6 national representative teams, distinct from both rotating-host knockout mega-events (`tournament`) and domestic-club round-robins (`league`); landed on `orgTypeCode: "competition-organiser"`. Corrected `demographicCodes` from `["adult"]` to `["adult", "senior"]` before applying, to match this loop's own established convention for senior national-team-level competitions.
+- **Football Federation of Kosovo** (Seyu): replaced the placeholder contact with the real sitting president, cross-verified across independent sources.
+
+All 4 payloads independently re-verified via a fresh API re-fetch. Running total: **119 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.158
 
 ### Changed — enrichment loop, batch 18 (issue #132)
