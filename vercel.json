@@ -7,6 +7,10 @@
     {
       "path": "/api/admin/ticket-size-recalc",
       "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/admin/cadence-tick",
+      "schedule": "0 8 * * *"
     }
   ]
 }
