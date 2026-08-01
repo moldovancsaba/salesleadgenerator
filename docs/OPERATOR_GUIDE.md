@@ -272,6 +272,19 @@ Battlecards are competitor positioning summaries and objection responses — ref
 
 Content can't mention the other brand's product terms — the same forbidden-terms check applied to a lead's own value proposition.
 
+### Sales Cadences (automated outreach sequences)
+
+**API-only for now** — the cadence builder and enroll/cancel buttons aren't in the UI yet (that's still to come). Until then, a cadence template is created via `POST /api/cadences` and a lead is enrolled via `POST /api/leads/[id]/cadence`; both require an `x-api-key`, same as every other admin write in this app. This section describes what's already live behind those endpoints, since a cadence quietly running in the background is worth understanding even before it has a UI.
+
+**What a cadence does**: a template of ordered steps (email, LinkedIn, or call), each with a number of days to wait after the previous one. Once a lead is enrolled, a daily automated check ("the tick") looks for leads whose next step is due and acts on it:
+
+- An **email** step is sent automatically — no rep involved, no "Log outreach" click needed. This is the one channel this app actually sends on your behalf.
+- A **LinkedIn** or **call** step is never auto-sent (LinkedIn doesn't offer a way to automate this safely, and a call obviously can't be). Instead, it shows up exactly like a manually-set [Follow-up](#follow-ups) — the lead's card shows "Follow-up due today" with the step's own note (e.g. "Send a personalized connection request"), and you send/call it yourself whenever you get to it. There's nothing on the card that distinguishes a cadence-driven reminder from one you set yourself.
+
+**A lead moves through at most one cadence at a time.** Enrolling a lead that's already on a cadence is rejected — cancel it first. Declining a lead, or otherwise moving it to Lost, immediately cancels its cadence enrollment — it will never fire another step after that, cadence-driven or not.
+
+**Safely disabling a runaway cadence**: every cadence template has an `enabled` flag, off by default when created. If a cadence is misbehaving (wrong template, sending too often, anything you want to stop immediately), set `enabled: false` via `PUT /api/cadences/[id]`. The very next daily tick will clear the enrollment for every lead still on that cadence — rather than skip them silently forever — so nothing keeps firing, and nothing is left in a stuck, invisible state. A cadence template can't be deleted while leads are still actively enrolled on it (a `409` explains this) — cancel each lead's enrollment first, or disable the cadence and let the tick clear them.
+
 ### Contacts
 
 Go to **Reporting → Contacts** for a brand to search every contact across that brand's leads by name. Each row shows a contact's name, title, email, phone, and every lead they're listed on — click a lead chip to open that lead's detail modal directly. This is a read-only view: it's a second lens onto the same `contacts[]` data already visible inside each lead's own detail modal, not a separate contact list — editing a contact still happens only there (add/edit/remove a contact, toggle Decision Maker). The same person listed on two different leads shows up as one row with both leads attached; two different people who happen to share only a name (no matching phone or email) show up as two separate rows.
