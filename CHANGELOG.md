@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.157
+
+### Changed — enrichment loop, batch 17 (issue #132)
+
+4 more real leads:
+
+- **Houston Futsal Club** (CogMap): confirmed this is a real, legitimately-named dual-sport club (legal/self-identified name Houston Futsal Association, EIN 83-0874482) — not a CSV mismatch — corroborated by its own site, blog, and multiple independent directory listings. Found the real founder/Executive Director (Jay Lozoya) with an MX-verified email; corrected `sportCode` to `multi-sport` given the club's own "2-in-1 futsal and soccer" branding.
+- **Austin FC** (CogMap): distinguished from its own-named MLS first team — research on the live MLS NEXT Homegrown Division member list found this specific record (no "Academy" suffix) most likely represents the same academy/homegrown pipeline entity as this database's 4 existing un-merged "Austin FC Academy" duplicates, not the professional club. Flagged explicitly for `/admin/duplicates` review rather than merging or guessing.
+- **Indian Premier League** (Seyu): replaced the placeholder contact with the IPL's real current chairman (Arun Singh Dhumal, cross-verified across independent sources). Reasoned through a genuine classification question and landed on `orgTypeCode: "league"` rather than `"tournament"` — the IPL is a recurring, fixed-franchise domestic round-robin competition, structurally closer to The Hundred (also `league`) than to a knockout-format global mega-tournament — so this is not treated as a new issue #136 data point.
+- **Georgian Football Federation** (Seyu): replaced the placeholder contact with two real named officers (President Levan Kobiashvili, General Secretary David Mujiri). Corrected a legacy non-integer `ice.impact` (`5.5`) left over from before the 2.4.146 validation fix shipped — the first confirmed instance of that exact pre-fix corruption surviving in production data.
+
+All 4 payloads independently re-verified via a fresh API re-fetch; two scoring inconsistencies caught during validation and corrected before applying (an `ease` value that didn't match its own contact-verification tier for two of the four leads). Running total: **111 of ~2,723 leads fully processed.**
+
+### Testing
+Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit + integration + smoke all passing, GDS audit clean, `next build --webpack` clean.
+
 ## 2.4.156
 
 ### Added — CLAUDE.md Rule 8: no AI-assistant branding, anywhere (owner request)
