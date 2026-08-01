@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.163
+**Version:** 2.4.164
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -491,11 +491,38 @@ has — do not attempt to fill in fields that are already fresh and correct:
 
    `orgTypeCode` — one of: `club`, `academy`, `federation`, `association`,
    `league`, `confederation`, `tournament`, `event-organiser`,
-   `competition-organiser`, `training-centre`, `performance-centre`,
-   `sports-school`, `school`, `college`, `university`, `municipality`,
-   `sports-council`, `government-body`, `facility-operator`, `stadium`,
-   `arena`, `venue`, `sports-complex`, `foundation`, `ngo`, `sponsor`,
-   `brand`, `agency`, `broadcaster`, `media`, `unknown`.
+   `entertainment-event`, `competition-organiser`, `training-centre`,
+   `performance-centre`, `sports-school`, `school`, `college`, `university`,
+   `municipality`, `sports-council`, `government-body`, `facility-operator`,
+   `stadium`, `arena`, `venue`, `sports-complex`, `foundation`, `ngo`,
+   `sponsor`, `brand`, `agency`, `broadcaster`, `media`, `unknown`.
+   `entertainment-event` is for non-sport recurring public events (music
+   festivals, e.g. Tomorrowland, Glastonbury Festival) genuinely within
+   Seyu's fan-engagement/sponsor-activation target market (issue #143,
+   owner-confirmed 2026-08-01) — distinct from `event-organiser`, which is
+   the generic fit for any large recurring event regardless of industry.
+
+   **`tournament` / `federation` / `competition-organiser` decision rule**
+   (issue #136, owner-confirmed 2026-08-01), for a global sports property
+   whose day-to-day commercial/leadership reality is entangled with a
+   parent governing federation: if a confirmed **separate legal entity**
+   organizes the event (e.g. "Rugby World Cup Limited"), use
+   `competition-organiser`. If the event has **no confirmed separate
+   identity** from its federation, use the federation's own `orgTypeCode`
+   (`federation`) — never default to `tournament` for this shape. Only use
+   `tournament` when neither of the above applies and the lead is
+   genuinely a standalone competition, not a federation's own flagship
+   event.
+
+   **`brand`/`media` convention for platform/tech-brand leads** (issue
+   #135, owner-confirmed 2026-08-01): for a consumer software/data
+   platform company with no clean fit in this list (e.g. Strava — a
+   "software company / technology platform / social network," not a
+   club/federation/academy), use `orgTypeCode: "brand"` as the accepted
+   standard convention going forward, rather than `unknown` or `media`.
+   This is a deliberately imperfect fit, accepted so classification
+   doesn't stall on this category — don't re-raise it as an open question
+   per lead.
 
    `businessUnitCode` — one of: `first-team`, `women`, `men`, `youth`,
    `youth-academy`, `academy`, `grassroots`, `community`, `foundation`,
@@ -623,7 +650,7 @@ This prompt was live-tested against 5 randomly sampled real CogMap leads (via 5 
 
 **Loop resumed (2026-07-30, 2.4.130-2.4.130) — 4 more real leads (3 CogMap, 1 Seyu), picking up issue #132's remaining full-taxonomy backfill:**
 
-- **A genuine, recurring `orgTypeCode` gap for platform/tech-brand leads**: enriching "Strava" (a consumer software/data platform, not a club/federation/academy) found no controlled `orgTypeCode` value that fits — the closest near-misses, `brand` and `media`, both felt like a forced stretch for a company whose own self-description is "software company / technology platform / social network." The agent correctly used the explicit `unknown` escape hatch per §2.6's own rule (never force a plausible-sounding-but-wrong code) rather than guessing. This is not fixed here — extending `ORG_TYPE_CODES` (`lib/lead-taxonomy.ts`) is a controlled-vocabulary/schema change, not a prompt-wording fix, and per CLAUDE.md Rule 5 a business-taxonomy decision like this isn't this guide's call to make unilaterally — tracked as **issue #135** for the owner to decide whether/how to extend the rulebook's vocabulary.
+- **A genuine, recurring `orgTypeCode` gap for platform/tech-brand leads, since resolved**: enriching "Strava" (a consumer software/data platform, not a club/federation/academy) found no controlled `orgTypeCode` value that fits — the closest near-misses, `brand` and `media`, both felt like a forced stretch for a company whose own self-description is "software company / technology platform / social network." The agent correctly used the explicit `unknown` escape hatch per §2.6's own rule (never force a plausible-sounding-but-wrong code) rather than guessing, and this was tracked as **issue #135** for an owner decision rather than resolved unilaterally, per CLAUDE.md Rule 5. **Resolved 2026-08-01**: owner chose `brand` as the standing convention for this category (§2.6 above) — Strava's own record has been retroactively updated from `unknown` to `brand`.
 - **`sportCode: multi-sport` worked exactly as designed** for the same lead — a platform spanning all endurance sports as one unified product is precisely the case that code exists for, and the agent correctly did not force a single-sport pick.
 - A second, smaller judgment-call gap (not urgent, recorded for completeness): the rulebook's `relationshipToParent` enum (`owned`/`operated`/`licensed`/`franchise`/`affiliate`/`partner`/`unverified`) has no value phrased for "this lead IS an internal department of its own parent, not a separate legal entity" (found enriching "LA Galaxy Academy," an in-house youth-academy unit of the LA Galaxy MLS club). The agent used `owned` as the closest fit, which is defensible (the parent trivially "owns" its own internal division) but not a clean semantic match — worth a future rulebook revision if this recurs.
 - **`demographicCodes`' `senior`-vs-`masters` ambiguity, a real gap, now fixed**: enriching the Slovenian Handball Federation (a national federation whose senior national teams are the headline entity, not a veterans/masters program) surfaced that the prompt gave no guidance distinguishing sports-industry "senior" (top competitive tier — a senior national team, a club's senior squad) from the literal age-based veterans/masters demographic, even though both `senior` and `masters` are separate controlled values. The agent resolved it correctly by inference (`adult`, not `masters` or `senior`) but flagged the prompt gap explicitly. **Fixed in this same release**: §5's `demographicCodes` reference list now has an explicit disambiguation paragraph, mirroring the existing `competitionLevelCode` disambiguation already in the prompt.
