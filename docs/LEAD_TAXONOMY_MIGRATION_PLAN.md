@@ -1,8 +1,16 @@
 # Lead Taxonomy Migration Plan — Rulebook v1.0 Backfill
 
-**Version:** 2.4.164
+**Version:** 2.4.166
 
-**Status:** Plan / design document, now with one completed execution slice. Phase 2's mechanical `sportCode` sub-step (see §4) has actually run against production — the rest of Phase 2 (every other identity field, and the 299 leads `sportCode` couldn't mechanically resolve) is still unstarted. It describes how to convert the app's existing leads into the controlled taxonomy schema shipped in 2.4.109 (`lib/lead-taxonomy.ts`, `lib/lead-classification.ts`, the new `Lead` fields documented in `docs/ARCHITECTURE.md`'s "Controlled Sports-Industry Taxonomy" section).
+**Status:** Plan / design document, now with two completed execution slices. Phase 2's mechanical `sportCode` sub-step (see §4) ran against production first; the evidence-based agent-research path (§5) for the remaining identity fields (`orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`, `competitionLevelCode`, `cityName`) resumed 2026-08-02 (issue #132) after a prior autonomous `/loop` session's branch was left unmerged and superseded — see the "Progress update" below. Most leads still have no identity fields beyond `sportCode` set.
+
+### Progress update — 2026-08-02 (issue #132 resumed)
+
+A prior autonomous `/loop` session (tracked in issue #132's own comment history) processed ~42 leads on a side branch that was never merged into `main` and has since diverged too far to merge safely (165 commits behind current `main`, missing entire features shipped since — cadences, outreach-send, contact-reply-matching). That branch is being left alone/abandoned rather than force-merged; its actual production data writes (via live `PUT` calls, independent of git state) remain in effect regardless.
+
+Real ground truth as of this update, queried directly from production via `GET /api/leads?brand=<brand>&limit=5000` (not estimated): **141 of 2,723 leads (5%) have `orgTypeCode` set**; **2,582 remain**. This session's own batch (6 leads: New York City FC, Charlotte FC, Seattle Sounders FC, Atlanta United FC, German Football Association, D.C. United Academy — each independently researched via live web sources, applied via `PUT`, and re-verified via a fresh `GET`) is recorded in issue #132's comment thread with full source citations, per this doc's own auditability goal (§3).
+
+At this rate (small manual batches), full coverage of the remaining ~2,582 leads is a multi-session effort measured in weeks, not a one-sitting task — flagged plainly rather than implied otherwise.
 
 ---
 
