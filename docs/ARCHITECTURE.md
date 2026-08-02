@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.168
+**Version:** 2.4.169
 
 ---
 
@@ -256,6 +256,7 @@ Results are cached in a new `winrate_calibration` collection (one doc per `{tena
 Stored in brand-aware collections:
 - `leads` for `cogmap`
 - `seyu_leads` for `seyu`
+- `dvsc_leads` for `dvsc`
 
 Canonical contact storage is `contacts[]` — the sole source of truth as of 2.4.32 (issue #45's hard cutover). There is no longer a separate `decision_maker_name`/`decision_maker_title`/`decision_maker_contact`/`contact_phone` set of top-level fields; decision-maker status is a flag (`isDecisionMaker: boolean`) on a `contacts[]` entry instead, matching how any other contact-level fact is modeled. `POST`, `PUT /api/leads/[id]`, and `PATCH ... MODIFY` all normalize and dedupe `contacts[]` identically via `lib/contacts.ts`, closing a prior bug where `PUT`/`MODIFY` bypassed the merge logic `POST`/`GET` used and could silently diverge from it.
 
@@ -846,7 +847,7 @@ Owner-requested phase 2, answering issue #102's open scope questions directly: a
 
 **Super admin status is deliberately not stored** — persisting an `isSuperAdmin: true` field risks drift (a record created while someone was a super admin would stay stamped `true` after their email is removed from the env var). `isSuperAdminEmail()` derives it fresh on every check, comparing the verified ID token's own `email` claim against a comma-separated `SSO_SUPER_ADMIN_EMAILS` env var. A super admin bypasses `orgAccess` entirely and unconditionally for every brand — the deliberate safety net against the sole operator (iOS-mobile-only access to this environment, no other way in) ever getting locked out by a bug in the per-org assignment logic itself.
 
-**Enforcement, not just display**: per CLAUDE.md Rule 7 ("UI affordances must match real capability"), a menu that merely *hides* inaccessible links without the server actually blocking direct URL access would be security theater, not access control. `lib/require-brand-access.ts`'s `requireBrandAccess(brand)` runs at the top of all six brand-specific Server Component pages (`/sales/[brand]`, `/salessettings/[client]`, `/forecast/[brand]`, `/battlecards/[brand]`, `/outreach/templates/[brand]`, `/contacts/[brand]` as of 2.4.137) before any data fetch: no session → `redirect('/api/auth/login')` (straight to the real SSO login, this app has no login form of its own); session valid but not authorized for that specific brand → `redirect('/access-denied')`. `/admin/users` (below) and its two API routes (`app/api/admin/users/route.ts`, `app/api/admin/users/[userId]/access/route.ts`) use the same pattern via `lib/session.ts`'s `requireSuperAdminSession()` — a distinct, session-based auth scheme from `lib/api-auth.ts`'s `requireApiKey` (machine-to-machine, the external research agent's writes; has no concept of "who is this person").
+**Enforcement, not just display**: per CLAUDE.md Rule 7 ("UI affordances must match real capability"), a menu that merely *hides* inaccessible links without the server actually blocking direct URL access would be security theater, not access control. `lib/require-brand-access.ts`'s `requireBrandAccess(brand)` runs at the top of all seven brand-specific Server Component pages (`/sales/[brand]`, `/salessettings/[client]`, `/forecast/[brand]`, `/battlecards/[brand]`, `/outreach/templates/[brand]`, `/outreach/cadences/[brand]`, `/contacts/[brand]`) before any data fetch: no session → `redirect('/api/auth/login')` (straight to the real SSO login, this app has no login form of its own); session valid but not authorized for that specific brand → `redirect('/access-denied')`. `/admin/users` (below) and its two API routes (`app/api/admin/users/route.ts`, `app/api/admin/users/[userId]/access/route.ts`) use the same pattern via `lib/session.ts`'s `requireSuperAdminSession()` — a distinct, session-based auth scheme from `lib/api-auth.ts`'s `requireApiKey` (machine-to-machine, the external research agent's writes; has no concept of "who is this person").
 
 **Admin UI**: `/admin/users` (`app/admin/users/page.tsx`, server-gated identically to the brand pages, plus the super-admin check — redirects before rendering anything to a non-super-admin) + `admin-users-client.tsx` (GDS `AdminDataTable`, matching this app's established admin-page convention already used by `/battlecards/[brand]` and `/forecast/[brand]`). Lists every user who has ever logged in via SSO, one `Select` per brand (`none`/`user`/`admin`) that `PUT`s `app/api/admin/users/[userId]/access/route.ts` on change. A super admin's own row shows disabled `admin` selects for every brand — their access can't be edited via this UI because it isn't stored here at all.
 
