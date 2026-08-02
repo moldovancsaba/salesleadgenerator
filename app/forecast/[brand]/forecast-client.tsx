@@ -236,9 +236,11 @@ export function ForecastClient({ brand }: Props) {
     // Issue #111: brand was never actually sent, so the server (which
     // hardcoded 'cogmap' regardless) always exported CogMap's data
     // regardless of which brand's page this button was clicked from.
-    // tenantId follows the same brand-as-tenantId convention already used
-    // by this file's other fetches above (win rates, ticket-size calibration).
-    const tenantId = brand === 'cogmap' ? 'cogmap' : 'seyu';
+    // tenantId has always literally equalled brand itself (same as this
+    // file's other fetches above) -- previously a 2-brand ternary that
+    // silently sent 'seyu' for DVSC (found in a 2026-08-02 doc audit,
+    // missed by the #147 DVSC-onboarding sweep that fixed the other three).
+    const tenantId = brand;
     const url = `/api/forecast/export?format=csv&brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}`;
     window.open(url, '_blank');
   };

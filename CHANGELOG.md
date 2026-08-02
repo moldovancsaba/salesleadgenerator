@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.167
+
+### Fixed — documentation audit: version-stamp drift, 5 stale/contradictory doc claims, and a real DVSC forecast-export bug
+
+Every doc's `**Version:**` stamp (`README.md`, `docs/ARCHITECTURE.md`, `docs/INDEX.md`, `docs/LEAD_ENRICHMENT_GUIDE.md`, `docs/LESSONS_LEARNED.md`, `docs/OPERATOR_GUIDE.md`, `docs/STACK_AND_DEPENDENCIES.md`) had drifted up to 10 releases behind `package.json` (stuck at 2.4.156 while the app was at 2.4.166) — synced to 2.4.167. Content itself had mostly kept pace with shipping, but a dedicated audit found 5 real gaps and one previously-undisclosed functional bug:
+
+- `docs/OPERATOR_GUIDE.md`'s taxonomy Known-Issues bullet claimed *"No existing lead has any of them set"* — false since the mechanical `sportCode` backfill (~89% coverage) and the ongoing evidence-based backfill (~5% `orgTypeCode` coverage, issue #132) both predate this fix. Corrected to state real, current coverage.
+- `docs/ARCHITECTURE.md`'s taxonomy section read as if the historical backfill (Phase 2) hadn't started at all — added a paragraph stating it's actively in progress, pointing at `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` for current numbers rather than inlining a count that would go stale again immediately.
+- `docs/ARCHITECTURE.md`'s cadences section directly contradicted itself: one paragraph said all 4 cadence sub-issues (#149-152) shipped, two paragraphs later another said the scheduler (#151) "hasn't shipped yet" — leftover text never revised when #151 actually shipped. Fixed.
+- `docs/ARCHITECTURE.md`'s inbound-webhook section still described `leadId` as "always null" as an open, accepted gap belonging to issue #142 — #142 shipped in 2.4.165 and closed exactly that gap; the section now says so instead of reading as still-open.
+- `docs/OPERATOR_GUIDE.md`'s Deals/Forecast Known-Issues bullet only named CogMap and Seyu, omitting DVSC (which does behave like CogMap here, per issue #148) — added.
+- **Real bug found and fixed**: `app/forecast/[brand]/forecast-client.tsx`'s `downloadCsv()` still computed `tenantId` via a pre-DVSC 2-brand ternary (`brand === 'cogmap' ? 'cogmap' : 'seyu'`), so clicking "Export CSV" on the DVSC forecast page sent `tenantId=seyu` — DVSC's exported CSV was silently computed against Seyu's tenant-scoped settings (pipeline weights, revenue target) instead of its own. Missed by the #147 DVSC-onboarding sweep, which correctly updated the file's other 3 `tenantId` computations to `brandKey`/`brand` directly but not this one. Fixed to the same `const tenantId = brand` pattern already used elsewhere in the same file.
+
+### Testing
+No dedicated test added for the `downloadCsv()` fix — this repo has no React component-test harness for any `.tsx` file today (confirmed: zero `.tsx` files under `tests/`), so a targeted regression test isn't feasible without introducing new test infrastructure disproportionate to a one-line fix that already matches an established, tested pattern (`const tenantId = brand`, identical to 3 other call sites in the same file). Full gate re-run per CLAUDE.md Rule 1: tsc 0 errors, lint 0 errors/warnings, vitest unit (699) + integration (191) + smoke (5) all passing, `next build --webpack` clean.
+
 ## 2.4.166
 
 ### Changed — resumed taxonomy backfill loop, batch 1 (issue #132)
