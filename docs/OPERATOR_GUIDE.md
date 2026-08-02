@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.168
+**Version:** 2.4.169
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -62,7 +62,7 @@ Everything in the app is reachable from one place: the hamburger icon (☰), alw
 - **Organization** switcher (only shown if you have access to 2+ brands)
 - **\<Brand\>** section: **Backlog** (leads parked for later, see [Backlog](#backlog)), **Pipeline** (the kanban/table board), **Sales Settings** (Company Setup)
 - **View** (only shown while already on the Pipeline page for a brand): Kanban, Table, Metrics, Search Learning — these four views live at the same URL with a `?view=` parameter, not separate pages
-- **Reporting**: Forecast, Battlecards, Outreach Templates, Contacts
+- **Reporting**: Forecast, Battlecards, Outreach Templates, Cadences, Contacts
 - **Admin** (super admins only): Prompt Editor, Users & Access, Duplicate Review
 - **Sign out**
 
@@ -72,7 +72,7 @@ There is no on-page dropdown or brand switcher anywhere else in the app (an earl
 
 ## Daily Workflow — Kanban Board
 
-DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted purely by its ICE score (QUALIFIED at 500+, otherwise DISCOVERED; always high to low). Dragging a card out to ENGAGED/PROPOSAL/WON/LOST (or an Accept/Decline/Pin action) hands that lead to manual, user-controlled placement and ordering permanently — it's never auto-moved again even if its score later changes.
+DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted purely by its ICE score (QUALIFIED at 500+, otherwise DISCOVERED; always high to low). Moving a card out to ENGAGED/PROPOSAL/WON/LOST via the "⋮" menu (or an Accept/Decline/Pin action) hands that lead to manual, user-controlled placement permanently — it's never auto-moved again even if its score later changes. There is no drag-and-drop anywhere on this board, on any device — moving a card is always the "⋮" menu or an explicit action button; a new card entering a manually-controlled column always lands at the top, with no way to further reorder it from there.
 
 1. Open `/sales/<brand>` on mobile or desktop.
 2. Review new cards in DISCOVERED.
@@ -84,15 +84,17 @@ DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted p
    - **Refresh** → request updated research
    - **Modify / Edit Lead Details** → edit lead fields directly (see [Lead Detail](#lead-detail))
    - **Delete** → remove lead
-5. Drag cards between columns when the pipeline changes, or use the per-card "⋮" menu to move a card without dragging (this also works on mobile/keyboard, where drag doesn't).
+5. Use each card's "⋮" menu to move it when the pipeline changes — there's no drag-and-drop on this board; the menu is the only way to move a card, on every device.
 
 ### Add Lead
 
 Tap the **+** button in the Pipeline toolbar to manually add a lead the research agent hasn't found yet (a referral, a lead you sourced yourself, etc.). The form captures the same fields the research agent would (entity, URL, country/region, size, industry, contacts, value proposition, tags) up front, rather than creating a bare stub you fill in later. You don't set ICE scores directly — a manually-added lead always starts in DISCOVERED with a neutral default score, exactly like a fresh research-agent lead below the QUALIFIED threshold. Duplicate detection (same URL + entity + region) applies the same as any other lead creation path.
 
+Creation can also be blocked by a quality gate: a lead with very low confidence/ease and no verified decision-maker contact is rejected with "This lead needs a stronger contact before it can be created" — add a contact (with an email, phone, or LinkedIn) before retrying.
+
 ### Required fields to move into ENGAGED or PROPOSAL
 
-A lead needs **at least one contact** (any contact — it no longer has to be flagged as the decision maker) and a **value proposition** filled in before it can be dragged, pinned, or bulk-actioned into ENGAGED or PROPOSAL. If either is missing, the move is blocked with a message like "Missing required fields for ENGAGED: a contact, a value proposition" — fill in the missing field(s) (in Edit Lead Details) and try again. DISCOVERED/QUALIFIED (auto-managed) and WON/LOST (terminal) are never gated this way.
+A lead needs **at least one contact** (any contact — it no longer has to be flagged as the decision maker) and a **value proposition** filled in before it can be moved, pinned, or bulk-actioned into ENGAGED or PROPOSAL. If either is missing, the move is blocked with a message like "Missing required fields for ENGAGED: a contact, a value proposition" — fill in the missing field(s) (in Edit Lead Details) and try again. DISCOVERED/QUALIFIED (auto-managed) and WON/LOST (terminal) are never gated this way.
 
 ### Collapsing columns
 
@@ -110,7 +112,7 @@ Backlog is a holding area for leads you don't want to work right now, but don't 
 
 - Reach it via the **Backlog** link in the hamburger menu, right before **Pipeline**.
 - It's the same board component as Pipeline — same card layout, Select mode, bulk actions, filters — but with a single **Backlog** column instead of the six pipeline stages.
-- From any pipeline column's card menu, choose **Move to Backlog** to park a lead. From a Backlog card, choose **Move to Pipeline** and pick which column it should land in (Discovered, Qualified, Engaged, Proposal, Won, or Lost) — this is a dedicated action, not the drag/drop or per-card "⋮" move menu used elsewhere, since a 1-column board and a 6-column board can't offer each other's columns as generic drag targets.
+- From any pipeline column's card menu, choose **Move to Backlog** to park a lead. From a Backlog card, choose **Move to Pipeline** and pick which column it should land in (Discovered, Qualified, Engaged, Proposal, Won, or Lost) — this is a dedicated action, not the per-card "⋮" move menu used elsewhere, since a 1-column board and a 6-column board can't offer each other's columns as generic move targets.
 - **Backlog leads are excluded from Forecast and the Metrics dashboard** — a deliberately-parked lead shouldn't inflate or distort revenue projections or pipeline health numbers. They're also exempt from staleness/"rotten" indicators, since being untouched in Backlog is the intended state, not neglect.
 - **Backlog leads are included in Table view** alongside every other column, so you can still search/filter/export them; they're only hidden from the Pipeline kanban board itself.
 
@@ -156,7 +158,7 @@ Tapping a card (or a table row) opens the full detail view:
 - **Source / Created / Last Updated**: a small metadata row shows the lead's acquisition channel (`manual`, `research_agent`, or whatever a caller sets — `—` if never recorded) and the full date+time it was created and last touched.
 - **Contacts**: each contact shows a "Decision Maker" flag (informational — no longer required to move a lead forward, see the workflow section above), an email-verification badge (Checking… / Verified domain / Undeliverable domain / Check failed — retry pending — this only confirms the *domain* can receive mail, never that the specific mailbox exists), and rule-based seniority/department badges derived from the contact's title (e.g. "VP" + "Sales" for "VP of Sales"). A contact not re-confirmed in 180 days shows a "Needs re-verification" badge. Tap **Edit** on the Contacts section to add a new contact, edit an existing one's fields, toggle its decision-maker flag, or remove it — each contact is its own row with its own remove button; **Save** replaces the whole contact list, **Cancel** discards changes.
 - **Tech Signals**: badges for anything detected on the lead's own website homepage (WordPress, Google Analytics, HubSpot, etc.), a "No tech signals detected" note, or nothing at all if never scanned. Use **Refresh**'s tech-rescan or the RESCAN_TECH action to re-check.
-- **Edit Lead Details**: an Edit/Save/Cancel form for `entity_name`, `url`, `address`, `general_contact`, `size`, `industry`, `sport_or_sector`, `level_league`, `value_proposition`, `notes`, `tags`. This form does **not** yet include the newer controlled-taxonomy fields (`sportCode`, `orgTypeCode`, `businessUnitCode`, etc., added 2.4.109) — those are API-only for now; see [Lead Taxonomy](#lead-taxonomy) and [Known Issues and Limitations](#known-issues-and-limitations).
+- **Edit Lead Details**: an Edit/Save/Cancel form for `entity_name`, `url`, `country` (2-letter ISO code), `address`, `general_contact`, `size`, `industry`, `sport_or_sector`, `level_league`, `value_proposition`, `notes`, `tags`. This form does **not** yet include the newer controlled-taxonomy fields (`sportCode`, `orgTypeCode`, `businessUnitCode`, etc., added 2.4.109) — those are API-only for now; see [Lead Taxonomy](#lead-taxonomy) and [Known Issues and Limitations](#known-issues-and-limitations).
 - **Actual deal value** (only shown once a lead is WON): capture the real, closed contract value — this feeds Ticket-Size Calibration on the Forecast page.
 - **Manual ticket-size override**: from the same edit form, override the computed Ticket Size with your own number and a required reason (a rep's direct knowledge of a specific deal). "Clear override" reverts to the modelled estimate immediately.
 
@@ -168,7 +170,7 @@ Deals are separate from the automatic **Ticket Size** estimate below — Ticket 
 
 - **Add a deal**: tap **Edit** under Deals, then **Add deal**, enter a value (and an optional label like "Renewal"), and **Save**.
 - **Convert ticket estimate to a Deal**: a one-tap shortcut that pre-fills a new deal's value from the current Ticket Size estimate — the value is fully editable before you save, it never saves automatically.
-- **Deal currency** always matches the brand's own forecast currency (USD for CogMap, EUR for Seyu and DVSC) — there's no per-deal currency picker.
+- **Deal currency** — there's no per-deal currency picker, and **"Add a deal" currently always defaults the new row to USD regardless of brand** (a known bug — for a Seyu/DVSC lead, EUR forecast amounts get silently stored as if they were USD, with no in-app way to correct it once saved). "Convert ticket estimate to a Deal" doesn't have this problem — it correctly copies the currency from the already brand-correct Ticket Size estimate. Until this is fixed, prefer converting from the Ticket Size estimate over manually adding a deal on a Seyu/DVSC lead where possible.
 - **Once a lead has any deal**, the Forecast page uses the sum of its deals instead of the Ticket Size estimate for that lead's revenue contribution — the Ticket Size estimate keeps recalculating in the background as a reference figure, it just stops being the number that counts toward Forecast.
 - Every lead with at least one deal shows a **DEAL** badge on its kanban card, in every column, alongside (not replacing) the quality-status badge.
 
@@ -322,7 +324,7 @@ Reached via **Reporting → Forecast** for a brand. Shows, top to bottom:
 - **Forecast Calibration** — compares the hand-picked close-probability per stage against what real WON/LOST history actually shows, with a toggle to switch the whole forecast between **Static** (hand-set) and **Calibrated** (real-history-driven) mode. A stage needs at least 20 closed deals before its calibrated rate is trusted; until then, the static rate keeps being used for that stage even in Calibrated mode.
 - **Ticket-Size Calibration** — see the [Ticket Size](#ticket-size) section above.
 - **Pricing by Company** (Seyu only) — per-client pricing terms and estimated annual value, plus a grand total.
-- **Pipeline / By Tier / By Model** (CogMap only) — dollar value per pipeline stage, per company-size tier, and per revenue model.
+- **Pipeline / By Tier / By Model** (CogMap and DVSC, which reuses CogMap's own deal-size-band model — not Seyu) — dollar value per pipeline stage, per company-size tier, and per revenue model.
 - **Pipeline Weights** — editable close-probability percentages per stage, with Save — this is what feeds every "static" probability used above.
 - **Export CSV** button (top of page) — downloads the current brand's pipeline per-column revenue/probability/weighted-revenue breakdown as a spreadsheet, matching the numbers shown on the page (fixed 2.4.92 — it previously always exported CogMap's data regardless of which brand's page you clicked it from).
 
@@ -380,7 +382,7 @@ Edit the text instructions that drive the autonomous research agent for a brand/
 
 ## Mobile / PWA
 
-The app can be installed as a Progressive Web App (add-to-home-screen from your browser's share/menu) — pinch-zoom is intentionally locked to prevent accidental zoom while dragging cards. A **back-to-top** button appears bottom-right once you've scrolled down any page, and returns you to the top with one tap.
+The app can be installed as a Progressive Web App (add-to-home-screen from your browser's share/menu) — pinch-zoom is intentionally locked to prevent accidental zoom while scrolling the board. A **back-to-top** button appears bottom-right once you've scrolled down any page, and returns you to the top with one tap.
 
 ---
 

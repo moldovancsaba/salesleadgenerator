@@ -1,5 +1,31 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.169
+
+### Added — new docs/LLD.md (Low-Level Design)
+
+A new whole-app, implementation-depth module map: every API route (with methods and auth guard), every `lib/*.ts`/`app/lib/*.ts` module (and why the split between them is real, not arbitrary), the UI component tree and its self-fetching-child convention, every brand-scoped page, the full data model, and the cross-cutting auth/tenant/taxonomy threading. Sits one level below `docs/ARCHITECTURE.md` (system-level "why") — this is "where the code actually lives."
+
+### Changed — fixed `docs/OPERATOR_GUIDE.md` and `docs/ARCHITECTURE.md` against a real accuracy audit
+
+`ARCHITECTURE.md`: Data Model section's lead-collection list was missing `dvsc_leads`; the SSO access-control page enumeration said "six brand-specific pages," missing the seventh (`/outreach/cadences/[brand]`, shipped in #124/#152).
+
+`OPERATOR_GUIDE.md` (6 real fixes, found via direct source comparison, not guessed):
+- **Drag-and-drop doesn't exist anywhere on the kanban board, on any device** — `GdsKanbanBoard`'s `enableDrag` defaults `false` and is never set `true`. The guide repeatedly described dragging as a real interaction across 5 separate sections; all corrected to describe the actual mechanism (the card's "⋮" move menu).
+- The "Edit Lead Details" field list was missing `country`.
+- Add Lead's real 422 quality-gate rejection ("needs a stronger contact") was undocumented — only the 409 duplicate-detection path was covered.
+- Forecast's "Pipeline / By Tier / By Model" was mislabeled "(CogMap only)" — it's CogMap **and** DVSC (which reuses CogMap's deal-size-band model), contradicting the guide's own correct statement of this fact elsewhere.
+- The Navigation section's Reporting list was missing Cadences (documented correctly elsewhere in the same file, just not in the top-level nav inventory).
+- **The Deals section stated a false claim**: "Deal currency always matches the brand's own forecast currency" — in reality, manually-added deals always default to USD regardless of brand (a real, separately-filed bug, see below); only "Convert ticket estimate to a Deal" gets the currency right. The guide now states the real behavior and recommends the safe path until the bug is fixed.
+
+### Filed, not fixed — issue #165, #166
+
+- **#165**: a design-plan-only GitHub issue for a new-user onboarding tour (step-by-step spotlight walkthrough) — grounded in the real kanban/detail/outreach UI, with an explicit GDS-overlay-vs-third-party-library tradeoff since neither the governed design system nor Mantine has a spotlight-tour primitive today. No implementation in this release.
+- **#166**: 4 real bugs/type gaps surfaced while auditing the docs (deliberately not fixed in this documentation-only pass) — manually-added deals defaulting to USD regardless of brand (a real money-accuracy bug), Sales Settings hardcoding "(€)" on every pricing label regardless of brand, `app/types.ts`'s `Lead` type missing `contactEmails` (issue #142 field, genuinely written but not in the type), and `Lead.region`'s type being a closed 3-value union that contradicts real (free-text) runtime behavior.
+
+### Testing
+No app code changed — full gate re-run anyway per CLAUDE.md Rule 1: tsc 0 errors, lint 0 errors/warnings, vitest unit (699) + integration (191) + smoke (5) all passing, `next build --webpack` clean.
+
 ## 2.4.168
 
 ### Fixed — resolved issue #163: applied #136's federation/competition-organiser rule to the 4 remaining leads
