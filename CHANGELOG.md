@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.168
+
+### Fixed — resolved issue #163: applied #136's federation/competition-organiser rule to the 4 remaining leads
+
+The 4 leads issue #136 had explicitly deferred (real legal-entity research needed, never guessed) are now resolved — each independently researched via real, live sources, applied via `PUT /api/leads/[id]`, and re-verified via a fresh `GET`:
+
+- FIFA World Cup: `tournament` → `federation` (FIFA's own consolidated-subsidiary financial notes confirm no independent legal entity organizes it; the 2026 edition dispenses with even the local-organizing-committee model).
+- IHF World Handball Championship: `tournament` → `federation` (IHF's own Statutes/Standard Contract: IHF is the event holder, the host federation's Local Organising Committee stays legally subordinate — "essentially an IHF event").
+- ICC T20 World Cup: `tournament` → `federation` (same governance structure as its sibling ICC Cricket World Cup lead — ICC organizes it directly).
+- **FIVB Volleyball World Championship: `tournament` → `competition-organiser`** — the one case matching the Rugby World Cup pattern. Confirmed via a live Swiss commercial-registry lookup: FIVB partnered with CVC Capital Partners to form Volleyball World, operated through a separately-incorporated Swiss company (VW Volleyball World SA), a genuinely independent legal entity, not a FIVB-owned instrumentality.
+
+Full citations recorded in issue #163's closing comment. `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`'s #136 remaining-scope note updated to reflect the resolution.
+
+Also fixed: `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`'s own `**Version:**` stamp had been missed by the 2.4.167 doc-sync pass and was still stuck at 2.4.166 — caught and fixed here, all 8 version-stamped docs now agree.
+
+### Testing
+No code changed — production data only, verified via live re-fetch after each write (see above). Full gate re-run per CLAUDE.md Rule 1: tsc 0 errors, lint 0 errors/warnings, vitest unit (699) + integration (191) + smoke (5) all passing, `next build --webpack` clean.
+
 ## 2.4.167
 
 ### Fixed — documentation audit: version-stamp drift, 5 stale/contradictory doc claims, and a real DVSC forecast-export bug
