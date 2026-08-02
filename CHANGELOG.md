@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.166
+
+### Changed — resumed taxonomy backfill loop, batch 1 (issue #132)
+
+Resumed issue #132's evidence-based taxonomy backfill (rulebook v1.0 Phase 2), which had stalled on an unmerged, now-abandoned side branch (165 commits behind `main`, missing entire shipped features — see `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`'s new progress note). Ground truth re-established by querying production directly rather than trusting the stale branch's own progress claim: 141 of 2,723 leads (5%) had `orgTypeCode` set before this batch.
+
+6 leads researched (live web sources, one independent research pass per lead, source-cited) and applied via `PUT /api/leads/[id]`, each independently re-verified via a fresh `GET`:
+- New York City FC, Charlotte FC, Seattle Sounders FC, Atlanta United FC (CogMap) — MLS clubs/academies, `orgTypeCode`/`businessUnitCode`/`genderCode`/`demographicCodes`/`competitionLevelCode`/`cityName` set from each club's own academy or main site.
+- German Football Association / DFB (CogMap) — `orgTypeCode: federation`, `genderCode: mixed` (governs men's/women's/youth football at all levels, no single unit applies).
+- D.C. United Academy (Seyu) — `orgTypeCode: academy`, `businessUnitCode: youth-academy`.
+
+Atlanta United FC's `businessUnitCode` was left unset per the rulebook's "omit rather than guess" rule (§2.6 of `docs/LEAD_ENRICHMENT_GUIDE.md`) — the lead's URL is the club's general domain covering first team, academy, and reserve side with no disambiguating sub-path.
+
+Full batch detail with source citations recorded in issue #132's comment thread, matching this doc's own auditability goal.
+
+**2,582 leads remain unclassified.** At manual-batch pace this is a multi-session effort — stated plainly, not silently understated.
+
+### Testing
+No code changed — full gate re-run anyway per CLAUDE.md Rule 1: tsc 0 errors, lint 0 errors/warnings, vitest unit (699) + integration (191) + smoke (5) all passing, `next build --webpack` clean.
+
 ## 2.4.165
 
 ### Added — reply matching + contact-enrichment suggestions (issue #142)
