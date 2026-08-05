@@ -93,6 +93,7 @@ This README is the single source of truth for documentation paths and descriptio
 | `README.md` | Onboarding, quick start, and documentation index |
 | `CLAUDE.md` | Mandatory operating rules for any AI coding assistant working in this repo (quality gate, issue-driven workflow, DoD, branch/push authorization) |
 | `CHANGELOG.md` | Version history, shipped features, and known limitations |
+| `roadmap.md` | Every real open GitHub issue, grouped by status — the standing substitute for a GitHub Projects board, which this session's tooling cannot reach (see `CLAUDE.md` Rule 2.5) |
 | `docs/LESSONS_LEARNED.md` | Recurring mistake patterns, sandbox/verification limitations, and the "why" behind key architectural decisions |
 | `docs/LEAD_ENRICHMENT_GUIDE.md` | Structured catalog of every enrichable lead field plus a ready-to-use AI research-agent prompt for ongoing lead enrichment |
 | `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` | Plan for converting existing leads into the controlled sports-industry taxonomy schema (rulebook v1.0, 2.4.109) — now also the execution log for the in-progress backfill (issue #132) |
