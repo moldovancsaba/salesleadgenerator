@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.171
+
+### Fixed — issue #169: deal/ticket-size currency now follows the operator's actual Sales Settings selection, not just the brand default
+
+Manually-added deals defaulted to a hardcoded `'USD'` regardless of brand — filed as a real money-accuracy bug in 2.4.169's docs audit. Investigating it surfaced a deeper, related gap: **every** currency-computation site for Ticket Size estimates read the brand's fixed default (`defaultRevenueTargetCurrency(brand)`) instead of the currency an operator actually saved via the Sales Settings "Revenue Target" currency picker (`revenueTarget.currency`) — so that picker silently had no effect on Ticket Size or Deal currency at all, only on the Pipeline Coverage indicator.
+
+Fixed at every site that computes or persists this currency:
+- `app/lib/ticket-size-store.ts`'s `computeTicketSizeForLead()` (the live path — runs on every `POST`/`PUT` to `/api/leads`) — already loaded the settings doc for `dealSize`/`products`/`regionMultipliers`; now also reads `settings.revenueTarget.currency` from it instead of recomputing the brand default.
+- `PUT /api/sales-settings/[brand]`'s fire-and-forget ticket-size backfill — now passes the just-saved `sanitized.revenueTarget.currency`, so choosing a non-default currency and hitting Save actually takes effect immediately, instead of silently backfilling every lead back to the brand default on the very save meant to change it.
+- `POST /api/admin/ticket-size-backfill` and `GET/POST /api/admin/ticket-size-recalc` (the manual and weekly-cron sweeps) — now load each brand's settings doc and use its real saved currency, so the cron sweep no longer fights an operator's non-default currency choice on every run.
+- `scripts/backfill-ticket-size.ts` — same fix, for consistency (not reachable by the repo owner directly, no terminal access, but kept in sync so it never silently disagrees with the live paths).
+- `lib/deals.ts`'s `sanitizeDeal()` — validated only a hardcoded `'EUR'`-or-else-`'USD'` ternary; now validates against `CURRENCY_CODES`, the real extensible source of truth.
+- `app/detail.tsx`'s "Add deal" button — no longer hardcodes `'USD'`; defaults to the lead's own computed Ticket Size currency (kept in sync by the fixes above) when available, falling back to the brand's own default currency otherwise. Matches what "Convert ticket estimate to a Deal" already did correctly.
+
+The Sales Settings currency selector itself was not changed or removed — it already existed (`revenueTarget.currency`, added under issue #145) and continues to work exactly as before from an operator's point of view; the fix is that its saved value is now actually honored downstream instead of being silently ignored in favor of the brand default everywhere except the Pipeline Coverage indicator.
+
+`docs/OPERATOR_GUIDE.md` updated in both places this previously described the wrong (or incomplete) behavior: the Deals section's "known bug" note, and the Revenue Target field description under Sales Settings.
+
+### Testing
+`tests/lib/ticket-size-store.test.ts` (new) — unit-tests `computeTicketSizeForLead()` reading the settings doc's own `revenueTarget.currency` over the brand default, and falling back correctly when no settings doc or no currency is set. Full gate: tsc 0 errors, lint 0 errors/warnings, vitest unit (702) + integration (191) + smoke (5) all passing, `audit:gds-style` clean.
+
 ## 2.4.170
 
 ### Added — `docs/ISSUE_MANAGEMENT.md`: canonical reference for how issues are managed here

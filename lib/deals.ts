@@ -3,6 +3,7 @@
 // here ever runs automatically, only in response to an explicit user action
 // (add, convert-from-estimate, edit, remove).
 
+import { CURRENCY_CODES } from '@/app/lib/brand';
 import type { CurrencyCode } from '@/app/lib/brand';
 
 const ABSOLUTE_CEILING = 50_000_000; // Same ceiling as lib/ticket-size.ts's own ABSOLUTE_CEILING / app/lib/sales-settings.ts's MAX_DEAL_SIZE_INPUT — one deal shouldn't be able to enter a figure the rest of this app treats as implausible.
@@ -51,7 +52,11 @@ export function sanitizeDeal(input: DealInput, options?: SanitizeDealOptions): D
   const existing = options?.existing ?? null;
   const nowIso = now.toISOString();
 
-  const currency: DealCurrency = input.currency === 'EUR' ? 'EUR' : 'USD';
+  // Issue #169 — validated against the real, extensible CurrencyCode set
+  // (app/lib/brand.ts's single source of truth) instead of a hardcoded
+  // 'EUR'-or-else-'USD' ternary, which silently mis-stored any other valid
+  // currency code as USD.
+  const currency: DealCurrency = CURRENCY_CODES.includes(input.currency) ? input.currency : 'USD';
   const label = typeof input.label === 'string' ? input.label.trim().slice(0, 200) : undefined;
   const source: Deal['source'] = input.source === 'converted_ticket_estimate' ? 'converted_ticket_estimate' : 'manual';
 

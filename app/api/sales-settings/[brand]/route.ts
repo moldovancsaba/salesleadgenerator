@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
 import { getTenantId } from '@/lib/tenant'
-import { sanitizeSalesSettings, emptySalesSettings, defaultRevenueTargetCurrency } from '@/app/lib/sales-settings'
+import { sanitizeSalesSettings, emptySalesSettings } from '@/app/lib/sales-settings'
 import { backfillTicketSizeCollection } from '@/lib/backfill-ticket-size'
 
 const COLLECTION = 'company_settings'
@@ -86,7 +86,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ bran
     // contract already established for issues #67/#69's background writes.
     const config = BRAND_CONFIG[brand]
     if (config) {
-      void backfillTicketSizeCollection(db, config.dbCollection, brand, tenantId, defaultRevenueTargetCurrency(brand), { apply: true })
+      // Issue #169 — use the currency the operator just selected and saved
+      // (sanitized.revenueTarget.currency), not the brand's fixed default.
+      // Previously this recomputed the brand default from scratch here, so
+      // choosing a non-default currency in Sales Settings and hitting Save
+      // would silently backfill every lead's ticket-size estimate back to
+      // the wrong currency on the very save that was supposed to set it.
+      void backfillTicketSizeCollection(db, config.dbCollection, brand, tenantId, sanitized.revenueTarget.currency, { apply: true })
         .catch((error) => console.error('[sales-settings PUT] ticket-size recompute failed', { brand, tenantId, error }))
     }
 

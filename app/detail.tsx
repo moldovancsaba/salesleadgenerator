@@ -8,7 +8,7 @@ import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, Nu
 import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
-import { PRO_FIELD, CON_FIELD } from './lib/brand';
+import { PRO_FIELD, CON_FIELD, BRAND_CONFIG } from './lib/brand';
 import type { CurrencyCode } from './lib/brand';
 import { getTicketSize, SIZE_FIELD_OPTIONS } from './constants';
 import { isContactStale, DEFAULT_STALENESS_THRESHOLD_DAYS } from '@/lib/contact-freshness';
@@ -1132,7 +1132,21 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
                 </Group>
               </Box>
             ))}
-            <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} onClick={() => setDealsForm((rows) => [...rows, { value: '', currency: 'USD', label: '' }])}>
+            <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} onClick={() => {
+              // Issue #169 — default a new manual deal to the currency
+              // actually configured for this brand/tenant rather than a
+              // hardcoded 'USD'. Prefers the lead's own computed ticket-size
+              // currency (kept in sync with the Sales Settings currency
+              // selector — see app/lib/ticket-size-store.ts), matching what
+              // "Convert ticket estimate to a Deal" already does just above;
+              // falls back to the brand's own default when no estimate has
+              // been computed for this lead yet.
+              const ticketSize = getTicketSize(lead);
+              const defaultCurrency: CurrencyCode = (ticketSize && ticketSize.kind !== 'unconfigured' ? ticketSize.currency : undefined)
+                ?? BRAND_CONFIG[brand]?.currency
+                ?? 'USD';
+              setDealsForm((rows) => [...rows, { value: '', currency: defaultCurrency, label: '' }]);
+            }}>
               Add deal
             </Button>
             <Group gap="xs">

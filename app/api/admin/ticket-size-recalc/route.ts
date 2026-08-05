@@ -3,6 +3,7 @@ import clientPromise from '../../../../lib/mongodb'
 import { requireCronOrApiKey, requireApiKey } from '../../../../lib/api-auth'
 import { BRAND_CONFIG } from '../../../lib/brand'
 import { defaultRevenueTargetCurrency } from '../../../lib/sales-settings'
+import type { SalesSettings } from '../../../lib/sales-settings'
 import { backfillTicketSizeCollection } from '../../../../lib/backfill-ticket-size'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +20,12 @@ async function recalcAllBrands() {
 
   for (const brand of BRANDS) {
     const config = BRAND_CONFIG[brand]
-    const currency = defaultRevenueTargetCurrency(brand)
+    // Issue #169 — read the operator's actual saved currency choice, same
+    // fix as POST /api/admin/ticket-size-backfill; otherwise this weekly
+    // cron sweep would silently revert any non-default currency selected in
+    // Sales Settings back to the brand default on every run.
+    const settingsDoc = (await db.collection('company_settings').findOne({ brand, tenantId: TENANT_ID })) as SalesSettings | null
+    const currency = settingsDoc?.revenueTarget?.currency ?? defaultRevenueTargetCurrency(brand)
     const result = await backfillTicketSizeCollection(db, config.dbCollection, brand, TENANT_ID, currency, { apply: true })
     byBrand[brand] = {
       collection: config.dbCollection,

@@ -25,7 +25,12 @@ export async function computeTicketSizeForLead(
   lead: { size?: string; estimated_participants?: number; region?: string }
 ): Promise<TicketSizeResult> {
   const settings = (await db.collection('company_settings').findOne({ brand, tenantId })) as SalesSettings | null;
-  const currency = defaultRevenueTargetCurrency(brand);
+  // Issue #169 — previously always recomputed the brand's fixed default
+  // here, silently ignoring an operator's own currency choice saved via the
+  // Sales Settings page (settings.revenueTarget.currency). The settings doc
+  // is already loaded above; read the real selection from it before falling
+  // back to the brand default for a not-yet-configured brand/tenant.
+  const currency = settings?.revenueTarget?.currency ?? defaultRevenueTargetCurrency(brand);
   const sizeTier = (VALID_SIZE_TIERS as string[]).includes(lead.size || '') ? (lead.size as TicketSizeTier) : undefined;
   const unitCount = typeof lead.estimated_participants === 'number' && lead.estimated_participants > 0
     ? lead.estimated_participants
