@@ -14,6 +14,8 @@ If achieving zero-warning/zero-deprecation requires a larger change (e.g. a majo
 
 ## 2. Work from GitHub issues
 
+**Full detail on everything in this rule** — the exact tools used, the mandatory issue-body structure, the real label taxonomy, how sub-issue dependencies are recorded, and the complete verified investigation behind point 5 below — lives in `docs/ISSUE_MANAGEMENT.md`. Read it before managing issues here; this rule is the summary, that doc is the reference.
+
 When a request arrives that amounts to more than a single, obvious, one-file change:
 1. Decompose it into independently executable, concrete deliverables — no vague or umbrella tickets.
 2. Record each deliverable as its own GitHub issue before (or as part of) doing the work, following the structure established in this repo's existing issues (executive summary, current state with exact file/line references, architecture, pseudo-code where relevant, edge cases, acceptance criteria, testing, documentation, rollback/handover).
