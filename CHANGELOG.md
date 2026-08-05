@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.170
+
+### Added — `docs/ISSUE_MANAGEMENT.md`: canonical reference for how issues are managed here
+
+Consolidates and expands on what had previously only lived scattered across `CLAUDE.md` Rule 2 and `roadmap.md`'s own header note: the exact GitHub MCP tools used for issue CRUD (and a real historical mistake to avoid — `issue_write`'s `method: 'update'` replaces the body, use `add_issue_comment` for progress notes), the mandatory issue-body structure, the real observed label taxonomy (type/priority/status/area), how structural sub-issue dependencies are recorded (`sub_issue_write` needs the numeric database `id`, not the issue number), the full lifecycle from decompose through close-and-resync, and the complete verified investigation behind why no GitHub Projects board is reachable from this session (live-tested: classic Projects returns a real `404`, the GraphQL-only current Projects is blocked by this session's own proxy, not GitHub).
+
+Wired in from every doc that touches issue management, so it's discoverable rather than an orphan file: `README.md`'s doc table, `docs/ARCHITECTURE.md`'s new "Project & Issue Management" section, `docs/LLD.md`'s new §10, `CLAUDE.md` Rule 2's own header, and `roadmap.md`'s header.
+
+### Testing
+No code changed — documentation only. Full gate re-run per CLAUDE.md Rule 1: tsc 0 errors, lint 0 errors/warnings, vitest unit (699) + integration (191) + smoke (5) all passing, `next build --webpack` clean.
+
 ## 2.4.169
 
 ### Added — new docs/LLD.md (Low-Level Design)

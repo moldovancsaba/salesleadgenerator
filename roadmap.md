@@ -4,6 +4,8 @@
 
 **Keeping this in sync:** whenever an issue opens, closes, or changes status/priority, update its row here in the same change. If this file and GitHub ever disagree, GitHub is the source of truth — fix this file, not the other way around.
 
+**Full methodology** — the exact tools used to manage issues, the mandatory issue-body structure, the real label taxonomy, how dependencies between issues are recorded, and the complete verified investigation behind why no board is reachable — lives in `docs/ISSUE_MANAGEMENT.md`. This file is just the live status view; that one is the reference.
+
 Last synced: 2026-08-05, against `moldovancsaba/salesleadgenerator`'s real open-issue list (8 issues).
 
 ---

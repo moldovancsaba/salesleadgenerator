@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.169
+**Version:** 2.4.170
 
 ---
 
@@ -15,6 +15,7 @@
 - [Auth, Middleware, CORS, and Security](#auth-middleware-cors-and-security)
 - [Deployment and Environment](#deployment-and-environment)
 - [Tenant Isolation](#tenant-isolation)
+- [Project & Issue Management](#project--issue-management)
 
 This file is a long, dated, feature-by-feature technical narrative — each dated
 paragraph documents one issue/change as it shipped, in the section it belongs
@@ -887,3 +888,9 @@ Owner-requested phase 2, answering issue #102's open scope questions directly: a
 - `tenantId` scopes queries; default includes legacy docs without `tenantId`
 - Pros/cons fields are generic and shared across brands (2.3.0) — isolation between brands comes from the separate per-brand collections, not from field naming
 - Outreach templates and logs are tenant-scoped
+
+---
+
+## Project & Issue Management
+
+Work in this repo is tracked as real GitHub Issues — creation, labeling (`type`/`priority`/`status`/`area`), and structural sub-issue dependencies, all via the GitHub MCP tools. **GitHub Projects (the kanban-style board) is not reachable from an agent session** — verified directly: classic Projects is fully removed from GitHub itself (a live API call returns a real `404`), and the current, GraphQL-only Projects is blocked by this session's own credential restriction (a live authenticated GraphQL call was rejected by the session's proxy, not by GitHub). `roadmap.md` (repo root) is the standing substitute — every real open issue, grouped by status, kept in sync by hand. Full detail, the exact tools used, the mandatory issue-body structure, the label taxonomy, and the complete verified investigation into the board question: `docs/ISSUE_MANAGEMENT.md`.

@@ -1,6 +1,6 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.169
+**Version:** 2.4.170
 
 **Status:** New document, first written 2026-08-02. This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 
@@ -16,6 +16,7 @@ Compiled directly from the real source (export lists, import graphs, route handl
 - **§6** is every brand-scoped page and what it calls.
 - **§7** is the data model — every collection's real document shape.
 - **§8** is cross-cutting concerns (brand/tenant scoping, the auth layering, taxonomy enforcement) — read this if you're touching more than one module and need to know what already threads through all of them.
+- **§9** records known type/reality gaps not yet fixed. **§10** covers how GitHub issue management/tooling actually works here, and points to `docs/ISSUE_MANAGEMENT.md` for full detail.
 
 ---
 
@@ -357,9 +358,17 @@ SSO plumbing (`lib/sso.ts` PKCE flow + `lib/sso-access.ts` org-access model) und
 
 ## 9. Known type/reality gaps (not yet fixed)
 
-Surfaced by the audit that produced this document — real, but out of scope for a documentation-only pass, recorded here rather than silently dropped:
+Surfaced by the audit that produced this document — real, but out of scope for a documentation-only pass, recorded here rather than silently dropped. Both now tracked as their own issues (split out of the original bundled finding, #166):
 
-- **`app/types.ts`'s `Lead.contactEmails` is missing** despite the field being genuinely written on every contact-write path since issue #142.
-- **`app/types.ts`'s `Lead.region` is typed as a closed `"US"|"CEE"|"MENA"` union** but is genuinely free text at runtime (`app/lib/normalize-lead.ts` uppercases arbitrary input, defaulting to `'NA'` — not a member of the union). `docs/ARCHITECTURE.md` already documents the real free-text behavior correctly; only the type itself is stale.
+- **`app/types.ts`'s `Lead.contactEmails` is missing** despite the field being genuinely written on every contact-write path since issue #142. Tracked: [#171](https://github.com/moldovancsaba/salesleadgenerator/issues/171).
+- **`app/types.ts`'s `Lead.region` is typed as a closed `"US"|"CEE"|"MENA"` union** but is genuinely free text at runtime (`app/lib/normalize-lead.ts` uppercases arbitrary input, defaulting to `'NA'` — not a member of the union). `docs/ARCHITECTURE.md` already documents the real free-text behavior correctly; only the type itself is stale. Tracked: [#172](https://github.com/moldovancsaba/salesleadgenerator/issues/172) (needs an owner decision, not a mechanical fix).
 
-Both are candidates for a small, separately-scoped type-accuracy fix (CLAUDE.md Rule 2) — not bundled into this documentation pass.
+---
+
+## 10. GitHub Issue Management & Tooling
+
+Issue/label/sub-issue CRUD in this repo goes through the GitHub MCP server's tools (`mcp__github__issue_write`, `add_issue_comment`, `sub_issue_write`, `list_issues`, `issue_read`, `search_issues`) — not the `gh` CLI, not raw REST. One easy mistake worth flagging here: `issue_write`'s `method: 'update'` **replaces the issue body** rather than appending — use `add_issue_comment` for progress notes, never `update` for that.
+
+**GitHub Projects (the board) has no reachable path from an agent session** — two independent, both-live-tested reasons: classic Projects' REST API is fully removed from GitHub (`GET /repos/.../projects` → real `404`), and the current GraphQL-only Projects is blocked by this session's own credential restriction (a live authenticated GraphQL call was rejected by the session's proxy — `"not enabled for this session"` — not by GitHub itself). No tool in this session's toolset exposes Projects at all, by any name searched. `roadmap.md` (repo root) is the standing substitute.
+
+Full detail — the mandatory issue-body template, the real label taxonomy, how structural sub-issue dependencies are recorded (`sub_issue_write` needs the child's numeric database `id`, not its issue number — a real, easy-to-mix-up distinction), and the complete verified investigation behind the board-access claim above: **`docs/ISSUE_MANAGEMENT.md`**.
