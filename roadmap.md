@@ -1,0 +1,51 @@
+# Roadmap — Sales Lead Generator
+
+**Why this file exists:** GitHub's Projects (v2) board for this repo cannot be read or written from this session — its only API is GraphQL, and this session's GitHub credentials are restricted to a pinned set of PR-review operations (verified directly: a live authenticated GraphQL call was rejected by the session's own proxy, not by GitHub). Classic Projects (the old REST-based board) is gone from GitHub entirely — sunset 2024, fully removed mid-2025 (confirmed live: `GET /repos/.../projects` returns a real `404` from GitHub itself). This file is the substitute: every real open issue, grouped by status, kept in sync by hand whenever an issue's state changes. It is not a replacement for the issues themselves — every row here is a real GitHub issue, this is just a single-page view of all of them.
+
+**Keeping this in sync:** whenever an issue opens, closes, or changes status/priority, update its row here in the same change. If this file and GitHub ever disagree, GitHub is the source of truth — fix this file, not the other way around.
+
+Last synced: 2026-08-05, against `moldovancsaba/salesleadgenerator`'s real open-issue list (8 issues).
+
+---
+
+## In Progress
+
+| # | Title | Priority | Notes |
+|---|---|---|---|
+| [#132](https://github.com/moldovancsaba/salesleadgenerator/issues/132) | Backfill existing leads into the controlled taxonomy schema (rulebook v1.0, Phase 2) | P1 | 141 of 2,723 leads classified as of the last batch (2026-08-02). Real, ongoing, multi-session effort — not completable in one sitting. Resume via a fresh `GET /api/leads?brand=<brand>&limit=5000` filtered for missing `orgTypeCode`, prioritized per `docs/LEAD_ENRICHMENT_GUIDE.md` §3.4. |
+
+## Ready (unblocked, unstarted)
+
+| # | Title | Priority | Notes |
+|---|---|---|---|
+| [#137](https://github.com/moldovancsaba/salesleadgenerator/issues/137) | Duplicate lead records at scale: 43.8% of Seyu, 10.7% of CogMap | P1 | Root-cause matching-algorithm fix already shipped. What remains needs a real browser session at `/admin/duplicates` (super-admin SSO) — not achievable from an API-key-only session. **Needs the owner**, not another agent turn. |
+| [#169](https://github.com/moldovancsaba/salesleadgenerator/issues/169) | Manually-added deals default to USD regardless of brand | P2 | Real money-accuracy bug — a Seyu/DVSC (EUR) deal added manually is silently stored in USD with no way to fix it in-app. |
+| [#125](https://github.com/moldovancsaba/salesleadgenerator/issues/125) | Adopt GDS zone-based kanban scroll routing once available | P2 | See Blocked below — the local workaround (2.4.95) is a live, tested fix; this issue tracks retiring it once the upstream dependency ships the real one. |
+| [#165](https://github.com/moldovancsaba/salesleadgenerator/issues/165) | New-user onboarding tour: step-by-step spotlight walkthrough | P3 | Design plan only, fully spec'd (architecture options, step content grounded in the real UI, acceptance criteria). Needs an explicit library-vs-build-on-GDS decision before an implementation issue is filed. |
+| [#170](https://github.com/moldovancsaba/salesleadgenerator/issues/170) | Sales Settings hardcodes "(€)" on pricing labels regardless of brand | P3 | UI-copy bug — label lies about the unit being entered on non-EUR brands (CogMap). |
+| [#171](https://github.com/moldovancsaba/salesleadgenerator/issues/171) | `Lead` type missing `contactEmails` field | P3 | Type/reality drift only — the field is real and already correctly documented; the TypeScript interface is stale. Trivial, one-line fix. |
+| [#172](https://github.com/moldovancsaba/salesleadgenerator/issues/172) | `Lead.region` type contradicts real free-text behavior | P3 | Needs an owner decision (widen to `string` vs. enumerate real observed values from a data audit) before it can be fixed — flagged, not guessed. |
+
+## Blocked
+
+| # | Title | Priority | Blocked on |
+|---|---|---|---|
+| [#125](https://github.com/moldovancsaba/salesleadgenerator/issues/125) | Adopt GDS zone-based kanban scroll routing once available | P2 | An upstream feature in `sovereignsquad/general-design-system` — a full implementation plan is drafted in the issue itself, ready to file there, but this session's GitHub access can't reach that repo. Needs a human or a session scoped to that repo to actually file it. |
+
+*(#125 appears in both Ready and Blocked above — it's unblocked as tracking/documentation work, but the actual fix is blocked on the external dependency.)*
+
+## Recently closed (context)
+
+| # | Title | Resolution |
+|---|---|---|
+| [#166](https://github.com/moldovancsaba/salesleadgenerator/issues/166) | 4 bugs/type gaps surfaced during the docs/LLD audit | Split into #169–#172 above for independent tracking. |
+| [#163](https://github.com/moldovancsaba/salesleadgenerator/issues/163) | Apply #136's federation/tournament rule to the 4 remaining leads | Resolved — all 4 researched and reclassified with real citations. |
+| [#142](https://github.com/moldovancsaba/salesleadgenerator/issues/142) | Reply matching + contact-enrichment suggestions from inbound email | Shipped (2.4.165). Live webhook trigger still pending two owner-only infra steps (Resend/DNS) — tracked in `docs/STACK_AND_DEPENDENCIES.md`, not a separate issue. |
+| [#135](https://github.com/moldovancsaba/salesleadgenerator/issues/135) / [#136](https://github.com/moldovancsaba/salesleadgenerator/issues/136) / [#143](https://github.com/moldovancsaba/salesleadgenerator/issues/143) | Taxonomy governance decisions (brand convention, federation/tournament rule, entertainment-event value) | Resolved per owner decision, retroactively applied to known data points. |
+
+---
+
+## Legend
+
+- **Priority**: P1 = high, P2 = medium, P3 = low — matches each issue's own GitHub label.
+- **Status groups** here mirror what a project board's columns would show (In Progress / Ready / Blocked) — derived from each issue's own `status:` label, not a separate tracking mechanism.
