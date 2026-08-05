@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.169  
+**Version:** 2.4.170  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -74,7 +74,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.169**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25) and needs updating on every version-stamp sync pass, not just when someone notices.
+Current app version is **2.4.170**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25) and needs updating on every version-stamp sync pass, not just when someone notices.
 
 Single source of truth: `package.json`
 
@@ -94,6 +94,7 @@ This README is the single source of truth for documentation paths and descriptio
 | `CLAUDE.md` | Mandatory operating rules for any AI coding assistant working in this repo (quality gate, issue-driven workflow, DoD, branch/push authorization) |
 | `CHANGELOG.md` | Version history, shipped features, and known limitations |
 | `roadmap.md` | Every real open GitHub issue, grouped by status — the standing substitute for a GitHub Projects board, which this session's tooling cannot reach (see `CLAUDE.md` Rule 2.5) |
+| `docs/ISSUE_MANAGEMENT.md` | Canonical, detailed reference for how issues are created/labeled/sequenced, exactly which tools access GitHub, and the verified boundary of what a session can and can't reach (the project-board question in full) — read this before managing issues here |
 | `docs/LESSONS_LEARNED.md` | Recurring mistake patterns, sandbox/verification limitations, and the "why" behind key architectural decisions |
 | `docs/LEAD_ENRICHMENT_GUIDE.md` | Structured catalog of every enrichable lead field plus a ready-to-use AI research-agent prompt for ongoing lead enrichment |
 | `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` | Plan for converting existing leads into the controlled sports-industry taxonomy schema (rulebook v1.0, 2.4.109) — now also the execution log for the in-progress backfill (issue #132) |
