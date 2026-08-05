@@ -3,6 +3,7 @@ import clientPromise from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
 import { resolveBrand, BRAND_CONFIG } from '../../../lib/brand'
 import { defaultRevenueTargetCurrency } from '../../../lib/sales-settings'
+import type { SalesSettings } from '../../../lib/sales-settings'
 import { backfillTicketSizeCollection } from '../../../../lib/backfill-ticket-size'
 
 export const dynamic = 'force-dynamic'
@@ -41,7 +42,12 @@ export async function POST(request: Request) {
 
     for (const brand of brands) {
       const config = BRAND_CONFIG[brand]
-      const currency = defaultRevenueTargetCurrency(brand)
+      // Issue #169 — read the operator's actual saved currency choice
+      // (settings.revenueTarget.currency) instead of always recomputing the
+      // brand's fixed default; otherwise this admin sweep would silently
+      // fight any non-default currency selected in Sales Settings.
+      const settingsDoc = (await db.collection('company_settings').findOne({ brand, tenantId })) as SalesSettings | null
+      const currency = settingsDoc?.revenueTarget?.currency ?? defaultRevenueTargetCurrency(brand)
       const result = await backfillTicketSizeCollection(db, config.dbCollection, brand, tenantId, currency, { apply })
       results[brand] = {
         collection: config.dbCollection,

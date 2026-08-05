@@ -60,7 +60,10 @@ async function run() {
 
   for (const { brand, collection } of BRANDS) {
     console.log(`--- ${brand} (${collection}) ---`);
-    const currency = defaultRevenueTargetCurrency(brand);
+    // Issue #169 — read the operator's actual saved currency choice from
+    // Sales Settings, not always the brand's fixed default.
+    const settingsDoc = await db!.collection('company_settings').findOne({ brand, tenantId: TENANT_ID });
+    const currency = (settingsDoc as any)?.revenueTarget?.currency ?? defaultRevenueTargetCurrency(brand);
     const result = await backfillTicketSizeCollection(db, collection, brand, TENANT_ID, currency, { apply: APPLY });
     for (const d of result.docs) {
       if (d.outcome === 'updated') {
