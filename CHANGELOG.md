@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.172
+
+### Changed — `CLAUDE.md` Rule 8 expanded per owner directive (2026-07-31): provider-agnostic AI-attribution policy
+
+Rule 8 ("No AI-assistant branding, anywhere") was scoped to whichever assistant happened to be doing the work. Replaced with a comprehensive, explicitly provider-agnostic policy that applies identically to every current and future AI system (named examples: OpenAI/Codex, Claude, Gemini, Grok, Groq, Cursor, Kilo Code, Loveable, GitHub Copilot, Amazon Q, Windsurf, Cline, Roo Code, Continue, Aider, Bolt, Devin, Replit AI, Sourcegraph Cody, and any successor/fork/wrapper/self-hosted model/local LLM/custom agent) — provider identity is irrelevant, every one is treated the same.
+
+Extends coverage well beyond the prior commits/branches/PRs/docs/code scope to explicitly also cover: issues, code reviews, source-code comments/headers/pragmas, UI copy (labels, placeholders, tooltips, empty states, errors), API response fields, logs, configuration files, package metadata (author/maintainer/contributor fields), CI/CD outputs (release notes, build summaries), and generated assets (exports, reports, documents). Carries forward this repo's existing practical guidance unchanged: the harness branch-prefix mitigation, the retroactive-cleanup clause, and the safety-disclosure exception (a model's honest "yes, I'm an AI" answer when directly asked is not branding).
+
+A retroactive scan of tracked files found no live, un-remediated AI-attribution artifact — the only prior instance (commit trailers) was already fully remediated via a full `main`-history message rewrite recorded in this changelog (2.4.155/156-era entries below).
+
+### Testing
+No app code changed — documentation-only. Full gate re-run per Rule 1 anyway: tsc 0 errors, lint 0 errors/warnings, vitest unit (702) passing (unaffected by this change).
+
 ## 2.4.171
 
 ### Fixed — issue #169: deal/ticket-size currency now follows the operator's actual Sales Settings selection, not just the brand default
