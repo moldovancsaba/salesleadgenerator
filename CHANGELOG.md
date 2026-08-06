@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.174
+
+### Data — issue #132: taxonomy backfill batch (6 CogMap leads)
+
+Buffalo Bills (`club`/`american-football`), Cricket Australia (`federation`/`cricket`), World Rugby (`federation`/`rugby-union`), World Athletics (`federation`/`athletics`), Catapult Sports (`brand`/`multi-sport`), Hudl (`brand`/`multi-sport`) — ranked by ICE score among active-pipeline leads missing `orgTypeCode` (§3.4 priority order), each independently researched via live web sources, applied via `PUT`, and re-verified via a fresh `GET`. Full citations in issue #132's comment thread.
+
+Real ground truth re-derived directly from production (not estimated, not trusting any prior branch's claim): **310 of 2,850 leads (11%) now have `orgTypeCode` set**, up from 304 before this batch; 2,540 remain.
+
+An orphaned branch (`lead-taxonomy-loop`, never merged, found during the same session's branch-cleanup pass) had claimed a higher total via unverified batches 17–23 — investigated and found untrustworthy (a spot-checked claimed fix demonstrably never landed in production). Not counted toward progress; full detail in `docs/LESSONS_LEARNED.md` §3. `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` also corrected §9's stale branch-push instruction (pointed at a now-confirmed-empty branch) to reflect the actual current convention (feature branch + PR into `main`).
+
+### Testing
+No app code changed — data + documentation only. Full gate re-run: tsc 0 errors, lint 0 errors/warnings, vitest unit (702) passing.
+
 ## 2.4.173
 
 ### Changed — repo-wide AI-attribution retroactive cleanup, branch/data-integrity investigation

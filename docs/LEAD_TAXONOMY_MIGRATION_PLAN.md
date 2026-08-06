@@ -1,6 +1,6 @@
 # Lead Taxonomy Migration Plan — Rulebook v1.0 Backfill
 
-**Version:** 2.4.170
+**Version:** 2.4.174
 
 **Status:** Plan / design document, now with two completed execution slices. Phase 2's mechanical `sportCode` sub-step (see §4) ran against production first; the evidence-based agent-research path (§5) for the remaining identity fields (`orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`, `competitionLevelCode`, `cityName`) resumed 2026-08-02 (issue #132) after a prior autonomous `/loop` session's branch was left unmerged and superseded — see the "Progress update" below. Most leads still have no identity fields beyond `sportCode` set.
 
@@ -11,6 +11,14 @@ A prior autonomous `/loop` session (tracked in issue #132's own comment history)
 Real ground truth as of this update, queried directly from production via `GET /api/leads?brand=<brand>&limit=5000` (not estimated): **141 of 2,723 leads (5%) have `orgTypeCode` set**; **2,582 remain**. This session's own batch (6 leads: New York City FC, Charlotte FC, Seattle Sounders FC, Atlanta United FC, German Football Association, D.C. United Academy — each independently researched via live web sources, applied via `PUT`, and re-verified via a fresh `GET`) is recorded in issue #132's comment thread with full source citations, per this doc's own auditability goal (§3).
 
 At this rate (small manual batches), full coverage of the remaining ~2,582 leads is a multi-session effort measured in weeks, not a one-sitting task — flagged plainly rather than implied otherwise.
+
+### Progress update — 2026-08-06 (issue #132 resumed again)
+
+A separate orphaned branch (`lead-taxonomy-loop`, 8 commits, never merged) claimed to bring the total to 135 of ~2,723 via batches 17–23. A repo-wide branch/PR cleanup pass investigated this claim against live production and found it **could not be trusted at face value**: of 3 spot-checked leads, one's claimed contact-corruption fix demonstrably never landed (the real fix has a production timestamp a full day later, from the unrelated PR #161 batch above, which had no knowledge of this branch's prior claim), a second shows no classification at all. Full detail and the resulting lesson (never trust an unmerged branch's own commit narrative as proof of real state — verify a sample against the live system) is in `docs/LESSONS_LEARNED.md` §3. That branch's claimed batches are **not** counted toward progress here.
+
+Real ground truth queried directly from production (`GET /api/leads?brand=<brand>&limit=5000` for all 3 brands, not estimated) was **304 of 2,850 leads (11%) with `orgTypeCode` set** before this session's own batch. (Total lead count grew from 2,723 to 2,850 since the last checkpoint — new leads were added independently of this loop.) This session's own batch (6 CogMap leads: Buffalo Bills, Cricket Australia, World Rugby, World Athletics, Catapult Sports, Hudl — ranked by ICE score per §5's "active pipeline, highest-ICE-first" priority, each independently researched via live web sources with citations, applied via `PUT`, and re-verified via a fresh `GET`) is recorded in issue #132's comment thread. **Post-batch: 310 of 2,850 (11%); 2,540 remain.**
+
+**Corrected branch-push guidance**: §9's own working-pattern step 7 below still says to push checkpoints to `claude/knowledge-update-44cuix` — that branch is now confirmed to carry zero unique content relative to `main` (an artifact of an earlier full-history rewrite) and should not be used. Every batch since 2026-08-02 (PR #161, #164) has instead gone through a normal feature branch + PR into `main`, which is the actual current convention — follow that, not §9's stale instruction, until §9 itself is rewritten.
 
 ---
 
