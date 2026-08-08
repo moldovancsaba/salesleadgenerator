@@ -73,6 +73,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [checkSession]);
 
   const login = useCallback(() => {
+    // Issue #179 (Next.js 16.3.0 bump) — this new lint rule assumes a
+    // relative-path destination is always an internal page reachable via
+    // client-side routing. /api/auth/login is an API route that issues a
+    // real server-side HTTP redirect chain into the SSO provider's own OAuth
+    // flow; router.push() would perform a client-side transition instead of
+    // a true browser navigation and never follow that redirect correctly.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = '/api/auth/login';
   }, []);
 
