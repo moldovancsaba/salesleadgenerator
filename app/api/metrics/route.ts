@@ -21,7 +21,6 @@ const CORRELATION_MIN_SAMPLE_SIZE = 10
 const SEARCH_LEARNING_COMPANY_ID = 'slg'
 
 const COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST'] as const
-const REGIONS = ['US', 'CEE', 'MENA'] as const
 
 // outcomelogs has no `brand` field (a single shared collection keyed only by
 // leadId) and an inconsistent `tenantId` (the generic POST /api/outcome-logs
