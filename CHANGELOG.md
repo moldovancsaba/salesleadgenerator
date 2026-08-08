@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.177
+
+### Fixed — issue #178: `GET /api/stats` and `GET /api/boards` had no auth check at all
+
+Both legacy, brand-agnostic routes (`app/api/stats/route.ts`, `app/api/boards/route.ts`) returned real business data — per-brand lead counts, full forecast/revenue breakdowns, brand/tenant config — with zero auth check, contradicting this app's own stated security contract (`README.md`'s API Overview: "every lead endpoint... requires either an `x-api-key` header or an authenticated browser session"). Surfaced by the 2026-08-08 documentation audit.
+
+Fixed by gating both with `requireApiKey`, matching every other data-exposing admin route in this repo. Neither route has any frontend caller (confirmed via full-repo grep) — the real UI uses the per-brand `GET /api/boards/[brand]` instead — so no session fallback was needed and no UI behavior changes.
+
+`docs/OPERATOR_GUIDE.md`'s Admin Endpoints section and `docs/LLD.md`'s route table both updated to reflect the real, fixed auth state.
+
+### Testing
+New `tests/integration/stats-boards-auth.integration.test.ts` — 6 tests (no-auth rejected, wrong-key rejected, valid-key accepted, for each route). Full gate: `npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest run` — 702 passing (unaffected). `npm run test:integration` — 197 passing (191 + 6 new).
+
 ## 2.4.176
 
 ### Fixed — repo-wide documentation audit: every `.md` file, code comments, versioning, cross-doc consistency

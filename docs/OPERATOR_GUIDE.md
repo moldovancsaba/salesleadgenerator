@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.176
+**Version:** 2.4.177
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -466,10 +466,10 @@ curl "https://salesleadgenerator.vercel.app/api/outreach-templates?mode=analytic
 - `GET /api/admin/data-hygiene` — malformed lead counts by brand (`x-api-key` required)
 - `POST /api/admin/ticket-size-backfill` — recompute Ticket Size across a brand's leads (dry-run by default, `{apply: true}` to commit) (`x-api-key` required)
 - `POST /api/win-rates/recalculate` — force a Forecast Calibration recompute (`x-api-key` required)
-- `GET /api/stats` — totals, column counts, region breakdowns, and forecast data. **No auth check at all** — a real, tracked gap, not a documentation error: [issue #178](https://github.com/moldovancsaba/salesleadgenerator/issues/178).
-- `GET /api/boards` — available brand boards and config. **Also no auth check at all** — same issue #178.
+- `GET /api/stats` — legacy, brand-agnostic totals/column-counts/region-breakdowns/forecast data. `x-api-key` required (fixed, issue #178 — previously had no auth check at all). Not called by any UI in this app; superseded by the per-brand `GET /api/boards/[brand]` the real Forecast page actually uses.
+- `GET /api/boards` — legacy, brand-agnostic board/tenant config list. `x-api-key` required (fixed, issue #178 — same prior gap). Same "not called by any UI" note as above.
 
-There is no browser button for any of them — the browser has no safe way to hold an `x-api-key` secret, so these are for API/CLI/cron use only. The first four are gated the way the rest of this app's admin routes are; the last two currently aren't, which is a bug being tracked, not by design.
+There is no browser button for any of them — the browser has no safe way to hold an `x-api-key` secret, so these are for API/CLI/cron use only, consistent with the rest of this app's `x-api-key`-gated admin routes.
 
 ---
 

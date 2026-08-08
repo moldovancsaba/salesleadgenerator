@@ -3,8 +3,16 @@ import clientPromise from '../../../lib/mongodb'
 import { BRAND_CONFIG } from '../../lib/brand'
 import { getPipelineWeights } from '../../../lib/pipeline-weights'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
+import { requireApiKey } from '../../../lib/api-auth'
 
+// Issue #178 — this legacy route (no frontend caller; the live UI uses
+// GET /api/boards/[brand] instead) had no auth check at all despite
+// returning real per-brand lead counts and full forecast/revenue data.
+// Gated the same way every other data-exposing admin route already is.
 export async function GET(request: Request) {
+  const authError = requireApiKey(request)
+  if (authError) return authError
+
   try {
     const tenantId = getTenantId(request)
     const filter = tenantFilter(tenantId)
