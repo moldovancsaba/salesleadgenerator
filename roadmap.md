@@ -16,7 +16,7 @@ Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
-| [#132](https://github.com/moldovancsaba/salesleadgenerator/issues/132) | Backfill existing leads into the controlled taxonomy schema (rulebook v1.0, Phase 2) | P1 | 314 of 2,874 leads classified as of the last batch (2026-08-08), re-derived live from `GET /api/leads` rather than trusted from any prior branch's own claim (see `docs/LESSONS_LEARNED.md` §3 — an orphaned branch's claimed progress was found not to match production). Real, ongoing, multi-session effort — not completable in one sitting. Resume via a fresh `GET /api/leads?brand=<brand>&limit=1000` (paginated) filtered for missing `orgTypeCode`, prioritized per `docs/LEAD_ENRICHMENT_GUIDE.md` §3.4. |
+| [#132](https://github.com/moldovancsaba/salesleadgenerator/issues/132) | Backfill existing leads into the controlled taxonomy schema (rulebook v1.0, Phase 2) | P1 | 318 of 2,874 leads classified as of the last batch (2026-08-08), re-derived live from `GET /api/leads` rather than trusted from any prior branch's own claim (see `docs/LESSONS_LEARNED.md` §3 — an orphaned branch's claimed progress was found not to match production). Picking now weighted toward QUALIFIED/ENGAGED/PROPOSAL-stage leads (sales-team-active), not just backlog — see `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9. Real, ongoing, multi-session effort — not completable in one sitting. |
 
 ## Ready (unblocked, unstarted)
 

@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.181
+
+### Taxonomy backfill (issue #132) — batch of 4, prioritized for sales-team value (318 of 2,874 classified)
+
+Second batch this session, re-scoped to bias picks toward leads the sales team is actively working (QUALIFIED/ENGAGED/PROPOSAL) rather than pure backlog DISCOVERED leads — 377 CogMap and 222 Seyu leads already in advanced pipeline stages were missing `orgTypeCode`, a large pool of immediately-actionable value. Same validation discipline as the first batch: independent research agents, programmatic checklist validation before writing, real `PUT`, independent re-fetch to confirm.
+
+- **AFC Ajax** (CogMap): found the club's new Commercial Director (appointed July 2025) while correctly excluding two previously-relevant contacts (Director of Football, Head of Sports Science) confirmed departed from the club.
+- **HNK Hajduk Split** (CogMap): confirmed the stored Head of Academy's appointment is current via multi-source Croatian/Czech sports media (the corresponding English Wikipedia page was found to be stale and not used).
+- **Columbus Crew** (Seyu): the 3 stored contacts were all Communications staff, not commercial/partnerships — found and added the actual VP of Corporate Partnerships, the real deal-owner role for this kind of activation.
+- **Sporting Kansas City Foundation** (Seyu): found the entity's real current name ("The Victory Project"/VictoryKC) and its actual day-to-day lead, distinct from the parent club's Chief Communications Officer that was the only contact on file.
+
+**Duplicate cluster found and skipped, not researched blind**: while re-picking Seyu candidates, found a 4-way duplicate cluster for Real Madrid (`Real Madrid` ×2, `Verify Real Madrid`, `Real Madrid Baloncesto`) that near-duplicate detection never caught — flagged for `/admin/duplicates` review rather than classified.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest run` — 702 passing. (No code changed — pure data classification.)
+
 ## 2.4.180
 
 ### Taxonomy backfill (issue #132) — batch of 4 (314 of 2,874 leads now classified)
