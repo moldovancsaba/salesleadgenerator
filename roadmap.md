@@ -8,7 +8,7 @@
 
 **Not the same file as `_archived/roadmap.md`** — that's a frozen, historical feature-status log (v2.4.61), superseded by `CHANGELOG.md`, sharing this file's basename by coincidence rather than by relation. See `README.md`'s "Archived Documentation" table.
 
-Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-issue list (5 issues).
+Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-issue list (6 issues).
 
 ---
 
@@ -22,10 +22,10 @@ Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
-| [#137](https://github.com/moldovancsaba/salesleadgenerator/issues/137) | Duplicate lead records at scale: 43.8% of Seyu, 10.7% of CogMap | P1 | Root-cause matching-algorithm fix already shipped. What remains needs a real browser session at `/admin/duplicates` (super-admin SSO) — not achievable from an API-key-only session. **Needs the owner**, not another agent turn. |
+| [#137](https://github.com/moldovancsaba/salesleadgenerator/issues/137) | Duplicate lead records at scale: 43.8% of Seyu, 10.7% of CogMap | P1 | Root-cause matching-algorithm fix already shipped. What remains needs a real browser session at `/admin/duplicates` (super-admin SSO) — confirmed blocked via both `x-api-key` and direct MongoDB attempts. **Needs the owner**, not another agent turn. |
 | [#125](https://github.com/moldovancsaba/salesleadgenerator/issues/125) | Adopt GDS zone-based kanban scroll routing once available | P2 | See Blocked below — the local workaround (2.4.95) is a live, tested fix; this issue tracks retiring it once the upstream dependency ships the real one. |
-| [#165](https://github.com/moldovancsaba/salesleadgenerator/issues/165) | New-user onboarding tour: step-by-step spotlight walkthrough | P3 | Design plan only, fully spec'd (architecture options, step content grounded in the real UI, acceptance criteria). Needs an explicit library-vs-build-on-GDS decision before an implementation issue is filed. |
-| [#172](https://github.com/moldovancsaba/salesleadgenerator/issues/172) | `Lead.region` type contradicts real free-text behavior | P3 | Needs an owner decision (widen to `string` vs. enumerate real observed values from a data audit) before it can be fixed — flagged, not guessed. |
+| [#165](https://github.com/moldovancsaba/salesleadgenerator/issues/165) | New-user onboarding tour: step-by-step spotlight walkthrough (design record) | P3 | Design plan, decision now made (2026-08-08, owner-confirmed): `driver.js`, per this issue's own recommendation. Implementation tracked separately in #185. |
+| [#185](https://github.com/moldovancsaba/salesleadgenerator/issues/185) | Implement new-user onboarding tour using driver.js | P3 | Follow-up to #165 now that the library decision is made. Unblocked, unstarted — a real multi-part UI build (tour controller, stable selectors on 7 target elements, keyboard/screen-reader accessibility, mobile verification). |
 
 ## Blocked
 
