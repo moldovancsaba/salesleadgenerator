@@ -39,6 +39,7 @@ Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-
 
 | # | Title | Resolution |
 |---|---|---|
+| [#172](https://github.com/moldovancsaba/salesleadgenerator/issues/172) | `Lead.region` type contradicts real free-text behavior | Fixed (2.4.179, PR #184) — live production audit found 55+ real values, widened type to `string`; also converted `AddLeadModal`/`FilterBar`'s hardcoded 3-value `Select` to free-text `TextInput`, matching `country`'s existing pattern. |
 | [#179](https://github.com/moldovancsaba/salesleadgenerator/issues/179) | Next.js 16.3.0 GA may fix the two CVEs docs said had no upstream fix | Fixed (2.4.178) — bumped `next`/`eslint-config-next` to 16.3.0, confirmed both CVEs resolved via `npm ls`/`npm audit`. Also resolved 3 unrelated pre-existing `npm audit` findings (`brace-expansion`, `js-yaml`, `nanoid`) via `npm audit fix`. |
 | [#178](https://github.com/moldovancsaba/salesleadgenerator/issues/178) | `GET /api/stats` and `GET /api/boards` have no auth check at all | Fixed (2.4.177, PR #181) — gated both with `requireApiKey`, matching every other data-exposing admin route. |
 | [#171](https://github.com/moldovancsaba/salesleadgenerator/issues/171) | `Lead` type missing `contactEmails` field | Fixed (2.4.175, PR #177) — added `contactEmails?: string[]` to `app/types.ts`. |

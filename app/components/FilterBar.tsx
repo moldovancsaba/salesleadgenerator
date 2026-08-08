@@ -1,19 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ActionIcon, Drawer, Group, Select, TextInput, TagsInput, Button, Pill, UnstyledButton, Indicator, Stack, Text } from '@mantine/core'
+import { ActionIcon, Drawer, Group, TextInput, TagsInput, Button, Pill, UnstyledButton, Indicator, Stack, Text } from '@mantine/core'
 import { IconFilter, IconDeviceFloppy } from '@tabler/icons-react'
 import { showNotification } from '@mantine/notifications'
 import type { LeadFilter, SavedFilter } from '@/lib/saved-filters'
 import { addSavedFilter, removeSavedFilter } from '@/lib/saved-filters'
 import { loadSavedFilters, persistSavedFilters } from '@/app/lib/saved-filters-storage'
-
-const REGION_OPTIONS = [
-  { value: '', label: 'All regions' },
-  { value: 'US', label: 'US' },
-  { value: 'CEE', label: 'CEE' },
-  { value: 'MENA', label: 'MENA' },
-]
 
 type Props = {
   brand: string
@@ -26,7 +19,7 @@ type Props = {
 // brand), not server-persisted, per owner-confirmed scope.
 //
 // A single quiet icon button + slide-out Drawer (owner feedback, same
-// session): the region Select, industry input, and saved-filter pills were
+// session): the region filter, industry input, and saved-filter pills were
 // originally a permanently-visible row — one more stacked toolbar row on
 // top of the kanban board's own column-visibility chips and Select toggle.
 // Collapsing behind one trigger, mirroring the Drawer pattern
@@ -81,12 +74,12 @@ export function FilterBar({ brand, value, onChange }: Props) {
 
       <Drawer opened={opened} onClose={() => setOpened(false)} title="Filters" position="right" size="xs" padding="md">
         <Stack gap="md">
-          <Select
+          <TextInput
             label="Region"
             aria-label="Filter by region"
-            data={REGION_OPTIONS}
+            placeholder="e.g. US (blank = all regions)"
             value={value.region || ''}
-            onChange={(v) => onChange({ ...value, region: v || undefined })}
+            onChange={(e) => { const v = e.currentTarget.value.toUpperCase(); onChange({ ...value, region: v || undefined }) }}
           />
           <TextInput
             label="Industry"
