@@ -115,6 +115,10 @@ export type Lead = {
     seniorityTier?: 'C-level' | 'VP' | 'Director' | 'Manager' | 'IC' | 'Unknown';
     department?: 'Sales' | 'Marketing' | 'Operations' | 'Executive' | 'Unknown';
   }>;
+  // Lowercased index of every contacts[] email, kept in sync on every
+  // contact write path by lib/contacts.ts's deriveContactEmails() — issue
+  // #142's inbound-reply matching index. Server-derived, not user-editable.
+  contactEmails?: string[];
   pro_for_organization?: string | string[];
   con_for_organization?: string | string[];
   value_proposition?: string;
