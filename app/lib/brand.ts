@@ -23,6 +23,13 @@ export const CURRENCY_CODE_OPTIONS: { value: CurrencyCode; label: string }[] = [
 
 export const CURRENCY_CODES: CurrencyCode[] = CURRENCY_CODE_OPTIONS.map((o) => o.value);
 
+// Display symbol per currency code — issue #170. Single source of truth so a
+// brand-aware label/price display never has to hardcode a symbol itself.
+export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
+  USD: '$',
+  EUR: '€',
+};
+
 export const BRAND_CONFIG: Record<string, {
   label: string;
   dbCollection: string;

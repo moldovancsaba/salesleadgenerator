@@ -358,9 +358,9 @@ SSO plumbing (`lib/sso.ts` PKCE flow + `lib/sso-access.ts` org-access model) und
 
 ## 9. Known type/reality gaps (not yet fixed)
 
-Surfaced by the audit that produced this document — real, but out of scope for a documentation-only pass, recorded here rather than silently dropped. Both now tracked as their own issues (split out of the original bundled finding, #166):
+Surfaced by the audit that produced this document — real, but out of scope for a documentation-only pass, recorded here rather than silently dropped. Split out of the original bundled finding, #166:
 
-- **`app/types.ts`'s `Lead.contactEmails` is missing** despite the field being genuinely written on every contact-write path since issue #142. Tracked: [#171](https://github.com/moldovancsaba/salesleadgenerator/issues/171).
+- **`app/types.ts`'s `Lead.contactEmails` was missing** despite the field being genuinely written on every contact-write path since issue #142 — fixed (#171).
 - **`app/types.ts`'s `Lead.region` is typed as a closed `"US"|"CEE"|"MENA"` union** but is genuinely free text at runtime (`app/lib/normalize-lead.ts` uppercases arbitrary input, defaulting to `'NA'` — not a member of the union). `docs/ARCHITECTURE.md` already documents the real free-text behavior correctly; only the type itself is stale. Tracked: [#172](https://github.com/moldovancsaba/salesleadgenerator/issues/172) (needs an owner decision, not a mechanical fix).
 
 ---
