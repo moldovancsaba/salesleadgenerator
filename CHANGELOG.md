@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.175
+
+### Fixed — issues #170, #171: type/reality drift and hardcoded currency symbol
+
+**#171** — `app/types.ts`'s `Lead` interface was missing `contactEmails?: string[]`, even though `lib/contacts.ts`'s `deriveContactEmails()` has written it on every contact-write path since issue #142. Pure type-accuracy fix, no runtime change.
+
+**#170** — Sales Settings (`app/salessettings/[client]/sales-settings-client.tsx`) hardcoded `(€)` on every pricing/deal-size label regardless of brand — a CogMap (USD) operator saw a euro sign on every price field they typed a dollar amount into. Labels now derive the symbol from `BRAND_CONFIG[brand].currency` via a new shared `CURRENCY_SYMBOLS` map in `app/lib/brand.ts` (the existing single source of truth for currency), matching the pattern `app/card.tsx`/`app/detail.tsx` already use for the same purpose.
+
+`docs/LLD.md` §9 updated — #171's entry marked fixed rather than removed outright, so the record of what the audit originally found stays intact.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest run` — 702 passing (unaffected, no new tests needed for a type-only fix and a copy-only UI fix per each issue's own stated testing scope). Manual verification of the currency-symbol fix deferred to the Vercel preview (Sales Settings has no `.tsx` component-test harness in this repo — see `docs/LESSONS_LEARNED.md` §5).
+
 ## 2.4.174
 
 ### Data — issue #132: taxonomy backfill batch (6 CogMap leads)

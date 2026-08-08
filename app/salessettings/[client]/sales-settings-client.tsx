@@ -6,7 +6,7 @@ import {
   Select, Checkbox, Paper, Loader, Divider, Badge,
 } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
-import { BRAND_CONFIG, type Brand } from '@/app/lib/brand'
+import { BRAND_CONFIG, CURRENCY_SYMBOLS, type Brand } from '@/app/lib/brand'
 import {
   type SalesSettings, type ProductLine, type PricingModel,
   emptySalesSettings, emptyProductLine,
@@ -15,23 +15,30 @@ import {
   REVENUE_TARGET_CURRENCY_OPTIONS, REVENUE_TARGET_PERIOD_OPTIONS,
 } from '@/app/lib/sales-settings'
 
-const PRICING_FIELD_MAP: Record<PricingModel, { key: keyof ProductLine['pricing']; label: string }[]> = {
-  one_time: [{ key: 'oneTimePrice', label: 'One-time price (€)' }],
-  monthly_subscription: [{ key: 'monthlyPrice', label: 'Monthly price (€)' }],
-  annual_subscription: [{ key: 'annualPrice', label: 'Annual price (€)' }],
-  framework_agreement: [{ key: 'frameworkAnnualValue', label: 'Framework annual value (€)' }],
+// Issue #170 — labels no longer bake in a hardcoded "(€)"; isMoney fields get
+// the brand's actual currency symbol appended at render time instead (see
+// pricingFieldLabel() below).
+const PRICING_FIELD_MAP: Record<PricingModel, { key: keyof ProductLine['pricing']; label: string; isMoney?: boolean }[]> = {
+  one_time: [{ key: 'oneTimePrice', label: 'One-time price', isMoney: true }],
+  monthly_subscription: [{ key: 'monthlyPrice', label: 'Monthly price', isMoney: true }],
+  annual_subscription: [{ key: 'annualPrice', label: 'Annual price', isMoney: true }],
+  framework_agreement: [{ key: 'frameworkAnnualValue', label: 'Framework annual value', isMoney: true }],
   campaign_based: [
-    { key: 'campaignPrice', label: 'Campaign price (€)' },
+    { key: 'campaignPrice', label: 'Campaign price', isMoney: true },
     { key: 'campaignDurationMonths', label: 'Typical campaign duration (months)' },
   ],
   per_user: [
-    { key: 'perUserPrice', label: 'Price per user (€)' },
+    { key: 'perUserPrice', label: 'Price per user', isMoney: true },
     { key: 'perUserMinimum', label: 'Minimum users' },
     { key: 'perUserTypical', label: 'Typical users' },
   ],
-  per_product: [{ key: 'perProductPrice', label: 'Price per product sold (€)' }],
-  per_event: [{ key: 'perEventPrice', label: 'Price per event (€)' }],
-  custom_quotation: [{ key: 'customQuotationTypicalValue', label: 'Typical quotation value (€)' }],
+  per_product: [{ key: 'perProductPrice', label: 'Price per product sold', isMoney: true }],
+  per_event: [{ key: 'perEventPrice', label: 'Price per event', isMoney: true }],
+  custom_quotation: [{ key: 'customQuotationTypicalValue', label: 'Typical quotation value', isMoney: true }],
+}
+
+function pricingFieldLabel(field: { label: string; isMoney?: boolean }, currencySymbol: string): string {
+  return field.isMoney ? `${field.label} (${currencySymbol})` : field.label
 }
 
 // Region is genuinely free text (Lead.region has no server-side enum — see
@@ -53,6 +60,7 @@ function rowsFromRegionMultipliers(record: Record<string, number> | undefined): 
 }
 
 export function SalesSettingsClient({ brand }: { brand: Brand }) {
+  const currencySymbol = CURRENCY_SYMBOLS[BRAND_CONFIG[brand]?.currency] ?? '$'
   const [tenantId, setTenantId] = useState('default')
   const [settings, setSettings] = useState<SalesSettings>(emptySalesSettings(brand))
   const [regionRows, setRegionRows] = useState<RegionMultiplierRow[]>([])
@@ -325,7 +333,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
                       {PRICING_FIELD_MAP[model].map((field) => (
                         <NumberInput
                           key={String(field.key)}
-                          label={field.label}
+                          label={pricingFieldLabel(field, currencySymbol)}
                           value={product.pricing[field.key] ?? ''}
                           onChange={(value) => updateProductPricing(product.id, field.key, typeof value === 'number' ? value : undefined)}
                           min={0}
@@ -354,32 +362,32 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
             <Title order={4}>Typical Deal Size</Title>
             <Group grow>
               <NumberInput
-                label="Small customer (€)"
+                label={`Small customer (${currencySymbol})`}
                 value={settings.dealSize.small ?? ''}
                 onChange={(value) => setSettings((s) => ({ ...s, dealSize: { ...s.dealSize, small: typeof value === 'number' ? value : undefined } }))}
                 min={0}
               />
               <NumberInput
-                label="Medium customer (€)"
+                label={`Medium customer (${currencySymbol})`}
                 value={settings.dealSize.medium ?? ''}
                 onChange={(value) => setSettings((s) => ({ ...s, dealSize: { ...s.dealSize, medium: typeof value === 'number' ? value : undefined } }))}
                 min={0}
               />
               <NumberInput
-                label="Large customer (€)"
+                label={`Large customer (${currencySymbol})`}
                 value={settings.dealSize.large ?? ''}
                 onChange={(value) => setSettings((s) => ({ ...s, dealSize: { ...s.dealSize, large: typeof value === 'number' ? value : undefined } }))}
                 min={0}
               />
               <NumberInput
-                label="Enterprise customer (€)"
+                label={`Enterprise customer (${currencySymbol})`}
                 value={settings.dealSize.enterprise ?? ''}
                 onChange={(value) => setSettings((s) => ({ ...s, dealSize: { ...s.dealSize, enterprise: typeof value === 'number' ? value : undefined } }))}
                 min={0}
               />
             </Group>
             <NumberInput
-              label="Largest customer won so far (€)"
+              label={`Largest customer won so far (${currencySymbol})`}
               value={settings.dealSize.largestWon ?? ''}
               onChange={(value) => setSettings((s) => ({ ...s, dealSize: { ...s.dealSize, largestWon: typeof value === 'number' ? value : undefined } }))}
               min={0}
@@ -461,7 +469,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
               minRows={2}
             />
             <NumberInput
-              label="Typical additional value (€)"
+              label={`Typical additional value (${currencySymbol})`}
               value={settings.upsell.typicalValue ?? ''}
               onChange={(value) => setSettings((s) => ({ ...s, upsell: { ...s.upsell, typicalValue: typeof value === 'number' ? value : undefined } }))}
               min={0}
@@ -511,7 +519,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
               minRows={2}
             />
             <NumberInput
-              label="Total contract value (€)"
+              label={`Total contract value (${currencySymbol})`}
               value={settings.exampleCustomer.totalContractValue ?? ''}
               onChange={(value) => setSettings((s) => ({ ...s, exampleCustomer: { ...s.exampleCustomer, totalContractValue: typeof value === 'number' ? value : undefined } }))}
               min={0}
