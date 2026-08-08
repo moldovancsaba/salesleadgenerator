@@ -1,6 +1,6 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.176
+**Version:** 2.4.177
 
 **Status:** New document, first written 2026-08-02. This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 
@@ -39,13 +39,13 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
-| `app/api/boards/route.ts` | GET | none | Legacy multi-brand board summary (has its own inlined `getTenantId`/`tenantFilter` — a real inconsistency, see §8.1) |
+| `app/api/boards/route.ts` | GET | `requireApiKey` (fixed, issue #178 — previously none) | Legacy multi-brand board summary (has its own inlined `getTenantId`/`tenantFilter` — a real inconsistency, see §8.1) |
 | `app/api/boards/[brand]/route.ts` | GET | none | Per-brand board summary + calls `app/lib/forecast.ts`'s `computeForecast` |
 | `app/api/forecast/export/route.ts` | GET | none | CSV/export of `computeForecast()` output for one brand |
 | `app/api/metrics/route.ts` | GET | none | Pipeline metrics; wraps `computeVelocity` (`app/lib/velocity-metrics.ts`) and `correlateOutcomes` (`lib/outcome-correlation.ts`) |
 | `app/api/metrics/by-source/route.ts` | GET | none | Win-rate-by-acquisition-`source` aggregation |
 | `app/api/metrics/decline-reasons/route.ts` | GET | none | Decline-reason rollup via `app/lib/decline-reason-rollup.ts` |
-| `app/api/stats/route.ts` | GET | none | Legacy stats endpoint using `getPipelineWeights` |
+| `app/api/stats/route.ts` | GET | `requireApiKey` (fixed, issue #178 — previously none) | Legacy stats endpoint using `getPipelineWeights` |
 | `app/api/win-rates/route.ts` | GET | none | Lazy-recompute cached win-rate calibration (`app/lib/win-rate-store.ts`'s `getOrRecomputeWinRates`) |
 | `app/api/win-rates/recalculate/route.ts` | POST | `requireApiKey` | Forced win-rate recompute, ignoring cache staleness |
 | `app/api/ticket-size-calibration/route.ts` | GET | none | Lazy-recompute cached ticket-size calibration |
