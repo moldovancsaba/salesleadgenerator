@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.180
+
+### Taxonomy backfill (issue #132) — batch of 4 (314 of 2,874 leads now classified)
+
+Resumed the ongoing evidence-based taxonomy classification loop. Picked via the documented scoring heuristic (missing contacts/country, DRAFT quality, ICE impact, active pipeline only), pre-filtered against the full brand's own entity-name list to skip near-duplicate orgs, researched by 4 independent agents doing real web research, validated against the mandatory checklist (live `/api/lead-taxonomy` vocabulary, HTML-entity artifacts, integer ICE values, no forbidden fields) before writing, applied via real `PUT /api/leads/[id]`, and independently re-fetched to confirm every write actually took.
+
+- **Spokane Sounders SC → "Spokane Shadow Soccer Club"** (CogMap): found the club's real 2025 rebrand and its Seattle Sounders FC academy-affiliate relationship (2015, first such MLS affiliate); named CEO/Sporting Director Abbas Faridnia with a site-confirmed email.
+- **Washington Timbers → "Columbia Premier Soccer Club"** (CogMap): found a full rebrand chain (Vancouver United Soccer Alliance → Washington Timbers FC → Columbia Premier SC) via official site, CauseIQ/Form 990 data, and a press release; named Academy Girls Director Maddy Wright with confirmed email/phone.
+- **Club Brugge KV** (Seyu): named Commercial Director Stijn Vermoere (LinkedIn + European Sponsorship Association corroboration); corrected the stadium address and general phone number, both of which didn't match any current source for the previously-stored values.
+- **Meta** (Seyu): named Head of Sports Partnerships Isaura Morales, replacing a placeholder "Unknown President" contact; `orgTypeCode: "brand"` applied per issue #135's owner-confirmed convention for platform/tech companies.
+
+All 4 corrected `entity_name`/`url` findings were kept out of those protected identity fields per the enrichment prompt's hard rule — recorded in `notes`/`canonicalLeadName` only, flagged for human review.
+
+`docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9 updated with this checkpoint.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest run` — 702 passing. `npm run test:integration` — 197 passing. (No code changed this batch — pure data classification via the existing `PUT /api/leads/[id]` path — gate re-run to confirm the working tree is still clean before shipping the checkpoint.)
+
 ## 2.4.179
 
 ### Fixed — issue #172: `Lead.region` type contradicted real free-text behavior
