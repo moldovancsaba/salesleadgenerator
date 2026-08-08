@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.178
+
+### Fixed — issue #179: Next.js 16.3.0 GA resolves the previously-unfixable `postcss`/`sharp` CVEs
+
+`docs/STACK_AND_DEPENDENCIES.md` had been carrying two high-severity CVEs (PostCSS XSS/arbitrary-file-read, `sharp`'s bundled `libvips`) bundled inside `next@16.2.11`'s own `node_modules`, documented as unfixable upstream as of the last two re-checks. `next@16.3.0` GA (a real stable release, not preview/canary) bundles patched `postcss@8.5.23` and `sharp@^0.35.3`, closing both.
+
+Bumped `next` and `eslint-config-next` from `^16.2.11` to `^16.3.0`. Confirmed both CVEs resolved post-bump via `npm ls postcss`/`npm ls sharp` (vulnerable versions no longer present) and `npm audit` (neither finding present). `next build --webpack` still required — no change to the confirmed Turbopack bugs from the 16.2.11 bump (2.4.26).
+
+`eslint-config-next@16.3.0`'s updated `@next/next` rules newly flagged one true false positive: `app/components/AuthProvider.tsx`'s `login()` assigns `window.location.href = '/api/auth/login'` to trigger a real server-side OAuth redirect chain, which the new `no-location-assign-relative-destination` rule assumes is always an internal page reachable via `router.push()`. Fixed with a scoped inline `eslint-disable-next-line` and an explanatory comment (confirmed via grep to be the only affected call site — the sibling SSO-logout redirect uses a dynamic external URL and wasn't flagged).
+
+Also resolved three unrelated, pre-existing high-severity `npm audit` findings surfaced while re-auditing the dependency tree for this bump — none introduced by the Next.js upgrade itself, none previously documented in `docs/STACK_AND_DEPENDENCIES.md`:
+- `brace-expansion` DoS (two advisories) — via both the previously-known `eslint-plugin-*` → `minimatch@3.1.5` chain and a new chain introduced by this bump's `typescript-eslint@8.65.0` → `minimatch@10.2.5`.
+- `js-yaml` quadratic-CPU DoS — via the already-pinned `eslint@9.39.5` → `@eslint/eslintrc@3.3.6`, unrelated to this bump.
+- `nanoid` zero-size infinite-loop — via the already-pinned top-level `postcss@8.5.23`, unrelated to this bump.
+
+All three resolved via `npm audit fix` (patch-level transitive bumps only, no parent package or major version changed). `npm audit` now reports 0 vulnerabilities across the full tree.
+
+`docs/STACK_AND_DEPENDENCIES.md` updated throughout to reflect the confirmed-applied fix rather than "candidate exists, not yet verified."
+
+### Testing
+Full gate re-run against the upgraded tree: `npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest run` — 702 passing. `npm run test:integration` — 197 passing. `npm run test:smoke` — 5 passing. `next build --webpack` — all 61 routes build clean.
+
 ## 2.4.177
 
 ### Fixed — issue #178: `GET /api/stats` and `GET /api/boards` had no auth check at all

@@ -8,7 +8,7 @@
 
 **Not the same file as `_archived/roadmap.md`** — that's a frozen, historical feature-status log (v2.4.61), superseded by `CHANGELOG.md`, sharing this file's basename by coincidence rather than by relation. See `README.md`'s "Archived Documentation" table.
 
-Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-issue list (7 issues).
+Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-issue list (5 issues).
 
 ---
 
@@ -26,8 +26,6 @@ Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-
 | [#125](https://github.com/moldovancsaba/salesleadgenerator/issues/125) | Adopt GDS zone-based kanban scroll routing once available | P2 | See Blocked below — the local workaround (2.4.95) is a live, tested fix; this issue tracks retiring it once the upstream dependency ships the real one. |
 | [#165](https://github.com/moldovancsaba/salesleadgenerator/issues/165) | New-user onboarding tour: step-by-step spotlight walkthrough | P3 | Design plan only, fully spec'd (architecture options, step content grounded in the real UI, acceptance criteria). Needs an explicit library-vs-build-on-GDS decision before an implementation issue is filed. |
 | [#172](https://github.com/moldovancsaba/salesleadgenerator/issues/172) | `Lead.region` type contradicts real free-text behavior | P3 | Needs an owner decision (widen to `string` vs. enumerate real observed values from a data audit) before it can be fixed — flagged, not guessed. |
-| [#178](https://github.com/moldovancsaba/salesleadgenerator/issues/178) | `GET /api/stats` and `GET /api/boards` have no auth check at all | P1 | Surfaced by the 2026-08-08 documentation audit — contradicts README's own stated "every lead endpoint requires auth" contract. Real security-relevant code gap, not just a doc fix; needs its own verification pass. |
-| [#179](https://github.com/moldovancsaba/salesleadgenerator/issues/179) | Next.js 16.3.0 GA may fix the two CVEs docs said had no upstream fix | P2 | `npm view` shows a real GA release now exists bundling patched `postcss`/`sharp` — not yet verified end-to-end (needs a real upgrade attempt + full quality gate re-run, this repo has been burned by Next.js bumps before). |
 
 ## Blocked
 
@@ -41,6 +39,8 @@ Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-
 
 | # | Title | Resolution |
 |---|---|---|
+| [#179](https://github.com/moldovancsaba/salesleadgenerator/issues/179) | Next.js 16.3.0 GA may fix the two CVEs docs said had no upstream fix | Fixed (2.4.178) — bumped `next`/`eslint-config-next` to 16.3.0, confirmed both CVEs resolved via `npm ls`/`npm audit`. Also resolved 3 unrelated pre-existing `npm audit` findings (`brace-expansion`, `js-yaml`, `nanoid`) via `npm audit fix`. |
+| [#178](https://github.com/moldovancsaba/salesleadgenerator/issues/178) | `GET /api/stats` and `GET /api/boards` have no auth check at all | Fixed (2.4.177, PR #181) — gated both with `requireApiKey`, matching every other data-exposing admin route. |
 | [#171](https://github.com/moldovancsaba/salesleadgenerator/issues/171) | `Lead` type missing `contactEmails` field | Fixed (2.4.175, PR #177) — added `contactEmails?: string[]` to `app/types.ts`. |
 | [#170](https://github.com/moldovancsaba/salesleadgenerator/issues/170) | Sales Settings hardcodes "(€)" on pricing labels regardless of brand | Fixed (2.4.175, PR #177) — labels now derive the symbol from `BRAND_CONFIG[brand].currency` via a new shared `CURRENCY_SYMBOLS` map. |
 | [#169](https://github.com/moldovancsaba/salesleadgenerator/issues/169) | Manually-added deals default to USD regardless of brand | Fixed (2.4.171, PR #175) — root cause was deeper than the title: every ticket-size currency computation site ignored the operator's saved Sales Settings currency selection in favor of the brand's fixed default. Fixed at every call site; Sales Settings currency option preserved, now actually honored. |
