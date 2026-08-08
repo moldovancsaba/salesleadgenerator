@@ -6,7 +6,9 @@
 
 **Full methodology** — the exact tools used to manage issues, the mandatory issue-body structure, the real label taxonomy, how dependencies between issues are recorded, and the complete verified investigation behind why no board is reachable — lives in `docs/ISSUE_MANAGEMENT.md`. This file is just the live status view; that one is the reference.
 
-Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-issue list (5 issues).
+**Not the same file as `_archived/roadmap.md`** — that's a frozen, historical feature-status log (v2.4.61), superseded by `CHANGELOG.md`, sharing this file's basename by coincidence rather than by relation. See `README.md`'s "Archived Documentation" table.
+
+Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-issue list (7 issues).
 
 ---
 
@@ -24,6 +26,8 @@ Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-
 | [#125](https://github.com/moldovancsaba/salesleadgenerator/issues/125) | Adopt GDS zone-based kanban scroll routing once available | P2 | See Blocked below — the local workaround (2.4.95) is a live, tested fix; this issue tracks retiring it once the upstream dependency ships the real one. |
 | [#165](https://github.com/moldovancsaba/salesleadgenerator/issues/165) | New-user onboarding tour: step-by-step spotlight walkthrough | P3 | Design plan only, fully spec'd (architecture options, step content grounded in the real UI, acceptance criteria). Needs an explicit library-vs-build-on-GDS decision before an implementation issue is filed. |
 | [#172](https://github.com/moldovancsaba/salesleadgenerator/issues/172) | `Lead.region` type contradicts real free-text behavior | P3 | Needs an owner decision (widen to `string` vs. enumerate real observed values from a data audit) before it can be fixed — flagged, not guessed. |
+| [#178](https://github.com/moldovancsaba/salesleadgenerator/issues/178) | `GET /api/stats` and `GET /api/boards` have no auth check at all | P1 | Surfaced by the 2026-08-08 documentation audit — contradicts README's own stated "every lead endpoint requires auth" contract. Real security-relevant code gap, not just a doc fix; needs its own verification pass. |
+| [#179](https://github.com/moldovancsaba/salesleadgenerator/issues/179) | Next.js 16.3.0 GA may fix the two CVEs docs said had no upstream fix | P2 | `npm view` shows a real GA release now exists bundling patched `postcss`/`sharp` — not yet verified end-to-end (needs a real upgrade attempt + full quality gate re-run, this repo has been burned by Next.js bumps before). |
 
 ## Blocked
 
@@ -50,4 +54,4 @@ Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-
 ## Legend
 
 - **Priority**: P1 = high, P2 = medium, P3 = low — matches each issue's own GitHub label.
-- **Status groups** here mirror what a project board's columns would show (In Progress / Ready / Blocked) — derived from each issue's own `status:` label, not a separate tracking mechanism.
+- **Status groups** here mirror what a project board's columns would show (In Progress / Ready / Blocked) — primarily derived from each issue's own `status:` label, not a separate tracking mechanism, with documented exceptions noted inline where a single issue's real-world state doesn't collapse cleanly into one label (e.g. #125 above, which carries only `status: blocked` but is tracking-work-unblocked/fix-blocked at once).

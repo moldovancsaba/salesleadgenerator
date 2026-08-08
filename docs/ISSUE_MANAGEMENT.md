@@ -1,6 +1,6 @@
 # Issue Management — Sales Lead Generator
 
-**Version:** 2.4.170
+**Version:** 2.4.176
 
 This is the canonical, detailed reference for how work is tracked in this repository: how issues are created and structured, how they're labeled and sequenced, how dependencies between them are recorded, what tooling and credentials actually do the work, and — critically — the exact, verified boundary of what's reachable from an AI coding session versus what genuinely requires a human. Written so any future agent (or human) picking up this repo cold can operate the same system correctly on the first try, without rediscovering any of this by trial and error.
 
