@@ -287,7 +287,7 @@ See `docs/ARCHITECTURE.md` for the *meaning* of each taxonomy/scoring field — 
 
 ### 7.1 `Lead` (`app/types.ts`)
 
-**Identity**: `_id`, `id?`, `entity_name`, `url?`, `country`, `region: "US"|"CEE"|"MENA"` (⚠ the type is a closed 3-value union but the real runtime behavior — confirmed against `app/lib/normalize-lead.ts` and `docs/ARCHITECTURE.md`'s own explanation of it — is genuinely free text, uppercased, defaulting to `'NA'`, which isn't even a member of the union; a known type/reality gap, not yet fixed), `address?`, `general_contact?`, `size?`, `industry?`, `sport_or_sector?`, `level_league?`.
+**Identity**: `_id`, `id?`, `entity_name`, `url?`, `country`, `region: string` (fixed, issue #172 — was a closed `"US"|"CEE"|"MENA"` union; a live production audit across all 3 brands found 55+ distinct real values — ISO codes, full country names, continents, sub-national regions like "Debrecen / Hajdú-Bihar" — confirming the type/reality gap and settling the decision in favor of widening rather than enumerating), `address?`, `general_contact?`, `size?`, `industry?`, `sport_or_sector?`, `level_league?`.
 
 **Controlled taxonomy** (rulebook v1.0, additive/optional): `sportCode?`, `orgTypeCode?`, `businessUnitCode?`, `genderCode?`, `demographicCodes?: string[]`, `competitionLevelCode?`, `cityName?`, `parentOrgId?`, `parentOrgName?`, `relationshipToParent?`, `canonicalLeadName?`, `classificationTags?: string[]` (system-generated, distinct from operator-authored `tags?`), `mergeKey?`, `classificationConfidence?`, `classificationEvidence?: string[]`.
 
@@ -361,7 +361,6 @@ SSO plumbing (`lib/sso.ts` PKCE flow + `lib/sso-access.ts` org-access model) und
 Surfaced by the audit that produced this document — real, but out of scope for a documentation-only pass, recorded here rather than silently dropped. Split out of the original bundled finding, #166:
 
 - **`app/types.ts`'s `Lead.contactEmails` was missing** despite the field being genuinely written on every contact-write path since issue #142 — fixed (#171).
-- **`app/types.ts`'s `Lead.region` is typed as a closed `"US"|"CEE"|"MENA"` union** but is genuinely free text at runtime (`app/lib/normalize-lead.ts` uppercases arbitrary input, defaulting to `'NA'` — not a member of the union). `docs/ARCHITECTURE.md` already documents the real free-text behavior correctly; only the type itself is stale. Tracked: [#172](https://github.com/moldovancsaba/salesleadgenerator/issues/172) (needs an owner decision, not a mechanical fix).
 
 ---
 

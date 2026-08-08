@@ -10,23 +10,12 @@ import { MANUAL_LEAD_DEFAULT_ICE } from '@/lib/create-lead-defaults';
 // Issue #127 — a real, human-facing path to create a lead. Previously the
 // only caller of POST /api/leads was the research agent; nothing in this
 // app's own UI ever created a lead.
-//
-// Region is a plain three-value dropdown (US/CEE/MENA), not reused from
-// app/components/FilterBar.tsx's own REGION_OPTIONS — that list includes an
-// "All regions" pseudo-option meaningful only for filtering, not creation,
-// so a small local list here is more correct than forcing a shared constant
-// across two different semantics for three items.
-const REGION_OPTIONS = [
-  { value: 'US', label: 'US' },
-  { value: 'CEE', label: 'CEE' },
-  { value: 'MENA', label: 'MENA' },
-];
 
 const EMPTY_FORM = {
   entity_name: '',
   url: '',
   country: '',
-  region: 'US',
+  region: '',
   address: '',
   general_contact: '',
   size: '',
@@ -149,12 +138,11 @@ export function AddLeadModal({ brand, opened, onClose, onCreated }: Props) {
             value={form.country}
             onChange={(e) => { const v = e.currentTarget.value.toUpperCase(); setForm((f) => ({ ...f, country: v })); }}
           />
-          <Select
+          <TextInput
             label="Region"
-            data={REGION_OPTIONS}
+            placeholder="US"
             value={form.region}
-            onChange={(v) => v && setForm((f) => ({ ...f, region: v }))}
-            allowDeselect={false}
+            onChange={(e) => { const v = e.currentTarget.value.toUpperCase(); setForm((f) => ({ ...f, region: v })); }}
           />
         </Group>
         <TextInput label="Address" value={form.address} onChange={(e) => { const v = e.currentTarget.value; setForm((f) => ({ ...f, address: v })); }} />

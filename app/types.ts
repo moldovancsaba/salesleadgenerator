@@ -35,7 +35,7 @@ export type Lead = {
   _id: string;
   id?: number;
   country: string; // ISO 3166-1 alpha-2 (US, GB, FR, DE, IT, ES, SA, AE, QA, PL, CZ, SK, HU, RO, BG, HR, RS, SI, UA, BY, LT, LV, EE, KZ, GE, AZ, AM, IL, LB, JO, IQ, KW, OM, BH, MA, TN, DZ, EG, LY, SD, SS, ET, SO, KE, NG, ZA, AU, NZ, JP, KR, CN, IN, PK, BD, LK, PH, ID, MY, TH, VN, SG, HK, TW, MO, BT, NP, MV, FJ, PG, NC, and more)
-  region: "US" | "CEE" | "MENA"; // Backend region grouping — matches models/Lead.ts schema and seed data (public/*-leads.json)
+  region: string; // Issue #172: genuinely free text at the API boundary — a live production audit (2026-08-08) found 55+ distinct values across all 3 brands (ISO codes, full country names, continents, sub-national regions like "Debrecen / Hajdú-Bihar"), not the 3-value union this type previously claimed.
   entity_name: string;
   url?: string;
   address?: string;
