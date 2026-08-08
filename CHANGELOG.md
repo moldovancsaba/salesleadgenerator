@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.179
+
+### Fixed — issue #172: `Lead.region` type contradicted real free-text behavior
+
+`app/types.ts` typed `region: "US" | "CEE" | "MENA"`, claiming to match "seed data," while `app/lib/normalize-lead.ts` treated it as free text at the API boundary (uppercasing whatever string was given, defaulting to `'NA'` — not even a member of the union). The issue explicitly required a real data audit before choosing between widening to `string` or enumerating actual observed values, rather than guessing (CLAUDE.md Rule 5).
+
+Queried the live production API across all three brands (cogmap, seyu, dvsc — 2,612 leads fetched) and found 55+ distinct real `region` values: ISO country codes, full country names, continent names, and sub-national regions (e.g. `"DEBRECEN / HAJDÚ-BIHAR"`, `"EAST MIDLANDS, UK"`). This settles the decision decisively — enumerating this set wouldn't produce a stable controlled vocabulary, it's genuinely operator/enrichment-entered free text. Widened `Lead.region` to `string`.
+
+Grepped every `.region` call site; only one (`app/detail.tsx`'s badge-tone ternary) assumed the 3-value union, and it already had a graceful `'gray'` fallback for any other string — no behavior change there. Also removed an unrelated, genuinely unused `REGIONS = ['US', 'CEE', 'MENA']` constant in `app/api/metrics/route.ts` (declared, never referenced), found while investigating call sites — it was misleadingly implying only 3 regions exist.
+
+`docs/LLD.md`'s field table and Known Type/Reality Gaps section updated to reflect the fix (previously flagged this exact gap, unresolved, pointing at this issue).
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest run` — 702 passing. `npm run test:integration` — 197 passing.
+
 ## 2.4.178
 
 ### Fixed — issue #179: Next.js 16.3.0 GA resolves the previously-unfixable `postcss`/`sharp` CVEs
