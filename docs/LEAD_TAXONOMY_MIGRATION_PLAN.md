@@ -1,6 +1,6 @@
 # Lead Taxonomy Migration Plan — Rulebook v1.0 Backfill
 
-**Version:** 2.4.180
+**Version:** 2.4.181
 
 **Status:** Plan / design document, now with two completed execution slices. Phase 2's mechanical `sportCode` sub-step (see §4) ran against production first; the evidence-based agent-research path (§5) for the remaining identity fields (`orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`, `competitionLevelCode`, `cityName`) resumed 2026-08-02 (issue #132) after a prior autonomous `/loop` session's branch was left unmerged and superseded — see the "Progress update" below. Most leads still have no identity fields beyond `sportCode` set.
 
@@ -12,7 +12,13 @@ Real ground truth as of this update, queried directly from production via `GET /
 
 At this rate (small manual batches), full coverage of the remaining ~2,582 leads is a multi-session effort measured in weeks, not a one-sitting task — flagged plainly rather than implied otherwise.
 
-### Progress update — 2026-08-08 (issue #132 resumed again)
+### Progress update — 2026-08-08, second batch (issue #132 resumed again)
+
+Re-scoped the picking heuristic to bias toward leads the sales team is actively working — QUALIFIED/ENGAGED/PROPOSAL stage, not pure DISCOVERED backlog — after an explicit owner request to prioritize highest business value. Found 377 CogMap and 222 Seyu leads already in advanced pipeline stages missing `orgTypeCode`, a substantial pool of immediately-actionable value that the original scoring heuristic (which didn't weight pipeline stage) wasn't surfacing first.
+
+This batch: AFC Ajax (CogMap, found the club's new Commercial Director appointed July 2025, correctly excluded two contacts confirmed departed), HNK Hajduk Split (CogMap, confirmed the stored Head of Academy's appointment is current via multi-source Croatian/Czech media, English Wikipedia found stale and not used), Columbus Crew (Seyu, the 3 stored contacts were all Communications staff — found and added the actual VP of Corporate Partnerships, the real deal-owner for this kind of activation), Sporting Kansas City Foundation (Seyu, found the entity's real current name "The Victory Project"/VictoryKC and its actual day-to-day lead). A 4-way Real Madrid duplicate cluster (`Real Madrid` ×2, `Verify Real Madrid`, `Real Madrid Baloncesto`) was found and skipped rather than researched blind, flagged for `/admin/duplicates`. **Post-batch: 318 of 2,874 (11.1%); 2,556 remain.**
+
+### Progress update — 2026-08-08, first batch (issue #132 resumed again)
 
 Real ground truth queried directly from production (`GET /api/leads?brand=<brand>&limit=1000`, paginated, all 3 brands, not estimated) was **310 of 2,874 leads (10.8%) with `orgTypeCode` set** before this session's batch. This session's own batch (4 leads, 2 CogMap + 2 Seyu, picked via the §9 scoring heuristic with a pre-pick near-duplicate name filter applied against each brand's full lead list): Spokane Sounders SC → real legal name "Spokane Shadow Soccer Club" (CogMap, found a 2025 club-wide rebrand and the Seattle Sounders FC academy-affiliate relationship), Washington Timbers → "Columbia Premier Soccer Club" (CogMap, found a full two-step rebrand chain via official site + CauseIQ Form 990 data + a press release), Club Brugge KV (Seyu, named Commercial Director found, corrected a stadium address and general phone that didn't match any current source), Meta (Seyu, named Head of Sports Partnerships found, replacing a placeholder "Unknown President" contact; `orgTypeCode: "brand"` per issue #135's convention). Each researched by an independent agent doing real web research, validated against the full mandatory checklist (live `/api/lead-taxonomy` vocabulary, HTML-entity artifacts, integer ICE values, no forbidden fields — checked programmatically before writing, not just eyeballed) before applying, applied via real `PUT`, and independently re-fetched to confirm every write actually took. **Post-batch: 314 of 2,874 (10.9%); 2,560 remain.**
 
@@ -120,7 +126,7 @@ Phase 2's evidence-based agent-research classification (§5 above) is **actually
 
 0. **Before spending research effort on a pick, check for pre-existing un-merged duplicate records of the same real-world org.** Confirmed real (owner QA on the 2.4.131 batch, 2026-07-30): this database has multiple un-merged duplicate `entity_name` records that near-duplicate detection never caught — e.g. 4 separate "Austin FC Academy" CogMap records from different CSV-import dates, 2 "Melbourne Victory" Seyu records, and 2 "Fenerbahçe"/"Fenerbahce" Seyu records where an accent-spelling variant is exactly why exact-match dedup missed it. Classifying one copy while its sibling(s) sit fully unenriched wastes a research pass and risks two independent, possibly-inconsistent classifications of the same org. Before finalizing a batch pick, grep the candidate pool for `entity_name` near-duplicates (case/accent/spacing-insensitive) and skip or flag any hit rather than researching it blind. **Do not try to merge these yourself mid-loop** — that's exactly what `/admin/duplicates` exists for; flag found duplicate clusters in the batch's CHANGELOG entry for a human to review/merge there.
 
-1. **Pick a batch of 4 leads** (2 CogMap + 2 Seyu), prioritizing leads with the most missing signal (no `orgTypeCode`, active pipeline only — skip `WON`/`LOST`). This Python script (recreate it in scratch, it does not persist across sessions) does the picking:
+1. **Pick a batch of 4 leads** (2 CogMap + 2 Seyu), prioritizing leads with the most missing signal (no `orgTypeCode`, active pipeline only — skip `WON`/`LOST`). **As of the 2026-08-08 second batch, also weight toward pipeline stage** (owner-directed: "top priority to deliver highest business value for the sales team") — a QUALIFIED/ENGAGED/PROPOSAL lead is what a rep is actively working right now, not backlog; the pool of advanced-stage leads missing `orgTypeCode` was large enough (377 CogMap + 222 Seyu, vs. the ~40-candidate top pool the un-weighted heuristic was drawing from) that this is a real, not marginal, reprioritization. This Python script (recreate it in scratch, it does not persist across sessions) does the picking:
 
 ```python
 import os, random, urllib.request, json
@@ -141,8 +147,10 @@ def fetch_all(brand):
         page += 1
     return leads
 
+STAGE_WEIGHT = {'PROPOSAL': 1000, 'ENGAGED': 700, 'QUALIFIED': 400, 'DISCOVERED': 0}
+
 def score(l):
-    s = 0
+    s = STAGE_WEIGHT.get(l.get('kanbanColumn'), 0)  # sales-team-active stages first
     if not l.get('contacts'):
         s += 100
     elif all(not c.get('name') or 'unknown' in c.get('name','').lower() for c in l.get('contacts', [])):
