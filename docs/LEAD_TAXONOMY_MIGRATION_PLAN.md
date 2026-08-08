@@ -1,6 +1,6 @@
 # Lead Taxonomy Migration Plan — Rulebook v1.0 Backfill
 
-**Version:** 2.4.176
+**Version:** 2.4.180
 
 **Status:** Plan / design document, now with two completed execution slices. Phase 2's mechanical `sportCode` sub-step (see §4) ran against production first; the evidence-based agent-research path (§5) for the remaining identity fields (`orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`, `competitionLevelCode`, `cityName`) resumed 2026-08-02 (issue #132) after a prior autonomous `/loop` session's branch was left unmerged and superseded — see the "Progress update" below. Most leads still have no identity fields beyond `sportCode` set.
 
@@ -11,6 +11,10 @@ A prior autonomous `/loop` session (tracked in issue #132's own comment history)
 Real ground truth as of this update, queried directly from production via `GET /api/leads?brand=<brand>&limit=5000` (not estimated): **141 of 2,723 leads (5%) have `orgTypeCode` set**; **2,582 remain**. This session's own batch (6 leads: New York City FC, Charlotte FC, Seattle Sounders FC, Atlanta United FC, German Football Association, D.C. United Academy — each independently researched via live web sources, applied via `PUT`, and re-verified via a fresh `GET`) is recorded in issue #132's comment thread with full source citations, per this doc's own auditability goal (§3).
 
 At this rate (small manual batches), full coverage of the remaining ~2,582 leads is a multi-session effort measured in weeks, not a one-sitting task — flagged plainly rather than implied otherwise.
+
+### Progress update — 2026-08-08 (issue #132 resumed again)
+
+Real ground truth queried directly from production (`GET /api/leads?brand=<brand>&limit=1000`, paginated, all 3 brands, not estimated) was **310 of 2,874 leads (10.8%) with `orgTypeCode` set** before this session's batch. This session's own batch (4 leads, 2 CogMap + 2 Seyu, picked via the §9 scoring heuristic with a pre-pick near-duplicate name filter applied against each brand's full lead list): Spokane Sounders SC → real legal name "Spokane Shadow Soccer Club" (CogMap, found a 2025 club-wide rebrand and the Seattle Sounders FC academy-affiliate relationship), Washington Timbers → "Columbia Premier Soccer Club" (CogMap, found a full two-step rebrand chain via official site + CauseIQ Form 990 data + a press release), Club Brugge KV (Seyu, named Commercial Director found, corrected a stadium address and general phone that didn't match any current source), Meta (Seyu, named Head of Sports Partnerships found, replacing a placeholder "Unknown President" contact; `orgTypeCode: "brand"` per issue #135's convention). Each researched by an independent agent doing real web research, validated against the full mandatory checklist (live `/api/lead-taxonomy` vocabulary, HTML-entity artifacts, integer ICE values, no forbidden fields — checked programmatically before writing, not just eyeballed) before applying, applied via real `PUT`, and independently re-fetched to confirm every write actually took. **Post-batch: 314 of 2,874 (10.9%); 2,560 remain.**
 
 ### Progress update — 2026-08-06 (issue #132 resumed again)
 
