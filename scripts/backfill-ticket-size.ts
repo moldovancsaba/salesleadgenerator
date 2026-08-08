@@ -15,7 +15,7 @@
 // actually trigger.
 //
 // Usage:
-//   npx tsx scripts/backfill-ticket-size.ts                     # dry run (default), both brands
+//   npx tsx scripts/backfill-ticket-size.ts                     # dry run (default), all brands
 //   npx tsx scripts/backfill-ticket-size.ts --apply              # writes changes
 //   npx tsx scripts/backfill-ticket-size.ts --brand=cogmap        # a single brand only
 //

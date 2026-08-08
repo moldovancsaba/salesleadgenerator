@@ -9,10 +9,9 @@ export const ACTIVITY_LOG_COLLECTION = 'activityLog'
 // already has enough payload without also carrying full timeline history for
 // a board view that never renders it.
 //
-// Nothing in this codebase writes to this collection yet — issue #141 (the
-// inbound-email webhook) is the first real writer. Until then this endpoint
-// legitimately returns only the outreach_logs half of the merge below; that
-// is not a bug, it's the honest state of a not-yet-fully-built feature.
+// Issue #141 (the inbound-email webhook, app/api/webhooks/inbound-email/
+// route.ts) is the first real writer to this collection — it now writes on
+// every inbound-classified event.
 export type ActivityEntryType = 'email-outbound' | 'email-inbound' | 'note' | 'system'
 export type ActivitySource = 'inbound-webhook' | 'manual' | 'outreach-log'
 

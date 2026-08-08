@@ -1,5 +1,33 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.176
+
+### Fixed — repo-wide documentation audit: every `.md` file, code comments, versioning, cross-doc consistency
+
+Requested as a "deep full bit by bit" audit of everything written about the product. Ran 8 parallel research passes (all 21 tracked docs, `app/`/`lib`/`scripts` code comments, cross-doc/issue-reference consistency, `_archived/` doc labeling) — each independently verified every claim against the real, current source before reporting it, per this repo's own "never guess" rule. No i18n/language files exist in this repo (English-only); no onboarding tour is implemented (issue #165 is a design-plan-only issue body, audited for internal consistency as part of this pass, no discrepancies found).
+
+**Confirmed and fixed (17 items):**
+- `app/lib/activity-log-store.ts` and `app/api/leads/[id]/activity/route.ts` — both had a stale "activityLog collection currently unwritten" comment; issue #141's inbound-email webhook has been a real writer since it shipped.
+- `scripts/backfill-ticket-size.ts` and `scripts/taxonomy-sportcode-backfill.ts` — usage comments still said "both brands" from before DVSC became a third brand (issue #147); `taxonomy-sportcode-backfill.ts`'s own console output at run-end also said "both brands" regardless of how many brands actually ran — now reflects the real brand list.
+- `docs/STACK_AND_DEPENDENCIES.md` — the "Agent and Scheduling" table only described 1 of the app's 3 real Vercel cron jobs (missing the daily cadence-tick, issue #124/#151); the Dependency Audit's central CVE claim ("no Next.js fix exists yet for the bundled `postcss`/`sharp` CVEs") is now stale — `next@16.3.0` GA exists and appears to bundle patched versions, tracked as its own follow-up (issue #179) rather than silently assumed fixed; two real env vars (`SLG_API_BASE`, `CONTACT_STALENESS_THRESHOLD_DAYS`) were read in code but undocumented here.
+- `README.md` — `docs/LLD.md` was a genuine orphan, never listed in the doc index despite being actively cross-linked elsewhere; 4 archived-doc table rows had no stated replacement despite each archived file's own banner naming one; the `_archived/roadmap.md` vs. live `roadmap.md` name collision now has an explicit disambiguation note.
+- `_archived/BUILD_STATUS.md` — pointed to `_archived/deployment.md` as its "live" replacement, but that file was itself later archived; now points directly at `CHANGELOG.md`.
+- `roadmap.md` — added a name-collision note pointing away from `_archived/roadmap.md`; softened the Legend's claim that status groups are strictly `status:`-label-derived (issue #125 only carries `status: blocked` but legitimately appears in both Ready and Blocked, already footnoted — the Legend just overclaimed a strict 1:1 rule).
+- `docs/LLD.md` — §7.1's `Lead.contactEmails` note still said "not yet present in this type definition," contradicting the same document's own §9, which already correctly says it was fixed (#171); two Auth-column entries understated real guards (`app/api/leads/route.ts`'s GET is guarded identically to PATCH/POST, not differently; `contact-suggestions/[id]/route.ts` uses the standard `requireBrandAccessApi`, not vague "brand-scoped via query").
+- `docs/DOC_LINT.md` — its own "cross-links use canonical docs" checklist item was missing 7 of the repo's current 13 cross-linked docs (including itself); added a version stamp (it had none) and a new checklist item to catch a future orphaned-doc gap.
+- `docs/LEAD_ENRICHMENT_GUIDE.md` — a trivial miscount ("in two places" → the real count is four).
+- `docs/OPERATOR_GUIDE.md` — the Add Lead quality-gate error message was quoted from frontend fallback text that's never actually shown (the real API always populates a different message, now quoted correctly); the Admin Endpoints section claimed all 6 listed routes require `x-api-key` — 2 of them (`GET /api/stats`, `GET /api/boards`) have **no auth check at all**, contradicting this app's own stated security contract (now documented accurately and tracked as issue #178, not silently left as a doc error); the cadence-disable wording overstated same-day clearing for every enrolled lead when clearing is actually per-lead, on that lead's own next-due step.
+- Version stamps synced to 2.4.176 across all 9 docs that had drifted (up to 6 releases stale).
+
+**Filed as their own tracked issues, not silently fixed here** (real code/behavior changes need their own verification pass, per Rule 1):
+- [#178](https://github.com/moldovancsaba/salesleadgenerator/issues/178) — `GET /api/stats` and `GET /api/boards` have no auth check at all (security-relevant).
+- [#179](https://github.com/moldovancsaba/salesleadgenerator/issues/179) — `next@16.3.0` GA may fix the two CVEs this repo has been carrying as unfixable-upstream.
+
+**Verified clean, no changes needed** (spot-checked in depth, reported explicitly rather than left ambiguous): `docs/ARCHITECTURE.md`'s route/module/collection/component claims (49 of 51 route files, all Lead fields, all collection names); `docs/OPERATOR_GUIDE.md`'s navigation, drag-and-drop-doesn't-exist, Backlog, required-fields-gate, Edit-Lead-Details, BANT, currency-fix, DVSC-checkbox, Forecast-branching, calibration-threshold, duplicate-review, outreach-eligibility, template-conversion, and API-auth-matrix claims; `docs/LEAD_ENRICHMENT_GUIDE.md`/`docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`'s live taxonomy vocabulary (value-for-value against the live `/api/lead-taxonomy` endpoint), drift-detection test coverage, and API contract examples; `docs/STACK_AND_DEPENDENCIES.md`'s package-version table (all match `package.json`/lockfile); `CLAUDE.md`'s rule numbering; `lib/`/`scripts/` currency- and DVSC-related comments (all correctly reflect the issue #169 fix); `_archived/`'s own self-archival banners and README-description accuracy.
+
+### Testing
+No app behavior changed except two `console.log`/comment wording fixes with zero functional effect (a script's own usage/output text, not app runtime code). Full gate: `npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest run` — 702 passing (unaffected).
+
 ## 2.4.175
 
 ### Fixed — issues #170, #171: type/reality drift and hardcoded currency symbol

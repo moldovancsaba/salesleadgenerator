@@ -1,6 +1,6 @@
 # Build Status (ARCHIVED)
 
-> **⚠️ ARCHIVED — historical snapshot, not current.** Superseded by `deployment.md`'s live deployment log. Kept only for historical reference. See `README.md`'s "Archived Documentation" table.
+> **⚠️ ARCHIVED — historical snapshot, not current.** Superseded by `CHANGELOG.md`'s live version history (this file originally pointed to `_archived/deployment.md`, which was itself later archived and superseded by `CHANGELOG.md` too — updated to point at the real current source directly). Kept only for historical reference. See `README.md`'s "Archived Documentation" table.
 
 ## Current State: ✅ Production Ready
 

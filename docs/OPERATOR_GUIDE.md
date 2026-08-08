@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.170
+**Version:** 2.4.176
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -90,7 +90,7 @@ DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted p
 
 Tap the **+** button in the Pipeline toolbar to manually add a lead the research agent hasn't found yet (a referral, a lead you sourced yourself, etc.). The form captures the same fields the research agent would (entity, URL, country/region, size, industry, contacts, value proposition, tags) up front, rather than creating a bare stub you fill in later. You don't set ICE scores directly — a manually-added lead always starts in DISCOVERED with a neutral default score, exactly like a fresh research-agent lead below the QUALIFIED threshold. Duplicate detection (same URL + entity + region) applies the same as any other lead creation path.
 
-Creation can also be blocked by a quality gate: a lead with very low confidence/ease and no verified decision-maker contact is rejected with "This lead needs a stronger contact before it can be created" — add a contact (with an email, phone, or LinkedIn) before retrying.
+Creation can also be blocked by a quality gate: a lead with very low confidence/ease and no verified decision-maker contact is rejected with "Quality gate: very low ease or confidence requires a verified decision-maker contact" — add a contact (with an email, phone, or LinkedIn) before retrying.
 
 ### Required fields to move into ENGAGED or PROPOSAL
 
@@ -307,7 +307,7 @@ Open a lead's detail view and scroll to the **Cadence** section.
 - **Not enrolled**: pick an enabled cadence from the dropdown and click **Enroll**. If the brand has no enabled cadences yet, this section says so and links straight to the builder page instead of showing an empty, unexplained dropdown.
 - **Enrolled**: shows the cadence's name, which step it's on ("Step 2 of 4 · LinkedIn touch"), and when the next step is due — using the same red/orange/dimmed overdue-vs-upcoming coloring as [Follow-ups](#follow-ups). A **Cancel cadence** button stops it; you'll be asked to confirm, since this is a real action that stops future automated sends for that lead. Cancelling clears immediately — reload the page and the Cadence section correctly shows "not enrolled" again, it isn't just an optimistic UI state that reverts on its own.
 
-**Safely disabling a runaway cadence**: if a cadence is misbehaving (wrong template, sending too often, anything you want to stop immediately), flip its **Enabled** toggle off in the builder. The very next daily tick will clear the enrollment for every lead still on that cadence — rather than skip them silently forever — so nothing keeps firing, and nothing is left in a stuck, invisible state.
+**Safely disabling a runaway cadence**: if a cadence is misbehaving (wrong template, sending too often, anything you want to stop immediately), flip its **Enabled** toggle off in the builder. Each enrolled lead's own step gets cleared the next time that specific lead's step comes due (not uniformly the very next daily tick for everyone) — so a lead disabled mid-cadence can sit enrolled, quietly, until its own due date arrives, at which point it's cleared rather than skipped silently forever. Nothing keeps firing, and nothing is left stuck forever, but clearing isn't same-day for every enrolled lead.
 
 ### Contacts
 
@@ -462,14 +462,14 @@ curl "https://salesleadgenerator.vercel.app/api/outreach-templates?mode=analytic
 
 ## Admin Endpoints
 
-- `GET /api/admin/cron-status` — cron run health and counts
-- `GET /api/admin/data-hygiene` — malformed lead counts by brand
-- `GET /api/stats` — totals, column counts, and region breakdowns
-- `GET /api/boards` — available brand boards and config
-- `POST /api/admin/ticket-size-backfill` — recompute Ticket Size across a brand's leads (dry-run by default, `{apply: true}` to commit)
-- `POST /api/win-rates/recalculate` — force a Forecast Calibration recompute
+- `GET /api/admin/cron-status` — cron run health and counts (`x-api-key` required)
+- `GET /api/admin/data-hygiene` — malformed lead counts by brand (`x-api-key` required)
+- `POST /api/admin/ticket-size-backfill` — recompute Ticket Size across a brand's leads (dry-run by default, `{apply: true}` to commit) (`x-api-key` required)
+- `POST /api/win-rates/recalculate` — force a Forecast Calibration recompute (`x-api-key` required)
+- `GET /api/stats` — totals, column counts, region breakdowns, and forecast data. **No auth check at all** — a real, tracked gap, not a documentation error: [issue #178](https://github.com/moldovancsaba/salesleadgenerator/issues/178).
+- `GET /api/boards` — available brand boards and config. **Also no auth check at all** — same issue #178.
 
-These require `x-api-key` auth. There is no browser button for any of them — the browser has no safe way to hold that secret, so these are for API/CLI/cron use only, consistent with the rest of this app's `x-api-key`-gated admin routes.
+There is no browser button for any of them — the browser has no safe way to hold an `x-api-key` secret, so these are for API/CLI/cron use only. The first four are gated the way the rest of this app's admin routes are; the last two currently aren't, which is a bug being tracked, not by design.
 
 ---
 

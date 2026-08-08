@@ -1,6 +1,6 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.170
+**Version:** 2.4.176
 
 **Status:** New document, first written 2026-08-02. This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 
@@ -28,7 +28,7 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
-| `app/api/leads/route.ts` | GET, POST, PATCH | `requireBrandAccessApi` (PATCH/POST) | List/create/patch leads for a brand+tenant; POST runs `validateLeadPayload`, `deriveKanbanColumn`, `buildFingerprint`; PATCH runs `executeLeadAction` (single source of truth for lead mutations, shared with bulk) |
+| `app/api/leads/route.ts` | GET, POST, PATCH | `requireBrandAccessApi` (all three methods) | List/create/patch leads for a brand+tenant; POST runs `validateLeadPayload`, `deriveKanbanColumn`, `buildFingerprint`; PATCH runs `executeLeadAction` (single source of truth for lead mutations, shared with bulk) |
 | `app/api/leads/[id]/route.ts` | GET, PUT, DELETE | `requireApiKey` + `requireBrandAccessApi` | Full read/replace/delete of one lead; PUT re-derives kanban column, dedupes contacts, kicks off async `verifyLeadContactsAsync` + `computeTicketSizeForLead` |
 | `app/api/leads/bulk/route.ts` | PATCH | `requireBrandAccessApi` (no `requireApiKey` — browser-callable) | Bulk lead actions via shared `executeLeadAction` (kanban multi-select bar) |
 | `app/api/leads/columns/route.ts` | GET | `requireBrandAccessApi` | Paginated (50/chunk) per-column lead fetch for `app/kanban.tsx`'s column-by-column loading model |
@@ -56,7 +56,7 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 |---|---|---|---|
 | `app/api/contacts/route.ts` | GET | `requireBrandAccessApi` | Cross-lead contact directory search via `aggregateContactsAcrossLeads` |
 | `app/api/contact-suggestions/route.ts` | GET | `requireBrandAccessApi` | List pending inbound-reply contact-match suggestions |
-| `app/api/contact-suggestions/[id]/route.ts` | PATCH | brand-scoped via query | Approve/reject a contact suggestion; merges into `lead.contacts` via `dedupeContacts` |
+| `app/api/contact-suggestions/[id]/route.ts` | PATCH | `requireBrandAccessApi` | Approve/reject a contact suggestion; merges into `lead.contacts` via `dedupeContacts` |
 | `app/api/duplicate-reviews/route.ts` | GET, PATCH | `requireSuperAdminSession` | List/act on the duplicate-review queue (issue #73) |
 | `app/api/duplicate-reviews/merge/route.ts` | GET, POST | `requireSuperAdminSession` | Executes a confirmed merge via `lib/lead-merge.ts`'s `diffLeads`/`buildMergedLead`/`suggestPrimaryId` |
 | `app/api/admin/duplicate-scan/route.ts` | POST | `requireSuperAdminSession` | Runs `findCandidatePairs` (`lib/near-duplicate.ts`), capped-count O(n²) scan |
@@ -291,7 +291,7 @@ See `docs/ARCHITECTURE.md` for the *meaning* of each taxonomy/scoring field — 
 
 **Controlled taxonomy** (rulebook v1.0, additive/optional): `sportCode?`, `orgTypeCode?`, `businessUnitCode?`, `genderCode?`, `demographicCodes?: string[]`, `competitionLevelCode?`, `cityName?`, `parentOrgId?`, `parentOrgName?`, `relationshipToParent?`, `canonicalLeadName?`, `classificationTags?: string[]` (system-generated, distinct from operator-authored `tags?`), `mergeKey?`, `classificationConfidence?`, `classificationEvidence?: string[]`.
 
-**Contacts**: `contacts?: Array<{name, title, email, phone, linkedin, role, isDecisionMaker, lastVerifiedAt, emailVerificationStatus, seniorityTier, department}>` — decision-maker status is per-contact (legacy top-level `decision_maker_*` fields retired, issue #45). ⚠ `contactEmails?: string[]` (issue #142) is genuinely written on every contact-write path (`lib/contacts.ts`'s `deriveContactEmails()`) but is **not yet present in this type definition** — a known type/reality gap.
+**Contacts**: `contacts?: Array<{name, title, email, phone, linkedin, role, isDecisionMaker, lastVerifiedAt, emailVerificationStatus, seniorityTier, department}>` — decision-maker status is per-contact (legacy top-level `decision_maker_*` fields retired, issue #45). `contactEmails?: string[]` (issue #142) is written on every contact-write path (`lib/contacts.ts`'s `deriveContactEmails()`) and is present in this type definition (fixed, issue #171).
 
 **Qualitative**: `pro_for_organization?` / `con_for_organization?` (shared field names across all brands, `PRO_FIELD`/`CON_FIELD`), `value_proposition?`, `status?`, `notes?`, `product_fit_notes?`, `tags?: string[]`.
 

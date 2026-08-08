@@ -24,7 +24,7 @@
 // MONGODB_URI.
 //
 // Usage:
-//   npx tsx scripts/taxonomy-sportcode-backfill.ts                        # dry run (default), both brands, all leads
+//   npx tsx scripts/taxonomy-sportcode-backfill.ts                        # dry run (default), all brands, all leads
 //   npx tsx scripts/taxonomy-sportcode-backfill.ts --brand=cogmap         # a single brand only
 //   npx tsx scripts/taxonomy-sportcode-backfill.ts --apply --sample=50    # apply to a random 50-lead sample per brand
 //   npx tsx scripts/taxonomy-sportcode-backfill.ts --apply                # apply to every mechanically-resolvable lead
@@ -148,7 +148,7 @@ async function run() {
   }
 
   console.log('=== Totals ===');
-  console.log(`Leads scanned (both brands): ${totals.scanned}`);
+  console.log(`Leads scanned (${BRANDS.join(', ')}): ${totals.scanned}`);
   console.log(`Already classified (skipped): ${totals.alreadyClassified}`);
   console.log(`Mechanically resolvable: ${totals.resolved}`);
   console.log(`Unresolvable (need agent research): ${totals.unresolved}`);

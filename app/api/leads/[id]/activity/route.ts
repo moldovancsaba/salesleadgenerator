@@ -16,12 +16,12 @@ function getBrand(request: Request): Brand | null {
 }
 
 // Issue #140 — GET /api/leads/[id]/activity: the first genuinely unified
-// per-lead activity read surface in this app. Merges the new activityLog
-// collection (currently unwritten — issue #141 is its first real writer)
-// with the pre-existing outreach_logs collection (app/api/outreach-logs/
-// route.ts) for the same leadId, at read time. outcomelogs/checklist[]/
-// notes are deliberately NOT part of this merge — see issue #140's own
-// Non-Goals: each has its own real consumers this must not disturb.
+// per-lead activity read surface in this app. Merges the activityLog
+// collection (written by issue #141's inbound-email webhook) with the
+// pre-existing outreach_logs collection (app/api/outreach-logs/route.ts)
+// for the same leadId, at read time. outcomelogs/checklist[]/notes are
+// deliberately NOT part of this merge — see issue #140's own Non-Goals:
+// each has its own real consumers this must not disturb.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

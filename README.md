@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.175  
+**Version:** 2.4.176  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -74,7 +74,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.175**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25) and needs updating on every version-stamp sync pass, not just when someone notices.
+Current app version is **2.4.176**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25) and needs updating on every version-stamp sync pass, not just when someone notices.
 
 Single source of truth: `package.json`
 
@@ -104,6 +104,7 @@ This README is the single source of truth for documentation paths and descriptio
 | Path | Description |
 |------|-------------|
 | `docs/ARCHITECTURE.md` | System overview, request flows, data flow, module map, and deployment diagram |
+| `docs/LLD.md` | Low-Level Design — implementation-depth module map: every API route, every `lib`/`app/lib` module, the UI component tree, the full data model |
 | `docs/OPERATOR_GUIDE.md` | Daily workflow, filters, outreach, known issues, and admin usage |
 | `docs/STACK_AND_DEPENDENCIES.md` | Runtime, framework, UI, DB, hosting, agent/runtime stack |
 | `docs/INDEX.md` | Documentation index |
@@ -113,13 +114,13 @@ This README is the single source of truth for documentation paths and descriptio
 
 | Path | Description |
 |------|-------------|
-| `_archived/BUILD_STATUS.md` | Historical build status |
-| `_archived/STACK_DECISION.md` | Historical stack decision |
-| `_archived/architecture.md` | Historical architecture doc |
-| `_archived/user-guide.md` | Historical user guide |
+| `_archived/BUILD_STATUS.md` | Historical build status (superseded by `docs/STACK_AND_DEPENDENCIES.md`) |
+| `_archived/STACK_DECISION.md` | Historical stack decision (superseded by `docs/STACK_AND_DEPENDENCIES.md`) |
+| `_archived/architecture.md` | Historical architecture doc (superseded by `docs/ARCHITECTURE.md`) |
+| `_archived/user-guide.md` | Historical user guide (superseded by `docs/OPERATOR_GUIDE.md`) |
 | `_archived/PIPELINE_ARCHITECTURE.md` | Historical pipeline architecture doc (superseded by `docs/ARCHITECTURE.md`) |
 | `_archived/PROPOSAL.md` | Historical improvement proposal (superseded by `CHANGELOG.md`) |
-| `_archived/roadmap.md` | Historical roadmap (superseded by `CHANGELOG.md`) |
+| `_archived/roadmap.md` | Historical feature-status roadmap, frozen at v2.4.61 (superseded by `CHANGELOG.md`) — **not the same file** as the live, currently-maintained `roadmap.md` at the repo root (a GitHub-issue-status view, unrelated purpose, same basename by coincidence) |
 | `_archived/deployment.md` | Historical deployment log (superseded by `CHANGELOG.md`) |
 
 ---

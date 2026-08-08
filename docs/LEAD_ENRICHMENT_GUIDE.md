@@ -1,6 +1,6 @@
 # Lead Enrichment Guide — AI Research Agent
 
-**Version:** 2.4.170
+**Version:** 2.4.176
 
 This is the deliverable for an ongoing "enrich lead quality over time with AI research" process: a structured catalog of every field on a Lead that can legitimately be enriched, and a ready-to-use prompt for the AI agent that does the enriching. It's written to slot into this app's existing infrastructure, not to propose new infrastructure — this repo already has a dedicated **enrichment** prompt type (distinct from **discovery**, which finds new leads), editable at `/admin/prompts/[brand]` and stored per `{brand, tenantId}` in the `prompts` collection (`app/api/prompts/route.ts`). Everything below is designed to be pasted directly into that slot.
 
@@ -12,7 +12,7 @@ The runtime that actually calls the AI model and posts results (the OpenClaw/Kil
 
 Discovery finds a lead that doesn't exist yet and creates it (`POST /api/leads`, gated by the creation-time quality gate described in `docs/LESSONS_LEARNED.md` §2 — it exists to stop low-signal, contact-less leads from being created, not to gate updates). Enrichment revisits a lead that **already exists** and improves specific fields on it over time — a contact who was unverifiable last quarter now has a working email, a company's size tier becomes clearer after a funding announcement, a homepage redesign changes its detectable tech stack. Enrichment never creates a new lead and is not subject to the creation-time gate.
 
-The right write path for enrichment is **`PUT /api/leads/[id]`** — confirmed by reading `app/api/leads/[id]/route.ts` itself, whose own code comments describe it as "the agent enrichment path" in two places. It is the one lead-mutating endpoint that is `x-api-key`-only (no session option — see `docs/LESSONS_LEARNED.md` §6), matching an unattended agent that has no browser session to hold. It's also a **partial update**: send only the fields you're changing, never the whole lead.
+The right write path for enrichment is **`PUT /api/leads/[id]`** — confirmed by reading `app/api/leads/[id]/route.ts` itself, whose own code comments describe it as "the agent enrichment path" in four places. It is the one lead-mutating endpoint that is `x-api-key`-only (no session option — see `docs/LESSONS_LEARNED.md` §6), matching an unattended agent that has no browser session to hold. It's also a **partial update**: send only the fields you're changing, never the whole lead.
 
 ---
 
