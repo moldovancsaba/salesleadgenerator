@@ -6,7 +6,7 @@
 
 **Full methodology** — the exact tools used to manage issues, the mandatory issue-body structure, the real label taxonomy, how dependencies between issues are recorded, and the complete verified investigation behind why no board is reachable — lives in `docs/ISSUE_MANAGEMENT.md`. This file is just the live status view; that one is the reference.
 
-Last synced: 2026-08-05, against `moldovancsaba/salesleadgenerator`'s real open-issue list (7 issues).
+Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-issue list (5 issues).
 
 ---
 
@@ -14,7 +14,7 @@ Last synced: 2026-08-05, against `moldovancsaba/salesleadgenerator`'s real open-
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
-| [#132](https://github.com/moldovancsaba/salesleadgenerator/issues/132) | Backfill existing leads into the controlled taxonomy schema (rulebook v1.0, Phase 2) | P1 | 141 of 2,723 leads classified as of the last batch (2026-08-02). Real, ongoing, multi-session effort — not completable in one sitting. Resume via a fresh `GET /api/leads?brand=<brand>&limit=5000` filtered for missing `orgTypeCode`, prioritized per `docs/LEAD_ENRICHMENT_GUIDE.md` §3.4. |
+| [#132](https://github.com/moldovancsaba/salesleadgenerator/issues/132) | Backfill existing leads into the controlled taxonomy schema (rulebook v1.0, Phase 2) | P1 | 310 of 2,850 leads classified as of the last batch (2026-08-06), re-derived live from `GET /api/leads` rather than trusted from any prior branch's own claim (see `docs/LESSONS_LEARNED.md` §3 — an orphaned branch's claimed progress was found not to match production). Real, ongoing, multi-session effort — not completable in one sitting. Resume via a fresh `GET /api/leads?brand=<brand>&limit=5000` filtered for missing `orgTypeCode`, prioritized per `docs/LEAD_ENRICHMENT_GUIDE.md` §3.4. |
 
 ## Ready (unblocked, unstarted)
 
@@ -23,8 +23,6 @@ Last synced: 2026-08-05, against `moldovancsaba/salesleadgenerator`'s real open-
 | [#137](https://github.com/moldovancsaba/salesleadgenerator/issues/137) | Duplicate lead records at scale: 43.8% of Seyu, 10.7% of CogMap | P1 | Root-cause matching-algorithm fix already shipped. What remains needs a real browser session at `/admin/duplicates` (super-admin SSO) — not achievable from an API-key-only session. **Needs the owner**, not another agent turn. |
 | [#125](https://github.com/moldovancsaba/salesleadgenerator/issues/125) | Adopt GDS zone-based kanban scroll routing once available | P2 | See Blocked below — the local workaround (2.4.95) is a live, tested fix; this issue tracks retiring it once the upstream dependency ships the real one. |
 | [#165](https://github.com/moldovancsaba/salesleadgenerator/issues/165) | New-user onboarding tour: step-by-step spotlight walkthrough | P3 | Design plan only, fully spec'd (architecture options, step content grounded in the real UI, acceptance criteria). Needs an explicit library-vs-build-on-GDS decision before an implementation issue is filed. |
-| [#170](https://github.com/moldovancsaba/salesleadgenerator/issues/170) | Sales Settings hardcodes "(€)" on pricing labels regardless of brand | P3 | UI-copy bug — label lies about the unit being entered on non-EUR brands (CogMap). |
-| [#171](https://github.com/moldovancsaba/salesleadgenerator/issues/171) | `Lead` type missing `contactEmails` field | P3 | Type/reality drift only — the field is real and already correctly documented; the TypeScript interface is stale. Trivial, one-line fix. |
 | [#172](https://github.com/moldovancsaba/salesleadgenerator/issues/172) | `Lead.region` type contradicts real free-text behavior | P3 | Needs an owner decision (widen to `string` vs. enumerate real observed values from a data audit) before it can be fixed — flagged, not guessed. |
 
 ## Blocked
@@ -39,6 +37,8 @@ Last synced: 2026-08-05, against `moldovancsaba/salesleadgenerator`'s real open-
 
 | # | Title | Resolution |
 |---|---|---|
+| [#171](https://github.com/moldovancsaba/salesleadgenerator/issues/171) | `Lead` type missing `contactEmails` field | Fixed (2.4.175, PR #177) — added `contactEmails?: string[]` to `app/types.ts`. |
+| [#170](https://github.com/moldovancsaba/salesleadgenerator/issues/170) | Sales Settings hardcodes "(€)" on pricing labels regardless of brand | Fixed (2.4.175, PR #177) — labels now derive the symbol from `BRAND_CONFIG[brand].currency` via a new shared `CURRENCY_SYMBOLS` map. |
 | [#169](https://github.com/moldovancsaba/salesleadgenerator/issues/169) | Manually-added deals default to USD regardless of brand | Fixed (2.4.171, PR #175) — root cause was deeper than the title: every ticket-size currency computation site ignored the operator's saved Sales Settings currency selection in favor of the brand's fixed default. Fixed at every call site; Sales Settings currency option preserved, now actually honored. |
 | [#166](https://github.com/moldovancsaba/salesleadgenerator/issues/166) | 4 bugs/type gaps surfaced during the docs/LLD audit | Split into #169–#172 above for independent tracking. |
 | [#163](https://github.com/moldovancsaba/salesleadgenerator/issues/163) | Apply #136's federation/tournament rule to the 4 remaining leads | Resolved — all 4 researched and reclassified with real citations. |
