@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.182
+
+### Taxonomy backfill (issue #132) — batch 3 (322 of 2,874 classified)
+
+Third batch this session, same sales-value-weighted picking as batch 2. Also strengthened the pre-pick duplicate screen: the exact-name/tight-key check used in batches 1-2 missed several real clusters (`Real Madrid` variants, `Inter Milan`/`FC Internazionale Milano`, `Atlético de Madrid`/`Club Atlético de Madrid`, `IMG Academy` variants, `Al Hilal` variants) because their entity_name text differs enough that even bigram similarity (the same algorithm `lib/near-duplicate.ts` uses in production) doesn't score them as similar. All were found and excluded from this batch's picks via a full brand-wide bigram pre-screen before committing to any candidate, not researched blind.
+
+- **SK Slavia Praha** (CogMap): confirmed the stored Academy Director via 3 independent sources (club's own succession article, LinkedIn, a January 2026 interview).
+- **Al Ahli Club Company** (CogMap): confirmed the Head of Academy (hired from Everton, June 2025) is current with no departure reporting.
+- **Live Nation Entertainment** (Seyu): replaced a generic "Live Nation Partnerships" placeholder with the real Global President of Media & Sponsorship; reasoned `orgTypeCode: "event-organiser"` over `entertainment-event`/`brand`/`sponsor`/`agency`, with the rejected alternatives explained in `notes`.
+- **Charlotte FC** (Seyu): found the stored CEO contact was stale (departed the org years ago, and the club-president role itself was restructured away in a December 2024 reorg) — replaced with the two real current commercial decision-makers at the parent ownership group.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest run` — 702 passing. (No code changed — pure data classification.)
+
 ## 2.4.181
 
 ### Taxonomy backfill (issue #132) — batch of 4, prioritized for sales-team value (318 of 2,874 classified)
