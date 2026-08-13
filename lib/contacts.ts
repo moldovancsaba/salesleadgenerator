@@ -9,6 +9,8 @@ import type { EmailVerificationStatus } from './email-verification';
 import { normalizeTitle } from './title-normalization';
 import type { SeniorityTier, Department } from './title-normalization';
 import { decodeHtmlEntities } from './text-sanitize';
+import { normalizeFieldVerifications } from './field-verifications';
+import type { FieldVerification } from './field-verifications';
 
 export type ContactInput = Record<string, any>;
 
@@ -35,6 +37,11 @@ export type NormalizedContact = {
   // from the title it describes.
   seniorityTier: SeniorityTier;
   department: Department;
+  // Per-field provenance for this contact — issue #188. Bare field names
+  // ("phone", "email"), never paths. Normalized (collapsed per field+method,
+  // capped) on every pass, and undefined rather than [] when absent so an
+  // untouched contact isn't rewritten with an empty array.
+  fieldVerifications?: FieldVerification[];
 };
 
 export type NormalizeContactOptions = {
@@ -133,6 +140,13 @@ export function normalizeContact(c: ContactInput, options?: NormalizeContactOpti
     // silently dropping an already-computed result on every re-normalize
     // (e.g. PATCH MODIFY's existing.contacts pass in app/lib/lead-actions.ts).
     emailVerificationStatus: c?.emailVerificationStatus,
+    // This object literal drops every key it doesn't name, so contact-level
+    // provenance would be silently discarded on every write without this line
+    // (issue #188). Undefined when absent, so contacts that never carried
+    // provenance don't gain an empty array on an unrelated re-normalize.
+    fieldVerifications: c?.fieldVerifications === undefined
+      ? undefined
+      : normalizeFieldVerifications(c.fieldVerifications),
   };
 }
 
@@ -193,8 +207,16 @@ export function dedupeContacts(
     // seen" — a later duplicate can carry a more recent re-verification.
     const existing = deduped[existingIndex];
     const merged = laterTimestamp(existing.lastVerifiedAt, c.lastVerifiedAt);
-    if (merged !== existing.lastVerifiedAt) {
-      deduped[existingIndex] = { ...existing, lastVerifiedAt: merged };
+    // Provenance from the losing duplicate is merged rather than discarded —
+    // it describes the same person, and normalizeFieldVerifications() already
+    // resolves any (field, method) collision to the newer entry (issue #188).
+    // Without this, a later duplicate carrying fresher evidence would lose it
+    // silently, which is the failure mode this whole field exists to prevent.
+    const mergedVerifications = existing.fieldVerifications || c.fieldVerifications
+      ? normalizeFieldVerifications([...(existing.fieldVerifications || []), ...(c.fieldVerifications || [])])
+      : undefined;
+    if (merged !== existing.lastVerifiedAt || mergedVerifications !== existing.fieldVerifications) {
+      deduped[existingIndex] = { ...existing, lastVerifiedAt: merged, fieldVerifications: mergedVerifications };
     }
   }
 

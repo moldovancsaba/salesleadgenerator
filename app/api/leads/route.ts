@@ -16,6 +16,7 @@ import { scanLeadTechStackAsync } from '../../lib/tech-stack-scan-store'
 import { computeTicketSizeForLead } from '../../lib/ticket-size-store'
 import { escapeRegExp } from '../../lib/search/tagged-content-filter'
 import { computeIceScore, buildScoreProfile } from '../../../lib/score-profile'
+import { normalizeFieldVerifications } from '../../../lib/field-verifications'
 
 function normalizeAddress(address: string, country: string): string {
   if (!address) return address
@@ -360,6 +361,11 @@ export async function POST(request: NextRequest) {
       // never guessed/inferred from the request beyond an explicit field, so
       // this stays honest about what's actually known vs. assumed.
       source: typeof normalizedBody.source === 'string' && normalizedBody.source.trim() ? normalizedBody.source.trim() : 'manual',
+      // Per-field provenance for scalar lead fields (issue #188), collapsed per
+      // (field, method) and capped at 60. Contact provenance is not here — it
+      // rides on each contact in `contacts` above, since contacts[] is
+      // reindexed on every write and a positional path can't stay correct.
+      fieldVerifications: normalizeFieldVerifications(normalizedBody.fieldVerifications),
 
       kanbanColumn,
       sortOrder: count * 100,

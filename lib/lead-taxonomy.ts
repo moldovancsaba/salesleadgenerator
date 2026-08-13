@@ -122,6 +122,39 @@ export const RELATIONSHIP_CODES = [
 export type RelationshipCode = (typeof RELATIONSHIP_CODES)[number];
 export const RELATIONSHIP_CODE_SET = new Set<string>(RELATIONSHIP_CODES);
 
+// How a single stored data point was established — issue #188. Deliberately
+// closed and rejected at the write boundary like every other vocabulary here:
+// the whole value of provenance is that "official" means the same thing on
+// every record, which free text cannot promise. Extending it is a one-line
+// change to this array, not a caller's decision.
+//
+// Value-for-value identical to the sibling application's own taxonomy, so a
+// record moving between the two never has to re-interpret what a method means.
+export const VERIFICATION_METHODS = [
+  // Sourced from the organisation's own official web presence.
+  'official',
+  // A social account proved to belong to the organisation (FB, X, Instagram, LinkedIn).
+  'official_social',
+  // Any other public source; carries an evidence URL.
+  'public',
+  // An official registry/registration system (company register, league database).
+  'registration_system',
+  // Confirmed by a phone call.
+  'phone',
+  // Confirmed by email exchange.
+  'email',
+  // Set by hand by an application admin.
+  'admin',
+  // Set through the application by an end user — a sales rep updating contact
+  // details, or an organisation claiming its own listing.
+  'user',
+  // Composed rather than sourced. The one value that says "no evidence exists
+  // for this" — which is exactly why it must be recordable rather than omitted.
+  'ai_generated',
+] as const;
+export type VerificationMethod = (typeof VERIFICATION_METHODS)[number];
+export const VERIFICATION_METHOD_SET = new Set<string>(VERIFICATION_METHODS);
+
 function isValidCode(set: Set<string>, value: unknown): boolean {
   return typeof value === 'string' && set.has(value);
 }
@@ -146,6 +179,9 @@ export function isValidCompetitionLevelCode(value: unknown): value is Competitio
 }
 export function isValidRelationshipCode(value: unknown): value is RelationshipCode {
   return isValidCode(RELATIONSHIP_CODE_SET, value);
+}
+export function isValidVerificationMethod(value: unknown): value is VerificationMethod {
+  return isValidCode(VERIFICATION_METHOD_SET, value);
 }
 
 // Slugifies a free-text city name to the rulebook's #city: tag convention

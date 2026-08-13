@@ -13,6 +13,7 @@ import { computeTicketSizeForLead } from '../../../lib/ticket-size-store'
 import { getTenantId, tenantFilter as buildTenantFilter } from '../../../../lib/tenant'
 import { generateClassificationTags, buildMergeKey } from '../../../../lib/lead-classification'
 import { decodeHtmlEntities, decodeHtmlEntitiesInArray } from '../../../../lib/text-sanitize'
+import { normalizeFieldVerifications } from '../../../../lib/field-verifications'
 
 function getBrand(request: Request): Brand | null {
   const url = new URL(request.url);
@@ -156,6 +157,8 @@ export async function PUT(
       'demographicCodes', 'competitionLevelCode', 'cityName',
       'parentOrgId', 'parentOrgName', 'relationshipToParent',
       'canonicalLeadName', 'classificationConfidence', 'classificationEvidence',
+      // Per-field provenance (issue #188) — normalized below, never stored raw.
+      'fieldVerifications',
     ];
 
     for (const field of allowedFields) {
@@ -207,6 +210,13 @@ export async function PUT(
     // { verify: true } stamps lastVerifiedAt unconditionally for every contact in
     // the payload — this is the agent enrichment path ("PUT only changed
     // fields"), so a contact appearing here has just been confirmed (issue #66).
+    // Collapse to one entry per (field, method) and cap at 60, oldest evicted —
+    // issue #188. Applied here rather than trusting the payload so a repeating
+    // re-verification loop can never grow the document without bound.
+    if (updateData.fieldVerifications !== undefined) {
+      updateData.fieldVerifications = normalizeFieldVerifications(updateData.fieldVerifications);
+    }
+
     if (body.contacts && Array.isArray(body.contacts)) {
       updateData.contacts = dedupeContacts(body.contacts, { verify: true });
       // Issue #142 — kept in sync alongside contacts[] on every write path.

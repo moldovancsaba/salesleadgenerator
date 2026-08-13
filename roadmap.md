@@ -18,6 +18,12 @@ Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-
 |---|---|---|---|
 | [#132](https://github.com/moldovancsaba/salesleadgenerator/issues/132) | Backfill existing leads into the controlled taxonomy schema (rulebook v1.0, Phase 2) | P1 | 318 of 2,874 leads classified as of the last batch (2026-08-08), re-derived live from `GET /api/leads` rather than trusted from any prior branch's own claim (see `docs/LESSONS_LEARNED.md` §3 — an orphaned branch's claimed progress was found not to match production). Picking now weighted toward QUALIFIED/ENGAGED/PROPOSAL-stage leads (sales-team-active), not just backlog — see `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9. Real, ongoing, multi-session effort — not completable in one sitting. |
 
+## Done (awaiting merge)
+
+| # | Title | Priority | Notes |
+|---|---|---|---|
+| [#188](https://github.com/moldovancsaba/salesleadgenerator/issues/188) | Per-field provenance on leads: `fieldVerifications` with a closed method enum | P2 | Built on `feature/field-verifications`. Additive only — new optional field at two scopes (lead-level for scalar fields, per-contact for contact fields), closed nine-value method enum, bounded by last-write-wins per `(field, method)` plus a 60-entry cap. Full gate run and passing: tsc 0, lint 0, 728 unit, 197 integration, 5/5 smoke. |
+
 ## Ready (unblocked, unstarted)
 
 | # | Title | Priority | Notes |

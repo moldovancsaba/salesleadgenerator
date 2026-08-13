@@ -2,6 +2,9 @@
 
 import type { CurrencyCode } from './lib/brand';
 import type { ActiveCadence } from '../lib/cadences';
+import type { FieldVerification } from '../lib/field-verifications';
+
+export type { FieldVerification };
 
 // Kanban columns
 export type KanbanColumn =
@@ -99,6 +102,15 @@ export type Lead = {
     // ISO timestamp of last confirmed-accurate verifiable-field data — see
     // lib/contact-freshness.ts, issue #66. Undefined means never verified.
     lastVerifiedAt?: string;
+    // Per-field provenance for THIS contact — issue #188. `field` here is a
+    // bare contact field name ("phone", "email", …), never a path: the contact
+    // object this array lives on already identifies whose field it is.
+    //
+    // Deliberately not addressed from the lead-level array: dedupeContacts()
+    // reindexes contacts[] on every write, so a positional "contacts[0].phone"
+    // would silently come to describe a different person. See
+    // lib/field-verifications.ts.
+    fieldVerifications?: FieldVerification[];
     // MX-based domain-deliverability signal, written back asynchronously
     // after create/update — see lib/email-verification.ts, issue #67.
     // Undefined means the background check hasn't landed yet.
@@ -214,6 +226,18 @@ export type Lead = {
   // (not a closed enum) so brand-specific channels don't require a code
   // change to record.
   source?: string;
+  // Per-field provenance for SCALAR lead fields only — issue #188. Each entry
+  // says where one data point came from, how, and when it was established.
+  //
+  // Contact fields are deliberately not addressable here: a positional path
+  // ("contacts[0].phone") cannot survive dedupeContacts()' reindexing, so it
+  // would silently describe the wrong person. Contact provenance lives on
+  // contacts[].fieldVerifications instead, and this array rejects any field
+  // naming a contact path at the write boundary (lib/field-verifications.ts).
+  //
+  // Bounded on every write: one entry per (field, method), newest wins, hard
+  // cap 60 with the oldest evicted first.
+  fieldVerifications?: FieldVerification[];
   kanbanColumn: KanbanColumn;
   sortOrder: number;
   fingerprint?: string;
