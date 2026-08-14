@@ -4,7 +4,7 @@ import { Webhook } from 'standardwebhooks';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
 import { buildApiRequest } from './helpers/api-request';
 
-const TEST_SECRET = 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw';
+const TEST_SECRET = 'REDACTED_ROTATE_ME_2026-08-14';
 
 process.env.RESEND_API_KEY = 're_test_placeholder_key';
 process.env.RESEND_WEBHOOK_SECRET = TEST_SECRET;
@@ -177,7 +177,7 @@ describe('POST /api/webhooks/inbound-email', () => {
     const req = await buildRequest({
       type: 'email.received', created_at: new Date().toISOString(),
       data: { email_id: 'email-invalid-sig', from: 'a@b.com', to: ['cogmap@abc.resend.app'], bcc: [], cc: [], received_for: [], message_id: '', subject: '', attachments: [] },
-    }, { secret: 'whsec_totallyWrongSecretUsedToSignThisOne' });
+    }, { secret: 'REDACTED_ROTATE_ME_2026-08-14' });
     const res = await inboundPOST(req);
     expect(res.status).toBe(400);
     const docs = await insertedActivityLogDocs();
