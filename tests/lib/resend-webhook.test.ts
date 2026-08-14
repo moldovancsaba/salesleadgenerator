@@ -6,7 +6,7 @@ import { extractResendWebhookHeaders, verifyResendWebhook } from '../../lib/rese
 // A real base64-encoded secret (32 random bytes), same shape Resend's own
 // webhook secrets use (whsec_<base64>) — verified against the installed
 // standardwebhooks package's own Webhook.prefix constant, not assumed.
-const TEST_SECRET = 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw';
+const TEST_SECRET = 'REDACTED_ROTATE_ME_2026-08-14';
 
 function signRequest(payload: string, msgId = 'msg_test123', timestamp = new Date()) {
   const wh = new Webhook(TEST_SECRET);
@@ -50,7 +50,7 @@ describe('verifyResendWebhook (issue #141)', () => {
 
   it('rejects a signature produced with the wrong secret', () => {
     const payload = JSON.stringify({ type: 'email.received', data: { email_id: 'e1' } });
-    const wrongWh = new Webhook('whsec_totallyDifferentSecretValueHere12');
+    const wrongWh = new Webhook('REDACTED_ROTATE_ME_2026-08-14');
     const signature = wrongWh.sign('msg_1', new Date(), payload);
     const headers = { id: 'msg_1', timestamp: String(Math.floor(Date.now() / 1000)), signature };
     expect(() => verifyResendWebhook(resend, payload, headers, TEST_SECRET)).toThrow();

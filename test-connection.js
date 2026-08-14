@@ -1,6 +1,6 @@
 const { MongoClient } = require('mongodb');
 
-const uri = "mongodb+srv://moldovancsaba_cogmap:hDdCxB93I1U94Mpv@sales.8wytusk.mongodb.net/?retryWrites=true&w=majority&appName=Sales";
+const uri = "REDACTED_ROTATE_ME_2026-08-14";
 
 async function checkConnection() {
   try {
