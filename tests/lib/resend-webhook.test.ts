@@ -3,10 +3,25 @@ import { Resend } from 'resend';
 import { Webhook } from 'standardwebhooks';
 import { extractResendWebhookHeaders, verifyResendWebhook } from '../../lib/resend-webhook';
 
-// A real base64-encoded secret (32 random bytes), same shape Resend's own
-// webhook secrets use (whsec_<base64>) — verified against the installed
-// standardwebhooks package's own Webhook.prefix constant, not assumed.
-const TEST_SECRET = 'REDACTED_ROTATE_ME_2026-08-14';
+// Derived here rather than written as a literal, deliberately. A
+// `whsec_<base64>` literal is exactly the shape GitHub secret scanning flags:
+// the previous fixture was reported as an alert and scrubbed to a plain
+// placeholder, which broke every test in this file, because `new Webhook()`
+// base64-decodes its secret eagerly and threw before any assertion ran.
+//
+// Building the value from a fixed byte pattern satisfies both constraints at
+// once — it is a genuinely decodable 32-byte base64 secret (what
+// standardwebhooks requires), it is deterministic, and it is self-evidently
+// synthetic, so there is nothing here for a scanner to flag or for anyone to
+// mistake for a live credential.
+const fakeSecret = (fill: number) => 'whsec_' + Buffer.alloc(32, fill).toString('base64');
+
+const TEST_SECRET = fakeSecret(0x11);
+// Must genuinely differ from TEST_SECRET. The scrub set both to the same
+// placeholder string, which would have made the "wrong secret" test below pass
+// vacuously — asserting that a correctly-signed payload is rejected — even once
+// the decoding error was fixed.
+const WRONG_SECRET = fakeSecret(0x22);
 
 function signRequest(payload: string, msgId = 'msg_test123', timestamp = new Date()) {
   const wh = new Webhook(TEST_SECRET);
@@ -50,7 +65,7 @@ describe('verifyResendWebhook (issue #141)', () => {
 
   it('rejects a signature produced with the wrong secret', () => {
     const payload = JSON.stringify({ type: 'email.received', data: { email_id: 'e1' } });
-    const wrongWh = new Webhook('REDACTED_ROTATE_ME_2026-08-14');
+    const wrongWh = new Webhook(WRONG_SECRET);
     const signature = wrongWh.sign('msg_1', new Date(), payload);
     const headers = { id: 'msg_1', timestamp: String(Math.floor(Date.now() / 1000)), signature };
     expect(() => verifyResendWebhook(resend, payload, headers, TEST_SECRET)).toThrow();
