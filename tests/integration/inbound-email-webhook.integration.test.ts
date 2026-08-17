@@ -4,7 +4,17 @@ import { Webhook } from 'standardwebhooks';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
 import { buildApiRequest } from './helpers/api-request';
 
-const TEST_SECRET = 'REDACTED_ROTATE_ME_2026-08-14';
+// Derived, not a literal — same reasoning as tests/lib/resend-webhook.test.ts:
+// a `whsec_<base64>` literal trips secret scanning, and the placeholder it was
+// scrubbed to isn't valid base64, so `new Webhook()` threw before any assertion
+// ran. This is a real decodable 32-byte secret that is obviously synthetic.
+const fakeSecret = (fill: number) => 'whsec_' + Buffer.alloc(32, fill).toString('base64');
+
+const TEST_SECRET = fakeSecret(0x11);
+// Genuinely different from TEST_SECRET, so the invalid-signature test below
+// actually exercises a signature mismatch rather than re-signing with the same
+// secret the route is configured with.
+const WRONG_SECRET = fakeSecret(0x22);
 
 process.env.RESEND_API_KEY = 're_test_placeholder_key';
 process.env.RESEND_WEBHOOK_SECRET = TEST_SECRET;
@@ -177,7 +187,7 @@ describe('POST /api/webhooks/inbound-email', () => {
     const req = await buildRequest({
       type: 'email.received', created_at: new Date().toISOString(),
       data: { email_id: 'email-invalid-sig', from: 'a@b.com', to: ['cogmap@abc.resend.app'], bcc: [], cc: [], received_for: [], message_id: '', subject: '', attachments: [] },
-    }, { secret: 'REDACTED_ROTATE_ME_2026-08-14' });
+    }, { secret: WRONG_SECRET });
     const res = await inboundPOST(req);
     expect(res.status).toBe(400);
     const docs = await insertedActivityLogDocs();
