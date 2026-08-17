@@ -5,6 +5,7 @@ import {
   isValidRelationshipCode, SPORT_CODES, ORG_TYPE_CODES, BUSINESS_UNIT_CODES,
   GENDER_CODES, DEMOGRAPHIC_CODES, COMPETITION_LEVEL_CODES, RELATIONSHIP_CODES,
 } from './lead-taxonomy';
+import { validateFieldVerifications } from './field-verifications';
 
 export interface ValidationResult {
   valid: boolean;
@@ -189,6 +190,22 @@ export function validateLeadPayload(body: any, brand: string, options?: { partia
     if (!Array.isArray(body.demographicCodes) || !body.demographicCodes.every((v: any) => isValidDemographicCode(v))) {
       errors.push('demographicCodes must be an array of: ' + DEMOGRAPHIC_CODES.join(', '));
     }
+  }
+
+  // Per-field provenance (issue #188) — same format-checked-only-when-present
+  // convention as `size`/`sportCode` above. Lead scope, so a `field` naming a
+  // contact path is rejected outright rather than stored as a stale pointer.
+  errors.push(...validateFieldVerifications(body.fieldVerifications, 'lead'));
+
+  // Contact-scoped provenance rides on each contact. `field` there is a bare
+  // contact field name, so the contact-path rejection deliberately does not
+  // apply — the contact object already says whose field it is.
+  if (Array.isArray(body.contacts)) {
+    body.contacts.forEach((contact: any, index: number) => {
+      if (contact && typeof contact === 'object') {
+        errors.push(...validateFieldVerifications(contact.fieldVerifications, 'contact', `contacts[${index}].fieldVerifications`));
+      }
+    });
   }
 
   return {
