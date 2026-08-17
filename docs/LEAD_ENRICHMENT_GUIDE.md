@@ -125,6 +125,76 @@ These fields are new, additive, and entirely optional — a lead written before 
 
 **Use explicit `'unknown'` (or the field's own `not-applicable`, where offered), never omit a taxonomy field you attempted but couldn't resolve, and never guess a plausible-sounding value.** This is the rulebook's single most-repeated rule (§3.6, §15.2, §21, §34): an incorrect guess is far more damaging than an honest "unknown," because it produces false-confidence duplicate matches and wrong classification tags that are hard to notice and undo later. It's fine to omit the field entirely from your `PUT` payload if you have no evidence at all and no example yet.
 
+### 2.6a Per-field provenance — `fieldVerifications` (issue #188)
+
+Additive and optional, like the taxonomy above. Every stored data point can carry **where it came from and when it was established**, so "is this phone number stale?" is answerable per field rather than per record. Before this existed, a rep looking at a phone number could not tell whether it came from the organisation's own contact page last week, a directory two months ago, or was composed by the agent rather than sourced.
+
+**Two scopes, one entry shape.**
+
+| Scope | Where | What `field` holds |
+|---|---|---|
+| Lead | `fieldVerifications[]` on the lead | A **scalar** lead field name, e.g. `value_proposition`, `general_contact`, `address` |
+| Contact | `fieldVerifications[]` on each entry of `contacts[]` | A **bare** contact field name, e.g. `phone`, `email`, `title` |
+
+Entry:
+
+| Key | Required | Format |
+|---|---|---|
+| `field` | yes | non-empty string, per the scope table above |
+| `verifiedAt` | yes | **full** ISO-8601 timestamp (`2026-08-13T10:00:00.000Z`). A bare date (`2026-08-13`) is rejected — ordering and eviction both depend on this being unambiguously comparable |
+| `method` | yes | one of `VERIFICATION_METHODS` (`lib/lead-taxonomy.ts`) |
+| `sourceUrl` | no | HTTP(S) URL. Omit for methods with no URL to point at (`admin`, `user`, `phone`, `email`) |
+| `verifiedBy` | no | who or what established it |
+
+**The method vocabulary is closed** — the same "rejected at the write boundary" rule as every other controlled list here. `lib/lead-taxonomy.ts` is the single source of truth; extending it is a one-line change there, never a caller's decision.
+
+| Method | Meaning |
+|---|---|
+| `official` | The organisation's own official web presence |
+| `official_social` | A social account proved to belong to the organisation (FB, X, Instagram, LinkedIn) |
+| `public` | Any other public source; carries an evidence URL |
+| `registration_system` | An official registry or registration system (company register, league database) |
+| `phone` | Confirmed by a phone call |
+| `email` | Confirmed by email exchange |
+| `admin` | Set by hand by an application admin |
+| `user` | Set through the application by an end user — a rep updating contact details, or an organisation claiming its listing |
+| `ai_generated` | **Composed rather than sourced.** The one value that says no evidence exists for this data point, which is exactly why it must be recordable rather than quietly omitted |
+
+**Never address a contact from the lead-level array.** A path like `contacts[0].phone` is rejected outright, in every spelling (`contacts.0.phone`, `contacts[email=…].phone`, bare `contacts`). The reason is concrete, not stylistic: `dedupeContacts()` (`lib/contacts.ts`) reindexes `contacts[]` on every write — it drops contacts with no name/email/phone and collapses duplicates — so a positional entry silently comes to describe a *different person's* phone while still carrying a confident timestamp. That is strictly worse than storing no provenance at all. Put the entry on the contact object instead, where it cannot be separated from the data it describes.
+
+**Growth is bounded on every write, by the server.** You do not need to prune before sending, but sending a bounded array keeps payloads small:
+
+- **One entry per `(field, method)`** — re-verifying an unchanged field *updates* its `verifiedAt` in place; it does not append. This is what makes a weekly re-verification loop safe to run forever.
+- **Hard cap 60 entries**, oldest `verifiedAt` evicted first.
+- The same field verified by two *different* methods keeps both — that is the point of keying on the pair.
+
+Entries that could never be stored (unknown method, unparseable `verifiedAt`, empty `field`) are dropped during normalization rather than silently corrupting the array; a payload containing one is also rejected by validation before it gets that far.
+
+**`verifiedBy` must never name a product, model, provider, or version** — see the repo's operating rules on assistant branding. `"agent"` for `ai_generated` and `"enrichment"` for sourced values are the conventional values.
+
+**Do not write provenance into a field that means something else.** In particular `source` is the acquisition **channel** (`manual`, `research_agent`, `referral`, `outbound_list`, `event`, `inbound`) — not an evidence URL. Evidence URLs belong in `sourceUrl` on a `fieldVerifications` entry.
+
+Example `PUT` fragment:
+
+```json
+{
+  "value_proposition": "Regional club with a growing youth academy.",
+  "fieldVerifications": [
+    { "field": "value_proposition", "verifiedAt": "2026-08-13T09:12:00.000Z", "method": "ai_generated", "verifiedBy": "agent" },
+    { "field": "address", "verifiedAt": "2026-08-13T09:12:00.000Z", "method": "official", "sourceUrl": "https://club.example/contact", "verifiedBy": "enrichment" }
+  ],
+  "contacts": [
+    {
+      "name": "Jane Doe",
+      "phone": "+3612345678",
+      "fieldVerifications": [
+        { "field": "phone", "verifiedAt": "2026-08-13T09:12:00.000Z", "method": "official", "sourceUrl": "https://club.example/contact", "verifiedBy": "enrichment" }
+      ]
+    }
+  ]
+}
+```
+
 ### 2.7 Fields the enrichment agent should never write
 
 | Field(s) | Why not |

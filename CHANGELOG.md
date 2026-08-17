@@ -1,5 +1,30 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.182
+
+### Per-field provenance on leads — `fieldVerifications` (issue #188)
+
+Every stored data point can now carry where it came from, how it was established, and when — so "is this phone number stale?" is answerable per field instead of per record. Previously a rep looking at a phone number had no way to tell whether it came from the organisation's own contact page last week, a directory two months ago, or was composed by the research agent rather than sourced. Requested by the enrichment agent runtime; equally aimed at the sales team.
+
+Strictly additive: every new field is optional, no existing field changes meaning, no write path changes shape, and no migration or backfill is needed — an existing lead simply has no `fieldVerifications` key, which is the correct representation of "no per-field provenance recorded."
+
+**Two scopes, one entry shape.** `fieldVerifications[]` on the lead covers **scalar** fields only. Per-contact provenance rides on each entry of `contacts[]`, where `field` is a bare contact field name.
+
+**Contact fields are not addressable from the lead-level array**, in any spelling (`contacts[0].phone`, `contacts.0.phone`, `contacts[email=…].phone`) — rejected at the write boundary. `dedupeContacts()` reindexes `contacts[]` on every write (it drops contacts with no name/email/phone and collapses duplicates), so a positional entry silently comes to describe a different person's field while still carrying a confident timestamp — worse than storing no provenance at all. Identity-keyed addressing was considered and rejected too: it encodes a foreign key in a string and breaks when a contact's email changes. Putting provenance on the contact object makes the invalid state unrepresentable rather than merely validated against.
+
+**Closed nine-value method enum** in `lib/lead-taxonomy.ts`, rejected at the write boundary like every other controlled vocabulary here: `official`, `official_social`, `public`, `registration_system`, `phone`, `email`, `admin`, `user`, `ai_generated`. Aligned value-for-value with the sibling application's taxonomy so one method means one thing on both sides.
+
+**Growth is bounded on every write** — one entry per `(field, method)` with the newest `verifiedAt` winning in place, plus a hard cap of 60 entries evicting oldest first. Re-verifying an unchanged field updates its timestamp rather than appending, which is what makes a repeating verification loop safe to run indefinitely.
+
+Collapse-and-cap lives in a new `lib/field-verifications.ts` rather than in `lib/validate-lead.ts`, because it is normalization and that module returns errors without mutating — mirroring how `lib/contacts.ts` owns contact normalization so POST, PUT and PATCH MODIFY cannot diverge (the bug issue #45 fixed once already). Contact-level provenance is threaded explicitly through `normalizeContact()`, which builds an object literal and would otherwise drop the key silently, and merged rather than discarded when `dedupeContacts()` collapses a duplicate.
+
+`verifiedBy` carries no product, model, provider, or version name.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest run` — 728 passing (was 702; 26 new in `tests/lib/field-verifications.test.ts`). `npm run test:smoke` — 5/5 passing. New coverage specifically includes: unknown method rejected; duplicate `(field, method)` collapsing to the newest; the 61st entry evicting the oldest; a `contacts[N].*` path rejected outright at lead scope while a bare contact field name is accepted at contact scope; contact provenance surviving both `normalizeContact()` and a `dedupeContacts()` collapse.
+
+`npm run test:integration` — 197 passing across 23 files. Worth noting: `vitest.config.ts`'s comment states integration tests can't run because `mongodb-memory-server` cannot reach `fastdl.mongodb.org`. That was true of an earlier environment, not this one — the suite was run here and passed. The comment is stale as a general claim; left in place rather than edited as an unrelated drive-by, but flagged here so the next session tries before assuming.
+
 ## 2.4.181
 
 ### Taxonomy backfill (issue #132) — batch of 4, prioritized for sales-team value (318 of 2,874 classified)
