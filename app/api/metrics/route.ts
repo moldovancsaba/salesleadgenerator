@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
 import { computeVelocity } from '@/app/lib/velocity-metrics'
 import type { OutcomeLogRow } from '@/app/lib/velocity-metrics'
 import { correlateOutcomes } from '@/lib/outcome-correlation'
 import { getTenantId, tenantFilter } from '@/lib/tenant'
+import { requireBrandAccessApi } from '@/lib/require-brand-access-api'
 
 const VELOCITY_PERIOD_DAYS = 30
 // Two full periods back from now, so the query covers both the current and
@@ -99,10 +100,13 @@ async function computeOutcomeCorrelationMetrics(db: any, leadsCollection: any, l
   return { ...correlation, truncated, searchQueryDataIsGlobal: true }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const brand = resolveBrand(new URL(request.url).searchParams.get('brand') || 'cogmap')
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    // Issue #192 — this route had no auth at all.
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
     const config = BRAND_CONFIG[brand]
     const tenantId = getTenantId(request)
     const filter = tenantFilter(tenantId)

@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
 import { resolveBrand } from '../../lib/brand'
 import { getOrRecomputeTicketSizeCalibration } from '../../lib/ticket-size-calibration-store'
 import { DEFAULT_MIN_SAMPLE_SIZE } from '../../../lib/ticket-size-calibration'
+import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,11 +11,14 @@ export const dynamic = 'force-dynamic'
 // the cached ticket_size_calibration doc, recomputing first only if it's
 // missing or more than 24h stale. Read-only — no write-path involvement, so
 // this can never affect lead creation/update latency or correctness.
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
     const brand = resolveBrand(url.searchParams.get('brand') || 'cogmap')
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    // Issue #192 — this route had no auth at all.
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
     const tenantId = (url.searchParams.get('tenantId') || 'default').trim() || 'default'
     const minSampleSizeParam = Number(url.searchParams.get('minSampleSize'))
     const minSampleSize = Number.isFinite(minSampleSizeParam) && minSampleSizeParam > 0

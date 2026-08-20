@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
+import { requireApiKeyOrSession } from '../../../lib/session'
 
 /**
  * Search Memory API (Check-inspired Phase 5)
@@ -7,6 +8,9 @@ import clientPromise from '../../../lib/mongodb'
  * Teaches the system what works
  */
 
+// Issue #192 — deliberately left open: read-only, non-PII global search-
+// memory aggregates, same trust level as GET /api/lead-taxonomy. Only POST
+// (below) is gated, since that's the actual write hole.
 export async function GET(request: Request) {
   try {
     const client = await clientPromise
@@ -62,7 +66,13 @@ export async function GET(request: Request) {
  *   teachingWeight?: number
  * }
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Issue #192 — this route had no auth at all. No real caller found in
+  // this repo or the sibling researchandenrich agent-runtime repo (grep
+  // confirmed) — pure exposure-closing, no behavior change expected.
+  const authError = await requireApiKeyOrSession(request)
+  if (authError) return authError
+
   try {
     const client = await clientPromise
     const db = client.db()

@@ -8,7 +8,7 @@
 
 **Not the same file as `_archived/roadmap.md`** — that's a frozen, historical feature-status log (v2.4.61), superseded by `CHANGELOG.md`, sharing this file's basename by coincidence rather than by relation. See `README.md`'s "Archived Documentation" table.
 
-Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-issue list (6 issues).
+Last synced: 2026-08-20, against `moldovancsaba/salesleadgenerator`'s real open-issue list (7 issues).
 
 ---
 
@@ -16,13 +16,8 @@ Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
+| [#192](https://github.com/moldovancsaba/salesleadgenerator/issues/192) | Unauthenticated read/write exposure across search, boards, forecast, metrics, win-rates, ticket-size-calibration, and settings | P1 | Same gap class as #104/#178, found not to have generalized (`docs/LESSONS_LEARNED.md` §3). Implemented: `requireBrandAccessApi` on 7 brand-scoped GET routes + `GET /api/search`'s brand mode; `requireSuperAdminSession` on `/api/search`'s no-brand cross-all-brands mode; new `requireApiKeyOrSession` guard on `PUT /api/settings`/`POST /api/search-learning`. Full gate passing (tsc 0, lint 0, 728 unit, 197 integration, 5/5 smoke) and live-verified against a local dev server with real credentials — not yet merged to `main`. |
 | [#132](https://github.com/moldovancsaba/salesleadgenerator/issues/132) | Backfill existing leads into the controlled taxonomy schema (rulebook v1.0, Phase 2) | P1 | 318 of 2,874 leads classified as of the last batch (2026-08-08), re-derived live from `GET /api/leads` rather than trusted from any prior branch's own claim (see `docs/LESSONS_LEARNED.md` §3 — an orphaned branch's claimed progress was found not to match production). Picking now weighted toward QUALIFIED/ENGAGED/PROPOSAL-stage leads (sales-team-active), not just backlog — see `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9. Real, ongoing, multi-session effort — not completable in one sitting. |
-
-## Done (awaiting merge)
-
-| # | Title | Priority | Notes |
-|---|---|---|---|
-| [#188](https://github.com/moldovancsaba/salesleadgenerator/issues/188) | Per-field provenance on leads: `fieldVerifications` with a closed method enum | P2 | Built on `feature/field-verifications`, `origin/main` merged in. Additive only — new optional field at two scopes (lead-level for scalar fields, per-contact for contact fields), closed nine-value method enum, bounded by last-write-wins per `(field, method)` plus a 60-entry cap. Full gate run and passing: tsc 0, lint 0, 728 unit, 197 integration, 5/5 smoke. **Urgency note:** the enrichment agent is already sending this field to production, where it is accepted with `200` and silently dropped (it isn't in `PUT`'s `allowedFields` on `main`), so every enrichment run until this merges produces records whose origin cannot be reconstructed. |
 
 ## Ready (unblocked, unstarted)
 
@@ -41,10 +36,17 @@ Last synced: 2026-08-08, against `moldovancsaba/salesleadgenerator`'s real open-
 
 *(#125 appears in both Ready and Blocked above — it's unblocked as tracking/documentation work, but the actual fix is blocked on the external dependency.)*
 
+## Backlog
+
+| # | Title | Priority | Notes |
+|---|---|---|---|
+| [#193](https://github.com/moldovancsaba/salesleadgenerator/issues/193) | Non-conforming `lead.source` values: 2,739 of 3,051 leads don't match the documented channel vocabulary | P3 | Not a validation gap — `source` is deliberately freeform (issue #123). Data-quality backlog: `csv_import` (1730), missing/`unknown` (977), and a handful of dvsc process-artifact strings need an owner decision on reclassification before any bulk write. Numbers re-derived live against production 2026-08-20, reconciled exactly against `GET /api/health`'s lead counts. |
+
 ## Recently closed (context)
 
 | # | Title | Resolution |
 |---|---|---|
+| [#188](https://github.com/moldovancsaba/salesleadgenerator/issues/188) | Per-field provenance on leads: `fieldVerifications` with a closed method enum | Merged to `main` (`03446dc`) and closed on GitHub. Additive only — new optional field at two scopes (lead-level for scalar fields, per-contact for contact fields), closed nine-value method enum, bounded by last-write-wins per `(field, method)` plus a 60-entry cap. |
 | [#189](https://github.com/moldovancsaba/salesleadgenerator/issues/189) | `main` is red: credential scrub left webhook test fixtures undecodable | Fixed (PR #190) — the 2026-08-14 scrub replaced webhook test fixtures with a placeholder that isn't valid base64, so `standardwebhooks`' eager decode threw before any assertion ran (14 tests failing). Fixture is now derived in-file from a fixed byte pattern: decodable, deterministic, obviously synthetic, no literal for a scanner to match. Also restored two negative tests that had been given the same placeholder as the valid secret and would have passed vacuously. |
 | [#172](https://github.com/moldovancsaba/salesleadgenerator/issues/172) | `Lead.region` type contradicts real free-text behavior | Fixed (2.4.179, PR #184) — live production audit found 55+ real values, widened type to `string`; also converted `AddLeadModal`/`FilterBar`'s hardcoded 3-value `Select` to free-text `TextInput`, matching `country`'s existing pattern. |
 | [#179](https://github.com/moldovancsaba/salesleadgenerator/issues/179) | Next.js 16.3.0 GA may fix the two CVEs docs said had no upstream fix | Fixed (2.4.178) — bumped `next`/`eslint-config-next` to 16.3.0, confirmed both CVEs resolved via `npm ls`/`npm audit`. Also resolved 3 unrelated pre-existing `npm audit` findings (`brace-expansion`, `js-yaml`, `nanoid`) via `npm audit fix`. |

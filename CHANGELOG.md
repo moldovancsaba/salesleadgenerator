@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.183
+
+### Unauthenticated read/write exposure across search, boards, forecast, metrics, win-rates, ticket-size-calibration, and settings (issue #192)
+
+A repo-wide audit found that 2.4.86/issue #104's fix to the core lead API (`/api/leads*`) never generalized to a second, real set of routes returning the same class of data — none of them imported any auth guard at all. Confirmed live against production before fixing: `GET /api/search`, `GET /api/boards/[brand]`, `GET /api/forecast/export`, `GET /api/metrics`, `GET /api/metrics/by-source`, `GET /api/metrics/decline-reasons`, `GET /api/win-rates`, and `GET /api/ticket-size-calibration` all returned full brand-scoped lead/business data (including contact PII via search) with no credentials, while `GET /api/settings` and `POST /api/search-learning` allowed unauthenticated writes to global scoring config and search memory.
+
+**Fix, by route:**
+- The seven brand-scoped `GET` routes above are now gated with `requireBrandAccessApi(request, brand)`, the same combined `x-api-key`-or-session guard #104 already uses for `/api/leads*`. Every real in-app caller (`/sales/[brand]`, `/forecast/[brand]`) already runs under a page-level brand-access gate and already carries the session cookie, so no in-app behavior changes.
+- `GET /api/search`'s brand-specified mode gets the same `requireBrandAccessApi`. Its no-brand mode — which searches every brand's leads at once and has no real in-app caller — now requires a super-admin session specifically, with **no** `x-api-key` bypass: no single brand grant covers "every brand," so it's treated as the same cross-tenant admin tier as `/admin/users`/`/admin/duplicate-scan`.
+- `PUT /api/settings` and `POST /api/search-learning` are global config, not brand-scoped, so neither existing guard fit: `requireBrandAccessApi` has no brand to check, and `requireSuperAdminSession` would incorrectly reject `PUT /api/settings`'s real caller (any brand-authorized user saving pipeline weights/calibration from the Forecast page, not an admin-only flow). New `lib/session.ts`'s `requireApiKeyOrSession` — `x-api-key` OR any authenticated session, no brand/admin check — fills this gap; a fifth guard tier alongside the four `docs/LLD.md` §8.2 already documented.
+- `GET /api/settings` and `GET /api/search-learning` are deliberately left open — read-only, non-PII, aggregate/config data, same trust level as the existing `GET /api/lead-taxonomy` precedent.
+
+Real, live-verified, not just type-checked: a local dev server run against the actual `.env.local` credentials confirmed every newly-gated route now 401s with no credentials and 200s with a valid `x-api-key`, and the four routes left open are unchanged.
+
+**Test fallout**: `tests/integration/boards.integration.test.ts` predated this fix and constructed plain, unauthenticated `Request` objects — switched to the existing `buildApiRequest()` helper (`tests/integration/helpers/api-request.ts`, the same fixture #104's own tests use) so it authenticates via `x-api-key` like every other integration test exercising a now-gated route.
+
+**Found in passing, not fixed here**: `POST /api/search-learning` throws a real MongoDB error (`$setOnInsert`/`$inc` path conflict on `searchRuns`) on its first write for a brand-new `companyId` — reproduced live during this change's own verification pass, reproduces identically whether authenticated or not, so it predates and is unrelated to this fix. Flagged separately rather than bundled into this change's scope.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest run` — 728 passing (unchanged). `npm run test:integration` — 197 passing across 23 files. `npm run test:smoke` — 5/5 passing. `npm run audit:gds-style` — 0 violations.
+
+### Documentation
+`README.md` (API Overview corrected — it previously claimed no unauthenticated read path existed anywhere, which was true for `/api/leads*` but not for the routes above), `docs/OPERATOR_GUIDE.md` (Auth section), `docs/ARCHITECTURE.md` (new "Second Unauthenticated-Exposure Sweep" section), `docs/LLD.md` (route table + §8.2's guard-tier list, now five not four).
+
 ## 2.4.182
 
 ### Per-field provenance on leads — `fieldVerifications` (issue #188)

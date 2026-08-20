@@ -33,3 +33,35 @@ export async function requireSuperAdminSession(request: NextRequest): Promise<Ss
   }
   return claims;
 }
+
+// x-api-key OR any authenticated session, with no brand or admin check —
+// for global (not brand-scoped) config that any signed-in user may read or
+// write, distinct from requireSuperAdminSession (admin-only) above and
+// lib/require-brand-access-api.ts's requireBrandAccessApi (brand-scoped).
+// Issue #192: PUT /api/settings is called from app/forecast/[brand]/
+// forecast-client.tsx by any brand-authorized user (saveWeights,
+// handleCalibrationModeChange) — not an admin-only flow — so
+// requireSuperAdminSession would wrongly 403 a legitimate in-app caller.
+// Local hasValidApiKey rather than lib/api-auth.ts's requireApiKey: that
+// helper fails open when SLG_API_KEY is unset, which would silently defeat
+// the session check below on this combined-auth path (same reasoning as
+// requireBrandAccessApi's own local copy of this check).
+function hasValidApiKey(request: NextRequest): boolean {
+  const configuredKey = process.env.SLG_API_KEY || '';
+  if (!configuredKey) return false;
+  return request.headers.get('x-api-key') === configuredKey;
+}
+
+export async function requireApiKeyOrSession(request: NextRequest): Promise<NextResponse | null> {
+  if (hasValidApiKey(request)) {
+    return null;
+  }
+
+  const idToken = request.cookies.get('sso_id_token')?.value;
+  const claims = await resolveSessionFromIdToken(idToken);
+  if (!claims || !claims.email) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  }
+
+  return null;
+}

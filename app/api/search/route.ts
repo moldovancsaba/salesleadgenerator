@@ -1,8 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
 import { BRAND_CONFIG } from '../../lib/brand'
+import type { Brand } from '../../lib/brand'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { escapeRegExp } from '../../lib/search/tagged-content-filter'
+import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
+import { requireSuperAdminSession } from '../../../lib/session'
 
 // Issue #106: q was interpolated into $regex unescaped — a query containing
 // regex metacharacters (e.g. "(a+)+$") was evaluated as regex syntax rather
@@ -53,7 +56,7 @@ function dedupeByFingerprint(rawLeads: any[]) {
   return Array.from(byFingerprint.values())
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const tenantId = getTenantId(request)
     const { searchParams } = new URL(request.url)
@@ -84,6 +87,12 @@ export async function GET(request: Request) {
       if (!config) {
         return NextResponse.json({ error: `Unknown brand: ${brand}` }, { status: 400 })
       }
+
+      // Issue #192 — this route had no auth at all; brand is a real
+      // BRAND_CONFIG key at this point (checked above), so it satisfies
+      // the Brand type requireBrandAccessApi expects.
+      const authError = await requireBrandAccessApi(request, brand as Brand)
+      if (authError) return authError
 
       const filter = buildSearchFilter(q, tenantId, region)
       const count = await db.collection(config.dbCollection).countDocuments(filter)
@@ -125,6 +134,15 @@ export async function GET(request: Request) {
         fetchedAt: new Date().toISOString(),
       })
     }
+
+    // Issue #192 — the no-brand mode below aggregates every brand's leads
+    // (incl. contact PII) into one response and has no real in-app caller
+    // (the app's own search bar always passes `brand`, confirmed via grep)
+    // — same cross-tenant risk class as the other super-admin-only routes,
+    // so it gets the stricter guard rather than requireBrandAccessApi
+    // (which has no "every brand at once" concept to check access against).
+    const superAdminError = await requireSuperAdminSession(request)
+    if (superAdminError instanceof NextResponse) return superAdminError
 
     // Issue #147 — derived from BRAND_CONFIG's own keys, not a hardcoded
     // 2-brand array, so a future brand is picked up automatically.

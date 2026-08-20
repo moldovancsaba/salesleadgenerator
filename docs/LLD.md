@@ -22,7 +22,7 @@ Compiled directly from the real source (export lists, import graphs, route handl
 
 ## 2. `app/api/**/route.ts` — Every API Route
 
-Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth** column names the actual guard call found in the file — see §8.2 for what each one means and why there are four distinct ones.
+Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth** column names the actual guard call found in the file — see §8.2 for what each one means and why there are five distinct ones.
 
 ### Leads core
 
@@ -40,15 +40,15 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
 | `app/api/boards/route.ts` | GET | `requireApiKey` (fixed, issue #178 — previously none) | Legacy multi-brand board summary (has its own inlined `getTenantId`/`tenantFilter` — a real inconsistency, see §8.1) |
-| `app/api/boards/[brand]/route.ts` | GET | none | Per-brand board summary + calls `app/lib/forecast.ts`'s `computeForecast` |
-| `app/api/forecast/export/route.ts` | GET | none | CSV/export of `computeForecast()` output for one brand |
-| `app/api/metrics/route.ts` | GET | none | Pipeline metrics; wraps `computeVelocity` (`app/lib/velocity-metrics.ts`) and `correlateOutcomes` (`lib/outcome-correlation.ts`) |
-| `app/api/metrics/by-source/route.ts` | GET | none | Win-rate-by-acquisition-`source` aggregation |
-| `app/api/metrics/decline-reasons/route.ts` | GET | none | Decline-reason rollup via `app/lib/decline-reason-rollup.ts` |
+| `app/api/boards/[brand]/route.ts` | GET | `requireBrandAccessApi` (fixed, issue #192 — previously none) | Per-brand board summary + calls `app/lib/forecast.ts`'s `computeForecast` |
+| `app/api/forecast/export/route.ts` | GET | `requireBrandAccessApi` (fixed, issue #192 — previously none) | CSV/export of `computeForecast()` output for one brand |
+| `app/api/metrics/route.ts` | GET | `requireBrandAccessApi` (fixed, issue #192 — previously none) | Pipeline metrics; wraps `computeVelocity` (`app/lib/velocity-metrics.ts`) and `correlateOutcomes` (`lib/outcome-correlation.ts`) |
+| `app/api/metrics/by-source/route.ts` | GET | `requireBrandAccessApi` (fixed, issue #192 — previously none) | Win-rate-by-acquisition-`source` aggregation |
+| `app/api/metrics/decline-reasons/route.ts` | GET | `requireBrandAccessApi` (fixed, issue #192 — previously none) | Decline-reason rollup via `app/lib/decline-reason-rollup.ts` |
 | `app/api/stats/route.ts` | GET | `requireApiKey` (fixed, issue #178 — previously none) | Legacy stats endpoint using `getPipelineWeights` |
-| `app/api/win-rates/route.ts` | GET | none | Lazy-recompute cached win-rate calibration (`app/lib/win-rate-store.ts`'s `getOrRecomputeWinRates`) |
+| `app/api/win-rates/route.ts` | GET | `requireBrandAccessApi` (fixed, issue #192 — previously none) | Lazy-recompute cached win-rate calibration (`app/lib/win-rate-store.ts`'s `getOrRecomputeWinRates`) |
 | `app/api/win-rates/recalculate/route.ts` | POST | `requireApiKey` | Forced win-rate recompute, ignoring cache staleness |
-| `app/api/ticket-size-calibration/route.ts` | GET | none | Lazy-recompute cached ticket-size calibration |
+| `app/api/ticket-size-calibration/route.ts` | GET | `requireBrandAccessApi` (fixed, issue #192 — previously none) | Lazy-recompute cached ticket-size calibration |
 
 ### Contacts / duplicates / email
 
@@ -79,11 +79,11 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
-| `app/api/settings/route.ts` | GET, PUT | none | `settings` collection: pipeline weights, stale thresholds, concentration risk, forecast calibration |
+| `app/api/settings/route.ts` | GET, PUT | GET: none; PUT: `requireApiKeyOrSession` (fixed, issue #192 — previously none) | `settings` collection: pipeline weights, stale thresholds, concentration risk, forecast calibration |
 | `app/api/sales-settings/[brand]/route.ts` | GET, PUT | none | Per-brand `SalesSettings` document (`company_settings` collection), sanitized via `sanitizeSalesSettings` |
 | `app/api/lead-taxonomy/route.ts` | GET | none | Serves `lib/lead-taxonomy.ts`'s controlled vocabularies live so the external enrichment-agent prompt never drifts from code |
-| `app/api/search/route.ts` | GET | none | Regex-escaped (`escapeRegExp`) free-text lead search |
-| `app/api/search-learning/route.ts` | GET, POST | none | "Search memory" — tracks which search queries/domains produced good leads |
+| `app/api/search/route.ts` | GET | `requireBrandAccessApi` when `brand` given; `requireSuperAdminSession` (no `x-api-key` bypass) for the no-brand cross-all-brands mode (fixed, issue #192 — previously none) | Regex-escaped (`escapeRegExp`) free-text lead search |
+| `app/api/search-learning/route.ts` | GET, POST | GET: none; POST: `requireApiKeyOrSession` (fixed, issue #192 — previously none) | "Search memory" — tracks which search queries/domains produced good leads |
 | `app/api/prompts/route.ts` | GET, PUT | `requireSuperAdminSession` | Reads/writes external research-agent prompt files under `../Agents/contentcreator/prompts` |
 
 ### Auth / SSO
@@ -337,14 +337,15 @@ Together, `BRAND_CONFIG[brand].dbCollection` picks the actual Mongo collection a
 
 ### 8.2 Auth layering
 
-Four distinct, deliberately non-overlapping guard mechanisms:
+Five distinct, deliberately non-overlapping guard mechanisms:
 
 1. **`lib/api-auth.ts`** (`requireApiKey`/`isCronRequest`/`requireCronOrApiKey`) — machine-to-machine: shared `x-api-key` header (`SLG_API_KEY`) for the external research agent and admin/cron scripts, or `Authorization: Bearer $CRON_SECRET` for Vercel Cron. Fails open outside production if unconfigured, fails closed in production (issue #105). Used on write-heavy/admin routes (`cadences`, `battlecards`, `outreach-*`, `admin/*`).
-2. **`lib/require-brand-access-api.ts`** (`requireBrandAccessApi`) — the route-handler combined guard: accepts the same `x-api-key` OR a valid `sso_id_token` cookie resolved via `lib/session.ts`'s `resolveSessionFromIdToken` + `lib/sso-access.ts`'s `getUserAccess`/`hasAccessToBrand`. Deliberately **not** built on top of `requireApiKey()` (would fail-open and defeat the session check) — has its own inline `hasValidApiKey`. Used on the core lead-data surface: `app/api/leads/**`, `app/api/contacts/**`, `app/api/contact-suggestions/**`.
+2. **`lib/require-brand-access-api.ts`** (`requireBrandAccessApi`) — the route-handler combined guard: accepts the same `x-api-key` OR a valid `sso_id_token` cookie resolved via `lib/session.ts`'s `resolveSessionFromIdToken` + `lib/sso-access.ts`'s `getUserAccess`/`hasAccessToBrand`. Deliberately **not** built on top of `requireApiKey()` (would fail-open and defeat the session check) — has its own inline `hasValidApiKey`. Used on the core lead-data surface: `app/api/leads/**`, `app/api/contacts/**`, `app/api/contact-suggestions/**`, and (issue #192) `app/api/search` (brand mode), `app/api/boards/[brand]`, `app/api/forecast/export`, `app/api/metrics*`, `app/api/win-rates`, `app/api/ticket-size-calibration`.
 3. **`lib/require-brand-access.ts`** (`requireBrandAccess`) — the Server Component page-level equivalent, calls Next's `redirect()` (can't return a `NextResponse`, hence a separate function from #2). Called at the top of all seven brand-scoped `page.tsx` files (§6).
-4. **`lib/session.ts`**'s `requireSuperAdminSession` — strictest tier, session-only (no `x-api-key` fallback), gates `admin/users`, `admin/toggle`, `duplicate-reviews*`, `admin/duplicate-scan`, `prompts` — human-only surfaces reasoned to never need machine access.
+4. **`lib/session.ts`**'s `requireSuperAdminSession` — strictest tier, session-only (no `x-api-key` fallback), gates `admin/users`, `admin/toggle`, `duplicate-reviews*`, `admin/duplicate-scan`, `prompts`, and (issue #192) `app/api/search`'s no-brand cross-all-brands mode — human-only surfaces reasoned to never need machine access.
+5. **`lib/session.ts`**'s `requireApiKeyOrSession` (issue #192) — the same `x-api-key`-or-session shape as #2, but with no brand or admin check: for global (not brand-scoped) mutating config any signed-in user may legitimately write, not just an admin. Gates `PUT /api/settings` and `POST /api/search-learning` — narrower than #1 (rejects when unconfigured rather than failing open) and looser than #4 (no super-admin requirement, since the real caller is any brand-authorized user on the Forecast page).
 
-SSO plumbing (`lib/sso.ts` PKCE flow + `lib/sso-access.ts` org-access model) underlies all four via `app/api/auth/login` → `oauth/callback` → `auth/session`, with `app/components/AuthProvider.tsx` as the client-side session context consumed by `AppNav`.
+SSO plumbing (`lib/sso.ts` PKCE flow + `lib/sso-access.ts` org-access model) underlies all five via `app/api/auth/login` → `oauth/callback` → `auth/session`, with `app/components/AuthProvider.tsx` as the client-side session context consumed by `AppNav`.
 
 ### 8.3 Taxonomy enforcement end-to-end
 
