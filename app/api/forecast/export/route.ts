@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise from '../../../../lib/mongodb'
 import { resolveBrand } from '../../../../app/lib/brand'
 import { computeForecast } from '../../../lib/forecast'
+import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,12 +17,15 @@ export const dynamic = 'force-dynamic'
 // export can never disagree with what the app itself shows for that brand.
 const PIPELINE_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST']
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
     const format = (url.searchParams.get('format') || 'csv').toLowerCase()
     const brand = resolveBrand(url.searchParams.get('brand'))
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    // Issue #192 — this route had no auth at all.
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
     const tenantId = (url.searchParams.get('tenantId') || 'default').trim() || 'default'
 
     const client = await clientPromise

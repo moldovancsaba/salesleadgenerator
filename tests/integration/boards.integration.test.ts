@@ -19,10 +19,6 @@ afterAll(async () => {
   await stopTestMongo(mongod);
 });
 
-function req(url: string, init?: RequestInit) {
-  return new Request(`http://localhost${url}`, init);
-}
-
 describe('GET /api/boards/[brand] — cogmap forecast', () => {
   it('computes weighted revenue using the real default pipeline weight for WON (1.0 — no discount)', async () => {
     const res = await leadsPOST(buildApiRequest('/api/leads?brand=cogmap', {
@@ -41,7 +37,7 @@ describe('GET /api/boards/[brand] — cogmap forecast', () => {
     expect(res.status).toBe(201);
 
     const boardRes = await boardsGET(
-      req('/api/boards/cogmap?tenantId=default'),
+      buildApiRequest('/api/boards/cogmap?tenantId=default'),
       { params: Promise.resolve({ brand: 'cogmap' }) }
     );
     expect(boardRes.status).toBe(200);
@@ -68,7 +64,7 @@ describe('GET /api/boards/[brand] — cogmap forecast', () => {
     }));
 
     const boardRes = await boardsGET(
-      req('/api/boards/cogmap?tenantId=default'),
+      buildApiRequest('/api/boards/cogmap?tenantId=default'),
       { params: Promise.resolve({ brand: 'cogmap' }) }
     );
     const body = await boardRes.json();
@@ -84,7 +80,7 @@ describe('GET /api/boards/[brand] — cogmap forecast', () => {
   // revenueFilter fix in app/lib/forecast.ts actually targets.
   it('excludes a BACKLOG lead from forecast.totals.revenue', async () => {
     const before = await boardsGET(
-      req('/api/boards/cogmap?tenantId=default'),
+      buildApiRequest('/api/boards/cogmap?tenantId=default'),
       { params: Promise.resolve({ brand: 'cogmap' }) }
     );
     const beforeBody = await before.json();
@@ -106,7 +102,7 @@ describe('GET /api/boards/[brand] — cogmap forecast', () => {
     expect(res.status).toBe(201);
 
     const after = await boardsGET(
-      req('/api/boards/cogmap?tenantId=default'),
+      buildApiRequest('/api/boards/cogmap?tenantId=default'),
       { params: Promise.resolve({ brand: 'cogmap' }) }
     );
     expect(after.status).toBe(200);
@@ -140,7 +136,7 @@ describe('GET /api/boards/[brand] — dvsc forecast', () => {
     expect(res.status).toBe(201);
 
     const boardRes = await boardsGET(
-      req('/api/boards/dvsc?tenantId=default'),
+      buildApiRequest('/api/boards/dvsc?tenantId=default'),
       { params: Promise.resolve({ brand: 'dvsc' }) }
     );
     expect(boardRes.status).toBe(200);

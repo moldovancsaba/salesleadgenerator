@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
 import { DEFAULT_STALE_THRESHOLDS } from '../../../lib/stale-deal'
 import { DEFAULT_CONCENTRATION_SETTINGS } from '../../../lib/forecast-concentration'
 import { DEFAULT_CALIBRATION_SETTINGS } from '../../../lib/win-rate-calibration'
+import { requireApiKeyOrSession } from '../../../lib/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,9 @@ const DEFAULT_WEIGHTS: Record<string, number> = {
   LOST: 0.0,
 }
 
+// Issue #192 — deliberately left open: read-only, non-PII global scoring
+// config, same trust level as GET /api/lead-taxonomy. Only PUT (below) is
+// gated, since that's the actual write hole.
 export async function GET() {
   try {
     const client = await clientPromise
@@ -49,7 +53,15 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
+  // Issue #192 — this route had no auth at all despite writing global
+  // scoring config every board/forecast page reads. requireApiKeyOrSession,
+  // not requireSuperAdminSession: the real caller (app/forecast/[brand]/
+  // forecast-client.tsx's saveWeights/handleCalibrationModeChange) is any
+  // brand-authorized user, not an admin-only flow.
+  const authError = await requireApiKeyOrSession(request)
+  if (authError) return authError
+
   try {
     const body = await request.json()
     const weights = body.weights

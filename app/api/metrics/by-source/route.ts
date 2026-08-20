@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
 import { getTenantId, tenantFilter } from '@/lib/tenant'
+import { requireBrandAccessApi } from '@/lib/require-brand-access-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,11 +12,14 @@ export const dynamic = 'force-dynamic'
 // created before this field existed have no `source` — bucketed under the
 // literal "unknown" key here rather than dropped from the aggregate, same
 // "never silently exclude" convention as this codebase's other rollups.
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const brand = resolveBrand(searchParams.get('brand') || 'cogmap')
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    // Issue #192 — this route had no auth at all.
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
     const config = BRAND_CONFIG[brand]
     const tenantId = getTenantId(request)
 
