@@ -91,18 +91,26 @@ export async function POST(request: NextRequest) {
 
     const now = new Date()
 
-    // Upsert search learning record
+    // Upsert search learning record.
+    //
+    // `searchRuns` and `lastQueries` are deliberately NOT seeded in
+    // $setOnInsert: MongoDB rejects an update whose operators target the same
+    // path twice ("Updating the path 'searchRuns' would create a conflict at
+    // 'searchRuns'", error code 40), and both were previously claimed by
+    // $setOnInsert AND by $inc/$push below — so every first write for a new
+    // companyId threw a real 500 before it could insert anything. On an
+    // upsert-insert, $inc on an absent field initializes it to the increment
+    // (1) and $push on an absent field creates the array with the pushed
+    // element, which is exactly what the removed seeds intended.
     await db.collection('searchlearnings').updateOne(
       { companyId: company },
       {
         $setOnInsert: {
           companyId: company,
           createdAt: now,
-          lastQueries: [],
           topQueries: [],
           topTerms: [],
           topDomains: [],
-          searchRuns: 0,
         },
         $set: {
           updatedAt: now,
