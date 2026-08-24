@@ -1,5 +1,28 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.184
+
+### `POST /api/search-learning` 500s on the first write for any new `companyId` (issue #194)
+
+Its upsert claimed the same document paths twice in a single update: `$setOnInsert` seeded `searchRuns: 0` and `lastQueries: []` while `$inc` and `$push` in the same update also targeted those exact paths. MongoDB rejects that outright (error code 40, `Updating the path 'searchRuns' would create a conflict at 'searchRuns'`), so the insert branch never ran and nothing was stored. Two colliding paths, not one — Mongo only reports the first it hits, which is why the observed error named `searchRuns` alone.
+
+Found and reproduced live against real production credentials while verifying the unrelated auth change in 2.4.183; it predates that work and reproduces identically whether the request is authenticated or not. Blast radius is small: `docs/ARCHITECTURE.md` already documented that **zero** call sites POST to this route (re-confirmed by grepping this repo and the sibling agent-runtime repo), and production's single global `companyId: 'slg'` document already exists — so this was a broken write path with no current writer, not an active incident. It would have fired for `'slg'` itself on a fresh database.
+
+Fixed by removing both seeds from `$setOnInsert` and letting the operators initialize their own fields: on an upsert-insert, `$inc` on an absent field initializes it to the increment (`1`) and `$push` on an absent field creates the array containing the pushed element — exactly what the removed seeds intended. `companyId`/`createdAt`/`topQueries`/`topTerms`/`topDomains` stay in `$setOnInsert`; none are targeted by another operator in the same update.
+
+**The regression test was verified to actually catch the bug**, not merely to pass after the fix: temporarily reinstating the two conflicting seeds makes 3 of the new suite's 4 cases fail with a real 500, and reverting makes them pass again. The 4th (the no-`query` → `400` case) correctly passes both ways since it returns before touching the database — recorded here rather than left as false confidence, per the standard set by #108's own test note.
+
+### Repo hygiene: four dead root-level scratch files removed
+
+`build-log.txt` (stale build-failure notes from a long-since-resolved incident), `simple-test.js` (an ad-hoc quality-registry check that `require()`s a `.ts` file and cannot run under plain node), `test-connection.js` and `test-db.js` (throwaway Mongo connection probes). All four confirmed unreferenced by any script, config, import, or doc before removal. The latter two each carried a hardcoded connection-string literal — already neutralized by the 2026-08-14 credential scrub to a `REDACTED_ROTATE_ME` placeholder, but exactly the shape of file that invites a real credential being pasted back in, which is the substantive reason to delete rather than leave them.
+
+### `docs/LESSONS_LEARNED.md`: `next dev` rewrites `CLAUDE.md`
+
+Next.js 16's `generate-agent-files.js` regenerates `CLAUDE.md` on dev-server startup and appends its own agent-rules block. During this session that destroyed an uncommitted, hand-written `CLAUDE.md` section (the App Router route-collision lesson), and a blanket `git checkout -- CLAUDE.md` to clear the generated block cemented the loss instead of catching it. Recorded in §5 with the two rules that follow — never blanket-revert a file to clear a generated artifact without reading the whole diff for content that has gone *missing*, and commit `CLAUDE.md` edits promptly rather than leaving them in the working tree — plus a matching entry in §7's standing checklist. The rescued section is now committed (`148a897`).
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest run` — 728 passing (unchanged). `npm run test:integration` — 201 passing across 24 files (was 197/23; 4 new in `tests/integration/search-learning.integration.test.ts`). `npm run test:smoke` — 5/5 passing. `npm run audit:gds-style` — 0 violations.
+
 ## 2.4.183
 
 ### Unauthenticated read/write exposure across search, boards, forecast, metrics, win-rates, ticket-size-calibration, and settings (issue #192)
