@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "gdsVersion": "6.5.0",
+  "productArchetype": "admin",
+  "requiredContracts": [
+    "AdminDataTable",
+    "AdminTextInput",
+    "AdminSelect",
+    "AdminModal",
+    "AdminDetailDrawer",
+    "InfoCard",
+    "StatusBadge",
+    "AdminResourceCard",
+    "KanbanBoard",
+    "SectionPanel",
+    "PeriodSelector",
+    "GdsIcons"
+  ],
+  "localAdapters": [
+    {
+      "contract": "raw Mantine/tabler-icons re-export barrel",
+      "path": "app/components/gds/primitives.ts",
+      "status": "active"
+    }
+  ],
+  "approvedExceptions": [],
+  "compliance": {
+    "documentationPaths": [
+      "README.md"
+    ],
+    "strictMode": false,
+    "themeOwnershipPaths": [
+      "app/layout.tsx"
+    ]
+  },
+  "migrationStatus": "partial",
+  "owner": "sales-lead-generator",
+  "lastReviewedAt": "2026-08-25"
+}

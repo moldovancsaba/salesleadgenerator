@@ -8,7 +8,7 @@
     "vercel-build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
-    "audit:gds-style": "node scripts/audit-gds-style.mjs",
+    "audit:gds-style": "gds-compliance validate-manifest --manifest ./gds-adoption.json && gds-compliance check --manifest ./gds-adoption.json",
     "test:smoke": "npx tsx tests/smoke/validate-lead.smoke.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
@@ -21,9 +21,9 @@
     "@mantine/hooks": "^9.4.2",
     "@mantine/modals": "^9.4.2",
     "@mantine/notifications": "^9.4.2",
-    "@sovereignsquad/gds-admin": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.14.3/sovereignsquad-gds-admin-3.14.3.tgz",
-    "@sovereignsquad/gds-core": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.14.3/sovereignsquad-gds-core-3.14.3.tgz",
-    "@sovereignsquad/gds-theme": "https://github.com/sovereignsquad/general-design-system/releases/download/gds-v3.14.3/sovereignsquad-gds-theme-3.14.3.tgz",
+    "@sovereignsquad/gds-admin": "^6.5.0",
+    "@sovereignsquad/gds-core": "^6.5.0",
+    "@sovereignsquad/gds-theme": "^6.5.0",
     "@tabler/icons-react": "^3.45.0",
     "dayjs": "^1.11.21",
     "dotenv": "^17.4.2",
@@ -39,6 +39,8 @@
     "resend": "^6.18.1"
   },
   "devDependencies": {
+    "@sovereignsquad/gds-compliance": "^6.5.0",
+    "@sovereignsquad/gds-eslint-config": "^6.5.0",
     "@types/node": "^20.0.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

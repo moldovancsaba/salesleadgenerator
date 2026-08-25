@@ -492,7 +492,7 @@ export function ForecastClient({ brand }: Props) {
               const raw = data.pipeline![col];
               if (!raw) return null;
               return (
-                <Group key={col} justify="space-between" py={4} style={{ borderBottom: '1px solid #eee' }}>
+                <Group key={col} justify="space-between" py={4} style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
                   <div>
                     <Text fw={500}>{col}</Text>
                     <Text size="xs" c="dimmed">{raw.leads} leads · {raw.participants} participants</Text>
@@ -521,7 +521,7 @@ export function ForecastClient({ brand }: Props) {
           <Paper withBorder p="md" radius="md">
             <Title order={4}>By Tier</Title>
             {Object.entries(data.byTier || {}).map(([tier, row]) => (
-              <Group key={tier} justify="space-between" py={4} style={{ borderBottom: '1px solid #eee' }}>
+              <Group key={tier} justify="space-between" py={4} style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
                 <div>
                   <Text fw={500} tt="capitalize">{tier}</Text>
                   <Text size="xs" c="dimmed">{row.leads} leads · {row.participants} participants</Text>
@@ -534,7 +534,7 @@ export function ForecastClient({ brand }: Props) {
           <Paper withBorder p="md" radius="md">
             <Title order={4}>By Model</Title>
             {Object.entries(data.byModel || {}).map(([model, row]) => (
-              <Group key={model} justify="space-between" py={4} style={{ borderBottom: '1px solid #eee' }}>
+              <Group key={model} justify="space-between" py={4} style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
                 <div>
                   <Text fw={500} tt="capitalize">{model.replace('_', ' ')}</Text>
                   <Text size="xs" c="dimmed">{row.leads} leads</Text>
