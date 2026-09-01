@@ -28,11 +28,13 @@ async function buildSessionBody(claims: SsoIdTokenClaims, accessToken: string) {
   for (const [slug, config] of Object.entries(brandConfigs)) brandLabels[slug] = config.label;
 
   let accessibleBrands: string[] = [];
+  let hasSeenTour = false;
   if (isMongoConfigured()) {
     const client = await clientPromise;
     const db = client.db();
     const record = await getUserAccess(db, claims.sub);
     accessibleBrands = getAccessibleBrands(claims.email, record?.orgAccess, allBrands);
+    hasSeenTour = Boolean(record?.tourSeenAt);
   } else if (isSuperAdminEmail(claims.email)) {
     // No DB configured (local dev without MONGODB_URI) — a super admin
     // still needs to see something rather than an empty nav, since
@@ -46,6 +48,7 @@ async function buildSessionBody(claims: SsoIdTokenClaims, accessToken: string) {
     accessibleBrands,
     brandLabels,
     isSuperAdmin: isSuperAdminEmail(claims.email),
+    hasSeenTour,
   };
 }
 
@@ -55,7 +58,7 @@ export async function GET(request: NextRequest) {
   const refreshToken = request.cookies.get('sso_refresh_token')?.value;
 
   if (!idToken || !accessToken) {
-    return NextResponse.json({ user: null, permission: null, accessibleBrands: [], brandLabels: {}, isSuperAdmin: false }, { status: 401 });
+    return NextResponse.json({ user: null, permission: null, accessibleBrands: [], brandLabels: {}, isSuperAdmin: false, hasSeenTour: false }, { status: 401 });
   }
 
   try {
@@ -93,7 +96,7 @@ export async function GET(request: NextRequest) {
       console.error('[api/auth/session] verification failed:', error);
     }
 
-    const response = NextResponse.json({ user: null, permission: null, accessibleBrands: [], brandLabels: {}, isSuperAdmin: false }, { status: 401 });
+    const response = NextResponse.json({ user: null, permission: null, accessibleBrands: [], brandLabels: {}, isSuperAdmin: false, hasSeenTour: false }, { status: 401 });
     response.cookies.delete('sso_access_token');
     response.cookies.delete('sso_id_token');
     response.cookies.delete('sso_refresh_token');

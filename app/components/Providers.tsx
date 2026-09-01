@@ -3,6 +3,7 @@
 import { MantineProvider, createTheme } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { AuthProvider } from "./AuthProvider";
+import { TourProvider } from "./TourProvider";
 
 // createTheme() must run in a Client Component: `Input.vars` below is a
 // function, and functions can't be serialized across the Server -> Client
@@ -57,7 +58,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
           the client-side counterpart used for UI, not the enforcement
           itself (that always happens server-side, per page, regardless of
           what this reports). */}
-      <AuthProvider>{children}</AuthProvider>
+      {/* Issue #185 — descendant of AuthProvider (needs its session state
+          to know who's logged in and whether they've seen the tour) but
+          itself an ancestor of everything else, including AppNav, so both
+          the auto-trigger and the "Take the tour" replay entry point can
+          reach it via useTour(). */}
+      <AuthProvider>
+        <TourProvider>{children}</TourProvider>
+      </AuthProvider>
     </MantineProvider>
   );
 }

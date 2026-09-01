@@ -1,5 +1,24 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.187
+
+### New-user onboarding tour (issue #185, design in #165)
+
+A guided spotlight walkthrough of the kanban app, built on `driver.js` v1.8.0 (MIT, zero peer dependencies, actively maintained — confirmed before adding) per #165's own owner decision to use a purpose-built library rather than hand-rolling on GDS's `OverlayManagerProvider`. Auto-starts the first time a logged-in user lands on `/sales/[brand]` with no `tourSeenAt` on their `sso_user_access` record; replayable any time via the hamburger menu's new "Help → Take the tour" entry.
+
+Seven steps across two real UI-driving transitions: the kanban board and a lead card (the first card of the first non-empty column, via a new `tourTarget` prop mirroring `app/kanban.tsx`'s own existing `isLast` positional-check pattern) are spotlighted directly; advancing past "Add a lead" dispatches a real `.click()` on the card's own Open button to reveal the Lead Detail modal's content and its outreach-compose action; advancing past that clicks the nav hamburger to reveal the brand switcher and Sales Settings link. No cross-page navigation for the Sales Settings step — it spotlights the link itself, describing what's behind it, since a real route change would unmount the in-memory tour instance and lose progress.
+
+Two real gotchas found by reading `driver.js`'s actual compiled source (not just its `.d.ts`) and designed around up front: (1) the tour's first steps only exist on `/sales/[brand]`, but a fresh login actually lands on `/forecast/[brand]` — auto-start is gated on the real pathname (`shouldAutoStartOnPath`) rather than relying on `driver.js`'s `skipMissingElement` alone, which would otherwise self-destroy in the same tick with nothing shown and (without a second guard, `shouldMarkSeen`) permanently mark the tour seen for a user who saw nothing; (2) `driver.js`'s `onDestroyStarted` hook suppresses the library's own real teardown unless the hook calls `opts.driver.destroy()` itself — verified via its actual source, since this isn't documented in the type definitions.
+
+Storage is server-persisted (`SsoUserAccessRecord.tourSeenAt`, new `markTourSeen()`, new self-service `POST /api/auth/tour`), not localStorage — the one existing "remember this" precedent in the app (`app/lib/saved-filters-storage.ts`) chose localStorage specifically because it had no multi-device account concept at the time, which is no longer true now that SSO + `sso_user_access` exists. `GET /api/auth/session` gains `hasSeenTour`, threaded through `AuthProvider` exactly like `brandLabels` was for issue #195.
+
+New `app/lib/tour/` module: `selectors.ts` (the single source of truth for every `data-tour` value), `tour-logic.ts` (pure, DOM-free — `shouldAutoStartOnPath`, `shouldMarkSeen`, unit-tested), `steps.ts` (the `DriveStep[]` array and click-orchestration helpers). New `app/components/TourProvider.tsx`, mounted between `AuthProvider` and the app in `app/components/Providers.tsx`.
+
+`docs/OPERATOR_GUIDE.md` gains an "Onboarding Tour" section and updates the Navigation summary (which had also drifted out of sync with #196's "Clients" admin page, fixed in the same pass); `docs/ARCHITECTURE.md` documents the full design and both gotchas.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest run` — 743/743 passing (+8 new in `tests/lib/tour-logic.test.ts`). `npm run test:integration` — 227/227 passing, unaffected. `npm run test:smoke` — 5/5 passing. `npx next build` — compiles clean for all 28 routes. Manual verification: dev server + browser confirmed no console/server errors across the reachable (unauthenticated) surface; the authenticated auto-trigger/click-orchestration path itself needs a real SSO login to fully exercise, which this sandbox can't fabricate — same disclosed limitation as #195/#196's admin features.
+
 ## 2.4.186
 
 ### Site-admin `/admin/clients` UI to add a new client (issue #196)

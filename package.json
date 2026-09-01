@@ -1,6 +1,6 @@
 {
   "name": "slg-leads",
-  "version": "2.4.186",
+  "version": "2.4.187",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -27,6 +27,7 @@
     "@tabler/icons-react": "^3.45.0",
     "dayjs": "^1.11.21",
     "dotenv": "^17.4.2",
+    "driver.js": "^1.8.0",
     "jose": "^6.2.4",
     "mongodb": "^6.20.0",
     "mongoose": "^9.8.0",

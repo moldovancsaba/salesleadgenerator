@@ -32,6 +32,7 @@ import {
 import { OutreachComposeModal } from './outreach/compose-modal';
 import { TABLET_LANDSCAPE_MAX } from './constants';
 import { useIsCompactViewport } from './lib/use-is-compact-viewport';
+import { TOUR_SELECTOR } from './lib/tour/selectors';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -777,6 +778,14 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
         variant: 'light',
         disabled: busy,
         onClick: () => setOutreachOpen(true),
+        // Issue #185 — GDS's renderSemanticAction spreads unrecognized props
+        // (including `id`) straight onto the real Mantine <Button>, so this
+        // lands on the actual DOM node the onboarding tour spotlights. Only
+        // compiles because `actions` has no explicit ActionBarProps
+        // annotation anywhere in its assignment chain today (confirmed) —
+        // if a future refactor adds one, TypeScript's excess-property check
+        // would start rejecting this and it'd need an `as` cast instead.
+        id: TOUR_SELECTOR.composeOutreach,
       },
       // Issue #126 — exactly one of these two is ever shown, derived from
       // the lead's own current column (never both, never neither).
@@ -822,7 +831,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
   );
 
   const content = (
-    <Stack gap="md">
+    <Stack gap="md" data-tour="lead-detail-content">
       <Box>
         <Group justify="space-between">
           <Text fw={600}>ICE Score</Text>

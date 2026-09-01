@@ -18,6 +18,12 @@ export type SsoUserAccessRecord = {
   orgAccess: OrgAccessMap;
   createdAt: string;
   updatedAt: string;
+  // Issue #185 — set once the user has completed/skipped/dismissed the
+  // onboarding spotlight tour. Absent means "never shown" (not `false`),
+  // matching this record's existing convention (see setUserOrgAccess's own
+  // comment on absent-key-vs-explicit-value) — undefined vs. a real
+  // timestamp are the only two states, never a boolean.
+  tourSeenAt?: string;
 };
 
 // Deliberately NOT persisted as a field on the record — persisting it risks
@@ -57,6 +63,17 @@ export async function upsertUserSeen(
   );
   const record = await collection.findOne({ ssoUserId });
   return record as unknown as SsoUserAccessRecord;
+}
+
+// Issue #185 — no `upsert: true` here, unlike upsertUserSeen above: this is
+// only ever called for a user who already has a record (created at their
+// first login, before the tour could possibly have run), so a plain update
+// is correct and doesn't need to duplicate upsertUserSeen's own
+// $setOnInsert shape.
+export async function markTourSeen(db: Db, ssoUserId: string): Promise<void> {
+  const collection = db.collection<SsoUserAccessRecord>(COLLECTION);
+  const now = new Date().toISOString();
+  await collection.updateOne({ ssoUserId }, { $set: { tourSeenAt: now, updatedAt: now } });
 }
 
 export async function getUserAccess(db: Db, ssoUserId: string): Promise<SsoUserAccessRecord | null> {

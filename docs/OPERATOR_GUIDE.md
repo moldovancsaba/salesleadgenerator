@@ -10,6 +10,7 @@
 - [Audience](#audience)
 - [Signing In and Access](#signing-in-and-access)
 - [Navigation](#navigation)
+- [Onboarding Tour](#onboarding-tour)
 - [Daily Workflow — Kanban Board](#daily-workflow--kanban-board)
 - [Backlog](#backlog)
 - [Card Indicators](#card-indicators)
@@ -62,11 +63,22 @@ Everything in the app is reachable from one place: the hamburger icon (☰), alw
 - **Organization** switcher (only shown if you have access to 2+ brands)
 - **\<Brand\>** section: **Backlog** (leads parked for later, see [Backlog](#backlog)), **Pipeline** (the kanban/table board), **Sales Settings** (Company Setup)
 - **View** (only shown while already on the Pipeline page for a brand): Kanban, Table, Metrics, Search Learning — these four views live at the same URL with a `?view=` parameter, not separate pages
+- **Help**: Take the tour (replays the onboarding spotlight walkthrough — see [Onboarding Tour](#onboarding-tour))
 - **Reporting**: Forecast, Battlecards, Outreach Templates, Cadences, Contacts
-- **Admin** (super admins only): Prompt Editor, Users & Access, Duplicate Review
+- **Admin** (super admins only): Clients, Prompt Editor, Users & Access, Duplicate Review
 - **Sign out**
 
 There is no on-page dropdown or brand switcher anywhere else in the app (an earlier version had one on the Forecast/Battlecards/Outreach Templates pages; it was removed as a duplicate of this menu). Everything is one brand at a time, chosen either by the URL or by this menu — never guessed or silently defaulted.
+
+---
+
+## Onboarding Tour
+
+A guided spotlight walkthrough runs automatically the first time you land on the Pipeline (kanban) board — a dimmed backdrop highlights one real element at a time (the board itself, a lead card, Add Lead, opening a lead's detail view, composing outreach, the organization switcher, and Sales Settings) with a tooltip explaining what it does. Use Next/Back to move through it, or press Escape/close it at any point — either way, it's marked as seen and won't run again automatically.
+
+**Replay it any time** via the hamburger menu's **Help → Take the tour** entry. Clicking it from a page other than the Pipeline board takes you there first, since the tour's steps are grounded in real elements on that page.
+
+This is first-run orientation to the 5-7 core screens, not a replacement for this guide — come back here for the complete reference on any feature.
 
 ---
 

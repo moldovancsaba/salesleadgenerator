@@ -3,6 +3,7 @@ import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import "@mantine/dates/styles.css";
 import "@sovereignsquad/gds-theme/styles.css";
+import "driver.js/dist/driver.css";
 import "./globals.css";
 import { PwaSetup } from "./components/PwaSetup";
 import { Providers } from "./components/Providers";

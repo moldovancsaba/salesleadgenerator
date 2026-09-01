@@ -15,6 +15,7 @@ import { FilterBar } from '@/app/components/FilterBar';
 import { AddLeadModal } from '@/app/components/AddLeadModal';
 import { BACKLOG_COLUMN_DEF } from '@/app/constants';
 import type { LeadFilter } from '@/lib/saved-filters';
+import { TOUR_SELECTOR } from '@/app/lib/tour/selectors';
 
 // Issue #126 — 'backlog' mounts the exact same KanbanBoard component as
 // 'kanban', just with a single-column columnDefs (BACKLOG_COLUMN_DEF) —
@@ -331,6 +332,7 @@ export function SalesPageClient({ brand, currency }: Props) {
                   size="lg"
                   aria-label="Add a lead manually"
                   onClick={() => setAddLeadOpen(true)}
+                  data-tour={TOUR_SELECTOR.addLeadTrigger}
                 >
                   <IconPlus size={18} />
                 </ActionIcon>
