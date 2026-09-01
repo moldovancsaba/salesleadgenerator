@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { isMongoConfigured, getClientPromise } from '../../../../../lib/mongodb'
-import { BRAND_CONFIG, resolveBrand } from '../../../../lib/brand'
+import { getBrandConfig, resolveBrand } from '../../../../lib/brand'
 import type { Brand } from '../../../../lib/brand'
 import { requireBrandAccessApi } from '../../../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../../../lib/tenant'
@@ -9,10 +9,10 @@ import { buildInitialActiveCadence } from '../../../../../lib/cadences'
 
 export const dynamic = 'force-dynamic'
 
-function getBrand(request: Request): Brand | null {
+async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url)
   const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || 'cogmap'
-  return resolveBrand(brandParam)
+  return await resolveBrand(brandParam)
 }
 
 function parseObjectId(id: string): ObjectId | null {
@@ -34,7 +34,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params
-    const brand = getBrand(request)
+    const brand = await getBrand(request)
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const authError = await requireBrandAccessApi(request, brand)
     if (authError) return authError
@@ -59,7 +59,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid cadenceId' }, { status: 400 })
     }
 
-    const config = BRAND_CONFIG[brand]
+    const config = (await getBrandConfig(brand))!
     const client = await getClientPromise()
     const db = client.db()
 
@@ -122,7 +122,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const brand = getBrand(request)
+    const brand = await getBrand(request)
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const authError = await requireBrandAccessApi(request, brand)
     if (authError) return authError
@@ -138,7 +138,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid lead id' }, { status: 400 })
     }
 
-    const config = BRAND_CONFIG[brand]
+    const config = (await getBrandConfig(brand))!
     const client = await getClientPromise()
     const db = client.db()
 

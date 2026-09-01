@@ -4,7 +4,7 @@ import { requireApiKey } from '../../../lib/api-auth'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { sanitizeCadence, validateCadence } from '../../../lib/cadences'
 import type { Cadence } from '../../../lib/cadences'
-import { BRAND_CONFIG } from '../../lib/brand'
+import { getBrandConfig } from '../../lib/brand'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     // leads-currently-enrolled count per cadence, so an operator can see
     // real impact before editing/disabling one — same countDocuments query
     // DELETE /api/cadences/[id]'s own safety check already uses.
-    const config = BRAND_CONFIG[brand]
+    const config = await getBrandConfig(brand)
     const cadences = await Promise.all(docs.map(async (doc) => {
       const shape = toResponseShape(doc)
       const enrolledCount = config

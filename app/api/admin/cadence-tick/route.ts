@@ -4,7 +4,7 @@ import type { Db } from 'mongodb'
 import clientPromise from '../../../../lib/mongodb'
 import { requireCronOrApiKey, requireApiKey } from '../../../../lib/api-auth'
 import { tenantFilter } from '../../../../lib/tenant'
-import { BRAND_CONFIG } from '../../../lib/brand'
+import { getAllBrandConfigs } from '../../../lib/brand'
 import { DEFAULT_OUTREACH_TEMPLATES } from '../../../lib/outreach/default-templates'
 import type { OutreachTemplate } from '../../../lib/outreach/default-templates'
 import { advanceActiveCadence } from '../../../../lib/cadences'
@@ -75,8 +75,9 @@ async function runCadenceTick(): Promise<TickSummary> {
 
   // Derived from BRAND_CONFIG, never a hardcoded brand list (issue #147's
   // own fix for the same class of bug) — a future brand needs no change here.
-  for (const brand of Object.keys(BRAND_CONFIG)) {
-    const config = BRAND_CONFIG[brand]
+  const allBrandConfigs = await getAllBrandConfigs()
+  for (const brand of Object.keys(allBrandConfigs)) {
+    const config = allBrandConfigs[brand]
     const leadsCollection = db.collection(config.dbCollection)
 
     // Sorted oldest-due-first so the per-brand cap consistently favors the

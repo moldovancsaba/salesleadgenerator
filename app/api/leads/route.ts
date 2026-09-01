@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
-import { BRAND_CONFIG, resolveBrand, PRO_FIELD, CON_FIELD } from '../../lib/brand'
+import { getBrandConfig, resolveBrand, getForbiddenTermsFor, PRO_FIELD, CON_FIELD } from '../../lib/brand'
 import type { Brand } from '../../lib/brand'
 import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
@@ -63,20 +63,20 @@ function computeEase(body: any): number {
   return 4;
 }
 
-function getBrand(request: Request): Brand | null {
+async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url);
   const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || url.pathname.split('/')[2] || 'cogmap';
-  return resolveBrand(brandParam);
+  return await resolveBrand(brandParam);
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const brand = getBrand(request);
+    const brand = await getBrand(request);
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;
 
-    const config = BRAND_CONFIG[brand];
+    const config = (await getBrandConfig(brand))!;
     const tenantId = getTenantId(request);
     const { searchParams } = new URL(request.url)
     const region = searchParams.get('region') || undefined
@@ -212,12 +212,12 @@ export async function GET(request: NextRequest) {
 // touching the session-based fallback.
 export async function POST(request: NextRequest) {
   try {
-    const brand = getBrand(request);
+    const brand = await getBrand(request);
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;
 
-    const config = BRAND_CONFIG[brand];
+    const config = (await getBrandConfig(brand))!;
     const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) {
@@ -225,7 +225,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await readBody(request)
-    const validation = validateLeadPayload(body, brand);
+    const forbiddenTerms = await getForbiddenTermsFor(brand);
+    const validation = validateLeadPayload(body, brand, forbiddenTerms);
     if (!validation.valid) {
       return NextResponse.json({ error: 'Validation failed', details: validation.errors }, { status: 400 });
     }
@@ -451,7 +452,7 @@ export async function PATCH(request: NextRequest) {
   const requestId = generateRequestId();
 
   try {
-    const brand = getBrand(request);
+    const brand = await getBrand(request);
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;

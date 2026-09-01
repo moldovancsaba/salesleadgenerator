@@ -107,7 +107,7 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/admin/forecast-snapshot/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Cron worker writing weekly `forecast_snapshots` via `discoverTenantIds`/`writeForecastSnapshot` |
 | `app/api/admin/forecast-snapshot/history/route.ts` | GET | `requireApiKey` | Historical snapshot series for a future trend chart |
 | `app/api/admin/ticket-size-backfill/route.ts` | POST | `requireApiKey` | One-time backfill trigger, `backfillTicketSizeCollection` |
-| `app/api/admin/ticket-size-recalc/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Recurring recompute across all `BRAND_CONFIG` brands |
+| `app/api/admin/ticket-size-recalc/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Recurring recompute across every configured brand |
 
 ### Misc
 
@@ -201,7 +201,7 @@ The concrete pattern that distinguishes the two layers: `lib/cadences.ts` has th
 
 ### 4.2 The modules
 
-- **`app/lib/brand.ts`** — `BRAND_CONFIG`, `Brand`, `CurrencyCode`, `resolveBrand`, `PRO_FIELD`/`CON_FIELD` (41 files import from it — see §8.1)
+- **`app/lib/brand.ts`** — Mongo-backed as of issue #195: `getBrandConfig`/`getAllBrandConfigs`/`getForbiddenTermsFor` (async, read the `brands` collection), `resolveBrand` (async), `FALLBACK_BRAND_CONFIG` (seed/fallback only, not live), `Brand` (`type Brand = string`), `CurrencyCode`, `BrandSalesVocabulary`, `PRO_FIELD`/`CON_FIELD` (51 files import from it as of the #195 migration — see §8.1)
 - `app/lib/activity-log-store.ts` — `ACTIVITY_LOG_COLLECTION`, `ActivityEntry`, `ActivityLogDocument`, `ensureActivityLogIndexes`, `mapOutreachLogToActivityEntry`, `mapActivityLogDoc`, `mergeActivityTimeline`
 - `app/lib/forecast.ts` — `ForecastComputation`, `computeForecast(db, brand, tenantId)`
 - `app/lib/forecast-snapshot.ts` — `FORECAST_SNAPSHOT_COLLECTION`, `discoverTenantIds`, `writeForecastSnapshot`
@@ -210,7 +210,7 @@ The concrete pattern that distinguishes the two layers: `lib/cadences.ts` has th
 - `app/lib/metrics.ts` — `metricsByStage`, `metricsByRegion`, `metricsByQuality`, `metricsByIceLevel` (legacy client-side metrics helpers)
 - `app/lib/normalize-lead.ts` — `normalizeLead`, `ensureArrayField`, `extractWarnings`
 - `app/lib/lead-actions.ts` — `executeLeadAction` (single mutation entrypoint shared by `/api/leads` PATCH and `/api/leads/bulk`)
-- `app/lib/sales-settings.ts` — `SalesSettings` + sub-types (`ProductLine`, `DealSize`, `RevenueTarget`, etc.), `emptySalesSettings`, `sanitizeSalesSettings`, `BRAND_SALES_VOCABULARY`, `getAllowedCustomerTypes/BuyerRoles`
+- `app/lib/sales-settings.ts` — `SalesSettings` + sub-types (`ProductLine`, `DealSize`, `RevenueTarget`, etc.), `emptySalesSettings`, `sanitizeSalesSettings`, `getAllowedCustomerTypes/BuyerRoles` (as of issue #195 these take an explicit `salesVocabulary?: BrandSalesVocabulary` param, resolved by the caller via `getBrandConfig()`, rather than looking a brand up internally — `BRAND_SALES_VOCABULARY` no longer exists, replaced by each brand's own `salesVocabulary` field)
 - `app/lib/email-verification-store.ts` — `verifyLeadContactsAsync`
 - `app/lib/tech-stack-scan-store.ts` — `scanLeadTechStackAsync`
 - `app/lib/ticket-size-store.ts` — `computeTicketSizeForLead`
@@ -327,13 +327,13 @@ See `docs/ARCHITECTURE.md` for the *meaning* of each taxonomy/scoring field — 
 
 ### 8.1 Brand/tenant scoping
 
-`app/lib/brand.ts` is the single source of truth: `BRAND_CONFIG` maps each `Brand` (`'cogmap'|'seyu'|'dvsc'`) to `{label, dbCollection, apiPrefix, currency}`. `resolveBrand()` normalizes a route param/alias (e.g. `"cogmapsales"` → `cogmap`) and returns `null` — never a silent wrong-brand fallback — for a genuinely unrecognized non-empty value; an empty/missing value still defaults to `'cogmap'`. 41 files import from it.
+`app/lib/brand.ts` is the single source of truth. As of issue #195, that source is a Mongo `brands` collection, not a static object: `getBrandConfig(slug)`/`getAllBrandConfigs()` (both `async`) read it fresh on every call, falling back to the in-code `FALLBACK_BRAND_CONFIG` seed only when the collection is genuinely empty. `Brand` is `type Brand = string` (was a 3-value literal union — a runtime-editable set of brands can't be a compile-time union). `resolveBrand()` (also now `async`) normalizes a route param/alias (e.g. `"cogmapsales"` → `cogmap`) and returns `null` — never a silent wrong-brand fallback — for a genuinely unrecognized non-empty value; an empty/missing value still defaults to `'cogmap'`. 51 files import from it (up from 41 pre-#195, reflecting the full call-site sweep the migration required). See `docs/ARCHITECTURE.md`'s "Brand config becomes Mongo-backed" section for the full migration detail.
 
 `lib/tenant.ts`'s `tenantFilter(tenantId)` builds the Mongo `$or` filter that also matches legacy docs missing `tenantId` when `tenantId === 'default'`; 30 files import it, covering essentially every read/write in `app/api/leads/**`, `app/api/battlecards/**`, `app/api/cadences/**`, `app/api/contacts/**`, `app/api/search`, `app/api/metrics/**`, `app/api/health`, `app/api/admin/cadence-tick`. `getTenantId(request)` extracts the query param with a `'default'` fallback.
 
 ⚠ **Two routes reimplement their own local copy instead of importing**: `app/api/boards/route.ts` and `app/api/health/route.ts` — a real inconsistency worth fixing if either route's tenant logic ever needs to change (currently harmless since the reimplementations match, but a future divergence risk).
 
-Together, `BRAND_CONFIG[brand].dbCollection` picks the actual Mongo collection and `tenantFilter` further scopes rows within it — every query gets both dimensions.
+Together, `(await getBrandConfig(brand)).dbCollection` picks the actual Mongo collection and `tenantFilter` further scopes rows within it — every query gets both dimensions.
 
 ### 8.2 Auth layering
 

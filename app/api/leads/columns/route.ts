@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { BRAND_CONFIG, resolveBrand, type Brand } from '@/app/lib/brand'
+import { getBrandConfig, resolveBrand, type Brand } from '@/app/lib/brand'
 import { isAutoManagedColumn, ICE_SCORE_AGGREGATION_EXPR } from '@/lib/kanban-column'
 import { escapeRegExp } from '@/app/lib/search/tagged-content-filter'
 import { requireBrandAccessApi } from '@/lib/require-brand-access-api'
@@ -8,18 +8,18 @@ import { getTenantId, tenantFilter } from '@/lib/tenant'
 
 const CHUNK_SIZE = 50
 
-function resolveBrandFrom(request: Request): Brand | null {
-  return resolveBrand(new URL(request.url).searchParams.get('brand') || 'cogmap')
+async function resolveBrandFrom(request: Request): Promise<Brand | null> {
+  return await resolveBrand(new URL(request.url).searchParams.get('brand') || 'cogmap')
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const brand = resolveBrandFrom(request)
+    const brand = await resolveBrandFrom(request)
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const authError = await requireBrandAccessApi(request, brand)
     if (authError) return authError
 
-    const config = BRAND_CONFIG[brand]
+    const config = (await getBrandConfig(brand))!
     const tenantId = getTenantId(request)
     const filter = tenantFilter(tenantId)
     const { searchParams } = new URL(request.url)

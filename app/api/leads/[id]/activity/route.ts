@@ -9,10 +9,10 @@ import {
   mapActivityLogDoc, mapOutreachLogToActivityEntry, mergeActivityTimeline,
 } from '../../../../lib/activity-log-store'
 
-function getBrand(request: Request): Brand | null {
+async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url);
   const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || 'cogmap';
-  return resolveBrand(brandParam);
+  return await resolveBrand(brandParam);
 }
 
 // Issue #140 — GET /api/leads/[id]/activity: the first genuinely unified
@@ -28,7 +28,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const brand = getBrand(request);
+    const brand = await getBrand(request);
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;

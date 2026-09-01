@@ -3,6 +3,7 @@ import { errors as joseErrors } from 'jose';
 import { getPermission, refreshTokens, verifyIdToken, type SsoIdTokenClaims } from '@/lib/sso';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
 import { getAccessibleBrands, getUserAccess, isSuperAdminEmail } from '@/lib/sso-access';
+import { getAllBrandConfigs } from '@/app/lib/brand';
 
 const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30;
 
@@ -12,23 +13,38 @@ const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30;
 async function buildSessionBody(claims: SsoIdTokenClaims, accessToken: string) {
   const permission = await getPermission(claims.sub, accessToken);
 
+  // Issue #195 — resolved once here (this route already has DB access) and
+  // threaded through: `allBrands` as the explicit parameter
+  // getAccessibleBrands() now needs (keeps that function sync/DB-free, see
+  // lib/sso-access.ts), and `brandLabels` so app/components/AppNav.tsx (a
+  // Client Component, can't call the Mongo-backed brand accessors itself)
+  // can render every configured brand's label without its own BRAND_CONFIG
+  // import. Every brand's label ships regardless of the viewer's own
+  // access — access is enforced elsewhere, this is purely "what is this
+  // brand called," same visibility the old static BRAND_CONFIG import gave.
+  const brandConfigs = await getAllBrandConfigs();
+  const allBrands = Object.keys(brandConfigs);
+  const brandLabels: Record<string, string> = {};
+  for (const [slug, config] of Object.entries(brandConfigs)) brandLabels[slug] = config.label;
+
   let accessibleBrands: string[] = [];
   if (isMongoConfigured()) {
     const client = await clientPromise;
     const db = client.db();
     const record = await getUserAccess(db, claims.sub);
-    accessibleBrands = getAccessibleBrands(claims.email, record?.orgAccess);
+    accessibleBrands = getAccessibleBrands(claims.email, record?.orgAccess, allBrands);
   } else if (isSuperAdminEmail(claims.email)) {
     // No DB configured (local dev without MONGODB_URI) — a super admin
     // still needs to see something rather than an empty nav, since
     // orgAccess can't be read at all in that state.
-    accessibleBrands = getAccessibleBrands(claims.email, undefined);
+    accessibleBrands = getAccessibleBrands(claims.email, undefined, allBrands);
   }
 
   return {
     user: { id: claims.sub, email: claims.email, name: claims.name, emailVerified: claims.email_verified },
     permission,
     accessibleBrands,
+    brandLabels,
     isSuperAdmin: isSuperAdminEmail(claims.email),
   };
 }
@@ -39,7 +55,7 @@ export async function GET(request: NextRequest) {
   const refreshToken = request.cookies.get('sso_refresh_token')?.value;
 
   if (!idToken || !accessToken) {
-    return NextResponse.json({ user: null, permission: null, accessibleBrands: [], isSuperAdmin: false }, { status: 401 });
+    return NextResponse.json({ user: null, permission: null, accessibleBrands: [], brandLabels: {}, isSuperAdmin: false }, { status: 401 });
   }
 
   try {
@@ -77,7 +93,7 @@ export async function GET(request: NextRequest) {
       console.error('[api/auth/session] verification failed:', error);
     }
 
-    const response = NextResponse.json({ user: null, permission: null, accessibleBrands: [], isSuperAdmin: false }, { status: 401 });
+    const response = NextResponse.json({ user: null, permission: null, accessibleBrands: [], brandLabels: {}, isSuperAdmin: false }, { status: 401 });
     response.cookies.delete('sso_access_token');
     response.cookies.delete('sso_id_token');
     response.cookies.delete('sso_refresh_token');

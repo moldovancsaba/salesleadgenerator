@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
+import { getBrandConfig, resolveBrand } from '@/app/lib/brand'
 import { getTenantId } from '@/lib/tenant'
 import { sanitizeSalesSettings, emptySalesSettings } from '@/app/lib/sales-settings'
 import { backfillTicketSizeCollection } from '@/lib/backfill-ticket-size'
@@ -10,7 +10,7 @@ const COLLECTION = 'company_settings'
 export async function GET(request: Request, { params }: { params: Promise<{ brand: string }> }) {
   try {
     const { brand: brandParam } = await params
-    const brand = resolveBrand(brandParam)
+    const brand = await resolveBrand(brandParam)
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const tenantId = getTenantId(request)
 
@@ -18,6 +18,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
 
+    const config = await getBrandConfig(brand)
     const client = await clientPromise
     const db = client.db()
     const collection = db.collection(COLLECTION)
@@ -25,7 +26,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
     const doc = await collection.findOne({ brand, tenantId })
 
     if (!doc) {
-      return NextResponse.json({ settings: emptySalesSettings(brand, tenantId), source: 'default' })
+      return NextResponse.json({ settings: emptySalesSettings(brand, tenantId, config?.currency), source: 'default' })
     }
 
     // Run stored docs through the same sanitizer PUT already applies on write
@@ -38,7 +39,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
     // guarantees GET and PUT can never disagree about what a complete,
     // safe SalesSettings object looks like.
     const { _id, updatedAt, ...rest } = doc as any
-    const settings = { ...sanitizeSalesSettings(rest, brand, tenantId), updatedAt }
+    const settings = { ...sanitizeSalesSettings(rest, brand, tenantId, config?.currency, config?.salesVocabulary), updatedAt }
     return NextResponse.json({ settings, source: 'mongodb' })
   } catch (error: any) {
     console.error('[API:sales-settings/[brand]] GET error:', error)
@@ -55,7 +56,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
 export async function PUT(request: Request, { params }: { params: Promise<{ brand: string }> }) {
   try {
     const { brand: brandParam } = await params
-    const brand = resolveBrand(brandParam)
+    const brand = await resolveBrand(brandParam)
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const tenantId = getTenantId(request)
 
@@ -63,8 +64,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ bran
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
 
+    const config = await getBrandConfig(brand)
     const body = await request.json()
-    const sanitized = sanitizeSalesSettings(body, brand, tenantId)
+    const sanitized = sanitizeSalesSettings(body, brand, tenantId, config?.currency, config?.salesVocabulary)
     const updatedAt = new Date().toISOString()
 
     const client = await clientPromise
@@ -84,7 +86,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ bran
     // estimate to reflect it. Never awaited: a slow recompute over many
     // leads must never delay this save's response, same non-blocking
     // contract already established for issues #67/#69's background writes.
-    const config = BRAND_CONFIG[brand]
     if (config) {
       // Issue #169 — use the currency the operator just selected and saved
       // (sanitized.revenueTarget.currency), not the brand's fixed default.

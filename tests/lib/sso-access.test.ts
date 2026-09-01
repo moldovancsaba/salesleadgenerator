@@ -14,6 +14,14 @@ import {
 // call is enough.
 const ORIGINAL_SUPER_ADMINS = process.env.SSO_SUPER_ADMIN_EMAILS;
 
+// Issue #195 — getAccessibleBrands/resolveLoginDestination no longer read
+// BRAND_CONFIG themselves (kept sync/DB-free on purpose, see
+// lib/sso-access.ts's own comment); the one real caller per request now
+// resolves this list once from the Mongo-backed registry and passes it in.
+// This fixture stands in for that, in the same canonical order the old
+// static BRAND_CONFIG object always had.
+const ALL_BRANDS = ['cogmap', 'seyu', 'dvsc'];
+
 describe('lib/sso-access', () => {
   afterEach(() => {
     if (ORIGINAL_SUPER_ADMINS === undefined) delete process.env.SSO_SUPER_ADMIN_EMAILS;
@@ -64,28 +72,28 @@ describe('lib/sso-access', () => {
       // locked out by a bug or gap in the per-org assignment data.
       // Issue #147 — DVSC added as a third brand: a super admin now
       // legitimately sees all 3 configured brands, not just the original 2.
-      expect(getAccessibleBrands('moldovancsaba@gmail.com', undefined).sort()).toEqual(['cogmap', 'dvsc', 'seyu']);
-      expect(getAccessibleBrands('moldovancsaba@gmail.com', {}).sort()).toEqual(['cogmap', 'dvsc', 'seyu']);
+      expect(getAccessibleBrands('moldovancsaba@gmail.com', undefined, ALL_BRANDS).sort()).toEqual(['cogmap', 'dvsc', 'seyu']);
+      expect(getAccessibleBrands('moldovancsaba@gmail.com', {}, ALL_BRANDS).sort()).toEqual(['cogmap', 'dvsc', 'seyu']);
     });
 
     it('returns only brands with a truthy role for a regular user', () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = '';
-      expect(getAccessibleBrands('user@example.com', { cogmap: 'user' })).toEqual(['cogmap']);
-      expect(getAccessibleBrands('user@example.com', { cogmap: 'user', seyu: 'admin' }).sort()).toEqual(['cogmap', 'seyu']);
+      expect(getAccessibleBrands('user@example.com', { cogmap: 'user' }, ALL_BRANDS)).toEqual(['cogmap']);
+      expect(getAccessibleBrands('user@example.com', { cogmap: 'user', seyu: 'admin' }, ALL_BRANDS).sort()).toEqual(['cogmap', 'seyu']);
     });
 
     it('returns an empty array for a regular user with no orgAccess at all', () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = '';
-      expect(getAccessibleBrands('user@example.com', undefined)).toEqual([]);
-      expect(getAccessibleBrands('user@example.com', {})).toEqual([]);
+      expect(getAccessibleBrands('user@example.com', undefined, ALL_BRANDS)).toEqual([]);
+      expect(getAccessibleBrands('user@example.com', {}, ALL_BRANDS)).toEqual([]);
     });
 
-    it("always returns BRAND_CONFIG's own canonical order (cogmap, seyu), never MongoDB's field-insertion order", () => {
+    it("always returns allBrands' own canonical order (cogmap, seyu), never MongoDB's field-insertion order", () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = '';
       // seyu granted before cogmap — object key order would put seyu first
       // if this function trusted Object.keys(orgAccess) — order matters now
       // that resolveLoginDestination() picks accessibleBrands[0] as "first".
-      expect(getAccessibleBrands('user@example.com', { seyu: 'user', cogmap: 'user' })).toEqual(['cogmap', 'seyu']);
+      expect(getAccessibleBrands('user@example.com', { seyu: 'user', cogmap: 'user' }, ALL_BRANDS)).toEqual(['cogmap', 'seyu']);
     });
   });
 
@@ -122,42 +130,42 @@ describe('lib/sso-access', () => {
   describe('resolveLoginDestination', () => {
     it("sends a DoneIsBetter-pending user to /access-pending regardless of orgAccess", () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = '';
-      expect(resolveLoginDestination('pending', 'user@example.com', { cogmap: 'admin' })).toBe('/access-pending');
+      expect(resolveLoginDestination('pending', 'user@example.com', { cogmap: 'admin' }, ALL_BRANDS)).toBe('/access-pending');
     });
 
     it("sends a DoneIsBetter-revoked user to /access-denied regardless of orgAccess", () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = '';
-      expect(resolveLoginDestination('revoked', 'user@example.com', { cogmap: 'admin' })).toBe('/access-denied');
+      expect(resolveLoginDestination('revoked', 'user@example.com', { cogmap: 'admin' }, ALL_BRANDS)).toBe('/access-denied');
     });
 
     it("sends an approved user with zero brand access to /access-pending — the new 'welcome' state, not a login failure", () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = '';
-      expect(resolveLoginDestination('approved', 'newperson@example.com', undefined)).toBe('/access-pending');
-      expect(resolveLoginDestination('approved', 'newperson@example.com', {})).toBe('/access-pending');
+      expect(resolveLoginDestination('approved', 'newperson@example.com', undefined, ALL_BRANDS)).toBe('/access-pending');
+      expect(resolveLoginDestination('approved', 'newperson@example.com', {}, ALL_BRANDS)).toBe('/access-pending');
     });
 
     it("sends an approved user with exactly one brand to that brand's Forecast page", () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = '';
-      expect(resolveLoginDestination('approved', 'user@example.com', { cogmap: 'user' })).toBe('/forecast/cogmap');
-      expect(resolveLoginDestination('approved', 'user@example.com', { seyu: 'admin' })).toBe('/forecast/seyu');
+      expect(resolveLoginDestination('approved', 'user@example.com', { cogmap: 'user' }, ALL_BRANDS)).toBe('/forecast/cogmap');
+      expect(resolveLoginDestination('approved', 'user@example.com', { seyu: 'admin' }, ALL_BRANDS)).toBe('/forecast/seyu');
     });
 
     it("sends a user with both brands to the canonically-first brand's Forecast page (cogmap), regardless of grant order", () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = '';
-      expect(resolveLoginDestination('approved', 'user@example.com', { cogmap: 'user', seyu: 'admin' })).toBe('/forecast/cogmap');
-      expect(resolveLoginDestination('approved', 'user@example.com', { seyu: 'admin', cogmap: 'user' })).toBe('/forecast/cogmap');
+      expect(resolveLoginDestination('approved', 'user@example.com', { cogmap: 'user', seyu: 'admin' }, ALL_BRANDS)).toBe('/forecast/cogmap');
+      expect(resolveLoginDestination('approved', 'user@example.com', { seyu: 'admin', cogmap: 'user' }, ALL_BRANDS)).toBe('/forecast/cogmap');
     });
 
     it('treats a null/undefined DoneIsBetter permission (no record at all) the same as approved', () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = '';
-      expect(resolveLoginDestination(null, 'user@example.com', { cogmap: 'user' })).toBe('/forecast/cogmap');
-      expect(resolveLoginDestination(undefined, 'newperson@example.com', undefined)).toBe('/access-pending');
+      expect(resolveLoginDestination(null, 'user@example.com', { cogmap: 'user' }, ALL_BRANDS)).toBe('/forecast/cogmap');
+      expect(resolveLoginDestination(undefined, 'newperson@example.com', undefined, ALL_BRANDS)).toBe('/access-pending');
     });
 
     it("sends a super admin to CogMap's Forecast page (their canonically-first brand), never /access-pending", () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = 'moldovancsaba@gmail.com';
-      expect(resolveLoginDestination('approved', 'moldovancsaba@gmail.com', undefined)).toBe('/forecast/cogmap');
-      expect(resolveLoginDestination(undefined, 'moldovancsaba@gmail.com', {})).toBe('/forecast/cogmap');
+      expect(resolveLoginDestination('approved', 'moldovancsaba@gmail.com', undefined, ALL_BRANDS)).toBe('/forecast/cogmap');
+      expect(resolveLoginDestination(undefined, 'moldovancsaba@gmail.com', {}, ALL_BRANDS)).toBe('/forecast/cogmap');
     });
   });
 });

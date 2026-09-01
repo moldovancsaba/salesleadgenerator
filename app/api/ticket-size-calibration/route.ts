@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
-    const brand = resolveBrand(url.searchParams.get('brand') || 'cogmap')
+    const brand = await resolveBrand(url.searchParams.get('brand') || 'cogmap')
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     // Issue #192 — this route had no auth at all.
     const authError = await requireBrandAccessApi(request, brand)

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
-import { BRAND_CONFIG } from '../../lib/brand'
+import { getAllBrandConfigs } from '../../lib/brand'
 import { getPipelineWeights } from '../../../lib/pipeline-weights'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { requireApiKey } from '../../../lib/api-auth'
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     const brands: Record<string, { total: number; byColumn: Record<string, number>; byRegion: Record<string, number>; forecast?: Record<string, any> | null }> = {}
     let total = 0
 
-    for (const [brandKey, config] of Object.entries(BRAND_CONFIG)) {
+    for (const [brandKey, config] of Object.entries(await getAllBrandConfigs())) {
       const collection = db.collection(config.dbCollection)
       const brandTotal = await collection.countDocuments(filter)
       total += brandTotal

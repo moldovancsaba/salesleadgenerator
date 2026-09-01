@@ -30,7 +30,7 @@ export function normalizeObjections(input: unknown): BattlecardObjection[] {
 // objections[].response (the response text is this brand's own words; the
 // objection text itself is what a prospect said and may legitimately
 // reference anything, so it's intentionally not checked).
-export function validateBattlecardPayload(body: BattlecardInput, brand: string): string[] {
+export function validateBattlecardPayload(body: BattlecardInput, brand: string, forbiddenTerms: string[]): string[] {
   const errors: string[] = [];
 
   const competitorName = typeof body.competitorName === 'string' ? body.competitorName.trim() : '';
@@ -39,18 +39,18 @@ export function validateBattlecardPayload(body: BattlecardInput, brand: string):
   if (!competitorName) errors.push('competitorName is required');
   if (!positioningSummary) errors.push('positioningSummary is required');
 
-  for (const term of findForbiddenBrandTerms(positioningSummary, brand)) {
+  for (const term of findForbiddenBrandTerms(positioningSummary, forbiddenTerms)) {
     errors.push(`positioningSummary contains forbidden ${brand} content: ${term}`);
   }
 
   normalizeProofPoints(body.proofPoints).forEach((point, i) => {
-    for (const term of findForbiddenBrandTerms(point, brand)) {
+    for (const term of findForbiddenBrandTerms(point, forbiddenTerms)) {
       errors.push(`proofPoints[${i}] contains forbidden ${brand} content: ${term}`);
     }
   });
 
   normalizeObjections(body.objections).forEach((entry, i) => {
-    for (const term of findForbiddenBrandTerms(entry.response, brand)) {
+    for (const term of findForbiddenBrandTerms(entry.response, forbiddenTerms)) {
       errors.push(`objections[${i}].response contains forbidden ${brand} content: ${term}`);
     }
   });

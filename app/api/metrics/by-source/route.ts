@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
+import { getBrandConfig, resolveBrand } from '@/app/lib/brand'
 import { getTenantId, tenantFilter } from '@/lib/tenant'
 import { requireBrandAccessApi } from '@/lib/require-brand-access-api'
 
@@ -15,12 +15,13 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const brand = resolveBrand(searchParams.get('brand') || 'cogmap')
+    const brand = await resolveBrand(searchParams.get('brand') || 'cogmap')
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     // Issue #192 — this route had no auth at all.
     const authError = await requireBrandAccessApi(request, brand)
     if (authError) return authError
-    const config = BRAND_CONFIG[brand]
+    const config = await getBrandConfig(brand)
+    if (!config) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const tenantId = getTenantId(request)
 
     if (!process.env.MONGODB_URI) {

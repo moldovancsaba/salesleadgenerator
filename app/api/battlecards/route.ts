@@ -6,6 +6,7 @@ import type { Battlecard } from '../../lib/battlecards/default-battlecards'
 import { validateBattlecardPayload, normalizeProofPoints, normalizeObjections } from '../../lib/battlecards/validate-battlecard'
 import { buildTaggedContentFilter, normalizeTags } from '../../lib/search/tagged-content-filter'
 import { getTenantId } from '../../../lib/tenant'
+import { getForbiddenTermsFor } from '../../lib/brand'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,7 +80,8 @@ export async function POST(request: Request) {
     const brand = getBrand(request)
     const body = await request.json()
 
-    const errors = validateBattlecardPayload(body, brand)
+    const forbiddenTerms = await getForbiddenTermsFor(brand)
+    const errors = validateBattlecardPayload(body, brand, forbiddenTerms)
     if (errors.length > 0) {
       return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
     }

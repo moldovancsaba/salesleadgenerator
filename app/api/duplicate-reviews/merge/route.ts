@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId, type Db } from 'mongodb';
 import { requireSuperAdminSession } from '@/lib/session';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
-import { BRAND_CONFIG } from '@/app/lib/brand';
+import { getBrandConfig } from '@/app/lib/brand';
 import { diffLeads, buildMergedLead, suggestPrimaryId } from '@/lib/lead-merge';
 import type { Lead } from '@/app/types';
 
@@ -32,7 +32,7 @@ async function loadReviewAndLeads(reviewId: string): Promise<LoadReviewResult> {
     return { error: NextResponse.json({ error: 'Review not found' }, { status: 404 }) };
   }
 
-  const config = BRAND_CONFIG[review.brand];
+  const config = await getBrandConfig(review.brand);
   if (!config) {
     return { error: NextResponse.json({ error: `Unknown brand on review row: ${review.brand}` }, { status: 400 }) };
   }

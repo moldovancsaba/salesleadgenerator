@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
-import { BRAND_CONFIG } from '../../lib/brand'
+import { getBrandConfig, getAllBrandConfigs } from '../../lib/brand'
 import type { Brand } from '../../lib/brand'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { escapeRegExp } from '../../lib/search/tagged-content-filter'
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
     // which is an honest reflection of what it actually does rather than a
     // fake cursor that can't be resumed correctly.
     if (brand) {
-      const config = BRAND_CONFIG[brand]
+      const config = await getBrandConfig(brand)
       if (!config) {
         return NextResponse.json({ error: `Unknown brand: ${brand}` }, { status: 400 })
       }
@@ -146,13 +146,14 @@ export async function GET(request: NextRequest) {
 
     // Issue #147 — derived from BRAND_CONFIG's own keys, not a hardcoded
     // 2-brand array, so a future brand is picked up automatically.
-    const brands = Object.keys(BRAND_CONFIG)
+    const allBrandConfigs = await getAllBrandConfigs()
+    const brands = Object.keys(allBrandConfigs)
     const leads: any[] = []
     let count = 0
 
     for (const brandKey of brands) {
-      if (!BRAND_CONFIG[brandKey]) continue
-      const config = BRAND_CONFIG[brandKey]
+      if (!allBrandConfigs[brandKey]) continue
+      const config = allBrandConfigs[brandKey]
       const filter = buildSearchFilter(q, tenantId, region)
       count += await db.collection(config.dbCollection).countDocuments(filter)
 

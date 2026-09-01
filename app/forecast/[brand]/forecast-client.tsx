@@ -5,7 +5,6 @@ import { Container, Title, Text, Paper, SimpleGrid, Group, Badge, TextInput, Loa
 import { StatusBadge, InlineAlert, MetricCard, MissingDataPrompt } from '@sovereignsquad/gds-core/client';
 import { AdminSelect, AdminDataTable, AdminResourceEmptyState, AdminFormStatus } from '@sovereignsquad/gds-admin/client';
 import { CALIBRATABLE_STAGES } from '@/lib/win-rate-calibration';
-import { BRAND_CONFIG } from '@/app/lib/brand';
 import type { CurrencyCode } from '@/app/lib/brand';
 
 type ConcentrationRisk = {
@@ -84,9 +83,10 @@ const COVERAGE_BENCHMARK_TREND: Record<Coverage['benchmark'], 'positive' | 'nega
 
 type Props = {
   brand: string;
+  label: string;
 };
 
-export function ForecastClient({ brand }: Props) {
+export function ForecastClient({ brand, label }: Props) {
   const [data, setData] = useState<Forecast | null>(null);
   const [loading, setLoading] = useState(true);
   const [weights, setWeights] = useState<Record<string, number>>({});
@@ -268,7 +268,7 @@ export function ForecastClient({ brand }: Props) {
   return (
     <Container py="md">
       <Group justify="space-between" mb="md">
-        <Title order={2}>{(BRAND_CONFIG[brand]?.label ?? brand) + ' Forecast'}</Title>
+        <Title order={2}>{label + ' Forecast'}</Title>
         <Button
           size="xs"
           variant="light"

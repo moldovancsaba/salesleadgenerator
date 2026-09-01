@@ -137,14 +137,16 @@ Until both are done, this remains fully built and tested code with real Resend-s
 
 **Reply matching + contact-enrichment suggestions (2.4.165, issue #142 — see `docs/ARCHITECTURE.md`'s own section) builds directly on top of this webhook and needs no additional infra of its own** — once the two items above are done, a real inbound reply exercises #142's matching/suggestion code for the first time along with #141's own logging path, with nothing further to provision.
 
-**Outbound (sending) side, issue #150 — `lib/outreach-send.ts`'s `sendAutomatedEmail()`.** Distinct from the inbound webhook above: only needs `RESEND_API_KEY` (not `RESEND_WEBHOOK_SECRET`, which is inbound-signature-only), plus two optional, sensible-default env vars for the sender identity:
+**Outbound (sending) side, issue #150 — `lib/outreach-send.ts`'s `sendAutomatedEmail()`.** Distinct from the inbound webhook above: only needs `RESEND_API_KEY` (not `RESEND_WEBHOOK_SECRET`, which is inbound-signature-only), plus one optional, sensible-default env var and one optional per-brand config field for the sender identity:
 
-| Env var | Purpose | Default if unset |
+| Setting | Purpose | Default if unset |
 |---------|---------|---------|
-| `RESEND_OUTBOUND_DOMAIN` | Domain used to build a brand's from-address as `<brand>@<domain>` | `haho.ai` |
-| `RESEND_FROM_<BRAND>` (e.g. `RESEND_FROM_COGMAP`) | Pins the exact from-address for one brand, overriding the domain default | none — falls through to the domain default |
+| `RESEND_OUTBOUND_DOMAIN` (env var) | Domain used to build a brand's from-address as `<brand>@<domain>` | `haho.ai` |
+| A brand's own `fromEmail` field (`app/lib/brand.ts`'s `BrandConfig`, set via the `brands` Mongo collection) | Pins the exact from-address for one brand, overriding the domain default | none — falls through to the domain default |
 
-**Disclosed, not assumed**: `haho.ai` (the root domain) is the domain `docs/STACK_AND_DEPENDENCIES.md`'s own "Status as of 2026-07-31" note above confirms is sending-verified on the real Resend account — but the exact per-brand local part this module defaults to (`cogmap@haho.ai`, `seyu@haho.ai`, `dvsc@haho.ai`) has not itself been verified live against that account from this sandbox. Before #151's scheduler can trigger a real send, whoever holds Resend dashboard access should confirm each brand's from-address is actually deliverable (or set `RESEND_FROM_<BRAND>` to a confirmed one) — same "fully built, real infra in place, no live trigger confirmed yet" posture as the inbound side above.
+**Issue #195**: the per-brand override used to be a `RESEND_FROM_<BRAND>` env var (e.g. `RESEND_FROM_COGMAP`), requiring a Vercel dashboard edit + redeploy per brand. It's now the brand's own `fromEmail` field on its `brands` collection document — set once when the brand is created (or edited afterward) with no env var or deploy involved, consistent with the rest of the brand-registry migration (see `docs/ARCHITECTURE.md`'s "Brand config becomes Mongo-backed" section). Any environment still carrying an old `RESEND_FROM_<BRAND>` var from before this change is now dead configuration — safe to remove, no longer read anywhere.
+
+**Disclosed, not assumed**: `haho.ai` (the root domain) is the domain `docs/STACK_AND_DEPENDENCIES.md`'s own "Status as of 2026-07-31" note above confirms is sending-verified on the real Resend account — but the exact per-brand local part this module defaults to (`cogmap@haho.ai`, `seyu@haho.ai`, `dvsc@haho.ai`) has not itself been verified live against that account from this sandbox. Before #151's scheduler can trigger a real send, whoever holds Resend dashboard access should confirm each brand's from-address is actually deliverable (or set that brand's `fromEmail` to a confirmed one) — same "fully built, real infra in place, no live trigger confirmed yet" posture as the inbound side above.
 
 ---
 

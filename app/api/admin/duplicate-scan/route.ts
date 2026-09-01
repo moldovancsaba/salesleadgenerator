@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdminSession } from '@/lib/session';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
 import { tenantFilter } from '@/lib/tenant';
-import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand';
+import { getBrandConfig, resolveBrand } from '@/app/lib/brand';
 import { findCandidatePairs } from '@/lib/near-duplicate';
 
 // Issue #107: findCandidatePairs() is O(n^2) over whatever it's given. This
@@ -28,10 +28,11 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const brand = resolveBrand(body.brand);
+  const brand = await resolveBrand(body.brand);
   if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
   const tenantId = (body.tenantId || 'default').trim() || 'default';
-  const config = BRAND_CONFIG[brand];
+  const config = await getBrandConfig(brand);
+  if (!config) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
 
   const client = await clientPromise;
   const db = client.db();

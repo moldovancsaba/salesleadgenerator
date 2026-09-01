@@ -1,4 +1,4 @@
-import { BRAND_CONFIG, PRO_FIELD, CON_FIELD } from './brand'
+import { getBrandConfig, getForbiddenTermsFor, PRO_FIELD, CON_FIELD } from './brand'
 import { normalizeLead } from './normalize-lead'
 import { validatePatchPayload } from '../../lib/validate-lead'
 import { isMongoConfigured } from '../../lib/mongodb'
@@ -36,7 +36,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     return { success: false, error: 'Database not configured', requestId }
   }
 
-  const config = BRAND_CONFIG[brand]
+  const config = (await getBrandConfig(brand))!
 
   const client = await (await import('../../lib/mongodb')).getClientPromise()
   const db = client.db()
@@ -47,7 +47,8 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
   const existing = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(leadId), ...tenantFilter })
   if (!existing) return { success: false, error: 'Lead not found', requestId }
 
-  const validation = validatePatchPayload({ action, ...payload }, brand)
+  const forbiddenTerms = await getForbiddenTermsFor(brand)
+  const validation = validatePatchPayload({ action, ...payload }, brand, forbiddenTerms)
   if (!validation.valid) return { success: false, error: validation.errors.join('; '), requestId }
 
   const normalizedBody = normalizeLead({ ...existing, ...payload, action })
@@ -145,7 +146,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
       const coercedExpected = Number(normalizedBody.manualTicketSizeExpected)
       const reason = typeof normalizedBody.manualTicketSizeReason === 'string' ? normalizedBody.manualTicketSizeReason.trim() : ''
       if (Number.isFinite(coercedExpected) && coercedExpected > 0 && reason) {
-        const currency = existing.ticketSizeEstimate?.currency || defaultRevenueTargetCurrency(brand)
+        const currency = existing.ticketSizeEstimate?.currency || defaultRevenueTargetCurrency(config.currency)
         updateData.ticketSizeEstimate = createManualTicketSizeOverride(
           { expected: coercedExpected, reason, overriddenBy: 'webapp-user' },
           currency

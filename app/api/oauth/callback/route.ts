@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCodeForTokens, getPermission, verifyIdToken } from '@/lib/sso';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
 import { resolveLoginDestination, upsertUserSeen, type SsoUserAccessRecord } from '@/lib/sso-access';
+import { getAllBrandConfigs } from '@/app/lib/brand';
 
 const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30 days, matches DoneIsBetter's own published example
 
@@ -53,7 +54,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const destination = resolveLoginDestination(permission?.status, claims.email, userAccessRecord?.orgAccess);
+    const allBrands = Object.keys(await getAllBrandConfigs());
+    const destination = resolveLoginDestination(permission?.status, claims.email, userAccessRecord?.orgAccess, allBrands);
 
     const response = NextResponse.redirect(new URL(destination, request.url));
     clearOauthCookies(response);

@@ -1,5 +1,5 @@
 import type { Db } from 'mongodb';
-import { BRAND_CONFIG, type Brand } from '@/app/lib/brand';
+import { getBrandConfig, type Brand } from '@/app/lib/brand';
 
 // Issue #103: DoneIsBetter SSO's own permission API is per-app ("can this
 // person use salesleadgenerator at all" — pending/approved/revoked), not
@@ -81,7 +81,7 @@ export async function setUserOrgAccess(
   brand: Brand,
   role: OrgRole | null
 ): Promise<SsoUserAccessRecord | null> {
-  if (!(brand in BRAND_CONFIG)) {
+  if (!(await getBrandConfig(brand))) {
     throw new Error(`Unknown brand: ${brand}`);
   }
   if (role !== null && !VALID_ROLES.includes(role)) {
@@ -99,16 +99,23 @@ export async function setUserOrgAccess(
 
 // --- Pure functions below: no DB, no network, fully unit-testable. ---
 
-// Always returns brands in BRAND_CONFIG's own canonical key order (cogmap,
-// then seyu), never MongoDB's field-insertion order for `orgAccess` — which
-// depends on the sequence a super admin happened to click through in
-// /admin/users and isn't a reliable way to define "first" for anything.
-// This ordering is now meaningful, not cosmetic: resolveLoginDestination()
-// below sends a user to their first accessible brand's Forecast page.
-export function getAccessibleBrands(email: string | undefined, orgAccess: OrgAccessMap | undefined): Brand[] {
-  const allBrandsInCanonicalOrder = Object.keys(BRAND_CONFIG) as Brand[];
-  if (isSuperAdminEmail(email)) return allBrandsInCanonicalOrder;
-  return allBrandsInCanonicalOrder.filter((brand) => Boolean(orgAccess?.[brand]));
+// Issue #195 — these stay synchronous and DB-free on purpose (so
+// tests/lib/sso-access.test.ts can keep unit-testing them with zero
+// database), even though the brand registry itself is now Mongo-backed.
+// Instead of importing brand config at module scope, the one real caller
+// per request (app/api/auth/session/route.ts, app/api/oauth/callback/route.ts
+// — both already async with DB access) resolves `Object.keys(await
+// getAllBrandConfigs())` once and passes it in as `allBrands`.
+
+// Always returns brands in `allBrands`'s own canonical order, never
+// MongoDB's field-insertion order for `orgAccess` — which depends on the
+// sequence a super admin happened to click through in /admin/users and
+// isn't a reliable way to define "first" for anything. This ordering is
+// now meaningful, not cosmetic: resolveLoginDestination() below sends a
+// user to their first accessible brand's Forecast page.
+export function getAccessibleBrands(email: string | undefined, orgAccess: OrgAccessMap | undefined, allBrands: Brand[]): Brand[] {
+  if (isSuperAdminEmail(email)) return allBrands;
+  return allBrands.filter((brand) => Boolean(orgAccess?.[brand]));
 }
 
 export function hasAccessToBrand(email: string | undefined, orgAccess: OrgAccessMap | undefined, brand: Brand): boolean {
@@ -136,11 +143,12 @@ export function getRoleForBrand(email: string | undefined, orgAccess: OrgAccessM
 export function resolveLoginDestination(
   permissionStatus: 'pending' | 'approved' | 'revoked' | undefined | null,
   email: string | undefined,
-  orgAccess: OrgAccessMap | undefined
+  orgAccess: OrgAccessMap | undefined,
+  allBrands: Brand[]
 ): string {
   if (permissionStatus === 'pending') return '/access-pending';
   if (permissionStatus === 'revoked') return '/access-denied';
-  const accessibleBrands = getAccessibleBrands(email, orgAccess);
+  const accessibleBrands = getAccessibleBrands(email, orgAccess, allBrands);
   if (accessibleBrands.length === 0) return '/access-pending';
   return `/forecast/${accessibleBrands[0]}`;
 }

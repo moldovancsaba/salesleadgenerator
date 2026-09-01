@@ -1,4 +1,4 @@
-import { BRAND_CONFIG, type Brand } from './brand'
+import type { Brand } from './brand'
 import type { ActivityLogDocument } from './activity-log-store'
 
 // Issue #141 — pure business logic for turning a verified Resend
@@ -6,18 +6,26 @@ import type { ActivityLogDocument } from './activity-log-store'
 // Kept separate from the route handler (app/api/webhooks/inbound-email/
 // route.ts) so brand/direction resolution can be unit-tested without a
 // database or a live Resend account.
+//
+// Issue #195 — stays synchronous and DB-free on purpose (so
+// tests/lib/inbound-email.test.ts can keep unit-testing it with zero
+// database), even though the brand registry itself is now Mongo-backed:
+// `allBrands` is resolved once by the one real caller
+// (app/api/webhooks/inbound-email/route.ts, already async with DB access)
+// via `Object.keys(await getAllBrandConfigs())` and passed in, rather than
+// this module importing brand config at module scope.
 
 // Resend has no documented +tag plus-addressing (verified against their own
 // receiving docs, not assumed) — brand routing instead uses distinct
 // addresses per brand, resolved by matching the local-part (before @)
-// against BRAND_CONFIG's own keys as a prefix: "cogmap@..." / "seyu@..." (or
-// a longer address like "cogmap-log@..." also resolves, since it's a
-// prefix match, not an exact one).
-export function resolveBrandFromAddress(address: string | undefined | null): Brand | null {
+// against a brand slug as a prefix: "cogmap@..." / "seyu@..." (or a longer
+// address like "cogmap-log@..." also resolves, since it's a prefix match,
+// not an exact one).
+export function resolveBrandFromAddress(address: string | undefined | null, allBrands: Brand[]): Brand | null {
   if (!address) return null
   const localPart = address.split('@')[0]?.toLowerCase().trim()
   if (!localPart) return null
-  for (const brand of Object.keys(BRAND_CONFIG) as Brand[]) {
+  for (const brand of allBrands) {
     if (localPart.startsWith(brand)) return brand
   }
   return null
@@ -27,9 +35,9 @@ export function resolveBrandFromAddress(address: string | undefined | null): Bra
 // message) is checked before to[] — it's the more authoritative signal when
 // a domain has a catch-all or multiple aliases; to[] is the fallback for
 // providers/configurations where received_for might be absent.
-export function resolveBrandFromRecipients(receivedFor: string[] | undefined, to: string[] | undefined): Brand | null {
+export function resolveBrandFromRecipients(receivedFor: string[] | undefined, to: string[] | undefined, allBrands: Brand[]): Brand | null {
   for (const address of [...(receivedFor || []), ...(to || [])]) {
-    const brand = resolveBrandFromAddress(address)
+    const brand = resolveBrandFromAddress(address, allBrands)
     if (brand) return brand
   }
   return null
@@ -37,9 +45,9 @@ export function resolveBrandFromRecipients(receivedFor: string[] | undefined, to
 
 // Which of received_for/to actually matched a brand — this is "our address"
 // for the direction check below, not necessarily receivedFor[0]/to[0].
-export function resolveMatchedAddress(receivedFor: string[] | undefined, to: string[] | undefined): string | null {
+export function resolveMatchedAddress(receivedFor: string[] | undefined, to: string[] | undefined, allBrands: Brand[]): string | null {
   for (const address of [...(receivedFor || []), ...(to || [])]) {
-    if (resolveBrandFromAddress(address)) return address
+    if (resolveBrandFromAddress(address, allBrands)) return address
   }
   return null
 }
@@ -82,10 +90,11 @@ export type ReceivedEmailEvent = {
 export function buildActivityLogDoc(
   event: ReceivedEmailEvent,
   bodyExcerpt: string | undefined,
-  now: Date
+  now: Date,
+  allBrands: Brand[]
 ): ActivityLogDocument {
-  const brand = resolveBrandFromRecipients(event.receivedFor, event.to)
-  const ourAddress = resolveMatchedAddress(event.receivedFor, event.to) || event.receivedFor[0] || event.to[0] || ''
+  const brand = resolveBrandFromRecipients(event.receivedFor, event.to, allBrands)
+  const ourAddress = resolveMatchedAddress(event.receivedFor, event.to, allBrands) || event.receivedFor[0] || event.to[0] || ''
   const direction = resolveDirection({ to: event.to, cc: event.cc, ourAddress })
 
   return {

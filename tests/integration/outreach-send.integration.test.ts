@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import type { Db } from 'mongodb';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
-import { sendAutomatedEmail, type LeadForSend } from '../../lib/outreach-send';
+import type { LeadForSend } from '../../lib/outreach-send';
 import type { OutreachTemplate } from '../../app/lib/outreach/default-templates';
 
 // Issue #124/#150: sendAutomatedEmail() is the module that actually sends a
@@ -18,6 +18,17 @@ process.env.RESEND_API_KEY = 're_test_placeholder_key';
 
 let mongod: MongoMemoryServer;
 let db: Db;
+// Issue #195 — sendAutomatedEmail() now calls app/lib/brand.ts's
+// getBrandConfig() (for the brand's fromEmail override), which reads
+// lib/mongodb.ts's clientPromise — a module-level singleton created from
+// process.env.MONGODB_URI at import time (see tests/integration/helpers/
+// mongo-test-server.ts's own header comment). A static top-of-file import
+// of sendAutomatedEmail would resolve that chain before startTestMongo()
+// below ever sets MONGODB_URI, permanently caching an unconfigured client
+// for this test file — so it's imported dynamically here instead, after
+// the URI is set, the same pattern every route-handler integration test
+// in this repo already uses for exactly this reason.
+let sendAutomatedEmail: typeof import('../../lib/outreach-send').sendAutomatedEmail;
 
 beforeAll(async () => {
   mongod = await startTestMongo();
@@ -25,6 +36,7 @@ beforeAll(async () => {
   const client = new MongoClient(process.env.MONGODB_URI!);
   await client.connect();
   db = client.db();
+  sendAutomatedEmail = (await import('../../lib/outreach-send')).sendAutomatedEmail;
 }, 60000);
 
 afterAll(async () => {
@@ -212,15 +224,35 @@ describe('sendAutomatedEmail — Resend-side rejection is caught, never thrown (
   });
 });
 
-describe('sendAutomatedEmail — from-address resolution (issue #150)', () => {
-  it('uses a brand-specific RESEND_FROM_<BRAND> override when set', async () => {
-    process.env.RESEND_FROM_SEYU = 'Seyu Sales <sales@seyu-verified.example>';
+describe('sendAutomatedEmail — from-address resolution (issue #150, updated #195)', () => {
+  // Issue #195 — the per-brand override moved from the RESEND_FROM_<BRAND>
+  // env var to the brand's own `fromEmail` field (app/lib/brand.ts's
+  // BrandConfig), read from Mongo via getBrandConfig() instead of
+  // process.env. Seeded directly into the `brands` collection here, the
+  // same way tests/integration/sales-settings.integration.test.ts seeds a
+  // legacy doc directly rather than going through an admin API.
+  it('uses a brand-specific fromEmail override when the brand record has one set', async () => {
+    const now = new Date().toISOString();
+    await db.collection('brands').insertOne({
+      slug: 'seyu',
+      label: 'Seyu',
+      dbCollection: 'seyu_leads',
+      apiPrefix: '/api/leads',
+      currency: 'EUR',
+      aliases: ['seyu', 'seyusales'],
+      ownNameTerms: ['seyu'],
+      forecastModel: 'custom',
+      fromEmail: 'Seyu Sales <sales@seyu-verified.example>',
+      createdAt: now,
+      createdBy: 'test@example.com',
+      updatedAt: now,
+    });
     const getCaptured = mockSendApi({ id: 'resend-email-id-3' });
     const lead = makeLead();
 
     await sendAutomatedEmail(db, lead, makeTemplate(), context({ brand: 'seyu' }));
 
     expect(getCaptured()?.body.from).toBe('Seyu Sales <sales@seyu-verified.example>');
-    delete process.env.RESEND_FROM_SEYU;
+    await db.collection('brands').deleteMany({});
   });
 });

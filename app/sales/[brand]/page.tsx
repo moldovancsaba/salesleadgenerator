@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { SalesPageClient } from './sales-page-client';
-import { resolveBrand, BRAND_CONFIG } from '@/app/lib/brand';
+import { resolveBrand, getBrandConfig } from '@/app/lib/brand';
 import { requireBrandAccess } from '@/lib/require-brand-access';
 
 export async function generateMetadata({ params }: { params: Promise<{ brand: string }> }): Promise<Metadata> {
   const { brand: brandParam } = await params;
-  const brand = resolveBrand(brandParam);
+  const brand = await resolveBrand(brandParam);
   if (!brand) return { title: 'Not Found' };
-  return { title: BRAND_CONFIG[brand].label };
+  const config = await getBrandConfig(brand);
+  return { title: config?.label ?? brand };
 }
 
 export default async function SalesPage({ params }: { params: Promise<{ brand: string }> }) {
@@ -17,12 +18,13 @@ export default async function SalesPage({ params }: { params: Promise<{ brand: s
   // segment passed straight through unnormalized. Fixed alongside adding
   // the access check (issue #103), since that check needs a real Brand,
   // not an arbitrary string.
-  const brand = resolveBrand(brandParam);
+  const brand = await resolveBrand(brandParam);
   // Issue #147 — resolveBrand() now returns null for a genuinely
   // unrecognized brand (was: silently resolved to 'cogmap'); a real 404,
   // not a silent wrong-brand render.
   if (!brand) notFound();
   await requireBrandAccess(brand);
+  const config = await getBrandConfig(brand);
 
-  return <SalesPageClient brand={brand} />;
+  return <SalesPageClient brand={brand} currency={config?.currency} />;
 }

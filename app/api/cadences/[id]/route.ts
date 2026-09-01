@@ -144,7 +144,7 @@ export async function DELETE(
     // has leads actively enrolled on it, rather than silently leaving those
     // leads' activeCadence pointing at a deleted template with no error
     // path. The operator must cancel each lead's enrollment first.
-    const config = (await import('../../../../app/lib/brand')).BRAND_CONFIG[existing.brand]
+    const config = await (await import('../../../../app/lib/brand')).getBrandConfig(existing.brand)
     if (config) {
       const leadsCollection = db.collection(config.dbCollection)
       // tenantFilter(), not a literal `{tenantId}` match — for the 'default'

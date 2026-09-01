@@ -6,7 +6,7 @@ import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { getTenantId } from '../../../lib/tenant'
 import { CONTACT_SUGGESTIONS_COLLECTION, ensureContactSuggestionsIndexes } from '../../../lib/contact-reply-matching'
 
-function getBrand(request: Request): Brand | null {
+async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url)
   const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || 'cogmap'
   return resolveBrand(brandParam)
@@ -19,7 +19,7 @@ function getBrand(request: Request): Brand | null {
 // use that; the per-lead Activity tab passes leadId).
 export async function GET(request: NextRequest) {
   try {
-    const brand = getBrand(request)
+    const brand = await getBrand(request)
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const authError = await requireBrandAccessApi(request, brand)
     if (authError) return authError

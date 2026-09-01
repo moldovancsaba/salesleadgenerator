@@ -5,6 +5,7 @@ import { requireApiKey } from '../../../../lib/api-auth'
 import { getTenantId, tenantFilter } from '../../../../lib/tenant'
 import { validateBattlecardPayload, normalizeProofPoints, normalizeObjections } from '../../../lib/battlecards/validate-battlecard'
 import { normalizeTags } from '../../../lib/search/tagged-content-filter'
+import { getForbiddenTermsFor } from '../../../lib/brand'
 
 export const dynamic = 'force-dynamic'
 
@@ -96,7 +97,8 @@ export async function PUT(
       objections: body.objections !== undefined ? body.objections : existing.objections,
     }
 
-    const errors = validateBattlecardPayload(merged, brand)
+    const forbiddenTerms = await getForbiddenTermsFor(brand)
+    const errors = validateBattlecardPayload(merged, brand, forbiddenTerms)
     if (errors.length > 0) {
       return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
     }

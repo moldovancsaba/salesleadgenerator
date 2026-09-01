@@ -6,8 +6,8 @@
 // in favor of the way a founder or small commercial team already thinks
 // about their business — see GitHub issue #24 for the full rationale.
 
-import { BRAND_CONFIG, CURRENCY_CODES, CURRENCY_CODE_OPTIONS } from './brand';
-import type { CurrencyCode } from './brand';
+import { CURRENCY_CODES, CURRENCY_CODE_OPTIONS } from './brand';
+import type { CurrencyCode, BrandSalesVocabulary } from './brand';
 
 export type CustomerType =
   | 'sports_clubs'
@@ -183,16 +183,18 @@ export function emptyProductLine(id: string): ProductLine {
   };
 }
 
-// Issue #145 — reads BRAND_CONFIG[brand].currency, the single source of
-// truth for brand->currency, instead of a hand-written per-brand ternary.
-// Falls back to 'USD' for an unrecognized brand key, matching the prior
-// ternary's own implicit default (never throws — this is called from
-// sanitize paths that must always return a value).
-export function defaultRevenueTargetCurrency(brand: string): RevenueTargetCurrency {
-  return BRAND_CONFIG[brand]?.currency ?? 'USD';
+// Issue #195 — no longer looks brand config up itself (that requires an
+// async Mongo read this function's own callers can't always afford — see
+// the module header): the caller resolves the brand's real currency (via
+// app/lib/brand.ts's getBrandConfig()) and passes it in. Falls back to
+// 'USD' when the brand/currency isn't known yet (e.g. the client-side
+// initial useState() before the server round-trip has resolved it) —
+// never throws, this is called from paths that must always return a value.
+export function defaultRevenueTargetCurrency(currency?: RevenueTargetCurrency): RevenueTargetCurrency {
+  return currency ?? 'USD';
 }
 
-export function emptySalesSettings(brand: string, tenantId = 'default'): SalesSettings {
+export function emptySalesSettings(brand: string, tenantId = 'default', currency?: RevenueTargetCurrency): SalesSettings {
   return {
     brand,
     tenantId,
@@ -213,7 +215,7 @@ export function emptySalesSettings(brand: string, tenantId = 'default'): SalesSe
     exampleCustomer: { name: '', productsPurchased: '', contractLength: '' },
     seasonality: { quarters: [], specificMonths: '' },
     notes: '',
-    revenueTarget: { currency: defaultRevenueTargetCurrency(brand), period: 'annual' },
+    revenueTarget: { currency: defaultRevenueTargetCurrency(currency), period: 'annual' },
   };
 }
 
@@ -239,39 +241,33 @@ const CUSTOMER_TYPE_SPORT_SPECIFIC: CustomerType[] = ['sports_clubs', 'federatio
 const BUYER_ROLE_BASE: BuyerRole[] = ['ceo', 'marketing', 'commercial', 'brand', 'other'];
 const BUYER_ROLE_SPORT_SPECIFIC: BuyerRole[] = ['coach', 'federation', 'club', 'parent', 'athlete'];
 
-// Issue #148 — DVSC's own confirmed vocabulary decision (real, researched,
-// not a guess): DVSC sells sponsorship inventory to companies. Its real
-// customers (dvsc.hu's own current partners — Tranzit-Food, Primavera Víz,
-// Tippmix, Lemon Casino) are all sponsor companies/brands, already fully
-// covered by the universal CUSTOMER_TYPE_BASE ('sponsors'/'brands') — none
-// of the sport-specific extension values (sports_clubs/federations/schools/
-// academies/event_organisers, who CogMap/Seyu sell *to*) describe who buys
-// *from* DVSC. Its real buyer personas (a sponsor's marketing/sponsorship/
-// commercial lead, or its CEO) are equally already covered by
-// BUYER_ROLE_BASE — DVSC's own extension is empty, explicit rather than
-// left to the base-set fallback, so this decision is recorded, not implicit.
-const DVSC_CUSTOMER_TYPES: CustomerType[] = [];
-const DVSC_BUYER_ROLES: BuyerRole[] = [];
-
-export const BRAND_SALES_VOCABULARY: Record<string, { customerTypes: CustomerType[]; buyerRoles: BuyerRole[] }> = {
-  cogmap: { customerTypes: CUSTOMER_TYPE_SPORT_SPECIFIC, buyerRoles: BUYER_ROLE_SPORT_SPECIFIC },
-  seyu: { customerTypes: CUSTOMER_TYPE_SPORT_SPECIFIC, buyerRoles: [] },
-  dvsc: { customerTypes: DVSC_CUSTOMER_TYPES, buyerRoles: DVSC_BUYER_ROLES },
-};
-
-// A brand with no explicit BRAND_SALES_VOCABULARY entry falls back to the
-// universal base set only, never crashes and never shows every brand's
-// combined vocabulary.
-function brandVocabularyExtension(brand: string): { customerTypes: CustomerType[]; buyerRoles: BuyerRole[] } {
-  return BRAND_SALES_VOCABULARY[brand] ?? { customerTypes: [], buyerRoles: [] };
+// Issue #148's DVSC decision (DVSC sells sponsorship inventory; its real
+// customers/buyer personas are already fully covered by the universal base
+// sets, so its own vocabulary extension is empty) now lives as an explicit
+// empty `salesVocabulary` on DVSC's brand record (app/lib/brand.ts) rather
+// than a hardcoded case here.
+//
+// Issue #195 — BRAND_SALES_VOCABULARY moved to each brand's own record
+// (app/lib/brand.ts's BrandConfig.salesVocabulary), read via an async
+// Mongo lookup this module's own callers can't always afford (see the
+// module header). The caller resolves the brand's vocabulary once (via
+// getBrandConfig()) and passes it in here; omitted/undefined falls back to
+// the universal base set only, never crashes and never shows every brand's
+// combined vocabulary — same safe-fallback contract as before.
+//
+// The `as CustomerType[]`/`as BuyerRole[]` casts below are a deliberate
+// boundary cast: app/lib/brand.ts's BrandSalesVocabulary is typed with
+// plain `string[]` (it's a lower-level, sales-settings-agnostic module and
+// can't import these literal unions without a circular import). Values
+// only ever reach it already-sanitized against these same enums, by
+// sanitizeSalesSettings below and, later, the admin add-client form
+// (issue #196).
+export function getAllowedCustomerTypes(salesVocabulary?: BrandSalesVocabulary): CustomerType[] {
+  return [...CUSTOMER_TYPE_BASE, ...((salesVocabulary?.customerTypes ?? []) as CustomerType[])];
 }
 
-export function getAllowedCustomerTypes(brand: string): CustomerType[] {
-  return [...CUSTOMER_TYPE_BASE, ...brandVocabularyExtension(brand).customerTypes];
-}
-
-export function getAllowedBuyerRoles(brand: string): BuyerRole[] {
-  return [...BUYER_ROLE_BASE, ...brandVocabularyExtension(brand).buyerRoles];
+export function getAllowedBuyerRoles(salesVocabulary?: BrandSalesVocabulary): BuyerRole[] {
+  return [...BUYER_ROLE_BASE, ...((salesVocabulary?.buyerRoles ?? []) as BuyerRole[])];
 }
 
 const CUSTOMER_SIZES: CustomerSize[] = ['individual', 'small', 'medium', 'large', 'enterprise'];
@@ -368,13 +364,13 @@ function sanitizeProductPricing(value: unknown): ProductPricing {
 // treats a 0-or-unset amount identically as "no target" — so a negative
 // input safely collapses to the same "not configured" state, not a false
 // $0-target alarm.
-function sanitizeRevenueTarget(value: unknown, brand: string): RevenueTarget {
+function sanitizeRevenueTarget(value: unknown, currency: RevenueTargetCurrency): RevenueTarget {
   const raw = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
   return {
     amount: sanitizeOptionalNumber(raw.amount),
     currency: typeof raw.currency === 'string' && (REVENUE_TARGET_CURRENCIES as string[]).includes(raw.currency)
       ? (raw.currency as RevenueTargetCurrency)
-      : defaultRevenueTargetCurrency(brand),
+      : defaultRevenueTargetCurrency(currency),
     period: typeof raw.period === 'string' && (REVENUE_TARGET_PERIODS as string[]).includes(raw.period)
       ? (raw.period as RevenueTargetPeriod)
       : 'annual',
@@ -385,14 +381,14 @@ function sanitizeRevenueTarget(value: unknown, brand: string): RevenueTarget {
 // set (getAllowedBuyerRoles), not the global BuyerRole union: a value valid
 // for one brand but not the brand actually being saved is dropped, matching
 // this function's own existing sanitize-not-throw convention (sanitizeEnumArray).
-function sanitizeProductLine(value: unknown, index: number, brand: string): ProductLine {
+function sanitizeProductLine(value: unknown, index: number, salesVocabulary?: BrandSalesVocabulary): ProductLine {
   const raw = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
   return {
     id: sanitizeString(raw.id, 100) || `product-${index}`,
     name: sanitizeString(raw.name, 200),
     description: sanitizeString(raw.description, 1000),
     whyTheyBuy: sanitizeString(raw.whyTheyBuy, 1000),
-    typicalBuyer: sanitizeEnumArray(raw.typicalBuyer, getAllowedBuyerRoles(brand)),
+    typicalBuyer: sanitizeEnumArray(raw.typicalBuyer, getAllowedBuyerRoles(salesVocabulary)),
     typicalBuyerOther: sanitizeString(raw.typicalBuyerOther, 200),
     customerSize: sanitizeEnumArray(raw.customerSize, CUSTOMER_SIZES),
     pricingModels: sanitizeEnumArray(raw.pricingModels, PRICING_MODELS),
@@ -413,7 +409,13 @@ function sanitizeProductLine(value: unknown, index: number, brand: string): Prod
 // the same class of value, just at different points in the pipeline.
 const MAX_DEAL_SIZE_INPUT = 50_000_000;
 
-export function sanitizeSalesSettings(body: unknown, brand: string, tenantId: string): SalesSettings {
+export function sanitizeSalesSettings(
+  body: unknown,
+  brand: string,
+  tenantId: string,
+  currency: CurrencyCode = 'USD',
+  salesVocabulary?: BrandSalesVocabulary
+): SalesSettings {
   const raw = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
   const dealSizeRaw = (raw.dealSize && typeof raw.dealSize === 'object' ? raw.dealSize : {}) as Record<string, unknown>;
   const upsellRaw = (raw.upsell && typeof raw.upsell === 'object' ? raw.upsell : {}) as Record<string, unknown>;
@@ -427,9 +429,9 @@ export function sanitizeSalesSettings(body: unknown, brand: string, tenantId: st
     contactPerson: sanitizeString(raw.contactPerson, 200),
     website: sanitizeString(raw.website, 300),
     mainIndustry: sanitizeString(raw.mainIndustry, 200),
-    customerTypes: sanitizeEnumArray(raw.customerTypes, getAllowedCustomerTypes(brand)),
+    customerTypes: sanitizeEnumArray(raw.customerTypes, getAllowedCustomerTypes(salesVocabulary)),
     customerTypesOther: sanitizeString(raw.customerTypesOther, 200),
-    products: Array.isArray(raw.products) ? raw.products.map((p, i) => sanitizeProductLine(p, i, brand)) : [],
+    products: Array.isArray(raw.products) ? raw.products.map((p, i) => sanitizeProductLine(p, i, salesVocabulary)) : [],
     dealSize: {
       small: sanitizeOptionalNumber(dealSizeRaw.small, MAX_DEAL_SIZE_INPUT),
       medium: sanitizeOptionalNumber(dealSizeRaw.medium, MAX_DEAL_SIZE_INPUT),
@@ -457,7 +459,7 @@ export function sanitizeSalesSettings(body: unknown, brand: string, tenantId: st
       specificMonths: sanitizeString(seasonalityRaw.specificMonths, 300),
     },
     notes: sanitizeString(raw.notes, 4000),
-    revenueTarget: sanitizeRevenueTarget(raw.revenueTarget, brand),
+    revenueTarget: sanitizeRevenueTarget(raw.revenueTarget, currency),
   };
 }
 
@@ -489,13 +491,13 @@ export const BUYER_ROLE_OPTIONS: { value: BuyerRole; label: string }[] = [
 // Issue #146 — the brand-scoped views of the two option lists above, for the
 // Company Setup UI to render: only options that fit what the given brand
 // actually sells, in the same fixed display order as the full lists.
-export function getCustomerTypeOptions(brand: string): { value: CustomerType; label: string }[] {
-  const allowed = new Set(getAllowedCustomerTypes(brand));
+export function getCustomerTypeOptions(salesVocabulary?: BrandSalesVocabulary): { value: CustomerType; label: string }[] {
+  const allowed = new Set(getAllowedCustomerTypes(salesVocabulary));
   return CUSTOMER_TYPE_OPTIONS.filter((opt) => allowed.has(opt.value));
 }
 
-export function getBuyerRoleOptions(brand: string): { value: BuyerRole; label: string }[] {
-  const allowed = new Set(getAllowedBuyerRoles(brand));
+export function getBuyerRoleOptions(salesVocabulary?: BrandSalesVocabulary): { value: BuyerRole; label: string }[] {
+  const allowed = new Set(getAllowedBuyerRoles(salesVocabulary));
   return BUYER_ROLE_OPTIONS.filter((opt) => allowed.has(opt.value));
 }
 

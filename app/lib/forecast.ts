@@ -1,5 +1,6 @@
 import type { Db, Collection } from 'mongodb'
-import { BRAND_CONFIG } from './brand'
+import { getBrandConfig } from './brand'
+import type { CurrencyCode } from './brand'
 import type { Brand } from './brand'
 import { getPipelineWeights } from '../../lib/pipeline-weights'
 import { tenantFilter } from '../../lib/tenant'
@@ -106,7 +107,8 @@ async function computeDealSizeBandForecast(
   weightsUsed: Record<string, number>,
   probabilitySources: Record<string, string>,
   calibrationInfo: { mode: string; lastComputedAt: string | null },
-  revenueExpr: Record<string, any>
+  revenueExpr: Record<string, any>,
+  currency: CurrencyCode
 ): Promise<Record<string, any>> {
   const pipelineForecast = await collection.aggregate([
     { $match: revenueFilter },
@@ -172,7 +174,7 @@ async function computeDealSizeBandForecast(
   const concentrationSettings = await getConcentrationRiskSettings(db)
   const brandConcentrationRisk = attachConcentrationRisk(perLeadValues, pipeline, totalWeighted, weightsUsed, concentrationSettings)
   const revenueTarget = await fetchRevenueTarget(db, brand, tenantId)
-  const coverage = computeCoverage(revenueTarget, totalWeighted, BRAND_CONFIG[brand].currency)
+  const coverage = computeCoverage(revenueTarget, totalWeighted, currency)
 
   return {
     pipeline,
@@ -193,7 +195,8 @@ async function computeDealSizeBandForecast(
 }
 
 export async function computeForecast(db: Db, brand: Brand, tenantId: string): Promise<ForecastComputation> {
-  const config = BRAND_CONFIG[brand]
+  const config = await getBrandConfig(brand)
+  if (!config) throw new Error(`Unknown brand: ${brand}`)
   const filter = tenantFilter(tenantId)
   // Issue #126 — Backlog leads are excluded from every revenue/forecast
   // aggregation, not just from the fixed per-column iteration lists below
@@ -269,11 +272,14 @@ export async function computeForecast(db: Db, brand: Brand, tenantId: string): P
     ],
   }
 
-  // CogMap and DVSC (issue #148) share the same deal-size-band forecast
-  // model — see computeDealSizeBandForecast()'s own header comment for why.
-  if (brand === 'cogmap' || brand === 'dvsc') {
+  // Issue #195 — routed by the brand's own forecastModel flag rather than a
+  // hardcoded brand-name gate, so any brand configured with 'dealSizeBand'
+  // (the default for a new brand) reuses this fully generic model with zero
+  // code change. See computeDealSizeBandForecast()'s own header comment for
+  // why CogMap and DVSC share it.
+  if (config.forecastModel === 'dealSizeBand') {
     forecast = await computeDealSizeBandForecast(
-      db, collection, brand, tenantId, revenueFilter, weightsUsed, probabilitySources, calibrationInfo, REVENUE_EXPR
+      db, collection, brand, tenantId, revenueFilter, weightsUsed, probabilitySources, calibrationInfo, REVENUE_EXPR, config.currency
     )
   }
 
@@ -421,7 +427,7 @@ export async function computeForecast(db: Db, brand: Brand, tenantId: string): P
     const concentrationSettingsSeyu = await getConcentrationRiskSettings(db)
     const brandConcentrationRiskSeyu = attachConcentrationRisk(perLeadValuesSeyu, pipelineSeyu, totalWeightedSeyu, weightsUsed, concentrationSettingsSeyu)
     const revenueTargetSeyu = await fetchRevenueTarget(db, brand, tenantId)
-    const coverageSeyu = computeCoverage(revenueTargetSeyu, totalWeightedSeyu, BRAND_CONFIG[brand].currency)
+    const coverageSeyu = computeCoverage(revenueTargetSeyu, totalWeightedSeyu, config.currency)
 
     forecast = {
       byCompany: annualizedByCompany,

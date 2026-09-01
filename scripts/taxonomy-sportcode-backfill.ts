@@ -33,7 +33,7 @@
 // re-run after a partial apply skips everything already classified.
 
 import { resolveSportAlias } from '../lib/lead-taxonomy';
-import { BRAND_CONFIG } from '../app/lib/brand';
+import { getAllBrandConfigs } from '../app/lib/brand';
 
 const API_BASE = process.env.SLG_API_BASE || 'https://salesleadgenerator.vercel.app';
 const API_KEY = process.env.SLG_API_KEY;
@@ -42,11 +42,6 @@ const APPLY = process.argv.includes('--apply');
 const brandArg = process.argv.find((a) => a.startsWith('--brand='));
 const sampleArg = process.argv.find((a) => a.startsWith('--sample='));
 const SAMPLE_SIZE = sampleArg ? parseInt(sampleArg.split('=')[1], 10) : null;
-
-// Issue #147 — derived from BRAND_CONFIG's own keys, not a hardcoded
-// 2-brand array, so a future brand is picked up automatically.
-const ALL_BRANDS = Object.keys(BRAND_CONFIG);
-const BRANDS = brandArg ? [brandArg.split('=')[1]] : [...ALL_BRANDS];
 
 type LeadSummary = {
   _id: string;
@@ -96,6 +91,11 @@ async function run() {
     console.error('ERROR: SLG_API_KEY not set in the environment.');
     process.exit(1);
   }
+
+  // Issue #147 — derived from BRAND_CONFIG's own keys, not a hardcoded
+  // 2-brand array, so a future brand is picked up automatically.
+  const ALL_BRANDS = Object.keys(await getAllBrandConfigs());
+  const BRANDS = brandArg ? [brandArg.split('=')[1]] : [...ALL_BRANDS];
 
   console.log(APPLY ? 'Running in APPLY mode — this will write changes via real PUT requests.' : 'Running in DRY-RUN mode — no changes will be written. Pass --apply to write.');
   if (SAMPLE_SIZE) console.log(`Sample mode: applying to a random ${SAMPLE_SIZE} leads per brand.`);

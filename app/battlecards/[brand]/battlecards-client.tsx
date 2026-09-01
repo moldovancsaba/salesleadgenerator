@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Container, Title, Text, Button, Group, Stack, TextInput, TagsInput, Badge, Pill, ActionIcon, Paper } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { AdminTextInput, AdminTextarea, AdminDataTable, AdminFormStatus } from '@sovereignsquad/gds-admin/client'
-import { BRAND_CONFIG, type Brand } from '@/app/lib/brand'
+import type { Brand } from '@/app/lib/brand'
 
 type Objection = { objection: string; response: string }
 
@@ -27,6 +27,7 @@ const EMPTY_FORM: Omit<Battlecard, 'id'> = {
 
 type Props = {
   brand: Brand;
+  label: string;
 };
 
 // This admin page uses GDS Admin field/table/status primitives throughout
@@ -44,7 +45,7 @@ type Props = {
 //    integration, so plain Buttons were used instead, matching how
 //    app/detail.tsx already composes plain Mantine Buttons alongside GDS
 //    chrome elsewhere in this codebase.
-export function BattlecardsClient({ brand }: Props) {
+export function BattlecardsClient({ brand, label }: Props) {
   // tenantId is a separate multi-tenancy axis from brand (issue #100 only
   // concerns brand/client mixing) — still override-able via ?tenantId=,
   // unlike brand, which now comes exclusively from the URL path segment.
@@ -185,7 +186,7 @@ export function BattlecardsClient({ brand }: Props) {
           <div>
             <Title order={2}>Battlecards</Title>
             <Text size="sm" c="dimmed">
-              Competitor positioning and objection responses for <Text span fw={700}>{BRAND_CONFIG[brand].label}</Text>.
+              Competitor positioning and objection responses for <Text span fw={700}>{label}</Text>.
             </Text>
           </div>
           <Button leftSection={<IconPlus size={16} />} onClick={resetForm} variant="light">

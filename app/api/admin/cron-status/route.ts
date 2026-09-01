@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import clientPromise from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
 import { getTenantId } from '../../../../lib/tenant'
-import { BRAND_CONFIG } from '../../../lib/brand'
+import { getAllBrandConfigs } from '../../../lib/brand'
 
 const COLLECTION = 'outcomelogs'
 
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
 
     const statuses: CronStatus[] = []
 
-    for (const brand of Object.keys(BRAND_CONFIG)) {
+    for (const brand of Object.keys(await getAllBrandConfigs())) {
       const logs24 = byBrand24h.get(brand) || []
       const logs168 = byBrand168h.get(brand) || []
 
