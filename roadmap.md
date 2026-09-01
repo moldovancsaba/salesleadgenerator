@@ -8,7 +8,7 @@
 
 **Not the same file as `_archived/roadmap.md`** — that's a frozen, historical feature-status log (v2.4.61), superseded by `CHANGELOG.md`, sharing this file's basename by coincidence rather than by relation. See `README.md`'s "Archived Documentation" table.
 
-Last synced: 2026-08-20, against `moldovancsaba/salesleadgenerator`'s real open-issue list (7 issues).
+Last synced: 2026-09-01, against `moldovancsaba/salesleadgenerator`'s real open-issue list (9 issues).
 
 ---
 
@@ -23,6 +23,7 @@ Last synced: 2026-08-20, against `moldovancsaba/salesleadgenerator`'s real open-
 | # | Title | Priority | Notes |
 |---|---|---|---|
 | [#137](https://github.com/moldovancsaba/salesleadgenerator/issues/137) | Duplicate lead records at scale: 43.8% of Seyu, 10.7% of CogMap | P1 | Root-cause matching-algorithm fix already shipped. What remains needs a real browser session at `/admin/duplicates` (super-admin SSO) — confirmed blocked via both `x-api-key` and direct MongoDB attempts. **Needs the owner**, not another agent turn. |
+| [#195](https://github.com/moldovancsaba/salesleadgenerator/issues/195) | Brand config becomes Mongo-backed (site-admin onboarding, backend plumbing) | P2 | Moves `BRAND_CONFIG`/`FORBIDDEN_BRAND_TERMS`/forecast-model routing from static TS to a Mongo `brands` collection, read at request time. Grep-verified 51-file call-site sweep. Prerequisite for #196. Unblocked, unstarted. |
 | [#125](https://github.com/moldovancsaba/salesleadgenerator/issues/125) | Adopt GDS zone-based kanban scroll routing once available | P2 | See Blocked below — the local workaround (2.4.95) is a live, tested fix; this issue tracks retiring it once the upstream dependency ships the real one. |
 | [#165](https://github.com/moldovancsaba/salesleadgenerator/issues/165) | New-user onboarding tour: step-by-step spotlight walkthrough (design record) | P3 | Design plan, decision now made (2026-08-08, owner-confirmed): `driver.js`, per this issue's own recommendation. Implementation tracked separately in #185. |
 | [#185](https://github.com/moldovancsaba/salesleadgenerator/issues/185) | Implement new-user onboarding tour using driver.js | P3 | Follow-up to #165 now that the library decision is made. Unblocked, unstarted — a real multi-part UI build (tour controller, stable selectors on 7 target elements, keyboard/screen-reader accessibility, mobile verification). |
@@ -32,6 +33,7 @@ Last synced: 2026-08-20, against `moldovancsaba/salesleadgenerator`'s real open-
 | # | Title | Priority | Blocked on |
 |---|---|---|---|
 | [#125](https://github.com/moldovancsaba/salesleadgenerator/issues/125) | Adopt GDS zone-based kanban scroll routing once available | P2 | An upstream feature in `sovereignsquad/general-design-system` — a full implementation plan is drafted in the issue itself, ready to file there, but this session's GitHub access can't reach that repo. Needs a human or a session scoped to that repo to actually file it. |
+| [#196](https://github.com/moldovancsaba/salesleadgenerator/issues/196) | Site-admin UI to create a new client/brand (no-deploy onboarding) | P2 | Blocked on #195 (needs the Mongo-backed brand registry to exist before a form can write to it). |
 
 *(#125 appears in both Ready and Blocked above — it's unblocked as tracking/documentation work, but the actual fix is blocked on the external dependency.)*
 
