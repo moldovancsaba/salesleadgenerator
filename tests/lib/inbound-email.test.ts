@@ -4,60 +4,66 @@ import {
   resolveDirection, buildActivityLogDoc,
 } from '../../app/lib/inbound-email';
 
+// Issue #195 — these functions no longer read BRAND_CONFIG themselves
+// (kept sync/DB-free on purpose); the one real caller
+// (app/api/webhooks/inbound-email/route.ts) resolves this list once from
+// the Mongo-backed registry and passes it in.
+const ALL_BRANDS = ['cogmap', 'seyu', 'dvsc'];
+
 describe('resolveBrandFromAddress (issue #141)', () => {
   it('resolves cogmap from a matching local-part prefix', () => {
-    expect(resolveBrandFromAddress('cogmap@abc123.resend.app')).toBe('cogmap');
+    expect(resolveBrandFromAddress('cogmap@abc123.resend.app', ALL_BRANDS)).toBe('cogmap');
   });
 
   it('resolves seyu from a matching local-part prefix', () => {
-    expect(resolveBrandFromAddress('seyu@abc123.resend.app')).toBe('seyu');
+    expect(resolveBrandFromAddress('seyu@abc123.resend.app', ALL_BRANDS)).toBe('seyu');
   });
 
   it('resolves via prefix match, not exact match (e.g. cogmap-log@...)', () => {
-    expect(resolveBrandFromAddress('cogmap-log@abc123.resend.app')).toBe('cogmap');
+    expect(resolveBrandFromAddress('cogmap-log@abc123.resend.app', ALL_BRANDS)).toBe('cogmap');
   });
 
   it('is case-insensitive', () => {
-    expect(resolveBrandFromAddress('CogMap@abc123.resend.app')).toBe('cogmap');
+    expect(resolveBrandFromAddress('CogMap@abc123.resend.app', ALL_BRANDS)).toBe('cogmap');
   });
 
   it('returns null for an address matching no known brand', () => {
-    expect(resolveBrandFromAddress('unknown@abc123.resend.app')).toBeNull();
+    expect(resolveBrandFromAddress('unknown@abc123.resend.app', ALL_BRANDS)).toBeNull();
   });
 
   it('returns null for empty/missing input', () => {
-    expect(resolveBrandFromAddress('')).toBeNull();
-    expect(resolveBrandFromAddress(undefined)).toBeNull();
-    expect(resolveBrandFromAddress(null)).toBeNull();
+    expect(resolveBrandFromAddress('', ALL_BRANDS)).toBeNull();
+    expect(resolveBrandFromAddress(undefined, ALL_BRANDS)).toBeNull();
+    expect(resolveBrandFromAddress(null, ALL_BRANDS)).toBeNull();
   });
 });
 
 describe('resolveBrandFromRecipients (issue #141)', () => {
   it('prefers received_for over to when both are present', () => {
-    expect(resolveBrandFromRecipients(['seyu@abc.resend.app'], ['cogmap@abc.resend.app'])).toBe('seyu');
+    expect(resolveBrandFromRecipients(['seyu@abc.resend.app'], ['cogmap@abc.resend.app'], ALL_BRANDS)).toBe('seyu');
   });
 
   it('falls back to to[] when received_for resolves nothing', () => {
-    expect(resolveBrandFromRecipients(['unknown@abc.resend.app'], ['cogmap@abc.resend.app'])).toBe('cogmap');
+    expect(resolveBrandFromRecipients(['unknown@abc.resend.app'], ['cogmap@abc.resend.app'], ALL_BRANDS)).toBe('cogmap');
   });
 
   it('returns null when neither resolves', () => {
-    expect(resolveBrandFromRecipients(['a@b.com'], ['c@d.com'])).toBeNull();
+    expect(resolveBrandFromRecipients(['a@b.com'], ['c@d.com'], ALL_BRANDS)).toBeNull();
   });
 
   it('handles undefined arrays without throwing', () => {
-    expect(resolveBrandFromRecipients(undefined, undefined)).toBeNull();
+    expect(resolveBrandFromRecipients(undefined, undefined, ALL_BRANDS)).toBeNull();
   });
 });
 
 describe('resolveMatchedAddress (issue #141)', () => {
   it('returns the specific address that matched, not just the first entry', () => {
-    expect(resolveMatchedAddress(['unknown@x.com'], ['cogmap@abc.resend.app', 'someone-else@x.com']))
+    expect(resolveMatchedAddress(['unknown@x.com'], ['cogmap@abc.resend.app', 'someone-else@x.com'], ALL_BRANDS))
       .toBe('cogmap@abc.resend.app');
   });
 
   it('returns null when nothing matches', () => {
-    expect(resolveMatchedAddress(['a@b.com'], ['c@d.com'])).toBeNull();
+    expect(resolveMatchedAddress(['a@b.com'], ['c@d.com'], ALL_BRANDS)).toBeNull();
   });
 });
 
@@ -94,7 +100,7 @@ describe('buildActivityLogDoc (issue #141)', () => {
       receivedFor: ['cogmap@abc123.resend.app'],
       subject: 'Re: following up',
       messageId: '<111@example.com>',
-    }, 'Thanks for reaching out!', now);
+    }, 'Thanks for reaching out!', now, ALL_BRANDS);
 
     expect(doc.leadId).toBeNull();
     expect(doc.brand).toBe('cogmap');
@@ -118,7 +124,7 @@ describe('buildActivityLogDoc (issue #141)', () => {
       receivedFor: ['seyu@abc123.resend.app'],
       subject: 'Quick intro',
       messageId: '<222@example.com>',
-    }, undefined, now);
+    }, undefined, now, ALL_BRANDS);
 
     expect(doc.brand).toBe('seyu');
     expect(doc.type).toBe('email-outbound');
@@ -135,7 +141,7 @@ describe('buildActivityLogDoc (issue #141)', () => {
       receivedFor: ['unknown@abc123.resend.app'],
       subject: 'Test',
       messageId: '<333@example.com>',
-    }, undefined, now);
+    }, undefined, now, ALL_BRANDS);
 
     expect(doc.brand).toBe('unresolved');
   });
@@ -144,7 +150,7 @@ describe('buildActivityLogDoc (issue #141)', () => {
     const doc = buildActivityLogDoc({
       emailId: 'email-999', from: 'a@b.com', to: ['cogmap@abc.resend.app'], cc: [], bcc: [],
       receivedFor: ['cogmap@abc.resend.app'], subject: '', messageId: '',
-    }, undefined, now);
+    }, undefined, now, ALL_BRANDS);
     expect(doc.tenantId).toBe('default');
   });
 });

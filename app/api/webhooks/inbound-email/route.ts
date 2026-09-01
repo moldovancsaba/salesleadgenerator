@@ -12,6 +12,7 @@ import {
 } from '../../../../lib/contact-reply-matching'
 import { contactKey } from '../../../../lib/contacts'
 import type { Brand } from '../../../lib/brand'
+import { getAllBrandConfigs } from '../../../lib/brand'
 
 // A generous cap for what should be a small, metadata-only payload
 // (resend.com/docs/dashboard/receiving/introduction confirms the webhook
@@ -110,7 +111,8 @@ export async function POST(request: NextRequest) {
       console.error('[inbound-email webhook] failed to fetch full email content', err)
     }
 
-    const doc = buildActivityLogDoc(receivedEvent, bodyExcerpt, new Date())
+    const allBrands = Object.keys(await getAllBrandConfigs()) as Brand[]
+    const doc = buildActivityLogDoc(receivedEvent, bodyExcerpt, new Date(), allBrands)
 
     // Issue #142 — reply-to-lead matching + contact-enrichment suggestion.
     // Only for a genuine inbound reply with a brand we recognize; an

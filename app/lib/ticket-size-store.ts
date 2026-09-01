@@ -3,6 +3,7 @@ import { estimateTicketSize } from '../../lib/ticket-size';
 import type { TicketSizeResult, TicketSizeProductInput, TicketSizeTier } from '../../lib/ticket-size';
 import { defaultRevenueTargetCurrency } from './sales-settings';
 import type { SalesSettings, ProductLine } from './sales-settings';
+import { getBrandConfig } from './brand';
 
 const VALID_SIZE_TIERS: TicketSizeTier[] = ['Small', 'Medium', 'Large', 'Enterprise'];
 
@@ -30,7 +31,8 @@ export async function computeTicketSizeForLead(
   // Sales Settings page (settings.revenueTarget.currency). The settings doc
   // is already loaded above; read the real selection from it before falling
   // back to the brand default for a not-yet-configured brand/tenant.
-  const currency = settings?.revenueTarget?.currency ?? defaultRevenueTargetCurrency(brand);
+  const config = await getBrandConfig(brand);
+  const currency = settings?.revenueTarget?.currency ?? defaultRevenueTargetCurrency(config?.currency);
   const sizeTier = (VALID_SIZE_TIERS as string[]).includes(lead.size || '') ? (lead.size as TicketSizeTier) : undefined;
   const unitCount = typeof lead.estimated_participants === 'number' && lead.estimated_participants > 0
     ? lead.estimated_participants

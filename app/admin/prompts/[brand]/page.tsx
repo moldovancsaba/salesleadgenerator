@@ -4,13 +4,14 @@ import { redirect, notFound } from 'next/navigation'
 import { resolveSessionFromIdToken } from '@/lib/session'
 import { isSuperAdminEmail } from '@/lib/sso-access'
 import { PromptEditorClient } from './prompt-editor-client'
-import { resolveBrand, BRAND_CONFIG } from '@/app/lib/brand'
+import { resolveBrand, getBrandConfig } from '@/app/lib/brand'
 
 export async function generateMetadata({ params }: { params: Promise<{ brand: string }> }): Promise<Metadata> {
   const { brand: brandParam } = await params
-  const brand = resolveBrand(brandParam)
+  const brand = await resolveBrand(brandParam)
   if (!brand) return { title: 'Not Found' }
-  return { title: `${BRAND_CONFIG[brand]?.label || brand} Prompts` }
+  const config = await getBrandConfig(brand)
+  return { title: `${config?.label || brand} Prompts` }
 }
 
 // Same super-admin gate as app/admin/users/page.tsx and
@@ -30,8 +31,9 @@ export default async function PromptEditorPage({ params }: { params: Promise<{ b
   }
 
   const { brand: brandParam } = await params
-  const brand = resolveBrand(brandParam)
+  const brand = await resolveBrand(brandParam)
   if (!brand) notFound()
+  const config = await getBrandConfig(brand)
 
-  return <PromptEditorClient brand={brand} />
+  return <PromptEditorClient brand={brand} label={config?.label ?? brand} />
 }

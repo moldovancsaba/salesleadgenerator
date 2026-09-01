@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json().catch(() => ({}))
-    const brand = resolveBrand(typeof body.brand === 'string' ? body.brand : 'cogmap')
+    const brand = await resolveBrand(typeof body.brand === 'string' ? body.brand : 'cogmap')
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const tenantId = (typeof body.tenantId === 'string' ? body.tenantId.trim() : '') || 'default'
 

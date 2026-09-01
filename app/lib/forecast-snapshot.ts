@@ -1,6 +1,6 @@
 import type { Db } from 'mongodb'
 import { computeForecast } from './forecast'
-import { BRAND_CONFIG } from './brand'
+import { getBrandConfig } from './brand'
 import type { Brand } from './brand'
 
 export const FORECAST_SNAPSHOT_COLLECTION = 'forecast_snapshots'
@@ -40,10 +40,10 @@ async function ensureIndexes(db: Db): Promise<void> {
 // distinct tenantId actually present in a brand's collection (plus
 // 'default', matching lib/tenant.ts's treatment of a missing tenantId).
 export async function discoverTenantIds(db: Db, brand: Brand): Promise<string[]> {
-  const config = BRAND_CONFIG[brand]
+  const config = await getBrandConfig(brand)
   const ids = new Set<string>(['default'])
   try {
-    const distinctIds = await db.collection(config.dbCollection).distinct('tenantId')
+    const distinctIds = await db.collection(config!.dbCollection).distinct('tenantId')
     for (const id of distinctIds) {
       if (typeof id === 'string' && id.trim()) ids.add(id.trim())
     }

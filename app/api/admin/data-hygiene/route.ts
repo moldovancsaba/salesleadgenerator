@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import clientPromise, { isMongoConfigured } from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
-import { BRAND_CONFIG, PRO_FIELD, CON_FIELD } from '../../../lib/brand'
+import { getAllBrandConfigs, PRO_FIELD, CON_FIELD } from '../../../lib/brand'
 import { getTenantId } from '../../../../lib/tenant'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +19,8 @@ export async function GET(request: Request) {
   try {
     const tenantId = getTenantId(request)
     const brand = getBrand(request)
-    const targetBrand = brand === 'default' ? Object.keys(BRAND_CONFIG) : [brand]
+    const allBrandConfigs = await getAllBrandConfigs()
+    const targetBrand = brand === 'default' ? Object.keys(allBrandConfigs) : [brand]
     const tenantFilter = tenantId === 'default' ? { $or: [{ tenantId: 'default' }, { tenantId: { $exists: false } }] } : { tenantId }
 
     if (!isMongoConfigured()) {
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
     const client = await clientPromise
     const db = client.db()
     const report = await Promise.all(
-      Object.entries(BRAND_CONFIG).map(async ([brandKey, config]) => {
+      Object.entries(allBrandConfigs).map(async ([brandKey, config]) => {
         const total = await db.collection(config.dbCollection).countDocuments(tenantFilter)
 
         const malformedWithProFor = await db.collection(config.dbCollection).countDocuments({

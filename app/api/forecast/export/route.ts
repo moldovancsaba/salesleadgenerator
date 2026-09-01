@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
     const format = (url.searchParams.get('format') || 'csv').toLowerCase()
-    const brand = resolveBrand(url.searchParams.get('brand'))
+    const brand = await resolveBrand(url.searchParams.get('brand'))
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     // Issue #192 — this route had no auth at all.
     const authError = await requireBrandAccessApi(request, brand)

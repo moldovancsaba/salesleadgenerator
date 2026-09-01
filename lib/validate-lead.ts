@@ -22,28 +22,16 @@ const PHONE_RE = /^\+[\d][\d\-\s]{7,}$/;
 const LINKEDIN_RE = /^https?:\/\/(www\.)?linkedin\.com\/in\/\S+$/i;
 const CONTACT_CONFIDENCE_RE = /[A-Za-z]{2,}/;
 
-// Shared with app/api/battlecards/route.ts's own content validation (issue
-// #65) — one source of truth for which terms belong to which brand, rather
-// than a second copy that could drift from this one.
-// Issue #147 — DVSC added as a third brand: each brand's list now names both
-// other brands (kept symmetric on purpose — a lead for any one brand must
-// never mention either of the other two by name or distinctive product
-// vocabulary). DVSC's own list borrows CogMap's/Seyu's already-vetted
-// product-specific terms above rather than inventing new ones, since DVSC's
-// real risk is the same class of mistake (a CogMap/Seyu product term
-// leaking into a DVSC sponsorship lead), not a DVSC-specific vocabulary of
-// its own yet to be established.
-export const FORBIDDEN_BRAND_TERMS: Record<string, string[]> = {
-  COGMAP: ['seyu', 'dvsc', 'fan selfie', 'led screen', 'jumbotron', 'sponsor activation', 'revenue-share', 'revenue share', 'second screen', 'second-screen'],
-  SEYU: ['cogmap', 'dvsc', 'cognitive assessment', 'player performance analytics', 'decision-making profiling', 'sports science', 'situational awareness'],
-  DVSC: ['cogmap', 'seyu', 'cognitive assessment', 'player performance analytics', 'decision-making profiling', 'fan selfie', 'led screen', 'second screen', 'second-screen'],
-};
-
-export function findForbiddenBrandTerms(text: string | undefined | null, brand: string): string[] {
-  const brandUpper = String(brand || '').toUpperCase();
+// Issue #195 — the old hand-maintained, must-stay-symmetric
+// FORBIDDEN_BRAND_TERMS map moved to app/lib/brand.ts's Mongo-backed
+// getForbiddenTermsFor(brand), derived from every *other* brand's own
+// ownNameTerms field instead of a manually kept-in-sync list. This function
+// stays pure/sync — the caller (already async, with DB access) resolves the
+// forbidden-terms list once and passes it in, the same pattern used for
+// lib/sso-access.ts's brand-enumerating functions.
+export function findForbiddenBrandTerms(text: string | undefined | null, forbiddenTerms: string[]): string[] {
   const lower = typeof text === 'string' ? text.toLowerCase() : '';
-  const terms = FORBIDDEN_BRAND_TERMS[brandUpper] || [];
-  return terms.filter((term) => lower.includes(term));
+  return forbiddenTerms.filter((term) => lower.includes(term));
 }
 
 // BACKLOG (issue #126) included here so COLUMN_MOVE into/out of it validates
@@ -72,7 +60,7 @@ export function bestContactConfidence(contacts: any[]): number {
   return Math.max(...contacts.map(contactConfidence));
 }
 
-export function validateLeadPayload(body: any, brand: string, options?: { partial?: boolean }): ValidationResult {
+export function validateLeadPayload(body: any, brand: string, forbiddenTerms: string[], options?: { partial?: boolean }): ValidationResult {
   const errors: string[] = [];
   const partial = options?.partial === true;
 
@@ -80,7 +68,7 @@ export function validateLeadPayload(body: any, brand: string, options?: { partia
     return { valid: false, errors: ['Invalid payload'] };
   }
 
-  for (const term of findForbiddenBrandTerms(body.value_proposition, brand)) {
+  for (const term of findForbiddenBrandTerms(body.value_proposition, forbiddenTerms)) {
     errors.push(`value_proposition contains forbidden ${brand} content: ${term}`);
   }
 
@@ -214,7 +202,7 @@ export function validateLeadPayload(body: any, brand: string, options?: { partia
   };
 }
 
-export function validatePatchPayload(body: any, brand: string): ValidationResult {
+export function validatePatchPayload(body: any, brand: string, forbiddenTerms: string[]): ValidationResult {
   const errors: string[] = [];
 
   if (!body || typeof body !== 'object') {
@@ -236,7 +224,7 @@ export function validatePatchPayload(body: any, brand: string): ValidationResult
     // breaking Edit Lead Details, actual-deal-value capture, and the manual
     // ticket-size-override clear — every one of those payloads 400'd before
     // reaching executeLeadAction's actual field-update logic.
-    const result = validateLeadPayload(body, brand, { partial: true });
+    const result = validateLeadPayload(body, brand, forbiddenTerms, { partial: true });
     if (!result.valid) {
       return result;
     }

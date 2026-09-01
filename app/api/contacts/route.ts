@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
-import { BRAND_CONFIG, resolveBrand } from '../../lib/brand'
+import { getBrandConfig, resolveBrand } from '../../lib/brand'
 import type { Brand } from '../../lib/brand'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { aggregateContactsAcrossLeads } from '../../../lib/contacts'
 import { escapeRegExp } from '../../lib/search/tagged-content-filter'
 
-function getBrand(request: Request): Brand | null {
+async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url);
   const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || 'cogmap';
   return resolveBrand(brandParam);
@@ -20,12 +20,13 @@ function getBrand(request: Request): Brand | null {
 // already being alternate lenses onto the same lead data).
 export async function GET(request: NextRequest) {
   try {
-    const brand = getBrand(request);
+    const brand = await getBrand(request);
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;
 
-    const config = BRAND_CONFIG[brand];
+    const config = await getBrandConfig(brand);
+    if (!config) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const tenantId = getTenantId(request);
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get('q') || '').trim();

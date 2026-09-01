@@ -9,7 +9,7 @@ import {
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
   IconArchive, IconAddressBook, IconRepeat,
 } from '@tabler/icons-react';
-import { BRAND_CONFIG, type Brand } from '@/app/lib/brand';
+import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
 
 // Issue #95: this app had no persistent in-app navigation anywhere — every
@@ -34,21 +34,26 @@ import { useAuth } from './AuthProvider';
 // context"), exactly 1 (the per-client section, same as before), and 2+ (a
 // new organization switcher — the first time this app can navigate between
 // clients without knowing a URL by heart).
-function currentBrandFromPath(pathname: string): Brand | null {
+// Issue #195 — knownBrands (every configured brand's slug, regardless of
+// the viewer's own access) is now passed in from useAuth().brandLabels
+// (sourced server-side from the Mongo-backed brand registry) instead of
+// this Client Component importing the static BRAND_CONFIG object directly.
+function currentBrandFromPath(pathname: string, knownBrands: string[]): Brand | null {
+  const knownBrandSet = new Set(knownBrands);
   const salesMatch = pathname.match(/^\/sales\/([^/]+)/);
-  if (salesMatch && salesMatch[1] in BRAND_CONFIG) return salesMatch[1] as Brand;
+  if (salesMatch && knownBrandSet.has(salesMatch[1])) return salesMatch[1] as Brand;
   const settingsMatch = pathname.match(/^\/salessettings\/([^/]+)/);
-  if (settingsMatch && settingsMatch[1] in BRAND_CONFIG) return settingsMatch[1] as Brand;
+  if (settingsMatch && knownBrandSet.has(settingsMatch[1])) return settingsMatch[1] as Brand;
   const forecastMatch = pathname.match(/^\/forecast\/([^/]+)/);
-  if (forecastMatch && forecastMatch[1] in BRAND_CONFIG) return forecastMatch[1] as Brand;
+  if (forecastMatch && knownBrandSet.has(forecastMatch[1])) return forecastMatch[1] as Brand;
   const battlecardsMatch = pathname.match(/^\/battlecards\/([^/]+)/);
-  if (battlecardsMatch && battlecardsMatch[1] in BRAND_CONFIG) return battlecardsMatch[1] as Brand;
+  if (battlecardsMatch && knownBrandSet.has(battlecardsMatch[1])) return battlecardsMatch[1] as Brand;
   const templatesMatch = pathname.match(/^\/outreach\/templates\/([^/]+)/);
-  if (templatesMatch && templatesMatch[1] in BRAND_CONFIG) return templatesMatch[1] as Brand;
+  if (templatesMatch && knownBrandSet.has(templatesMatch[1])) return templatesMatch[1] as Brand;
   const cadencesMatch = pathname.match(/^\/outreach\/cadences\/([^/]+)/);
-  if (cadencesMatch && cadencesMatch[1] in BRAND_CONFIG) return cadencesMatch[1] as Brand;
+  if (cadencesMatch && knownBrandSet.has(cadencesMatch[1])) return cadencesMatch[1] as Brand;
   const contactsMatch = pathname.match(/^\/contacts\/([^/]+)/);
-  if (contactsMatch && contactsMatch[1] in BRAND_CONFIG) return contactsMatch[1] as Brand;
+  if (contactsMatch && knownBrandSet.has(contactsMatch[1])) return contactsMatch[1] as Brand;
   return null;
 }
 
@@ -70,8 +75,8 @@ function AppNavInner() {
   const [opened, setOpened] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, loading, accessibleBrands, isSuperAdmin, login, logout } = useAuth();
-  const urlBrand = currentBrandFromPath(pathname);
+  const { user, loading, accessibleBrands, brandLabels, isSuperAdmin, login, logout } = useAuth();
+  const urlBrand = currentBrandFromPath(pathname, Object.keys(brandLabels));
 
   // The org switcher's own selection, independent of the URL — lets the
   // user browse a different organization's Reporting section before
@@ -151,7 +156,7 @@ function AppNavInner() {
                   </Text>
                   <Select
                     size="sm"
-                    data={accessibleBrands.map((b) => ({ value: b, label: BRAND_CONFIG[b].label }))}
+                    data={accessibleBrands.map((b) => ({ value: b, label: brandLabels[b] ?? b }))}
                     value={effectiveBrand}
                     onChange={(value) => value && setSelectedBrand(value as Brand)}
                     allowDeselect={false}
@@ -165,7 +170,7 @@ function AppNavInner() {
                 <>
                   {accessibleBrands.length === 1 && (
                     <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt={4}>
-                      {BRAND_CONFIG[effectiveBrand].label}
+                      {brandLabels[effectiveBrand] ?? effectiveBrand}
                     </Text>
                   )}
                   {/* Issue #126 — positioned immediately before Pipeline,

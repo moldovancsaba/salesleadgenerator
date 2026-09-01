@@ -1,31 +1,33 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '../../../../lib/mongodb'
 import { requireCronOrApiKey, requireApiKey } from '../../../../lib/api-auth'
-import { BRAND_CONFIG } from '../../../lib/brand'
+import { getAllBrandConfigs } from '../../../lib/brand'
 import { defaultRevenueTargetCurrency } from '../../../lib/sales-settings'
 import type { SalesSettings } from '../../../lib/sales-settings'
 import { backfillTicketSizeCollection } from '../../../../lib/backfill-ticket-size'
 
 export const dynamic = 'force-dynamic'
 
-const BRANDS = Object.keys(BRAND_CONFIG) as Array<keyof typeof BRAND_CONFIG>
 const TENANT_ID = 'default'
 
 async function recalcAllBrands() {
   const client = await clientPromise
   const db = client.db()
 
+  const allBrandConfigs = await getAllBrandConfigs()
+  const brands = Object.keys(allBrandConfigs)
+
   const byBrand: Record<string, unknown> = {}
   const totals = { scanned: 0, updated: 0, unchanged: 0 }
 
-  for (const brand of BRANDS) {
-    const config = BRAND_CONFIG[brand]
+  for (const brand of brands) {
+    const config = allBrandConfigs[brand]
     // Issue #169 — read the operator's actual saved currency choice, same
     // fix as POST /api/admin/ticket-size-backfill; otherwise this weekly
     // cron sweep would silently revert any non-default currency selected in
     // Sales Settings back to the brand default on every run.
     const settingsDoc = (await db.collection('company_settings').findOne({ brand, tenantId: TENANT_ID })) as SalesSettings | null
-    const currency = settingsDoc?.revenueTarget?.currency ?? defaultRevenueTargetCurrency(brand)
+    const currency = settingsDoc?.revenueTarget?.currency ?? defaultRevenueTargetCurrency(config?.currency)
     const result = await backfillTicketSizeCollection(db, config.dbCollection, brand, TENANT_ID, currency, { apply: true })
     byBrand[brand] = {
       collection: config.dbCollection,

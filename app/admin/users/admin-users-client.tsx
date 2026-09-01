@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Container, Title, Text, Stack, Badge, Select } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
-import { BRAND_CONFIG } from '@/app/lib/brand'
+import { useAuth } from '@/app/components/AuthProvider'
 
 type UserRow = {
   ssoUserId: string
@@ -16,8 +16,6 @@ type UserRow = {
   updatedAt: string
 }
 
-const BRAND_KEYS = Object.keys(BRAND_CONFIG)
-
 const ROLE_OPTIONS = [
   { value: '', label: 'No access' },
   { value: 'user', label: 'User' },
@@ -25,6 +23,13 @@ const ROLE_OPTIONS = [
 ]
 
 export function AdminUsersClient() {
+  // Issue #195 — every configured brand's key/label, sourced from the
+  // Mongo-backed brand registry via the same auth-session fetch AppNav
+  // already relies on, instead of a module-scope BRAND_CONFIG import that
+  // would go stale the instant a brand is added through /admin/clients
+  // (issue #196) without a page reload.
+  const { brandLabels } = useAuth()
+  const brandKeys = Object.keys(brandLabels)
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -117,9 +122,9 @@ export function AdminUsersClient() {
                 header: 'Super Admin',
                 accessor: (row) => (row.isSuperAdmin ? <Badge color="grape" variant="light">Super Admin</Badge> : '—'),
               },
-              ...BRAND_KEYS.map((brandKey) => ({
+              ...brandKeys.map((brandKey) => ({
                 key: brandKey,
-                header: BRAND_CONFIG[brandKey].label,
+                header: brandLabels[brandKey],
                 accessor: (row: UserRow) => (
                   <Select
                     size="xs"
@@ -128,7 +133,7 @@ export function AdminUsersClient() {
                     onChange={(value) => updateAccess(row.ssoUserId, brandKey, value || '')}
                     disabled={row.isSuperAdmin || savingKey === `${row.ssoUserId}:${brandKey}`}
                     style={{ width: 140 }}
-                    aria-label={`${row.email}'s access to ${BRAND_CONFIG[brandKey].label}`}
+                    aria-label={`${row.email}'s access to ${brandLabels[brandKey]}`}
                   />
                 ),
               })),

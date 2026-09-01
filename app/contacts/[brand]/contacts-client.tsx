@@ -5,7 +5,7 @@ import { Container, Title, Text, Group, Stack, TextInput, Badge, Loader } from '
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { IconSearch } from '@tabler/icons-react'
 import Link from 'next/link'
-import { BRAND_CONFIG, type Brand } from '@/app/lib/brand'
+import type { Brand } from '@/app/lib/brand'
 
 type ContactRow = {
   key: string
@@ -19,6 +19,7 @@ type ContactRow = {
 
 type Props = {
   brand: Brand;
+  label: string;
 };
 
 // Issue #139 — read-only aggregation view over every lead's own contacts[]
@@ -28,7 +29,7 @@ type Props = {
 // lens onto the same lead data (like Table/Kanban), not a competing source
 // of truth. Per CLAUDE.md's UI-affordance rule, this page must never render
 // as if editing were possible here.
-export function ContactsClient({ brand }: Props) {
+export function ContactsClient({ brand, label }: Props) {
   const [tenantId, setTenantId] = useState('default')
 
   useEffect(() => {
@@ -77,7 +78,7 @@ export function ContactsClient({ brand }: Props) {
         <div>
           <Title order={2}>Contacts</Title>
           <Text size="sm" c="dimmed">
-            Every contact across <Text span fw={700}>{BRAND_CONFIG[brand].label}</Text> leads, searchable by name.
+            Every contact across <Text span fw={700}>{label}</Text> leads, searchable by name.
           </Text>
         </div>
 

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Container, Title, Text, Stack, Group, Select, Button, Badge, Paper, SegmentedControl } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { showNotification } from '@mantine/notifications'
-import { BRAND_CONFIG } from '@/app/lib/brand'
+import { useAuth } from '@/app/components/AuthProvider'
 import { MergeConflictModal } from '@/app/components/MergeConflictModal'
 
 type ReviewStatus = 'pending' | 'dismissed' | 'confirmed' | 'merged'
@@ -19,8 +19,6 @@ type DuplicateReview = {
   createdAt: string
 }
 
-const BRAND_OPTIONS = Object.entries(BRAND_CONFIG).map(([value, config]) => ({ value, label: config.label }))
-
 // Issue #129/#130 — 'confirmed' rows previously had nowhere to be seen once
 // confirmed: this list always fetched status=pending, so a pair vanished
 // the moment "Confirm duplicate" was clicked, with no way back to it. A
@@ -34,7 +32,14 @@ const STATUS_OPTIONS: { value: ReviewStatus; label: string }[] = [
 ]
 
 export function AdminDuplicatesClient() {
-  const [brand, setBrand] = useState<string>(BRAND_OPTIONS[0]?.value || 'cogmap')
+  // Issue #195 — every configured brand's key/label, sourced from the
+  // Mongo-backed brand registry via the same auth-session fetch AppNav
+  // already relies on, instead of a module-scope BRAND_CONFIG import that
+  // would go stale the instant a brand is added through /admin/clients
+  // (issue #196) without a page reload.
+  const { brandLabels } = useAuth()
+  const brandOptions = Object.entries(brandLabels).map(([value, label]) => ({ value, label }))
+  const [brand, setBrand] = useState<string>(brandOptions[0]?.value || 'cogmap')
   const [statusFilter, setStatusFilter] = useState<ReviewStatus>('pending')
   const [reviews, setReviews] = useState<DuplicateReview[]>([])
   const [loading, setLoading] = useState(true)
@@ -134,9 +139,9 @@ export function AdminDuplicatesClient() {
           <Group align="flex-end">
             <Select
               label="Brand"
-              data={BRAND_OPTIONS}
+              data={brandOptions}
               value={brand}
-              onChange={(v) => setBrand(v || BRAND_OPTIONS[0]?.value)}
+              onChange={(v) => setBrand(v || brandOptions[0]?.value)}
               style={{ width: 200 }}
             />
             <div>

@@ -20,33 +20,36 @@ describe('isResendSendConfigured (issue #150)', () => {
   });
 });
 
-describe('resolveOutboundFromAddress (issue #150)', () => {
+// Issue #195 — the per-brand override used to be the RESEND_FROM_<BRAND> env
+// var, read internally from process.env; it's now the brand's own
+// `fromEmail` field (app/lib/brand.ts's BrandConfig), passed in explicitly
+// by the caller (lib/outreach-send.ts's sendAutomatedEmail, which resolves
+// it via getBrandConfig() — see tests/integration for that live-DB path).
+// This function itself is now a pure formatter: given brand + optional
+// fromEmail, no env/DB access at all beyond the domain-default fallback.
+describe('resolveOutboundFromAddress (issue #150, updated #195)', () => {
   beforeEach(() => {
     delete process.env.RESEND_OUTBOUND_DOMAIN;
-    delete process.env.RESEND_FROM_COGMAP;
-    delete process.env.RESEND_FROM_SEYU;
   });
 
-  it('defaults to <brand>@haho.ai with no env configuration', () => {
+  it('defaults to <brand>@haho.ai with no fromEmail override and no domain configured', () => {
     expect(resolveOutboundFromAddress('cogmap')).toBe('cogmap@haho.ai');
     expect(resolveOutboundFromAddress('seyu')).toBe('seyu@haho.ai');
   });
 
-  it('respects RESEND_OUTBOUND_DOMAIN', () => {
+  it('respects RESEND_OUTBOUND_DOMAIN for the default (no fromEmail override)', () => {
     process.env.RESEND_OUTBOUND_DOMAIN = 'example.com';
     expect(resolveOutboundFromAddress('dvsc')).toBe('dvsc@example.com');
   });
 
-  it('a brand-specific RESEND_FROM_<BRAND> override takes precedence over the domain default', () => {
+  it('a brand-specific fromEmail override takes precedence over the domain default', () => {
     process.env.RESEND_OUTBOUND_DOMAIN = 'example.com';
-    process.env.RESEND_FROM_COGMAP = 'Sales <sales@verified-domain.com>';
-    expect(resolveOutboundFromAddress('cogmap')).toBe('Sales <sales@verified-domain.com>');
+    expect(resolveOutboundFromAddress('cogmap', 'Sales <sales@verified-domain.com>')).toBe('Sales <sales@verified-domain.com>');
     // A brand with no override still falls through to the domain default.
     expect(resolveOutboundFromAddress('seyu')).toBe('seyu@example.com');
   });
 
-  it('is case-insensitive on the brand key when looking up the override', () => {
-    process.env.RESEND_FROM_COGMAP = 'override@example.com';
-    expect(resolveOutboundFromAddress('cogmap')).toBe('override@example.com');
+  it('an empty-string fromEmail is treated as no override, not a literal empty address', () => {
+    expect(resolveOutboundFromAddress('cogmap', '')).toBe('cogmap@haho.ai');
   });
 });

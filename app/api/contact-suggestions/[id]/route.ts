@@ -1,14 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
-import { BRAND_CONFIG, resolveBrand } from '../../../lib/brand'
+import { getBrandConfig, resolveBrand } from '../../../lib/brand'
 import type { Brand } from '../../../lib/brand'
 import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../../lib/tenant'
 import { CONTACT_SUGGESTIONS_COLLECTION } from '../../../../lib/contact-reply-matching'
 import { dedupeContacts, deriveContactEmails, contactKey } from '../../../../lib/contacts'
 
-function getBrand(request: Request): Brand | null {
+async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url)
   const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || 'cogmap'
   return resolveBrand(brandParam)
@@ -27,7 +27,7 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const brand = getBrand(request)
+    const brand = await getBrand(request)
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const authError = await requireBrandAccessApi(request, brand)
     if (authError) return authError
@@ -76,7 +76,8 @@ export async function PATCH(
     // via the same dedupeContacts({ verify: true }) path PUT /api/leads/[id]
     // uses — this is a genuine re-verification event (a human just
     // confirmed the suggestion is correct).
-    const config = BRAND_CONFIG[brand]
+    const config = await getBrandConfig(brand)
+    if (!config) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     let leadObjectId: ObjectId
     try {
       leadObjectId = new ObjectId(suggestion.leadId)

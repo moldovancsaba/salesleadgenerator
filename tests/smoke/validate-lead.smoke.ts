@@ -24,19 +24,19 @@ function assert(condition: boolean, message: string) {
 
 console.log('Running validation smoke tests...');
 
-const validCogmap = validateLeadPayload({ ...basePayload, pro_for_organization: ['a'], con_for_organization: ['b'] }, 'cogmap');
+const validCogmap = validateLeadPayload({ ...basePayload, pro_for_organization: ['a'], con_for_organization: ['b'] }, 'cogmap', []);
 assert(validCogmap.valid === true, 'valid cogmap payload passes');
 
-const validSeyu = validateLeadPayload({ ...basePayload, pro_for_organization: ['a'], con_for_organization: ['b'] }, 'seyu');
+const validSeyu = validateLeadPayload({ ...basePayload, pro_for_organization: ['a'], con_for_organization: ['b'] }, 'seyu', []);
 assert(validSeyu.valid === true, 'valid seyu payload passes with the same generic pro/con field');
 
-const malformedProField = validateLeadPayload({ ...basePayload, pro_for_organization: 'not-an-array' }, 'cogmap');
+const malformedProField = validateLeadPayload({ ...basePayload, pro_for_organization: 'not-an-array' }, 'cogmap', []);
 assert(malformedProField.valid === false && malformedProField.errors.some((e) => e.includes('pro_for_organization must be an array of strings')), 'non-array pro_for_organization rejected');
 
-const invalidPatch = validatePatchPayload({ action: 'UNKNOWN' }, 'cogmap');
+const invalidPatch = validatePatchPayload({ action: 'UNKNOWN' }, 'cogmap', []);
 assert(invalidPatch.valid === false && invalidPatch.errors.some((e) => e.includes('action must be one of')), 'invalid patch action rejected');
 
-const validMove = validatePatchPayload({ action: 'COLUMN_MOVE', kanbanColumn: 'QUALIFIED', sortOrder: 1 }, 'cogmap');
+const validMove = validatePatchPayload({ action: 'COLUMN_MOVE', kanbanColumn: 'QUALIFIED', sortOrder: 1 }, 'cogmap', []);
 assert(validMove.valid === true, 'valid column move patch passes');
 
 console.log(`Results: ${passed} passed, ${failed} failed`);

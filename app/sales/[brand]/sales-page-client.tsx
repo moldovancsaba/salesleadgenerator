@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Group, Text, Paper, Loader, Container, Box, TextInput, UnstyledButton, ActionIcon, Tooltip } from '@mantine/core';
 import { IconChecklist, IconX, IconPlus } from '@tabler/icons-react';
 import type { Lead } from '@/app/types';
+import type { CurrencyCode } from '@/app/lib/brand';
 import { KanbanBoard } from '@/app/kanban';
 import { LeadDetailModal } from '@/app/detail';
 import { TableView } from '@/app/table';
@@ -23,9 +24,14 @@ type ViewMode = 'kanban' | 'table' | 'metrics' | 'search' | 'backlog';
 
 type Props = {
   brand: string;
+  // Issue #195 — resolved server-side by this component's own page.tsx
+  // (async, Mongo-backed) and threaded down here purely to reach
+  // app/detail.tsx's LeadDetailModal below, which can't resolve it itself
+  // (a Client Component).
+  currency?: CurrencyCode;
 };
 
-export function SalesPageClient({ brand }: Props) {
+export function SalesPageClient({ brand, currency }: Props) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   // View is driven by the ?view= URL param (set by the hamburger nav's View
   // section, app/components/AppNav.tsx) rather than an in-page dropdown —
@@ -372,6 +378,7 @@ export function SalesPageClient({ brand }: Props) {
         <LeadDetailModal
           lead={selectedLead}
           brand={brand}
+          currency={currency}
           opened
           onClose={() => {
             setSelectedLead(null);

@@ -16,7 +16,7 @@ const ALLOWED_BULK_ACTIONS = new Set(['DECLINE', 'PIN'])
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-    const brand = resolveBrand(body.brand)
+    const brand = await resolveBrand(body.brand)
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
 
     const authError = await requireBrandAccessApi(request, brand)

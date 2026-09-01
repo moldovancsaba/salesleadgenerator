@@ -24,6 +24,7 @@ type AuthContextValue = {
   user: SsoUser | null;
   permission: SsoPermission;
   accessibleBrands: Brand[];
+  brandLabels: Record<string, string>;
   isSuperAdmin: boolean;
   loading: boolean;
   isApproved: boolean;
@@ -38,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SsoUser | null>(null);
   const [permission, setPermission] = useState<SsoPermission>(null);
   const [accessibleBrands, setAccessibleBrands] = useState<Brand[]>([]);
+  const [brandLabels, setBrandLabels] = useState<Record<string, string>>({});
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -50,11 +52,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(data.user);
         setPermission(data.permission ?? null);
         setAccessibleBrands(data.accessibleBrands ?? []);
+        setBrandLabels(data.brandLabels ?? {});
         setIsSuperAdmin(Boolean(data.isSuperAdmin));
       } else {
         setUser(null);
         setPermission(null);
         setAccessibleBrands([]);
+        setBrandLabels({});
         setIsSuperAdmin(false);
       }
     } catch (err) {
@@ -62,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setPermission(null);
       setAccessibleBrands([]);
+      setBrandLabels({});
       setIsSuperAdmin(false);
     } finally {
       setLoading(false);
@@ -90,6 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setPermission(null);
       setAccessibleBrands([]);
+      setBrandLabels({});
       setIsSuperAdmin(false);
       if (data.ssoLogoutUrl) {
         window.location.href = data.ssoLogoutUrl;
@@ -105,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         permission,
         accessibleBrands,
+        brandLabels,
         isSuperAdmin,
         loading,
         isApproved: permission?.status === 'approved',

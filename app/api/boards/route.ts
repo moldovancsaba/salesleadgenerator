@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { BRAND_CONFIG, PRO_FIELD, CON_FIELD } from '../../lib/brand'
+import { getAllBrandConfigs, PRO_FIELD, CON_FIELD } from '../../lib/brand'
 import { requireApiKey } from '../../../lib/api-auth'
 
 function getTenantId(request: Request): string {
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   try {
     const tenantId = getTenantId(request)
     const filter = tenantFilter(tenantId)
-    const boards = Object.entries(BRAND_CONFIG).map(([brandKey, config]) => ({
+    const boards = Object.entries(await getAllBrandConfigs()).map(([brandKey, config]) => ({
       brand: brandKey,
       label: config.label,
       apiPrefix: config.apiPrefix,

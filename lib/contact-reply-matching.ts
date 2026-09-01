@@ -7,7 +7,7 @@
 
 import type { Db } from 'mongodb';
 import { ObjectId } from 'mongodb';
-import { BRAND_CONFIG, type Brand } from '../app/lib/brand';
+import { getBrandConfig, type Brand } from '../app/lib/brand';
 import { tenantFilter } from './tenant';
 import {
   normalizeEmail,
@@ -60,7 +60,8 @@ export async function matchReplyToLeads(
   const email = normalizeEmail(senderEmail);
   if (!email) return { kind: 'no-match' };
 
-  const config = BRAND_CONFIG[brand];
+  const config = await getBrandConfig(brand);
+  if (!config) return { kind: 'no-match' };
   await ensureContactEmailsIndex(db, config.dbCollection);
 
   const filter = { ...tenantFilter(tenantId), contactEmails: email };
@@ -89,7 +90,8 @@ export async function findMatchedContact(
   leadId: string,
   senderEmail: string
 ): Promise<NormalizedContact | null> {
-  const config = BRAND_CONFIG[brand];
+  const config = await getBrandConfig(brand);
+  if (!config) return null;
   let objectId: ObjectId;
   try {
     objectId = new ObjectId(leadId);

@@ -6,9 +6,9 @@ import {
   Paper, Loader, Divider, Tabs, Alert, TextInput, Switch,
 } from '@mantine/core'
 import { IconCheck } from '@tabler/icons-react'
-import { BRAND_CONFIG, type Brand } from '@/app/lib/brand'
+import type { Brand } from '@/app/lib/brand'
 
-export function PromptEditorClient({ brand }: { brand: Brand }) {
+export function PromptEditorClient({ brand, label }: { brand: Brand; label: string }) {
   const [tenantId, setTenantId] = useState<string>(brand)
   const [activeTab, setActiveTab] = useState<string | null>('discovery')
   const [loading, setLoading] = useState(true)
@@ -110,7 +110,7 @@ export function PromptEditorClient({ brand }: { brand: Brand }) {
   return (
     <Container size="lg" py="xl">
       <Stack gap="md">
-        <Title order={2}>Prompt Editor — {BRAND_CONFIG[brand]?.label || brand}</Title>
+        <Title order={2}>Prompt Editor — {label}</Title>
 
         <Group gap="sm">
           <Text size="sm" c="dimmed">Tenant ID:</Text>

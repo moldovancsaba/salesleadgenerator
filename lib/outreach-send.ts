@@ -20,6 +20,7 @@ import { Resend } from 'resend';
 import { evaluateOutreachRouting, type LeadFieldSnapshot } from '../app/lib/outreach/routing-rules';
 import { interpolate, type OutreachTemplate } from '../app/lib/outreach/default-templates';
 import { getDecisionMakerContact } from './contacts';
+import { getBrandConfig } from '../app/lib/brand';
 
 export type AutomatedSendContext = {
   brand: string;
@@ -56,15 +57,17 @@ export function isResendSendConfigured(): boolean {
 
 // The exact from-address is a real, live-account fact this sandbox cannot
 // verify (no RESEND_API_KEY here) — same disclosed gap as issue #141's own
-// "not yet live" section. `RESEND_FROM_<BRAND>` lets an operator pin the
-// exact verified address per brand once confirmed against the real Resend
-// account; the `${brand}@${domain}` default assumes sending is verified on
+// "not yet live" section. Issue #195 — the per-brand override used to be the
+// RESEND_FROM_<BRAND> env var; it's now the brand's own `fromEmail` field
+// (app/lib/brand.ts's BrandConfig), passed in by the caller instead of read
+// from process.env here, so a new brand's sender address is configurable
+// through the same admin flow as the rest of its config, no env var/deploy
+// needed. The `${brand}@${domain}` default assumes sending is verified on
 // the brand-scoped local part of RESEND_OUTBOUND_DOMAIN (defaults to
 // `haho.ai`, the root domain docs/STACK_AND_DEPENDENCIES.md confirms is
 // sending-verified) — never assumed live without an operator confirming it.
-export function resolveOutboundFromAddress(brand: string): string {
-  const override = process.env[`RESEND_FROM_${brand.toUpperCase()}`];
-  if (override) return override;
+export function resolveOutboundFromAddress(brand: string, fromEmail?: string): string {
+  if (fromEmail) return fromEmail;
   const domain = process.env.RESEND_OUTBOUND_DOMAIN || 'haho.ai';
   return `${brand}@${domain}`;
 }
@@ -168,10 +171,11 @@ export async function sendAutomatedEmail(
 
   let sendError: string | undefined;
   try {
+    const brandConfig = await getBrandConfig(context.brand);
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { error } = await resend.emails.send(
       {
-        from: resolveOutboundFromAddress(context.brand),
+        from: resolveOutboundFromAddress(context.brand, brandConfig?.fromEmail),
         to,
         subject,
         text: body,

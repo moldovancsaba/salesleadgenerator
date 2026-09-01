@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
-import { resolveBrand, BRAND_CONFIG } from '../../../lib/brand'
+import { resolveBrand, getAllBrandConfigs } from '../../../lib/brand'
 import { defaultRevenueTargetCurrency } from '../../../lib/sales-settings'
 import type { SalesSettings } from '../../../lib/sales-settings'
 import { backfillTicketSizeCollection } from '../../../../lib/backfill-ticket-size'
@@ -27,12 +27,13 @@ export async function POST(request: Request) {
     const tenantId = (typeof body.tenantId === 'string' ? body.tenantId.trim() : '') || 'default'
     const apply = body.apply === true
 
-    if (typeof body.brand === 'string' && !resolveBrand(body.brand)) {
+    if (typeof body.brand === 'string' && !(await resolveBrand(body.brand))) {
       return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     }
+    const allBrandConfigs = await getAllBrandConfigs()
     const brands = typeof body.brand === 'string'
-      ? [resolveBrand(body.brand)!]
-      : (Object.keys(BRAND_CONFIG) as Array<keyof typeof BRAND_CONFIG>)
+      ? [(await resolveBrand(body.brand))!]
+      : Object.keys(allBrandConfigs)
 
     const client = await clientPromise
     const db = client.db()
@@ -41,13 +42,13 @@ export async function POST(request: Request) {
     const totals = { scanned: 0, updated: 0, unchanged: 0 }
 
     for (const brand of brands) {
-      const config = BRAND_CONFIG[brand]
+      const config = allBrandConfigs[brand]
       // Issue #169 — read the operator's actual saved currency choice
       // (settings.revenueTarget.currency) instead of always recomputing the
       // brand's fixed default; otherwise this admin sweep would silently
       // fight any non-default currency selected in Sales Settings.
       const settingsDoc = (await db.collection('company_settings').findOne({ brand, tenantId })) as SalesSettings | null
-      const currency = settingsDoc?.revenueTarget?.currency ?? defaultRevenueTargetCurrency(brand)
+      const currency = settingsDoc?.revenueTarget?.currency ?? defaultRevenueTargetCurrency(config?.currency)
       const result = await backfillTicketSizeCollection(db, config.dbCollection, brand, tenantId, currency, { apply })
       results[brand] = {
         collection: config.dbCollection,

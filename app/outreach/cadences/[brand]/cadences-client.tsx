@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Select, Switch, ActionIcon, Paper, Badge } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { AdminTextInput, AdminDataTable, AdminFormStatus } from '@sovereignsquad/gds-admin/client'
-import { BRAND_CONFIG, type Brand } from '@/app/lib/brand'
+import type { Brand } from '@/app/lib/brand'
 import type { CadenceStepChannel } from '@/lib/cadences'
 
 type CadenceStep = {
@@ -45,13 +45,14 @@ function makeStepId(): string {
 
 type Props = {
   brand: Brand;
+  label: string;
 };
 
 // Same repeatable-rows exception this repo's own battlecards page already
 // documents (gds-admin has no repeatable-rows primitive) — plain Mantine
 // Stack/Group/ActionIcon rows for the step editor, matching that precedent
 // exactly rather than inventing a new pattern.
-export function CadencesClient({ brand }: Props) {
+export function CadencesClient({ brand, label }: Props) {
   const [tenantId, setTenantId] = useState('default')
 
   useEffect(() => {
@@ -208,7 +209,7 @@ export function CadencesClient({ brand }: Props) {
           <div>
             <Title order={2}>Sales Cadences</Title>
             <Text size="sm" c="dimmed">
-              Multi-step, multi-day automated outreach sequences for <Text span fw={700}>{BRAND_CONFIG[brand].label}</Text>.
+              Multi-step, multi-day automated outreach sequences for <Text span fw={700}>{label}</Text>.
             </Text>
           </div>
           <Button leftSection={<IconPlus size={16} />} onClick={resetForm} variant="light">

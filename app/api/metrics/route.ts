@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { BRAND_CONFIG, resolveBrand } from '@/app/lib/brand'
+import { getBrandConfig, resolveBrand } from '@/app/lib/brand'
 import { computeVelocity } from '@/app/lib/velocity-metrics'
 import type { OutcomeLogRow } from '@/app/lib/velocity-metrics'
 import { correlateOutcomes } from '@/lib/outcome-correlation'
@@ -102,12 +102,13 @@ async function computeOutcomeCorrelationMetrics(db: any, leadsCollection: any, l
 
 export async function GET(request: NextRequest) {
   try {
-    const brand = resolveBrand(new URL(request.url).searchParams.get('brand') || 'cogmap')
+    const brand = await resolveBrand(new URL(request.url).searchParams.get('brand') || 'cogmap')
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     // Issue #192 — this route had no auth at all.
     const authError = await requireBrandAccessApi(request, brand)
     if (authError) return authError
-    const config = BRAND_CONFIG[brand]
+    const config = await getBrandConfig(brand)
+    if (!config) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const tenantId = getTenantId(request)
     const filter = tenantFilter(tenantId)
 

@@ -29,26 +29,26 @@ dotenv.config({ path: path.join(__dirname, '../.env.local') });
 import mongoose from 'mongoose';
 import { backfillTicketSizeCollection } from '../lib/backfill-ticket-size';
 import { defaultRevenueTargetCurrency } from '../app/lib/sales-settings';
-import { BRAND_CONFIG } from '../app/lib/brand';
+import { getAllBrandConfigs } from '../app/lib/brand';
 
 const APPLY = process.argv.includes('--apply');
 const brandArg = process.argv.find((a) => a.startsWith('--brand='));
 const TENANT_ID = 'default';
-
-// Issue #147 — derived from BRAND_CONFIG's own entries, not a hardcoded
-// 2-brand array, so a future brand is picked up automatically.
-const ALL_BRANDS: Array<{ brand: string; collection: string }> = Object.entries(BRAND_CONFIG)
-  .map(([brand, config]) => ({ brand, collection: config.dbCollection }));
-
-const BRANDS = brandArg
-  ? ALL_BRANDS.filter((b) => b.brand === brandArg.split('=')[1])
-  : ALL_BRANDS;
 
 async function run() {
   if (!process.env.MONGODB_URI) {
     console.error('ERROR: MONGODB_URI not found in .env.local');
     process.exit(1);
   }
+
+  // Issue #147 — derived from BRAND_CONFIG's own entries, not a hardcoded
+  // 2-brand array, so a future brand is picked up automatically.
+  const ALL_BRANDS: Array<{ brand: string; collection: string; currency: ReturnType<typeof defaultRevenueTargetCurrency> }> = Object.entries(await getAllBrandConfigs())
+    .map(([brand, config]) => ({ brand, collection: config.dbCollection, currency: config.currency }));
+
+  const BRANDS = brandArg
+    ? ALL_BRANDS.filter((b) => b.brand === brandArg.split('=')[1])
+    : ALL_BRANDS;
 
   console.log(APPLY ? 'Running in APPLY mode — this will write changes.' : 'Running in DRY-RUN mode — no changes will be written. Pass --apply to write.');
   console.log('Connecting to MongoDB...');
@@ -58,12 +58,12 @@ async function run() {
   const db = mongoose.connection.db;
   const totals = { scanned: 0, updated: 0, unchanged: 0 };
 
-  for (const { brand, collection } of BRANDS) {
+  for (const { brand, collection, currency: brandCurrency } of BRANDS) {
     console.log(`--- ${brand} (${collection}) ---`);
     // Issue #169 — read the operator's actual saved currency choice from
     // Sales Settings, not always the brand's fixed default.
     const settingsDoc = await db!.collection('company_settings').findOne({ brand, tenantId: TENANT_ID });
-    const currency = (settingsDoc as any)?.revenueTarget?.currency ?? defaultRevenueTargetCurrency(brand);
+    const currency = (settingsDoc as any)?.revenueTarget?.currency ?? defaultRevenueTargetCurrency(brandCurrency);
     const result = await backfillTicketSizeCollection(db, collection, brand, TENANT_ID, currency, { apply: APPLY });
     for (const d of result.docs) {
       if (d.outcome === 'updated') {

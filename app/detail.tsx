@@ -8,7 +8,7 @@ import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, Nu
 import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
-import { PRO_FIELD, CON_FIELD, BRAND_CONFIG } from './lib/brand';
+import { PRO_FIELD, CON_FIELD } from './lib/brand';
 import type { CurrencyCode } from './lib/brand';
 import { getTicketSize, SIZE_FIELD_OPTIONS } from './constants';
 import { isContactStale, DEFAULT_STALENESS_THRESHOLD_DAYS } from '@/lib/contact-freshness';
@@ -39,6 +39,12 @@ type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
 type Props = {
   lead: Lead;
   brand?: string;
+  // Issue #195 — brand/tenant config moved to an async Mongo-backed registry
+  // this Client Component can't call itself; the brand's currency is now
+  // resolved by the nearest async Server Component ancestor
+  // (app/sales/[brand]/page.tsx) and threaded down as a prop instead of
+  // this file importing BRAND_CONFIG directly.
+  currency?: CurrencyCode;
   opened?: boolean;
   onClose: () => void;
   onAction: (leadId: string, action: string, payload?: any) => void;
@@ -239,7 +245,7 @@ const PIPELINE_MOVE_TARGETS = [
   { value: 'LOST', label: 'Lost' },
 ];
 
-export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, onAction, onDelete, onUpdated }: Props) {
+export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false, onClose, onAction, onDelete, onUpdated }: Props) {
   const [annotation, setAnnotation] = useState("");
   const [declineReason, setDeclineReason] = useState<DeclineReason>("OTHER");
   // Only "decline" is ever actually set (Accept/Pin/Refresh fire
@@ -1143,7 +1149,7 @@ export function LeadDetailModal({ lead, brand = 'slg', opened = false, onClose, 
               // been computed for this lead yet.
               const ticketSize = getTicketSize(lead);
               const defaultCurrency: CurrencyCode = (ticketSize && ticketSize.kind !== 'unconfigured' ? ticketSize.currency : undefined)
-                ?? BRAND_CONFIG[brand]?.currency
+                ?? currency
                 ?? 'USD';
               setDealsForm((rows) => [...rows, { value: '', currency: defaultCurrency, label: '' }]);
             }}>

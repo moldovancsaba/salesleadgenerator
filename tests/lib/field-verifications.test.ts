@@ -195,7 +195,7 @@ describe('validateLeadPayload wiring', () => {
   };
 
   it('rejects a lead whose fieldVerifications name a contact path', () => {
-    const result = validateLeadPayload({ ...base, fieldVerifications: [entry({ field: 'contacts[0].phone' })] }, 'cogmap');
+    const result = validateLeadPayload({ ...base, fieldVerifications: [entry({ field: 'contacts[0].phone' })] }, 'cogmap', []);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('must not address a contact'))).toBe(true);
   });
@@ -204,7 +204,7 @@ describe('validateLeadPayload wiring', () => {
     const result = validateLeadPayload({
       ...base,
       contacts: [{ name: 'Jane Doe', fieldVerifications: [entry({ field: 'phone', method: 'scraped' })] }],
-    }, 'cogmap');
+    }, 'cogmap', []);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('contacts[0].fieldVerifications[0].method'))).toBe(true);
   });
@@ -214,11 +214,11 @@ describe('validateLeadPayload wiring', () => {
       ...base,
       fieldVerifications: [entry({ field: 'value_proposition', method: 'ai_generated', verifiedBy: 'agent' })],
       contacts: [{ name: 'Jane Doe', fieldVerifications: [entry({ field: 'phone', method: 'official', sourceUrl: 'https://club.example/contact' })] }],
-    }, 'cogmap');
+    }, 'cogmap', []);
     expect(result).toEqual({ valid: true, errors: [] });
   });
 
   it('still accepts a lead with no provenance at all', () => {
-    expect(validateLeadPayload(base, 'cogmap').valid).toBe(true);
+    expect(validateLeadPayload(base, 'cogmap', []).valid).toBe(true);
   });
 });

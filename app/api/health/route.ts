@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '../../../lib/mongodb'
-import { BRAND_CONFIG } from '../../lib/brand'
+import { getAllBrandConfigs } from '../../lib/brand'
 import { tenantFilter } from '../../../lib/tenant'
 import { FORECAST_SNAPSHOT_COLLECTION } from '../../lib/forecast-snapshot'
 
@@ -26,7 +26,7 @@ async function computeLastForecastSnapshot(db: any, tenantId: string): Promise<F
   const brands: Record<string, 'written' | 'stale' | 'never'> = {}
   let latestCapturedAt: string | null = null
 
-  for (const brandKey of Object.keys(BRAND_CONFIG)) {
+  for (const brandKey of Object.keys(await getAllBrandConfigs())) {
     try {
       const doc = await db.collection(FORECAST_SNAPSHOT_COLLECTION)
         .find({ brand: brandKey, tenantId: effectiveTenantId })
@@ -90,7 +90,7 @@ export async function GET(request: Request) {
 
     // Count leads by brand
     try {
-      for (const [brandKey, config] of Object.entries(BRAND_CONFIG)) {
+      for (const [brandKey, config] of Object.entries(await getAllBrandConfigs())) {
         try {
           const count = await db.collection(config.dbCollection).countDocuments({})
           leadCounts[brandKey] = count
@@ -101,7 +101,7 @@ export async function GET(request: Request) {
 
       if (tenantId) {
         const tenantCounts: Record<string, number> = {}
-        for (const [brandKey, config] of Object.entries(BRAND_CONFIG)) {
+        for (const [brandKey, config] of Object.entries(await getAllBrandConfigs())) {
           try {
             const count = await db.collection(config.dbCollection).countDocuments(tenantFilter(tenantId))
             tenantCounts[brandKey] = count

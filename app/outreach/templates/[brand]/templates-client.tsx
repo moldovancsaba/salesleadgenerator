@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput, TagsInput, Badge, Pill } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
-import { BRAND_CONFIG, type Brand } from '@/app/lib/brand'
+import type { Brand } from '@/app/lib/brand'
 
 type Template = {
   id: string
@@ -44,9 +44,10 @@ const EMPTY_TEMPLATE: Omit<Template, 'id'> = {
 
 type Props = {
   brand: Brand;
+  label: string;
 };
 
-export function OutreachTemplatesClient({ brand }: Props) {
+export function OutreachTemplatesClient({ brand, label }: Props) {
   // tenantId is a separate multi-tenancy axis from brand (issue #100 only
   // concerns brand/client mixing) — still override-able via ?tenantId=,
   // unlike brand, which now comes exclusively from the URL path segment.
@@ -171,7 +172,7 @@ export function OutreachTemplatesClient({ brand }: Props) {
           <div>
             <Title order={2}>Outreach Templates</Title>
             <Text size="sm" c="dimmed">
-              Manage brand-specific templates for <Text span fw={700}>{BRAND_CONFIG[brand].label}</Text>.
+              Manage brand-specific templates for <Text span fw={700}>{label}</Text>.
               Templates are filtered by county and channel.
             </Text>
           </div>

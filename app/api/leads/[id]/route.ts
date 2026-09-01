@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
-import { BRAND_CONFIG, resolveBrand, PRO_FIELD, CON_FIELD } from '../../../lib/brand'
+import { getBrandConfig, resolveBrand, getForbiddenTermsFor, PRO_FIELD, CON_FIELD } from '../../../lib/brand'
 import type { Brand } from '../../../lib/brand'
 import { normalizeLead } from '../../../lib/normalize-lead'
 import { requireApiKey } from '../../../../lib/api-auth'
@@ -15,10 +15,10 @@ import { generateClassificationTags, buildMergeKey } from '../../../../lib/lead-
 import { decodeHtmlEntities, decodeHtmlEntitiesInArray } from '../../../../lib/text-sanitize'
 import { normalizeFieldVerifications } from '../../../../lib/field-verifications'
 
-function getBrand(request: Request): Brand | null {
+async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url);
   const brandParam = url.searchParams.get('brand') || url.searchParams.get('board') || 'cogmap';
-  return resolveBrand(brandParam);
+  return await resolveBrand(brandParam);
 }
 
 async function tryFindLead(db: any, config: any, tenantId: string, rawId: string) {
@@ -67,12 +67,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const brand = getBrand(request);
+    const brand = await getBrand(request);
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;
 
-    const config = BRAND_CONFIG[brand];
+    const config = (await getBrandConfig(brand))!;
     const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) {
@@ -113,9 +113,9 @@ export async function PUT(
 
   try {
     const { id } = await params;
-    const brand = getBrand(request);
+    const brand = await getBrand(request);
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
-    const config = BRAND_CONFIG[brand];
+    const config = (await getBrandConfig(brand))!;
     const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) {
@@ -132,7 +132,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
     }
 
-    const validation = validateLeadPayload(body, brand, { partial: true });
+    const forbiddenTerms = await getForbiddenTermsFor(brand);
+    const validation = validateLeadPayload(body, brand, forbiddenTerms, { partial: true });
     if (!validation.valid) {
       return NextResponse.json({ error: 'Validation failed', details: validation.errors }, { status: 400 })
     }
@@ -360,12 +361,12 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const brand = getBrand(request);
+    const brand = await getBrand(request);
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const authError = await requireBrandAccessApi(request, brand);
     if (authError) return authError;
 
-    const config = BRAND_CONFIG[brand];
+    const config = (await getBrandConfig(brand))!;
     const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) {

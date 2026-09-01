@@ -2,7 +2,7 @@ import type { Db } from 'mongodb'
 import { tenantFilter } from '../../lib/tenant'
 import { computeTicketSizeCalibration, DEFAULT_MIN_SAMPLE_SIZE } from '../../lib/ticket-size-calibration'
 import type { WonLeadForCalibration, TicketSizeCalibrationResult } from '../../lib/ticket-size-calibration'
-import { BRAND_CONFIG } from './brand'
+import { getBrandConfig } from './brand'
 
 export const TICKET_SIZE_CALIBRATION_COLLECTION = 'ticket_size_calibration'
 
@@ -22,7 +22,7 @@ export async function fetchWonLeadsForCalibration(
   brand: string,
   tenantId: string
 ): Promise<WonLeadForCalibration[]> {
-  const config = BRAND_CONFIG[brand]
+  const config = await getBrandConfig(brand)
   if (!config) return []
 
   const filter: Record<string, any> = { ...tenantFilter(tenantId), kanbanColumn: 'WON' }

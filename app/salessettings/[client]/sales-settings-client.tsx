@@ -6,7 +6,7 @@ import {
   Select, Checkbox, Paper, Loader, Divider, Badge,
 } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
-import { BRAND_CONFIG, CURRENCY_SYMBOLS, type Brand } from '@/app/lib/brand'
+import { CURRENCY_SYMBOLS, type Brand, type CurrencyCode, type BrandSalesVocabulary } from '@/app/lib/brand'
 import {
   type SalesSettings, type ProductLine, type PricingModel,
   emptySalesSettings, emptyProductLine,
@@ -59,10 +59,17 @@ function rowsFromRegionMultipliers(record: Record<string, number> | undefined): 
   }))
 }
 
-export function SalesSettingsClient({ brand }: { brand: Brand }) {
-  const currencySymbol = CURRENCY_SYMBOLS[BRAND_CONFIG[brand]?.currency] ?? '$'
+type SalesSettingsClientProps = {
+  brand: Brand
+  label: string
+  currency?: CurrencyCode
+  salesVocabulary?: BrandSalesVocabulary
+}
+
+export function SalesSettingsClient({ brand, label, currency, salesVocabulary }: SalesSettingsClientProps) {
+  const currencySymbol = CURRENCY_SYMBOLS[currency ?? 'USD'] ?? '$'
   const [tenantId, setTenantId] = useState('default')
-  const [settings, setSettings] = useState<SalesSettings>(emptySalesSettings(brand))
+  const [settings, setSettings] = useState<SalesSettings>(emptySalesSettings(brand, 'default', currency))
   const [regionRows, setRegionRows] = useState<RegionMultiplierRow[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -85,7 +92,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
         const res = await fetch(`/api/sales-settings/${brand}?tenantId=${encodeURIComponent(tenantId)}`)
         if (!res.ok) throw new Error('Failed to load sales settings')
         const data = await res.json()
-        const loaded = data.settings || emptySalesSettings(brand, tenantId)
+        const loaded = data.settings || emptySalesSettings(brand, tenantId, currency)
         if (!cancelled) {
           setSettings(loaded)
           setRegionRows(rowsFromRegionMultipliers(loaded.regionMultipliers))
@@ -98,7 +105,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
     }
     load()
     return () => { cancelled = true }
-  }, [brand, tenantId])
+  }, [brand, tenantId, currency])
 
   async function save() {
     setSaving(true)
@@ -187,7 +194,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
     <Container size="md" py="xl">
       <Stack gap="lg">
         <div>
-          <Title order={2}>{BRAND_CONFIG[brand].label} — Company Setup</Title>
+          <Title order={2}>{label} — Company Setup</Title>
           <Text size="sm" c="dimmed">
             Tell us what you sell and how customers buy it, in your own words. The research
             agent uses this to refine lead scoring and revenue forecasts — no accounting
@@ -229,7 +236,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
               onChange={(value) => setSettings((s) => ({ ...s, customerTypes: value as SalesSettings['customerTypes'] }))}
             >
               <Group gap="sm" mt="xs">
-                {getCustomerTypeOptions(brand).map((opt) => (
+                {getCustomerTypeOptions(salesVocabulary).map((opt) => (
                   <Checkbox key={opt.value} value={opt.value} label={opt.label} />
                 ))}
               </Group>
@@ -293,7 +300,7 @@ export function SalesSettingsClient({ brand }: { brand: Brand }) {
                     onChange={(value) => updateProduct(product.id, { typicalBuyer: value as ProductLine['typicalBuyer'] })}
                   >
                     <Group gap="sm" mt="xs">
-                      {getBuyerRoleOptions(brand).map((opt) => (
+                      {getBuyerRoleOptions(salesVocabulary).map((opt) => (
                         <Checkbox key={opt.value} value={opt.value} label={opt.label} />
                       ))}
                     </Group>
