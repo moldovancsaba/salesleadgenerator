@@ -8,7 +8,7 @@
 
 **Not the same file as `_archived/roadmap.md`** — that's a frozen, historical feature-status log (v2.4.61), superseded by `CHANGELOG.md`, sharing this file's basename by coincidence rather than by relation. See `README.md`'s "Archived Documentation" table.
 
-Last synced: 2026-09-01, against `moldovancsaba/salesleadgenerator`'s real open-issue list (9 issues).
+Last synced: 2026-09-01, against `moldovancsaba/salesleadgenerator`'s real open-issue list (7 issues).
 
 ---
 
@@ -17,13 +17,13 @@ Last synced: 2026-09-01, against `moldovancsaba/salesleadgenerator`'s real open-
 | # | Title | Priority | Notes |
 |---|---|---|---|
 | [#132](https://github.com/moldovancsaba/salesleadgenerator/issues/132) | Backfill existing leads into the controlled taxonomy schema (rulebook v1.0, Phase 2) | P1 | 318 of 2,874 leads classified as of the last batch (2026-08-08), re-derived live from `GET /api/leads` rather than trusted from any prior branch's own claim (see `docs/LESSONS_LEARNED.md` §3 — an orphaned branch's claimed progress was found not to match production). Picking now weighted toward QUALIFIED/ENGAGED/PROPOSAL-stage leads (sales-team-active), not just backlog — see `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9. Real, ongoing, multi-session effort — not completable in one sitting. |
+| [#196](https://github.com/moldovancsaba/salesleadgenerator/issues/196) | Site-admin UI to create a new client/brand (no-deploy onboarding) | P2 | Unblocked now that #195 shipped (2.4.185) — the Mongo-backed brand registry it builds on exists on `main`. Started. |
 
 ## Ready (unblocked, unstarted)
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
 | [#137](https://github.com/moldovancsaba/salesleadgenerator/issues/137) | Duplicate lead records at scale: 43.8% of Seyu, 10.7% of CogMap | P1 | Root-cause matching-algorithm fix already shipped. What remains needs a real browser session at `/admin/duplicates` (super-admin SSO) — confirmed blocked via both `x-api-key` and direct MongoDB attempts. **Needs the owner**, not another agent turn. |
-| [#195](https://github.com/moldovancsaba/salesleadgenerator/issues/195) | Brand config becomes Mongo-backed (site-admin onboarding, backend plumbing) | P2 | Moves `BRAND_CONFIG`/`FORBIDDEN_BRAND_TERMS`/forecast-model routing from static TS to a Mongo `brands` collection, read at request time. Grep-verified 51-file call-site sweep. Prerequisite for #196. Unblocked, unstarted. |
 | [#125](https://github.com/moldovancsaba/salesleadgenerator/issues/125) | Adopt GDS zone-based kanban scroll routing once available | P2 | See Blocked below — the local workaround (2.4.95) is a live, tested fix; this issue tracks retiring it once the upstream dependency ships the real one. |
 | [#165](https://github.com/moldovancsaba/salesleadgenerator/issues/165) | New-user onboarding tour: step-by-step spotlight walkthrough (design record) | P3 | Design plan, decision now made (2026-08-08, owner-confirmed): `driver.js`, per this issue's own recommendation. Implementation tracked separately in #185. |
 | [#185](https://github.com/moldovancsaba/salesleadgenerator/issues/185) | Implement new-user onboarding tour using driver.js | P3 | Follow-up to #165 now that the library decision is made. Unblocked, unstarted — a real multi-part UI build (tour controller, stable selectors on 7 target elements, keyboard/screen-reader accessibility, mobile verification). |
@@ -33,7 +33,6 @@ Last synced: 2026-09-01, against `moldovancsaba/salesleadgenerator`'s real open-
 | # | Title | Priority | Blocked on |
 |---|---|---|---|
 | [#125](https://github.com/moldovancsaba/salesleadgenerator/issues/125) | Adopt GDS zone-based kanban scroll routing once available | P2 | An upstream feature in `sovereignsquad/general-design-system` — a full implementation plan is drafted in the issue itself, ready to file there, but this session's GitHub access can't reach that repo. Needs a human or a session scoped to that repo to actually file it. |
-| [#196](https://github.com/moldovancsaba/salesleadgenerator/issues/196) | Site-admin UI to create a new client/brand (no-deploy onboarding) | P2 | Blocked on #195 (needs the Mongo-backed brand registry to exist before a form can write to it). |
 
 *(#125 appears in both Ready and Blocked above — it's unblocked as tracking/documentation work, but the actual fix is blocked on the external dependency.)*
 
@@ -47,6 +46,7 @@ Last synced: 2026-09-01, against `moldovancsaba/salesleadgenerator`'s real open-
 
 | # | Title | Resolution |
 |---|---|---|
+| [#195](https://github.com/moldovancsaba/salesleadgenerator/issues/195) | Brand config becomes Mongo-backed (site-admin onboarding, backend plumbing) | Shipped (2.4.185, `fff6644`, merged to `main`). New `brands` Mongo collection + async `getBrandConfig`/`getAllBrandConfigs`/`resolveBrand`/`getForbiddenTermsFor`; grep-verified 51-file call-site sweep; forecast-model routing and forbidden-vocabulary derivation moved off hardcoded brand-name checks. Migration script not yet run against production (no live Mongo access from this session) — app runs correctly off the fallback config until it is. Full gate green. Prerequisite for #196, now unblocked. |
 | [#194](https://github.com/moldovancsaba/salesleadgenerator/issues/194) | `POST /api/search-learning` 500s on first write for a new `companyId` (Mongo upsert path conflict) | Fixed (2.4.184) — `$setOnInsert` seeded `searchRuns`/`lastQueries` while `$inc`/`$push` targeted the same paths; MongoDB rejects that (code 40) so the insert branch never ran. Both seeds removed; the operators initialize their own fields. Found live while verifying #192, predates it. New `tests/integration/search-learning.integration.test.ts` verified to fail against the pre-fix code (3 of 4 cases 500), not merely pass after. |
 | [#192](https://github.com/moldovancsaba/salesleadgenerator/issues/192) | Unauthenticated read/write exposure across search, boards, forecast, metrics, win-rates, ticket-size-calibration, and settings | Fixed (2.4.183, `ad53eaa`) — same gap class as #104/#178, found not to have generalized (`docs/LESSONS_LEARNED.md` §3). `requireBrandAccessApi` on 7 brand-scoped GET routes + `GET /api/search`'s brand mode; `requireSuperAdminSession` on `/api/search`'s no-brand cross-all-brands mode; new `requireApiKeyOrSession` guard on `PUT /api/settings`/`POST /api/search-learning`. Full gate passing and live-verified against a local dev server with real credentials before push. Production deploy status unconfirmed (no reachable Vercel account from this session). |
 | [#188](https://github.com/moldovancsaba/salesleadgenerator/issues/188) | Per-field provenance on leads: `fieldVerifications` with a closed method enum | Merged to `main` (`03446dc`) and closed on GitHub. Additive only — new optional field at two scopes (lead-level for scalar fields, per-contact for contact fields), closed nine-value method enum, bounded by last-write-wins per `(field, method)` plus a 60-entry cap. |
