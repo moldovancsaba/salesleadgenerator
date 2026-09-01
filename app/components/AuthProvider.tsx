@@ -26,6 +26,7 @@ type AuthContextValue = {
   accessibleBrands: Brand[];
   brandLabels: Record<string, string>;
   isSuperAdmin: boolean;
+  hasSeenTour: boolean;
   loading: boolean;
   isApproved: boolean;
   login: () => void;
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [accessibleBrands, setAccessibleBrands] = useState<Brand[]>([]);
   const [brandLabels, setBrandLabels] = useState<Record<string, string>>({});
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [hasSeenTour, setHasSeenTour] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const checkSession = useCallback(async () => {
@@ -54,12 +56,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAccessibleBrands(data.accessibleBrands ?? []);
         setBrandLabels(data.brandLabels ?? {});
         setIsSuperAdmin(Boolean(data.isSuperAdmin));
+        setHasSeenTour(Boolean(data.hasSeenTour));
       } else {
         setUser(null);
         setPermission(null);
         setAccessibleBrands([]);
         setBrandLabels({});
         setIsSuperAdmin(false);
+        setHasSeenTour(false);
       }
     } catch (err) {
       console.error('[AuthProvider] session check failed:', err);
@@ -68,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAccessibleBrands([]);
       setBrandLabels({});
       setIsSuperAdmin(false);
+      setHasSeenTour(false);
     } finally {
       setLoading(false);
     }
@@ -97,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAccessibleBrands([]);
       setBrandLabels({});
       setIsSuperAdmin(false);
+      setHasSeenTour(false);
       if (data.ssoLogoutUrl) {
         window.location.href = data.ssoLogoutUrl;
       }
@@ -113,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         accessibleBrands,
         brandLabels,
         isSuperAdmin,
+        hasSeenTour,
         loading,
         isApproved: permission?.status === 'approved',
         login,

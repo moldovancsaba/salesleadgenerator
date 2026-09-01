@@ -14,6 +14,7 @@ import { computeStaleness, DEFAULT_STALE_THRESHOLDS, type KanbanColumn as StaleD
 import { getNextStepNudge } from '../lib/next-step-nudge';
 import type { LeadFilter } from '../lib/saved-filters';
 import { isVerticalScrollIntent } from '../lib/desktop-scroll-passthrough';
+import { TOUR_SELECTOR } from './lib/tour/selectors';
 
 type ColumnState = {
   leads: Lead[];
@@ -416,6 +417,16 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     }
   }), [columnStates, forecast, formatForecast, columnDefs])
 
+  // Issue #185 — onboarding tour needs exactly one real card to spotlight,
+  // not every card on the board. `LeadCard` mounts once per card
+  // (renderItem below), so a hardcoded data-tour value there would tag
+  // every instance — this identifies which single card (first item of the
+  // first non-empty column) should actually carry it.
+  const firstNonEmptyColumnId = useMemo(
+    () => columns.find((c) => c.items.length > 0)?.id,
+    [columns]
+  )
+
   // GDS's KanbanItem/KanbanColumnData are fixed, non-generic interfaces — the
   // real renderItem prop is checked contravariantly against exactly that
   // shape, so the callback's own parameter types must match it, not our
@@ -436,6 +447,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       staleness,
       now
     )
+    const tourTarget = column.id === firstNonEmptyColumnId && column.items[0]?.id === item.id
     return (
       <>
         {selectMode && (
@@ -454,6 +466,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           staleness={staleness}
           nudge={nudge}
           winProbability={forecast?.[column.id]?.probability ?? null}
+          tourTarget={tourTarget}
         />
         {/* Issue #126 — deliberately not GDS's own per-card "Move to
             column" dropdown: that widget's targets are exactly whatever
@@ -496,7 +509,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         )}
       </>
     )
-  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast, handleMove])
+  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast, handleMove, firstNonEmptyColumnId])
 
   // enableDrag deliberately omitted (default false): it renders a
   // drag-handle icon per card and activates GDS's real @dnd-kit
@@ -528,7 +541,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         </Group>
       )}
 
-      <div ref={boardWrapperRef}>
+      <div ref={boardWrapperRef} data-tour={TOUR_SELECTOR.kanbanBoard}>
         <GdsKanbanBoard
           columns={columns}
           onMoveItem={handleMoveItem}

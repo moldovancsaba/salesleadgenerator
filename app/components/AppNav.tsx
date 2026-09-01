@@ -7,10 +7,12 @@ import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Load
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
-  IconArchive, IconAddressBook, IconRepeat, IconBuilding,
+  IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconCompass,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
+import { useTour } from './TourProvider';
+import { TOUR_SELECTOR } from '../lib/tour/selectors';
 
 // Issue #95: this app had no persistent in-app navigation anywhere — every
 // page (including Sales Settings) was only reachable by typing its URL
@@ -76,6 +78,7 @@ function AppNavInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, loading, accessibleBrands, brandLabels, isSuperAdmin, login, logout } = useAuth();
+  const { startTour } = useTour();
   const urlBrand = currentBrandFromPath(pathname, Object.keys(brandLabels));
 
   // The org switcher's own selection, independent of the URL — lets the
@@ -117,6 +120,7 @@ function AppNavInner() {
         radius="md"
         aria-label="Open navigation menu"
         onClick={() => setOpened(true)}
+        data-tour={TOUR_SELECTOR.navHamburger}
       >
         <IconMenu2 size={24} />
       </ActionIcon>
@@ -161,6 +165,7 @@ function AppNavInner() {
                     onChange={(value) => value && setSelectedBrand(value as Brand)}
                     allowDeselect={false}
                     aria-label="Switch organization"
+                    data-tour={TOUR_SELECTOR.brandSwitcher}
                   />
                   <Divider my="xs" />
                 </>
@@ -200,6 +205,7 @@ function AppNavInner() {
                     leftSection={<IconSettings size={18} />}
                     active={pathname === `/salessettings/${effectiveBrand}`}
                     onClick={close}
+                    data-tour={TOUR_SELECTOR.salesSettingsLink}
                   />
                   {isSalesBoard && (
                     <>
@@ -240,6 +246,20 @@ function AppNavInner() {
                       />
                     </>
                   )}
+                  <Divider my="xs" />
+
+                  {/* Issue #185 — the only discoverable way to replay the
+                      onboarding tour once its automatic first-run has
+                      already fired (or been skipped/dismissed). */}
+                  <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                    Help
+                  </Text>
+                  <NavLink
+                    label="Take the tour"
+                    leftSection={<IconCompass size={18} />}
+                    onClick={() => { close(); startTour({ brand: effectiveBrand ?? undefined }); }}
+                  />
+
                   <Divider my="xs" />
 
                   <Text size="xs" fw={600} c="dimmed" tt="uppercase">

@@ -12,6 +12,7 @@ import type { Nudge } from '@/lib/next-step-nudge';
 import { sumDeals } from '@/lib/deals';
 import { checklistProgress } from '@/lib/checklist';
 import { computeRottenLevel } from '@/lib/rotten-indicator';
+import { TOUR_SELECTOR } from './lib/tour/selectors';
 
 type LeadCardProps = {
   lead: Lead;
@@ -24,6 +25,11 @@ type LeadCardProps = {
   // `lead` here. undefined/null means the caller has no forecast data loaded
   // (e.g. Forecast section collapsed) — the row is simply omitted then.
   winProbability?: number | null;
+  // Issue #185 — true for exactly one card (the first item of the first
+  // non-empty column, chosen in app/kanban.tsx's renderItem) so the
+  // onboarding tour has a single real, stable element to spotlight — every
+  // other rendered LeadCard instance leaves this undefined.
+  tourTarget?: boolean;
 };
 
 const CURRENCY_SYMBOL: Record<string, string> = { USD: '$', EUR: '€' };
@@ -97,7 +103,7 @@ function ticketSizeCardCaption(ticketSize: TicketSizeDisplay): string | null {
   return 'Modelled estimate';
 }
 
-export function LeadCard({ lead, onOpen, staleness, nudge, winProbability }: LeadCardProps) {
+export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourTarget }: LeadCardProps) {
   const ice = getIceScore(lead);
   const region = lead.region || 'NA';
   const quality = lead.qualityStatus || 'DRAFT';
@@ -150,7 +156,7 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability }: Lea
 
   return (
     <ErrorBoundary>
-      <Stack gap={4}>
+      <Stack gap={4} data-tour={tourTarget ? TOUR_SELECTOR.leadCard : undefined}>
         <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
           <Text fw={700} size="sm" truncate style={{ minWidth: 0 }}>{lead.entity_name}</Text>
           <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
@@ -232,7 +238,7 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability }: Lea
           </Text>
         )}
         {onOpen && (
-          <Button variant="light" size="xs" onClick={onOpen} mt={4}>
+          <Button variant="light" size="xs" onClick={onOpen} mt={4} data-tour={tourTarget ? TOUR_SELECTOR.leadDetailOpen : undefined}>
             Open
           </Button>
         )}
