@@ -1,4 +1,4 @@
-import { PRO_FIELD, CON_FIELD } from '../app/lib/brand';
+import { PRO_FIELD, CON_FIELD } from '../app/lib/brand-constants';
 import {
   isValidSportCode, isValidOrgTypeCode, isValidBusinessUnitCode,
   isValidGenderCode, isValidDemographicCode, isValidCompetitionLevelCode,

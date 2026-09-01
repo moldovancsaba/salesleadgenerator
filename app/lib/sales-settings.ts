@@ -6,8 +6,13 @@
 // in favor of the way a founder or small commercial team already thinks
 // about their business — see GitHub issue #24 for the full rationale.
 
-import { CURRENCY_CODES, CURRENCY_CODE_OPTIONS } from './brand';
-import type { CurrencyCode, BrandSalesVocabulary } from './brand';
+// Issue #196 — imports from ./brand-constants, not ./brand: this module is
+// used by both server-side validation (API routes) and Client Components
+// (option lists for dropdowns), and ./brand is now server-only (imports
+// lib/mongodb.ts). ./brand-constants is the pure, zero-I/O split of it —
+// see that file's own header comment.
+import { CURRENCY_CODES, CURRENCY_CODE_OPTIONS } from './brand-constants';
+import type { CurrencyCode, BrandSalesVocabulary } from './brand-constants';
 
 export type CustomerType =
   | 'sports_clubs'

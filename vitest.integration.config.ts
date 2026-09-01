@@ -9,6 +9,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
+      // See tests/helpers/server-only-noop.ts's own header comment — matches
+      // Next.js's own server-side webpack aliasing of this package.
+      'server-only': path.resolve(__dirname, 'tests/helpers/server-only-noop.ts'),
     },
   },
   test: {

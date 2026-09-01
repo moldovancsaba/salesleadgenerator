@@ -354,7 +354,15 @@ Switch to Search Learning via the hamburger menu's View section (or `?view=searc
 
 ## Admin Tools (Super Admin Only)
 
-These three pages only appear in the hamburger menu, under **Admin**, for the app's designated super admin(s) — configured outside this app entirely (an environment variable listing specific email addresses), not something any in-app control grants.
+These four pages only appear in the hamburger menu, under **Admin**, for the app's designated super admin(s) — configured outside this app entirely (an environment variable listing specific email addresses), not something any in-app control grants.
+
+### Clients
+
+Add a new client/brand — no code deploy required (issue #196, built on the Mongo-backed brand registry from issue #195). Fill in a slug (used in URLs and internally), display name, reporting currency, and — if you have the client's onboarding questionnaire answers in hand — their own name/competitor terms (this automatically keeps every other client's content from ever mentioning them by name, and vice versa) and any of the optional fields (aliases, forecast model, sales vocabulary, outreach from-address). The new client appears immediately everywhere in the app — navigation, Sales Settings, Forecast, lead creation, the Users & Access grant grid — with no further setup beyond that.
+
+**Forecast model** defaults to "Standard (deal-size bands)," which works for any client whose deal value comes from typical dealSize tiers or per-deal values — this covers the normal case. "Custom" is only for a client with a genuinely different pricing shape (like Seyu's per-company pricing); picking it flags the need but does not build the model — a developer still has to implement it, and the client's Forecast page shows no data until that happens.
+
+Two things this page does **not** do: grant any user access to the new client (still a separate step below, under Users & Access) or provision the client in the external lead-discovery/enrichment system (a separate, out-of-repo step).
 
 ### Users & Access
 
