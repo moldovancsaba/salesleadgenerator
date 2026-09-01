@@ -3,8 +3,11 @@
 // here ever runs automatically, only in response to an explicit user action
 // (add, convert-from-estimate, edit, remove).
 
-import { CURRENCY_CODES } from '@/app/lib/brand';
-import type { CurrencyCode } from '@/app/lib/brand';
+// Issue #196 — imports from @/app/lib/brand-constants, not @/app/lib/brand:
+// this module is used by Client Components (app/card.tsx, app/detail.tsx)
+// and @/app/lib/brand is now server-only (imports lib/mongodb.ts).
+import { CURRENCY_CODES } from '@/app/lib/brand-constants';
+import type { CurrencyCode } from '@/app/lib/brand-constants';
 
 const ABSOLUTE_CEILING = 50_000_000; // Same ceiling as lib/ticket-size.ts's own ABSOLUTE_CEILING / app/lib/sales-settings.ts's MAX_DEAL_SIZE_INPUT — one deal shouldn't be able to enter a figure the rest of this app treats as implausible.
 

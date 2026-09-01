@@ -1,4 +1,4 @@
-import { PRO_FIELD, CON_FIELD } from './brand';
+import { PRO_FIELD, CON_FIELD } from './brand-constants';
 import { decodeHtmlEntities } from '../../lib/text-sanitize';
 
 export type LeadRaw = Record<string, any>;

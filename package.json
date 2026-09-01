@@ -1,6 +1,6 @@
 {
   "name": "slg-leads",
-  "version": "2.4.185",
+  "version": "2.4.186",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -36,7 +36,8 @@
     "postcss-simple-vars": "^7.0.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "resend": "^6.18.1"
+    "resend": "^6.18.1",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@sovereignsquad/gds-compliance": "^6.5.0",

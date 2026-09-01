@@ -8,8 +8,8 @@ import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, Nu
 import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
-import { PRO_FIELD, CON_FIELD } from './lib/brand';
-import type { CurrencyCode } from './lib/brand';
+import { PRO_FIELD, CON_FIELD } from './lib/brand-constants';
+import type { CurrencyCode } from './lib/brand-constants';
 import { getTicketSize, SIZE_FIELD_OPTIONS } from './constants';
 import { isContactStale, DEFAULT_STALENESS_THRESHOLD_DAYS } from '@/lib/contact-freshness';
 import { computeStaleness, DEFAULT_STALE_THRESHOLDS } from '@/lib/stale-deal';

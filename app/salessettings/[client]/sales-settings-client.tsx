@@ -6,7 +6,8 @@ import {
   Select, Checkbox, Paper, Loader, Divider, Badge,
 } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
-import { CURRENCY_SYMBOLS, type Brand, type CurrencyCode, type BrandSalesVocabulary } from '@/app/lib/brand'
+import { CURRENCY_SYMBOLS } from '@/app/lib/brand-constants'
+import type { Brand, CurrencyCode, BrandSalesVocabulary } from '@/app/lib/brand-constants'
 import {
   type SalesSettings, type ProductLine, type PricingModel,
   emptySalesSettings, emptyProductLine,

@@ -1,145 +1,18 @@
+import 'server-only';
 import clientPromise, { isMongoConfigured } from '../../lib/mongodb';
+import { FALLBACK_BRAND_CONFIG, type BrandConfig, type BrandRecord, type Brand } from './brand-constants';
 
-// Issue #195 — brand/tenant configuration moved from a static object to a
-// Mongo-backed registry so a site admin can add a client without a code
-// deploy (issue #196). `Brand` was a 3-value compile-time literal union;
-// a runtime-editable set of brands can't be one, so it's now just `string`.
-// Compile-time exhaustiveness is replaced by the null-check every caller
-// already had to do for an unrecognized brand.
-export type Brand = string;
+export * from './brand-constants';
 
-// Generic, organization-agnostic value-proposition fields — shared across every
-// brand/tenant. Not brand-specific: any organization onboarded onto this
-// pipeline reads and writes these two field names.
-export const PRO_FIELD = 'pro_for_organization';
-export const CON_FIELD = 'con_for_organization';
-
-// Single source of truth for currency codes this app actually uses (issue
-// #145) — a real, named, extensible set, not "accept any string."
-export type CurrencyCode = 'USD' | 'EUR';
-
-export const CURRENCY_CODE_OPTIONS: { value: CurrencyCode; label: string }[] = [
-  { value: 'USD', label: 'USD' },
-  { value: 'EUR', label: 'EUR' },
-];
-
-export const CURRENCY_CODES: CurrencyCode[] = CURRENCY_CODE_OPTIONS.map((o) => o.value);
-
-export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
-  USD: '$',
-  EUR: '€',
-};
-
-// 'dealSizeBand' — app/lib/forecast.ts's generic, fully data-driven forecast
-// model (reads Lead.ticketSizeEstimate/deals/estimated_annual_revenue_usd —
-// no brand-specific logic). Every new brand should default to this.
-// 'custom' — a bespoke forecast model requiring its own hardcoded branch in
-// forecast.ts (e.g. Seyu's pricingByCompany-shaped model) — inherently code,
-// not something this registry can generalize. A brand flagged 'custom' with
-// no matching branch simply gets forecast: null, same as today's behavior
-// for any brand forecast.ts doesn't recognize.
-export type ForecastModel = 'dealSizeBand' | 'custom';
-
-export interface BrandSalesVocabulary {
-  customerTypes: string[];
-  buyerRoles: string[];
-}
-
-export interface BrandConfig {
-  label: string;
-  dbCollection: string;
-  apiPrefix: string;
-  currency: CurrencyCode;
-  // Slugs/spellings this brand is reachable under (its own slug plus e.g. the
-  // legacy `<slug>sales` SSO org-name convention). Unique across every brand.
-  aliases: string[];
-  // This brand's own name/spelling/distinctive-product vocabulary — terms
-  // that must never leak into another brand's lead or battlecard content.
-  // getForbiddenTermsFor() below unions every *other* brand's list to build
-  // the actual forbidden set for a given brand, so this never needs manual
-  // symmetric upkeep the way the old FORBIDDEN_BRAND_TERMS map did.
-  ownNameTerms: string[];
-  forecastModel: ForecastModel;
-  // Optional per-brand extension of the universal customerType/buyerRole
-  // enums (app/lib/sales-settings.ts) — omitted brands get the universal
-  // base set only, never every brand's combined vocabulary.
-  salesVocabulary?: BrandSalesVocabulary;
-  // Replaces the RESEND_FROM_<BRAND> env var — omitted brands fall back to
-  // lib/outreach-send.ts's own domain-based default, same as today.
-  fromEmail?: string;
-}
-
-export interface BrandRecord extends BrandConfig {
-  slug: string;
-  createdAt: string;
-  createdBy: string;
-  updatedAt: string;
-}
+// This file is server-only (imports lib/mongodb.ts) as of issue #195 — a
+// Client Component must import types/constants from ./brand-constants
+// directly (or rely on TypeScript's automatic erasure of `import type`,
+// which is safe from either file) rather than a runtime *value* from this
+// file. The `server-only` import above turns an accidental client import of
+// this file into an explicit, clear build-time error instead of the
+// confusing "Module not found: net" webpack failure that motivated this split.
 
 const BRANDS_COLLECTION = 'brands';
-
-// Issue #195 — retained ONLY as (a) seed data for
-// scripts/migrate-brands-to-mongo.ts and (b) the value getAllBrandConfigs()
-// returns when the `brands` collection is genuinely empty (a fresh
-// environment before the migration script has run). Once `brands` holds at
-// least one document, MongoDB is fully authoritative — a slug not found
-// there is `null`, never silently patched from here. Never a second,
-// coexisting source of truth once brands exist in Mongo.
-//
-// ownNameTerms below were reverse-derived from the pre-#195 hand-maintained
-// FORBIDDEN_BRAND_TERMS map (lib/validate-lead.ts) by checking which terms
-// each *other* brand's list attributed to a given brand — every one of
-// CogMap's and Seyu's real forbidden-term entries is exactly reproduced by
-// this derivation. DVSC's derived forbidden set comes out slightly larger
-// than its old hand list, which was missing 'sports science',
-// 'situational awareness', 'jumbotron', 'sponsor activation', 'revenue-share'
-// and 'revenue share' — a real, pre-existing asymmetry the old map's own
-// comment already flagged as unintentional ("DVSC's own list borrows CogMap's/
-// Seyu's already-vetted terms... not a DVSC-specific vocabulary of its own
-// yet"). This derivation fixes that gap rather than preserving it.
-// Issue #146's brand-scoped CustomerType/BuyerRole vocabulary (a universal
-// base set every brand shares, plus each brand's own extension) — see
-// app/lib/sales-settings.ts's CUSTOMER_TYPE_BASE/BUYER_ROLE_BASE for the
-// base set these extend. CogMap keeps its full original sport-specific set;
-// Seyu (fan engagement, not sport-specific buyer roles) and DVSC (sponsor
-// companies, already fully covered by the universal base set per issue
-// #148) get progressively narrower extensions — carried over unchanged
-// from the pre-#195 static BRAND_SALES_VOCABULARY map.
-const SPORT_SPECIFIC_CUSTOMER_TYPES = ['sports_clubs', 'federations', 'schools', 'academies', 'event_organisers'];
-const SPORT_SPECIFIC_BUYER_ROLES = ['coach', 'federation', 'club', 'parent', 'athlete'];
-
-export const FALLBACK_BRAND_CONFIG: Record<string, BrandConfig> = {
-  cogmap: {
-    label: 'CogMap',
-    dbCollection: 'leads',
-    apiPrefix: '/api/leads',
-    currency: 'USD',
-    aliases: ['cogmap', 'cogmapsales'],
-    ownNameTerms: ['cogmap', 'cognitive assessment', 'player performance analytics', 'decision-making profiling', 'sports science', 'situational awareness'],
-    forecastModel: 'dealSizeBand',
-    salesVocabulary: { customerTypes: SPORT_SPECIFIC_CUSTOMER_TYPES, buyerRoles: SPORT_SPECIFIC_BUYER_ROLES },
-  },
-  seyu: {
-    label: 'Seyu',
-    dbCollection: 'seyu_leads',
-    apiPrefix: '/api/leads',
-    currency: 'EUR',
-    aliases: ['seyu', 'seyusales'],
-    ownNameTerms: ['seyu', 'fan selfie', 'led screen', 'jumbotron', 'sponsor activation', 'revenue-share', 'revenue share', 'second screen', 'second-screen'],
-    forecastModel: 'custom',
-    salesVocabulary: { customerTypes: SPORT_SPECIFIC_CUSTOMER_TYPES, buyerRoles: [] },
-  },
-  dvsc: {
-    label: 'DVSC',
-    dbCollection: 'dvsc_leads',
-    apiPrefix: '/api/leads',
-    currency: 'EUR',
-    aliases: ['dvsc', 'dvscsales'],
-    ownNameTerms: ['dvsc'],
-    salesVocabulary: { customerTypes: [], buyerRoles: [] },
-    forecastModel: 'dealSizeBand',
-  },
-};
 
 // Deliberately reads clientPromise itself rather than taking a `db: Db`
 // parameter (unlike e.g. lib/pipeline-weights.ts's getPipelineWeights) —

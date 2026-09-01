@@ -7,7 +7,7 @@ import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Load
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
-  IconArchive, IconAddressBook, IconRepeat,
+  IconArchive, IconAddressBook, IconRepeat, IconBuilding,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -300,6 +300,14 @@ function AppNavInner() {
                     label="Prompt Editor"
                     leftSection={<IconEdit size={18} />}
                     active={pathname.startsWith('/admin/prompts')}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
+                    href="/admin/clients"
+                    label="Clients"
+                    leftSection={<IconBuilding size={18} />}
+                    active={pathname === '/admin/clients'}
                     onClick={close}
                   />
                   <NavLink
