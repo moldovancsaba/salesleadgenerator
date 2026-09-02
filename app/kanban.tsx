@@ -52,6 +52,12 @@ type BoardProps = {
   // (a module-level constant, not an inline literal) since the bootstrap
   // effect below depends on it by reference.
   columnDefs?: typeof COLUMNS;
+  // Reuses the exact same handler app/detail.tsx's Accept/Decline buttons call
+  // (app/sales/[brand]/sales-page-client.tsx's handleAction) so an inline
+  // per-card Accept/Decline is never a second, drifting implementation of the
+  // same action — added 2026-09-02 alongside bulk Accept: reviewing at scale
+  // previously required opening every lead's own modal one at a time.
+  onAction?: (leadId: string, action: string, payload?: Record<string, unknown>) => Promise<void>;
 };
 
 type LeadKanbanItem = {
@@ -100,7 +106,7 @@ function LoadMoreSentinel({ onLoadMore }: { onLoadMore: () => void }) {
   );
 }
 
-export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false, columnDefs = COLUMNS }: BoardProps) {
+export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false, columnDefs = COLUMNS, onAction }: BoardProps) {
   // Record<string, ...> (not Record<KanbanColumn, ...>) — this component no
   // longer always manages all 6 Pipeline columns; the Backlog board mounts
   // it with a single 'BACKLOG' entry instead (issue #126).
@@ -335,7 +341,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     })
   }, [selectedColumn])
 
-  const runBulkAction = useCallback(async (action: 'DECLINE' | 'PIN') => {
+  const runBulkAction = useCallback(async (action: 'ACCEPT' | 'DECLINE' | 'PIN') => {
     if (selectedIds.size === 0 || !selectedColumn) return
     setBulkRunning(true)
     try {
@@ -359,11 +365,12 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       const succeeded = results.filter((r) => r.success).length
       const failed = results.length - succeeded
       const firstError = results.find((r) => !r.success)?.error
+      const verb = action === 'DECLINE' ? 'declined' : action === 'PIN' ? 'pinned' : 'accepted'
 
       showNotification({
         message: failed === 0
-          ? `${succeeded} lead${succeeded === 1 ? '' : 's'} ${action === 'DECLINE' ? 'declined' : 'pinned'}.`
-          : `${succeeded} of ${results.length} ${action === 'DECLINE' ? 'declined' : 'pinned'} — ${failed} blocked${firstError ? `: ${firstError}` : ''}.`,
+          ? `${succeeded} lead${succeeded === 1 ? '' : 's'} ${verb}.`
+          : `${succeeded} of ${results.length} ${verb} — ${failed} blocked${firstError ? `: ${firstError}` : ''}.`,
         color: failed === 0 ? 'teal' : 'yellow',
         autoClose: failed === 0 ? 4000 : 8000,
       })
@@ -382,6 +389,37 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       setBulkRunning(false)
     }
   }, [brand, tenantId, selectedIds, selectedColumn, loadColumn])
+
+  // Per-card Accept/Decline (2026-09-02), reusing the same `onAction` handler
+  // the detail modal's own Accept/Decline buttons call — never a second
+  // implementation of the action, just a second place to trigger it from.
+  // Tracked per-lead-id so accepting one card's loading spinner never lights
+  // up every other card on the board.
+  const [inlineBusyIds, setInlineBusyIds] = useState<Set<string>>(() => new Set())
+  const runInlineAction = useCallback(async (leadId: string, action: 'ACCEPT' | 'DECLINE') => {
+    if (!onAction) return
+    setInlineBusyIds((prev) => new Set(prev).add(leadId))
+    try {
+      await onAction(leadId, action, action === 'DECLINE' ? { declineReason: 'OTHER' } : undefined)
+      showNotification({
+        message: `Lead ${action === 'ACCEPT' ? 'accepted' : 'declined'}.`,
+        color: action === 'ACCEPT' ? 'teal' : 'gray',
+        autoClose: 3000,
+      })
+    } catch (err) {
+      showNotification({
+        message: err instanceof Error ? err.message : `${action === 'ACCEPT' ? 'Accept' : 'Decline'} failed`,
+        color: 'red',
+        autoClose: 5000,
+      })
+    } finally {
+      setInlineBusyIds((prev) => {
+        const next = new Set(prev)
+        next.delete(leadId)
+        return next
+      })
+    }
+  }, [onAction])
 
   const formatForecast = useCallback((value: number) => {
     const symbol = forecastCurrency === 'EUR' ? '€' : '$'
@@ -467,6 +505,9 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           nudge={nudge}
           winProbability={forecast?.[column.id]?.probability ?? null}
           tourTarget={tourTarget}
+          onAccept={onAction ? () => runInlineAction(leadItem.lead._id, 'ACCEPT') : undefined}
+          onDecline={onAction ? () => runInlineAction(leadItem.lead._id, 'DECLINE') : undefined}
+          actionBusy={inlineBusyIds.has(leadItem.lead._id)}
         />
         {/* Issue #126 — deliberately not GDS's own per-card "Move to
             column" dropdown: that widget's targets are exactly whatever
@@ -509,7 +550,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         )}
       </>
     )
-  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast, handleMove, firstNonEmptyColumnId])
+  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast, handleMove, firstNonEmptyColumnId, onAction, runInlineAction, inlineBusyIds])
 
   // enableDrag deliberately omitted (default false): it renders a
   // drag-handle icon per card and activates GDS's real @dnd-kit
@@ -532,6 +573,9 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           <Text size="sm" fw={600}>
             {selectedIds.size} selected in {selectedColumn}
           </Text>
+          <Button size="xs" color="green" variant="light" onClick={() => runBulkAction('ACCEPT')} loading={bulkRunning}>
+            Accept selected
+          </Button>
           <Button size="xs" color="red" variant="light" onClick={() => runBulkAction('DECLINE')} loading={bulkRunning}>
             Decline selected
           </Button>
