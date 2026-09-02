@@ -45,7 +45,7 @@ function req(body: Record<string, unknown>) {
 
 describe('PATCH /api/leads/bulk', () => {
   it('rejects an unsupported action', async () => {
-    const res = await PATCH(req({ brand: 'cogmap', leadIds: ['x'], action: 'ACCEPT' }));
+    const res = await PATCH(req({ brand: 'cogmap', leadIds: ['x'], action: 'MODIFY' }));
     expect(res.status).toBe(400);
   });
 
@@ -77,6 +77,33 @@ describe('PATCH /api/leads/bulk', () => {
       { leadId: id1, success: true, error: undefined },
       { leadId: id2, success: true, error: undefined },
     ]);
+  });
+
+  it('accepts every lead in the batch and reports per-item success (2026-09-02: joined DECLINE/PIN)', async () => {
+    // The review-feedback loop was near-unusable at scale because declining a
+    // backlog could be done in bulk and accepting one could not (1 of 3,027
+    // leads ever accepted on one tenant) -- this is the fix, mirroring the
+    // bulk-decline test above exactly.
+    const id1 = await seedLead('Bulk Accept Co A');
+    const id2 = await seedLead('Bulk Accept Co B');
+
+    const res = await PATCH(req({ brand: 'cogmap', leadIds: [id1, id2], action: 'ACCEPT' }));
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.results).toEqual([
+      { leadId: id1, success: true, error: undefined },
+      { leadId: id2, success: true, error: undefined },
+    ]);
+
+    const clientPromise = (await import('../../lib/mongodb')).default;
+    const client = await clientPromise;
+    const db = client.db();
+    const { ObjectId } = await import('mongodb');
+    const lead = await db.collection('leads').findOne({ _id: new ObjectId(id1) });
+    expect(lead?.status).toBe('qualified');
+    expect(lead?.acceptanceCount).toBe(1);
+    expect(lead?.feedbackScore).toBe(1);
   });
 
   it('reports a per-item failure without failing the rest of the batch', async () => {

@@ -30,6 +30,13 @@ type LeadCardProps = {
   // onboarding tour has a single real, stable element to spotlight — every
   // other rendered LeadCard instance leaves this undefined.
   tourTarget?: boolean;
+  // Inline Accept/Decline (2026-09-02) — undefined (not just omitted) when the
+  // caller has no onAction handler wired up, same optional-callback contract
+  // onOpen already uses, so a card rendered without board-level action support
+  // silently shows no buttons rather than a dead one.
+  onAccept?: () => void;
+  onDecline?: () => void;
+  actionBusy?: boolean;
 };
 
 const CURRENCY_SYMBOL: Record<string, string> = { USD: '$', EUR: '€' };
@@ -103,7 +110,7 @@ function ticketSizeCardCaption(ticketSize: TicketSizeDisplay): string | null {
   return 'Modelled estimate';
 }
 
-export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourTarget }: LeadCardProps) {
+export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourTarget, onAccept, onDecline, actionBusy }: LeadCardProps) {
   const ice = getIceScore(lead);
   const region = lead.region || 'NA';
   const quality = lead.qualityStatus || 'DRAFT';
@@ -237,10 +244,24 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
             {createdLabel && `Created ${createdLabel}`}{createdLabel && updatedLabel && ' · '}{updatedLabel && `Updated ${updatedLabel}`}
           </Text>
         )}
-        {onOpen && (
-          <Button variant="light" size="xs" onClick={onOpen} mt={4} data-tour={tourTarget ? TOUR_SELECTOR.leadDetailOpen : undefined}>
-            Open
-          </Button>
+        {(onOpen || onAccept || onDecline) && (
+          <Group gap={4} mt={4}>
+            {onOpen && (
+              <Button variant="light" size="xs" onClick={onOpen} data-tour={tourTarget ? TOUR_SELECTOR.leadDetailOpen : undefined}>
+                Open
+              </Button>
+            )}
+            {onAccept && (
+              <Button variant="light" size="xs" color="green" onClick={onAccept} loading={actionBusy} aria-label={`Accept ${lead.entity_name}`}>
+                Accept
+              </Button>
+            )}
+            {onDecline && (
+              <Button variant="light" size="xs" color="red" onClick={onDecline} loading={actionBusy} aria-label={`Decline ${lead.entity_name}`}>
+                Decline
+              </Button>
+            )}
+          </Group>
         )}
       </Stack>
     </ErrorBoundary>

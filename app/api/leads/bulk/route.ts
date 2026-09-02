@@ -11,7 +11,14 @@ import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 // the JSON body here (not the query string), so the body must be parsed
 // before the auth check and reused, not read twice.
 const MAX_BULK_SIZE = 100
-const ALLOWED_BULK_ACTIONS = new Set(['DECLINE', 'PIN'])
+// ACCEPT joined DECLINE/PIN 2026-09-02: the review-feedback loop this app's own
+// schema is built for (acceptanceCount/declineCount/feedbackScore) had a near-zero
+// usage rate (1 of 3,027 leads on one tenant) traced to exactly this asymmetry —
+// declining a backlog could be done in bulk, accepting one could not, so reviewing
+// at scale meant opening thousands of leads one at a time. ACCEPT needs no extra
+// payload (unlike DECLINE's declineReason), so it needed no new plumbing here,
+// only joining the allow-list — executeLeadAction already handled it.
+const ALLOWED_BULK_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'PIN'])
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -34,7 +41,7 @@ export async function PATCH(request: NextRequest) {
     const payload = body.payload && typeof body.payload === 'object' ? body.payload : {}
 
     if (!ALLOWED_BULK_ACTIONS.has(action)) {
-      return NextResponse.json({ error: 'action must be one of: DECLINE, PIN' }, { status: 400 })
+      return NextResponse.json({ error: 'action must be one of: ACCEPT, DECLINE, PIN' }, { status: 400 })
     }
 
     if (leadIds.length === 0) {
@@ -56,7 +63,7 @@ export async function PATCH(request: NextRequest) {
           brand,
           tenantId,
           leadId: String(leadId),
-          action: action as 'DECLINE' | 'PIN',
+          action: action as 'ACCEPT' | 'DECLINE' | 'PIN',
           payload,
         })
         results.push({ leadId: String(leadId), success: result.success, error: result.success ? undefined : result.error })

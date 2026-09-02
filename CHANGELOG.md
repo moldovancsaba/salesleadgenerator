@@ -1,5 +1,40 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.188
+
+### Bulk Accept + inline card Accept/Decline on the kanban (issue #197)
+
+Lead review/acceptance rate was effectively zero relative to lead volume — root
+cause was UI friction, not reviewer motivation: Accept/Decline lived only inside
+the lead detail modal (`app/detail.tsx`), so reviewing any lead, however
+clear-cut, required opening its own modal one at a time. Bulk Decline already
+existed in the kanban toolbar; bulk Accept did not, and the card face itself
+exposed only an "Open" button.
+
+`app/api/leads/bulk/route.ts`'s `ALLOWED_BULK_ACTIONS` widened to include
+`ACCEPT` alongside the existing `DECLINE`/`PIN` — same per-item
+success/failure reporting, dedup, and 100-lead cap, calling the same
+already-audited `executeLeadAction`. `app/kanban.tsx` gained a green "Accept
+selected" bulk button and a new `onAction` prop threaded down to each
+`LeadCard`, powering inline per-card Accept/Decline buttons
+(`app/card.tsx`) that call the existing single-lead `PATCH /api/leads` path
+(`handleAction`, wired in from `app/sales/[brand]/sales-page-client.tsx`) and
+update local state without opening the modal. No backend logic, data model,
+or stage-gate validation changed — purely additive UI wiring onto paths
+already covered by `leads-patch-actions.integration.test.ts`.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — clean. `npx vitest run`
+(unit) — 743/743 passing. Full integration suite — 228/228 passing (9/9 in
+`tests/integration/leads-bulk.integration.test.ts`, including a new
+`ACCEPT`-batch test and the pre-existing `'rejects an unsupported action'`
+test updated to use a genuinely-unsupported action now that `ACCEPT` is
+valid). `npm run audit:gds-style` — same 26 pre-existing violations before
+and after (git-stash A/B comparison), none in the 5 touched files; the new
+Accept/Decline buttons reuse the same Mantine theme-color pattern
+(`color="green"`/`"red"`) already present and un-flagged on the pre-existing
+Decline/Pin buttons in the same files.
+
 ## 2.4.187
 
 ### New-user onboarding tour (issue #185, design in #165)

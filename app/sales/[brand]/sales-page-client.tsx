@@ -350,6 +350,7 @@ export function SalesPageClient({ brand, currency }: Props) {
             forecastCurrency={boardMeta?.forecast?.currency === 'EUR' ? 'EUR' : 'USD'}
             filter={leadFilter}
             selectMode={selectMode}
+            onAction={handleAction}
           />
         )}
 
@@ -363,6 +364,7 @@ export function SalesPageClient({ brand, currency }: Props) {
             filter={leadFilter}
             selectMode={selectMode}
             columnDefs={BACKLOG_COLUMN_DEF}
+            onAction={handleAction}
           />
         )}
 
