@@ -7,7 +7,7 @@ import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Load
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
-  IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconCompass, IconUsersGroup,
+  IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconCompass, IconUsersGroup, IconBolt,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -295,6 +295,14 @@ function AppNavInner() {
                     label="Cadences"
                     leftSection={<IconRepeat size={18} />}
                     active={pathname === `/outreach/cadences/${effectiveBrand}`}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
+                    href={`/automation/${effectiveBrand}`}
+                    label="Automation"
+                    leftSection={<IconBolt size={18} />}
+                    active={pathname === `/automation/${effectiveBrand}`}
                     onClick={close}
                   />
                   <NavLink

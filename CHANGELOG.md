@@ -1,5 +1,67 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.195
+
+### Automation: trigger-action rule engine (issue #201)
+
+A minimal, flat trigger→action engine (`automation_rules`) generalizing
+the one proven execution model this repo already had — the daily
+cadence-tick sweep — to a small, fixed set of trigger/action types. A
+brand admin can now say "when X happens on a lead, do Y" from a form,
+without a code change or a new cron route per rule. Parallel to, never a
+replacement for, `lib/cadences.ts` or `lib/stage-gate.ts` (both untouched).
+
+V1 triggers: `lead_created`, `lead_moved_to_column` (fired synchronously
+from `POST /api/leads` and `executeLeadAction()`'s `COLUMN_MOVE`/`PIN`
+path, the latter only after the existing stage gate already passed — a
+blocked move never fires a rule), `stale_no_activity` (a new daily cron,
+`GET/POST /api/admin/automation-tick`, reusing `lib/stale-deal.ts`'s
+`computeStaleness()` verbatim, with no full collection scan). `lead_assigned`
+is schema-defined for forward-compatibility but rejected at save time
+whenever `enabled: true` is requested — this repo has no assignment model
+for it to fire from yet, so an enabled rule of this type could never
+execute; refused rather than silently persisted as dead.
+
+V1 actions, all routed through one shared executor so behavior never
+depends on which trigger fired them: `set_next_action` (writes the
+existing `nextActionDueAt`/`nextActionNote` fields), `apply_tag` (adds one
+tag via `$addToSet`), `log_notification` (writes a `type: 'system'` entry
+to the existing `activityLog` collection). No action case ever re-emits a
+trigger event — rule chaining is structurally impossible, not merely
+undocumented.
+
+New `automation_rule_firings` collection (one doc per `(ruleId, leadId)`
+pair, upserted) makes `stale_no_activity` firing idempotent per UTC day —
+a lead that stays stale across many ticks doesn't re-fire (and re-noise)
+more than once daily.
+
+New CRUD: `GET/POST /api/automation-rules`, `GET/PUT/DELETE
+/api/automation-rules/[id]` (GET unauthenticated, writes `requireApiKey`-
+gated — same auth tier as `/api/cadences`). New `/automation/[brand]` UI
+(structured form, no visual builder — an explicit v1 non-goal), new
+"Automation" nav entry.
+
+`docs/ARCHITECTURE.md`, `docs/LLD.md` updated with the new modules,
+collections, and endpoints.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 839/839 passing (+24 new in `tests/lib/automation-rules.test.ts`).
+`npm run test:integration` — 308/308 passing (+13 new in
+`tests/integration/automation-rules.integration.test.ts`, covering CRUD,
+the `lead_assigned`/`enabled:true` rejection, `lead_created` firing (tag,
+disabled-rule no-op, `log_notification`), `lead_moved_to_column` firing
+including the stage-gate-blocked-never-fires case and the wrong-column
+never-fires case, and the tick's staleness match, idempotent same-day
+re-run, zero-rules short-circuit, and WON/LOST exclusion). `npm run
+test:smoke` — 5/5 passing (issue #201 §19's own "update the smoke suite
+to cover the new cron endpoint" doesn't map cleanly onto this repo's
+actual smoke suite, a pure DB-free/network-free `validate-lead.ts` check
+with no HTTP/DB capability to exercise a cron route — real route coverage
+lives in the integration suite instead, disclosed rather than forced).
+`npm run audit:gds-style` — 26 findings, unchanged from the pre-existing
+baseline (verified via `git stash -u` A/B comparison).
+
 ## 2.4.194
 
 ### Forecast categories and quota attainment tracking (issue #204)

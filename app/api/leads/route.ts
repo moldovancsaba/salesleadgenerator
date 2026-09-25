@@ -465,9 +465,27 @@ export async function POST(request: NextRequest) {
       tenantId,
     })
 
+    // Automation rules (issue #201) — evaluated synchronously at this real
+    // write point, after the lead is fully persisted. Caught here so a rule
+    // misconfiguration can never fail lead creation itself. A matching rule
+    // writes directly to the lead document (a separate update from the
+    // insertOne above), so the response re-reads the lead afterward rather
+    // than returning the pre-automation in-memory `newLead` — otherwise the
+    // caller's own immediate response would silently disagree with what a
+    // subsequent GET returns.
+    let responseLead: Record<string, any> = { ...newLead, _id: result.insertedId, tenantId }
+    try {
+      const { evaluateEventRules } = await import('../../lib/automation-store')
+      await evaluateEventRules(db, brand, tenantId, 'lead_created', result.insertedId.toString(), config.dbCollection)
+      const freshLead = await db.collection(config.dbCollection).findOne({ _id: result.insertedId })
+      if (freshLead) responseLead = freshLead
+    } catch (error) {
+      console.error('[API:leads] automation rule evaluation failed', { brand, tenantId, leadId: result.insertedId.toString(), error })
+    }
+
     return NextResponse.json({
       success: true,
-      lead: { ...newLead, _id: result.insertedId, tenantId }
+      lead: responseLead
     }, { status: 201 })
 
   } catch (error: any) {

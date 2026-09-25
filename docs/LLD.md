@@ -69,6 +69,9 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/cadences/route.ts` | GET, POST | `requireApiKey` | List/create cadence templates (`lib/cadences.ts`) |
 | `app/api/cadences/[id]/route.ts` | GET, PUT, DELETE | `requireApiKey` | Single cadence CRUD |
 | `app/api/admin/cadence-tick/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Cron worker: advances every lead's `activeCadence`, sends due steps via `sendAutomatedEmail` |
+| `app/api/automation-rules/route.ts` | GET, POST | `requireApiKey` (POST) | List/create automation rules (`lib/automation-rules.ts`, issue #201) |
+| `app/api/automation-rules/[id]/route.ts` | GET, PUT, DELETE | `requireApiKey` (PUT/DELETE) | Single automation rule CRUD |
+| `app/api/admin/automation-tick/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Cron worker: evaluates `stale_no_activity` rules (`app/lib/automation-store.ts`'s `runStaleTickForBrand`) |
 | `app/api/outreach-logs/route.ts` | GET, POST | `requireApiKey` (POST) | Log of sent outreach; POST runs `evaluateOutreachRouting` |
 | `app/api/outreach-templates/route.ts` | GET, POST | `requireApiKey` (POST) | Template CRUD, seeded from `DEFAULT_OUTREACH_TEMPLATES`; GET annotates with `computeTemplateConversions` |
 | `app/api/outcome-logs/route.ts` | GET, POST | `requireApiKey` | Stage-transition outcome log (drives win-rate/velocity calibration) |
@@ -158,6 +161,7 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 
 **Cadences / outreach**
 - `lib/cadences.ts` — `Cadence`, `CadenceStep`, `ActiveCadence`, `sanitizeCadence(Step/Steps)`, `validateCadence`, `computeStepDueAt`, `buildInitialActiveCadence`, `advanceActiveCadence`
+- `lib/automation-rules.ts` — `AutomationRule`, `AutomationTrigger`, `AutomationAction`, `sanitizeAutomationRule`, `validateAutomationRule`, `computeSetNextActionFields`, `buildNotificationLogEntry`, `matchesEventTrigger` (issue #201); `app/lib/automation-store.ts` — `evaluateEventRules`, `runStaleTickForBrand`, `applyAction`, `ensureAutomationIndexes` (the Mongo-aware evaluation layer)
 - `lib/outreach-send.ts` — `isResendSendConfigured`, `resolveOutboundFromAddress`, `sendAutomatedEmail`
 - `lib/resend-webhook.ts` — `extractResendWebhookHeaders`, `verifyResendWebhook`, `isResendConfigured`
 - `lib/template-conversion.ts` — `computeTemplateConversions`
