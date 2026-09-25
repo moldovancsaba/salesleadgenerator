@@ -7,7 +7,7 @@ import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Load
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
-  IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconBuildings, IconCompass, IconUsersGroup, IconBolt, IconShoppingCart,
+  IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconBuildings, IconCompass, IconUsersGroup, IconBolt, IconShoppingCart, IconReportAnalytics,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -60,6 +60,8 @@ function currentBrandFromPath(pathname: string, knownBrands: string[]): Brand | 
   if (accountsMatch && knownBrandSet.has(accountsMatch[1])) return accountsMatch[1] as Brand;
   const productsMatch = pathname.match(/^\/admin\/products\/([^/]+)/);
   if (productsMatch && knownBrandSet.has(productsMatch[1])) return productsMatch[1] as Brand;
+  const reportsMatch = pathname.match(/^\/reports\/([^/]+)/);
+  if (reportsMatch && knownBrandSet.has(reportsMatch[1])) return reportsMatch[1] as Brand;
   return null;
 }
 
@@ -331,6 +333,14 @@ function AppNavInner() {
                     label="Product Catalog"
                     leftSection={<IconShoppingCart size={18} />}
                     active={pathname === `/admin/products/${effectiveBrand}`}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
+                    href={`/reports/${effectiveBrand}`}
+                    label="Reports"
+                    leftSection={<IconReportAnalytics size={18} />}
+                    active={pathname === `/reports/${effectiveBrand}`}
                     onClick={close}
                   />
                 </>

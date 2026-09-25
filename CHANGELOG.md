@@ -1,5 +1,72 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.201
+
+### Reporting: ad-hoc report builder with scheduled delivery (issue #212)
+
+Every new reporting question this app has ever needed (decline-reason
+rollup, outcome correlation, source breakdown) previously required a
+developer to write a new hard-coded route and UI component — there was no
+generalized way to express "this metric, grouped this way, filtered this
+way, over this date range." Adds a genuinely scoped v1 ad-hoc report
+builder generalizing `GET /api/metrics/decline-reasons`'s existing closed-
+allowlist `groupBy` pattern into a real metric/groupBy/filter/date-range
+cross-product.
+
+`lib/report-pipeline.ts` (pure, no Mongo import) is the one place any of
+this logic lives: `validateReportInput()` checks every input against
+closed, hard-coded allowlists — no user-supplied string ever reaches a
+Mongo query unvalidated — and `buildReportPipeline()` builds the real
+`$match`/`$group`/`$sort` stages from a static field-to-path map, never an
+unchecked object key. `win_rate`/`avg_ice_score` reuse the exact minimum-
+sample-size gate `lib/outcome-correlation.ts` already established —
+"Insufficient data" below 10 samples, never a fabricated rate.
+
+New `report_definitions` collection (brand/tenant-scoped, full CRUD via
+`/api/reports`), a `/run` route, and an hourly cron tick
+(`GET /api/admin/reports-tick`, mirroring `cadence-tick`'s per-tick-cap/
+per-item-failure-isolation shape exactly) for scheduled email delivery —
+a new, dedicated `lib/report-delivery.ts` Resend helper, not
+`lib/outreach-send.ts` reused wholesale (that module is lead-outreach-
+specific). A schedule stays disabled until explicitly turned on, same
+safety rail `Cadence.enabled` already established. No new dependency for
+cron-expression parsing — `computeNextRunAt()` is plain, bounded `Date`
+math.
+
+Closes a real, pre-existing performance gap rather than making it worse:
+this repo had no index on any per-brand leads collection for
+`tenantId`/`createdAt`/`kanbanColumn` before this issue (every
+`/api/metrics/*` route, including this new one, ran as a full collection
+scan) — a lazy `ensureLeadReportIndexes()` now adds both.
+
+This app's first use of GDS's governed chart family (`GdsBarChart`/
+`GdsLineChart`) for the bar/line chart types — chosen because `GdsChart`
+always renders an accessible data-table fallback alongside the visual for
+free, satisfying this issue's own chart-plus-table accessibility
+requirement with no separate table-rendering code needed.
+
+**Disclosed, deliberate scope reduction**: "Run" always requires a report
+to be saved first — no stateless preview-before-first-save variant, since
+building a second, parallel preview endpoint wasn't judged worth the added
+surface for v1 (saving is already one click away).
+
+New `vercel.json` cron entry (hourly, `0 * * * *`). `docs/ARCHITECTURE.md`,
+`docs/LLD.md`, `docs/OPERATOR_GUIDE.md`, `docs/STACK_AND_DEPENDENCIES.md`
+updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. A clean
+`next build` (every route, including this app's first GDS chart-component
+usage). `npx vitest run` — 974/974 passing (+45: `tests/lib/report-pipeline.test.ts`
+23, `tests/lib/report-definitions.test.ts` 22). `npm run test:integration`
+— 370/370 passing (+11: `tests/integration/reports.integration.test.ts` 7
+— CRUD round-trip, auth, tenant isolation, a real run against seeded
+leads, cross-brand-collection isolation; `tests/integration/reports-tick.integration.test.ts`
+4 — due-definition selection, disabled/not-yet-due exclusion, per-item
+failure isolation). `npm run test:smoke` — 5/5 passing. `npm run
+audit:gds-style` — 26 (unchanged baseline, verified via `git stash -u` A/B
+comparison).
+
 ## 2.4.200
 
 ### UX: Kanban card density, WIP cue, and command palette (issue #213)
