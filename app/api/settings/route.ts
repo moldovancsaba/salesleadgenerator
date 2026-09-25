@@ -3,6 +3,7 @@ import clientPromise from '../../../lib/mongodb'
 import { DEFAULT_STALE_THRESHOLDS } from '../../../lib/stale-deal'
 import { DEFAULT_CONCENTRATION_SETTINGS } from '../../../lib/forecast-concentration'
 import { DEFAULT_CALIBRATION_SETTINGS } from '../../../lib/win-rate-calibration'
+import { DEFAULT_WIP_LIMITS } from '../../../lib/wip-limits'
 import { requireApiKeyOrSession } from '../../../lib/session'
 
 export const dynamic = 'force-dynamic'
@@ -23,11 +24,12 @@ export async function GET() {
   try {
     const client = await clientPromise
     const db = client.db()
-    const [weightsDoc, thresholdsDoc, concentrationDoc, calibrationDoc] = await Promise.all([
+    const [weightsDoc, thresholdsDoc, concentrationDoc, calibrationDoc, wipLimitsDoc] = await Promise.all([
       db.collection('settings').findOne({ key: 'pipeline_weights' }),
       db.collection('settings').findOne({ key: 'stale_thresholds' }),
       db.collection('settings').findOne({ key: 'concentration_risk_settings' }),
       db.collection('settings').findOne({ key: 'forecast_calibration' }),
+      db.collection('settings').findOne({ key: 'wip_limits' }),
     ])
     const weights = weightsDoc?.weights || DEFAULT_WEIGHTS
     const thresholds = thresholdsDoc?.thresholds || DEFAULT_STALE_THRESHOLDS
@@ -37,15 +39,20 @@ export async function GET() {
     const calibration = calibrationDoc
       ? { mode: calibrationDoc.mode, minSampleSize: calibrationDoc.minSampleSize, windowDays: calibrationDoc.windowDays ?? null }
       : DEFAULT_CALIBRATION_SETTINGS
+    // Issue #213 — a non-blocking, purely visual kanban column WIP cue;
+    // additive, same per-key `settings` document pattern as thresholds above.
+    const wipLimits = wipLimitsDoc?.thresholds || DEFAULT_WIP_LIMITS
     return NextResponse.json({
       weights,
       thresholds,
       concentrationRiskSettings,
       calibration,
+      wipLimits,
       source: weightsDoc ? 'mongodb' : 'default',
       thresholdsSource: thresholdsDoc ? 'mongodb' : 'default',
       concentrationRiskSettingsSource: concentrationDoc ? 'mongodb' : 'default',
       calibrationSource: calibrationDoc ? 'mongodb' : 'default',
+      wipLimitsSource: wipLimitsDoc ? 'mongodb' : 'default',
     })
   } catch (error: any) {
     console.error('[API:settings] GET error:', error)
@@ -68,12 +75,16 @@ export async function PUT(request: NextRequest) {
     const thresholds = body.thresholds
     const concentrationRiskSettings = body.concentrationRiskSettings
     const calibration = body.calibration
+    const wipLimits = body.wipLimits
 
     if (weights !== undefined && (typeof weights !== 'object' || weights === null)) {
       return NextResponse.json({ error: 'weights must be an object' }, { status: 400 })
     }
     if (thresholds !== undefined && (typeof thresholds !== 'object' || thresholds === null)) {
       return NextResponse.json({ error: 'thresholds must be an object' }, { status: 400 })
+    }
+    if (wipLimits !== undefined && (typeof wipLimits !== 'object' || wipLimits === null)) {
+      return NextResponse.json({ error: 'wipLimits must be an object' }, { status: 400 })
     }
     if (concentrationRiskSettings !== undefined) {
       if (typeof concentrationRiskSettings !== 'object' || concentrationRiskSettings === null) {
@@ -99,8 +110,8 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'calibration.windowDays must be null or a positive number' }, { status: 400 })
       }
     }
-    if (weights === undefined && thresholds === undefined && concentrationRiskSettings === undefined && calibration === undefined) {
-      return NextResponse.json({ error: 'weights, thresholds, concentrationRiskSettings, or calibration object required' }, { status: 400 })
+    if (weights === undefined && thresholds === undefined && concentrationRiskSettings === undefined && calibration === undefined && wipLimits === undefined) {
+      return NextResponse.json({ error: 'weights, thresholds, concentrationRiskSettings, calibration, or wipLimits object required' }, { status: 400 })
     }
 
     const client = await clientPromise
@@ -120,6 +131,15 @@ export async function PUT(request: NextRequest) {
         db.collection('settings').updateOne(
           { key: 'stale_thresholds' },
           { $set: { thresholds, updatedAt: new Date() } },
+          { upsert: true }
+        )
+      )
+    }
+    if (wipLimits !== undefined) {
+      updates.push(
+        db.collection('settings').updateOne(
+          { key: 'wip_limits' },
+          { $set: { thresholds: wipLimits, updatedAt: new Date() } },
           { upsert: true }
         )
       )

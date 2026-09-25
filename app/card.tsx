@@ -1,6 +1,8 @@
 'use client';
 
-import { Badge, Button, Group, Stack, Text } from '@mantine/core';
+import { useState } from 'react';
+import { ActionIcon, Badge, Button, Group, Stack, Text } from '@mantine/core';
+import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import type { Lead } from './types';
 import type { CurrencyCode } from './lib/brand';
 import { getIceScore, getTicketSize } from './constants';
@@ -12,6 +14,7 @@ import type { Nudge } from '@/lib/next-step-nudge';
 import { sumDeals } from '@/lib/deals';
 import { checklistProgress } from '@/lib/checklist';
 import { computeRottenLevel } from '@/lib/rotten-indicator';
+import { shouldShowWinProbability } from '@/lib/card-tiering';
 import { TOUR_SELECTOR } from './lib/tour/selectors';
 
 type LeadCardProps = {
@@ -146,20 +149,31 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
   // the first contact so the row isn't always '—' before data gets flagged.
   const contactName = getDecisionMakerContact(lead.contacts)?.name || lead.contacts?.[0]?.name || '—';
 
-  // Fixed field set, every row always rendered ('—' when absent) — matches
-  // app/detail.tsx's existing placeholder convention, so every card has the
-  // same shape instead of the row set varying by which fields a lead happens
-  // to have populated.
-  const metadata = [
+  // Card-density tiering (issue #213) — Tier 0 is the fixed, always-visible
+  // "is this lead in trouble / worth deals, and what's the headline number"
+  // glance set (§8/§11); everything else is Tier 1, reachable via the
+  // expand affordance below without opening the detail modal. Every row
+  // still always renders ('—' when absent) within its own tier — this
+  // splits which tier a row belongs to, it doesn't change the "same shape
+  // regardless of which fields happen to be populated" rule those rows
+  // already followed.
+  const tier0Metadata = [
     { label: 'Region', value: region },
-    { label: 'ICE', value: ice },
     { label: hasDeals ? 'Deal value' : 'Ticket size', value: hasDeals ? formatCompactCurrency(dealsTotal, dealCurrency) : ticketSizeLabel },
+  ];
+  const tier1Metadata = [
+    { label: 'ICE', value: ice },
     { label: 'Size', value: lead.size || '—' },
     { label: 'Contact', value: contactName },
   ];
-  if (!isTerminalColumn && typeof winProbability === 'number' && Number.isFinite(winProbability)) {
-    metadata.push({ label: 'Win probability', value: `${Math.round(winProbability * 100)}%` });
+  if (shouldShowWinProbability(isTerminalColumn, winProbability)) {
+    tier1Metadata.push({ label: 'Win probability', value: `${Math.round(winProbability as number * 100)}%` });
   }
+
+  // Tier 1 always has at least ICE/Size/Contact (unconditional fixed
+  // fields), so the expand affordance always has something to show —
+  // no presence check needed here.
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <ErrorBoundary>
@@ -196,10 +210,33 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
             </Badge>
           </Group>
         )}
-        {(lead.industry || lead.sport_or_sector) && (
+        <Stack gap={2}>
+          {tier0Metadata.map((m) => (
+            <Group key={m.label} justify="space-between" gap="xs" wrap="nowrap">
+              <Text size="xs" c="dimmed">{m.label}</Text>
+              <Text size="xs" fw={500} truncate style={{ minWidth: 0 }}>{m.value}</Text>
+            </Group>
+          ))}
+        </Stack>
+        <Group gap={2} wrap="nowrap">
+          <ActionIcon
+            size="xs"
+            variant="subtle"
+            color="gray"
+            aria-label={expanded ? 'Show less' : 'Show more'}
+            aria-expanded={expanded}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+          </ActionIcon>
+          <Text size="xs" c="dimmed" style={{ cursor: 'pointer' }} onClick={() => setExpanded((v) => !v)}>
+            {expanded ? 'Show less' : 'Show more'}
+          </Text>
+        </Group>
+        {expanded && (lead.industry || lead.sport_or_sector) && (
           <Text size="xs" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
         )}
-        {(lead.tags?.length ?? 0) > 0 && (
+        {expanded && (lead.tags?.length ?? 0) > 0 && (
           <Group gap={4} wrap="wrap" role="list" aria-label="Tags">
             {lead.tags!.slice(0, 3).map((tag) => (
               <Badge key={tag} variant="outline" color="gray" size="xs" role="listitem">{tag}</Badge>
@@ -209,23 +246,25 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
             )}
           </Group>
         )}
-        <Stack gap={2}>
-          {metadata.map((m) => (
-            <Group key={m.label} justify="space-between" gap="xs" wrap="nowrap">
-              <Text size="xs" c="dimmed">{m.label}</Text>
-              <Text size="xs" fw={500} truncate style={{ minWidth: 0 }}>{m.value}</Text>
-            </Group>
-          ))}
-        </Stack>
-        {ticketSizeCaption && !hasDeals && (
+        {expanded && (
+          <Stack gap={2}>
+            {tier1Metadata.map((m) => (
+              <Group key={m.label} justify="space-between" gap="xs" wrap="nowrap">
+                <Text size="xs" c="dimmed">{m.label}</Text>
+                <Text size="xs" fw={500} truncate style={{ minWidth: 0 }}>{m.value}</Text>
+              </Group>
+            ))}
+          </Stack>
+        )}
+        {expanded && ticketSizeCaption && !hasDeals && (
           <Text size="xs" c="dimmed" fs="italic">{ticketSizeCaption}</Text>
         )}
-        {checklist.total > 0 && (
+        {expanded && checklist.total > 0 && (
           <Text size="xs" c={checklist.done === checklist.total ? 'teal' : 'dimmed'}>
             {`Checklist ${checklist.done}/${checklist.total}`}
           </Text>
         )}
-        {dueValid && (
+        {expanded && dueValid && (
           <Text size="xs" c={dueDays !== null && dueDays < 0 ? 'red' : dueDays === 0 ? 'orange' : 'dimmed'}>
             {dueDays !== null && dueDays < 0
               ? `Follow-up ${Math.abs(dueDays)}d overdue`
@@ -234,12 +273,12 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
                 : `Follow-up in ${dueDays}d`}
           </Text>
         )}
-        {nudge && (
+        {expanded && nudge && (
           <Text size="xs" c={nudge.severity === 'warn' ? 'orange' : 'dimmed'}>
             {nudge.message}
           </Text>
         )}
-        {(createdLabel || updatedLabel) && (
+        {expanded && (createdLabel || updatedLabel) && (
           <Text size="xs" c="dimmed" title={`Created ${lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '—'} · Updated ${lead.updatedAt ? new Date(lead.updatedAt).toLocaleString() : '—'}`}>
             {createdLabel && `Created ${createdLabel}`}{createdLabel && updatedLabel && ' · '}{updatedLabel && `Updated ${updatedLabel}`}
           </Text>

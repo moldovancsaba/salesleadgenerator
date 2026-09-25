@@ -142,16 +142,24 @@ Backlog is a holding area for leads you don't want to work right now, but don't 
 
 ## Card Indicators
 
-Each kanban card shows several small signals, each answering a different question:
+Each kanban card leads with a small, always-visible glance set — entity name, the rotten dot, any stale/critical or DEAL/quality badge, Region, and the ticket-size-or-deal-value figure — enough to decide whether the lead needs attention at all. Everything else is one tap away: click the chevron ("Show more") on any card to reveal the rest in place, without opening the full lead:
 
-- **Quality badge** (DRAFT / CHECKED / VERIFIED): DRAFT only shows in DISCOVERED/QUALIFIED — once a lead is manually worked into ENGAGED and beyond, an unreviewed DRAFT badge would just be noise. CHECKED/VERIFIED always show, everywhere.
-- **DEAL badge**: appears next to the quality badge (not instead of it) whenever the lead has at least one manually-entered deal — see [Deals](#deals).
-- **Rotten dot**: a small colored dot + day count showing how long since the lead was last touched (any edit or move) — green for the first 3 days, yellow through day 7, red from day 8 onward. This is deliberately a *different* signal from the yellow/red "Stale"/"Critical" badge described in the workflow section above: the stale badge only appears once a column-specific threshold (10–21 days) is crossed and is a harder alert; the rotten dot is always visible from day 0 as a gentler, at-a-glance freshness cue. Both can show on the same card at once — that's expected, not a bug.
-- **Tags**: up to 3 tag chips, with a "+N more" chip if there are more — see [Filters and Search](#filters-and-search) for filtering by tag.
-- **Checklist progress**: "N/M" once a lead has checklist items — see [Checklist](#checklist).
-- **Follow-up**: "Follow-up due today" / "Follow-up Nd overdue" / "Follow-up in Nd" once a reminder is set — see [Follow-ups](#follow-ups).
-- **Win probability**: a "Win probability" row showing that column's close-rate percentage (the same figure the Forecast page uses to weight revenue), shown for every column except WON/LOST.
-- **Created / Updated**: a compact "Created 3d ago · Updated today" line — hover for the exact date and time.
+- **Quality badge** (DRAFT / CHECKED / VERIFIED): DRAFT only shows in DISCOVERED/QUALIFIED — once a lead is manually worked into ENGAGED and beyond, an unreviewed DRAFT badge would just be noise. CHECKED/VERIFIED always show, everywhere. Always visible.
+- **DEAL badge**: appears next to the quality badge (not instead of it) whenever the lead has at least one manually-entered deal — see [Deals](#deals). Always visible.
+- **Rotten dot**: a small colored dot + day count showing how long since the lead was last touched (any edit or move) — green for the first 3 days, yellow through day 7, red from day 8 onward. This is deliberately a *different* signal from the yellow/red "Stale"/"Critical" badge described in the workflow section above: the stale badge only appears once a column-specific threshold (10–21 days) is crossed and is a harder alert; the rotten dot is always visible from day 0 as a gentler, at-a-glance freshness cue. Both can show on the same card at once — that's expected, not a bug. Always visible.
+- **Tags**: up to 3 tag chips, with a "+N more" chip if there are more — see [Filters and Search](#filters-and-search) for filtering by tag. Behind "Show more."
+- **Checklist progress**: "N/M" once a lead has checklist items — see [Checklist](#checklist). Behind "Show more."
+- **Follow-up**: "Follow-up due today" / "Follow-up Nd overdue" / "Follow-up in Nd" once a reminder is set — see [Follow-ups](#follow-ups). Behind "Show more."
+- **Win probability**: a "Win probability" row showing that column's close-rate percentage (the same figure the Forecast page uses to weight revenue), shown for every column except WON/LOST. Behind "Show more."
+- **Created / Updated**: a compact "Created 3d ago · Updated today" line — hover for the exact date and time. Behind "Show more."
+
+### Column WIP cue
+
+A column header shows a small yellow badge (`count/limit`) once it's carrying more leads than its configured limit — DISCOVERED and QUALIFIED (auto-managed, high-volume) have higher defaults than the manually-worked ENGAGED and PROPOSAL; WON/LOST/Backlog never show one. This is a caution, not a block: it never stops a lead from being added or moved into that column. Limits are configurable per column from the same place pipeline weights and stale thresholds are set.
+
+### Command palette (Cmd/Ctrl+K, desktop only)
+
+Press Cmd+K (Mac) or Ctrl+K anywhere in the app on a desktop browser to open a quick-action palette: jump to a lead already loaded on the current board by typing its name, add a lead, toggle Select mode, or switch to another organization you have access to. Escape closes it. This is a keyboard-first shortcut for actions already reachable elsewhere in the app — it doesn't replace the search box on the Sales board, which searches every lead in the brand, not just ones already loaded on screen. Not available on mobile/touch devices, by design.
 
 ---
 
