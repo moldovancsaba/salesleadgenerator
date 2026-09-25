@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.215
+
+### Data: fixed 6 more Seyu leads with country hardcoded to DE regardless of actual location (issue #222)
+
+While picking the next issue #132 batch, a small-scoped sample of Seyu's
+QUALIFIED column found 7 of 20 leads with `country: "DE"`; only 1
+(FC Bayern Munich) was actually correct. The other 6 — MotorLand Aragón,
+Leicester City FC, Nottingham Forest FC, Sporting Clube de Portugal,
+Olympique de Marseille, Feyenoord Rotterdam — were corrected to their
+real, address-derivable countries (`ES`, `GB`, `GB`, `PT`, `FR`, `NL`)
+and each independently re-verified via a fresh `GET`. All 7 (including
+Celtic Football Club, fixed in 2.4.213) share a creation timestamp
+cluster of 2026-07-18 and an unset `source` field — a real, repeatable
+signature suggesting whatever discovery/import process created them
+that day defaulted `country`/`region` to `DE` regardless of the actual
+club. Filed as issue #222 (full scope not yet quantified — this
+session's own bulk-read safeguard blocks a full paginated scan; the
+6 leads fixed here are a confirmed subset from one 20-lead sample, not
+the total). No code changed — a data-only release.
+
 ## 2.4.214
 
 ### Docs: GitHub attribution-footer auto-append on comment creation, and a retroactive Rule 8 cleanup
