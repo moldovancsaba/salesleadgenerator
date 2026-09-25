@@ -54,8 +54,16 @@ export async function GET(
         .sort({ createdAt: -1 })
         .limit(limit)
         .toArray(),
+      // Issue #205 — a successful manual real-send (lib/outreach-send.ts's
+      // sendManualEmail()) writes BOTH this row and its own activityLog
+      // entry (source: 'manual'), so it can carry a real Resend
+      // externalId/deliveryStatus the outreach_logs->email-outbound mapping
+      // below has no field for. Excluding activityLogWritten:true rows here
+      // prevents that one send from rendering twice in the merged timeline;
+      // a cadence send (never activityLogWritten) and a plain "Log outreach"
+      // record-only row (never sets this field at all) are both unaffected.
       db.collection('outreach_logs')
-        .find({ leadId: id, tenantId })
+        .find({ leadId: id, tenantId, activityLogWritten: { $ne: true } })
         .sort({ createdAt: -1 })
         .limit(limit)
         .toArray(),

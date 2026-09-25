@@ -61,7 +61,12 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   const [channel, setChannel] = useState<'email' | 'linkedin'>('email');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [sending, setSending] = useState(false);
+  const [logging, setLogging] = useState(false);
+  // Issue #205 — a genuinely distinct busy/error state from "Log outreach"'s
+  // own `logging` above; the two buttons must never share state, since they
+  // perform two different, distinguishable actions (CLAUDE.md Rule 7).
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   // Tag-based filter row, additive to the existing industry filter (issue
   // #64). Pre-populated from the lead's own tags when present.
   const [filterTags, setFilterTags] = useState<string[]>([]);
@@ -169,7 +174,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
     if (channel === 'email' && !subject.trim()) {
       return;
     }
-    setSending(true);
+    setLogging(true);
     try {
       await fetch('/api/outreach-logs', {
         method: 'POST',
@@ -192,7 +197,69 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
     } catch (err) {
       console.error('Outreach log failed', err);
     } finally {
-      setSending(false);
+      setLogging(false);
+    }
+  }
+
+  // Issue #205 — the first genuinely functional "send" affordance in this
+  // app's compose modal; every prior click here only ever wrote a record
+  // (see handleSend above, unchanged). window.confirm() before the network
+  // call, naming the real recipient, matches this repo's own established
+  // destructive/irreversible-action pattern (cadences/battlecards/templates
+  // delete, cadence-cancel).
+  async function handleSendEmail() {
+    if (!canSendEmail) return;
+    const decisionMaker = getDecisionMakerContact(lead.contacts);
+    const confirmed = window.confirm(
+      `Send this email to ${decisionMaker?.name || 'the decision-maker'} <${decisionMaker?.email || ''}> now? This sends a real email immediately and cannot be undone.`
+    );
+    if (!confirmed) return;
+    setSendingEmail(true);
+    setSendError(null);
+    // Generated once per click, reused across the disable-race window below
+    // (never regenerated per attempt within this same click) — a rep
+    // double-clicking before the button disables sends at most one real
+    // email, since both requests would carry the same idempotencyKey and
+    // Resend itself dedupes on it.
+    const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `manual-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    try {
+      const res = await fetch('/api/outreach-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brand,
+          leadId: lead._id,
+          templateId: templateId || undefined,
+          subject,
+          body,
+          contacts: lead.contacts,
+          entity_name: lead.entity_name,
+          url: lead.url,
+          industry: lead.industry,
+          sport_or_sector: lead.sport_or_sector,
+          idempotencyKey,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSendError(data.error || 'Send failed');
+        return;
+      }
+      if (data.sent === false) {
+        setSendError(data.reason || 'Send failed');
+        return;
+      }
+      onSent?.({ leadId: lead._id, templateId: templateId || undefined, channel: 'email', subject, body });
+      onClose();
+    } catch (err) {
+      // The email may or may not have actually gone out — a network error
+      // after the request left the browser is genuinely ambiguous, so this
+      // says so explicitly rather than implying either outcome.
+      setSendError('Network error — the email may or may not have sent. Check the lead\'s Activity tab before retrying.');
+    } finally {
+      setSendingEmail(false);
     }
   }
 
@@ -306,11 +373,25 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
               description="Variables are pre-filled from the lead."
             />
             <Group justify="flex-end" gap="sm">
-              <Button variant="light" onClick={onClose} disabled={sending}>Cancel</Button>
-              <Button onClick={handleSend} disabled={!canSend || sending}>{sending ? 'Sending…' : 'Log outreach'}</Button>
+              <Button variant="light" onClick={onClose} disabled={logging || sendingEmail}>Cancel</Button>
+              {/* Issue #205 — "Log outreach" only ever writes a record (never
+                  sends); its busy label reads "Logging…", distinct from "Send
+                  email"'s own "Sending…" below — CLAUDE.md Rule 7: no label
+                  may imply a different interaction than the one it performs. */}
+              <Button variant="light" onClick={handleSend} disabled={!canSend || logging || sendingEmail}>
+                {logging ? 'Logging…' : 'Log outreach'}
+              </Button>
+              {channel === 'email' && (
+                <Button color="red" onClick={handleSendEmail} disabled={!canSendEmail || logging || sendingEmail} loading={sendingEmail}>
+                  Send email
+                </Button>
+              )}
             </Group>
             {channelBlockReason && (
               <Text size="xs" c="red">{channelBlockReason}</Text>
+            )}
+            {sendError && (
+              <Text size="xs" c="red" aria-live="polite">{sendError}</Text>
             )}
           </>
         )}
