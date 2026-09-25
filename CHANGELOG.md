@@ -1,5 +1,57 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.213
+
+### Data: taxonomy classification batch — Real Sociedad, Sportlogiq, Celtic FC, SSC Napoli (issue #132 resumed)
+
+Four leads independently researched and classified against the controlled
+sports-industry taxonomy, applied via real `PUT` calls and each
+independently re-verified via a fresh `GET` (not trusting the write
+response). Real Sociedad (CogMap): filled `country` (`ES`, trivially
+derivable from its own stored address), corrected a placeholder-looking
+president phone number to the club's real, independently cross-verified
+switchboard number, classified `club`/`first-team`/`men`/`professional`,
+flagged a pre-existing cross-brand data artifact (Seyu terminology on a
+CogMap-brand record) for review rather than silently rewriting history.
+Sportlogiq (CogMap): classified as `orgTypeCode: brand` per the issue #135
+convention (a sports-tech/analytics vendor, not a sports organization);
+research surfaced a real, material finding not previously in this
+database — Sportlogiq was acquired by Teamworks on 2026-01-15 and now
+operates as part of Teamworks' athlete-intelligence platform (independently
+confirmed across Teamworks' own announcement, BetaKit, and Osler LLP's
+representative-work page) — recorded via `parentOrgName`/
+`relationshipToParent`, with a flag that stored contact titles (CEO listed
+as Mitchell Wasserman) may now be stale against third-party
+post-acquisition sources. Celtic FC (Seyu): corrected a wrong `country`
+(was `DE`, should be `GB` — the lead's own stored address already read
+"Glasgow, Scotland... United Kingdom"; confirmed via UK Companies House
+filings for all three active Celtic corporate entities, all Scottish
+"SC"-prefixed registrations at Celtic Park), replaced a generic
+"Celtic Fc Commercial Team" placeholder with a real named contact (Kevin
+McQuillan) whose current title was independently cross-checked against a
+2026-06-17 Celtic FC/Eleven Sports Media partnership press release rather
+than taken from a possibly-stale LinkedIn snapshot. SSC Napoli (Seyu):
+corrected `size` from a free-text value ("Large club with 80M+ global
+fans, 54,726 capacity stadium") to the valid enum `Enterprise` (backed by
+real 2024/25 financials), confirmed Tommaso Bianchini's July 2025
+promotion from CRO to General Manager – Business Area, dropped two
+contacts research showed were stale or mismatched (one, Andrea Morando,
+turned out to be an employee of a Napoli sponsor, not the club itself).
+
+Full detail, sources, and the applied payloads are recorded in issue #132's
+comment thread and `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9's progress
+log. No code changed — a data-only release; the existing quality gate was
+re-run regardless per this repo's own discipline for any release that
+touches docs. **Disclosed pre-existing gate finding** (not introduced by
+this change — none of the affected files were touched here): `npm run
+audit:gds-style` reports 28 `forbidden-color` findings, 27 of which are
+false positives in the vendored `@sovereignsquad/gds-compliance` tool's own
+detection regex (it matches GitHub issue-number references like `#132`/
+`#206` in code comments as if they were hex colors), plus one real,
+pre-existing finding in `app/layout.tsx` dating to 2026-07-31. Filed as
+issue #221, tracked in `roadmap.md`'s Backlog — `tsc`/lint/vitest/
+integration/smoke/build all pass clean.
+
 ## 2.4.212
 
 ### Docs: bring docs/LLD.md current across ~15 features it had gone stale on
