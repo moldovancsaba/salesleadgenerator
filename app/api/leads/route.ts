@@ -6,7 +6,9 @@ import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { resolveSessionFromIdToken } from '../../../lib/session'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
-import { resolveAssignedToFilter, combineFilterWithAssignedTo } from '../../../lib/lead-assignment'
+import { resolveAssignedToFilter, combineFilterWithAssignedTo, type AssignedToFilterClause } from '../../../lib/lead-assignment'
+import { getUserAccess } from '../../../lib/sso-access'
+import { listTeamsForBrand, getTeamVisibilityFilter } from '../../../lib/teams'
 import { validateLeadPayload, validatePatchPayload, bestContactConfidence } from '../../../lib/validate-lead'
 import { generateRequestId } from '../../lib/request-id'
 import { executeLeadAction } from '../../lib/lead-actions'
@@ -118,13 +120,32 @@ export async function GET(request: NextRequest) {
     // here (not trusted from the query string). '' is a safe no-match
     // fallback (see resolveAssignedToFilter) if assignedTo=me is requested
     // with no resolvable session (e.g. an x-api-key caller).
-    let actorSub = ''
-    if (assignedToParam === 'me') {
+    //
+    // Team visibility (issue: CRM Team visibility) — 'team' needs a DB read
+    // of the caller's managed teams, so it's resolved separately from
+    // resolveAssignedToFilter (deliberately DB-free); see lib/teams.ts.
+    let assignedToClause: AssignedToFilterClause
+    if (assignedToParam === 'team') {
       const idToken = request.cookies.get('sso_id_token')?.value
       const claims = await resolveSessionFromIdToken(idToken)
-      actorSub = claims?.sub || ''
+      if (claims?.sub) {
+        const actorRecord = await getUserAccess(db, claims.sub)
+        const teams = await listTeamsForBrand(db, brand)
+        assignedToClause = getTeamVisibilityFilter(teams, claims.sub, claims.email, actorRecord?.orgAccess, brand)
+      } else {
+        // No resolvable session — fail safe to the same no-match fallback
+        // resolveAssignedToFilter('me', '') uses below, never every lead.
+        assignedToClause = { assignedTo: '' }
+      }
+    } else {
+      let actorSub = ''
+      if (assignedToParam === 'me') {
+        const idToken = request.cookies.get('sso_id_token')?.value
+        const claims = await resolveSessionFromIdToken(idToken)
+        actorSub = claims?.sub || ''
+      }
+      assignedToClause = resolveAssignedToFilter(assignedToParam, actorSub)
     }
-    const assignedToClause = resolveAssignedToFilter(assignedToParam, actorSub)
     // tenantFilter() above may itself carry a top-level $or (default
     // tenant); the 'unassigned' clause also carries one — spreading both
     // into one object would silently drop one (docs/LESSONS_LEARNED.md §1),

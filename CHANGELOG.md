@@ -1,5 +1,76 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.190
+
+### Team visibility — teams collection, manager role, and My Team pipeline scope (issue #199)
+
+Phase 0 of the CRM-parity roadmap, sequenced directly after Lead ownership
+(2.4.189, issue #198) per its own dependency: a sales manager previously had
+no way to see their reports' leads as a group — only their own ("My Leads")
+or the entire brand's pipeline (by being made a full brand admin, which also
+grants settings/user-management access they don't need).
+
+New `teams` Mongo collection (`{_id, brand, name, memberIds, managerIds,
+createdAt, updatedAt}` — a team never spans brands) and a new `lib/teams.ts`
+module, following `lib/sso-access.ts`'s own DB-function/pure-function split.
+`OrgAccessMap`/`SsoUserAccessRecord` are byte-for-byte unchanged — team
+membership composes on top of the existing flat brand role, it never
+replaces or weakens it: `getTeamVisibilityFilter()` returns no narrowing at
+all for a super admin or brand admin, and a non-manager plain user degrades
+gracefully to exactly their own leads (never a `400`/`403` — "you manage
+zero teams" is a normal state).
+
+`GET /api/leads` and `GET /api/leads/columns` gain a new `assignedTo=team`
+value, added onto the same `assignedTo` param Lead ownership shipped
+(`me`/`unassigned`/`<ssoUserId>`) rather than a separate `scope` param —
+issue #199's own draft contract proposed `scope=team`, but the actual
+shipped Lead ownership convention was `assignedTo`, so this reconciles onto
+that (its own §24 flagged this exact reconciliation as needed at
+implementation time). Resolving `team` needs a DB read of the caller's
+managed teams, so it's resolved by the route directly (`getUserAccess` +
+`listTeamsForBrand` + `getTeamVisibilityFilter`), never inside
+`resolveAssignedToFilter()` (deliberately kept DB-free). New
+`GET/POST /api/admin/teams` + `PATCH/DELETE /api/admin/teams/[teamId]`,
+super-admin-gated exactly like `/api/admin/users/*` — `PATCH` validates
+every member/manager id against `sso_user_access` before writing, rejecting
+an id nobody has ever signed in with. `GET /api/leads/assignable-users`
+(Lead ownership's endpoint) gains `callerManagesTeam: boolean`, piggybacked
+on its existing session resolution.
+
+UI: new `/admin/teams` page (`admin-teams-client.tsx`, same
+`AdminDataTable`/`MultiSelect`-per-row pattern as `admin-users-client.tsx`)
+linked from the nav's Admin section; a new "My Team" toggle in
+`app/components/FilterBar.tsx`, shown only for a user who actually manages
+at least one team in the current brand, mutually exclusive with "My Leads"
+via the same single-valued `LeadFilter.assignedTo` field. Deleting a team
+requires `window.confirm()` (it instantly narrows its managers' visibility),
+matching this codebase's established destructive-action confirmation
+convention.
+
+`docs/ARCHITECTURE.md` gains a new subsection under Per-Organization Access
+Control; `docs/OPERATOR_GUIDE.md`'s "Admin Tools" section gains a "Teams"
+subsection and the Filters section documents "My Leads"/"My Team" together
+(the latter was never separately documented when #198 shipped, since that
+issue's own doc requirements didn't call for an OPERATOR_GUIDE.md update).
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 770/770 passing (+13 new in `tests/lib/teams.test.ts`). `npm
+run test:integration` — 253/253 passing (+14 new in
+`tests/integration/teams.integration.test.ts`, covering team CRUD
+auth/validation/cross-brand isolation and `assignedTo=team`'s manager/
+non-manager/brand-admin/super-admin/no-session cases against a real
+`mongodb-memory-server` database — `lib/session.ts`'s
+`requireSuperAdminSession`/`resolveSessionFromIdToken` mocked as a clean
+dependency boundary, same convention as every other session-gated
+integration suite in this repo). `npm run test:smoke` — 5/5 passing. `npm
+run audit:gds-style` — same 26 pre-existing violations before and after,
+none in the files this change touches.
+
+**Disclosed, pre-existing, out of scope for this change**: the same 7
+pre-existing `npm audit` dependency vulnerabilities noted in 2.4.189 — none
+introduced by this change, no dependency added or changed.
+
 ## 2.4.189
 
 ### Lead ownership — assignedTo, My Leads, and assignment workflow (issue #198)

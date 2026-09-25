@@ -65,7 +65,7 @@ Everything in the app is reachable from one place: the hamburger icon (☰), alw
 - **View** (only shown while already on the Pipeline page for a brand): Kanban, Table, Metrics, Search Learning — these four views live at the same URL with a `?view=` parameter, not separate pages
 - **Help**: Take the tour (replays the onboarding spotlight walkthrough — see [Onboarding Tour](#onboarding-tour))
 - **Reporting**: Forecast, Battlecards, Outreach Templates, Cadences, Contacts
-- **Admin** (super admins only): Clients, Prompt Editor, Users & Access, Duplicate Review
+- **Admin** (super admins only): Clients, Prompt Editor, Users & Access, Teams, Duplicate Review
 - **Sign out**
 
 There is no on-page dropdown or brand switcher anywhere else in the app (an earlier version had one on the Forecast/Battlecards/Outreach Templates pages; it was removed as a duplicate of this menu). Everything is one brand at a time, chosen either by the URL or by this menu — never guessed or silently defaulted.
@@ -154,6 +154,7 @@ Switch to Table via the hamburger menu's View section (or `?view=table`). Shows 
 ## Filters and Search
 
 - **Region, industry, and tag filtering**: tap the Filters icon above the board or table (a small funnel — collapsed by default, nothing shows until you open it) to open the filter panel. Set a region (free text, exact match — e.g. `US`, `EUROPE`, `HUNGARY`; issue #172, fixed 2.4.179 to accept any real value rather than a hardcoded 3-item list), an industry (free text, matches case-insensitively — e.g. `academy` matches `Academy`), and/or one or more tags, and the board/table narrows to match immediately. A lead matches the tag filter if it has *any* of the selected tags (not all of them). Applies to both kanban and table view — switching views keeps the same active filter.
+- **My Leads / My Team** (issue #198/#199): the same filter panel has a **My Leads** toggle, narrowing the board/table to only leads currently assigned to you. If you manage at least one team (set up under [Teams](#admin-tools-super-admin-only)), a second **My Team** toggle also appears — it shows your own leads plus every current member's of a team you manage. The two are mutually exclusive (turning one on turns the other off); turning both off returns to the full pipeline. A non-manager never sees the My Team toggle at all.
 - **Saved filters**: with a region, industry, and/or tags set, tap **Save filter** and give it a name — it appears as a removable pill you can tap to re-apply later. Saved per-browser (not synced across devices), scoped per brand.
 - No status filter — the kanban board's own columns already group by status; adding a redundant status filter was deliberately left out.
 - Search matches entity name, sector, and contact name (predictive dropdown under the header) — independent of the region/industry filter, not affected by it.
@@ -366,7 +367,7 @@ Switch to Search Learning via the hamburger menu's View section (or `?view=searc
 
 ## Admin Tools (Super Admin Only)
 
-These four pages only appear in the hamburger menu, under **Admin**, for the app's designated super admin(s) — configured outside this app entirely (an environment variable listing specific email addresses), not something any in-app control grants.
+These five pages only appear in the hamburger menu, under **Admin**, for the app's designated super admin(s) — configured outside this app entirely (an environment variable listing specific email addresses), not something any in-app control grants.
 
 ### Clients
 
@@ -379,6 +380,12 @@ Two things this page does **not** do: grant any user access to the new client (s
 ### Users & Access
 
 Every person who has ever signed in via SSO appears here automatically (there's no way to pre-add someone — they must sign in at least once first) with a dropdown per brand: **No access / User / Admin**. Change a dropdown to instantly grant or revoke that person's access to that specific brand. A super admin's own row is shown for visibility only and can't be edited here — their access is controlled entirely by the environment configuration, not this table.
+
+### Teams
+
+Group users within one brand and designate one or more **managers** — a manager then sees, via the pipeline's "My Team" scope (below), the leads assigned to themselves and to every current member of a team they manage, without needing full brand-admin access. Pick a **Brand** at the top (a team never spans brands), type a name under **New team name** and click **Add team**, then use the **Members** and **Managers** pickers on that team's row to add people — both draw from everyone who already has access to the selected brand under Users & Access. A person can be a member of one team and a manager of another at the same time; there's no inheritance between them — a manager only ever sees their own directly-assigned team's members, never a member's own team. **Delete** removes a team immediately (with a confirmation, since it instantly narrows its managers' visibility) — it does not touch anyone's brand access or their leads' assignments, only who can see them via "My Team".
+
+A member who loses brand access while still listed on a team keeps showing up in that team's "My Team" view (their historic leads stay visible to the manager for review) — this is intentional, not a bug; remove them from the team explicitly if that's not wanted.
 
 ### Duplicate Review
 

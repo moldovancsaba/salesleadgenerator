@@ -29,6 +29,13 @@ export function canAssign(
 export type AssignedToFilterClause =
   | { assignedTo: string }
   | { $or: Array<{ assignedTo: { $exists: false } } | { assignedTo: null }> }
+  // Team visibility (issue: CRM Team visibility) — shape of
+  // lib/teams.ts's getTeamVisibilityFilter() non-empty case. Resolving
+  // 'team' needs a DB read (the caller's managed teams), so it's computed
+  // by the route via lib/teams.ts, never by resolveAssignedToFilter below
+  // (deliberately kept DB-free) — this union member just lets the result
+  // flow through the same combineFilterWithAssignedTo() combiner.
+  | { assignedTo: { $in: string[] } }
   | undefined;
 
 // 'me' is resolved by the caller into a real ssoUserId (actorSub) BEFORE
@@ -42,6 +49,12 @@ export type AssignedToFilterClause =
 // 'unassigned' matches BOTH a legacy document with no assignedTo field at
 // all and one explicitly cleared via ASSIGN (assignedTo: null) — both are
 // "unassigned" and must appear identically in a My Leads/unassigned view.
+//
+// 'team' is deliberately NOT a case here — resolving it needs a DB read of
+// the caller's managed teams (lib/teams.ts's listTeamsForBrand +
+// getTeamVisibilityFilter), so the route special-cases assignedTo==='team'
+// before ever calling this function; this function stays DB-free for every
+// value it does handle.
 export function resolveAssignedToFilter(param: string | undefined, actorSub: string): AssignedToFilterClause {
   if (param === undefined) return undefined;
   if (param === 'me') return { assignedTo: actorSub };
