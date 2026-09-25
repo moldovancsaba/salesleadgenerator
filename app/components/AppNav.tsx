@@ -7,7 +7,7 @@ import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Load
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
-  IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconBuildings, IconCompass, IconUsersGroup, IconBolt, IconShoppingCart, IconReportAnalytics,
+  IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconBuildings, IconCompass, IconUsersGroup, IconBolt, IconShoppingCart, IconReportAnalytics, IconKey,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -390,6 +390,14 @@ function AppNavInner() {
                     label="Duplicate Review"
                     leftSection={<IconCopyCheck size={18} />}
                     active={pathname === '/admin/duplicates'}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
+                    href="/admin/api-keys"
+                    label="API Keys"
+                    leftSection={<IconKey size={18} />}
+                    active={pathname === '/admin/api-keys'}
                     onClick={close}
                   />
                 </>

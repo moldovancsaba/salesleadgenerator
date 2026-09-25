@@ -1,5 +1,57 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.202
+
+### API: scoped API keys, foundation only (issue #210, Phase 1 of 6)
+
+Adds `lib/scoped-api-keys.ts` (pure — key generation via Node's built-in
+`crypto`, SHA-256 hashing, brand/scope/revocation auth decision logic) and
+`app/lib/api-key-store.ts` (Mongo-aware CRUD + the actual auth check),
+extending `lib/require-brand-access-api.ts` — the live gate on
+`GET`/`PATCH /api/leads`, `GET /api/leads/columns`, `PATCH /api/leads/bulk`,
+`GET`/`DELETE /api/leads/[id]` — to accept a per-brand, per-scope, revocable
+`x-api-key` alongside the existing legacy `SLG_API_KEY` and session-cookie
+auth, never replacing either. `GET/POST /api/admin/api-keys` +
+`DELETE /api/admin/api-keys/[id]` (session-only, never `x-api-key`-
+accessible, per the issue's own §17) and a new `/admin/api-keys` page issue
+and revoke keys, with a one-time raw-key reveal on creation — the raw key
+is never stored or shown again after that.
+
+**Deliberate, prominently disclosed scope reduction — this issue is not
+fully done.** Issue #210's own §24 decomposes it into 6 sub-issues; only
+the data model + auth logic + admin UI (roughly sub-issues 1 and half of 5)
+shipped here. Explicitly **not** built: the outbound webhook-delivery
+system (SSRF protection, HMAC signing, a retry/dead-letter worker —
+a separately-scoped feature in its own right, and its cron interval can't
+be chosen correctly without knowing this project's real Vercel plan
+limits); migrating the live research-agent integration and this app's
+existing cron jobs onto scoped keys (they are unchanged, still
+authenticating with the real deployed `SLG_API_KEY` — rotating a live
+production credential from this sandbox, with no way to verify the change
+actually took effect in the real deployed environment, is exactly the kind
+of irreversible, unverifiable action this repo's own rules say to stop and
+disclose rather than perform blind); and retiring `SLG_API_KEY` (explicitly
+out of scope in the issue's own text, and can't happen before the
+migration above does). See `docs/ARCHITECTURE.md`'s "Scoped API Keys"
+section for the full detail.
+
+A real bug was found and fixed while writing this issue's own integration
+test: an early version of the `requireBrandAccessApi` change returned a
+hard `503` for *any* invalid `x-api-key` header when Mongo was
+unconfigured, instead of correctly falling through to the session-cookie
+branch (the pre-existing, tested `401` behavior for no credentials at
+all). Fixed before shipping — the scoped-key lookup is now only attempted
+when Mongo is actually configured.
+
+`tests/lib/scoped-api-keys.test.ts` (23 tests) and
+`tests/integration/api-keys.integration.test.ts` (12 tests, including a
+real end-to-end test authenticating a scoped key against the production
+`GET /api/leads` route: authorized, wrong-brand 403, revoked 401, and
+unmatched-key fallthrough to session auth).
+
+tsc: 0 errors. lint: 0 errors/warnings. unit: 997/997. integration:
+382/382. smoke: 5/5. audit:gds-style: 26 (unchanged baseline).
+
 ## 2.4.201
 
 ### Reporting: ad-hoc report builder with scheduled delivery (issue #212)
