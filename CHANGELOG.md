@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.211
+
+### Security: two Tiptap advisories, found in a routine post-ship dependency re-audit
+
+`npm audit` surfaced `@tiptap/core`/`@tiptap/starter-kit` (a transitive dependency
+of `@sovereignsquad/gds-core@6.5.0`, never declared directly by this repo)
+flagged for GHSA-cp6q-959q-f8rh (moderate — a `mergeAttributes()`
+prototype-pollution bug that can turn an own `__proto__` key into
+inherited executable DOM attributes) and GHSA-j95f-988m-3j2f (high — a
+quadratic ReDoS in block/inline Markdown attribute parsing). Both patched
+versions (`>=3.30.4`/`>=3.30.5`) fall within gds-core's own already-declared
+`@tiptap/*: ^3.28.0` range, so `npm audit fix` (no `--force`) resolved
+cleanly to `3.31.3` — a lockfile-only re-resolution, no `package.json`
+change. Full quality gate re-verified clean. See
+`docs/STACK_AND_DEPENDENCIES.md`'s Dependency Audit section for full detail.
+
 ## 2.4.210
 
 ### API: Outbound webhooks — signing, delivery worker, retry/dead-letter, admin UI (issue #210 sub-issue #219)
