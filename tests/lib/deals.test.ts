@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { sanitizeDeal, sanitizeDeals, sumDeals } from '../../lib/deals';
+import type { ProductPriceLookup } from '../../lib/deals';
 
 const NOW = new Date('2026-07-27T00:00:00.000Z');
+
+function lookup(entries: Array<[string, { unitPrice: number; currency: 'USD' | 'EUR' }]>): ProductPriceLookup {
+  return new Map(entries);
+}
 
 describe('sanitizeDeal', () => {
   it('returns null for a missing/non-positive value', () => {
@@ -55,6 +60,94 @@ describe('sanitizeDeal', () => {
   it('omits an empty label rather than storing an empty string', () => {
     const deal = sanitizeDeal({ value: 1000, label: '   ' }, { now: NOW });
     expect(deal?.label).toBeUndefined();
+  });
+});
+
+describe('sanitizeDeal — catalog line items (issue 215)', () => {
+  it('computes value as the worked-example total from §12 (1×45,000 + 3×6,500)', () => {
+    const products = lookup([
+      ['sponsorship__annual_subscription', { unitPrice: 45000, currency: 'USD' }],
+      ['activation__per_event', { unitPrice: 7200, currency: 'USD' }],
+    ]);
+    const deal = sanitizeDeal({
+      currency: 'USD',
+      lineItems: [
+        { productId: 'sponsorship__annual_subscription', quantity: 1 },
+        { productId: 'activation__per_event', quantity: 3, unitPriceOverride: 6500 },
+      ],
+    }, { now: NOW, productLookup: products });
+    expect(deal?.value).toBe(64500);
+    expect(deal?.source).toBe('catalog_line_items');
+    expect(deal?.lineItems).toEqual([
+      { productId: 'sponsorship__annual_subscription', quantity: 1, unitPriceOverride: 45000 },
+      { productId: 'activation__per_event', quantity: 3, unitPriceOverride: 6500 },
+    ]);
+  });
+
+  it('drops a line item with an unknown productId, keeping the rest', () => {
+    const products = lookup([['known', { unitPrice: 100, currency: 'USD' }]]);
+    const deal = sanitizeDeal({
+      currency: 'USD',
+      lineItems: [{ productId: 'unknown', quantity: 1 }, { productId: 'known', quantity: 2 }],
+    }, { now: NOW, productLookup: products });
+    expect(deal?.lineItems).toEqual([{ productId: 'known', quantity: 2, unitPriceOverride: 100 }]);
+    expect(deal?.value).toBe(200);
+  });
+
+  it('drops a line item whose quantity is zero, negative, or non-numeric', () => {
+    const products = lookup([['p', { unitPrice: 100, currency: 'USD' }]]);
+    for (const quantity of [0, -1, 'abc', NaN]) {
+      const deal = sanitizeDeal({ currency: 'USD', lineItems: [{ productId: 'p', quantity }] }, { now: NOW, productLookup: products });
+      expect(deal).toBeNull();
+    }
+  });
+
+  it('drops a line item whose product currency does not match the deal currency, never converts it (§15 #4)', () => {
+    const products = lookup([['eur-product', { unitPrice: 100, currency: 'EUR' }]]);
+    const deal = sanitizeDeal({ currency: 'USD', lineItems: [{ productId: 'eur-product', quantity: 1 }] }, { now: NOW, productLookup: products });
+    expect(deal).toBeNull();
+  });
+
+  it('falls back to the bare value when every lineItems entry is invalid (§15 #8)', () => {
+    const products = lookup([]);
+    const deal = sanitizeDeal({ currency: 'USD', value: 5000, lineItems: [{ productId: 'nope', quantity: 1 }] }, { now: NOW, productLookup: products });
+    expect(deal?.value).toBe(5000);
+    expect(deal?.source).toBe('manual');
+    expect(deal?.lineItems).toBeUndefined();
+  });
+
+  it('treats lineItems: [] identically to omitted — falls back to the bare value', () => {
+    const products = lookup([]);
+    const deal = sanitizeDeal({ currency: 'USD', value: 3000, lineItems: [] }, { now: NOW, productLookup: products });
+    expect(deal?.value).toBe(3000);
+    expect(deal?.lineItems).toBeUndefined();
+  });
+
+  it('the resolved line-item total always wins over a sent value, never the other way around (§15 #9)', () => {
+    const products = lookup([['p', { unitPrice: 1000, currency: 'USD' }]]);
+    const deal = sanitizeDeal({ currency: 'USD', value: 999999, lineItems: [{ productId: 'p', quantity: 1 }] }, { now: NOW, productLookup: products });
+    expect(deal?.value).toBe(1000);
+  });
+
+  it('clamps a catalog-derived total to the same ABSOLUTE_CEILING as a manual deal', () => {
+    const products = lookup([['expensive', { unitPrice: 60_000_000, currency: 'USD' }]]);
+    const deal = sanitizeDeal({ currency: 'USD', lineItems: [{ productId: 'expensive', quantity: 1 }] }, { now: NOW, productLookup: products });
+    expect(deal?.value).toBe(50_000_000);
+  });
+
+  it('a deal without a productLookup ignores lineItems entirely and behaves exactly as before issue 215', () => {
+    const deal = sanitizeDeal({ value: 4000, lineItems: [{ productId: 'p', quantity: 1 }] }, { now: NOW });
+    expect(deal?.value).toBe(4000);
+    expect(deal?.source).toBe('manual');
+    expect(deal?.lineItems).toBeUndefined();
+  });
+
+  it('downgrades a catalog_line_items deal to manual when a later save no longer resolves any line items', () => {
+    const products = lookup([['p', { unitPrice: 100, currency: 'USD' }]]);
+    const original = sanitizeDeal({ currency: 'USD', lineItems: [{ productId: 'p', quantity: 1 }] }, { now: NOW, productLookup: products });
+    const edited = sanitizeDeal({ value: 500 }, { now: NOW, existing: original });
+    expect(edited?.source).toBe('manual');
+    expect(edited?.lineItems).toBeUndefined();
   });
 });
 

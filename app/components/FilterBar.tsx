@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ActionIcon, Drawer, Group, TextInput, TagsInput, Button, Pill, UnstyledButton, Indicator, Stack, Text } from '@mantine/core'
+import { ActionIcon, Drawer, Group, TextInput, TagsInput, Button, Pill, UnstyledButton, Indicator, Stack, Text, Switch } from '@mantine/core'
 import { IconFilter, IconDeviceFloppy } from '@tabler/icons-react'
 import { showNotification } from '@mantine/notifications'
 import type { LeadFilter, SavedFilter } from '@/lib/saved-filters'
@@ -29,9 +29,24 @@ type Props = {
 export function FilterBar({ brand, value, onChange }: Props) {
   const [opened, setOpened] = useState(false)
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([])
+  // Team visibility (issue: CRM Team visibility) — drives whether "My Team"
+  // is even offered: a non-manager should never see a control that would
+  // just re-show "My Leads" indistinguishably (the issue's own UX
+  // requirement). Piggybacks on the same brand-scoped endpoint
+  // app/detail.tsx already uses for its assignee picker.
+  const [callerManagesTeam, setCallerManagesTeam] = useState(false)
 
   useEffect(() => {
     setSavedFilters(loadSavedFilters(brand))
+  }, [brand])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/leads/assignable-users?brand=${encodeURIComponent(brand)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled) setCallerManagesTeam(Boolean(data?.callerManagesTeam)) })
+      .catch(() => { if (!cancelled) setCallerManagesTeam(false) })
+    return () => { cancelled = true }
   }, [brand])
 
   const saveCurrent = useCallback(() => {
@@ -57,7 +72,7 @@ export function FilterBar({ brand, value, onChange }: Props) {
     persistSavedFilters(brand, next)
   }, [brand, savedFilters])
 
-  const hasActiveFilter = Boolean(value.region || (value.industry && value.industry.trim()) || (value.tags && value.tags.length > 0))
+  const hasActiveFilter = Boolean(value.region || (value.industry && value.industry.trim()) || (value.tags && value.tags.length > 0) || value.assignedTo)
 
   return (
     <>
@@ -74,6 +89,32 @@ export function FilterBar({ brand, value, onChange }: Props) {
 
       <Drawer opened={opened} onClose={() => setOpened(false)} title="Filters" position="right" size="xs" padding="md">
         <Stack gap="md">
+          {/* Lead ownership (issue: CRM Lead ownership) — a single,
+              discoverable toggle rather than a hidden query param, per the
+              issue's own UX goal. 'me' is resolved server-side from the
+              caller's own session; this never sends a literal user id. */}
+          <Switch
+            label="My Leads"
+            description="Show only leads assigned to me"
+            aria-label="Filter to leads assigned to me"
+            checked={value.assignedTo === 'me'}
+            onChange={(e) => onChange({ ...value, assignedTo: e.currentTarget.checked ? 'me' : undefined })}
+          />
+          {/* Team visibility (issue: CRM Team visibility) — only rendered
+              for a user who actually manages at least one team in this
+              brand; mutually exclusive with "My Leads" above via the same
+              single-valued LeadFilter.assignedTo field (turning this on
+              always overwrites it to 'team', which naturally turns "My
+              Leads" off on the next render, and vice versa). */}
+          {callerManagesTeam && (
+            <Switch
+              label="My Team"
+              description="Show leads assigned to me or a member of a team I manage"
+              aria-label="Filter to leads assigned to me or a team member I manage"
+              checked={value.assignedTo === 'team'}
+              onChange={(e) => onChange({ ...value, assignedTo: e.currentTarget.checked ? 'team' : undefined })}
+            />
+          )}
           <TextInput
             label="Region"
             aria-label="Filter by region"

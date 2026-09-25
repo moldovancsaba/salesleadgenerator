@@ -359,3 +359,99 @@ describe('POST /api/webhooks/inbound-email', () => {
     });
   });
 });
+
+// Issue #205 — this same endpoint's Resend webhook subscription is extended
+// to also cover outbound delivery-lifecycle events (email.delivered/opened/
+// clicked/bounced/complained), routed to a dedicated handler that updates
+// outreach_logs by resendEmailId — never a new activityLog row per event
+// (that would spam the Activity timeline on repeat opens).
+describe('POST /api/webhooks/inbound-email — outbound delivery events (issue #205)', () => {
+  async function outreachLogsDb() {
+    const { MongoClient } = await import('mongodb');
+    const client = new MongoClient(process.env.MONGODB_URI!);
+    await client.connect();
+    return client.db();
+  }
+
+  async function seedOutreachLog(resendEmailId: string): Promise<string> {
+    const db = await outreachLogsDb();
+    const result = await db.collection('outreach_logs').insertOne({
+      tenantId: 'default', leadId: 'lead-delivery-1', brand: 'cogmap', channel: 'email',
+      subject: 'Hi', body: 'Hi', routingAllowed: true, routingReason: null,
+      createdAt: new Date(), sendAttempted: true, resendEmailId, sentAutomatically: false,
+    });
+    return result.insertedId.toString();
+  }
+
+  it('updates deliveryStatus on a matching row for email.delivered', async () => {
+    const emailId = `email-delivered-${Math.random().toString(36).slice(2)}`;
+    await seedOutreachLog(emailId);
+    const req = await buildRequest({ type: 'email.delivered', created_at: new Date().toISOString(), data: { email_id: emailId } });
+    const res = await inboundPOST(req);
+    expect(res.status).toBe(200);
+
+    const db = await outreachLogsDb();
+    const log = await db.collection('outreach_logs').findOne({ resendEmailId: emailId });
+    expect(log?.deliveryStatus).toBe('delivered');
+    expect(log?.deliveryStatusUpdatedAt).toBeTruthy();
+  });
+
+  it('increments openCount on email.opened, clickCount on email.clicked', async () => {
+    const emailId = `email-engaged-${Math.random().toString(36).slice(2)}`;
+    await seedOutreachLog(emailId);
+
+    await inboundPOST(await buildRequest({ type: 'email.opened', created_at: new Date().toISOString(), data: { email_id: emailId } }));
+    await inboundPOST(await buildRequest({ type: 'email.clicked', created_at: new Date().toISOString(), data: { email_id: emailId } }));
+
+    const db = await outreachLogsDb();
+    const log = await db.collection('outreach_logs').findOne({ resendEmailId: emailId });
+    expect(log?.deliveryStatus).toBe('clicked');
+    expect(log?.openCount).toBe(1);
+    expect(log?.clickCount).toBe(1);
+  });
+
+  it('does not double-increment openCount on a retried (duplicate svix-id) email.opened event', async () => {
+    const emailId = `email-retry-${Math.random().toString(36).slice(2)}`;
+    await seedOutreachLog(emailId);
+
+    const payload = JSON.stringify({ type: 'email.opened', created_at: new Date().toISOString(), data: { email_id: emailId } });
+    const wh = new Webhook(TEST_SECRET);
+    const timestamp = new Date();
+    const msgId = `msg_retry_${Math.random().toString(36).slice(2)}`;
+    const signature = wh.sign(msgId, timestamp, payload);
+    const headers = { 'svix-id': msgId, 'svix-timestamp': String(Math.floor(timestamp.getTime() / 1000)), 'svix-signature': signature, 'Content-Type': 'application/json' };
+
+    const { NextRequest } = await import('next/server');
+    const firstReq = new NextRequest('http://localhost/api/webhooks/inbound-email', { method: 'POST', body: payload, headers });
+    const firstRes = await inboundPOST(firstReq);
+    expect(firstRes.status).toBe(200);
+
+    // Same svix-id (a genuine Resend retry, at-least-once delivery) — must
+    // not increment openCount a second time.
+    const secondReq = new NextRequest('http://localhost/api/webhooks/inbound-email', { method: 'POST', body: payload, headers });
+    const secondRes = await inboundPOST(secondReq);
+    expect(secondRes.status).toBe(200);
+    const secondBody = await secondRes.json();
+    expect(secondBody.duplicate).toBe(true);
+
+    const db = await outreachLogsDb();
+    const log = await db.collection('outreach_logs').findOne({ resendEmailId: emailId });
+    expect(log?.openCount).toBe(1);
+  });
+
+  it('no-ops cleanly for a delivery event whose email_id matches no outreach_logs row', async () => {
+    const req = await buildRequest({ type: 'email.bounced', created_at: new Date().toISOString(), data: { email_id: 'email-with-no-row' } });
+    const res = await inboundPOST(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+
+  it('still acknowledges (never errors) an event type this endpoint does not model', async () => {
+    const req = await buildRequest({ type: 'email.scheduled', created_at: new Date().toISOString(), data: {} });
+    const res = await inboundPOST(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ignored).toBe(true);
+  });
+});

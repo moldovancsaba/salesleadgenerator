@@ -2,6 +2,7 @@
 
 import { MantineProvider, createTheme } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
+import { CommandRegistryProvider } from "@sovereignsquad/gds-core/client";
 import { AuthProvider } from "./AuthProvider";
 import { TourProvider } from "./TourProvider";
 
@@ -42,6 +43,21 @@ const theme = createTheme({
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  // Command palette (issue #213). CommandRegistryProvider is mounted
+  // unconditionally here — deliberately, not gated on desktop/pointer type
+  // at the provider level — because toggling an ancestor provider on/off
+  // after initial mount (isFinePointer only resolves client-side, in an
+  // effect, after SSR's own "no window" default) would remount this entire
+  // subtree (AuthProvider/TourProvider/every page) the moment the media
+  // query first resolves, discarding session/tour state. Desktop-only
+  // scoping (§6's own explicit non-goal: no mobile support) is instead
+  // enforced one level down, per §8's own explicitly sanctioned
+  // alternative ("only call registerCommands... when that media query
+  // matches"): every command-registering component (e.g. the sales
+  // board's own registration effect) checks useIsFinePointer() itself and
+  // registers an empty command list off-desktop, so nothing is ever
+  // selectable there even though GDS's own Cmd/Ctrl+K listener technically
+  // stays attached — see docs/ARCHITECTURE.md for the full reasoning.
   return (
     <MantineProvider theme={theme}>
       {/* @mantine/notifications' showNotification() (app/detail.tsx,
@@ -63,9 +79,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
           itself an ancestor of everything else, including AppNav, so both
           the auto-trigger and the "Take the tour" replay entry point can
           reach it via useTour(). */}
-      <AuthProvider>
-        <TourProvider>{children}</TourProvider>
-      </AuthProvider>
+      <CommandRegistryProvider>
+        <AuthProvider>
+          <TourProvider>{children}</TourProvider>
+        </AuthProvider>
+      </CommandRegistryProvider>
     </MantineProvider>
   );
 }

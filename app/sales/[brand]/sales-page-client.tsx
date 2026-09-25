@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Group, Text, Paper, Loader, Container, Box, TextInput, UnstyledButton, ActionIcon, Tooltip } from '@mantine/core';
 import { IconChecklist, IconX, IconPlus } from '@tabler/icons-react';
+import { useCommandLauncher } from '@sovereignsquad/gds-core/client';
+import type { CommandDef } from '@sovereignsquad/gds-core/client';
 import type { Lead } from '@/app/types';
 import type { CurrencyCode } from '@/app/lib/brand';
 import { KanbanBoard } from '@/app/kanban';
@@ -16,6 +18,9 @@ import { AddLeadModal } from '@/app/components/AddLeadModal';
 import { BACKLOG_COLUMN_DEF } from '@/app/constants';
 import type { LeadFilter } from '@/lib/saved-filters';
 import { TOUR_SELECTOR } from '@/app/lib/tour/selectors';
+import { useAuth } from '@/app/components/AuthProvider';
+import { useIsFinePointer } from '@/app/lib/use-is-fine-pointer';
+import { buildSalesBoardCommandDescriptors } from '@/lib/command-palette-commands';
 
 // Issue #126 — 'backlog' mounts the exact same KanbanBoard component as
 // 'kanban', just with a single-column columnDefs (BACKLOG_COLUMN_DEF) —
@@ -93,6 +98,11 @@ export function SalesPageClient({ brand, currency }: Props) {
   const [searchOpen, setSearchOpen] = useState(false)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const searchBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Command palette (issue #213) — leads currently loaded into the kanban
+  // board's own in-memory columnStates, lifted via KanbanBoard's
+  // onVisibleLeadsChange. Deliberately not a live /api/search call — GDS's
+  // CommandPalette exposes no query-change hook to back one.
+  const [visibleLeads, setVisibleLeads] = useState<Lead[]>([])
 
   // Load board metadata (header, counts, forecast) from DB
   useEffect(() => {
@@ -128,6 +138,7 @@ export function SalesPageClient({ brand, currency }: Props) {
         if (leadFilter.region) url.searchParams.set('region', leadFilter.region)
         if (leadFilter.industry?.trim()) url.searchParams.set('industry', leadFilter.industry.trim())
         if (leadFilter.tags && leadFilter.tags.length > 0) url.searchParams.set('tags', leadFilter.tags.join(','))
+        if (leadFilter.assignedTo) url.searchParams.set('assignedTo', leadFilter.assignedTo)
 
         const res = await fetch(url.toString())
         if (!res.ok) throw new Error(`${res.status}`)
@@ -143,7 +154,7 @@ export function SalesPageClient({ brand, currency }: Props) {
       .catch(console.error)
       .finally(() => { if (!cancelled) setTableLoading(false) })
     return () => { cancelled = true }
-  }, [view, brand, leadFilter.region, leadFilter.industry, leadFilter.tags, refreshKey])
+  }, [view, brand, leadFilter.region, leadFilter.industry, leadFilter.tags, leadFilter.assignedTo, refreshKey])
 
   const handleAction = useCallback(async (leadId: string, action: string, payload?: any) => {
     try {
@@ -244,6 +255,55 @@ export function SalesPageClient({ brand, currency }: Props) {
     // dropdown unmounts (blur fires before click otherwise).
     searchBlurTimeoutRef.current = setTimeout(() => setSearchOpen(false), 150)
   }, [])
+
+  // Command palette (issue #213) — single assembler for this whole page,
+  // per §8's own required convention: registerCommands() replaces the
+  // list rather than merging, so exactly one effect must own the full
+  // command set here, and must clear it on unmount (§15's own flagged
+  // edge case) so navigating away never leaves stale, page-scoped
+  // commands bound to a stale closure.
+  const { registerCommands } = useCommandLauncher()
+  const { accessibleBrands, brandLabels } = useAuth()
+  const isFinePointer = useIsFinePointer()
+
+  useEffect(() => {
+    if (!isFinePointer) {
+      registerCommands([])
+      return
+    }
+
+    const descriptors = buildSalesBoardCommandDescriptors({
+      accessibleBrands,
+      brandLabels,
+      currentBrand: brand,
+      loadedLeads: visibleLeads.map((l) => ({ _id: l._id, entity_name: l.entity_name, industry: l.industry, sport_or_sector: l.sport_or_sector })),
+    })
+
+    const commands: CommandDef[] = descriptors.map((d) => {
+      switch (d.kind) {
+        case 'add-lead':
+          return { id: 'add-lead', label: 'Add Lead', group: 'Actions', run: () => setAddLeadOpen(true) }
+        case 'toggle-select-mode':
+          return { id: 'toggle-select-mode', label: 'Toggle Select Mode', group: 'Actions', run: () => setSelectMode((prev) => !prev) }
+        case 'switch-brand':
+          return { id: `switch-brand:${d.brand}`, label: `Switch to ${d.label}`, group: 'Organizations', run: () => router.push(`/sales/${d.brand}`) }
+        case 'jump-to-lead':
+          return {
+            id: `lead:${d.leadId}`,
+            label: d.label,
+            group: 'Leads',
+            keywords: d.keywords,
+            run: () => {
+              const lead = visibleLeads.find((l) => l._id === d.leadId)
+              if (lead) setSelectedLead(lead)
+            },
+          }
+      }
+    })
+
+    registerCommands(commands)
+    return () => registerCommands([])
+  }, [isFinePointer, registerCommands, accessibleBrands, brandLabels, brand, visibleLeads, router])
 
   return (
     <div data-theme="default" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
@@ -351,6 +411,7 @@ export function SalesPageClient({ brand, currency }: Props) {
             filter={leadFilter}
             selectMode={selectMode}
             onAction={handleAction}
+            onVisibleLeadsChange={setVisibleLeads}
           />
         )}
 

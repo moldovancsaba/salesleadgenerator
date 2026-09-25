@@ -137,6 +137,22 @@ describe('validatePatchPayload', () => {
     const result = validatePatchPayload({ action: 'RESCAN_TECH' }, 'cogmap', []);
     expect(result.valid).toBe(true);
   });
+
+  it('allows SET_FORECAST_CATEGORY with a valid category (issue 204)', () => {
+    const result = validatePatchPayload({ action: 'SET_FORECAST_CATEGORY', forecastCategory: 'commit' }, 'cogmap', []);
+    expect(result.valid).toBe(true);
+  });
+
+  it('allows SET_FORECAST_CATEGORY with null to clear an override', () => {
+    const result = validatePatchPayload({ action: 'SET_FORECAST_CATEGORY', forecastCategory: null }, 'cogmap', []);
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects SET_FORECAST_CATEGORY with an invalid category', () => {
+    const result = validatePatchPayload({ action: 'SET_FORECAST_CATEGORY', forecastCategory: 'maybe' }, 'cogmap', []);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('forecastCategory'))).toBe(true);
+  });
 });
 
 // Regression coverage: MODIFY previously called validateLeadPayload without

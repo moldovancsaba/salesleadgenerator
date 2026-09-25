@@ -7,7 +7,7 @@ import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Load
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
-  IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconCompass,
+  IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconBuildings, IconCompass, IconUsersGroup, IconBolt, IconShoppingCart, IconReportAnalytics, IconKey,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -56,6 +56,12 @@ function currentBrandFromPath(pathname: string, knownBrands: string[]): Brand | 
   if (cadencesMatch && knownBrandSet.has(cadencesMatch[1])) return cadencesMatch[1] as Brand;
   const contactsMatch = pathname.match(/^\/contacts\/([^/]+)/);
   if (contactsMatch && knownBrandSet.has(contactsMatch[1])) return contactsMatch[1] as Brand;
+  const accountsMatch = pathname.match(/^\/accounts\/([^/]+)/);
+  if (accountsMatch && knownBrandSet.has(accountsMatch[1])) return accountsMatch[1] as Brand;
+  const productsMatch = pathname.match(/^\/admin\/products\/([^/]+)/);
+  if (productsMatch && knownBrandSet.has(productsMatch[1])) return productsMatch[1] as Brand;
+  const reportsMatch = pathname.match(/^\/reports\/([^/]+)/);
+  if (reportsMatch && knownBrandSet.has(reportsMatch[1])) return reportsMatch[1] as Brand;
   return null;
 }
 
@@ -299,10 +305,42 @@ function AppNavInner() {
                   />
                   <NavLink
                     component={Link}
+                    href={`/automation/${effectiveBrand}`}
+                    label="Automation"
+                    leftSection={<IconBolt size={18} />}
+                    active={pathname === `/automation/${effectiveBrand}`}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
                     href={`/contacts/${effectiveBrand}`}
                     label="Contacts"
                     leftSection={<IconAddressBook size={18} />}
                     active={pathname === `/contacts/${effectiveBrand}`}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
+                    href={`/accounts/${effectiveBrand}`}
+                    label="Accounts"
+                    leftSection={<IconBuildings size={18} />}
+                    active={pathname === `/accounts/${effectiveBrand}`}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
+                    href={`/admin/products/${effectiveBrand}`}
+                    label="Product Catalog"
+                    leftSection={<IconShoppingCart size={18} />}
+                    active={pathname === `/admin/products/${effectiveBrand}`}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
+                    href={`/reports/${effectiveBrand}`}
+                    label="Reports"
+                    leftSection={<IconReportAnalytics size={18} />}
+                    active={pathname === `/reports/${effectiveBrand}`}
                     onClick={close}
                   />
                 </>
@@ -340,10 +378,26 @@ function AppNavInner() {
                   />
                   <NavLink
                     component={Link}
+                    href="/admin/teams"
+                    label="Teams"
+                    leftSection={<IconUsersGroup size={18} />}
+                    active={pathname === '/admin/teams'}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
                     href="/admin/duplicates"
                     label="Duplicate Review"
                     leftSection={<IconCopyCheck size={18} />}
                     active={pathname === '/admin/duplicates'}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
+                    href="/admin/api-keys"
+                    label="API Keys"
+                    leftSection={<IconKey size={18} />}
+                    active={pathname === '/admin/api-keys'}
                     onClick={close}
                   />
                 </>

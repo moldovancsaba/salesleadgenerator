@@ -14,6 +14,37 @@ import type { FieldVerification } from './field-verifications';
 
 export type ContactInput = Record<string, any>;
 
+// Buying-committee role (issue #206) — a closed classification distinct
+// from the free-text `role` field ("Primary buyer"). `isDecisionMaker`
+// remains present on every contact, permanently derived from this field
+// (see deriveIsDecisionMaker() below) rather than replaced, for backward
+// compatibility with every existing reader and the research agent's
+// documented write contract (docs/LEAD_ENRICHMENT_GUIDE.md).
+export type BuyingRole = 'economic_buyer' | 'champion' | 'influencer' | 'blocker' | 'decision_maker' | 'unknown';
+
+export const BUYING_ROLES: BuyingRole[] = ['economic_buyer', 'champion', 'influencer', 'blocker', 'decision_maker', 'unknown'];
+
+export function isValidBuyingRole(value: unknown): value is BuyingRole {
+  return typeof value === 'string' && (BUYING_ROLES as string[]).includes(value);
+}
+
+// Precedence (issue #206 §10/§11): an explicit, valid buyingRole always
+// wins over isDecisionMaker in the same payload (avoids storing a
+// self-contradictory pair); a legacy isDecisionMaker:true payload with no
+// buyingRole maps to 'decision_maker' so a pre-existing agent integration
+// that has only ever sent isDecisionMaker keeps working unchanged; anything
+// else defaults to 'unknown' — an honest "never classified" state, distinct
+// from a contact explicitly reviewed and found to have no identifiable role.
+export function resolveBuyingRole(c: ContactInput): BuyingRole {
+  if (isValidBuyingRole(c?.buyingRole)) return c.buyingRole;
+  if (c?.isDecisionMaker === true) return 'decision_maker';
+  return 'unknown';
+}
+
+export function deriveIsDecisionMaker(buyingRole: BuyingRole): boolean {
+  return buyingRole === 'decision_maker' || buyingRole === 'economic_buyer';
+}
+
 export type NormalizedContact = {
   name: string;
   title: string;
@@ -21,6 +52,7 @@ export type NormalizedContact = {
   phone: string;
   linkedin: string;
   role: string;
+  buyingRole: BuyingRole;
   isDecisionMaker: boolean;
   // ISO timestamp of the last time this contact's verifiable fields (email,
   // phone, linkedin, title, role) were confirmed accurate — see issue #66.
@@ -122,6 +154,7 @@ export function normalizeContact(c: ContactInput, options?: NormalizeContactOpti
   const verify = options?.verify === true;
   const now = options?.now ?? new Date();
   const { seniorityTier, department } = normalizeTitle(title);
+  const buyingRole = resolveBuyingRole(c);
   return {
     name: typeof c?.name === 'string' ? toNameCase(decodeHtmlEntities(c.name.trim())) : '',
     title,
@@ -129,7 +162,8 @@ export function normalizeContact(c: ContactInput, options?: NormalizeContactOpti
     phone: rawPhone ? normalizePhone(rawPhone) : '',
     linkedin: typeof c?.linkedin === 'string' ? c.linkedin.trim() : '',
     role: typeof c?.role === 'string' ? decodeHtmlEntities(c.role.trim()) : '',
-    isDecisionMaker: c?.isDecisionMaker === true,
+    buyingRole,
+    isDecisionMaker: deriveIsDecisionMaker(buyingRole),
     seniorityTier,
     department,
     lastVerifiedAt: verify ? now.toISOString() : (typeof c?.lastVerifiedAt === 'string' ? c.lastVerifiedAt : undefined),
@@ -215,8 +249,23 @@ export function dedupeContacts(
     const mergedVerifications = existing.fieldVerifications || c.fieldVerifications
       ? normalizeFieldVerifications([...(existing.fieldVerifications || []), ...(c.fieldVerifications || [])])
       : undefined;
-    if (merged !== existing.lastVerifiedAt || mergedVerifications !== existing.fieldVerifications) {
-      deduped[existingIndex] = { ...existing, lastVerifiedAt: merged, fieldVerifications: mergedVerifications };
+    // Issue #206 — a duplicate's buyingRole only ever upgrades an 'unknown'
+    // survivor, never downgrades an already-classified one back to
+    // 'unknown': a later, lower-information duplicate must not silently
+    // erase an earlier pass's real classification.
+    const mergedBuyingRole = existing.buyingRole === 'unknown' && c.buyingRole !== 'unknown' ? c.buyingRole : existing.buyingRole;
+    if (
+      merged !== existing.lastVerifiedAt
+      || mergedVerifications !== existing.fieldVerifications
+      || mergedBuyingRole !== existing.buyingRole
+    ) {
+      deduped[existingIndex] = {
+        ...existing,
+        lastVerifiedAt: merged,
+        fieldVerifications: mergedVerifications,
+        buyingRole: mergedBuyingRole,
+        isDecisionMaker: deriveIsDecisionMaker(mergedBuyingRole),
+      };
     }
   }
 
@@ -270,6 +319,7 @@ export type ContactDirectoryEntry = {
   title: string;
   email: string;
   phone: string;
+  buyingRole: BuyingRole;
   isDecisionMaker: boolean;
   leads: Array<{ leadId: string; entity_name: string }>;
 };
@@ -311,6 +361,7 @@ export function aggregateContactsAcrossLeads(
         title: c.title,
         email: c.email,
         phone: c.phone,
+        buyingRole: c.buyingRole,
         isDecisionMaker: c.isDecisionMaker,
         leads: [{ leadId, entity_name: entityName }],
       });

@@ -10,6 +10,8 @@ import { computeCoverage } from '../../lib/pipeline-coverage'
 import type { RevenueTargetInput } from '../../lib/pipeline-coverage'
 import { getForecastCalibrationSettings, mergeCalibratedWeights } from '../../lib/win-rate-calibration'
 import { getCachedWinRates } from './win-rate-store'
+import { getForecastCategoryWeights, computeCategoryForecast } from '../../lib/forecast-category'
+import type { ForecastCategory } from '../../lib/forecast-category'
 
 // Coverage is looked up under the exact same {brand, tenantId} key
 // app/api/sales-settings/[brand]/route.ts's own GET/PUT already use — not
@@ -28,7 +30,14 @@ async function fetchRevenueTarget(db: Db, brand: string, tenantId: string): Prom
 
 const PIPELINE_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST']
 
-type PerLeadValueDoc = { _id: any; entity_name?: string; kanbanColumn?: string; value?: number }
+type PerLeadValueDoc = {
+  _id: any
+  entity_name?: string
+  kanbanColumn?: string
+  value?: number
+  forecastCategory?: string | null
+  forecastCategoryOverriddenBy?: string | null
+}
 
 // Attaches per-column concentrationRisk (raw basis) to each pipeline[col]
 // entry, and returns the brand-level concentrationRisk (weighted basis —
@@ -108,7 +117,8 @@ async function computeDealSizeBandForecast(
   probabilitySources: Record<string, string>,
   calibrationInfo: { mode: string; lastComputedAt: string | null },
   revenueExpr: Record<string, any>,
-  currency: CurrencyCode
+  currency: CurrencyCode,
+  categoryWeights: Record<ForecastCategory, number>
 ): Promise<Record<string, any>> {
   const pipelineForecast = await collection.aggregate([
     { $match: revenueFilter },
@@ -169,12 +179,13 @@ async function computeDealSizeBandForecast(
 
   const perLeadValues = await collection.aggregate<PerLeadValueDoc>([
     { $match: revenueFilter },
-    { $project: { entity_name: 1, kanbanColumn: 1, value: revenueExpr } },
+    { $project: { entity_name: 1, kanbanColumn: 1, value: revenueExpr, forecastCategory: 1, forecastCategoryOverriddenBy: 1 } },
   ]).toArray()
   const concentrationSettings = await getConcentrationRiskSettings(db)
   const brandConcentrationRisk = attachConcentrationRisk(perLeadValues, pipeline, totalWeighted, weightsUsed, concentrationSettings)
   const revenueTarget = await fetchRevenueTarget(db, brand, tenantId)
   const coverage = computeCoverage(revenueTarget, totalWeighted, currency)
+  const categoryForecast = computeCategoryForecast(perLeadValues, categoryWeights, weightsUsed)
 
   return {
     pipeline,
@@ -182,6 +193,9 @@ async function computeDealSizeBandForecast(
     concentrationRisk: brandConcentrationRisk,
     coverage,
     calibration: calibrationInfo,
+    categoryWeightedRevenue: categoryForecast.categoryWeightedRevenue,
+    byCategory: categoryForecast.byCategory,
+    categoryWeightsUsed: categoryForecast.categoryWeightsUsed,
     byTier: pipelineForecast.reduce((acc: Record<string, { leads: number; participants: number; revenue: number }>, item: any) => {
       acc[item._id || 'UNSET'] = { leads: item.leads, participants: item.participants, revenue: item.revenue }
       return acc
@@ -235,6 +249,7 @@ export async function computeForecast(db: Db, brand: Brand, tenantId: string): P
 
   let forecast: Record<string, any> | null = null
   const staticWeights = await getPipelineWeights(db)
+  const categoryWeights = await getForecastCategoryWeights(db)
   const calibrationSettings = await getForecastCalibrationSettings(db)
   // Cached-read only — recompute never happens on this hot path (issue #56).
   // GET /api/win-rates is the sole lazy-recompute trigger; POST
@@ -279,7 +294,7 @@ export async function computeForecast(db: Db, brand: Brand, tenantId: string): P
   // why CogMap and DVSC share it.
   if (config.forecastModel === 'dealSizeBand') {
     forecast = await computeDealSizeBandForecast(
-      db, collection, brand, tenantId, revenueFilter, weightsUsed, probabilitySources, calibrationInfo, REVENUE_EXPR, config.currency
+      db, collection, brand, tenantId, revenueFilter, weightsUsed, probabilitySources, calibrationInfo, REVENUE_EXPR, config.currency, categoryWeights
     )
   }
 
@@ -402,6 +417,8 @@ export async function computeForecast(db: Db, brand: Brand, tenantId: string): P
         $project: {
           entity_name: 1,
           kanbanColumn: 1,
+          forecastCategory: 1,
+          forecastCategoryOverriddenBy: 1,
           value: {
             $sum: {
               $map: {
@@ -428,6 +445,7 @@ export async function computeForecast(db: Db, brand: Brand, tenantId: string): P
     const brandConcentrationRiskSeyu = attachConcentrationRisk(perLeadValuesSeyu, pipelineSeyu, totalWeightedSeyu, weightsUsed, concentrationSettingsSeyu)
     const revenueTargetSeyu = await fetchRevenueTarget(db, brand, tenantId)
     const coverageSeyu = computeCoverage(revenueTargetSeyu, totalWeightedSeyu, config.currency)
+    const categoryForecastSeyu = computeCategoryForecast(perLeadValuesSeyu, categoryWeights, weightsUsed)
 
     forecast = {
       byCompany: annualizedByCompany,
@@ -438,6 +456,9 @@ export async function computeForecast(db: Db, brand: Brand, tenantId: string): P
       coverage: coverageSeyu,
       calibration: calibrationInfo,
       currency: 'EUR',
+      categoryWeightedRevenue: categoryForecastSeyu.categoryWeightedRevenue,
+      byCategory: categoryForecastSeyu.byCategory,
+      categoryWeightsUsed: categoryForecastSeyu.categoryWeightsUsed,
     }
   }
 

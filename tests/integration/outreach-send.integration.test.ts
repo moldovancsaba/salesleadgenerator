@@ -29,6 +29,7 @@ let db: Db;
 // the URI is set, the same pattern every route-handler integration test
 // in this repo already uses for exactly this reason.
 let sendAutomatedEmail: typeof import('../../lib/outreach-send').sendAutomatedEmail;
+let sendManualEmail: typeof import('../../lib/outreach-send').sendManualEmail;
 
 beforeAll(async () => {
   mongod = await startTestMongo();
@@ -36,7 +37,9 @@ beforeAll(async () => {
   const client = new MongoClient(process.env.MONGODB_URI!);
   await client.connect();
   db = client.db();
-  sendAutomatedEmail = (await import('../../lib/outreach-send')).sendAutomatedEmail;
+  const outreachSendMod = await import('../../lib/outreach-send');
+  sendAutomatedEmail = outreachSendMod.sendAutomatedEmail;
+  sendManualEmail = outreachSendMod.sendManualEmail;
 }, 60000);
 
 afterAll(async () => {
@@ -254,5 +257,117 @@ describe('sendAutomatedEmail — from-address resolution (issue #150, updated #1
 
     expect(getCaptured()?.body.from).toBe('Seyu Sales <sales@seyu-verified.example>');
     await db.collection('brands').deleteMany({});
+  });
+});
+
+function manualContext(overrides: Partial<{ brand: string; tenantId: string; idempotencyKey: string }> = {}) {
+  return { brand: 'cogmap', tenantId: 'default', idempotencyKey: 'client-key-1', ...overrides };
+}
+
+async function latestActivityLogEntry(leadId: string) {
+  return db.collection('activityLog').findOne({ leadId }, { sort: { createdAt: -1 } });
+}
+
+// Issue #205 — sendManualEmail(), the new rep-initiated send path, sharing
+// dispatchOutreachEmail()'s core with sendAutomatedEmail() above. Every
+// scenario the issue's own Acceptance Criteria names is covered here, same
+// mocked-fetch convention as the cadence tests above (never a real network
+// call — this sandbox has no RESEND_API_KEY configured anyway).
+describe('sendManualEmail — successful send writes outreach_logs + activityLog (issue 205)', () => {
+  it('writes an outreach_logs row with sendAttempted/resendEmailId/activityLogWritten, and a matching activityLog row', async () => {
+    const getCaptured = mockSendApi({ id: 'resend-manual-id-1' });
+    const lead = makeLead();
+
+    const result = await sendManualEmail(db, lead, makeTemplate(), manualContext());
+
+    expect(result.sent).toBe(true);
+    expect(result.resendEmailId).toBe('resend-manual-id-1');
+
+    const log = await latestLog(lead._id);
+    expect(log?.sendAttempted).toBe(true);
+    expect(log?.resendEmailId).toBe('resend-manual-id-1');
+    expect(log?.sentAutomatically).toBe(false);
+    expect(log?.cadenceId).toBeFalsy();
+    expect(log?.activityLogWritten).toBe(true);
+
+    const activityEntry = await latestActivityLogEntry(lead._id);
+    expect(activityEntry).toBeTruthy();
+    expect(activityEntry?.type).toBe('email-outbound');
+    expect(activityEntry?.direction).toBe('outbound');
+    expect(activityEntry?.source).toBe('manual');
+    expect(activityEntry?.externalId).toBe('resend-manual-id-1');
+
+    const captured = getCaptured();
+    expect(captured?.body.to).toBe('jamie@acme-academy.com');
+  });
+
+  it('constructs the idempotency key as manual-<leadId>-<clientIdempotencyKey>', async () => {
+    mockSendApi({ id: 'resend-manual-id-2' });
+    const lead = makeLead();
+    const getCaptured = mockSendApi({ id: 'resend-manual-id-2' });
+
+    await sendManualEmail(db, lead, makeTemplate(), manualContext({ idempotencyKey: 'client-uuid-xyz' }));
+
+    expect(getCaptured()?.headers['idempotency-key']).toBe(`manual-${lead._id}-client-uuid-xyz`);
+  });
+
+  it('a routing-blocked manual send writes outreach_logs (sendAttempted:true) but no activityLog row', async () => {
+    mockSendApi({ id: 'should-not-be-called' });
+    const lead = makeLead({ contacts: [{ name: 'No Email Guy', isDecisionMaker: true }] });
+
+    const result = await sendManualEmail(db, lead, makeTemplate(), manualContext());
+
+    expect(result.sent).toBe(false);
+    const log = await latestLog(lead._id);
+    expect(log?.sendAttempted).toBe(true);
+    expect(log?.routingAllowed).toBe(false);
+    expect(log?.activityLogWritten).toBeFalsy();
+
+    const activityEntry = await latestActivityLogEntry(lead._id);
+    expect(activityEntry).toBeNull();
+  });
+
+  it('a Resend-side rejection writes outreach_logs but no activityLog row', async () => {
+    mockSendApi({ errorStatus: 422, message: 'recipient is on suppression list' });
+    const lead = makeLead();
+
+    const result = await sendManualEmail(db, lead, makeTemplate(), manualContext());
+
+    expect(result.sent).toBe(false);
+    expect(result.reason).toContain('resend rejected');
+    const log = await latestLog(lead._id);
+    expect(log?.sendAttempted).toBe(true);
+    expect(log?.activityLogWritten).toBeFalsy();
+  });
+
+  it('does not double-write activityLog on a retried call with the same resendEmailId', async () => {
+    mockSendApi({ id: 'resend-manual-retry-id' });
+    const lead = makeLead();
+
+    await sendManualEmail(db, lead, makeTemplate(), manualContext({ idempotencyKey: 'retry-key' }));
+    mockSendApi({ id: 'resend-manual-retry-id' }); // Resend itself would dedupe and return the same id again
+    await sendManualEmail(db, lead, makeTemplate(), manualContext({ idempotencyKey: 'retry-key' }));
+
+    const count = await db.collection('activityLog').countDocuments({ leadId: lead._id, externalId: 'resend-manual-retry-id' });
+    expect(count).toBe(1);
+  });
+});
+
+// Regression: sendAutomatedEmail()'s cadence-path behavior (idempotency key,
+// cadenceId/stepIndex fields, cron call site) must be unchanged by the
+// dispatchOutreachEmail() refactor — the describe blocks above this one
+// already exercise every cadence scenario unmodified; this adds the one new
+// assertion specific to the refactor itself.
+describe('sendAutomatedEmail — unaffected by the dispatchOutreachEmail() refactor (issue 205)', () => {
+  it('a cadence send never writes activityLogWritten or an activityLog row', async () => {
+    mockSendApi({ id: 'resend-cadence-unaffected-id' });
+    const lead = makeLead();
+
+    await sendAutomatedEmail(db, lead, makeTemplate(), context());
+
+    const log = await latestLog(lead._id);
+    expect(log?.activityLogWritten).toBeFalsy();
+    const activityEntry = await latestActivityLogEntry(lead._id);
+    expect(activityEntry).toBeNull();
   });
 });

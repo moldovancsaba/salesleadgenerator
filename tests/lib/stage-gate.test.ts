@@ -77,6 +77,24 @@ describe('checkStageGate', () => {
     });
     expect(result.missing).toEqual(['a contact']);
   });
+
+  // Issue #206 regression guard — buyingRole is a purely additive contact
+  // classification; it must never re-couple this gate to any particular
+  // contact role, the same "any contact satisfies it" behavior the
+  // isDecisionMaker test above already locks in.
+  it('is unaffected by buyingRole — any contact still satisfies the gate regardless of its role', () => {
+    const blockerOnly = checkStageGate('ENGAGED', {
+      contacts: [{ buyingRole: 'blocker', isDecisionMaker: false }],
+      value_proposition: 'Cognitive performance training',
+    });
+    expect(blockerOnly).toEqual({ allowed: true, missing: [] });
+
+    const unknownOnly = checkStageGate('PROPOSAL', {
+      contacts: [{ buyingRole: 'unknown' }],
+      value_proposition: 'Cognitive performance training',
+    });
+    expect(unknownOnly.allowed).toBe(true);
+  });
 });
 
 describe('formatStageGateError', () => {

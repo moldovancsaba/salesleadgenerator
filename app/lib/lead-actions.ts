@@ -10,15 +10,25 @@ import { createManualTicketSizeOverride } from '../../lib/ticket-size'
 import { defaultRevenueTargetCurrency } from './sales-settings'
 import { checkStageGate, formatStageGateError } from '../../lib/stage-gate'
 import { sanitizeDeals } from '../../lib/deals'
+import type { ProductPriceLookup } from '../../lib/deals'
 import { sanitizeChecklist } from '../../lib/checklist'
 import { generateClassificationTags, buildMergeKey } from '../../lib/lead-classification'
+import { isForecastCategory } from '../../lib/forecast-category'
 
 export type LeadActionInput = {
   brand: string
   tenantId: string
   leadId: string
-  action: 'ACCEPT' | 'DECLINE' | 'MODIFY' | 'PIN' | 'REQUEST_REFRESH' | 'COLUMN_MOVE' | 'RESCAN_TECH'
+  action: 'ACCEPT' | 'DECLINE' | 'MODIFY' | 'PIN' | 'REQUEST_REFRESH' | 'COLUMN_MOVE' | 'RESCAN_TECH' | 'ASSIGN' | 'UNDO_BULK' | 'SET_FORECAST_CATEGORY'
   payload: Record<string, any>
+  // Lead ownership (issue: CRM Lead ownership) — the real actor's identity,
+  // resolved server-side from the caller's verified session
+  // (lib/session.ts's SsoIdTokenClaims) by the route handler and threaded
+  // through here so ASSIGN and the outcomelogs audit trail can stamp a real
+  // ssoUserId instead of the 'webapp-user' placeholder. Undefined for the
+  // x-api-key (research agent) path, which never calls ASSIGN.
+  actorId?: string
+  actorEmail?: string
 }
 
 export type LeadActionResult = {
@@ -26,10 +36,18 @@ export type LeadActionResult = {
   lead?: Record<string, any>
   error?: string
   requestId?: string
+  // Lead ownership (issue #198) — every other failure in this function is a
+  // generic 400 (the route handler's own long-standing default for "the
+  // action couldn't be applied"). The canAssign() rejection is a real
+  // authorization failure (issue #198's own acceptance criteria: "cross-user
+  // assignment by a non-admin returns 403"), so it's the one case that
+  // overrides that default. Optional and unused by every other branch —
+  // 400 remains the default for everything that doesn't set this.
+  status?: number
 }
 
 export async function executeLeadAction(input: LeadActionInput): Promise<LeadActionResult> {
-  const { brand, tenantId, leadId, action, payload } = input
+  const { brand, tenantId, leadId, action, payload, actorId, actorEmail } = input
   const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
   if (!isMongoConfigured()) {
@@ -82,12 +100,97 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     outcomeValue = `Moved to ${normalizedBody.kanbanColumn}`
   }
 
+  // Lead ownership (issue: CRM Lead ownership) — set/clear Lead.assignedTo.
+  // ASSIGN is session-gated by definition (see route handler): it requires
+  // a real actorId, never falls back to the x-api-key/'webapp-user' path,
+  // since "who is allowed to assign this to whom" has no meaning without a
+  // real caller identity to check a role against.
+  if (action === 'ASSIGN') {
+    if (!actorId) {
+      return { success: false, error: 'ASSIGN requires an authenticated session', requestId }
+    }
+
+    const { canAssign } = await import('../../lib/lead-assignment')
+    const { getUserAccess, getRoleForBrand } = await import('../../lib/sso-access')
+
+    const rawTarget = payload.assignedTo
+    const targetAssignedTo = rawTarget === null || rawTarget === undefined ? null : String(rawTarget)
+    const currentAssignedTo: string | null = existing.assignedTo ?? null
+
+    const actorRecord = await getUserAccess(db, actorId)
+    const actorBrandRole = getRoleForBrand(actorEmail, actorRecord?.orgAccess, brand)
+
+    if (!canAssign(actorId, actorBrandRole, targetAssignedTo, currentAssignedTo)) {
+      return { success: false, error: 'Only a brand admin can assign this lead to another user', requestId, status: 403 }
+    }
+
+    if (targetAssignedTo === null) {
+      updateData.assignedTo = null
+      updateData.assignedToEmail = null
+      outcomeValue = 'Unassigned'
+    } else {
+      const targetUser = await getUserAccess(db, targetAssignedTo)
+      if (!targetUser) {
+        return { success: false, error: 'Unknown user', requestId }
+      }
+      updateData.assignedTo = targetAssignedTo
+      updateData.assignedToEmail = targetUser.email
+      outcomeValue = `Assigned to ${targetUser.email}`
+    }
+    updateData.assignedAt = new Date()
+    updateData.assignedBy = actorId
+  }
+
+  // Forecast category override (issue #204) — sticky, mirrors
+  // ticketSizeEstimate's manual_override precedent (issue #86): a rep's
+  // explicit classification takes precedence over the stage-derived default
+  // and survives every later kanbanColumn move until explicitly cleared. No
+  // hard actorId requirement (unlike ASSIGN) — the fallback 'webapp-user'
+  // stamp matches every other non-ownership action's audit-trail
+  // convention, since "which forecast bucket is this deal in" carries no
+  // cross-user authorization concern the way reassigning a lead does.
+  if (action === 'SET_FORECAST_CATEGORY') {
+    const raw = payload.forecastCategory
+    if (raw === null) {
+      updateData.forecastCategory = null
+      updateData.forecastCategoryOverriddenBy = null
+      updateData.forecastCategoryOverriddenAt = null
+      outcomeValue = 'Forecast category override cleared'
+    } else if (isForecastCategory(raw)) {
+      updateData.forecastCategory = raw
+      updateData.forecastCategoryOverriddenBy = actorId || 'webapp-user'
+      updateData.forecastCategoryOverriddenAt = new Date()
+      outcomeValue = `Forecast category set to ${raw}`
+    } else {
+      return { success: false, error: 'forecastCategory must be one of: pipeline, best_case, commit, closed, or null to clear', requestId }
+    }
+  }
+
   // Issue #108: acceptanceCount/declineCount/feedbackScore are incremented
   // via Mongo's atomic $inc (below), not read-then-write in JS — two
   // concurrent actions on the same lead (e.g. a retried tap) previously both
   // read the same starting value and both wrote the same +1, silently
   // losing one increment.
   const incData: Record<string, number> = {}
+
+  // Bulk actions v2 (issue #203) — reverses a completed bulk action via the
+  // exact same validated write path every other action already goes
+  // through (never a raw Mongo write from the undo route), per the issue's
+  // own "undo is not a privileged bypass path" constraint. The CAS check
+  // (comparing the lead's current state to what the original bulk action
+  // left it in) already ran in app/api/leads/bulk/undo/route.ts before this
+  // is ever called — restoreFields is an already-known-good prior snapshot,
+  // not new user input, so (unlike every other action) this deliberately
+  // skips re-deriving updateData from normalizedBody: it applies exactly
+  // the captured before-values verbatim.
+  if (action === 'UNDO_BULK') {
+    const restoreFields = payload.restoreFields && typeof payload.restoreFields === 'object' ? payload.restoreFields : {}
+    Object.assign(updateData, restoreFields)
+    if (payload.restoreInc && typeof payload.restoreInc === 'object') {
+      Object.assign(incData, payload.restoreInc)
+    }
+    outcomeValue = `Undo of ${typeof payload.originalAction === 'string' ? payload.originalAction : 'bulk action'}`
+  }
 
   if (action === 'ACCEPT') {
     updateData.status = 'qualified'
@@ -212,7 +315,16 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     // contacts[] above. Never auto-populated; only present when the UI
     // explicitly sends a deals[] array (add/edit/remove/convert).
     if (Array.isArray(normalizedBody.deals)) {
-      updateData.deals = sanitizeDeals(normalizedBody.deals, existing.deals, new Date())
+      // Issue #215 — only queried when at least one deal in this payload
+      // actually carries lineItems, so a lead save that never touches the
+      // catalog costs this function nothing extra.
+      let productLookup: ProductPriceLookup | undefined
+      const needsProductLookup = normalizedBody.deals.some((d: any) => Array.isArray(d?.lineItems) && d.lineItems.length > 0)
+      if (needsProductLookup) {
+        const products = await db.collection('products').find({ brand, tenantId }, { projection: { id: 1, unitPrice: 1, currency: 1 } }).toArray()
+        productLookup = new Map(products.map((p: any) => [p.id, { unitPrice: p.unitPrice, currency: p.currency }]))
+      }
+      updateData.deals = sanitizeDeals(normalizedBody.deals, existing.deals, new Date(), productLookup)
     }
     // Checklist (issue #117) — same whole-array-replace convention.
     if (Array.isArray(normalizedBody.checklist)) {
@@ -342,7 +454,12 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     // docs/ARCHITECTURE.md's Outcome Log section.
     teachingWeight: action === 'MODIFY' ? 95 : action === 'DECLINE' ? 100 : 70,
     actorType: 'USER',
-    actedBy: 'webapp-user',
+    // Lead ownership (issue: CRM Lead ownership) — the real ssoUserId when
+    // the caller has a verified session (every action from the browser UI,
+    // now including ASSIGN), unchanged 'webapp-user' placeholder fallback
+    // for the x-api-key (research agent) path, which never has actorId —
+    // byte-for-byte identical behavior to before this change on that path.
+    actedBy: actorId || 'webapp-user',
     beforeState: {
       kanbanColumn: existing.kanbanColumn,
       status: existing.status,
@@ -360,7 +477,30 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     tenantId,
   })
 
-  const normalizedLead = normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() })
+  // Automation rules (issue #201) — event-fired lead_moved_to_column rules,
+  // evaluated synchronously right here: after the real DB update succeeded,
+  // and only when destinationColumn is set (PIN/COLUMN_MOVE), which by
+  // construction only happens once checkStageGate() has already passed
+  // above — a blocked move never reaches this point, so it can never fire a
+  // rule (issue #201 §8/§15's own explicit requirement). Caught so a rule
+  // misconfiguration can never fail the lead action itself. A matching rule
+  // writes to the lead document via its own separate update, so this
+  // re-reads the lead afterward rather than returning the result the
+  // preceding findOneAndUpdate already captured — otherwise this action's
+  // own response would silently disagree with what a subsequent GET returns.
+  let responseDoc = updatedLead
+  if (destinationColumn) {
+    try {
+      const { evaluateEventRules } = await import('./automation-store')
+      await evaluateEventRules(db, brand, tenantId, 'lead_moved_to_column', leadId, config.dbCollection, { destinationColumn })
+      const freshLead = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(leadId) })
+      if (freshLead) responseDoc = freshLead
+    } catch (error) {
+      console.error('[app/lib/lead-actions] automation rule evaluation failed', { brand, tenantId, leadId, destinationColumn, error })
+    }
+  }
+
+  const normalizedLead = normalizeLead({ ...responseDoc, _id: responseDoc._id.toString() })
 
   return { success: true, lead: normalizedLead, requestId }
 }

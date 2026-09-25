@@ -14,7 +14,10 @@
     "KanbanBoard",
     "SectionPanel",
     "PeriodSelector",
-    "GdsIcons"
+    "GdsIcons",
+    "CommandRegistryProvider",
+    "CommandPalette",
+    "useCommandLauncher"
   ],
   "localAdapters": [
     {

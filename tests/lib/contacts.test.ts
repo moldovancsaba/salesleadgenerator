@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeContact, dedupeContacts, getDecisionMakerContact, normalizePhone, normalizeEmail, contactKey, verifiableFieldsDiffer, toNameCase, aggregateContactsAcrossLeads, deriveContactEmails } from '../../lib/contacts';
+import { normalizeContact, dedupeContacts, getDecisionMakerContact, normalizePhone, normalizeEmail, contactKey, verifiableFieldsDiffer, toNameCase, aggregateContactsAcrossLeads, deriveContactEmails, resolveBuyingRole, deriveIsDecisionMaker, isValidBuyingRole, BUYING_ROLES } from '../../lib/contacts';
 
 describe('normalizeContact', () => {
   it('trims fields and formats email/phone', () => {
@@ -171,6 +171,31 @@ describe('dedupeContacts', () => {
     expect(result[0].isDecisionMaker).toBe(true);
   });
 
+  // Issue #206 — a later, lower-information duplicate must never silently
+  // downgrade an already-classified contact back to 'unknown'.
+  it('on collision, a specific buyingRole survives over an unknown one, regardless of order', () => {
+    const specificFirst = dedupeContacts([
+      { name: 'Jane', phone: '+15551234567', buyingRole: 'blocker' },
+      { name: 'Jane', phone: '+15551234567' }, // unknown
+    ]);
+    expect(specificFirst[0].buyingRole).toBe('blocker');
+    expect(specificFirst[0].isDecisionMaker).toBe(false);
+
+    const unknownFirst = dedupeContacts([
+      { name: 'Jane', phone: '+15551234567' }, // unknown
+      { name: 'Jane', phone: '+15551234567', buyingRole: 'champion' },
+    ]);
+    expect(unknownFirst[0].buyingRole).toBe('champion');
+  });
+
+  it('on collision, the first-seen specific buyingRole wins over a later, different specific one', () => {
+    const result = dedupeContacts([
+      { name: 'Jane', phone: '+15551234567', buyingRole: 'champion' },
+      { name: 'Jane', phone: '+15551234567', buyingRole: 'blocker' },
+    ]);
+    expect(result[0].buyingRole).toBe('champion');
+  });
+
   it('on collision, keeps the later of the two lastVerifiedAt timestamps regardless of order', () => {
     const laterFirst = dedupeContacts([
       { name: 'Jane', phone: '+15551234567', lastVerifiedAt: '2026-06-01T00:00:00.000Z' },
@@ -193,6 +218,67 @@ describe('dedupeContacts', () => {
       { verify: true, now }
     );
     expect(result[0].lastVerifiedAt).toBe('2026-07-25T00:00:00.000Z');
+  });
+});
+
+describe('resolveBuyingRole (issue #206)', () => {
+  it('an explicit, valid buyingRole always wins, even over a conflicting isDecisionMaker', () => {
+    expect(resolveBuyingRole({ buyingRole: 'blocker', isDecisionMaker: true })).toBe('blocker');
+    expect(resolveBuyingRole({ buyingRole: 'champion', isDecisionMaker: false })).toBe('champion');
+  });
+
+  it('an invalid buyingRole string falls through to the isDecisionMaker/unknown precedence, never used verbatim', () => {
+    expect(resolveBuyingRole({ buyingRole: 'ceo', isDecisionMaker: true })).toBe('decision_maker');
+    expect(resolveBuyingRole({ buyingRole: 'ceo' })).toBe('unknown');
+  });
+
+  it('a legacy isDecisionMaker:true payload with no buyingRole maps to decision_maker', () => {
+    expect(resolveBuyingRole({ isDecisionMaker: true })).toBe('decision_maker');
+  });
+
+  it('defaults to unknown when neither field is present', () => {
+    expect(resolveBuyingRole({})).toBe('unknown');
+    expect(resolveBuyingRole({ isDecisionMaker: false })).toBe('unknown');
+    expect(resolveBuyingRole(null as any)).toBe('unknown');
+  });
+});
+
+describe('deriveIsDecisionMaker (issue #206)', () => {
+  it('true only for decision_maker and economic_buyer', () => {
+    expect(deriveIsDecisionMaker('decision_maker')).toBe(true);
+    expect(deriveIsDecisionMaker('economic_buyer')).toBe(true);
+  });
+
+  it('false for every other role', () => {
+    expect(deriveIsDecisionMaker('champion')).toBe(false);
+    expect(deriveIsDecisionMaker('influencer')).toBe(false);
+    expect(deriveIsDecisionMaker('blocker')).toBe(false);
+    expect(deriveIsDecisionMaker('unknown')).toBe(false);
+  });
+});
+
+describe('isValidBuyingRole (issue #206)', () => {
+  it('accepts exactly the 6 closed-enum values', () => {
+    for (const role of BUYING_ROLES) expect(isValidBuyingRole(role)).toBe(true);
+  });
+
+  it('rejects anything else', () => {
+    expect(isValidBuyingRole('ceo')).toBe(false);
+    expect(isValidBuyingRole(null)).toBe(false);
+    expect(isValidBuyingRole(undefined)).toBe(false);
+    expect(isValidBuyingRole(42)).toBe(false);
+  });
+});
+
+describe('normalizeContact — buyingRole (issue #206)', () => {
+  it('derives isDecisionMaker from buyingRole, not the other way around', () => {
+    const c = normalizeContact({ name: 'A', buyingRole: 'economic_buyer' });
+    expect(c.buyingRole).toBe('economic_buyer');
+    expect(c.isDecisionMaker).toBe(true);
+  });
+
+  it('defaults buyingRole to unknown for a never-classified contact', () => {
+    expect(normalizeContact({ name: 'A' }).buyingRole).toBe('unknown');
   });
 });
 
