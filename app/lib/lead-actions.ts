@@ -467,7 +467,30 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     tenantId,
   })
 
-  const normalizedLead = normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() })
+  // Automation rules (issue #201) — event-fired lead_moved_to_column rules,
+  // evaluated synchronously right here: after the real DB update succeeded,
+  // and only when destinationColumn is set (PIN/COLUMN_MOVE), which by
+  // construction only happens once checkStageGate() has already passed
+  // above — a blocked move never reaches this point, so it can never fire a
+  // rule (issue #201 §8/§15's own explicit requirement). Caught so a rule
+  // misconfiguration can never fail the lead action itself. A matching rule
+  // writes to the lead document via its own separate update, so this
+  // re-reads the lead afterward rather than returning the result the
+  // preceding findOneAndUpdate already captured — otherwise this action's
+  // own response would silently disagree with what a subsequent GET returns.
+  let responseDoc = updatedLead
+  if (destinationColumn) {
+    try {
+      const { evaluateEventRules } = await import('./automation-store')
+      await evaluateEventRules(db, brand, tenantId, 'lead_moved_to_column', leadId, config.dbCollection, { destinationColumn })
+      const freshLead = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(leadId) })
+      if (freshLead) responseDoc = freshLead
+    } catch (error) {
+      console.error('[app/lib/lead-actions] automation rule evaluation failed', { brand, tenantId, leadId, destinationColumn, error })
+    }
+  }
+
+  const normalizedLead = normalizeLead({ ...responseDoc, _id: responseDoc._id.toString() })
 
   return { success: true, lead: normalizedLead, requestId }
 }
