@@ -1,5 +1,63 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.198
+
+### Accounts: parent-organization rollup, Phase 1 (issue #209)
+
+A rep working one business-unit lead (e.g. a federation's youth academy)
+previously had no way to see, in one place, that a sibling lead under the
+same parent organization was already WON or stalled elsewhere in the
+pipeline — `parentOrgId`/`parentOrgName` (issue #131) were write-only,
+denormalized strings with no query surface of their own. Adds a
+rep-navigable **Accounts** view: every parent organization with at least
+one lead, grouped by `parentOrgId`, with a computed rollup (lead count,
+stage breakdown, pipeline/won value, contact count, most recent activity).
+
+**Deliberately Phase 1 only** — a virtual/computed view over the existing
+`Lead` fields, not a new Mongo collection, no migration. Evaluated a real
+`accounts` collection + merge-queue UI (mirroring `/admin/duplicates`)
+against the virtual view and explicitly deferred it: the hard part isn't
+the schema, it's reconciling ambiguous/duplicate `parentOrgId` values, and
+this repo doesn't yet have real volume data on how bad that is (issue
+#132's taxonomy backfill is itself still populating these fields). New
+`lib/accounts.ts` (pure grouping/rollup math), `GET /api/accounts` +
+`GET /api/accounts/{parentOrgId}` (both `requireBrandAccessApi`-gated,
+tenant-isolated via `{ $and: [...] }`, never spread), and a new
+`/accounts/[brand]` page reusing the same `AdminDataTable`/
+`AdminDetailDrawer`/`AdminModal` pattern as `/contacts/[brand]`.
+
+**A genuine spec contradiction found and resolved, not silently picked**:
+the issue's own §9 field-naming parenthetical implied currency conversion
+("converted per lib/brand's CurrencyCode where needed") while §15's edge
+cases required the opposite (a currency-mismatched estimate excluded from
+the sum, never converted). Followed §15's explicit, testable behavior —
+this repo has no currency-conversion utility anywhere and already has a
+no-FX-conversion precedent (`lib/pipeline-coverage.ts`, issue #145). One
+disclosed consequence: `wonValueUsd` is always genuinely USD
+(`actualDealValueUsd`'s own existing contract) while `pipelineValueUsd`
+is actually the brand's own configured currency (EUR for `seyu`/`dvsc`)
+despite the shared field-name suffix — the UI shows the two values with
+their own correct currency symbols rather than a misleadingly combined
+figure. Full reasoning in `docs/ARCHITECTURE.md`.
+
+`docs/ARCHITECTURE.md`, `docs/OPERATOR_GUIDE.md` updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 875/875 passing (+16, `tests/lib/accounts.test.ts`: grouping,
+rollup summation, WON-vs-pipeline value routing, unconfigured/currency-
+mismatch exclusion, parentOrgName fallback/most-recent-wins, relationship-
+code collection, sorting). `npm run test:integration` — 342/342 passing
+(+10, `tests/integration/accounts.integration.test.ts`: both routes'
+happy paths, no-parentOrgId exclusion, currency-mismatch exclusion,
+tenant isolation on both the list and detail routes, 404 on a
+zero-match `parentOrgId`, 401 without a credential, truncation-field
+disclosure). `npm run test:smoke` — 5/5 passing. `npm run audit:gds-style`
+— 26 (unchanged baseline, verified via `git stash -u` A/B comparison; two
+new `#209`-in-a-string-literal false positives found and fixed the same
+way as every prior issue this session, by writing the issue number
+without a leading `#`).
+
 ## 2.4.197
 
 ### Buying-committee roles on contacts (issue #206)
