@@ -42,7 +42,13 @@ const KANBAN_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON',
 const KANBAN_COLUMN_SET = new Set(KANBAN_COLUMNS);
 const ORG_SIZES = ['Small', 'Medium', 'Large', 'Enterprise'];
 const ORG_SIZE_SET = new Set(ORG_SIZES);
-const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH', 'ASSIGN']);
+// UNDO_BULK (issue #203) is deliberately never exposed to either public
+// PATCH allow-list (app/api/leads/route.ts, app/api/leads/bulk/route.ts) —
+// it's an internal action executeLeadAction only ever receives from
+// app/api/leads/bulk/undo/route.ts, restoring an already-known-valid prior
+// snapshot rather than accepting new user input, so it needs no extra
+// per-action validation beyond the base action-name check below.
+const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH', 'ASSIGN', 'UNDO_BULK']);
 
 function contactConfidence(contact: any): number {
   if (!contact || typeof contact !== 'object') return 0;

@@ -17,7 +17,7 @@ export type LeadActionInput = {
   brand: string
   tenantId: string
   leadId: string
-  action: 'ACCEPT' | 'DECLINE' | 'MODIFY' | 'PIN' | 'REQUEST_REFRESH' | 'COLUMN_MOVE' | 'RESCAN_TECH' | 'ASSIGN'
+  action: 'ACCEPT' | 'DECLINE' | 'MODIFY' | 'PIN' | 'REQUEST_REFRESH' | 'COLUMN_MOVE' | 'RESCAN_TECH' | 'ASSIGN' | 'UNDO_BULK'
   payload: Record<string, any>
   // Lead ownership (issue: CRM Lead ownership) — the real actor's identity,
   // resolved server-side from the caller's verified session
@@ -145,6 +145,25 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
   // read the same starting value and both wrote the same +1, silently
   // losing one increment.
   const incData: Record<string, number> = {}
+
+  // Bulk actions v2 (issue #203) — reverses a completed bulk action via the
+  // exact same validated write path every other action already goes
+  // through (never a raw Mongo write from the undo route), per the issue's
+  // own "undo is not a privileged bypass path" constraint. The CAS check
+  // (comparing the lead's current state to what the original bulk action
+  // left it in) already ran in app/api/leads/bulk/undo/route.ts before this
+  // is ever called — restoreFields is an already-known-good prior snapshot,
+  // not new user input, so (unlike every other action) this deliberately
+  // skips re-deriving updateData from normalizedBody: it applies exactly
+  // the captured before-values verbatim.
+  if (action === 'UNDO_BULK') {
+    const restoreFields = payload.restoreFields && typeof payload.restoreFields === 'object' ? payload.restoreFields : {}
+    Object.assign(updateData, restoreFields)
+    if (payload.restoreInc && typeof payload.restoreInc === 'object') {
+      Object.assign(incData, payload.restoreInc)
+    }
+    outcomeValue = `Undo of ${typeof payload.originalAction === 'string' ? payload.originalAction : 'bulk action'}`
+  }
 
   if (action === 'ACCEPT') {
     updateData.status = 'qualified'

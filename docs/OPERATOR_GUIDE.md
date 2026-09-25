@@ -114,7 +114,17 @@ Tap a column's own header to collapse it down to just its title and count — us
 
 ### Bulk actions (Select mode)
 
-Tap the **Select** icon in the toolbar above the board to enter select mode — a checkbox appears on every card. Selection is limited to one column at a time (picking a card in a different column is rejected with a notification). Once you've checked at least one card, a bulk action bar appears with **Decline selected** / **Pin selected**. Each lead is actioned individually server-side, so a partial failure (e.g. one lead blocked by the required-fields gate above) doesn't fail the whole batch — you'll see a summary like "8 of 10 pinned — 2 blocked: Missing required fields for ENGAGED: ..." (the required-fields gate above only blocks a move into ENGAGED/PROPOSAL, so this message can only appear for **Pin selected**, which always targets ENGAGED — not Decline, which targets LOST and is never gated). Tap the Select icon again (now an ✕) to leave select mode.
+Tap the **Select** icon in the toolbar above the board to enter select mode — a checkbox appears on every card, and a **Select all in** row appears above the board: pick a column and tap **Select all loaded** to check every currently-loaded card in it in one go, instead of ticking each by hand. Selection is limited to one column at a time (picking a card in a different column is rejected with a notification). Tap the Select icon again (now an ✕), or **Clear selection**, to leave select mode.
+
+Once you've checked at least one card, a bulk action bar appears:
+
+- **Accept selected** / **Decline selected** / **Pin selected** — as before.
+- **Edit field…** — bulk-add or bulk-remove one tag across the whole selection (each lead keeps its own other tags — this never replaces a lead's full tag list), or bulk-set a quality status (Draft/Checked/Verified).
+- **Reassign…** — bulk-assign the whole selection to a teammate (or yourself) in one action, the same [My Leads](#filters-and-search) assignment model used everywhere else. You can always self-assign; assigning a batch to someone else requires brand-admin access, same as a single-lead reassignment.
+
+Each lead is actioned individually server-side, so a partial failure (e.g. one lead blocked by the required-fields gate above) doesn't fail the whole batch — you'll see a summary like "8 of 10 pinned — 2 blocked: Missing required fields for ENGAGED: ..." (the required-fields gate above only blocks a move into ENGAGED/PROPOSAL, so this message can only appear for **Pin selected**, which always targets ENGAGED — not Decline, which targets LOST and is never gated).
+
+**Undo.** After a successful bulk action, a row appears offering **Undo** with a countdown (about 15 seconds) — tap it to put every reversible lead back exactly where it was, including reversing any Accept/Decline counters so they aren't left permanently off. If any declined lead had an active outreach cadence, it's called out before you undo: the column reverts, but that cadence is **not** resumed — re-enroll it by hand if you still want it running. If a lead was changed by something else in the meantime, undo skips just that one (reported by name) rather than overwriting the newer change. Once the countdown runs out, undo is no longer available for that batch.
 
 ---
 
