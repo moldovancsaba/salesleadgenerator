@@ -1,5 +1,35 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.209
+
+### Deals: quote generation, send, and e-sign-lite (issue #211)
+
+A per-lead quote flow: generate a real PDF quote from a lead's deal data
+(`lib/quote-pdf.tsx`, `@react-pdf/renderer`, real extractable text, never
+rasterized), store it in Vercel Blob under `access: 'private'` (a
+deliberate improvement over the issue's own `access: 'public'` pseudocode,
+verified against the real installed `@vercel/blob@2.8.0` type
+definitions — the PDF is only ever reachable through this app's own
+`shareToken`-gated view route, never a bare Blob URL), send it by email
+through the existing `lib/outreach-send.ts` pipeline (a new `'quote'`
+`OutreachSendSource` kind, no parallel send code), and let the recipient
+"sign" from a public, rate-limited, unauthenticated link
+(`GET /api/quotes/[quoteId]/view`) that writes a real timestamped
+acceptance back onto the quote. Status follows a monotonic
+`draft → sent → viewed → signed` state machine (with `sent → signed`
+also directly allowed, and `expired` reachable from any pre-`signed`
+state) enforced server-side in `app/lib/quotes-store.ts`. The public view
+route is rate-limited (20/min per quote) via a new DB-backed,
+TTL-indexed `quote_view_rate_limits` collection, reusing the pattern
+issue #207 established for scheduling's own public endpoints. When
+`BLOB_READ_WRITE_TOKEN` is unset, "Generate Quote" is feature-detected
+off and disabled in the UI, never a runtime error. See
+`docs/ARCHITECTURE.md`'s "Quotes" section for full design detail,
+including the disclosed session-optional `createdBy`/`signedBy`
+attribution design (deliberately different from issue #214's
+hard-required-session saved filters) and the real-Vercel-Blob-store
+manual-verification gap this sandbox could not close.
+
 ## 2.4.208
 
 ### Security: patch two critical Next.js CVEs, found incidentally

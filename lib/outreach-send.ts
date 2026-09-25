@@ -46,9 +46,15 @@ export type ManualSendContext = {
 // resulting outreach_logs row is tagged sentAutomatically. Everything else
 // (routing check, interpolation, the Resend call itself, log-writing) is one
 // shared path — see dispatchOutreachEmail() below.
+//
+// 'quote' (issue #211) — a third, one-off rep-initiated kind alongside
+// 'manual': a Quote's "Send" action, distinguished only by tagging the
+// resulting outreach_logs row with quoteId so it's traceable back to the
+// specific Quote it sent, never a second/parallel send implementation.
 export type OutreachSendSource =
   | { kind: 'cadence'; cadenceId: string; stepIndex: number }
-  | { kind: 'manual'; idempotencyKey: string };
+  | { kind: 'manual'; idempotencyKey: string }
+  | { kind: 'quote'; quoteId: string; idempotencyKey: string };
 
 export type AutomatedSendResult = {
   sent: boolean;
@@ -117,6 +123,9 @@ async function writeOutreachLog(
     sentAutomatically: boolean;
     cadenceId?: string;
     stepIndex?: number;
+    // Issue #211 — set only for a Quote "Send" action, tracing this
+    // outreach_logs row back to the specific Quote it sent.
+    quoteId?: string;
     // Set true only once a corresponding activityLog row has also been
     // written for this send (successful manual sends only) — the read-side
     // merge in GET /api/leads/[id]/activity excludes a row with this set,
@@ -149,6 +158,7 @@ async function writeOutreachLog(
     sentAutomatically: fields.sentAutomatically,
     cadenceId: fields.cadenceId,
     stepIndex: fields.stepIndex,
+    quoteId: fields.quoteId,
     activityLogWritten: fields.activityLogWritten,
   });
   return result.insertedId.toString();
@@ -211,7 +221,9 @@ export async function dispatchOutreachEmail(
 ): Promise<AutomatedSendResult> {
   const leadId = lead._id;
   const sentAutomatically = source.kind === 'cadence';
-  const cadenceFields = source.kind === 'cadence' ? { cadenceId: source.cadenceId, stepIndex: source.stepIndex } : {};
+  const cadenceFields = source.kind === 'cadence' ? { cadenceId: source.cadenceId, stepIndex: source.stepIndex }
+    : source.kind === 'quote' ? { quoteId: source.quoteId }
+    : {};
 
   if (!template) {
     const outreachLogId = await writeOutreachLog(db, context, leadId, {
@@ -275,6 +287,8 @@ export async function dispatchOutreachEmail(
   // initiated sends always get distinct keys.
   const idempotencyKey = source.kind === 'cadence'
     ? `cadence-${source.cadenceId}-${leadId}-${source.stepIndex}`
+    : source.kind === 'quote'
+    ? `quote-${source.quoteId}-${leadId}-${source.idempotencyKey}`
     : `manual-${leadId}-${source.idempotencyKey}`;
 
   let sendError: string | undefined;
@@ -306,7 +320,7 @@ export async function dispatchOutreachEmail(
   }
 
   let activityLogWritten = false;
-  if (!sendError && source.kind === 'manual' && resendEmailId) {
+  if (!sendError && (source.kind === 'manual' || source.kind === 'quote') && resendEmailId) {
     activityLogWritten = await writeManualSendActivityLog(db, context, leadId, { resendEmailId, subject, body });
   }
 
@@ -364,5 +378,42 @@ export async function sendManualEmail(
     template,
     { brand: context.brand, tenantId: context.tenantId },
     { kind: 'manual', idempotencyKey: context.idempotencyKey }
+  );
+}
+
+// Deals: Quote generation (issue #211) — a third thin wrapper over the same
+// dispatchOutreachEmail() core, reusing this module's Resend client
+// construction, resolveOutboundFromAddress(), and outreach_logs write
+// pattern exactly as issue #211 §7 requires ("no second, parallel
+// email-sending code path"). A quote send has no user-editable outreach
+// template — it's a synthetic, fixed one built here referencing
+// {quote_link}, interpolated the same way any other template's {key}
+// placeholders are (app/lib/outreach/default-templates.ts's interpolate()),
+// by decorating the lead object with a quote_link field before it reaches
+// dispatchOutreachEmail's own interpolationValues spread. Still runs
+// through evaluateOutreachRouting's real eligibility check (a lead with no
+// decision-maker email is no more sendable a quote to than a template
+// email) — not a routing bypass.
+export async function sendQuoteEmail(
+  db: Db,
+  lead: LeadForSend,
+  params: { quoteId: string; viewUrl: string; brandLabel: string; idempotencyKey: string },
+  context: { brand: string; tenantId: string }
+): Promise<AutomatedSendResult> {
+  const template: OutreachTemplate = {
+    id: 'quote-share-link',
+    name: 'Quote share link',
+    channel: 'email',
+    industry: '',
+    subject: `Your quote from ${params.brandLabel}`,
+    body: `Hi {contact_name},\n\nPlease find your quote from ${params.brandLabel} here: {quote_link}\n\nLet us know if you have any questions.`,
+    variables: ['contact_name', 'quote_link'],
+  };
+  return dispatchOutreachEmail(
+    db,
+    { ...lead, quote_link: params.viewUrl },
+    template,
+    { brand: context.brand, tenantId: context.tenantId },
+    { kind: 'quote', quoteId: params.quoteId, idempotencyKey: params.idempotencyKey }
   );
 }
