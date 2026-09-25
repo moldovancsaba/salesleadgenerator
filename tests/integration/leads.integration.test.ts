@@ -417,12 +417,11 @@ describe('PATCH /api/leads — ASSIGN action (lead ownership)', () => {
     expect(body.lead.assignedBy).toBe('assign-admin-1');
   });
 
-  // executeLeadAction returns { success: false } for every authorization
-  // failure, and the PATCH handler maps that uniformly to 400 for every
-  // action (stage-gate failures included) — there is no separate 403 path,
-  // so 400 is this route's real, consistent contract, asserted here rather
-  // than a 403 the code has never actually returned.
-  it('blocks a non-admin from assigning to another user (400) and leaves the document unchanged', async () => {
+  // 403, not the PATCH route's usual 400-for-every-failure default — issue
+  // #198's own acceptance criteria requires "cross-user assignment by a
+  // non-admin returns 403" specifically, so LeadActionResult.status carries
+  // it through from the canAssign() rejection (app/lib/lead-actions.ts).
+  it('blocks a non-admin from assigning to another user (403) and leaves the document unchanged', async () => {
     await seedUserAccess({ ssoUserId: 'assign-user-2', email: 'assign-user-2@test.example.com', orgAccess: { cogmap: 'user' } });
     await seedUserAccess({ ssoUserId: 'assign-target-2', email: 'assign-target-2@test.example.com', orgAccess: { cogmap: 'user' } });
 
@@ -439,7 +438,7 @@ describe('PATCH /api/leads — ASSIGN action (lead ownership)', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'ASSIGN', assignedTo: 'assign-target-2' }),
     }));
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toMatch(/brand admin/);
 
@@ -478,7 +477,7 @@ describe('PATCH /api/leads — ASSIGN action (lead ownership)', () => {
     expect(releaseBody.lead.assignedToEmail ?? null).toBeNull();
   });
 
-  it("blocks a non-admin from clearing someone else's assignment (400)", async () => {
+  it("blocks a non-admin from clearing someone else's assignment (403)", async () => {
     await seedUserAccess({ ssoUserId: 'assign-admin-2', email: 'assign-admin-2@test.example.com', orgAccess: { cogmap: 'admin' } });
     await seedUserAccess({ ssoUserId: 'assign-user-4', email: 'assign-user-4@test.example.com', orgAccess: { cogmap: 'user' } });
     await seedUserAccess({ ssoUserId: 'assign-target-4', email: 'assign-target-4@test.example.com', orgAccess: { cogmap: 'user' } });
@@ -503,7 +502,7 @@ describe('PATCH /api/leads — ASSIGN action (lead ownership)', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'ASSIGN', assignedTo: null }),
     }));
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toMatch(/brand admin/);
   });

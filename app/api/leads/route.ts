@@ -516,7 +516,7 @@ export async function PATCH(request: NextRequest) {
     })
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error || 'Action failed', requestId }, { status: 400 })
+      return NextResponse.json({ error: result.error || 'Action failed', requestId }, { status: result.status || 400 })
     }
 
     return NextResponse.json({ success: true, lead: result.lead, requestId })

@@ -16,7 +16,11 @@ New `Lead.assignedTo?: string | null` (a verified `ssoUserId`), `assignedToEmail
 session-gated by definition (requires a real `actorId` resolved from the
 caller's verified SSO session; the `x-api-key` research-agent path can never
 call it, since "who may assign this to whom" has no meaning without a real
-caller identity). New `lib/lead-assignment.ts` (pure, DB-free, unit-tested):
+caller identity). A non-admin assigning to (or clearing) someone else's lead
+gets a real 403, not the PATCH route's usual 400-for-every-failure default —
+`LeadActionResult` gained an optional `status` field so `executeLeadAction`
+can carry that one authorization failure's real status code through, per the
+issue's own acceptance criteria. New `lib/lead-assignment.ts` (pure, DB-free, unit-tested):
 `canAssign()` — self-assign always allowed, a brand `admin` may assign/clear
 anyone, and a non-admin may additionally self-release their own assignment (a
 deliberate extension past the issue's literal two-argument spec, via an
