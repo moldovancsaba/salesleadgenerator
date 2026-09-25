@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import {
   Container, Title, Text, Button, Group, Stack, Textarea, TextInput, NumberInput,
   Select, Checkbox, Paper, Loader, Divider, Badge,
 } from '@mantine/core'
-import { IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconPlus, IconTrash, IconPlug } from '@tabler/icons-react'
 import { CURRENCY_SYMBOLS } from '@/app/lib/brand-constants'
 import type { Brand, CurrencyCode, BrandSalesVocabulary } from '@/app/lib/brand-constants'
 import {
@@ -201,6 +202,16 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
             agent uses this to refine lead scoring and revenue forecasts — no accounting
             terminology required.
           </Text>
+          <Button
+            component={Link}
+            href={`/salessettings/${brand}/integrations`}
+            variant="light"
+            size="xs"
+            leftSection={<IconPlug size={14} />}
+            mt="sm"
+          >
+            Manage integrations (Google Calendar, Gmail, Contacts, Calendly)
+          </Button>
         </div>
 
         {/* 1. Basic Information */}
