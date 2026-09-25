@@ -15,6 +15,9 @@ import { getNextStepNudge } from '../lib/next-step-nudge';
 import { DEFAULT_WIP_LIMITS, resolveWipThreshold, isOverWipLimit } from '../lib/wip-limits';
 import type { LeadFilter } from '../lib/saved-filters';
 import { TOUR_SELECTOR } from './lib/tour/selectors';
+import { isAutoManagedColumn } from '../lib/kanban-column';
+import { decideMoveItemAction, resolveReorderNeighbors } from '../lib/kanban-reorder';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 type ColumnState = {
   leads: Lead[];
@@ -171,6 +174,13 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // trip rather than adding a second one (§16's own explicit requirement).
   const [wipLimits, setWipLimits] = useState<Record<string, number>>(DEFAULT_WIP_LIMITS)
 
+  // Issue #208 — real drag-and-drop's operator kill switch. Fail-closed
+  // default: the board renders with drag off until this fetch resolves (no
+  // flash of enabled-then-disabled), and stays off on a fetch failure —
+  // same contract as staleThresholds/wipLimits above, extending the same
+  // single settings round trip rather than adding a second one.
+  const [dragEnabled, setDragEnabled] = useState(false)
+
   useEffect(() => {
     let cancelled = false
     fetch('/api/settings')
@@ -179,6 +189,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         if (cancelled) return
         if (data.thresholds) setStaleThresholds(data.thresholds)
         if (data.wipLimits) setWipLimits(data.wipLimits)
+        if (typeof data.dragEnabled === 'boolean') setDragEnabled(data.dragEnabled)
       })
       .catch((err) => {
         console.error('Stale thresholds load error:', err)
@@ -295,17 +306,79 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     }
   }, [brand, tenantId, loadColumn])
 
+  // Same-column drag reorder (issue #208) — PATCHes the new COLUMN_REORDER
+  // action with the fresh prevLeadId/nextLeadId neighbors GDS's drop index
+  // resolves to (resolveReorderNeighbors, lib/kanban-reorder.ts). Optimistic
+  // local reorder first (same contract as handleMove above); on failure,
+  // reload the column from the server to discard it and surface the real
+  // reason via showNotification — never a silent revert.
+  const handleReorder = useCallback(async (leadId: string, column: KanbanColumn, toIndex: number) => {
+    const currentIds = columnStates[column]?.leads.map((l) => l._id) ?? []
+    const { prevLeadId, nextLeadId } = resolveReorderNeighbors(currentIds, leadId, toIndex)
+
+    setColumnStates((prev) => {
+      const leads = prev[column]?.leads ?? []
+      const dragged = leads.find((l) => l._id === leadId)
+      if (!dragged) return prev
+      const withoutDragged = leads.filter((l) => l._id !== leadId)
+      const clampedIndex = Math.max(0, Math.min(toIndex, withoutDragged.length))
+      const reordered = [...withoutDragged.slice(0, clampedIndex), dragged, ...withoutDragged.slice(clampedIndex)]
+      return { ...prev, [column]: { ...prev[column], leads: reordered } }
+    })
+
+    try {
+      const url = new URL('/api/leads', window.location.origin)
+      url.searchParams.set('brand', brand)
+      url.searchParams.set('tenantId', tenantId)
+      url.searchParams.set('id', leadId)
+
+      const res = await fetch(url.toString(), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: leadId, action: 'COLUMN_REORDER', prevLeadId, nextLeadId }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || `Reorder failed: ${res.status}`)
+      }
+    } catch (err) {
+      console.error('Column reorder error:', err)
+      showNotification({
+        message: err instanceof Error ? err.message : 'Failed to reorder lead',
+        color: 'red',
+        autoClose: 5000,
+      })
+      await loadColumn(column)
+    }
+  }, [brand, tenantId, columnStates, loadColumn])
+
   // GDS's drag (SortableContext) allows same-column reordering as well as
-  // cross-column moves. Our API has no concept of an arbitrary drop
-  // position — PATCH only sets kanbanColumn + sortOrder = Date.now() (always
-  // "top of stack") — and DISCOVERED/QUALIFIED ignore sortOrder entirely
-  // (ICE-score sorted). A same-column drag is a no-op, matching the old
-  // pointer-events implementation, which only ever detected cross-column
-  // drops in the first place.
-  const handleMoveItem = useCallback((itemId: string, fromColumnId: string, toColumnId: string) => {
-    if (fromColumnId === toColumnId) return
-    handleMove(itemId, fromColumnId as KanbanColumn, toColumnId as KanbanColumn)
-  }, [handleMove])
+  // cross-column moves — previously a same-column drag was a hard no-op
+  // (this app's API had no concept of an arbitrary drop position at all),
+  // which showed zero feedback: the card just silently snapped back. Issue
+  // #208 adds a real reorder path for the five manually-controlled columns
+  // (ENGAGED/PROPOSAL/WON/LOST/BACKLOG); DISCOVERED/QUALIFIED stay
+  // score-sorted (lib/kanban-column.ts) and explicitly reject a same-column
+  // drag with a visible reason instead of silently reverting.
+  // decideMoveItemAction (lib/kanban-reorder.ts) is the pure three-way
+  // branch; `toIndex` is only ever populated by an actual drag gesture
+  // (GDS's OnMoveItem type), never by the "Move to column" menu.
+  const handleMoveItem = useCallback((itemId: string, fromColumnId: string, toColumnId: string, toIndex?: number) => {
+    const decision = decideMoveItemAction(fromColumnId, toColumnId, isAutoManagedColumn(toColumnId))
+    if (decision === 'cross-column') {
+      handleMove(itemId, fromColumnId as KanbanColumn, toColumnId as KanbanColumn)
+      return
+    }
+    if (decision === 'auto-managed-reject') {
+      showNotification({
+        message: 'This column is sorted automatically by lead score — manual reordering isn\'t available here.',
+        color: 'yellow',
+      })
+      return
+    }
+    handleReorder(itemId, toColumnId as KanbanColumn, toIndex ?? 0)
+  }, [handleMove, handleReorder])
 
   // Issue #70: bulk DECLINE/PIN. `selectMode` itself is a prop now (the
   // toggle button lives one level up, sharing a row with the Filters
@@ -709,13 +782,20 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     )
   }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast, handleMove, firstNonEmptyColumnId, onAction, runInlineAction, inlineBusyIds])
 
-  // enableDrag deliberately omitted (default false): it renders a
-  // drag-handle icon per card and activates GDS's real @dnd-kit
-  // DndContext/sensors — the one genuinely new code path in this whole GDS
-  // 3.11.x bump that had never actually executed in production before a
-  // client-side exception was reported live. The keyboard/tap-accessible
-  // "Move to column" menu (unconditional, not gated by enableDrag) still
-  // provides full move functionality without it.
+  // enableDrag is now conditional on the dragEnabled kill switch (issue
+  // #208), fetched above and defaulting to false (fail-closed) until an
+  // operator explicitly turns it on via `PUT /api/settings {dragEnabled:
+  // true}` — see docs/ARCHITECTURE.md's "Kanban Board and Drag-and-Drop"
+  // for the full history of why this was off (a real 2.4.10-2.4.17
+  // production crash) and why re-enabling it now is treated as a fresh
+  // risk, not an assumed-safe retry. The keyboard/tap-accessible "Move to
+  // column" menu (unconditional, not gated by enableDrag) remains the
+  // permanent primary path regardless of the switch's state. The board
+  // mount is wrapped in ErrorBoundary so a render-time exception inside
+  // GDS's own drag machinery is caught and reported instead of
+  // white-screening the whole board — the one failure mode LeadCard's own
+  // per-card boundary (app/card.tsx) can't cover, since it never runs
+  // outside that machinery.
   return (
     <>
       {/* Bulk actions v2 (issue #203) — the NN/g "select-all" leg, always
@@ -882,25 +962,36 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       )}
 
       <div data-tour={TOUR_SELECTOR.kanbanBoard}>
-        <GdsKanbanBoard
-          columns={columns}
-          onMoveItem={handleMoveItem}
-          renderItem={renderItem}
-          emptyColumnLabel={bootstrapped ? 'No leads' : 'Loading…'}
-          collapsible
-          collapsedColumnIds={collapsedColumnIds}
-          onCollapsedChange={handleCollapsedChange}
-          // Issue #125 — GDS's native zone-based wheel-scroll routing
-          // (columnPanZone, shipped in general-design-system 3.14.12,
-          // already installed here via ^6.5.0), replacing this repo's own
-          // gesture-shape heuristic (formerly lib/desktop-scroll-passthrough.ts).
-          // A wheel gesture over a column header pans the columns
-          // horizontally; anywhere else (a card, empty space) always
-          // scrolls the page — routed by cursor zone, not gesture shape,
-          // so a fast diagonal gesture over a card can no longer misroute.
-          // Fine-pointer-only and inert on touch, per GDS's own contract.
-          columnPanZone="header"
-        />
+        <ErrorBoundary
+          fallback={
+            <Box p="md" role="alert">
+              <Text size="sm" c="red">
+                The kanban board couldn&apos;t be rendered. Try refreshing the page.
+              </Text>
+            </Box>
+          }
+        >
+          <GdsKanbanBoard
+            columns={columns}
+            onMoveItem={handleMoveItem}
+            renderItem={renderItem}
+            emptyColumnLabel={bootstrapped ? 'No leads' : 'Loading…'}
+            collapsible
+            collapsedColumnIds={collapsedColumnIds}
+            onCollapsedChange={handleCollapsedChange}
+            enableDrag={dragEnabled}
+            // Issue #125 — GDS's native zone-based wheel-scroll routing
+            // (columnPanZone, shipped in general-design-system 3.14.12,
+            // already installed here via ^6.5.0), replacing this repo's own
+            // gesture-shape heuristic (formerly lib/desktop-scroll-passthrough.ts).
+            // A wheel gesture over a column header pans the columns
+            // horizontally; anywhere else (a card, empty space) always
+            // scrolls the page — routed by cursor zone, not gesture shape,
+            // so a fast diagonal gesture over a card can no longer misroute.
+            // Fine-pointer-only and inert on touch, per GDS's own contract.
+            columnPanZone="header"
+          />
+        </ErrorBoundary>
       </div>
     </>
   )

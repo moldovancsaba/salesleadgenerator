@@ -49,7 +49,7 @@ const ORG_SIZE_SET = new Set(ORG_SIZES);
 // app/api/leads/bulk/undo/route.ts, restoring an already-known-valid prior
 // snapshot rather than accepting new user input, so it needs no extra
 // per-action validation beyond the base action-name check below.
-const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH', 'ASSIGN', 'UNDO_BULK', 'SET_FORECAST_CATEGORY']);
+const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH', 'ASSIGN', 'UNDO_BULK', 'SET_FORECAST_CATEGORY', 'COLUMN_REORDER']);
 const FORECAST_CATEGORY_SET = new Set(['pipeline', 'best_case', 'commit', 'closed']);
 
 function contactConfidence(contact: any): number {
@@ -227,7 +227,7 @@ export function validatePatchPayload(body: any, brand: string, forbiddenTerms: s
 
   const action = body.action;
   if (!action || typeof action !== 'string' || !PATCH_ACTIONS.has(action.toUpperCase())) {
-    errors.push('action must be one of: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH, ASSIGN, SET_FORECAST_CATEGORY');
+    errors.push('action must be one of: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH, ASSIGN, SET_FORECAST_CATEGORY, COLUMN_REORDER');
     return { valid: false, errors };
   }
 

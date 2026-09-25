@@ -85,7 +85,9 @@ This is first-run orientation to the 5-7 core screens, not a replacement for thi
 
 ## Daily Workflow — Kanban Board
 
-DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted purely by its ICE score (QUALIFIED at 500+, otherwise DISCOVERED; always high to low). Moving a card out to ENGAGED/PROPOSAL/WON/LOST via the "⋮" menu (or an Accept/Decline/Pin action) hands that lead to manual, user-controlled placement permanently — it's never auto-moved again even if its score later changes. There is no drag-and-drop anywhere on this board, on any device — moving a card is always the "⋮" menu or an explicit action button; a new card entering a manually-controlled column always lands at the top, with no way to further reorder it from there.
+DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted purely by its ICE score (QUALIFIED at 500+, otherwise DISCOVERED; always high to low). Moving a card out to ENGAGED/PROPOSAL/WON/LOST via the "⋮" menu (or an Accept/Decline/Pin action) hands that lead to manual, user-controlled placement permanently — it's never auto-moved again even if its score later changes. A new card entering a manually-controlled column always lands at the top by default.
+
+**Drag-and-drop** is real, but off by default behind an operator-controlled switch (no in-app toggle yet — an admin enables it via a `PUT /api/settings {"dragEnabled": true}` API call). When it's off (the default), the "⋮" menu is the only way to move a card, on every device, exactly as before. When an operator turns it on: you can physically drag a card to another column (identical to using the menu — same validation, same audit trail), or drag it up/down within ENGAGED/PROPOSAL/WON/LOST/BACKLOG to set your own priority order within that column — this now actually persists (previously there was no way to reorder within a column at all). Dragging within DISCOVERED/QUALIFIED is rejected with a visible message, since those two columns are always sorted by score, not by hand. The "⋮" menu keeps working exactly the same whether drag is on or off — it's the permanent fallback, never replaced.
 
 1. Open `/sales/<brand>` on mobile or desktop.
 2. Review new cards in DISCOVERED.
@@ -97,7 +99,7 @@ DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted p
    - **Refresh** → request updated research
    - **Modify / Edit Lead Details** → edit lead fields directly (see [Lead Detail](#lead-detail))
    - **Delete** → remove lead
-5. Use each card's "⋮" menu to move it when the pipeline changes — there's no drag-and-drop on this board; the menu is the only way to move a card, on every device.
+5. Use each card's "⋮" menu to move it when the pipeline changes, on every device — or, if your organization has turned on drag-and-drop (see above), drag the card directly.
 
 ### Add Lead
 
@@ -177,7 +179,7 @@ Switch to Table via the hamburger menu's View section (or `?view=table`). Shows 
 - **Saved filters**: with a region, industry, and/or tags set, tap **Save filter** and give it a name — it appears as a removable pill you can tap to re-apply later. Saved per-browser (not synced across devices), scoped per brand.
 - No status filter — the kanban board's own columns already group by status; adding a redundant status filter was deliberately left out.
 - Search matches entity name, sector, and contact name (predictive dropdown under the header) — independent of the region/industry filter, not affected by it.
-- No manual sort control exists. DISCOVERED and QUALIFIED always sort by ICE score, high to low; ENGAGED/PROPOSAL/WON/LOST sort by the order you've arranged them in.
+- No manual sort control (a dropdown, an Asc/Desc button) exists. DISCOVERED and QUALIFIED always sort by ICE score, high to low; ENGAGED/PROPOSAL/WON/LOST sort by the order you've arranged them in — via the "⋮" menu (always lands at the top of the target column) and, once your organization turns on drag-and-drop (see [Daily Workflow](#daily-workflow--kanban-board)), by directly dragging a card up/down within its column.
 - Tenant filter (`?tenantId=`) exists in the API only; there is no tenant filter control in the UI.
 
 ---

@@ -98,7 +98,7 @@ describe('PATCH /api/leads — COLUMN_MOVE (issue #91)', () => {
     expect(moved.kanbanColumn).toBe('QUALIFIED');
   });
 
-  it('a same-column move is accepted as a no-op-shaped success (matches app/kanban.tsx short-circuiting before ever calling this route)', async () => {
+  it('an explicit same-column COLUMN_MOVE is still accepted as a no-op-shaped success — regression guard for issue #208, which replaced app/kanban.tsx\'s old unconditional same-column short-circuit with real branching (cross-column/auto-managed-reject/reorder) that no longer sends COLUMN_MOVE for a same-column drag at all; this route\'s own COLUMN_MOVE behavior for a same-column target must stay unchanged regardless', async () => {
     // ENGAGED is gated (issue #72) — seeded with the required fields so this
     // test exercises same-column-move behavior, not the unrelated stage gate.
     const id = await seedLead('Same Column Co', {

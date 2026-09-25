@@ -24,12 +24,13 @@ export async function GET() {
   try {
     const client = await clientPromise
     const db = client.db()
-    const [weightsDoc, thresholdsDoc, concentrationDoc, calibrationDoc, wipLimitsDoc] = await Promise.all([
+    const [weightsDoc, thresholdsDoc, concentrationDoc, calibrationDoc, wipLimitsDoc, dragEnabledDoc] = await Promise.all([
       db.collection('settings').findOne({ key: 'pipeline_weights' }),
       db.collection('settings').findOne({ key: 'stale_thresholds' }),
       db.collection('settings').findOne({ key: 'concentration_risk_settings' }),
       db.collection('settings').findOne({ key: 'forecast_calibration' }),
       db.collection('settings').findOne({ key: 'wip_limits' }),
+      db.collection('settings').findOne({ key: 'kanban_drag_enabled' }),
     ])
     const weights = weightsDoc?.weights || DEFAULT_WEIGHTS
     const thresholds = thresholdsDoc?.thresholds || DEFAULT_STALE_THRESHOLDS
@@ -42,17 +43,24 @@ export async function GET() {
     // Issue #213 — a non-blocking, purely visual kanban column WIP cue;
     // additive, same per-key `settings` document pattern as thresholds above.
     const wipLimits = wipLimitsDoc?.thresholds || DEFAULT_WIP_LIMITS
+    // Issue #208 — real drag-and-drop's kill switch. Fail-closed: an absent
+    // doc or `enabled` anything other than literal `true` means drag stays
+    // off, matching every other fetch-failure-falls-back-to-default
+    // convention on this route.
+    const dragEnabled = dragEnabledDoc?.enabled === true
     return NextResponse.json({
       weights,
       thresholds,
       concentrationRiskSettings,
       calibration,
       wipLimits,
+      dragEnabled,
       source: weightsDoc ? 'mongodb' : 'default',
       thresholdsSource: thresholdsDoc ? 'mongodb' : 'default',
       concentrationRiskSettingsSource: concentrationDoc ? 'mongodb' : 'default',
       calibrationSource: calibrationDoc ? 'mongodb' : 'default',
       wipLimitsSource: wipLimitsDoc ? 'mongodb' : 'default',
+      dragEnabledSource: dragEnabledDoc ? 'mongodb' : 'default',
     })
   } catch (error: any) {
     console.error('[API:settings] GET error:', error)
@@ -76,6 +84,7 @@ export async function PUT(request: NextRequest) {
     const concentrationRiskSettings = body.concentrationRiskSettings
     const calibration = body.calibration
     const wipLimits = body.wipLimits
+    const dragEnabled = body.dragEnabled
 
     if (weights !== undefined && (typeof weights !== 'object' || weights === null)) {
       return NextResponse.json({ error: 'weights must be an object' }, { status: 400 })
@@ -110,8 +119,11 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'calibration.windowDays must be null or a positive number' }, { status: 400 })
       }
     }
-    if (weights === undefined && thresholds === undefined && concentrationRiskSettings === undefined && calibration === undefined && wipLimits === undefined) {
-      return NextResponse.json({ error: 'weights, thresholds, concentrationRiskSettings, calibration, or wipLimits object required' }, { status: 400 })
+    if (dragEnabled !== undefined && typeof dragEnabled !== 'boolean') {
+      return NextResponse.json({ error: 'dragEnabled must be a boolean' }, { status: 400 })
+    }
+    if (weights === undefined && thresholds === undefined && concentrationRiskSettings === undefined && calibration === undefined && wipLimits === undefined && dragEnabled === undefined) {
+      return NextResponse.json({ error: 'weights, thresholds, concentrationRiskSettings, calibration, wipLimits, or dragEnabled required' }, { status: 400 })
     }
 
     const client = await clientPromise
@@ -162,9 +174,18 @@ export async function PUT(request: NextRequest) {
         )
       )
     }
+    if (dragEnabled !== undefined) {
+      updates.push(
+        db.collection('settings').updateOne(
+          { key: 'kanban_drag_enabled' },
+          { $set: { enabled: dragEnabled, updatedAt: new Date() } },
+          { upsert: true }
+        )
+      )
+    }
     await Promise.all(updates)
 
-    return NextResponse.json({ ok: true, weights, thresholds, concentrationRiskSettings, calibration })
+    return NextResponse.json({ ok: true, weights, thresholds, concentrationRiskSettings, calibration, wipLimits, dragEnabled })
   } catch (error: any) {
     console.error('[API:settings] PUT error:', error)
     return NextResponse.json({ error: 'Failed to update settings', details: error.message }, { status: 500 })

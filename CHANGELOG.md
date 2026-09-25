@@ -1,5 +1,39 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.206
+
+### Kanban: real drag-and-drop, behind an operator kill switch (issue #208)
+
+`enableDrag` was hardcoded off since 2.4.17, after a real 2.4.10–2.4.16
+production crash whose root cause was never actually pinned to a specific
+line of code or GDS defect. This re-enables it, but conditionally: a new
+`kanban_drag_enabled` Mongo-backed setting (`GET`/`PUT /api/settings`,
+`dragEnabled`) defaults to `false` — fail-closed, no redeploy needed to flip
+it either way. Cross-column drag reuses the existing `COLUMN_MOVE` action
+unchanged (same stage-gate enforcement, same audit trail). Same-column drag
+is newly real: a new `COLUMN_REORDER` action (`app/lib/lead-actions.ts`,
+`PATCH /api/leads`) persists a fractional-indexed `sortOrder`
+(`lib/kanban-reorder.ts`) for the five manually-controlled columns
+(ENGAGED/PROPOSAL/WON/LOST/BACKLOG), with a bounded whole-column
+resequencing fallback once float64 precision is exhausted. A same-column
+drag on DISCOVERED/QUALIFIED (score-sorted, never manually ordered) is
+rejected with a visible notification instead of the previous silent no-op.
+The board mount is now wrapped in `ErrorBoundary`, closing the one failure
+mode the existing per-card boundary can't cover. The keyboard/tap "Move to
+column" menu is unconditional and unaffected in every state of the switch.
+
+**Disclosed explicitly, not silently assumed**: the original crash's root
+cause is still unconfirmed — this is treated as a fresh risk mitigated by
+the kill switch, not an assumed-safe retry. Real-device pointer/touch/
+keyboard drag verification — the issue's own §19 calls this "the
+load-bearing verification step for this entire issue, not a formality" —
+cannot be performed from this sandbox and was not performed; it remains
+required on a staging deployment before the switch is turned on in
+production. No new dependency was added (`@dnd-kit/*` remains gds-core's
+own, already-encapsulated dependency; the pre-existing direct `package.json`
+entries for it predate this issue and are unrelated — see
+`docs/STACK_AND_DEPENDENCIES.md`).
+
 ## 2.4.205
 
 ### Meeting scheduler: public booking page backed by Google Calendar (issue #207)

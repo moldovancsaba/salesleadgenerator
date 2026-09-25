@@ -497,7 +497,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH, ASSIGN, SET_FORECAST_CATEGORY
+// PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH, ASSIGN, SET_FORECAST_CATEGORY, COLUMN_REORDER
 //
 // No requireApiKey guard here (issue #91's real root cause): this is the
 // exclusive write path for every lead action button in the browser UI
@@ -530,7 +530,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const action = String(body.action || '').toUpperCase()
-    const allowed = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH', 'ASSIGN', 'SET_FORECAST_CATEGORY'])
+    const allowed = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH', 'ASSIGN', 'SET_FORECAST_CATEGORY', 'COLUMN_REORDER'])
     if (!allowed.has(action)) {
       return NextResponse.json({ error: `Unsupported action: ${action}` }, { status: 400 })
     }
