@@ -9,6 +9,8 @@ import { computeTicketSizeForLead } from './ticket-size-store'
 import { createManualTicketSizeOverride } from '../../lib/ticket-size'
 import { defaultRevenueTargetCurrency } from './sales-settings'
 import { checkStageGate, formatStageGateError } from '../../lib/stage-gate'
+import { isAutoManagedColumn } from '../../lib/kanban-column'
+import { computeReorderSortOrder, NEEDS_RESEQUENCE } from '../../lib/kanban-reorder'
 import { sanitizeDeals } from '../../lib/deals'
 import type { ProductPriceLookup } from '../../lib/deals'
 import { sanitizeChecklist } from '../../lib/checklist'
@@ -19,7 +21,7 @@ export type LeadActionInput = {
   brand: string
   tenantId: string
   leadId: string
-  action: 'ACCEPT' | 'DECLINE' | 'MODIFY' | 'PIN' | 'REQUEST_REFRESH' | 'COLUMN_MOVE' | 'RESCAN_TECH' | 'ASSIGN' | 'UNDO_BULK' | 'SET_FORECAST_CATEGORY'
+  action: 'ACCEPT' | 'DECLINE' | 'MODIFY' | 'PIN' | 'REQUEST_REFRESH' | 'COLUMN_MOVE' | 'RESCAN_TECH' | 'ASSIGN' | 'UNDO_BULK' | 'SET_FORECAST_CATEGORY' | 'COLUMN_REORDER'
   payload: Record<string, any>
   // Lead ownership (issue: CRM Lead ownership) — the real actor's identity,
   // resolved server-side from the caller's verified session
@@ -98,6 +100,81 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     updateData.manualLaneFloorColumn = normalizedBody.kanbanColumn
     updateData.manualLaneOverrideBy = normalizedBody.manualLaneOverrideBy || 'webapp-user'
     outcomeValue = `Moved to ${normalizedBody.kanbanColumn}`
+  }
+
+  // Same-column drag reorder (issue #208). Never touches kanbanColumn or any
+  // manualLane* field — this is a pure ordinal-position change within
+  // whatever column the lead is already in. isAutoManagedColumn() is a
+  // defensive server-side re-check: app/kanban.tsx already blocks a drag
+  // into this branch for DISCOVERED/QUALIFIED client-side, since those two
+  // columns ignore sortOrder entirely (ICE-score sorted, lib/kanban-column.ts).
+  if (action === 'COLUMN_REORDER') {
+    if (isAutoManagedColumn(existing.kanbanColumn)) {
+      return { success: false, error: 'This column is sorted automatically by lead score', requestId }
+    }
+
+    const column = existing.kanbanColumn
+    const rawPrevId = typeof payload.prevLeadId === 'string' ? payload.prevLeadId : null
+    const rawNextId = typeof payload.nextLeadId === 'string' ? payload.nextLeadId : null
+
+    // Looked up fresh, scoped to the same tenant/brand collection as the
+    // dragged lead itself — never trusted from client-sent numbers. A
+    // stale reference (deleted, moved to a different column since drag
+    // start, or belonging to another tenant) resolves to `null` and falls
+    // back to the appropriate boundary case rather than blocking the
+    // reorder or leaking whether a foreign-tenant id exists (issue #208 §15/§17).
+    const [prevLead, nextLead] = await Promise.all([
+      rawPrevId && ObjectId.isValid(rawPrevId)
+        ? db.collection(config.dbCollection).findOne({ _id: new ObjectId(rawPrevId), ...tenantFilter }, { projection: { sortOrder: 1, kanbanColumn: 1 } })
+        : null,
+      rawNextId && ObjectId.isValid(rawNextId)
+        ? db.collection(config.dbCollection).findOne({ _id: new ObjectId(rawNextId), ...tenantFilter }, { projection: { sortOrder: 1, kanbanColumn: 1 } })
+        : null,
+    ])
+
+    const prevSortOrder = prevLead && prevLead.kanbanColumn === column && typeof prevLead.sortOrder === 'number' ? prevLead.sortOrder : null
+    const nextSortOrder = nextLead && nextLead.kanbanColumn === column && typeof nextLead.sortOrder === 'number' ? nextLead.sortOrder : null
+
+    let newSortOrder = computeReorderSortOrder(prevSortOrder, nextSortOrder)
+
+    if (newSortOrder === NEEDS_RESEQUENCE) {
+      // Degenerate fractional-indexing case (dozens of consecutive reorders
+      // landing between the same two neighbors, exhausting float64
+      // precision) — self-heals the whole column in one bounded bulk write.
+      // A targeted full-column query (not limited to whatever page is
+      // loaded client-side), since resequencing must be correct for the
+      // whole column, not just the currently-paged slice (issue #208 §16).
+      const columnLeads = await db.collection(config.dbCollection)
+        .find({ kanbanColumn: column, ...tenantFilter }, { projection: { _id: 1 } })
+        .sort({ sortOrder: -1, createdAt: -1 })
+        .toArray()
+
+      const withoutDragged = columnLeads.filter((l: any) => l._id.toString() !== leadId)
+
+      let insertAt: number
+      if (rawNextId) {
+        const idx = withoutDragged.findIndex((l: any) => l._id.toString() === rawNextId)
+        insertAt = idx === -1 ? withoutDragged.length : idx
+      } else if (rawPrevId) {
+        const idx = withoutDragged.findIndex((l: any) => l._id.toString() === rawPrevId)
+        insertAt = idx === -1 ? 0 : idx + 1
+      } else {
+        insertAt = 0
+      }
+
+      const reindexed = [...withoutDragged.slice(0, insertAt), { _id: new ObjectId(leadId) }, ...withoutDragged.slice(insertAt)]
+      const bulkOps = reindexed.map((l: any, i: number) => ({
+        updateOne: {
+          filter: { _id: l._id },
+          update: { $set: { sortOrder: (reindexed.length - i) * 1_000_000 } },
+        },
+      }))
+      await db.collection(config.dbCollection).bulkWrite(bulkOps)
+      newSortOrder = (reindexed.length - insertAt) * 1_000_000
+    }
+
+    updateData.sortOrder = newSortOrder
+    outcomeValue = `Reordered within ${column}`
   }
 
   // Lead ownership (issue: CRM Lead ownership) — set/clear Lead.assignedTo.
@@ -452,7 +529,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     // second (a human corrected the record), everything else is weaker/implicit.
     // Not currently read back by any scoring or learning code in this repo — see
     // docs/ARCHITECTURE.md's Outcome Log section.
-    teachingWeight: action === 'MODIFY' ? 95 : action === 'DECLINE' ? 100 : 70,
+    teachingWeight: action === 'MODIFY' ? 95 : action === 'DECLINE' ? 100 : action === 'COLUMN_REORDER' ? 40 : 70,
     actorType: 'USER',
     // Lead ownership (issue: CRM Lead ownership) — the real ssoUserId when
     // the caller has a verified session (every action from the browser UI,
