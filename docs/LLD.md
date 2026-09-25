@@ -185,7 +185,6 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 - `lib/request-retry.ts` — `withRetry`
 - `lib/tech-stack-scan.ts` — SSRF-guarded homepage scanner: `scanTechStack`, `matchSignatures`, `isPrivateOrReservedIp`, `parseTargetUrl`
 - `lib/iso-week.ts` — `isoWeekKey`
-- `lib/desktop-scroll-passthrough.ts` — `isVerticalScrollIntent`
 - `lib/saved-filters.ts` — `LeadFilter`, `SavedFilter`, `isEmptyFilter`, `addSavedFilter`, `removeSavedFilter`
 - `lib/backfill-title-normalization.ts` — one-time migration for `normalizeTitle`
 

@@ -13,7 +13,6 @@ import { COLUMNS } from './constants';
 import { computeStaleness, DEFAULT_STALE_THRESHOLDS, type KanbanColumn as StaleDealColumn } from '../lib/stale-deal';
 import { getNextStepNudge } from '../lib/next-step-nudge';
 import type { LeadFilter } from '../lib/saved-filters';
-import { isVerticalScrollIntent } from '../lib/desktop-scroll-passthrough';
 import { TOUR_SELECTOR } from './lib/tour/selectors';
 
 type ColumnState = {
@@ -132,32 +131,6 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     setCollapsedColumnIds((prev) =>
       collapsed ? [...prev, columnId] : prev.filter((id) => id !== columnId)
     )
-  }, [])
-
-  // Desktop trackpad "natural scroll" fix — see lib/desktop-scroll-passthrough.ts
-  // for the full explanation. Attached as a real (non-React-synthetic)
-  // listener via addEventListener, not onWheel: React attaches its own root
-  // wheel listeners as passive for scroll-performance reasons, so
-  // event.preventDefault() inside a React onWheel handler is silently a
-  // no-op — only a manually-added { passive: false } listener can actually
-  // cancel the browser's native scroll here. Desktop-only by design
-  // (matchMedia('(pointer: fine)')): on a touchscreen, GDS renders a
-  // stacked layout with no horizontal ScrollArea to fight, and native touch
-  // panning must never be intercepted by this.
-  const boardWrapperRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const el = boardWrapperRef.current
-    if (!el || typeof window === 'undefined' || !window.matchMedia('(pointer: fine)').matches) return
-
-    function handleWheel(event: WheelEvent) {
-      if (!isVerticalScrollIntent(event.deltaX, event.deltaY)) return
-      event.preventDefault()
-      window.scrollBy(0, event.deltaY)
-    }
-
-    el.addEventListener('wheel', handleWheel, { passive: false })
-    return () => el.removeEventListener('wheel', handleWheel)
   }, [])
 
   // Fetched once per board mount, not per card — stale/critical badges are
@@ -586,7 +559,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         </Group>
       )}
 
-      <div ref={boardWrapperRef} data-tour={TOUR_SELECTOR.kanbanBoard}>
+      <div data-tour={TOUR_SELECTOR.kanbanBoard}>
         <GdsKanbanBoard
           columns={columns}
           onMoveItem={handleMoveItem}
@@ -595,6 +568,16 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           collapsible
           collapsedColumnIds={collapsedColumnIds}
           onCollapsedChange={handleCollapsedChange}
+          // Issue #125 — GDS's native zone-based wheel-scroll routing
+          // (columnPanZone, shipped in general-design-system 3.14.12,
+          // already installed here via ^6.5.0), replacing this repo's own
+          // gesture-shape heuristic (formerly lib/desktop-scroll-passthrough.ts).
+          // A wheel gesture over a column header pans the columns
+          // horizontally; anywhere else (a card, empty space) always
+          // scrolls the page — routed by cursor zone, not gesture shape,
+          // so a fast diagonal gesture over a card can no longer misroute.
+          // Fine-pointer-only and inert on touch, per GDS's own contract.
+          columnPanZone="header"
         />
       </div>
     </>
