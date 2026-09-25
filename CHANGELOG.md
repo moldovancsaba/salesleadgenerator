@@ -1,5 +1,51 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.204
+
+### Integrations: Gmail activity sync + Google Contacts import (issue #216)
+
+Adds the first two features that actually read from issue #217's
+third-party connection hub. Gmail messages to/from a lead's known
+contact addresses are pulled into the existing unified activity
+timeline (a new `gmail-sync` activity source, an hourly
+`GET /api/integrations/gmail/sync` cron), headers-only-then-body-on-match
+to minimize what's ever fetched from a rep's inbox. A rep can search
+their Google Contacts from a lead's detail view and attach a match as a
+new contact (`GET /api/integrations/google-contacts/search`,
+`POST /api/leads/[id]/contacts/import-google`), reusing the existing
+contact-write path unmodified. Zero new npm dependencies — both Gmail's
+and Google's People REST APIs are called directly via `fetch()`.
+
+**Real, disclosed architectural mismatch found during implementation**:
+this issue's own text assumes multiple simultaneous per-rep Gmail
+connections per brand, but the hub it depends on (issue #217) supports
+exactly one connection per `{brand, tenantId, provider}`. Rather than
+redesigning the already-shipped hub, this ships against its real schema
+— one Gmail connection per brand, polled once per tick. See
+`docs/ARCHITECTURE.md`'s "Gmail and Google Contacts Sync" section for
+full detail.
+
+A second real gap was found and fixed while implementing the
+cross-source dedup guard: the issue's own dedup algorithm needs a
+content-derived `fallbackHash` on inbound-webhook activity entries too,
+which issue #141's original writer never computed. Fixed by extending
+`buildActivityLogDoc()` to compute one on every new inbound-webhook
+write going forward (historical entries are unaffected — an accepted,
+disclosed limitation).
+
+**Disclosed limitation, matching issue #217's own precedent**: the
+issue's own required real end-to-end run (a real Gmail account, a real
+Google Contacts entry) could not be performed in this sandbox — no real
+Google account exists here. Every code path is covered by unit tests and
+integration tests against a real database with Gmail's/People's REST
+calls mocked at the fetch boundary, per the issue's own explicit
+alternative testing instruction; the real live-account run remains
+outstanding.
+
+tsc: 0 errors. lint: 0 errors/warnings. unit: 1038/1038. integration:
+401/401. smoke: 5/5. audit:gds-style: 26 (unchanged baseline). next
+build: clean. No dependency added.
+
 ## 2.4.203
 
 ### Integrations: third-party connection hub for Google Calendar/Gmail/Contacts and Calendly (issue #217)

@@ -232,6 +232,8 @@ A unified, time-ordered timeline of activity for this lead — email and, as of 
 
 Email entries appear here from either of the **Outreach** compose modal's two buttons — "Log outreach" (a record of something you sent yourself elsewhere) or "Send email" (a real send this app made on your behalf) — see [Outreach](#outreach) below for the difference; each real send appears exactly once here, never duplicated. Automatic inbound-reply capture (a dedicated inbound address the system can receive at) and reply-to-lead matching are both fully built, but capture isn't live yet — it still needs a Resend account and a couple of settings only someone with dashboard/Vercel access can provide (see `docs/STACK_AND_DEPENDENCIES.md`'s "Inbound email webhook" section). An otherwise-empty Activity section on most leads today reflects that, not a bug. Once inbound capture is live, a genuine reply from a lead you've contacted will match to this lead automatically and appear here as an "Inbound reply" entry.
 
+A second, independent way entries can appear here: if [Gmail is connected](#integrations) for the brand, a message to/from an already-known contact shows up automatically, tagged with a **Gmail** badge — see the Integrations section above for how.
+
 ### Logging a call
 
 Tap **Log a call** above the Activity timeline, pick who you called, an outcome, and (optionally) how long it lasted and any notes, then **Save call**. The button is disabled with a tooltip if the lead has no contacts yet — add one under Contacts first. Outcomes are a fixed set: **Connected** (reached them, had a conversation), **Voicemail**, **No answer**, **Busy**, **Wrong number**, and **Not interested** (reached them, explicit decline in-call) — pick the closest match rather than writing it as a note. Logging a call also counts as a real touch on the lead, the same as any other activity, so it refreshes its "how stale is this deal" signal. There's no dialer or click-to-call here — this is purely a record of a call you already made by phone.
@@ -301,7 +303,17 @@ A "Manage integrations" button at the top of Sales Settings opens this brand's c
 - **Disconnect** is immediate and asks for confirmation first. Anything relying on that connection stops working until it's reconnected.
 - A connection showing **Error** or **Expired** needs to be reconnected — this happens if access was revoked directly at the provider (e.g. removing this app's access in your Google Account, or regenerating a Calendly token), not something this app can fix on its own.
 
-At the time of writing, no feature in this app actually reads from a connection yet (no calendar sync, no Gmail sync, no Calendly booking sync) — connecting one here only stores the credential for a future feature to use. See `docs/ARCHITECTURE.md` for what's built and what's still planned.
+Gmail and Google Contacts are the first two providers a feature actually reads from — see below. Calendar and Calendly booking sync are not built yet; connecting either one here only stores the credential for a future feature to use. See `docs/ARCHITECTURE.md` for what's built and what's still planned.
+
+**Only one Gmail/Google Contacts connection per brand.** Connecting Gmail or Google Contacts links one Google account to the whole brand, not one per person — if a second admin connects the same provider again, it replaces the first admin's connection rather than adding a second one alongside it. If your brand needs more than one rep's inbox surfaced this way, that isn't supported yet; talk to whoever manages this app's roadmap.
+
+#### Gmail activity sync
+
+Once Gmail is connected for a brand, this app checks that inbox roughly once an hour for messages to or from someone already listed as a contact on one of that brand's leads. A matching message shows up automatically in that lead's Activity tab, tagged with a **Gmail** badge — no action needed once connected. Unrelated mail in that inbox is never touched or stored. If the same email would also arrive through this app's own dedicated inbound address, it's only logged once, not twice.
+
+#### Import from Google Contacts
+
+On a lead's detail view, in the Contacts section, an **Import from Google Contacts** button appears once Google Contacts is connected for that brand (it stays visible but disabled, with an explanation, if it isn't connected yet). Click it, search by name or email, and click **Add** next to the right person to attach them to this lead as a new contact — the same way you'd add one manually. If that person is already a contact on this lead, it tells you so instead of adding a duplicate. This only pulls a contact into this app; it never writes anything back to your Google Contacts.
 
 ---
 

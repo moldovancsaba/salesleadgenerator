@@ -14,8 +14,11 @@ export const ACTIVITY_LOG_COLLECTION = 'activityLog'
 // every inbound-classified event.
 // Issue #200 — 'call' is the first manually-triggered writer to this
 // collection (every prior writer was the inbound-email webhook, #141).
+// Issue #216 — 'gmail-sync' is the second automated writer, alongside
+// 'inbound-webhook'; both can be active for the same brand simultaneously
+// (see app/lib/gmail-sync-store.ts's own cross-source dedup guard).
 export type ActivityEntryType = 'email-outbound' | 'email-inbound' | 'note' | 'system' | 'call'
-export type ActivitySource = 'inbound-webhook' | 'manual' | 'outreach-log'
+export type ActivitySource = 'inbound-webhook' | 'manual' | 'outreach-log' | 'gmail-sync'
 
 // Closed set, chosen to cover the outcomes a rep needs to distinguish for
 // reportable call analytics — mirrors app/types.ts's DeclineReason as this
@@ -87,6 +90,14 @@ export type ActivityLogDocument = {
   // expected, documented behavior for Resend and every other inbound-email
   // provider) a no-op instead of a duplicate.
   externalId?: string
+  // Issue #216 — a content-derived hash (lib/gmail-sync.ts's
+  // buildFallbackHash()), set only by gmail-sync writes. Lets Gmail sync
+  // recognize "this physical email is already visible via the
+  // inbound-webhook path" even though the two paths' externalId values
+  // (Resend's email_id vs. Gmail's own message id) can never match each
+  // other directly. Never exposed to the client — internal dedup bookkeeping
+  // only, not part of ActivityEntry.
+  fallbackHash?: string
   createdAt: Date
   // Issue #200 — call-specific fields, present only when type === 'call'.
   callDisposition?: CallDisposition

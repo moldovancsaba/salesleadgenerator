@@ -17,6 +17,7 @@ import { getNextStepNudge } from '@/lib/next-step-nudge';
 import { sumDeals } from '@/lib/deals';
 import type { Deal } from '@/lib/deals';
 import { ContactsEditor, type ContactRow } from './components/ContactsEditor';
+import { GoogleContactsImport } from './components/GoogleContactsImport';
 import { ActivityPanel } from './components/ActivityPanel';
 import { CadencePanel } from './components/CadencePanel';
 import { resolveBuyingRole, deriveIsDecisionMaker } from '@/lib/contacts';
@@ -333,6 +334,26 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
     }));
     setEditingContacts(true);
   }
+
+  // Issue #216 — Rule 7: "Import from Google Contacts" must stay genuinely
+  // disabled, never clickable-but-broken, until a real active connection is
+  // confirmed. `undefined` (still checking) is treated the same as
+  // disabled by GoogleContactsImport — never optimistically enabled.
+  const [googleContactsConnected, setGoogleContactsConnected] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    if (!opened) return;
+    let cancelled = false;
+    setGoogleContactsConnected(undefined);
+    fetch(`/api/integrations/connections?brand=${encodeURIComponent(brand)}&tenantId=default`)
+      .then((res) => (res.ok ? res.json() : { connections: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        const connection = (data.connections || []).find((c: any) => c.provider === 'google_contacts');
+        setGoogleContactsConnected(connection?.status === 'active');
+      })
+      .catch(() => { if (!cancelled) setGoogleContactsConnected(false); });
+    return () => { cancelled = true; };
+  }, [opened, brand]);
 
   // Manually-managed deals (issue #114) — always distinct from the
   // auto-computed ticketSizeEstimate above; nothing here ever runs
@@ -1299,6 +1320,14 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
                 (CLAUDE.md Rule 7 — context only, no new affordance). */}
             {contactStaleCount > 0 && (
               <Text size="xs" c="orange">{contactStaleCount} of {lead.contacts?.length} contacts need re-verification</Text>
+            )}
+            {!editingContacts && (
+              <GoogleContactsImport
+                leadId={lead._id}
+                brand={brand}
+                connected={googleContactsConnected}
+                onImported={onUpdated}
+              />
             )}
             {!editingContacts && (
               <Button size="xs" variant="light" onClick={openEditContacts} disabled={busy}>Edit</Button>

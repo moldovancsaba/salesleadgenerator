@@ -1,5 +1,6 @@
 import type { Brand } from './brand'
 import type { ActivityLogDocument } from './activity-log-store'
+import { buildFallbackHash } from '../../lib/gmail-sync'
 
 // Issue #141 — pure business logic for turning a verified Resend
 // `email.received` webhook event into what gets written to activityLog.
@@ -111,6 +112,14 @@ export function buildActivityLogDoc(
     matchedContactKey: null,
     source: 'inbound-webhook',
     externalId: event.emailId,
+    // Issue #216's own Gmail-sync cross-source dedup guard needs a
+    // content-derived fallback hash on THIS path's writes too, or it has
+    // nothing to match against — a small, additive extension to this
+    // existing writer (lib/gmail-sync.ts's buildFallbackHash(), reused
+    // unmodified). Resend delivers its webhook within seconds of receiving
+    // the email, so `now` here is a close proxy for the email's own true
+    // Date header — well within the cross-source guard's matching window.
+    fallbackHash: buildFallbackHash({ from: event.from, toCc: [...event.to, ...event.cc], subject: event.subject, dateIso: now.toISOString() }),
     createdAt: now,
   }
 }
