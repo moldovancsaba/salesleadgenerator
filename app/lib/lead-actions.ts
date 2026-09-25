@@ -579,5 +579,27 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
 
   const normalizedLead = normalizeLead({ ...responseDoc, _id: responseDoc._id.toString() })
 
+  // Outbound webhooks (issue #210 sub-issue #219) — enqueue-only, never an
+  // outbound HTTP call on this path (issue #210 §16), so a slow/dead
+  // external endpoint can never add latency here. Fires lead.stage_changed
+  // whenever this action actually changed kanbanColumn, plus lead.won/
+  // lead.lost as the more specific event when the new column is WON/LOST —
+  // both fire for a WON/LOST transition, letting a subscriber pick
+  // whichever granularity it wants. Caught so a webhook-store issue can
+  // never fail the lead action itself, matching the automation-rules
+  // try/catch just above.
+  const newColumn = updateData.kanbanColumn
+  if (newColumn && newColumn !== existing.kanbanColumn) {
+    try {
+      const { emitWebhookEvent } = await import('./webhook-store')
+      const eventPayload = { leadId, tenantId, fromColumn: existing.kanbanColumn, toColumn: newColumn, lead: normalizedLead }
+      await emitWebhookEvent(db, brand, 'lead.stage_changed', eventPayload)
+      if (newColumn === 'WON') await emitWebhookEvent(db, brand, 'lead.won', eventPayload)
+      if (newColumn === 'LOST') await emitWebhookEvent(db, brand, 'lead.lost', eventPayload)
+    } catch (error) {
+      console.error('[app/lib/lead-actions] webhook emission failed', { brand, tenantId, leadId, newColumn, error })
+    }
+  }
+
   return { success: true, lead: normalizedLead, requestId }
 }

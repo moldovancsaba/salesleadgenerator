@@ -1,5 +1,41 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.210
+
+### API: Outbound webhooks — signing, delivery worker, retry/dead-letter, admin UI (issue #210 sub-issue #219)
+
+A real, signed, retrying outbound-webhook system: a brand admin registers
+an `https://` URL and subscribes it to `lead.created`/`lead.stage_changed`/
+`lead.won`/`lead.lost`, and this app pushes HMAC-signed event payloads
+instead of requiring that system to poll `GET /api/leads`. New `webhooks`/
+`webhook_deliveries` collections (`lib/webhooks.ts` pure logic,
+`app/lib/webhook-store.ts` Mongo-aware layer). SSRF defenses reuse issue
+#69's already-audited `isPrivateOrReservedIp()` from
+`lib/tech-stack-scan.ts` rather than reimplementing them, applied both at
+registration and defensively before every delivery attempt (DNS-rebinding/
+TOCTOU defense). Signing mirrors `lib/resend-webhook.ts`'s inbound
+Standard-Webhooks-shaped verification in the outbound direction
+(HMAC-SHA256, `webhook-id`/`webhook-timestamp`/`webhook-signature`
+headers) — full integrator recipe in the new `docs/WEBHOOKS.md`. The
+webhook signing secret is encrypted at rest via `lib/integration-crypto.ts`,
+reusing issue #217's existing `INTEGRATION_CREDENTIALS_ENCRYPTION_KEY` —
+**no new environment variable needed**. Retry schedule (1m/5m/30m/2h/12h,
+5 attempts, then auto-disable after 5 consecutive exhausted deliveries)
+matches issue #210 §11 exactly; the delivery worker's own cron cadence
+was verified directly against this project's real, live Vercel
+configuration (two already-working hourly crons prove at least
+hourly-cron eligibility) rather than assumed, and ships hourly
+(`app/api/admin/webhook-delivery-tick`, added to `vercel.json`). Admin UI
+extends the existing `/admin/api-keys` page with a Webhooks
+`AdminDataTable`/`AdminModal` section rather than a new page. This is
+sub-issue #219 of #210's remaining scope; the sibling sub-issue #220
+(migrating cron jobs/research agent to scoped keys, retiring
+`SLG_API_KEY`) remains genuinely owner-blocked — see `roadmap.md`. See
+`docs/ARCHITECTURE.md`'s "Outbound Webhooks" section for full design
+detail, including the real-external-receiver verification gap this
+sandbox could not close (every delivery test runs against an injected
+network stub, not a real TLS handshake against a real third party).
+
 ## 2.4.209
 
 ### Deals: quote generation, send, and e-sign-lite (issue #211)
