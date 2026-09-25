@@ -1,5 +1,52 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.203
+
+### Integrations: third-party connection hub for Google Calendar/Gmail/Contacts and Calendly (issue #217)
+
+Adds the shared foundation every future third-party connection (Google
+Calendar, Gmail, Google Contacts, Calendly, and whatever is added later)
+plugs into, instead of each one inventing its own credential-storage
+design — a new `integration_connections` collection, AES-256-GCM
+encryption at rest (`lib/integration-crypto.ts`, Node's built-in `crypto`
+only, no new dependency), a generalized OAuth2 connect/callback flow for
+the Google family reusing `lib/sso.ts`'s own PKCE helpers, a
+verify-before-store API-key connect flow for Calendly, and a new
+`/salessettings/[client]/integrations` admin surface (any brand admin, not
+only the super admin).
+
+Explicitly supersedes issue #207's own independently-drafted
+`calendar_connections` design, which predates this hub.
+
+A real bug was caught and fixed before shipping: the OAuth state cookie
+initially stored a raw JSON string, which RFC 6265 forbids (unescaped
+quotes/commas in a cookie value) — fixed by `encodeURIComponent`-encoding
+it before setting, and decoding it back in the callback route.
+
+**Disclosed limitation, not a silent gap**: three manual verification
+steps this issue's own §19 calls out (one real Google test account
+connected end to end, one real external revoke at Google confirmed to
+degrade this app gracefully, one real Calendly token connected end to
+end) could not be performed in this sandbox — no registered Google OAuth
+client or real Calendly account exists here, and the required env vars
+(`INTEGRATION_CREDENTIALS_ENCRYPTION_KEY`, `GOOGLE_OAUTH_CLIENT_ID`,
+`GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`) are unset in
+this environment — every route in this hub fails closed until an operator
+provisions them in Vercel. Unit and integration tests (the latter against
+a real database, with Google's/Calendly's REST calls mocked at the fetch
+boundary, per this issue's own explicit testing instructions) cover
+everything else, including a full real redirect-then-callback OAuth round
+trip, cross-brand isolation, and the unique-index concurrency guard.
+
+No feature yet reads from a stored connection (no calendar sync, no Gmail
+sync, no Calendly booking sync) — this issue is the connection layer only,
+as specced; a sibling Gmail/Contacts-sync issue and the previously-deferred
+Calendar-sync issue (#207) build on top of it.
+
+tsc: 0 errors. lint: 0 errors/warnings. unit: 1021/1021. integration:
+392/392. smoke: 5/5. audit:gds-style: 26 (unchanged baseline). next build:
+clean.
+
 ## 2.4.202
 
 ### API: scoped API keys, foundation only (issue #210, Phase 1 of 6)

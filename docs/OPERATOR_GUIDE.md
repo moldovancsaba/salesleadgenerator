@@ -291,6 +291,18 @@ A one-time (then occasionally revisited) questionnaire per brand, reached via th
 
 Click **Save** at the bottom. Saving also triggers a recalculation of Ticket Size across every existing lead for that brand in the background — if you don't see updated numbers within a minute or two, they'll catch up on the next scheduled recalculation regardless.
 
+### Integrations
+
+A "Manage integrations" button at the top of Sales Settings opens this brand's connections to Google Calendar, Gmail, Google Contacts, and Calendly — any admin who can reach this brand's Sales Settings can manage its integrations, not only a super admin. Each provider shows as a row: **Connect** (or **Reconnect**, once connected), **Test**, and **Disconnect**.
+
+- **Google Calendar / Gmail / Google Contacts**: Connect sends you to Google's own consent screen. Approving it sends you back here, connected — nothing further to enter. Google always asks for consent again on every (re)connect, so a stale grant never silently carries over.
+- **Calendly**: Connect opens a form asking for a personal access token. Generate one in Calendly under **Integrations → API & Webhooks → Generate new token**, then paste it in. It's checked against your real Calendly account immediately — an invalid or expired token is rejected on the spot, before anything is saved. **Calendly does not show or store this token again after you generate it** — if you lose it, generate a new one; there's no way to recover the old one. This token also carries the full permission of your whole Calendly account (not a narrower, scoped grant the way the Google connections are), so treat it like a password.
+- **Test** re-checks a connection against the real provider right now and shows whether it's still valid — use it if something that depends on a connection stops working, before assuming the connection itself is fine.
+- **Disconnect** is immediate and asks for confirmation first. Anything relying on that connection stops working until it's reconnected.
+- A connection showing **Error** or **Expired** needs to be reconnected — this happens if access was revoked directly at the provider (e.g. removing this app's access in your Google Account, or regenerating a Calendly token), not something this app can fix on its own.
+
+At the time of writing, no feature in this app actually reads from a connection yet (no calendar sync, no Gmail sync, no Calendly booking sync) — connecting one here only stores the credential for a future feature to use. See `docs/ARCHITECTURE.md` for what's built and what's still planned.
+
 ---
 
 ## Outreach

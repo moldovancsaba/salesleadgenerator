@@ -69,6 +69,10 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 | `SSO_CLIENT_SECRET` | For SSO | SSO OAuth client secret |
 | `SSO_REDIRECT_URI` | For SSO | SSO OAuth callback URL |
 | `SSO_SUPER_ADMIN_EMAILS` | For SSO | Comma-separated emails granted super-admin access |
+| `INTEGRATION_CREDENTIALS_ENCRYPTION_KEY` | For Integrations | 32-byte base64 key encrypting stored Google/Calendly credentials at rest |
+| `GOOGLE_OAUTH_CLIENT_ID` | For Integrations | Shared Google OAuth client ID (Calendar/Gmail/Contacts connections) |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | For Integrations | Shared Google OAuth client secret |
+| `GOOGLE_OAUTH_REDIRECT_URI` | For Integrations | Must match `/api/integrations/oauth/callback` on this deployment |
 
 ---
 
