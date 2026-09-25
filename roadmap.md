@@ -38,6 +38,7 @@ Last synced: 2026-09-25, re-verified directly against `moldovancsaba/salesleadge
 | # | Title | Priority | Notes |
 |---|---|---|---|
 | [#193](https://github.com/moldovancsaba/salesleadgenerator/issues/193) | Non-conforming `lead.source` values: 2,739 of 3,051 leads don't match the documented channel vocabulary | P3 | Not a validation gap — `source` is deliberately freeform (issue #123). Data-quality backlog: `csv_import` (1730), missing/`unknown` (977), and a handful of dvsc process-artifact strings need an owner decision on reclassification before any bulk write. Numbers re-derived live against production 2026-08-20, reconciled exactly against `GET /api/health`'s lead counts. |
+| [#221](https://github.com/moldovancsaba/salesleadgenerator/issues/221) | `gds-compliance` `forbidden-color` rule false-positives on GitHub issue-number references (`#NNN`) | P3 | Found 2026-09-25 while shipping an unrelated data-only change: `npm run audit:gds-style` reports 28 findings, 27 of which are false positives (the vendored tool's own `RAW_COLOR_PATTERN` regex matches `#132`/`#206`-style issue-number comments as if they were hex colors — verified by reading the tool's source). One real, pre-existing finding remains (`app/layout.tsx`'s `<meta theme-color>` literal, dating to 2026-07-31). Needs upstream fix or a deliberate `gds-adoption.json` exception, not a workaround inside this repo's own code. |
 
 ## Recently closed (context)
 
