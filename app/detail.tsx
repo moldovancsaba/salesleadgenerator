@@ -1652,6 +1652,27 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
 
       <Divider />
 
+      {/* Issue #207 — shares this brand's public booking page for this
+          lead. A plain button rather than a GDS semantic ActionBar entry
+          (the actions array above uses a constrained action-type registry
+          not designed for an arbitrary new action like this one) —
+          a deliberate, low-risk placement choice, not an attempt to
+          extend that governed component's own contract. */}
+      <Group justify="flex-end">
+        <Button
+          size="xs"
+          variant="light"
+          onClick={() => {
+            const url = `${window.location.origin}/schedule/${brand}?leadId=${lead._id}`;
+            navigator.clipboard.writeText(url)
+              .then(() => showNotification({ message: 'Scheduling link copied', color: 'green', autoClose: 3000 }))
+              .catch(() => showNotification({ message: 'Could not copy link', color: 'red', autoClose: 4000 }));
+          }}
+        >
+          Copy scheduling link
+        </Button>
+      </Group>
+
       <ActivityPanel leadId={lead._id} brand={brand} contacts={lead.contacts} />
 
       {((normalizedPro && normalizedPro.length > 0) || (normalizedCon && normalizedCon.length > 0)) && (

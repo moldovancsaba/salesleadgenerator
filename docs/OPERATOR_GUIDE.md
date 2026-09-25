@@ -24,6 +24,7 @@
 - [Activity](#activity)
 - [Ticket Size](#ticket-size)
 - [Sales Settings (Company Setup)](#sales-settings-company-setup)
+- [Meeting Scheduler](#meeting-scheduler)
 - [Outreach](#outreach)
 - [Forecast](#forecast)
 - [Metrics Dashboard](#metrics-dashboard)
@@ -216,7 +217,7 @@ A per-lead to-do list, separate from the free-text Notes field — useful for a 
 
 ## Follow-ups
 
-A scheduled reminder for a lead — set a due date and an optional note, then **Save follow-up**. This is a deliberate commitment you set yourself, different from the automatic "next step" suggestion the app computes on its own (missing contact, stale, needs verification) which still appears separately below it. **Clear** removes an existing reminder. The kanban card shows "Follow-up due today," "Follow-up Nd overdue" (in red), or "Follow-up in Nd" once a due date is set.
+A scheduled reminder for a lead — set a due date and an optional note, then **Save follow-up**. This is a deliberate commitment you set yourself, different from the automatic "next step" suggestion the app computes on its own (missing contact, stale, needs verification) which still appears separately below it. **Clear** removes an existing reminder. The kanban card shows "Follow-up due today," "Follow-up Nd overdue" (in red), or "Follow-up in Nd" once a due date is set. A prospect booking a real meeting through the [Meeting Scheduler](#meeting-scheduler) sets this field automatically to the meeting time — you don't need to set it yourself in that case.
 
 ---
 
@@ -232,7 +233,7 @@ A unified, time-ordered timeline of activity for this lead — email and, as of 
 
 Email entries appear here from either of the **Outreach** compose modal's two buttons — "Log outreach" (a record of something you sent yourself elsewhere) or "Send email" (a real send this app made on your behalf) — see [Outreach](#outreach) below for the difference; each real send appears exactly once here, never duplicated. Automatic inbound-reply capture (a dedicated inbound address the system can receive at) and reply-to-lead matching are both fully built, but capture isn't live yet — it still needs a Resend account and a couple of settings only someone with dashboard/Vercel access can provide (see `docs/STACK_AND_DEPENDENCIES.md`'s "Inbound email webhook" section). An otherwise-empty Activity section on most leads today reflects that, not a bug. Once inbound capture is live, a genuine reply from a lead you've contacted will match to this lead automatically and appear here as an "Inbound reply" entry.
 
-A second, independent way entries can appear here: if [Gmail is connected](#integrations) for the brand, a message to/from an already-known contact shows up automatically, tagged with a **Gmail** badge — see the Integrations section above for how.
+A second, independent way entries can appear here: if [Gmail is connected](#integrations) for the brand, a message to/from an already-known contact shows up automatically, tagged with a **Gmail** badge — see the Integrations section above for how. A third: booking a meeting through the [Meeting Scheduler](#meeting-scheduler) logs a **Meeting scheduled** entry automatically.
 
 ### Logging a call
 
@@ -303,9 +304,11 @@ A "Manage integrations" button at the top of Sales Settings opens this brand's c
 - **Disconnect** is immediate and asks for confirmation first. Anything relying on that connection stops working until it's reconnected.
 - A connection showing **Error** or **Expired** needs to be reconnected — this happens if access was revoked directly at the provider (e.g. removing this app's access in your Google Account, or regenerating a Calendly token), not something this app can fix on its own.
 
-Gmail and Google Contacts are the first two providers a feature actually reads from — see below. Calendar and Calendly booking sync are not built yet; connecting either one here only stores the credential for a future feature to use. See `docs/ARCHITECTURE.md` for what's built and what's still planned.
+Gmail, Google Contacts, and Google Calendar are the providers a feature actually reads from — see below and [Meeting Scheduler](#meeting-scheduler). Calendly booking sync is not built yet; connecting it here only stores the credential for a future feature to use. See `docs/ARCHITECTURE.md` for what's built and what's still planned.
 
-**Only one Gmail/Google Contacts connection per brand.** Connecting Gmail or Google Contacts links one Google account to the whole brand, not one per person — if a second admin connects the same provider again, it replaces the first admin's connection rather than adding a second one alongside it. If your brand needs more than one rep's inbox surfaced this way, that isn't supported yet; talk to whoever manages this app's roadmap.
+**Only one connection per provider per brand.** Connecting Gmail, Google Contacts, or Google Calendar links one Google account to the whole brand, not one per person — if a second admin connects the same provider again, it replaces the first admin's connection rather than adding a second one alongside it. If your brand needs more than one rep's inbox or calendar surfaced this way, that isn't supported yet; talk to whoever manages this app's roadmap.
+
+Once Google Calendar is connected, a **Booking availability** section appears further down this same page — set your time zone, which days and hours you're bookable, how long each meeting slot is, and a buffer before/after existing events. This drives what a prospect sees on your scheduling page (below).
 
 #### Gmail activity sync
 
@@ -314,6 +317,20 @@ Once Gmail is connected for a brand, this app checks that inbox roughly once an 
 #### Import from Google Contacts
 
 On a lead's detail view, in the Contacts section, an **Import from Google Contacts** button appears once Google Contacts is connected for that brand (it stays visible but disabled, with an explanation, if it isn't connected yet). Click it, search by name or email, and click **Add** next to the right person to attach them to this lead as a new contact — the same way you'd add one manually. If that person is already a contact on this lead, it tells you so instead of adding a duplicate. This only pulls a contact into this app; it never writes anything back to your Google Contacts.
+
+## Meeting Scheduler
+
+Once Google Calendar is connected for a brand (and its [Booking availability](#integrations) window is set), every lead's detail view shows a **Copy scheduling link** button, just above the Activity tab. Click it to copy a link you can paste into an email or message — it opens a simple public page (no sign-in, works on any device) where the recipient picks an open time from your real calendar and enters their name and email. Booking:
+
+- Creates a real event on your connected Google Calendar, with them as an attendee.
+- Logs a **Meeting scheduled** entry in that lead's Activity tab, with the time and who booked it.
+- Sets that lead's "next action due" to the meeting time — the same field a manually-set follow-up reminder uses.
+
+Only times that are actually open on your calendar (and inside your configured availability window) are ever offered — a busy block is never shown as bookable. If two people try to book the exact same moment, only the first one goes through; the second sees an updated list of times instead.
+
+There's no in-app calendar view — meetings live on your real Google Calendar, and this app only records that one got booked. If you move or delete a meeting directly in Google Calendar afterward, this app has no way to know — its own record of it doesn't update to match. If your Google Calendar connection is disconnected or needs reconnecting, the booking link shows a plain "not available right now" message instead of failing broken.
+
+Today, all of this shares one calendar per brand, not one per person — see the note under [Integrations](#integrations) above.
 
 ---
 

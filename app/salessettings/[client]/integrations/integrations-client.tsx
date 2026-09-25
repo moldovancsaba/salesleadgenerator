@@ -8,6 +8,7 @@ import { StatusBadge } from '@sovereignsquad/gds-core/client'
 import {
   ALL_PROVIDERS, isOAuthProvider, PROVIDER_LABELS, type IntegrationProvider,
 } from '@/lib/integration-connections'
+import { AvailabilitySettings } from './availability-settings'
 
 type ConnectionRow = {
   id: string
@@ -250,6 +251,10 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
         {Object.entries(testResult).map(([id, message]) => (
           <Text key={id} size="xs" c="dimmed" role="status" aria-live="polite">{message}</Text>
         ))}
+
+        {connections.find((c) => c.provider === 'google_calendar')?.status === 'active' && (
+          <AvailabilitySettings brand={brand} />
+        )}
       </Stack>
 
       <AdminModal

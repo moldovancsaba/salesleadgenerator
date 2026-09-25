@@ -7,7 +7,7 @@ import "driver.js/dist/driver.css";
 import "./globals.css";
 import { PwaSetup } from "./components/PwaSetup";
 import { Providers } from "./components/Providers";
-import { AppNav } from "./components/AppNav";
+import { AppHeader } from "./components/AppHeader";
 import { BackToTopButton } from "./components/BackToTopButton";
 
 const inter = Inter({
@@ -52,11 +52,11 @@ export default function RootLayout({
               other page at all, including Sales Settings. A bare icon with
               no label read as decorative and was missed entirely in real
               use; pairing it with the app name makes the whole bar
-              unambiguously a header/nav, not a stray floating icon. */}
-          <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--mantine-color-body)', borderBottom: '1px solid var(--mantine-color-gray-3)', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AppNav />
-            <span style={{ fontWeight: 700, fontSize: '15px' }}>Sales Lead Generator</span>
-          </div>
+              unambiguously a header/nav, not a stray floating icon.
+              Issue #207: extracted into AppHeader, which hides itself
+              entirely on the public /schedule/[brand] booking page — see
+              that component's own doc comment. */}
+          <AppHeader />
           {children}
         </Providers>
       </body>
