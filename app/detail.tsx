@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Lead } from './types';
 import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@sovereignsquad/gds-admin/client';
 import { createGdsVocabularyPack, GdsIcons, StatusBadge } from '@sovereignsquad/gds-core/client';
@@ -32,6 +32,7 @@ import {
   IconTrash,
   IconMail,
   IconPlus,
+  IconFileText,
 } from '@tabler/icons-react';
 import { OutreachComposeModal } from './outreach/compose-modal';
 import { TABLET_LANDSCAPE_MAX } from './constants';
@@ -94,6 +95,21 @@ function emailStatusBadge(status: import('@/lib/email-verification').EmailVerifi
     return <StatusBadge status="warning" aria-label="Email domain check failed due to a temporary error — a retry is pending">Check failed — retry pending</StatusBadge>;
   }
   return <StatusBadge status="info" aria-label="Email domain deliverability check in progress">Checking…</StatusBadge>;
+}
+
+// Deals: Quote generation (issue #211) — status badge, text+shape always
+// present together (never color alone, WCAG 1.4.1, matching every other
+// status indicator in this file).
+type QuoteStatus = 'draft' | 'sent' | 'viewed' | 'signed';
+function quoteStatusBadge(status: QuoteStatus) {
+  const config: Record<QuoteStatus, { status: 'neutral' | 'info' | 'warning' | 'success'; label: string }> = {
+    draft: { status: 'neutral', label: 'Draft' },
+    sent: { status: 'info', label: 'Sent' },
+    viewed: { status: 'warning', label: 'Viewed' },
+    signed: { status: 'success', label: 'Signed' },
+  };
+  const { status: variant, label } = config[status];
+  return <StatusBadge status={variant} aria-label={`Quote status: ${label}`}>{label}</StatusBadge>;
 }
 
 // Human-readable labels for lib/tech-stack-scan.ts's SIGNATURES ids (issue
@@ -403,6 +419,123 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
     const currency: CurrencyCode = ticketSize.kind === 'legacy' ? ticketSize.currency : ticketSize.currency;
     openEditDeals();
     setDealsForm((rows) => [...rows, { value: expected, currency, label: 'Converted from ticket estimate', source: 'converted_ticket_estimate' }]);
+  }
+
+  // Deals: Quote generation (issue #211) — fetched once per lead open, same
+  // convention as the assignable-users effect above. canGenerate/canSend
+  // are server-computed feature-detection flags (Blob storage/Resend
+  // configured), driving the disabled state of the buttons below per
+  // CLAUDE.md Rule 7 — a genuinely non-functional action is rendered
+  // disabled, never live-looking.
+  type QuoteRow = { _id: string; dealId: string; status: QuoteStatus; viewUrl: string; createdAt: string };
+  const [quotesByDeal, setQuotesByDeal] = useState<Record<string, QuoteRow[]>>({});
+  const [quotesCanGenerate, setQuotesCanGenerate] = useState(false);
+  const [quotesCanSend, setQuotesCanSend] = useState(false);
+  const [quotesLoaded, setQuotesLoaded] = useState(false);
+  const [quoteBusyId, setQuoteBusyId] = useState<string | null>(null);
+
+  // Deliberately narrowed to lead?._id (not the whole lead object) — quotes
+  // only need reloading when the open lead or brand actually changes, never
+  // on every unrelated field edit to the same lead.
+  const reloadQuotes = useCallback(() => {
+    if (!lead) return;
+    fetch(`/api/leads/${lead._id}/quotes?brand=${encodeURIComponent(brand)}&tenantId=default`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`Failed to load quotes (${res.status})`))))
+      .then((data) => {
+        const byDeal: Record<string, QuoteRow[]> = {};
+        (Array.isArray(data.quotes) ? data.quotes : []).forEach((q: QuoteRow) => {
+          byDeal[q.dealId] = [...(byDeal[q.dealId] || []), q];
+        });
+        setQuotesByDeal(byDeal);
+        setQuotesCanGenerate(Boolean(data.canGenerate));
+        setQuotesCanSend(Boolean(data.canSend));
+      })
+      .catch((err) => {
+        console.error('quotes fetch error:', err);
+        setQuotesByDeal({});
+      })
+      .finally(() => setQuotesLoaded(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lead?._id, brand]);
+
+  useEffect(() => {
+    if (!opened || !lead) return;
+    setQuotesLoaded(false);
+    reloadQuotes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opened, lead?._id, brand]);
+
+  async function handleGenerateQuote(dealId: string) {
+    if (!lead) return;
+    setQuoteBusyId(dealId);
+    try {
+      const res = await fetch(`/api/leads/${lead._id}/quotes?brand=${encodeURIComponent(brand)}&tenantId=default`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dealId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Failed to generate quote: ${res.status}`);
+      }
+      showNotification({ message: 'Quote generated.', color: 'teal' });
+      reloadQuotes();
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Failed to generate quote', color: 'red' });
+    } finally {
+      setQuoteBusyId(null);
+    }
+  }
+
+  async function handleSendQuote(quoteId: string) {
+    if (!lead) return;
+    setQuoteBusyId(quoteId);
+    try {
+      const idempotencyKey = crypto.randomUUID();
+      const res = await fetch(`/api/leads/${lead._id}/quotes/${quoteId}/send?brand=${encodeURIComponent(brand)}&tenantId=default`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idempotencyKey }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Failed to send quote: ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.sent === false) {
+        showNotification({ message: data.reason || 'Quote could not be sent', color: 'red' });
+      } else {
+        showNotification({ message: 'Quote sent.', color: 'teal' });
+        reloadQuotes();
+      }
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Failed to send quote', color: 'red' });
+    } finally {
+      setQuoteBusyId(null);
+    }
+  }
+
+  // Mark as signed is a legally consequential, unverified (v1 has no real
+  // e-signature capture) manual state change — requires an explicit
+  // confirmation step so the UI never implies a stronger guarantee than it
+  // actually has (issue #211 §13/§17/§18).
+  async function handleMarkQuoteSigned(quoteId: string) {
+    if (!lead) return;
+    if (!window.confirm('Mark this quote as signed? This records a manual status change with no automated verification — confirm the agreement was actually reached outside this app.')) return;
+    setQuoteBusyId(quoteId);
+    try {
+      const res = await fetch(`/api/leads/${lead._id}/quotes/${quoteId}/mark-signed?brand=${encodeURIComponent(brand)}&tenantId=default`, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Failed to mark quote as signed: ${res.status}`);
+      }
+      showNotification({ message: 'Quote marked as signed.', color: 'teal' });
+      reloadQuotes();
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Failed to mark quote as signed', color: 'red' });
+    } finally {
+      setQuoteBusyId(null);
+    }
   }
 
   // Per-lead checklist (issue #117) — structured, completion-tracked items,
@@ -1407,18 +1540,86 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
           <>
             {(lead.deals?.length ?? 0) === 0 && <Text size="sm" c="dimmed">No deals yet — deals are managed manually and never auto-created.</Text>}
             {(lead.deals || []).map((d) => (
-              <Group key={d.id} justify="space-between">
-                <Box>
-                  <Text size="sm" fw={600}>{formatTicketSizeCurrency(d.value, d.currency)}</Text>
-                  <Text size="xs" c="dimmed">
-                    {d.label || (
-                      d.source === 'converted_ticket_estimate' ? 'Converted from ticket estimate'
-                      : d.source === 'catalog_line_items' ? `${d.lineItems?.length ?? 0} catalog line item${(d.lineItems?.length ?? 0) === 1 ? '' : 's'}`
-                      : 'Manual deal'
+              <Stack key={d.id} gap={4}>
+                <Group justify="space-between">
+                  <Box>
+                    <Text size="sm" fw={600}>{formatTicketSizeCurrency(d.value, d.currency)}</Text>
+                    <Text size="xs" c="dimmed">
+                      {d.label || (
+                        d.source === 'converted_ticket_estimate' ? 'Converted from ticket estimate'
+                        : d.source === 'catalog_line_items' ? `${d.lineItems?.length ?? 0} catalog line item${(d.lineItems?.length ?? 0) === 1 ? '' : 's'}`
+                        : 'Manual deal'
+                      )}
+                    </Text>
+                  </Box>
+                </Group>
+                {/* Deals: Quote generation (issue #211) — quotesLoaded gates
+                    rendering so the button never flashes enabled-then-
+                    disabled while the feature-detection fetch is in flight. */}
+                {quotesLoaded && (
+                  <Stack gap={4} pl="xs">
+                    {(quotesByDeal[d.id] || []).map((q) => (
+                      <Group key={q._id} gap="xs" wrap="wrap">
+                        {quoteStatusBadge(q.status)}
+                        <Text size="xs" c="dimmed">{new Date(q.createdAt).toLocaleDateString()}</Text>
+                        <Button
+                          size="compact-xs"
+                          variant="subtle"
+                          component="a"
+                          href={q.viewUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`View quote PDF generated ${new Date(q.createdAt).toLocaleDateString()}`}
+                        >
+                          View PDF
+                        </Button>
+                        {q.status === 'draft' && (
+                          <Button
+                            size="compact-xs"
+                            variant="light"
+                            disabled={!quotesCanSend || quoteBusyId === q._id}
+                            loading={quoteBusyId === q._id}
+                            onClick={() => handleSendQuote(q._id)}
+                            aria-describedby={!quotesCanSend ? 'quote-send-disabled-reason' : undefined}
+                          >
+                            Send
+                          </Button>
+                        )}
+                        {(q.status === 'sent' || q.status === 'viewed') && (
+                          <Button
+                            size="compact-xs"
+                            variant="light"
+                            color="teal"
+                            disabled={quoteBusyId === q._id}
+                            loading={quoteBusyId === q._id}
+                            onClick={() => handleMarkQuoteSigned(q._id)}
+                          >
+                            Mark as signed
+                          </Button>
+                        )}
+                      </Group>
+                    ))}
+                    <Button
+                      size="compact-xs"
+                      variant="subtle"
+                      leftSection={<IconFileText size={12} />}
+                      disabled={!quotesCanGenerate || quoteBusyId === d.id}
+                      loading={quoteBusyId === d.id}
+                      onClick={() => handleGenerateQuote(d.id)}
+                      aria-label={`Generate quote for deal: ${d.label || formatTicketSizeCurrency(d.value, d.currency)}`}
+                      aria-describedby={!quotesCanGenerate ? 'quote-generate-disabled-reason' : undefined}
+                    >
+                      Generate Quote
+                    </Button>
+                    {!quotesCanSend && quotesCanGenerate && (
+                      <Text id="quote-send-disabled-reason" size="9px" c="dimmed">Email sending is not configured for this environment.</Text>
                     )}
-                  </Text>
-                </Box>
-              </Group>
+                    {!quotesCanGenerate && (
+                      <Text id="quote-generate-disabled-reason" size="9px" c="dimmed">Quote file storage is not configured for this environment.</Text>
+                    )}
+                  </Stack>
+                )}
+              </Stack>
             ))}
             {(lead.deals?.length ?? 0) > 0 && (
               <Text size="xs" c="dimmed" fs="italic">Total: {formatTicketSizeCurrency(sumDeals(lead.deals), lead.deals![0].currency)} — deals take priority over the modelled ticket-size estimate in Forecast.</Text>
