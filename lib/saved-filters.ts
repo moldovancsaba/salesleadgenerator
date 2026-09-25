@@ -13,6 +13,10 @@ export type LeadFilter = {
   // to the caller's own ssoUserId (never trusted as a literal client-
   // supplied id); 'unassigned' matches leads with no assignedTo; any other
   // value is treated as an explicit ssoUserId. See lib/lead-assignment.ts.
+  // 'team' (issue: CRM Team visibility) resolves server-side to the union of
+  // the caller's own leads and every member's of a team they manage — see
+  // lib/teams.ts. A plain string field throughout, not a closed enum, since
+  // the route treats every non-special value as an explicit ssoUserId.
   assignedTo?: string;
 };
 

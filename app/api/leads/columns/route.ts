@@ -6,7 +6,9 @@ import { escapeRegExp } from '@/app/lib/search/tagged-content-filter'
 import { requireBrandAccessApi } from '@/lib/require-brand-access-api'
 import { resolveSessionFromIdToken } from '@/lib/session'
 import { getTenantId, tenantFilter } from '@/lib/tenant'
-import { resolveAssignedToFilter, combineFilterWithAssignedTo } from '@/lib/lead-assignment'
+import { resolveAssignedToFilter, combineFilterWithAssignedTo, type AssignedToFilterClause } from '@/lib/lead-assignment'
+import { getUserAccess } from '@/lib/sso-access'
+import { listTeamsForBrand, getTeamVisibilityFilter } from '@/lib/teams'
 
 const CHUNK_SIZE = 50
 
@@ -61,13 +63,28 @@ export async function GET(request: NextRequest) {
     if (industry) baseColFilter.industry = { $regex: escapeRegExp(industry), $options: 'i' }
     if (tags && tags.length > 0) baseColFilter.tags = { $in: tags }
 
-    let actorSub = ''
-    if (assignedToParam === 'me') {
+    // Team visibility (issue: CRM Team visibility) — identical semantics to
+    // GET /api/leads's own 'team' handling (see that route's comment).
+    let assignedToClause: AssignedToFilterClause
+    if (assignedToParam === 'team') {
       const idToken = request.cookies.get('sso_id_token')?.value
       const claims = await resolveSessionFromIdToken(idToken)
-      actorSub = claims?.sub || ''
+      if (claims?.sub) {
+        const actorRecord = await getUserAccess(db, claims.sub)
+        const teams = await listTeamsForBrand(db, brand)
+        assignedToClause = getTeamVisibilityFilter(teams, claims.sub, claims.email, actorRecord?.orgAccess, brand)
+      } else {
+        assignedToClause = { assignedTo: '' }
+      }
+    } else {
+      let actorSub = ''
+      if (assignedToParam === 'me') {
+        const idToken = request.cookies.get('sso_id_token')?.value
+        const claims = await resolveSessionFromIdToken(idToken)
+        actorSub = claims?.sub || ''
+      }
+      assignedToClause = resolveAssignedToFilter(assignedToParam, actorSub)
     }
-    const assignedToClause = resolveAssignedToFilter(assignedToParam, actorSub)
     // filter (tenantFilter, spread above) may itself carry a top-level $or
     // for the default tenant; the 'unassigned' clause also carries one —
     // combined via $and rather than spread, same reasoning as GET /api/leads.

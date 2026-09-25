@@ -4,6 +4,7 @@ import { resolveBrand, type Brand } from '@/app/lib/brand'
 import { requireBrandAccessApi } from '@/lib/require-brand-access-api'
 import { resolveSessionFromIdToken } from '@/lib/session'
 import { listAllUserAccess, hasAccessToBrand, getRoleForBrand } from '@/lib/sso-access'
+import { listTeamsForBrand, managesAnyTeam } from '@/lib/teams'
 
 async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url)
@@ -47,10 +48,20 @@ export async function GET(request: NextRequest) {
     const callerRecord = claims ? all.find((u) => u.ssoUserId === claims.sub) : undefined
     const callerRole = claims ? getRoleForBrand(claims.email, callerRecord?.orgAccess, brand) : null
 
+    // Team visibility (issue: CRM Team visibility) — drives whether the
+    // frontend offers a "My Team" pipeline scope at all: a non-manager
+    // should never see a control that would just re-show "My Leads"
+    // indistinguishably (the issue's own UX requirement). Piggybacked on
+    // this existing, already-brand-scoped, already-session-resolving
+    // endpoint rather than a new round-trip.
+    const teams = await listTeamsForBrand(db, brand)
+    const callerManagesTeam = claims ? managesAnyTeam(teams, claims.sub) : false
+
     return NextResponse.json({
       users,
       callerSsoUserId: claims?.sub ?? null,
       callerRole,
+      callerManagesTeam,
     })
   } catch (error: any) {
     console.error('GET /api/leads/assignable-users Error:', error)

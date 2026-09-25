@@ -7,7 +7,7 @@ import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Load
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
-  IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconCompass,
+  IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconCompass, IconUsersGroup,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -336,6 +336,14 @@ function AppNavInner() {
                     label="Users & Access"
                     leftSection={<IconShieldLock size={18} />}
                     active={pathname === '/admin/users'}
+                    onClick={close}
+                  />
+                  <NavLink
+                    component={Link}
+                    href="/admin/teams"
+                    label="Teams"
+                    leftSection={<IconUsersGroup size={18} />}
+                    active={pathname === '/admin/teams'}
                     onClick={close}
                   />
                   <NavLink

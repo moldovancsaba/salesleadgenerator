@@ -29,9 +29,24 @@ type Props = {
 export function FilterBar({ brand, value, onChange }: Props) {
   const [opened, setOpened] = useState(false)
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([])
+  // Team visibility (issue: CRM Team visibility) — drives whether "My Team"
+  // is even offered: a non-manager should never see a control that would
+  // just re-show "My Leads" indistinguishably (the issue's own UX
+  // requirement). Piggybacks on the same brand-scoped endpoint
+  // app/detail.tsx already uses for its assignee picker.
+  const [callerManagesTeam, setCallerManagesTeam] = useState(false)
 
   useEffect(() => {
     setSavedFilters(loadSavedFilters(brand))
+  }, [brand])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/leads/assignable-users?brand=${encodeURIComponent(brand)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled) setCallerManagesTeam(Boolean(data?.callerManagesTeam)) })
+      .catch(() => { if (!cancelled) setCallerManagesTeam(false) })
+    return () => { cancelled = true }
   }, [brand])
 
   const saveCurrent = useCallback(() => {
@@ -85,6 +100,21 @@ export function FilterBar({ brand, value, onChange }: Props) {
             checked={value.assignedTo === 'me'}
             onChange={(e) => onChange({ ...value, assignedTo: e.currentTarget.checked ? 'me' : undefined })}
           />
+          {/* Team visibility (issue: CRM Team visibility) — only rendered
+              for a user who actually manages at least one team in this
+              brand; mutually exclusive with "My Leads" above via the same
+              single-valued LeadFilter.assignedTo field (turning this on
+              always overwrites it to 'team', which naturally turns "My
+              Leads" off on the next render, and vice versa). */}
+          {callerManagesTeam && (
+            <Switch
+              label="My Team"
+              description="Show leads assigned to me or a member of a team I manage"
+              aria-label="Filter to leads assigned to me or a team member I manage"
+              checked={value.assignedTo === 'team'}
+              onChange={(e) => onChange({ ...value, assignedTo: e.currentTarget.checked ? 'team' : undefined })}
+            />
+          )}
           <TextInput
             label="Region"
             aria-label="Filter by region"
