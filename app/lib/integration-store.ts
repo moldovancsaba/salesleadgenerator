@@ -57,6 +57,19 @@ export async function getConnectionById(db: Db, id: string): Promise<Integration
   return doc as unknown as IntegrationConnection | null;
 }
 
+// Looks up a brand's single connection for a given provider directly by
+// its natural key, for a consuming feature that only has {brand, tenantId,
+// provider} in hand and no connectionId (e.g. issue #216's Gmail-sync
+// cron, which has no per-request caller to hand it one). Only ever returns
+// an active connection — a revoked one is treated identically to "not
+// connected," never silently retried.
+export async function getActiveConnectionByProvider(
+  db: Db, brand: string, tenantId: string, provider: IntegrationProvider
+): Promise<IntegrationConnection | null> {
+  const doc = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({ brand, tenantId, provider, status: { $ne: 'revoked' } });
+  return doc as unknown as IntegrationConnection | null;
+}
+
 export async function upsertOAuthConnection(
   db: Db,
   params: {

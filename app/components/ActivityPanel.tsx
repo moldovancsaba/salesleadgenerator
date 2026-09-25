@@ -25,7 +25,7 @@ type ActivityEntry = {
   direction: 'outbound' | 'inbound' | null
   subject?: string
   bodyExcerpt?: string
-  source: 'inbound-webhook' | 'manual' | 'outreach-log'
+  source: 'inbound-webhook' | 'manual' | 'outreach-log' | 'gmail-sync'
   createdAt: string
   callDisposition?: CallDisposition
   callDurationMinutes?: number
@@ -351,6 +351,9 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
                   <Badge size="xs" variant="light" color={entry.type === 'call' ? 'grape' : entry.direction === 'inbound' ? 'teal' : 'blue'}>
                     {TYPE_LABEL[entry.type]}
                   </Badge>
+                  {entry.source === 'gmail-sync' && (
+                    <Badge size="xs" variant="outline" color="gray">Gmail</Badge>
+                  )}
                   {entry.callDisposition && (
                     <Badge size="xs" variant="outline" color="gray">{DISPOSITION_LABEL[entry.callDisposition]}</Badge>
                   )}
