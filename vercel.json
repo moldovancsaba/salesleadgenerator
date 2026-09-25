@@ -11,6 +11,18 @@
     {
       "path": "/api/admin/cadence-tick",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/admin/automation-tick",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/admin/reports-tick",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/integrations/gmail/sync",
+      "schedule": "0 * * * *"
     }
   ]
 }

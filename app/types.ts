@@ -3,8 +3,9 @@
 import type { CurrencyCode } from './lib/brand';
 import type { ActiveCadence } from '../lib/cadences';
 import type { FieldVerification } from '../lib/field-verifications';
+import type { ForecastCategory } from '../lib/forecast-category';
 
-export type { FieldVerification };
+export type { FieldVerification, ForecastCategory };
 
 // Kanban columns
 export type KanbanColumn =
@@ -98,6 +99,13 @@ export type Lead = {
     phone?: string;
     linkedin?: string;
     role?: string;
+    // Closed buying-committee role (issue #206) — additive alongside
+    // isDecisionMaker, which remains present as a value permanently DERIVED
+    // from this field (true iff buyingRole is 'decision_maker' or
+    // 'economic_buyer' — see lib/contacts.ts's deriveIsDecisionMaker()).
+    // Undefined on raw input; always resolved to a concrete value
+    // (defaulting to 'unknown') by normalizeContact() on every write.
+    buyingRole?: 'economic_buyer' | 'champion' | 'influencer' | 'blocker' | 'decision_maker' | 'unknown';
     isDecisionMaker?: boolean;
     // ISO timestamp of last confirmed-accurate verifiable-field data — see
     // lib/contact-freshness.ts, issue #66. Undefined means never verified.
@@ -187,7 +195,12 @@ export type Lead = {
     label?: string;
     createdAt: string;
     updatedAt: string;
-    source: 'manual' | 'converted_ticket_estimate';
+    source: 'manual' | 'converted_ticket_estimate' | 'catalog_line_items';
+    // Catalog line items (issue #215) — present only when source is
+    // 'catalog_line_items'; see lib/deals.ts's DealLineItem for the
+    // resolution/precedence rules. `value` above is still the single
+    // authoritative, persisted total every existing reader already uses.
+    lineItems?: Array<{ productId: string; quantity: number; unitPriceOverride?: number }>;
   }>;
   // Per-item action checklist, distinct from the free-text `notes` field
   // above — see lib/checklist.ts, issue #117.
@@ -226,6 +239,38 @@ export type Lead = {
   // (not a closed enum) so brand-specific channels don't require a code
   // change to record.
   source?: string;
+  // Lead ownership (issue: CRM Lead ownership) — the SSO ssoUserId (claims.sub,
+  // see lib/sso.ts's SsoIdTokenClaims) of the rep this lead is currently
+  // assigned to. null = explicitly unassigned (set by a CLEAR); undefined =
+  // never assigned (pre-migration documents and brand-new leads alike) —
+  // both null and undefined mean "unassigned" for every read path; there is
+  // no third state. Never a display name or email — see app/lib/lead-actions.ts
+  // for why ssoUserId (not email) is the stable key.
+  assignedTo?: string | null;
+  // Denormalized display value, kept in sync with assignedTo on every write —
+  // same "durable id + denormalized display field" convention as
+  // SsoUserAccessRecord (lib/sso-access.ts). Never authoritative on its own;
+  // always recomputed from assignedTo, never accepted as raw client input.
+  assignedToEmail?: string | null;
+  // ISO 8601 timestamp of the most recent assignment change (set or clear).
+  // undefined means never assigned.
+  assignedAt?: string | null;
+  // ssoUserId of the actor who performed the most recent assignment change —
+  // distinct from assignedTo itself (who a lead is assigned TO vs. who did
+  // the assigning most recently; these differ whenever an admin reassigns).
+  assignedBy?: string;
+  // Forecast category (issue #204) — rep-editable classification distinct
+  // from kanbanColumn, mirroring the standard CRM Pipeline/Best Case/
+  // Commit/Closed forecast breakdown. Present ONLY when a rep has explicitly
+  // overridden it via SET_FORECAST_CATEGORY (see
+  // lib/forecast-category.ts's effectiveForecastCategory()) — a
+  // never-overridden lead has no stored value at all and its effective
+  // category is derived live from kanbanColumn, same "sticky override,
+  // absent otherwise" contract as ticketSizeEstimate.method ===
+  // 'manual_override' above.
+  forecastCategory?: ForecastCategory | null;
+  forecastCategoryOverriddenBy?: string | null;
+  forecastCategoryOverriddenAt?: string | null;
   // Per-field provenance for SCALAR lead fields only — issue #188. Each entry
   // says where one data point came from, how, and when it was established.
   //

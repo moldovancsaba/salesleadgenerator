@@ -6,6 +6,7 @@ import {
   GENDER_CODES, DEMOGRAPHIC_CODES, COMPETITION_LEVEL_CODES, RELATIONSHIP_CODES,
 } from './lead-taxonomy';
 import { validateFieldVerifications } from './field-verifications';
+import { isValidBuyingRole, BUYING_ROLES } from './contacts';
 
 export interface ValidationResult {
   valid: boolean;
@@ -42,7 +43,14 @@ const KANBAN_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON',
 const KANBAN_COLUMN_SET = new Set(KANBAN_COLUMNS);
 const ORG_SIZES = ['Small', 'Medium', 'Large', 'Enterprise'];
 const ORG_SIZE_SET = new Set(ORG_SIZES);
-const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH']);
+// UNDO_BULK (issue #203) is deliberately never exposed to either public
+// PATCH allow-list (app/api/leads/route.ts, app/api/leads/bulk/route.ts) —
+// it's an internal action executeLeadAction only ever receives from
+// app/api/leads/bulk/undo/route.ts, restoring an already-known-valid prior
+// snapshot rather than accepting new user input, so it needs no extra
+// per-action validation beyond the base action-name check below.
+const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH', 'ASSIGN', 'UNDO_BULK', 'SET_FORECAST_CATEGORY']);
+const FORECAST_CATEGORY_SET = new Set(['pipeline', 'best_case', 'commit', 'closed']);
 
 function contactConfidence(contact: any): number {
   if (!contact || typeof contact !== 'object') return 0;
@@ -192,6 +200,14 @@ export function validateLeadPayload(body: any, brand: string, forbiddenTerms: st
     body.contacts.forEach((contact: any, index: number) => {
       if (contact && typeof contact === 'object') {
         errors.push(...validateFieldVerifications(contact.fieldVerifications, 'contact', `contacts[${index}].fieldVerifications`));
+        // Buying-committee role (issue #206) — a closed enum, same
+        // format-checked-only-when-present convention as `size`/`sportCode`
+        // above. An invalid value is rejected outright (400), never silently
+        // coerced to 'unknown' — a bad agent payload should be visible, not
+        // quietly lose the data it was trying to send.
+        if (contact.buyingRole !== undefined && !isValidBuyingRole(contact.buyingRole)) {
+          errors.push(`contacts[${index}].buyingRole must be one of: ${BUYING_ROLES.join(', ')}`);
+        }
       }
     });
   }
@@ -211,7 +227,7 @@ export function validatePatchPayload(body: any, brand: string, forbiddenTerms: s
 
   const action = body.action;
   if (!action || typeof action !== 'string' || !PATCH_ACTIONS.has(action.toUpperCase())) {
-    errors.push('action must be one of: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH');
+    errors.push('action must be one of: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH, ASSIGN, SET_FORECAST_CATEGORY');
     return { valid: false, errors };
   }
 
@@ -234,6 +250,13 @@ export function validatePatchPayload(body: any, brand: string, forbiddenTerms: s
     const kanbanColumn = body.kanbanColumn;
     if (!kanbanColumn || typeof kanbanColumn !== 'string' || !KANBAN_COLUMN_SET.has(kanbanColumn.toUpperCase())) {
       errors.push('kanbanColumn must be one of: ' + KANBAN_COLUMNS.join(', '));
+    }
+  }
+
+  if (action === 'SET_FORECAST_CATEGORY') {
+    const value = body.forecastCategory;
+    if (value !== null && !FORECAST_CATEGORY_SET.has(value)) {
+      errors.push('forecastCategory must be one of: pipeline, best_case, commit, closed, or null to clear');
     }
   }
 

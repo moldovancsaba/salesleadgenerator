@@ -21,6 +21,84 @@ import { getAllBrandConfigs } from '../../../lib/brand'
 // abusive request before it's ever parsed.
 const MAX_BODY_BYTES = 2 * 1024 * 1024
 
+// Issue #205 — outbound delivery-lifecycle event coverage, added onto this
+// same endpoint (kept as one Resend webhook object, subscribed to both
+// email.received and these new types, rather than a second endpoint with
+// its own separate signing secret — see docs/ARCHITECTURE.md's "Outbound
+// email tracking" section for the full reasoning and the deliberate
+// decision to keep this route's name despite now covering both directions).
+const DELIVERY_STATUS_BY_EVENT: Record<string, string> = {
+  'email.sent': 'sent',
+  'email.delivered': 'delivered',
+  'email.delivery_delayed': 'delayed',
+  'email.opened': 'opened',
+  'email.clicked': 'clicked',
+  'email.bounced': 'bounced',
+  'email.complained': 'complained',
+  'email.failed': 'failed',
+}
+
+const RESEND_WEBHOOK_EVENT_COLLECTION = 'resend_webhook_event_ids'
+// 30 days — events this old have no realistic reason to still be retried
+// by Resend; matches the TTL-collection convention lib/bulk-undo.ts already
+// established (expireAfterSeconds: an exact stored date, not a relative one).
+const WEBHOOK_EVENT_ID_TTL_SECONDS = 30 * 24 * 60 * 60
+
+let deliveryEventIndexesEnsured = false
+async function ensureDeliveryEventIndexes(db: import('mongodb').Db): Promise<void> {
+  if (deliveryEventIndexesEnsured) return
+  try {
+    await db.collection(RESEND_WEBHOOK_EVENT_COLLECTION).createIndex({ svixId: 1 }, { unique: true })
+    await db.collection(RESEND_WEBHOOK_EVENT_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+    deliveryEventIndexesEnsured = true
+  } catch (error) {
+    console.error('[webhooks/inbound-email] delivery-event index creation failed', error)
+  }
+}
+
+// Updates the outreach_logs row a manual send (or a cadence send) wrote,
+// identified by Resend's own returned email id — never the activityLog
+// collection, deliberately: issue #205's own Architecture explicitly avoids
+// a new activityLog row per lifecycle event (a lead opening the same email
+// three times would otherwise spam the Activity timeline with three
+// identical-looking entries). Dedup is on the event's own svix-id (the
+// Standard Webhooks/Resend-documented at-least-once delivery id) rather than
+// any payload field — an emailId repeats across every lifecycle event for
+// the SAME email, so it can't itself distinguish "this exact event, retried"
+// from "a genuinely new, later event for the same email."
+async function handleDeliveryEvent(db: import('mongodb').Db, event: any, svixEventId: string) {
+  const emailId = String(event.data?.email_id || '')
+  if (!emailId) {
+    return NextResponse.json({ ok: true, ignored: true })
+  }
+
+  await ensureDeliveryEventIndexes(db)
+  try {
+    await db.collection(RESEND_WEBHOOK_EVENT_COLLECTION).insertOne({
+      svixId: svixEventId,
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + WEBHOOK_EVENT_ID_TTL_SECONDS * 1000),
+    })
+  } catch (err: any) {
+    if (err?.code === 11000) {
+      return NextResponse.json({ ok: true, duplicate: true })
+    }
+    throw err
+  }
+
+  const status = DELIVERY_STATUS_BY_EVENT[event.type]
+  const update: Record<string, any> = { $set: { deliveryStatus: status, deliveryStatusUpdatedAt: new Date() } }
+  if (event.type === 'email.opened') update.$inc = { openCount: 1 }
+  if (event.type === 'email.clicked') update.$inc = { clickCount: 1 }
+
+  // Matches zero documents cleanly (e.g. an event for a brand/environment
+  // where this feature isn't deployed yet, or a stray event) — not an
+  // error, per issue #205's own Edge Cases.
+  await db.collection('outreach_logs').updateOne({ resendEmailId: emailId }, update)
+
+  return NextResponse.json({ ok: true })
+}
+
 function stripHtml(html: string | null | undefined): string | undefined {
   if (!html) return undefined
   const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -66,13 +144,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
-    if (!event || event.type !== 'email.received') {
-      // Any other event type this endpoint might receive (it should only
-      // ever be subscribed to email.received in the Resend dashboard) is
-      // acknowledged, not treated as an error — Resend retries a
-      // non-2xx response, and there's nothing to retry here.
+    if (!event) {
       return NextResponse.json({ ok: true, ignored: true })
     }
+
+    const client = await getClientPromise()
+    const db = client.db()
+
+    // Issue #205 — this endpoint's own Resend webhook subscription is now
+    // extended beyond email.received (see this file's header comment) to
+    // also cover outbound delivery-lifecycle events, routed here to a
+    // dedicated handler that updates outreach_logs, never activityLog.
+    if (event.type in DELIVERY_STATUS_BY_EVENT) {
+      return handleDeliveryEvent(db, event, headers.id)
+    }
+
+    if (event.type !== 'email.received') {
+      // Any other event type this endpoint might ever receive is
+      // acknowledged, not treated as an error — Resend retries a non-2xx
+      // response, and there's nothing to retry here.
+      return NextResponse.json({ ok: true, ignored: true })
+    }
+
+    await ensureActivityLogIndexes(db)
 
     const data = event.data || {}
     const receivedEvent: ReceivedEmailEvent = {
@@ -89,10 +183,6 @@ export async function POST(request: NextRequest) {
     if (!receivedEvent.emailId) {
       return NextResponse.json({ error: 'Malformed event: missing email_id' }, { status: 400 })
     }
-
-    const client = await getClientPromise()
-    const db = client.db()
-    await ensureActivityLogIndexes(db)
 
     // The webhook payload is metadata-only by design — fetch the real body
     // via a follow-up API call. Never fails the whole request: a lead's

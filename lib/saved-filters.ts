@@ -9,6 +9,15 @@ export type LeadFilter = {
   // Issue #116 — a lead matches if it has ANY of these tags (OR, not AND),
   // the common convention for tag-based filtering.
   tags?: string[];
+  // Lead ownership (issue: CRM Lead ownership) — 'me' resolves server-side
+  // to the caller's own ssoUserId (never trusted as a literal client-
+  // supplied id); 'unassigned' matches leads with no assignedTo; any other
+  // value is treated as an explicit ssoUserId. See lib/lead-assignment.ts.
+  // 'team' (issue: CRM Team visibility) resolves server-side to the union of
+  // the caller's own leads and every member's of a team they manage — see
+  // lib/teams.ts. A plain string field throughout, not a closed enum, since
+  // the route treats every non-special value as an explicit ssoUserId.
+  assignedTo?: string;
 };
 
 export type SavedFilter = {
@@ -18,7 +27,7 @@ export type SavedFilter = {
 };
 
 export function isEmptyFilter(filter: LeadFilter): boolean {
-  return !filter.region && !(filter.industry && filter.industry.trim()) && !(filter.tags && filter.tags.length > 0);
+  return !filter.region && !(filter.industry && filter.industry.trim()) && !(filter.tags && filter.tags.length > 0) && !filter.assignedTo;
 }
 
 const MAX_SAVED_FILTERS = 20;

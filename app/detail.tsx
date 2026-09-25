@@ -17,8 +17,12 @@ import { getNextStepNudge } from '@/lib/next-step-nudge';
 import { sumDeals } from '@/lib/deals';
 import type { Deal } from '@/lib/deals';
 import { ContactsEditor, type ContactRow } from './components/ContactsEditor';
+import { GoogleContactsImport } from './components/GoogleContactsImport';
 import { ActivityPanel } from './components/ActivityPanel';
 import { CadencePanel } from './components/CadencePanel';
+import { resolveBuyingRole, deriveIsDecisionMaker } from '@/lib/contacts';
+import { FORECAST_CATEGORIES, resolveDefaultCategory, effectiveForecastCategory } from '@/lib/forecast-category';
+import type { ForecastCategory } from '@/lib/forecast-category';
 import {
   IconX,
   IconThumbUp,
@@ -36,6 +40,25 @@ import { TOUR_SELECTOR } from './lib/tour/selectors';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
+
+// Issue #206 — buying-committee role badge, replacing the single "Decision
+// Maker" badge. 'blocker' uses red (a real risk signal, not decorative);
+// 'unknown' renders no badge at all, same "no badge" convention the old
+// isDecisionMaker: false state already had.
+const BUYING_ROLE_BADGE: Partial<Record<NonNullable<Lead['contacts']>[number]['buyingRole'] & string, { label: string; color: string }>> = {
+  economic_buyer: { label: 'Economic Buyer', color: 'blue' },
+  champion: { label: 'Champion', color: 'green' },
+  influencer: { label: 'Influencer', color: 'grape' },
+  blocker: { label: 'Blocker', color: 'red' },
+  decision_maker: { label: 'Decision Maker', color: 'blue' },
+};
+
+const FORECAST_CATEGORY_LABEL: Record<ForecastCategory, string> = {
+  pipeline: 'Pipeline',
+  best_case: 'Best Case',
+  commit: 'Commit',
+  closed: 'Closed',
+};
 
 type Props = {
   lead: Lead;
@@ -302,25 +325,72 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
 
   function openEditContacts() {
     if (!lead) return;
-    setContactsForm((lead.contacts || []).map((c) => ({
-      name: c.name || '', title: c.title || '', email: c.email || '', phone: c.phone || '',
-      linkedin: c.linkedin || '', role: c.role || '', isDecisionMaker: c.isDecisionMaker === true,
-    })));
+    setContactsForm((lead.contacts || []).map((c) => {
+      const buyingRole = resolveBuyingRole(c);
+      return {
+        name: c.name || '', title: c.title || '', email: c.email || '', phone: c.phone || '',
+        linkedin: c.linkedin || '', role: c.role || '', buyingRole, isDecisionMaker: deriveIsDecisionMaker(buyingRole),
+      };
+    }));
     setEditingContacts(true);
   }
+
+  // Issue #216 — Rule 7: "Import from Google Contacts" must stay genuinely
+  // disabled, never clickable-but-broken, until a real active connection is
+  // confirmed. `undefined` (still checking) is treated the same as
+  // disabled by GoogleContactsImport — never optimistically enabled.
+  const [googleContactsConnected, setGoogleContactsConnected] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    if (!opened) return;
+    let cancelled = false;
+    setGoogleContactsConnected(undefined);
+    fetch(`/api/integrations/connections?brand=${encodeURIComponent(brand)}&tenantId=default`)
+      .then((res) => (res.ok ? res.json() : { connections: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        const connection = (data.connections || []).find((c: any) => c.provider === 'google_contacts');
+        setGoogleContactsConnected(connection?.status === 'active');
+      })
+      .catch(() => { if (!cancelled) setGoogleContactsConnected(false); });
+    return () => { cancelled = true; };
+  }, [opened, brand]);
 
   // Manually-managed deals (issue #114) — always distinct from the
   // auto-computed ticketSizeEstimate above; nothing here ever runs
   // automatically.
-  type DealRow = { id?: string; value: number | ''; currency: CurrencyCode; label: string; source?: Deal['source'] };
+  type DealLineItemRow = { productId: string; quantity: number; unitPriceOverride?: number };
+  type DealRow = { id?: string; value: number | ''; currency: CurrencyCode; label: string; source?: Deal['source']; lineItems?: DealLineItemRow[] };
   const [editingDeals, setEditingDeals] = useState(false);
   const [dealsForm, setDealsForm] = useState<DealRow[]>([]);
   const [savingDeals, setSavingDeals] = useState(false);
 
+  // Catalog products for the "build from catalog" line-item mode (issue
+  // #215) — loaded lazily, only once a rep actually starts editing deals,
+  // never on every lead-detail open.
+  type CatalogProduct = { id: string; name: string; unitPrice: number; currency: CurrencyCode; pricingModel: string; active: boolean };
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+
   function openEditDeals() {
     if (!lead) return;
-    setDealsForm((lead.deals || []).map((d) => ({ id: d.id, value: d.value, currency: d.currency, label: d.label || '', source: d.source })));
+    setDealsForm((lead.deals || []).map((d) => ({ id: d.id, value: d.value, currency: d.currency, label: d.label || '', source: d.source, lineItems: d.lineItems })));
     setEditingDeals(true);
+    if (!catalogLoaded) {
+      setCatalogLoaded(true);
+      fetch(`/api/products/${encodeURIComponent(brand)}?tenantId=default`)
+        .then((res) => (res.ok ? res.json() : { products: [] }))
+        .then((data) => setCatalogProducts(Array.isArray(data.products) ? data.products : []))
+        .catch(() => setCatalogProducts([]));
+    }
+  }
+
+  function dealLineItemTotal(row: DealRow): number {
+    if (!Array.isArray(row.lineItems)) return 0;
+    return row.lineItems.reduce((sum, item) => {
+      const product = catalogProducts.find((p) => p.id === item.productId);
+      const unitPrice = typeof item.unitPriceOverride === 'number' ? item.unitPriceOverride : (product?.unitPrice ?? 0);
+      return sum + item.quantity * unitPrice;
+    }, 0);
   }
 
   // Pre-fills a new deal row from the current ticket-size estimate
@@ -364,6 +434,61 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
   const [qualNeedNotes, setQualNeedNotes] = useState('');
   const [qualTimeline, setQualTimeline] = useState('');
   const [savingQualification, setSavingQualification] = useState(false);
+
+  // Lead ownership (issue: CRM Lead ownership) — assignee picker. Fetched
+  // from GET /api/leads/assignable-users (brand-scoped, not the super-
+  // admin-only /api/admin/users) whenever the modal opens for a given
+  // brand; callerRole/callerSsoUserId drive the disabled-with-reason state
+  // for a non-admin trying to assign to someone other than themselves
+  // (CLAUDE.md Rule 7 — no live-looking control that silently fails).
+  const [assignableUsers, setAssignableUsers] = useState<Array<{ ssoUserId: string; email: string; name?: string }>>([]);
+  const [callerSsoUserId, setCallerSsoUserId] = useState<string | null>(null);
+  const [callerRole, setCallerRole] = useState<'admin' | 'user' | null>(null);
+  const [loadingAssignable, setLoadingAssignable] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState(false);
+
+  // Forecast category (issue #204) — sticky override control, same
+  // "select a value, Save applies it as its own action" shape as the
+  // Assignment control above. forecastCategoryTarget always starts at the
+  // lead's current effective category (override if one exists, else the
+  // stage-derived default) so opening the picker never shows a blank/wrong
+  // starting value.
+  const [forecastCategoryTarget, setForecastCategoryTarget] = useState<ForecastCategory>(() => effectiveForecastCategory(lead));
+  const [settingForecastCategory, setSettingForecastCategory] = useState(false);
+
+  useEffect(() => {
+    if (!opened) return;
+    let cancelled = false;
+    setLoadingAssignable(true);
+    fetch(`/api/leads/assignable-users?brand=${encodeURIComponent(brand)}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`Failed to load assignable users (${res.status})`))))
+      .then((data) => {
+        if (cancelled) return;
+        setAssignableUsers(Array.isArray(data.users) ? data.users : []);
+        setCallerSsoUserId(data.callerSsoUserId ?? null);
+        setCallerRole(data.callerRole ?? null);
+      })
+      .catch((err) => {
+        // Non-fatal — the assignment display/current-state section above
+        // still renders; only the picker's own option list is affected.
+        console.error('assignable-users fetch error:', err);
+      })
+      .finally(() => { if (!cancelled) setLoadingAssignable(false); });
+    return () => { cancelled = true; };
+  }, [opened, brand]);
+
+  useEffect(() => {
+    setAssignTarget(lead?.assignedTo ?? null);
+  }, [lead?._id, lead?.assignedTo]);
+
+  useEffect(() => {
+    setForecastCategoryTarget(effectiveForecastCategory({
+      kanbanColumn: lead?.kanbanColumn,
+      forecastCategory: lead?.forecastCategory,
+      forecastCategoryOverriddenBy: lead?.forecastCategoryOverriddenBy,
+    }));
+  }, [lead?._id, lead?.kanbanColumn, lead?.forecastCategory, lead?.forecastCategoryOverriddenBy]);
 
   useEffect(() => {
     setNextActionDueAt(lead?.nextActionDueAt ? new Date(lead.nextActionDueAt) : null);
@@ -652,6 +777,14 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
 
   async function handleSaveDeals() {
     if (!lead) return;
+    // A deal switched to "Build from catalog" with zero lines added yet
+    // would resolve to no usable value at all server-side and be silently
+    // dropped (never a fabricated $0 deal) — caught here instead of
+    // surprising the rep after save.
+    if (dealsForm.some((r) => Array.isArray(r.lineItems) && r.lineItems.length === 0)) {
+      showNotification({ message: 'Add at least one line item, or switch back to a bare value, before saving.', color: 'red', autoClose: 5000 });
+      return;
+    }
     setSavingDeals(true);
     try {
       await onAction(lead._id, 'MODIFY', { deals: dealsForm });
@@ -706,6 +839,62 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
       showNotification({ message: err instanceof Error ? err.message : 'Clear failed', color: 'red', autoClose: 5000 });
     } finally {
       setSavingNextAction(false);
+    }
+  }
+
+  // Lead ownership (issue: CRM Lead ownership) — clearing an existing
+  // assignment requires an explicit confirm step (removes visibility from
+  // whoever currently owns the lead), matching this app's own established
+  // window.confirm convention for every other destructive action
+  // (CadencePanel.tsx, battlecards/templates/cadences delete flows) rather
+  // than introducing a different confirm pattern for just this one action.
+  async function handleAssign(target: string | null) {
+    if (!lead) return;
+    if (target === null) {
+      const confirmed = window.confirm('Clear this lead\'s assignment? It will show as Unassigned until someone claims or is assigned it again.');
+      if (!confirmed) return;
+    }
+    setAssigning(true);
+    try {
+      await onAction(lead._id, 'ASSIGN', { assignedTo: target });
+      setAssignTarget(target);
+      showNotification({ message: target === null ? 'Assignment cleared' : 'Lead assigned', color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Assignment failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setAssigning(false);
+    }
+  }
+
+  // Forecast category (issue #204) — a lead never has forecastCategory
+  // stored until it's explicitly overridden (see lib/forecast-category.ts),
+  // so "Reset to default" sends null to clear the override rather than
+  // computing and sending the current default value — the two are only
+  // equivalent right now, and would silently diverge the moment the lead's
+  // stage changes again if this sent an explicit value instead.
+  async function handleSetForecastCategory(category: ForecastCategory) {
+    if (!lead) return;
+    setSettingForecastCategory(true);
+    try {
+      await onAction(lead._id, 'SET_FORECAST_CATEGORY', { forecastCategory: category });
+      showNotification({ message: `Forecast category set to ${FORECAST_CATEGORY_LABEL[category]}`, color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Forecast category update failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setSettingForecastCategory(false);
+    }
+  }
+
+  async function handleResetForecastCategory() {
+    if (!lead) return;
+    setSettingForecastCategory(true);
+    try {
+      await onAction(lead._id, 'SET_FORECAST_CATEGORY', { forecastCategory: null });
+      showNotification({ message: 'Forecast category reset to stage default', color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Reset failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setSettingForecastCategory(false);
     }
   }
 
@@ -929,6 +1118,12 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
           <Text size="sm">{lead.source || '—'}</Text>
         </Box>
         <Box>
+          <Text size="xs" c="dimmed">Assigned to</Text>
+          <Text size="sm" title={lead.assignedAt ? `Changed ${new Date(lead.assignedAt).toLocaleString()}` : undefined}>
+            {lead.assignedToEmail || (lead.assignedTo ? lead.assignedTo : 'Unassigned')}
+          </Text>
+        </Box>
+        <Box>
           <Text size="xs" c="dimmed">Created</Text>
           <Text size="sm">{lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '—'}</Text>
         </Box>
@@ -937,6 +1132,97 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
           <Text size="sm">{lead.updatedAt ? new Date(lead.updatedAt).toLocaleString() : '—'}</Text>
         </Box>
       </SimpleGrid>
+
+      {/* Lead ownership (issue: CRM Lead ownership) — self-assign is always
+          allowed; assigning to (or clearing) someone else's assignment is
+          disabled with a visible reason for a non-admin (CLAUDE.md Rule 7)
+          rather than only failing after the attempt via the server's own
+          403. GDS's AdminSelect primitive (already imported/used elsewhere
+          in this file) per the issue's Design System requirement. */}
+      <Box>
+        <Text size="xs" c="dimmed" fw={600} mb={4}>ASSIGNMENT</Text>
+        <Group gap="xs" align="flex-end">
+          <AdminSelect
+            name="assignTo"
+            label="Assign to"
+            placeholder={loadingAssignable ? 'Loading…' : 'Unassigned'}
+            disabled={loadingAssignable}
+            data={[
+              { value: '__unassigned__', label: 'Unassigned' },
+              ...assignableUsers.map((u) => ({
+                value: u.ssoUserId,
+                label: u.name ? `${u.name} (${u.email})` : u.email,
+              })),
+            ]}
+            value={assignTarget ?? '__unassigned__'}
+            onChange={(value: string | null) => setAssignTarget(value === '__unassigned__' || !value ? null : value)}
+          />
+          <Button
+            size="xs"
+            variant="light"
+            loading={assigning}
+            disabled={
+              assignTarget === (lead.assignedTo ?? null)
+              || (
+                // Self-assign/self-release is always allowed; anything else
+                // (assigning to, or clearing, someone else's assignment)
+                // needs the brand-admin role — matches lib/lead-assignment.ts's
+                // canAssign() exactly, client-side, for immediate feedback.
+                callerRole !== 'admin'
+                && assignTarget !== callerSsoUserId
+                && !(assignTarget === null && lead.assignedTo === callerSsoUserId)
+              )
+            }
+            onClick={() => handleAssign(assignTarget)}
+          >
+            {assignTarget === null ? 'Clear assignment' : 'Assign'}
+          </Button>
+        </Group>
+        {callerRole !== 'admin' && assignTarget !== callerSsoUserId && assignTarget !== (lead.assignedTo ?? null) && !(assignTarget === null && lead.assignedTo === callerSsoUserId) && (
+          <Text size="xs" c="dimmed" mt={4}>Only a brand admin can assign this lead to another user.</Text>
+        )}
+      </Box>
+
+      {/* Forecast category (issue #204) — neutral/muted "Default for stage"
+          state vs. an explicit "Overridden by X, date" state, matching
+          ticketSizeEstimate.method === 'manual_override''s own established
+          visual pattern (see the Manual Ticket-Size Override block below). */}
+      <Box>
+        <Text size="xs" c="dimmed" fw={600} mb={4}>FORECAST CATEGORY</Text>
+        <Group gap="xs" align="flex-end">
+          <AdminSelect
+            name="forecastCategory"
+            label="Category"
+            data={FORECAST_CATEGORIES.map((cat) => ({ value: cat, label: FORECAST_CATEGORY_LABEL[cat] }))}
+            value={forecastCategoryTarget}
+            onChange={(value: string | null) => { if (value) setForecastCategoryTarget(value as ForecastCategory); }}
+          />
+          <Button
+            size="xs"
+            variant="light"
+            loading={settingForecastCategory}
+            disabled={forecastCategoryTarget === effectiveForecastCategory(lead)}
+            onClick={() => handleSetForecastCategory(forecastCategoryTarget)}
+          >
+            Save
+          </Button>
+          {lead.forecastCategoryOverriddenBy && (
+            <Button size="xs" variant="subtle" color="gray" loading={settingForecastCategory} onClick={handleResetForecastCategory}>
+              Reset to default
+            </Button>
+          )}
+        </Group>
+        {lead.forecastCategoryOverriddenBy ? (
+          <Text size="xs" c="dimmed" mt={4}>
+            Overridden by {lead.forecastCategoryOverriddenBy}
+            {lead.forecastCategoryOverriddenAt ? `, ${new Date(lead.forecastCategoryOverriddenAt).toLocaleString()}` : ''}
+          </Text>
+        ) : (
+          <Text size="xs" c="dimmed" mt={4}>
+            Default for stage ({FORECAST_CATEGORY_LABEL[resolveDefaultCategory(lead.kanbanColumn)]})
+          </Text>
+        )}
+      </Box>
 
       <Box>
         <Group justify="space-between" align="center">
@@ -1036,6 +1322,14 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
               <Text size="xs" c="orange">{contactStaleCount} of {lead.contacts?.length} contacts need re-verification</Text>
             )}
             {!editingContacts && (
+              <GoogleContactsImport
+                leadId={lead._id}
+                brand={brand}
+                connected={googleContactsConnected}
+                onImported={onUpdated}
+              />
+            )}
+            {!editingContacts && (
               <Button size="xs" variant="light" onClick={openEditContacts} disabled={busy}>Edit</Button>
             )}
           </Group>
@@ -1050,7 +1344,11 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
               <Box key={i}>
                 <Group gap="xs">
                   <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
-                  {contact.isDecisionMaker && <Badge variant="light" size="xs" color="blue">Decision Maker</Badge>}
+                  {BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE] && (
+                    <Badge variant="light" size="xs" color={BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE]!.color}>
+                      {BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE]!.label}
+                    </Badge>
+                  )}
                   {isContactStale(contact, DEFAULT_STALENESS_THRESHOLD_DAYS) && (
                     <Badge variant="light" size="xs" color="orange">Needs re-verification</Badge>
                   )}
@@ -1112,7 +1410,13 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
               <Group key={d.id} justify="space-between">
                 <Box>
                   <Text size="sm" fw={600}>{formatTicketSizeCurrency(d.value, d.currency)}</Text>
-                  <Text size="xs" c="dimmed">{d.label || (d.source === 'converted_ticket_estimate' ? 'Converted from ticket estimate' : 'Manual deal')}</Text>
+                  <Text size="xs" c="dimmed">
+                    {d.label || (
+                      d.source === 'converted_ticket_estimate' ? 'Converted from ticket estimate'
+                      : d.source === 'catalog_line_items' ? `${d.lineItems?.length ?? 0} catalog line item${(d.lineItems?.length ?? 0) === 1 ? '' : 's'}`
+                      : 'Manual deal'
+                    )}
+                  </Text>
                 </Box>
               </Group>
             ))}
@@ -1124,7 +1428,16 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
         {editingDeals && (
           <Stack gap="sm">
             {dealsForm.length === 0 && <Text size="sm" c="dimmed">No deals yet.</Text>}
-            {dealsForm.map((d, i) => (
+            {dealsForm.map((d, i) => {
+              const usesCatalog = Array.isArray(d.lineItems);
+              // Only active products in this deal's own currency are
+              // selectable — a currency-mismatched or deactivated product
+              // is never offered for a new line (issue #215 §6/§13/§15 #4),
+              // though a historical line already referencing one still
+              // renders (with an "inactive"/"different currency" tag) so it
+              // stays legible.
+              const pickableProducts = catalogProducts.filter((p) => p.active && p.currency === d.currency);
+              return (
               <Box key={i} p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }}>
                 <Group justify="space-between" align="center" mb={4}>
                   <Text size="xs" c="dimmed" fw={600}>Deal {i + 1}</Text>
@@ -1132,21 +1445,100 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
                     <IconTrash size={14} />
                   </ActionIcon>
                 </Group>
-                <Group gap="xs" align="flex-end">
-                  <NumberInput
-                    size="xs"
-                    label="Value"
-                    prefix={d.currency === 'EUR' ? '€' : '$'}
-                    thousandSeparator=","
-                    value={d.value}
-                    onChange={(v) => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, value: typeof v === 'number' ? v : '' } : r))}
-                    min={0}
-                    style={{ flex: 1 }}
-                  />
-                  <TextInput size="xs" label="Label (optional)" value={d.label} onChange={(e) => { const v = e.currentTarget.value; setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, label: v } : r)); }} style={{ flex: 1 }} />
+                <Group gap="xs" mb={6}>
+                  <Button
+                    size="compact-xs"
+                    variant={usesCatalog ? 'subtle' : 'filled'}
+                    onClick={() => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: undefined } : r))}
+                  >
+                    Bare value
+                  </Button>
+                  <Button
+                    size="compact-xs"
+                    variant={usesCatalog ? 'filled' : 'subtle'}
+                    onClick={() => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: r.lineItems ?? [] } : r))}
+                  >
+                    Build from catalog
+                  </Button>
                 </Group>
+                {!usesCatalog && (
+                  <Group gap="xs" align="flex-end">
+                    <NumberInput
+                      size="xs"
+                      label="Value"
+                      prefix={d.currency === 'EUR' ? '€' : '$'}
+                      thousandSeparator=","
+                      value={d.value}
+                      onChange={(v) => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, value: typeof v === 'number' ? v : '' } : r))}
+                      min={0}
+                      style={{ flex: 1 }}
+                    />
+                    <TextInput size="xs" label="Label (optional)" value={d.label} onChange={(e) => { const v = e.currentTarget.value; setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, label: v } : r)); }} style={{ flex: 1 }} />
+                  </Group>
+                )}
+                {usesCatalog && (
+                  <Stack gap="xs">
+                    <TextInput size="xs" label="Label (optional)" value={d.label} onChange={(e) => { const v = e.currentTarget.value; setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, label: v } : r)); }} />
+                    {pickableProducts.length === 0 && (d.lineItems?.length ?? 0) === 0 && (
+                      <Text size="xs" c="dimmed">No active {d.currency} products in the catalog yet — add some at Product Catalog, or use a bare value instead.</Text>
+                    )}
+                    {(d.lineItems || []).map((item, li) => {
+                      const product = catalogProducts.find((p) => p.id === item.productId);
+                      const unitPrice = typeof item.unitPriceOverride === 'number' ? item.unitPriceOverride : (product?.unitPrice ?? 0);
+                      const options = product && !pickableProducts.some((p) => p.id === product.id)
+                        ? [{ value: product.id, label: `${product.name}${product.active ? '' : ' (inactive)'}` }, ...pickableProducts.map((p) => ({ value: p.id, label: p.name }))]
+                        : pickableProducts.map((p) => ({ value: p.id, label: p.name }));
+                      return (
+                        <Group key={li} gap="xs" align="flex-end" wrap="nowrap">
+                          <Select
+                            size="xs"
+                            label="Product"
+                            aria-label="Product"
+                            data={options}
+                            value={item.productId || null}
+                            onChange={(v) => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: (r.lineItems || []).map((li2, li2i) => li2i === li ? { ...li2, productId: v || '' } : li2) } : r))}
+                            style={{ flex: 2 }}
+                          />
+                          <NumberInput
+                            size="xs"
+                            label="Qty"
+                            aria-label="Quantity"
+                            value={item.quantity}
+                            onChange={(v) => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: (r.lineItems || []).map((li2, li2i) => li2i === li ? { ...li2, quantity: typeof v === 'number' ? v : 1 } : li2) } : r))}
+                            min={1}
+                            style={{ flex: 1 }}
+                          />
+                          <NumberInput
+                            size="xs"
+                            label="Unit price"
+                            aria-label="Unit price override"
+                            prefix={d.currency === 'EUR' ? '€' : '$'}
+                            value={unitPrice}
+                            onChange={(v) => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: (r.lineItems || []).map((li2, li2i) => li2i === li ? { ...li2, unitPriceOverride: typeof v === 'number' ? v : undefined } : li2) } : r))}
+                            min={0}
+                            style={{ flex: 1 }}
+                          />
+                          <ActionIcon size="sm" variant="subtle" color="red" aria-label="Remove line item" onClick={() => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: (r.lineItems || []).filter((_, li2i) => li2i !== li) } : r))}>
+                            <IconTrash size={14} />
+                          </ActionIcon>
+                        </Group>
+                      );
+                    })}
+                    <Button
+                      size="compact-xs"
+                      variant="subtle"
+                      leftSection={<IconPlus size={12} />}
+                      disabled={pickableProducts.length === 0}
+                      onClick={() => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: [...(r.lineItems || []), { productId: pickableProducts[0]?.id || '', quantity: 1 }] } : r))}
+                    >
+                      Add line
+                    </Button>
+                    <Text size="xs" fw={600}>Running total: {formatTicketSizeCurrency(dealLineItemTotal(d), d.currency)}</Text>
+                  </Stack>
+                )}
               </Box>
-            ))}
+              );
+            })}
             <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} onClick={() => {
               // Issue #169 — default a new manual deal to the currency
               // actually configured for this brand/tenant rather than a
@@ -1260,7 +1652,28 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
 
       <Divider />
 
-      <ActivityPanel leadId={lead._id} brand={brand} />
+      {/* Issue #207 — shares this brand's public booking page for this
+          lead. A plain button rather than a GDS semantic ActionBar entry
+          (the actions array above uses a constrained action-type registry
+          not designed for an arbitrary new action like this one) —
+          a deliberate, low-risk placement choice, not an attempt to
+          extend that governed component's own contract. */}
+      <Group justify="flex-end">
+        <Button
+          size="xs"
+          variant="light"
+          onClick={() => {
+            const url = `${window.location.origin}/schedule/${brand}?leadId=${lead._id}`;
+            navigator.clipboard.writeText(url)
+              .then(() => showNotification({ message: 'Scheduling link copied', color: 'green', autoClose: 3000 }))
+              .catch(() => showNotification({ message: 'Could not copy link', color: 'red', autoClose: 4000 }));
+          }}
+        >
+          Copy scheduling link
+        </Button>
+      </Group>
+
+      <ActivityPanel leadId={lead._id} brand={brand} contacts={lead.contacts} />
 
       {((normalizedPro && normalizedPro.length > 0) || (normalizedCon && normalizedCon.length > 0)) && (
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">

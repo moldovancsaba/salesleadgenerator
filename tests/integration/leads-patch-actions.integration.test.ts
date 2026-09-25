@@ -132,6 +132,45 @@ describe('PATCH /api/leads — ACCEPT/DECLINE (issue #90/#91 investigation)', ()
   });
 });
 
+describe('PATCH /api/leads — SET_FORECAST_CATEGORY (issue 204)', () => {
+  it('sets a sticky override and stamps forecastCategoryOverriddenAt', async () => {
+    const id = await seedLead('Forecast Override Co');
+    const res = await PATCH(patchReq(id, { action: 'SET_FORECAST_CATEGORY', forecastCategory: 'commit' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.forecastCategory).toBe('commit');
+    expect(body.lead.forecastCategoryOverriddenBy).toBeTruthy();
+    expect(body.lead.forecastCategoryOverriddenAt).toBeTruthy();
+  });
+
+  it('rejects an invalid category value', async () => {
+    const id = await seedLead('Bad Forecast Category Co');
+    const res = await PATCH(patchReq(id, { action: 'SET_FORECAST_CATEGORY', forecastCategory: 'not_a_category' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('survives a subsequent COLUMN_MOVE — sticky override semantics', async () => {
+    const id = await seedLead('Sticky Override Co');
+    await PATCH(patchReq(id, { action: 'SET_FORECAST_CATEGORY', forecastCategory: 'best_case' }));
+    const moveRes = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'WON', sortOrder: Date.now() }));
+    expect(moveRes.status).toBe(200);
+    const moveBody = await moveRes.json();
+    expect(moveBody.lead.kanbanColumn).toBe('WON');
+    expect(moveBody.lead.forecastCategory).toBe('best_case');
+    expect(moveBody.lead.forecastCategoryOverriddenBy).toBeTruthy();
+  });
+
+  it('clears the override when sent null, reverting to the live stage default', async () => {
+    const id = await seedLead('Clear Override Co', { kanbanColumn: 'ENGAGED' });
+    await PATCH(patchReq(id, { action: 'SET_FORECAST_CATEGORY', forecastCategory: 'commit' }));
+    const clearRes = await PATCH(patchReq(id, { action: 'SET_FORECAST_CATEGORY', forecastCategory: null }));
+    expect(clearRes.status).toBe(200);
+    const clearBody = await clearRes.json();
+    expect(clearBody.lead.forecastCategory).toBeNull();
+    expect(clearBody.lead.forecastCategoryOverriddenBy).toBeNull();
+  });
+});
+
 describe('PATCH /api/leads — required-fields-per-stage gating (issue #72)', () => {
   it('blocks a COLUMN_MOVE into ENGAGED when required fields are missing, with a clear message', async () => {
     const id = await seedLead('No Contact Co');
@@ -230,6 +269,56 @@ describe('PATCH /api/leads — MODIFY: deals (issue #114)', () => {
     expect(secondBody.lead.deals[0].value).toBe(2000);
     expect(secondBody.lead.deals[0].createdAt).toBe(createdAt);
     expect(secondBody.lead.deals[0].source).toBe('converted_ticket_estimate');
+  });
+});
+
+// Issue 215 — the real end-to-end write path: executeLeadAction() (called
+// from this exact route) resolves deals[].lineItems against a real
+// `products` collection query it builds itself, not a mocked lookup.
+describe('PATCH /api/leads — MODIFY: deals with catalog lineItems (issue 215)', () => {
+  async function seedProduct(overrides: Record<string, unknown> = {}) {
+    const clientPromise = (await import('../../lib/mongodb')).default;
+    const client = await clientPromise;
+    const db = client.db();
+    const doc = {
+      id: 'catalog-product-1', brand: 'cogmap', tenantId: 'default', name: 'Season Sponsorship',
+      description: '', unitPrice: 45000, currency: 'USD', pricingModel: 'annual_subscription', active: true,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      ...overrides,
+    };
+    await db.collection('products').insertOne(doc);
+    return doc;
+  }
+
+  it('resolves a real product from the products collection into a catalog_line_items deal', async () => {
+    const product = await seedProduct({ id: 'catalog-product-e2e-1' });
+    const id = await seedLead('Catalog Deal Co');
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', deals: [{ currency: 'USD', lineItems: [{ productId: product.id, quantity: 2 }] }] }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.deals).toHaveLength(1);
+    expect(body.lead.deals[0].source).toBe('catalog_line_items');
+    expect(body.lead.deals[0].value).toBe(90000);
+    expect(body.lead.deals[0].lineItems).toEqual([{ productId: product.id, quantity: 2, unitPriceOverride: 45000 }]);
+  });
+
+  it('never queries the products collection when no deal in the payload carries lineItems (cost guard)', async () => {
+    const id = await seedLead('No Lookup Needed Co');
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', deals: [{ value: 1000 }] }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.deals[0].source).toBe('manual');
+    expect(body.lead.deals[0].lineItems).toBeUndefined();
+  });
+
+  it('scopes the product lookup by tenantId — a product in another tenant never resolves', async () => {
+    const product = await seedProduct({ id: 'catalog-product-e2e-2', tenantId: 'a-different-tenant' });
+    const id = await seedLead('Cross Tenant Co');
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', deals: [{ currency: 'USD', lineItems: [{ productId: product.id, quantity: 1 }] }] }));
+    const body = await res.json();
+    // Unresolvable line item -> falls back to bare value, which is also
+    // absent here, so the whole deal is dropped (never a fabricated $0).
+    expect(body.lead.deals).toHaveLength(0);
   });
 });
 

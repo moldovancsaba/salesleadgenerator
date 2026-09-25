@@ -146,3 +146,55 @@ describe('GET /api/boards/[brand] — dvsc forecast', () => {
     expect(body.forecast.pipeline.WON.weightedRevenue).toBe(20000);
   });
 });
+
+// Issue #204 — additive categoryWeightedRevenue/byCategory/categoryWeightsUsed
+// alongside the existing stage-weighted totalWeightedRevenue above, which
+// every test in this file exercises unmodified (regression: this feature
+// must never change the pre-existing forecast fields' values).
+describe('GET /api/boards/[brand] — forecast categories (issue 204)', () => {
+  it('a never-overridden ENGAGED lead lands in best_case at the default 40% weight', async () => {
+    await leadsPOST(buildApiRequest('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entity_name: 'Category Default Engaged FC',
+        url: 'https://category-default-engaged-fc.example.com',
+        country: 'US',
+        kanbanColumn: 'ENGAGED',
+        ice: { impact: 5, confidence: 5, ease: 5 },
+        contacts: [{ name: 'Jordan Smith', email: 'jordan@category-default-engaged-fc.example.com', isDecisionMaker: true }],
+        estimated_annual_revenue_usd: 10000,
+      }),
+    }));
+
+    const boardRes = await boardsGET(buildApiRequest('/api/boards/cogmap?tenantId=default'), { params: Promise.resolve({ brand: 'cogmap' }) });
+    const body = await boardRes.json();
+    expect(body.forecast.byCategory).toBeDefined();
+    expect(body.forecast.byCategory.best_case.weightedRevenue).toBeGreaterThanOrEqual(4000);
+    expect(body.forecast.categoryWeightedRevenue).toBeGreaterThanOrEqual(4000);
+  });
+
+  it('a WON lead in the closed category contributes its full value, not a flat closed weight', async () => {
+    const before = await boardsGET(buildApiRequest('/api/boards/cogmap?tenantId=default'), { params: Promise.resolve({ brand: 'cogmap' }) });
+    const beforeBody = await before.json();
+    const categoryTotalBefore = beforeBody.forecast.categoryWeightedRevenue || 0;
+
+    await leadsPOST(buildApiRequest('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entity_name: 'Category Closed WON FC',
+        url: 'https://category-closed-won-fc.example.com',
+        country: 'US',
+        kanbanColumn: 'WON',
+        ice: { impact: 8, confidence: 8, ease: 8 },
+        contacts: [{ name: 'Jordan Smith', email: 'jordan@category-closed-won-fc.example.com', isDecisionMaker: true }],
+        estimated_annual_revenue_usd: 15000,
+      }),
+    }));
+
+    const after = await boardsGET(buildApiRequest('/api/boards/cogmap?tenantId=default'), { params: Promise.resolve({ brand: 'cogmap' }) });
+    const afterBody = await after.json();
+    expect(afterBody.forecast.categoryWeightedRevenue).toBe(categoryTotalBefore + 15000);
+  });
+});

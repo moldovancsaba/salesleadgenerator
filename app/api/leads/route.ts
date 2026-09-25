@@ -4,7 +4,11 @@ import { getBrandConfig, resolveBrand, getForbiddenTermsFor, PRO_FIELD, CON_FIEL
 import type { Brand } from '../../lib/brand'
 import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
+import { resolveSessionFromIdToken } from '../../../lib/session'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
+import { resolveAssignedToFilter, combineFilterWithAssignedTo, type AssignedToFilterClause } from '../../../lib/lead-assignment'
+import { getUserAccess } from '../../../lib/sso-access'
+import { listTeamsForBrand, getTeamVisibilityFilter } from '../../../lib/teams'
 import { validateLeadPayload, validatePatchPayload, bestContactConfidence } from '../../../lib/validate-lead'
 import { generateRequestId } from '../../lib/request-id'
 import { executeLeadAction } from '../../lib/lead-actions'
@@ -85,6 +89,10 @@ export async function GET(request: NextRequest) {
     // Issue #116 — comma-separated, OR-matched against Lead.tags[].
     const tagsParam = searchParams.get('tags') || undefined
     const tags = tagsParam ? tagsParam.split(',').map((t) => t.trim()).filter(Boolean) : undefined
+    // Lead ownership (issue: CRM Lead ownership) — 'me'|'unassigned'|<ssoUserId>.
+    // 'me' is resolved from the verified session below, never trusted as a
+    // literal client-supplied value — see lib/lead-assignment.ts.
+    const assignedToParam = searchParams.get('assignedTo') || undefined
     const limit = Math.max(1, Math.min(5000, parseInt(searchParams.get('limit') || '5000') || 5000))
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
     const skip = (page - 1) * limit
@@ -98,15 +106,51 @@ export async function GET(request: NextRequest) {
     const db = client.db()
 
     // Backward-compatible tenant filter: include legacy docs without tenantId when querying default
-    const filter: any = { ...tenantFilter(tenantId) }
-    if (region) filter.region = region
+    const baseFilter: any = { ...tenantFilter(tenantId) }
+    if (region) baseFilter.region = region
     // Case-insensitive substring match — industry is free text entered via
     // Sales Settings/lead creation, not a fixed enum, so an exact match
     // would miss casing/whitespace variants a user reasonably expects to
     // match (issue #71).
-    if (industry) filter.industry = { $regex: escapeRegExp(industry), $options: 'i' }
-    if (kanbanColumn) filter.kanbanColumn = kanbanColumn
-    if (tags && tags.length > 0) filter.tags = { $in: tags }
+    if (industry) baseFilter.industry = { $regex: escapeRegExp(industry), $options: 'i' }
+    if (kanbanColumn) baseFilter.kanbanColumn = kanbanColumn
+    if (tags && tags.length > 0) baseFilter.tags = { $in: tags }
+
+    // Lead ownership — 'me' needs the caller's verified ssoUserId, resolved
+    // here (not trusted from the query string). '' is a safe no-match
+    // fallback (see resolveAssignedToFilter) if assignedTo=me is requested
+    // with no resolvable session (e.g. an x-api-key caller).
+    //
+    // Team visibility (issue: CRM Team visibility) — 'team' needs a DB read
+    // of the caller's managed teams, so it's resolved separately from
+    // resolveAssignedToFilter (deliberately DB-free); see lib/teams.ts.
+    let assignedToClause: AssignedToFilterClause
+    if (assignedToParam === 'team') {
+      const idToken = request.cookies.get('sso_id_token')?.value
+      const claims = await resolveSessionFromIdToken(idToken)
+      if (claims?.sub) {
+        const actorRecord = await getUserAccess(db, claims.sub)
+        const teams = await listTeamsForBrand(db, brand)
+        assignedToClause = getTeamVisibilityFilter(teams, claims.sub, claims.email, actorRecord?.orgAccess, brand)
+      } else {
+        // No resolvable session — fail safe to the same no-match fallback
+        // resolveAssignedToFilter('me', '') uses below, never every lead.
+        assignedToClause = { assignedTo: '' }
+      }
+    } else {
+      let actorSub = ''
+      if (assignedToParam === 'me') {
+        const idToken = request.cookies.get('sso_id_token')?.value
+        const claims = await resolveSessionFromIdToken(idToken)
+        actorSub = claims?.sub || ''
+      }
+      assignedToClause = resolveAssignedToFilter(assignedToParam, actorSub)
+    }
+    // tenantFilter() above may itself carry a top-level $or (default
+    // tenant); the 'unassigned' clause also carries one — spreading both
+    // into one object would silently drop one (docs/LESSONS_LEARNED.md §1),
+    // so they're combined via $and instead whenever assignedToClause exists.
+    const filter: any = combineFilterWithAssignedTo(baseFilter, assignedToClause)
 
     const totalCount = await db.collection(config.dbCollection).countDocuments(filter)
 
@@ -421,9 +465,27 @@ export async function POST(request: NextRequest) {
       tenantId,
     })
 
+    // Automation rules (issue #201) — evaluated synchronously at this real
+    // write point, after the lead is fully persisted. Caught here so a rule
+    // misconfiguration can never fail lead creation itself. A matching rule
+    // writes directly to the lead document (a separate update from the
+    // insertOne above), so the response re-reads the lead afterward rather
+    // than returning the pre-automation in-memory `newLead` — otherwise the
+    // caller's own immediate response would silently disagree with what a
+    // subsequent GET returns.
+    let responseLead: Record<string, any> = { ...newLead, _id: result.insertedId, tenantId }
+    try {
+      const { evaluateEventRules } = await import('../../lib/automation-store')
+      await evaluateEventRules(db, brand, tenantId, 'lead_created', result.insertedId.toString(), config.dbCollection)
+      const freshLead = await db.collection(config.dbCollection).findOne({ _id: result.insertedId })
+      if (freshLead) responseLead = freshLead
+    } catch (error) {
+      console.error('[API:leads] automation rule evaluation failed', { brand, tenantId, leadId: result.insertedId.toString(), error })
+    }
+
     return NextResponse.json({
       success: true,
-      lead: { ...newLead, _id: result.insertedId, tenantId }
+      lead: responseLead
     }, { status: 201 })
 
   } catch (error: any) {
@@ -435,7 +497,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH
+// PATCH - Handle actions: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH, ASSIGN, SET_FORECAST_CATEGORY
 //
 // No requireApiKey guard here (issue #91's real root cause): this is the
 // exclusive write path for every lead action button in the browser UI
@@ -468,10 +530,19 @@ export async function PATCH(request: NextRequest) {
     }
 
     const action = String(body.action || '').toUpperCase()
-    const allowed = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH'])
+    const allowed = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH', 'ASSIGN', 'SET_FORECAST_CATEGORY'])
     if (!allowed.has(action)) {
       return NextResponse.json({ error: `Unsupported action: ${action}` }, { status: 400 })
     }
+
+    // Lead ownership — resolved separately from requireBrandAccessApi above
+    // (which only returns a NextResponse-or-null, discarding the claims it
+    // verified) rather than changing that shared guard's return contract,
+    // which every other brand-scoped route also depends on. Only actually
+    // needed by ASSIGN and the outcomelogs actor stamp; every other action
+    // ignores actorId/actorEmail exactly as before this change.
+    const idToken = request.cookies.get('sso_id_token')?.value
+    const claims = await resolveSessionFromIdToken(idToken)
 
     const result = await executeLeadAction({
       leadId: id,
@@ -479,10 +550,12 @@ export async function PATCH(request: NextRequest) {
       brand,
       tenantId,
       payload: body,
+      actorId: claims?.sub,
+      actorEmail: claims?.email,
     })
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error || 'Action failed', requestId }, { status: 400 })
+      return NextResponse.json({ error: result.error || 'Action failed', requestId }, { status: result.status || 400 })
     }
 
     return NextResponse.json({ success: true, lead: result.lead, requestId })

@@ -24,6 +24,7 @@
 - [Activity](#activity)
 - [Ticket Size](#ticket-size)
 - [Sales Settings (Company Setup)](#sales-settings-company-setup)
+- [Meeting Scheduler](#meeting-scheduler)
 - [Outreach](#outreach)
 - [Forecast](#forecast)
 - [Metrics Dashboard](#metrics-dashboard)
@@ -65,7 +66,7 @@ Everything in the app is reachable from one place: the hamburger icon (☰), alw
 - **View** (only shown while already on the Pipeline page for a brand): Kanban, Table, Metrics, Search Learning — these four views live at the same URL with a `?view=` parameter, not separate pages
 - **Help**: Take the tour (replays the onboarding spotlight walkthrough — see [Onboarding Tour](#onboarding-tour))
 - **Reporting**: Forecast, Battlecards, Outreach Templates, Cadences, Contacts
-- **Admin** (super admins only): Clients, Prompt Editor, Users & Access, Duplicate Review
+- **Admin** (super admins only): Clients, Prompt Editor, Users & Access, Teams, Duplicate Review
 - **Sign out**
 
 There is no on-page dropdown or brand switcher anywhere else in the app (an earlier version had one on the Forecast/Battlecards/Outreach Templates pages; it was removed as a duplicate of this menu). Everything is one brand at a time, chosen either by the URL or by this menu — never guessed or silently defaulted.
@@ -114,7 +115,17 @@ Tap a column's own header to collapse it down to just its title and count — us
 
 ### Bulk actions (Select mode)
 
-Tap the **Select** icon in the toolbar above the board to enter select mode — a checkbox appears on every card. Selection is limited to one column at a time (picking a card in a different column is rejected with a notification). Once you've checked at least one card, a bulk action bar appears with **Decline selected** / **Pin selected**. Each lead is actioned individually server-side, so a partial failure (e.g. one lead blocked by the required-fields gate above) doesn't fail the whole batch — you'll see a summary like "8 of 10 pinned — 2 blocked: Missing required fields for ENGAGED: ..." (the required-fields gate above only blocks a move into ENGAGED/PROPOSAL, so this message can only appear for **Pin selected**, which always targets ENGAGED — not Decline, which targets LOST and is never gated). Tap the Select icon again (now an ✕) to leave select mode.
+Tap the **Select** icon in the toolbar above the board to enter select mode — a checkbox appears on every card, and a **Select all in** row appears above the board: pick a column and tap **Select all loaded** to check every currently-loaded card in it in one go, instead of ticking each by hand. Selection is limited to one column at a time (picking a card in a different column is rejected with a notification). Tap the Select icon again (now an ✕), or **Clear selection**, to leave select mode.
+
+Once you've checked at least one card, a bulk action bar appears:
+
+- **Accept selected** / **Decline selected** / **Pin selected** — as before.
+- **Edit field…** — bulk-add or bulk-remove one tag across the whole selection (each lead keeps its own other tags — this never replaces a lead's full tag list), or bulk-set a quality status (Draft/Checked/Verified).
+- **Reassign…** — bulk-assign the whole selection to a teammate (or yourself) in one action, the same [My Leads](#filters-and-search) assignment model used everywhere else. You can always self-assign; assigning a batch to someone else requires brand-admin access, same as a single-lead reassignment.
+
+Each lead is actioned individually server-side, so a partial failure (e.g. one lead blocked by the required-fields gate above) doesn't fail the whole batch — you'll see a summary like "8 of 10 pinned — 2 blocked: Missing required fields for ENGAGED: ..." (the required-fields gate above only blocks a move into ENGAGED/PROPOSAL, so this message can only appear for **Pin selected**, which always targets ENGAGED — not Decline, which targets LOST and is never gated).
+
+**Undo.** After a successful bulk action, a row appears offering **Undo** with a countdown (about 15 seconds) — tap it to put every reversible lead back exactly where it was, including reversing any Accept/Decline counters so they aren't left permanently off. If any declined lead had an active outreach cadence, it's called out before you undo: the column reverts, but that cadence is **not** resumed — re-enroll it by hand if you still want it running. If a lead was changed by something else in the meantime, undo skips just that one (reported by name) rather than overwriting the newer change. Once the countdown runs out, undo is no longer available for that batch.
 
 ---
 
@@ -132,16 +143,24 @@ Backlog is a holding area for leads you don't want to work right now, but don't 
 
 ## Card Indicators
 
-Each kanban card shows several small signals, each answering a different question:
+Each kanban card leads with a small, always-visible glance set — entity name, the rotten dot, any stale/critical or DEAL/quality badge, Region, and the ticket-size-or-deal-value figure — enough to decide whether the lead needs attention at all. Everything else is one tap away: click the chevron ("Show more") on any card to reveal the rest in place, without opening the full lead:
 
-- **Quality badge** (DRAFT / CHECKED / VERIFIED): DRAFT only shows in DISCOVERED/QUALIFIED — once a lead is manually worked into ENGAGED and beyond, an unreviewed DRAFT badge would just be noise. CHECKED/VERIFIED always show, everywhere.
-- **DEAL badge**: appears next to the quality badge (not instead of it) whenever the lead has at least one manually-entered deal — see [Deals](#deals).
-- **Rotten dot**: a small colored dot + day count showing how long since the lead was last touched (any edit or move) — green for the first 3 days, yellow through day 7, red from day 8 onward. This is deliberately a *different* signal from the yellow/red "Stale"/"Critical" badge described in the workflow section above: the stale badge only appears once a column-specific threshold (10–21 days) is crossed and is a harder alert; the rotten dot is always visible from day 0 as a gentler, at-a-glance freshness cue. Both can show on the same card at once — that's expected, not a bug.
-- **Tags**: up to 3 tag chips, with a "+N more" chip if there are more — see [Filters and Search](#filters-and-search) for filtering by tag.
-- **Checklist progress**: "N/M" once a lead has checklist items — see [Checklist](#checklist).
-- **Follow-up**: "Follow-up due today" / "Follow-up Nd overdue" / "Follow-up in Nd" once a reminder is set — see [Follow-ups](#follow-ups).
-- **Win probability**: a "Win probability" row showing that column's close-rate percentage (the same figure the Forecast page uses to weight revenue), shown for every column except WON/LOST.
-- **Created / Updated**: a compact "Created 3d ago · Updated today" line — hover for the exact date and time.
+- **Quality badge** (DRAFT / CHECKED / VERIFIED): DRAFT only shows in DISCOVERED/QUALIFIED — once a lead is manually worked into ENGAGED and beyond, an unreviewed DRAFT badge would just be noise. CHECKED/VERIFIED always show, everywhere. Always visible.
+- **DEAL badge**: appears next to the quality badge (not instead of it) whenever the lead has at least one manually-entered deal — see [Deals](#deals). Always visible.
+- **Rotten dot**: a small colored dot + day count showing how long since the lead was last touched (any edit or move) — green for the first 3 days, yellow through day 7, red from day 8 onward. This is deliberately a *different* signal from the yellow/red "Stale"/"Critical" badge described in the workflow section above: the stale badge only appears once a column-specific threshold (10–21 days) is crossed and is a harder alert; the rotten dot is always visible from day 0 as a gentler, at-a-glance freshness cue. Both can show on the same card at once — that's expected, not a bug. Always visible.
+- **Tags**: up to 3 tag chips, with a "+N more" chip if there are more — see [Filters and Search](#filters-and-search) for filtering by tag. Behind "Show more."
+- **Checklist progress**: "N/M" once a lead has checklist items — see [Checklist](#checklist). Behind "Show more."
+- **Follow-up**: "Follow-up due today" / "Follow-up Nd overdue" / "Follow-up in Nd" once a reminder is set — see [Follow-ups](#follow-ups). Behind "Show more."
+- **Win probability**: a "Win probability" row showing that column's close-rate percentage (the same figure the Forecast page uses to weight revenue), shown for every column except WON/LOST. Behind "Show more."
+- **Created / Updated**: a compact "Created 3d ago · Updated today" line — hover for the exact date and time. Behind "Show more."
+
+### Column WIP cue
+
+A column header shows a small yellow badge (`count/limit`) once it's carrying more leads than its configured limit — DISCOVERED and QUALIFIED (auto-managed, high-volume) have higher defaults than the manually-worked ENGAGED and PROPOSAL; WON/LOST/Backlog never show one. This is a caution, not a block: it never stops a lead from being added or moved into that column. Limits are configurable per column from the same place pipeline weights and stale thresholds are set.
+
+### Command palette (Cmd/Ctrl+K, desktop only)
+
+Press Cmd+K (Mac) or Ctrl+K anywhere in the app on a desktop browser to open a quick-action palette: jump to a lead already loaded on the current board by typing its name, add a lead, toggle Select mode, or switch to another organization you have access to. Escape closes it. This is a keyboard-first shortcut for actions already reachable elsewhere in the app — it doesn't replace the search box on the Sales board, which searches every lead in the brand, not just ones already loaded on screen. Not available on mobile/touch devices, by design.
 
 ---
 
@@ -154,6 +173,7 @@ Switch to Table via the hamburger menu's View section (or `?view=table`). Shows 
 ## Filters and Search
 
 - **Region, industry, and tag filtering**: tap the Filters icon above the board or table (a small funnel — collapsed by default, nothing shows until you open it) to open the filter panel. Set a region (free text, exact match — e.g. `US`, `EUROPE`, `HUNGARY`; issue #172, fixed 2.4.179 to accept any real value rather than a hardcoded 3-item list), an industry (free text, matches case-insensitively — e.g. `academy` matches `Academy`), and/or one or more tags, and the board/table narrows to match immediately. A lead matches the tag filter if it has *any* of the selected tags (not all of them). Applies to both kanban and table view — switching views keeps the same active filter.
+- **My Leads / My Team** (issue #198/#199): the same filter panel has a **My Leads** toggle, narrowing the board/table to only leads currently assigned to you. If you manage at least one team (set up under [Teams](#admin-tools-super-admin-only)), a second **My Team** toggle also appears — it shows your own leads plus every current member's of a team you manage. The two are mutually exclusive (turning one on turns the other off); turning both off returns to the full pipeline. A non-manager never sees the My Team toggle at all.
 - **Saved filters**: with a region, industry, and/or tags set, tap **Save filter** and give it a name — it appears as a removable pill you can tap to re-apply later. Saved per-browser (not synced across devices), scoped per brand.
 - No status filter — the kanban board's own columns already group by status; adding a redundant status filter was deliberately left out.
 - Search matches entity name, sector, and contact name (predictive dropdown under the header) — independent of the region/industry filter, not affected by it.
@@ -173,6 +193,7 @@ Tapping a card (or a table row) opens the full detail view:
 - **Edit Lead Details**: an Edit/Save/Cancel form for `entity_name`, `url`, `country` (2-letter ISO code), `address`, `general_contact`, `size`, `industry`, `sport_or_sector`, `level_league`, `value_proposition`, `notes`, `tags`. This form does **not** yet include the newer controlled-taxonomy fields (`sportCode`, `orgTypeCode`, `businessUnitCode`, etc., added 2.4.109) — those are API-only for now; see [Lead Taxonomy](#lead-taxonomy) and [Known Issues and Limitations](#known-issues-and-limitations).
 - **Actual deal value** (only shown once a lead is WON): capture the real, closed contract value — this feeds Ticket-Size Calibration on the Forecast page.
 - **Manual ticket-size override**: from the same edit form, override the computed Ticket Size with your own number and a required reason (a rep's direct knowledge of a specific deal). "Clear override" reverts to the modelled estimate immediately.
+- **Forecast Category**: shows "Default for stage (X)" when never touched, or "Overridden by Y, &lt;date&gt;" once you've set one explicitly. Pick a category (Pipeline / Best Case / Commit / Closed) and tap **Save** to override; **Reset to default** clears it, going back to tracking the lead's stage automatically. An override sticks through any later kanban move until you clear it.
 
 ---
 
@@ -196,7 +217,7 @@ A per-lead to-do list, separate from the free-text Notes field — useful for a 
 
 ## Follow-ups
 
-A scheduled reminder for a lead — set a due date and an optional note, then **Save follow-up**. This is a deliberate commitment you set yourself, different from the automatic "next step" suggestion the app computes on its own (missing contact, stale, needs verification) which still appears separately below it. **Clear** removes an existing reminder. The kanban card shows "Follow-up due today," "Follow-up Nd overdue" (in red), or "Follow-up in Nd" once a due date is set.
+A scheduled reminder for a lead — set a due date and an optional note, then **Save follow-up**. This is a deliberate commitment you set yourself, different from the automatic "next step" suggestion the app computes on its own (missing contact, stale, needs verification) which still appears separately below it. **Clear** removes an existing reminder. The kanban card shows "Follow-up due today," "Follow-up Nd overdue" (in red), or "Follow-up in Nd" once a due date is set. A prospect booking a real meeting through the [Meeting Scheduler](#meeting-scheduler) sets this field automatically to the meeting time — you don't need to set it yourself in that case.
 
 ---
 
@@ -208,9 +229,15 @@ A lightweight (BANT-style) qualification checklist: Budget confirmed, Budget not
 
 ## Activity
 
-A unified, time-ordered timeline of email activity for this lead — the first place in this app that shows real conversation history in one place, rather than only the record of outreach you sent (previously scattered, with no dedicated view of its own). Each entry shows its type (Outbound email / Inbound reply), a timestamp, and a subject/excerpt where available. Read-only — nothing here is editable from this panel.
+A unified, time-ordered timeline of activity for this lead — email and, as of the section below, manually-logged calls — the first place in this app that shows real conversation/contact history in one place, rather than only the record of outreach you sent (previously scattered, with no dedicated view of its own). Each entry shows its type (Outbound email / Inbound reply / Call), a timestamp, and a subject/excerpt or call outcome where available. Entries themselves aren't editable once logged (there's no "edit a past call" action) — you can only add new ones.
 
-As of this writing, entries only appear here from outreach sent via the **Outreach** compose modal's "Log outreach" button (see [Outreach](#outreach) below). Automatic email capture (a dedicated inbound address the system can receive at) and reply-to-lead matching are both fully built, but capture isn't live yet — it still needs a Resend account and a couple of settings only someone with dashboard/Vercel access can provide (see `docs/STACK_AND_DEPENDENCIES.md`'s "Inbound email webhook" section). An empty Activity section on most leads today reflects that, not a bug. Once inbound capture is live, a genuine reply from a lead you've contacted will match to this lead automatically and appear here as an "Inbound reply" entry.
+Email entries appear here from either of the **Outreach** compose modal's two buttons — "Log outreach" (a record of something you sent yourself elsewhere) or "Send email" (a real send this app made on your behalf) — see [Outreach](#outreach) below for the difference; each real send appears exactly once here, never duplicated. Automatic inbound-reply capture (a dedicated inbound address the system can receive at) and reply-to-lead matching are both fully built, but capture isn't live yet — it still needs a Resend account and a couple of settings only someone with dashboard/Vercel access can provide (see `docs/STACK_AND_DEPENDENCIES.md`'s "Inbound email webhook" section). An otherwise-empty Activity section on most leads today reflects that, not a bug. Once inbound capture is live, a genuine reply from a lead you've contacted will match to this lead automatically and appear here as an "Inbound reply" entry.
+
+A second, independent way entries can appear here: if [Gmail is connected](#integrations) for the brand, a message to/from an already-known contact shows up automatically, tagged with a **Gmail** badge — see the Integrations section above for how. A third: booking a meeting through the [Meeting Scheduler](#meeting-scheduler) logs a **Meeting scheduled** entry automatically.
+
+### Logging a call
+
+Tap **Log a call** above the Activity timeline, pick who you called, an outcome, and (optionally) how long it lasted and any notes, then **Save call**. The button is disabled with a tooltip if the lead has no contacts yet — add one under Contacts first. Outcomes are a fixed set: **Connected** (reached them, had a conversation), **Voicemail**, **No answer**, **Busy**, **Wrong number**, and **Not interested** (reached them, explicit decline in-call) — pick the closest match rather than writing it as a note. Logging a call also counts as a real touch on the lead, the same as any other activity, so it refreshes its "how stale is this deal" signal. There's no dialer or click-to-call here — this is purely a record of a call you already made by phone.
 
 ### Suggested contact updates
 
@@ -267,6 +294,44 @@ A one-time (then occasionally revisited) questionnaire per brand, reached via th
 
 Click **Save** at the bottom. Saving also triggers a recalculation of Ticket Size across every existing lead for that brand in the background — if you don't see updated numbers within a minute or two, they'll catch up on the next scheduled recalculation regardless.
 
+### Integrations
+
+A "Manage integrations" button at the top of Sales Settings opens this brand's connections to Google Calendar, Gmail, Google Contacts, and Calendly — any admin who can reach this brand's Sales Settings can manage its integrations, not only a super admin. Each provider shows as a row: **Connect** (or **Reconnect**, once connected), **Test**, and **Disconnect**.
+
+- **Google Calendar / Gmail / Google Contacts**: Connect sends you to Google's own consent screen. Approving it sends you back here, connected — nothing further to enter. Google always asks for consent again on every (re)connect, so a stale grant never silently carries over.
+- **Calendly**: Connect opens a form asking for a personal access token. Generate one in Calendly under **Integrations → API & Webhooks → Generate new token**, then paste it in. It's checked against your real Calendly account immediately — an invalid or expired token is rejected on the spot, before anything is saved. **Calendly does not show or store this token again after you generate it** — if you lose it, generate a new one; there's no way to recover the old one. This token also carries the full permission of your whole Calendly account (not a narrower, scoped grant the way the Google connections are), so treat it like a password.
+- **Test** re-checks a connection against the real provider right now and shows whether it's still valid — use it if something that depends on a connection stops working, before assuming the connection itself is fine.
+- **Disconnect** is immediate and asks for confirmation first. Anything relying on that connection stops working until it's reconnected.
+- A connection showing **Error** or **Expired** needs to be reconnected — this happens if access was revoked directly at the provider (e.g. removing this app's access in your Google Account, or regenerating a Calendly token), not something this app can fix on its own.
+
+Gmail, Google Contacts, and Google Calendar are the providers a feature actually reads from — see below and [Meeting Scheduler](#meeting-scheduler). Calendly booking sync is not built yet; connecting it here only stores the credential for a future feature to use. See `docs/ARCHITECTURE.md` for what's built and what's still planned.
+
+**Only one connection per provider per brand.** Connecting Gmail, Google Contacts, or Google Calendar links one Google account to the whole brand, not one per person — if a second admin connects the same provider again, it replaces the first admin's connection rather than adding a second one alongside it. If your brand needs more than one rep's inbox or calendar surfaced this way, that isn't supported yet; talk to whoever manages this app's roadmap.
+
+Once Google Calendar is connected, a **Booking availability** section appears further down this same page — set your time zone, which days and hours you're bookable, how long each meeting slot is, and a buffer before/after existing events. This drives what a prospect sees on your scheduling page (below).
+
+#### Gmail activity sync
+
+Once Gmail is connected for a brand, this app checks that inbox roughly once an hour for messages to or from someone already listed as a contact on one of that brand's leads. A matching message shows up automatically in that lead's Activity tab, tagged with a **Gmail** badge — no action needed once connected. Unrelated mail in that inbox is never touched or stored. If the same email would also arrive through this app's own dedicated inbound address, it's only logged once, not twice.
+
+#### Import from Google Contacts
+
+On a lead's detail view, in the Contacts section, an **Import from Google Contacts** button appears once Google Contacts is connected for that brand (it stays visible but disabled, with an explanation, if it isn't connected yet). Click it, search by name or email, and click **Add** next to the right person to attach them to this lead as a new contact — the same way you'd add one manually. If that person is already a contact on this lead, it tells you so instead of adding a duplicate. This only pulls a contact into this app; it never writes anything back to your Google Contacts.
+
+## Meeting Scheduler
+
+Once Google Calendar is connected for a brand (and its [Booking availability](#integrations) window is set), every lead's detail view shows a **Copy scheduling link** button, just above the Activity tab. Click it to copy a link you can paste into an email or message — it opens a simple public page (no sign-in, works on any device) where the recipient picks an open time from your real calendar and enters their name and email. Booking:
+
+- Creates a real event on your connected Google Calendar, with them as an attendee.
+- Logs a **Meeting scheduled** entry in that lead's Activity tab, with the time and who booked it.
+- Sets that lead's "next action due" to the meeting time — the same field a manually-set follow-up reminder uses.
+
+Only times that are actually open on your calendar (and inside your configured availability window) are ever offered — a busy block is never shown as bookable. If two people try to book the exact same moment, only the first one goes through; the second sees an updated list of times instead.
+
+There's no in-app calendar view — meetings live on your real Google Calendar, and this app only records that one got booked. If you move or delete a meeting directly in Google Calendar afterward, this app has no way to know — its own record of it doesn't update to match. If your Google Calendar connection is disconnected or needs reconnecting, the booking link shows a plain "not available right now" message instead of failing broken.
+
+Today, all of this shares one calendar per brand, not one per person — see the note under [Integrations](#integrations) above.
+
 ---
 
 ## Outreach
@@ -276,9 +341,14 @@ Open a lead's detail view and use **Outreach** to compose a message.
 1. Optionally narrow the template list by tag (pre-filled from the lead's own tags).
 2. A **Battlecards** panel shows competitor positioning, proof points, and objection responses relevant to the lead — read-only reference material, never auto-inserted into your message; copy what's useful by hand.
 3. Pick a template — its subject (email) or channel indicator (LinkedIn) and body fill in automatically, with placeholders like the contact's name and the organization's name already substituted using the lead's real data.
-4. Edit the message as needed, then click **Log outreach**.
+4. Edit the message as needed, then click either **Log outreach** or (email only) **Send email**.
 
-**Important**: clicking Log outreach does **not** send an email or LinkedIn message for you — it records what you're about to send (for tracking, win/loss attribution, and template performance reporting). You still have to actually send it yourself, e.g. by copying the text into your own email client or LinkedIn. Before you can log it, the app checks a few eligibility rules per channel (email needs a decision-maker contact with a valid email address; LinkedIn needs a decision-maker name; both have a maximum length) and explains clearly if something's missing.
+**Two different buttons, two different things — pick the right one:**
+
+- **Log outreach** never sends anything — it records what you're about to send yourself, elsewhere (for tracking, win/loss attribution, and template performance reporting). You still have to actually send it — copy the text into your own email client or LinkedIn. Its busy label reads "Logging…" while it does this.
+- **Send email** (email drafts only — never shown for a LinkedIn draft) actually sends the email through this app, right now, via Resend. It's irreversible: a confirmation dialog names the real recipient before it fires, and its busy label reads "Sending…". Use this when you want the app itself to deliver the message rather than sending it yourself. If sending fails (a routing rule blocks it, Resend rejects it, or a network error) an error message appears inline and nothing is silently lost — you can retry or fall back to Log outreach.
+
+Before either button is enabled, the app checks a few eligibility rules per channel (email needs a decision-maker contact with a valid email address; LinkedIn needs a decision-maker name; both have a maximum length) and explains clearly if something's missing. A real send appears on the lead's [Activity](#activity) tab like any other outbound email; delivery/open/click status for it depends on Resend's own dashboard-level tracking setting for the sending domain (off by default) — if that's off, the send still succeeds, it just never shows as opened/clicked.
 
 ### Managing outreach templates
 
@@ -321,9 +391,30 @@ Open a lead's detail view and scroll to the **Cadence** section.
 
 **Safely disabling a runaway cadence**: if a cadence is misbehaving (wrong template, sending too often, anything you want to stop immediately), flip its **Enabled** toggle off in the builder. Each enrolled lead's own step gets cleared the next time that specific lead's step comes due (not uniformly the very next daily tick for everyone) — so a lead disabled mid-cadence can sit enrolled, quietly, until its own due date arrives, at which point it's cleared rather than skipped silently forever. Nothing keeps firing, and nothing is left stuck forever, but clearing isn't same-day for every enrolled lead.
 
+### Automation Rules
+
+Go to **Reporting → Automation** for a brand. Simple "when X happens on a lead, do Y" rules — no visual builder, just a form: pick a trigger (a lead was created, a lead moved to a specific column, or a lead has gone N days with no activity), pick an action (set a follow-up reminder, apply a tag, or log a note on the lead), name it, and save.
+
+- **Lead created** and **Lead moved to column** rules run immediately, the moment that event happens — no waiting for a daily check. A move that's blocked by the [required-fields gate](#required-fields-to-move-into-engaged-or-proposal) never triggers a rule, since the move itself never actually happened.
+- **No activity for N days** rules are checked once a day (a separate daily check from the Cadences one above). A lead that's still stale the next day fires again; checking it again later the same day never re-fires it, so this doesn't create daily noise on a reminder/tag you already set.
+- The **Enabled** toggle is off by default, same safety rail as Cadences — a new rule must be explicitly turned on before it does anything. The rule list shows how many times each rule has actually fired and, for a daily-check rule, when it was last checked, so you can confirm a rule is really running before trusting it.
+- This is a v1: no rule chaining (an action a rule takes never itself triggers another rule) and no per-user assignment trigger/notification yet (this app doesn't have user-assigned leads in a way this engine can hook into) — see [Known Issues and Limitations](#known-issues-and-limitations).
+
 ### Contacts
 
-Go to **Reporting → Contacts** for a brand to search every contact across that brand's leads by name. Each row shows a contact's name, title, email, phone, and every lead they're listed on — click a lead chip to open that lead's detail modal directly. This is a read-only view: it's a second lens onto the same `contacts[]` data already visible inside each lead's own detail modal, not a separate contact list — editing a contact still happens only there (add/edit/remove a contact, toggle Decision Maker). The same person listed on two different leads shows up as one row with both leads attached; two different people who happen to share only a name (no matching phone or email) show up as two separate rows.
+Go to **Reporting → Contacts** for a brand to search every contact across that brand's leads by name. Each row shows a contact's name, title, email, phone, and every lead they're listed on — click a lead chip to open that lead's detail modal directly. This is a read-only view: it's a second lens onto the same `contacts[]` data already visible inside each lead's own detail modal, not a separate contact list — editing a contact still happens only there (add/edit/remove a contact, set their buying role). The same person listed on two different leads shows up as one row with both leads attached; two different people who happen to share only a name (no matching phone or email) show up as two separate rows.
+
+### Product Catalog
+
+Go to **Reporting → Product Catalog** for a brand to manage priced, reusable line items reps can attach to deals — name, unit price, currency, pricing model, and an active/inactive flag. This is separate from Sales Settings' own product list (which stays a qualitative "what/who/why" questionnaire feeding pipeline estimation); the catalog is the pricing-facing structure a deal's line-item picker actually reads from. "Add product" opens a form; editing an existing row reuses the same form pre-filled. Deactivating a product (the toggle in its row) removes it from the picker for new deal lines without breaking any deal that already references it; deleting a product still referenced by a deal is refused with a message naming which deals reference it — deactivate instead.
+
+On a lead's Deals section, "Build from catalog" switches a deal from typing a bare value to picking one or more catalog products (quantity + an editable, catalog-price-prefilled unit price per line) — the deal's value becomes the live running total shown as lines are added. Only active products in the deal's own currency are offered for a new line; a deal's already-saved line still shows even if its product was later deactivated.
+
+### Accounts
+
+Go to **Reporting → Accounts** for a brand to see every parent organization with at least one linked lead, grouped by the lead's `parentOrgId` field (set via the taxonomy classification process, not manually) — e.g. one federation with several separate business-unit leads (per sport, per gender, per youth/first-team unit). Each row shows the organization's name, its relationship-to-parent chips (owned/operated/licensed/franchise/affiliate/partner/unverified), how many leads it has, a rollup value, and its most recent activity; click an organization to open a detail view listing every lead under it, each linking straight to that lead's own detail modal.
+
+This is a read-only, computed view — there's no separate Account record to create or edit; a lead with no `parentOrgId` set simply never appears here. **A real limitation, not a bug**: grouping matches the exact `parentOrgId` string, so two leads for the same real-world organization that ended up with two different `parentOrgId` values (a typo, a casing difference) show up as two separate rows here rather than one — reconciling that is a planned future phase, not something this view does today. The rollup's pipeline figure is shown in the brand's own currency and its won figure always in USD (leads whose own estimate currency doesn't match the brand's are left out of the pipeline sum rather than silently converted) — see `docs/ARCHITECTURE.md`'s Accounts section for the full reasoning.
 
 ---
 
@@ -337,7 +428,9 @@ Reached via **Reporting → Forecast** for a brand. Shows, top to bottom:
 - **Ticket-Size Calibration** — see the [Ticket Size](#ticket-size) section above.
 - **Pricing by Company** (Seyu only) — per-client pricing terms and estimated annual value, plus a grand total.
 - **Pipeline / By Tier / By Model** (CogMap and DVSC, which reuses CogMap's own deal-size-band model — not Seyu) — dollar value per pipeline stage, per company-size tier, and per revenue model.
+- **Forecast Category** — a second, additive total alongside the stage-weighted one above (never a toggle between the two): every lead's Pipeline / Best Case / Commit / Closed bucket, each with its own weighted total. A lead's category defaults from its kanban stage (see [Lead Detail](#lead-detail) below for how to override it) — Closed leads count at their real WON/LOST outcome, not a flat weight.
 - **Pipeline Weights** — editable close-probability percentages per stage, with Save — this is what feeds every "static" probability used above.
+- **Quota Attainment** — pick a period (monthly/quarterly/annual) to see real closed-won revenue against a quota target for yourself, or (if you're a brand admin) for any rep, plus deals-closed count and % to quota. Only a brand admin sees the "Set quota amount" control, since setting someone else's target is an admin action.
 - **Export CSV** button (top of page) — downloads the current brand's pipeline per-column revenue/probability/weighted-revenue breakdown as a spreadsheet, matching the numbers shown on the page (fixed 2.4.92 — it previously always exported CogMap's data regardless of which brand's page you clicked it from).
 
 ---
@@ -358,6 +451,27 @@ Switch to Metrics via the hamburger menu's View section (or `?view=metrics`), fo
 
 ---
 
+## Reports (ad-hoc report builder)
+
+Go to **Reporting → Reports** for a brand when Metrics' fixed set of views doesn't answer your question — e.g. "leads by industry, WON only, last quarter." Click **New report**, then:
+
+1. Pick a **metric**: lead count, average ICE score, win rate, or decline count.
+2. Optionally **group by** up to 2 dimensions (industry, sport/sector, region, source, pipeline stage, decline reason, quality status).
+3. Optionally add up to 5 **filters** (a dimension equals a value, or is one of several values).
+4. Pick a **date range**: all time, the last N days, or a fixed start/end date.
+5. Pick a **chart type**: table, bar, or line.
+6. Name it and **Save**.
+
+Once saved, click **Run** on the report's row to see the result. A win-rate or average-ICE group with fewer than 10 leads shows "Insufficient data" rather than a misleading number — the same rule the Metrics dashboard already follows.
+
+### Scheduling
+
+Open a saved report, turn on **Schedule recurring delivery**, pick a frequency (daily/weekly/monthly), a time (UTC), and one or more recipient email addresses, then save. The report re-runs and emails its current result to every recipient at each due time — a plain summary table, not a rendered chart. A schedule stays off until you explicitly turn it on; turning it off stops delivery immediately without deleting the report. The saved-reports list shows a "Scheduled" badge and each report's last-run time/status.
+
+A report always runs against exactly one brand's own leads — there is no cross-brand reporting.
+
+---
+
 ## Search Learning
 
 Switch to Search Learning via the hamburger menu's View section (or `?view=search`), for a brand. A read-only report — nothing to click or filter — answering "which search terms, domains, and saved queries are actually finding leads I keep, versus wasting my time?" Shows Total Search Runs, Average Success Rate, Last Updated, a **Top Queries** list (with accepted/declined counts and success %), **Top Terms** and **Top Domains**, and **Recent Queries**. This data is fed automatically every time you accept or decline a lead, and — unlike everything else in this app — is not scoped per-brand; it's shared globally.
@@ -366,7 +480,7 @@ Switch to Search Learning via the hamburger menu's View section (or `?view=searc
 
 ## Admin Tools (Super Admin Only)
 
-These four pages only appear in the hamburger menu, under **Admin**, for the app's designated super admin(s) — configured outside this app entirely (an environment variable listing specific email addresses), not something any in-app control grants.
+These six pages only appear in the hamburger menu, under **Admin**, for the app's designated super admin(s) — configured outside this app entirely (an environment variable listing specific email addresses), not something any in-app control grants.
 
 ### Clients
 
@@ -379,6 +493,12 @@ Two things this page does **not** do: grant any user access to the new client (s
 ### Users & Access
 
 Every person who has ever signed in via SSO appears here automatically (there's no way to pre-add someone — they must sign in at least once first) with a dropdown per brand: **No access / User / Admin**. Change a dropdown to instantly grant or revoke that person's access to that specific brand. A super admin's own row is shown for visibility only and can't be edited here — their access is controlled entirely by the environment configuration, not this table.
+
+### Teams
+
+Group users within one brand and designate one or more **managers** — a manager then sees, via the pipeline's "My Team" scope (below), the leads assigned to themselves and to every current member of a team they manage, without needing full brand-admin access. Pick a **Brand** at the top (a team never spans brands), type a name under **New team name** and click **Add team**, then use the **Members** and **Managers** pickers on that team's row to add people — both draw from everyone who already has access to the selected brand under Users & Access. A person can be a member of one team and a manager of another at the same time; there's no inheritance between them — a manager only ever sees their own directly-assigned team's members, never a member's own team. **Delete** removes a team immediately (with a confirmation, since it instantly narrows its managers' visibility) — it does not touch anyone's brand access or their leads' assignments, only who can see them via "My Team".
+
+A member who loses brand access while still listed on a team keeps showing up in that team's "My Team" view (their historic leads stay visible to the manager for review) — this is intentional, not a bug; remove them from the team explicitly if that's not wanted.
 
 ### Duplicate Review
 
@@ -397,6 +517,12 @@ On a **Confirmed** pair: **Merge**. This opens a screen that:
 ### Prompt Editor
 
 Edit the text instructions that drive the autonomous research agent for a brand/tenant — separate tabs for **Discovery** (finding new leads) and **Enrichment** (adding detail to existing leads). Changing and saving the prompt text directly affects the agent's future runs, not just documentation. Each tab also has its own **Enabled** switch, turning that operation on/off for the tenant immediately (separate from saving the prompt text itself) — if the toggle fails to save, the switch reverts and shows an error rather than displaying a false "on" state.
+
+### API Keys
+
+Issue a revocable credential for a machine integration (a script, an external tool) that needs to call this app's lead API for one specific brand, without handing out the one shared key every other integration also uses. Pick a **Brand**, click **Create key**, give it a name (e.g. `research-agent-cogmap`) and a scope — **Read only** or **Read + write** — and click **Create**. The raw key is shown exactly once, right after creation; copy it immediately, since it's never shown or retrievable again after you close that screen (only its first few characters stay visible afterward, to tell keys apart). Paste it into the integration's own configuration as an `x-api-key` header.
+
+**Revoke** kills a key immediately and permanently — the integration's very next request fails, and there's no way to restore a revoked key, only issue a new one. **Currently this app's own existing integrations (the research agent, its scheduled jobs) do not use these keys yet** — they still authenticate with the app's original shared key, unchanged, until that migration is separately planned and carried out; a key issued here today only grants access to this app's own core lead API, nothing else.
 
 ---
 
@@ -485,6 +611,7 @@ curl "https://salesleadgenerator.vercel.app/api/outreach-templates?mode=analytic
 ## Admin Endpoints
 
 - `GET /api/admin/cron-status` — cron run health and counts (`x-api-key` required)
+- `GET/POST /api/admin/automation-tick` — daily automation-rule check for "no activity for N days" rules; a "lead created"/"lead moved to column" rule fires immediately instead, not from this endpoint (`x-api-key` required for the manual `POST` re-trigger; Vercel Cron authorizes the scheduled `GET`)
 - `GET /api/admin/data-hygiene` — malformed lead counts by brand (`x-api-key` required)
 - `POST /api/admin/ticket-size-backfill` — recompute Ticket Size across a brand's leads (dry-run by default, `{apply: true}` to commit) (`x-api-key` required)
 - `POST /api/win-rates/recalculate` — force a Forecast Calibration recompute (`x-api-key` required)
@@ -500,11 +627,12 @@ There is no browser button for any of them — the browser has no safe way to ho
 - Full `next build` may OOM in limited local/sandboxed environments; use `tsc --noEmit` for type verification there. Vercel's production build environment is unaffected.
 - Some leads (a real, ongoing minority — confirmed in production: dozens per brand) have a `size` value that's missing, or free text instead of one of the four valid tiers (Small/Medium/Large/Enterprise) — usually from research-agent writes that predate the current enum enforcement, or a size description rather than a size tier. These leads still get a Ticket Size estimate (the smallest configured tier, clearly labeled — see [Ticket Size](#ticket-size)), but their Metrics/Forecast tier-breakdown numbers group under "Unknown" rather than a real tier. Editing the lead's `size` field to a real tier value corrects this.
 - Table view mobile density/readability may still need additional tuning.
-- The desktop trackpad "natural scroll" fix over the kanban board (2.4.95) was built and verified in a Linux/headless-Chromium sandbox that can't fully replicate real trackpad-driver behavior (macOS Safari/WebKit, Windows Precision Touchpad). If scrolling still misbehaves over a card on your real machine after this update, report it — it needs confirmation on real hardware, not just assumed fixed.
+- The desktop trackpad scroll routing over the kanban board (originally 2.4.95's app-level workaround, switched to GDS's own native `columnPanZone` routing in 2.4.192/issue #125) was built and verified in a Linux/headless-Chromium sandbox that can't fully replicate real trackpad-driver behavior (macOS Safari/WebKit, Windows Precision Touchpad) — GDS's own changelog for the feature states the same limitation. If scrolling with the pointer over a card doesn't scroll the page, or scrolling over a column header doesn't pan the columns, on your real machine, report it — it needs confirmation on real hardware, not just assumed fixed.
 - There is no country filter in the UI (corrected during the 2026-07-27 documentation audit — this bullet previously described one that doesn't exist; `FilterBar.tsx` filters only on region and industry). The real, permanent limitation: `country` was validated on write but silently never persisted or editable anywhere in the app until 2.4.98 fixed it — every lead created before that fix has no recoverable `country` value (there was nothing to backfill it from; the field was simply never stored). 1,730 CSV-imported leads from the same date were backfilled as part of that fix, but any other pre-2.4.98 lead's `country` is permanently blank unless corrected manually.
 - Outreach template deletion isn't implemented — only create and edit.
 - Deals only affect the CogMap-style Forecast pipeline (`ticketSizeEstimate`-based revenue) — this includes DVSC too, since DVSC reuses CogMap's own deal-size-band forecast model (issue #148). Seyu's forecast is built entirely from its own `pricingByCompany` data and doesn't yet look at a lead's Deals — a Seyu deal is saved and shown on the card/detail, but won't change Seyu's Forecast numbers.
-- Follow-up reminders and the Win probability figure are shared across the whole team, not per-rep — this app has no individual user/ownership model yet, so there's no personal "my follow-ups" queue.
+- Follow-up reminders and the Win probability figure are shared across the whole team, not per-rep, even though leads themselves can now be assigned to an individual (see [Lead Detail](#lead-detail)'s Assignment control) — there's still no personal "my follow-ups" queue scoped to just your own assigned leads.
+- Automation Rules' `lead_assigned` trigger type exists in the schema/API but is rejected if you try to enable it — a rule that fires on a lead being (re)assigned, or notifies the specific person it's assigned to, is real future scope, not yet built (see [Automation Rules](#automation-rules)).
 - Qualification fields are informational only and can't yet be required before a lead moves to ENGAGED/PROPOSAL.
 - Duplicate-lead merging (2.4.97) is permanent — the losing lead is deleted, not archived, with no undo. It was verified via a real database-backed test suite and a live dev-server smoke check, but the authenticated click-through (opening the merge screen and confirming a real merge as a signed-in super admin) hasn't been walked through in a browser yet — the first real merge should be watched closely.
 - **The new controlled sports-industry taxonomy (2.4.109 — `sportCode`, `orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`, `competitionLevelCode`, `cityName`, `parentOrgId`/`parentOrgName`, `relationshipToParent`, `canonicalLeadName`) has no UI yet.** You can't see, filter, or edit these fields anywhere in the app today — they're API-only (`PUT /api/leads/[id]`, see [Update Lead](#update-lead)), written by the enrichment agent. Backfill onto existing leads (issue #132) is underway but far from complete — as of 2.4.166, ~89% of leads have `sportCode` set (mechanical, from existing free text) but only ~5% have the rest of the fields (`orgTypeCode` etc., which need real per-lead research, not a mechanical migration). See `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` for current real numbers. A UI to view/edit/filter on these fields is a real, disclosed gap, not yet scheduled.

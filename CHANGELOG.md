@@ -1,5 +1,1040 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.205
+
+### Meeting scheduler: public booking page backed by Google Calendar (issue #207)
+
+Adds a public, unauthenticated booking page (`/schedule/[brand]`) built
+directly on issue #217's connection hub — `google_calendar` was already
+a provider in its registry, so this ships with zero new OAuth flow, zero
+new encryption, and zero new environment variables. A prospect picks an
+open slot computed against the brand's real Google Calendar free/busy
+data; booking creates a real Calendar event, logs a `meeting-scheduled`
+activity entry, and writes the meeting time onto the lead's existing
+`nextActionDueAt` field via the same pattern `cadence-tick` already
+established.
+
+DST-correct slot math (`lib/scheduling.ts`, using `dayjs`'s own
+already-installed `utc`/`timezone` plugins — no new dependency).
+Race-safe booking via a short-lived, unique-indexed slot-claim document
+that closes the gap between the freshness re-check and the real Google
+event-create call — two concurrent bookings for the identical slot
+resolve to exactly one success, verified directly by an integration
+test. A new, real, DB-backed rate limiter (this repo had no rate-limiting
+capability anywhere before this issue) protects the two new public
+routes.
+
+**Real, disclosed architectural mismatch, the same class found for issue
+#216 and now recurring for a second issue against the same hub**: this
+issue's own text assumes a per-rep booking link (keyed by `ssoUserId`),
+but its own current-state analysis also states plainly "this app has no
+user/ownership model" — and the hub it depends on supports exactly one
+connection per `{brand, tenantId, provider}`, with no per-rep dimension.
+Shipped fully consistent with both the hub's real schema and the issue's
+own stated finding: one shared booking calendar per brand, not one per
+rep. See `docs/ARCHITECTURE.md` for the full reasoning.
+
+A real, disclosed root-layout change was required: the public booking
+page must show none of the SSO-gated app chrome, but the nav header was
+previously rendered unconditionally in `app/layout.tsx` for every route.
+Extracted into a new `AppHeader` component that hides itself on
+`/schedule/*`.
+
+Disclosed limitation, same class as issues #216/#217: the required real
+end-to-end run (a real Google account, a real booked event, a real
+external revoke) could not be performed in this sandbox. Unit and
+integration tests (the latter against a real database with Google
+Calendar's REST calls mocked at the fetch boundary, per the issue's own
+explicit testing instruction) cover everything else, including the
+concurrency race and rate-limit enforcement.
+
+tsc: 0 errors. lint: 0 errors/warnings. unit: 1051/1051. integration:
+410/410. smoke: 5/5. audit:gds-style: 26 (unchanged baseline). next
+build: clean. No dependency added.
+
+## 2.4.204
+
+### Integrations: Gmail activity sync + Google Contacts import (issue #216)
+
+Adds the first two features that actually read from issue #217's
+third-party connection hub. Gmail messages to/from a lead's known
+contact addresses are pulled into the existing unified activity
+timeline (a new `gmail-sync` activity source, an hourly
+`GET /api/integrations/gmail/sync` cron), headers-only-then-body-on-match
+to minimize what's ever fetched from a rep's inbox. A rep can search
+their Google Contacts from a lead's detail view and attach a match as a
+new contact (`GET /api/integrations/google-contacts/search`,
+`POST /api/leads/[id]/contacts/import-google`), reusing the existing
+contact-write path unmodified. Zero new npm dependencies — both Gmail's
+and Google's People REST APIs are called directly via `fetch()`.
+
+**Real, disclosed architectural mismatch found during implementation**:
+this issue's own text assumes multiple simultaneous per-rep Gmail
+connections per brand, but the hub it depends on (issue #217) supports
+exactly one connection per `{brand, tenantId, provider}`. Rather than
+redesigning the already-shipped hub, this ships against its real schema
+— one Gmail connection per brand, polled once per tick. See
+`docs/ARCHITECTURE.md`'s "Gmail and Google Contacts Sync" section for
+full detail.
+
+A second real gap was found and fixed while implementing the
+cross-source dedup guard: the issue's own dedup algorithm needs a
+content-derived `fallbackHash` on inbound-webhook activity entries too,
+which issue #141's original writer never computed. Fixed by extending
+`buildActivityLogDoc()` to compute one on every new inbound-webhook
+write going forward (historical entries are unaffected — an accepted,
+disclosed limitation).
+
+**Disclosed limitation, matching issue #217's own precedent**: the
+issue's own required real end-to-end run (a real Gmail account, a real
+Google Contacts entry) could not be performed in this sandbox — no real
+Google account exists here. Every code path is covered by unit tests and
+integration tests against a real database with Gmail's/People's REST
+calls mocked at the fetch boundary, per the issue's own explicit
+alternative testing instruction; the real live-account run remains
+outstanding.
+
+tsc: 0 errors. lint: 0 errors/warnings. unit: 1038/1038. integration:
+401/401. smoke: 5/5. audit:gds-style: 26 (unchanged baseline). next
+build: clean. No dependency added.
+
+## 2.4.203
+
+### Integrations: third-party connection hub for Google Calendar/Gmail/Contacts and Calendly (issue #217)
+
+Adds the shared foundation every future third-party connection (Google
+Calendar, Gmail, Google Contacts, Calendly, and whatever is added later)
+plugs into, instead of each one inventing its own credential-storage
+design — a new `integration_connections` collection, AES-256-GCM
+encryption at rest (`lib/integration-crypto.ts`, Node's built-in `crypto`
+only, no new dependency), a generalized OAuth2 connect/callback flow for
+the Google family reusing `lib/sso.ts`'s own PKCE helpers, a
+verify-before-store API-key connect flow for Calendly, and a new
+`/salessettings/[client]/integrations` admin surface (any brand admin, not
+only the super admin).
+
+Explicitly supersedes issue #207's own independently-drafted
+`calendar_connections` design, which predates this hub.
+
+A real bug was caught and fixed before shipping: the OAuth state cookie
+initially stored a raw JSON string, which RFC 6265 forbids (unescaped
+quotes/commas in a cookie value) — fixed by `encodeURIComponent`-encoding
+it before setting, and decoding it back in the callback route.
+
+**Disclosed limitation, not a silent gap**: three manual verification
+steps this issue's own §19 calls out (one real Google test account
+connected end to end, one real external revoke at Google confirmed to
+degrade this app gracefully, one real Calendly token connected end to
+end) could not be performed in this sandbox — no registered Google OAuth
+client or real Calendly account exists here, and the required env vars
+(`INTEGRATION_CREDENTIALS_ENCRYPTION_KEY`, `GOOGLE_OAUTH_CLIENT_ID`,
+`GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`) are unset in
+this environment — every route in this hub fails closed until an operator
+provisions them in Vercel. Unit and integration tests (the latter against
+a real database, with Google's/Calendly's REST calls mocked at the fetch
+boundary, per this issue's own explicit testing instructions) cover
+everything else, including a full real redirect-then-callback OAuth round
+trip, cross-brand isolation, and the unique-index concurrency guard.
+
+No feature yet reads from a stored connection (no calendar sync, no Gmail
+sync, no Calendly booking sync) — this issue is the connection layer only,
+as specced; a sibling Gmail/Contacts-sync issue and the previously-deferred
+Calendar-sync issue (#207) build on top of it.
+
+tsc: 0 errors. lint: 0 errors/warnings. unit: 1021/1021. integration:
+392/392. smoke: 5/5. audit:gds-style: 26 (unchanged baseline). next build:
+clean.
+
+## 2.4.202
+
+### API: scoped API keys, foundation only (issue #210, Phase 1 of 6)
+
+Adds `lib/scoped-api-keys.ts` (pure — key generation via Node's built-in
+`crypto`, SHA-256 hashing, brand/scope/revocation auth decision logic) and
+`app/lib/api-key-store.ts` (Mongo-aware CRUD + the actual auth check),
+extending `lib/require-brand-access-api.ts` — the live gate on
+`GET`/`PATCH /api/leads`, `GET /api/leads/columns`, `PATCH /api/leads/bulk`,
+`GET`/`DELETE /api/leads/[id]` — to accept a per-brand, per-scope, revocable
+`x-api-key` alongside the existing legacy `SLG_API_KEY` and session-cookie
+auth, never replacing either. `GET/POST /api/admin/api-keys` +
+`DELETE /api/admin/api-keys/[id]` (session-only, never `x-api-key`-
+accessible, per the issue's own §17) and a new `/admin/api-keys` page issue
+and revoke keys, with a one-time raw-key reveal on creation — the raw key
+is never stored or shown again after that.
+
+**Deliberate, prominently disclosed scope reduction — this issue is not
+fully done.** Issue #210's own §24 decomposes it into 6 sub-issues; only
+the data model + auth logic + admin UI (roughly sub-issues 1 and half of 5)
+shipped here. Explicitly **not** built: the outbound webhook-delivery
+system (SSRF protection, HMAC signing, a retry/dead-letter worker —
+a separately-scoped feature in its own right, and its cron interval can't
+be chosen correctly without knowing this project's real Vercel plan
+limits); migrating the live research-agent integration and this app's
+existing cron jobs onto scoped keys (they are unchanged, still
+authenticating with the real deployed `SLG_API_KEY` — rotating a live
+production credential from this sandbox, with no way to verify the change
+actually took effect in the real deployed environment, is exactly the kind
+of irreversible, unverifiable action this repo's own rules say to stop and
+disclose rather than perform blind); and retiring `SLG_API_KEY` (explicitly
+out of scope in the issue's own text, and can't happen before the
+migration above does). See `docs/ARCHITECTURE.md`'s "Scoped API Keys"
+section for the full detail.
+
+A real bug was found and fixed while writing this issue's own integration
+test: an early version of the `requireBrandAccessApi` change returned a
+hard `503` for *any* invalid `x-api-key` header when Mongo was
+unconfigured, instead of correctly falling through to the session-cookie
+branch (the pre-existing, tested `401` behavior for no credentials at
+all). Fixed before shipping — the scoped-key lookup is now only attempted
+when Mongo is actually configured.
+
+`tests/lib/scoped-api-keys.test.ts` (23 tests) and
+`tests/integration/api-keys.integration.test.ts` (12 tests, including a
+real end-to-end test authenticating a scoped key against the production
+`GET /api/leads` route: authorized, wrong-brand 403, revoked 401, and
+unmatched-key fallthrough to session auth).
+
+tsc: 0 errors. lint: 0 errors/warnings. unit: 997/997. integration:
+382/382. smoke: 5/5. audit:gds-style: 26 (unchanged baseline).
+
+## 2.4.201
+
+### Reporting: ad-hoc report builder with scheduled delivery (issue #212)
+
+Every new reporting question this app has ever needed (decline-reason
+rollup, outcome correlation, source breakdown) previously required a
+developer to write a new hard-coded route and UI component — there was no
+generalized way to express "this metric, grouped this way, filtered this
+way, over this date range." Adds a genuinely scoped v1 ad-hoc report
+builder generalizing `GET /api/metrics/decline-reasons`'s existing closed-
+allowlist `groupBy` pattern into a real metric/groupBy/filter/date-range
+cross-product.
+
+`lib/report-pipeline.ts` (pure, no Mongo import) is the one place any of
+this logic lives: `validateReportInput()` checks every input against
+closed, hard-coded allowlists — no user-supplied string ever reaches a
+Mongo query unvalidated — and `buildReportPipeline()` builds the real
+`$match`/`$group`/`$sort` stages from a static field-to-path map, never an
+unchecked object key. `win_rate`/`avg_ice_score` reuse the exact minimum-
+sample-size gate `lib/outcome-correlation.ts` already established —
+"Insufficient data" below 10 samples, never a fabricated rate.
+
+New `report_definitions` collection (brand/tenant-scoped, full CRUD via
+`/api/reports`), a `/run` route, and an hourly cron tick
+(`GET /api/admin/reports-tick`, mirroring `cadence-tick`'s per-tick-cap/
+per-item-failure-isolation shape exactly) for scheduled email delivery —
+a new, dedicated `lib/report-delivery.ts` Resend helper, not
+`lib/outreach-send.ts` reused wholesale (that module is lead-outreach-
+specific). A schedule stays disabled until explicitly turned on, same
+safety rail `Cadence.enabled` already established. No new dependency for
+cron-expression parsing — `computeNextRunAt()` is plain, bounded `Date`
+math.
+
+Closes a real, pre-existing performance gap rather than making it worse:
+this repo had no index on any per-brand leads collection for
+`tenantId`/`createdAt`/`kanbanColumn` before this issue (every
+`/api/metrics/*` route, including this new one, ran as a full collection
+scan) — a lazy `ensureLeadReportIndexes()` now adds both.
+
+This app's first use of GDS's governed chart family (`GdsBarChart`/
+`GdsLineChart`) for the bar/line chart types — chosen because `GdsChart`
+always renders an accessible data-table fallback alongside the visual for
+free, satisfying this issue's own chart-plus-table accessibility
+requirement with no separate table-rendering code needed.
+
+**Disclosed, deliberate scope reduction**: "Run" always requires a report
+to be saved first — no stateless preview-before-first-save variant, since
+building a second, parallel preview endpoint wasn't judged worth the added
+surface for v1 (saving is already one click away).
+
+New `vercel.json` cron entry (hourly, `0 * * * *`). `docs/ARCHITECTURE.md`,
+`docs/LLD.md`, `docs/OPERATOR_GUIDE.md`, `docs/STACK_AND_DEPENDENCIES.md`
+updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. A clean
+`next build` (every route, including this app's first GDS chart-component
+usage). `npx vitest run` — 974/974 passing (+45: `tests/lib/report-pipeline.test.ts`
+23, `tests/lib/report-definitions.test.ts` 22). `npm run test:integration`
+— 370/370 passing (+11: `tests/integration/reports.integration.test.ts` 7
+— CRUD round-trip, auth, tenant isolation, a real run against seeded
+leads, cross-brand-collection isolation; `tests/integration/reports-tick.integration.test.ts`
+4 — due-definition selection, disabled/not-yet-due exclusion, per-item
+failure isolation). `npm run test:smoke` — 5/5 passing. `npm run
+audit:gds-style` — 26 (unchanged baseline, verified via `git stash -u` A/B
+comparison).
+
+## 2.4.200
+
+### UX: Kanban card density, WIP cue, and command palette (issue #213)
+
+Two independently shippable kanban UX upgrades.
+
+**Card density.** `LeadCard` previously rendered 14 simultaneous signal
+types with zero prioritization. Reduced to a fixed, always-visible Tier 0
+(entity name, rotten/staleness/DEAL/quality badges, Region, ticket-size-or-
+deal-value) with everything else behind a new in-card "Show more" chevron
+— reachable without opening the full detail modal. Stays entirely within
+GDS's `KanbanCard`/`renderItem` contract, no fork.
+
+**WIP-limit header cue.** A small, non-blocking yellow badge
+(`count/limit`) on a column header once its lead count exceeds a
+per-column threshold — configurable via the existing `/api/settings`
+surface (additive `wipLimits` field, same pattern as `stale_thresholds`),
+sane per-column defaults (higher for auto-managed DISCOVERED/QUALIFIED
+than manually-worked ENGAGED/PROPOSAL). Purely visual — never blocks
+adding or moving a lead into an over-limit column.
+
+**Command palette.** Adopted GDS's own already-shipped
+`CommandRegistryProvider`/`useCommandLauncher`/`CommandPalette` (verified
+directly against its real source before implementing) — Cmd/Ctrl+K opens a
+quick-action palette on desktop: jump to an already-loaded lead, add a
+lead, toggle Select mode, switch organization. A single command-list
+assembler owns the sales board's full command set (`registerCommands`
+replaces rather than merges) and clears it on unmount.
+
+**A real, disclosed deviation from the issue's own §8 architecture note**:
+`CommandRegistryProvider` is mounted unconditionally in
+`app/components/Providers.tsx`, not gated on desktop/pointer type at the
+provider level — gating it there would remount the entire app subtree
+(session state, tour state, every page) the instant the pointer-type media
+query first resolves client-side. Used §8's own explicitly sanctioned
+alternative instead: every command-registering component checks
+`useIsFinePointer()` itself and registers an empty command list off-
+desktop. One consequence, disclosed rather than silently overclaimed: GDS's
+own global Cmd/Ctrl+K keydown listener technically stays attached on every
+viewport (it has no pointer-type gating of its own, confirmed from its
+source) — in practice inert on touch devices with no physical keyboard,
+but not the literal "must not render/listen on mobile" the issue's own
+non-goal asks for. Flagged as a third upstream GDS gap alongside the two
+the issue itself already names (no query-change hook; no arrow-key list
+navigation) — GDS's primitive has no mobile/pointer opt-out of its own.
+
+`docs/ARCHITECTURE.md`, `docs/OPERATOR_GUIDE.md`, `gds-adoption.json`
+updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. A clean
+`next build` (every route, not just `tsc`/lint, since this issue touches
+shared provider/client-boundary wiring broadly). `npx vitest run` —
+929/929 passing (+20: `tests/lib/card-tiering.test.ts` 5,
+`tests/lib/wip-limits.test.ts` 9, `tests/lib/command-palette-commands.test.ts`
+6). `npm run test:integration` — 359/359 passing (+3,
+`tests/integration/settings-wip-limits.integration.test.ts` — the new
+`wipLimits`/`wipLimitsSource` round-trip through `GET`/`PUT /api/settings`).
+`npm run test:smoke` — 5/5 passing. `npm run audit:gds-style` — 26
+(unchanged baseline, verified via `git stash -u` A/B comparison).
+
+## 2.4.199
+
+### Catalog: Product and price book, feeding Deal line items (issue #215)
+
+A "product" in this app was only ever a free-text entry inside Sales
+Settings' questionnaire — no stable id, no single selectable price, no way
+for a rep to attach a concrete, priced thing-being-sold to a specific
+`Deal` (only a bare number). Adds a first-class, per-brand/tenant
+`products` catalog (`app/lib/products.ts`: stable id, name, unit price,
+currency, one `pricingModel` reused verbatim from Sales Settings' existing
+9-value enum, active/inactive) and an optional `Deal.lineItems` array
+(`lib/deals.ts`) so a rep can build a deal's value from priced catalog
+items instead. Sales Settings' own `ProductLine[]` is untouched and keeps
+feeding `lib/ticket-size.ts`'s `per_unit` estimation exactly as before —
+this is a separate, additive, pricing-facing structure.
+
+When `lineItems` resolves to at least one valid entry, the server-computed
+line total (`Σ quantity × (unitPriceOverride ?? product.unitPrice)`,
+clamped to the same `50_000_000` ceiling every deal already shares) always
+becomes `Deal.value`, overriding any client-sent `value` outright — every
+existing reader of `Deal.value`/`sumDeals()` needed zero changes, since a
+line-item-derived total is, downstream, an indistinguishable plain number.
+An unknown `productId`, an invalid quantity, or a currency mismatch (no FX
+conversion anywhere in this app) drops just that one line, never the whole
+deal; an empty/all-invalid `lineItems` falls back to the pre-existing
+bare-value path unchanged.
+
+One-time idempotent backfill (`lib/backfill-products.ts` +
+`POST /api/admin/products-backfill`, mirroring `lib/backfill-ticket-size.ts`'s
+three-file shape) promotes each existing `ProductLine` into one catalog row
+per priced pricing model — never clobbers a row an admin has manually
+edited since backfill, verified by a dedicated re-run test.
+
+New `/admin/products/[brand]` catalog CRUD screen — this app's first
+genuine `AdminModal`-based create/edit form (every prior admin screen used
+a plain inline form instead). `app/detail.tsx`'s deal editor gains a
+"Build from catalog" mode alongside the existing bare-value entry.
+
+**Disclosed, deliberate scope reduction**: the line-item picker uses
+Mantine's own already-ARIA-compliant `Select`/`NumberInput` rather than a
+bespoke combobox with a dedicated live-region running-total announcement —
+the real accessibility baseline is met, but that specific §14 behavior
+wasn't built as its own feature, prioritizing this issue's (much larger)
+data-layer scope. No new dependency was added.
+
+`docs/ARCHITECTURE.md`, `docs/OPERATOR_GUIDE.md` updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 909/909 passing (+34: `tests/lib/products.test.ts` 16,
+`tests/lib/backfill-products.test.ts` 8, `tests/lib/deals.test.ts`'s new
+catalog-line-item describe block 10). `npm run test:integration` —
+356/356 passing (+14: `tests/integration/products.integration.test.ts` 7
+— full CRUD round-trip, the 409 delete guard, tenant isolation;
+`tests/integration/products-backfill.integration.test.ts` 4 — the
+`x-api-key` guard, dry-run vs `apply: true`;
+`tests/integration/leads-patch-actions.integration.test.ts`'s new 3-test
+describe block exercising the real end-to-end `PATCH /api/leads` →
+`executeLeadAction()` → real `products` collection query path, not a
+mocked lookup). `npm run test:smoke` — 5/5 passing. `npm run
+audit:gds-style` — 26 (unchanged baseline, verified via `git stash -u`
+A/B comparison).
+
+## 2.4.198
+
+### Accounts: parent-organization rollup, Phase 1 (issue #209)
+
+A rep working one business-unit lead (e.g. a federation's youth academy)
+previously had no way to see, in one place, that a sibling lead under the
+same parent organization was already WON or stalled elsewhere in the
+pipeline — `parentOrgId`/`parentOrgName` (issue #131) were write-only,
+denormalized strings with no query surface of their own. Adds a
+rep-navigable **Accounts** view: every parent organization with at least
+one lead, grouped by `parentOrgId`, with a computed rollup (lead count,
+stage breakdown, pipeline/won value, contact count, most recent activity).
+
+**Deliberately Phase 1 only** — a virtual/computed view over the existing
+`Lead` fields, not a new Mongo collection, no migration. Evaluated a real
+`accounts` collection + merge-queue UI (mirroring `/admin/duplicates`)
+against the virtual view and explicitly deferred it: the hard part isn't
+the schema, it's reconciling ambiguous/duplicate `parentOrgId` values, and
+this repo doesn't yet have real volume data on how bad that is (issue
+#132's taxonomy backfill is itself still populating these fields). New
+`lib/accounts.ts` (pure grouping/rollup math), `GET /api/accounts` +
+`GET /api/accounts/{parentOrgId}` (both `requireBrandAccessApi`-gated,
+tenant-isolated via `{ $and: [...] }`, never spread), and a new
+`/accounts/[brand]` page reusing the same `AdminDataTable`/
+`AdminDetailDrawer`/`AdminModal` pattern as `/contacts/[brand]`.
+
+**A genuine spec contradiction found and resolved, not silently picked**:
+the issue's own §9 field-naming parenthetical implied currency conversion
+("converted per lib/brand's CurrencyCode where needed") while §15's edge
+cases required the opposite (a currency-mismatched estimate excluded from
+the sum, never converted). Followed §15's explicit, testable behavior —
+this repo has no currency-conversion utility anywhere and already has a
+no-FX-conversion precedent (`lib/pipeline-coverage.ts`, issue #145). One
+disclosed consequence: `wonValueUsd` is always genuinely USD
+(`actualDealValueUsd`'s own existing contract) while `pipelineValueUsd`
+is actually the brand's own configured currency (EUR for `seyu`/`dvsc`)
+despite the shared field-name suffix — the UI shows the two values with
+their own correct currency symbols rather than a misleadingly combined
+figure. Full reasoning in `docs/ARCHITECTURE.md`.
+
+`docs/ARCHITECTURE.md`, `docs/OPERATOR_GUIDE.md` updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 875/875 passing (+16, `tests/lib/accounts.test.ts`: grouping,
+rollup summation, WON-vs-pipeline value routing, unconfigured/currency-
+mismatch exclusion, parentOrgName fallback/most-recent-wins, relationship-
+code collection, sorting). `npm run test:integration` — 342/342 passing
+(+10, `tests/integration/accounts.integration.test.ts`: both routes'
+happy paths, no-parentOrgId exclusion, currency-mismatch exclusion,
+tenant isolation on both the list and detail routes, 404 on a
+zero-match `parentOrgId`, 401 without a credential, truncation-field
+disclosure). `npm run test:smoke` — 5/5 passing. `npm run audit:gds-style`
+— 26 (unchanged baseline, verified via `git stash -u` A/B comparison; two
+new `#209`-in-a-string-literal false positives found and fixed the same
+way as every prior issue this session, by writing the issue number
+without a leading `#`).
+
+## 2.4.197
+
+### Buying-committee roles on contacts (issue #206)
+
+Contacts previously carried only a single `isDecisionMaker` boolean — not
+enough to model a real buying committee, where a champion, an economic
+buyer, an influencer, and a blocker are all distinct roles a rep needs to
+track separately. Adds a closed-enum `buyingRole` field (`economic_buyer`
+/ `champion` / `influencer` / `blocker` / `decision_maker` / `unknown`)
+alongside it, additive rather than a replacement: `isDecisionMaker` stays
+fully supported on every existing read/write path, and becomes a value
+permanently *derived* from `buyingRole` (`true` iff the role is
+`decision_maker` or `economic_buyer`) rather than an independently
+settable flag.
+
+Resolution precedence (`resolveBuyingRole()`, `lib/contacts.ts`, run
+inside the single shared `normalizeContact()` every lead write path
+already goes through): an explicit valid `buyingRole` always wins, even
+against a conflicting `isDecisionMaker` in the same payload; legacy
+`isDecisionMaker: true`-only maps to `decision_maker`; both absent
+defaults to `unknown`/`false`. An invalid `buyingRole` string is rejected
+with `400` (`lib/validate-lead.ts`), never silently coerced.
+`dedupeContacts()`'s existing collision-merge gained the same precedence:
+a duplicate contact's `buyingRole` only ever upgrades a survivor's
+`unknown`, never overwrites a concrete role already on record.
+
+**`checkStageGate()` (`lib/stage-gate.ts`) deliberately left untouched** —
+the ENGAGED/PROPOSAL gate's "any contact satisfies it" behavior
+(issue #88's own correction, predating this work) is not re-coupled to
+any particular `buyingRole`; a regression test locks this in.
+
+New backfill (`lib/backfill-buying-role.ts`,
+`POST /api/admin/buying-role-backfill`, `requireApiKey`-gated,
+`{brand?, apply?}`, dry-run by default across every brand) for stored-data
+consistency only — correctness never depends on running it, since every
+write already re-derives both fields correctly.
+
+**UI**: `app/components/ContactsEditor.tsx`'s "Decision maker" checkbox
+replaced by a "Buying role" select (six options); `app/detail.tsx` and
+`app/contacts/[brand]/contacts-client.tsx` both replace the single
+"Decision Maker" badge with a per-role colored badge (`unknown`
+intentionally renders no badge, rather than a misleading neutral one).
+
+`docs/ARCHITECTURE.md`, `docs/LEAD_ENRICHMENT_GUIDE.md` updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 859/859 passing (+20 new, `tests/lib/contacts.test.ts`'s new
+`resolveBuyingRole`/`deriveIsDecisionMaker`/`isValidBuyingRole`/
+`normalizeContact` buyingRole describe blocks plus a dedup collision-merge
+case, `tests/lib/stage-gate.test.ts`'s regression guard, and the new
+`tests/lib/backfill-buying-role.test.ts`, 7 tests). `npm run
+test:integration` — 332/332 passing (+4 new,
+`tests/integration/leads-id.integration.test.ts`'s new
+`PUT /api/leads/[id] — buyingRole` describe block: legacy shape unchanged,
+new shape derives correctly, explicit `buyingRole` wins over a conflicting
+`isDecisionMaker`, invalid value rejected with `400` and nothing written).
+`npm run test:smoke` — 5/5 passing (unrelated to this change; validation
+logic touched is covered by the integration suite instead). `npm run
+audit:gds-style` — 26 (unchanged baseline, verified via `git stash -u`
+A/B comparison; no new UI in this change beyond a `Select`/badge swap in
+already-audited files).
+
+## 2.4.196
+
+### Outreach: one-off tracked email send, decoupled from cadence automation (issue #205)
+
+The compose modal's only button previously wrote a record-only log row and
+never sent anything — worse, its busy label read "Sending…" while doing
+exactly that nothing (a real CLAUDE.md Rule 7 violation, fixed in the same
+change: relabeled "Logging…"). This adds a genuinely functional second
+action, **"Send email"**, the first rep-initiated real external side effect
+this app has ever had (the cadence cron was the first automated one).
+
+`lib/outreach-send.ts` is generalized into one shared core
+(`dispatchOutreachEmail()`) that both the pre-existing cadence path
+(`sendAutomatedEmail()`, external signature and behavior fully unchanged —
+its own integration tests pass unmodified) and the new manual path
+(`sendManualEmail()`) call, diverging only in idempotency-key construction
+and which `outreach_logs` fields get stamped. New `POST /api/outreach-send`
+(`requireApiKey`, same tier as `POST /api/outreach-logs`) — validates the
+request, pre-checks routing, and sends via Resend; a routing block or
+Resend rejection is a handled `200 {sent:false}` (never a 500), matching
+`AutomatedSendResult`'s existing shape.
+
+**A real duplication bug caught before shipping**: the issue's own
+Architecture diagram has a successful manual send write both an
+`outreach_logs` row and a new `activityLog` row — but `GET
+/api/leads/[id]/activity` already independently maps *every*
+`outreach_logs` row into the same merged Activity timeline, so implementing
+the diagram literally would have shown one real send twice. Fixed with a
+new `activityLogWritten` marker field, excluded from that route's
+`outreach_logs`-branch query exactly when set — a cadence send (never
+`activityLogWritten`) and a plain "Log outreach" row (never sets the field)
+are both unaffected.
+
+Delivery/open/click tracking extends the existing inbound-email webhook
+endpoint's own Resend subscription (one webhook object, more event types,
+same signing secret — no new secret needed) rather than a second endpoint;
+kept the route's existing name despite now covering both directions
+(disclosed reasoning in `docs/ARCHITECTURE.md` — renaming would force an
+operator-side webhook-URL change on top of this deploy). Updates
+`outreach_logs` by `resendEmailId`, never a new `activityLog` row per
+event (avoids timeline spam on repeat opens); retry-dedup on the event's
+own `svix-id` via a new TTL-indexed `resend_webhook_event_ids` collection.
+
+**Disclosed, not performed**: issue #205 §19's own required manual
+verification step (one real send to a real address, a real webhook event
+observed) — this sandbox has no `RESEND_API_KEY`/`RESEND_WEBHOOK_SECRET`
+configured, confirmed directly, so a real send is impossible here, and
+sending real unsolicited email autonomously would be inappropriate
+regardless. Flagged as owner-only, not silently marked done.
+
+**Also fixed while touching this area**: `docs/ARCHITECTURE.md` had a
+stale paragraph still describing `resolveOutboundFromAddress()`'s
+pre-issue-#195 `RESEND_FROM_<BRAND>` env-var design (issue #195 moved this
+to the brand's own `fromEmail` field over a month ago); and `docs/LLD.md`'s
+claim that `lib/**` never imports from `app/lib/**` was already false for
+3 existing files before this change (this issue's own new `lib/outreach-send.ts`
+import of `app/lib/activity-log-store.ts` makes it 3-and-a-half) — both
+corrected in the same change.
+
+`docs/ARCHITECTURE.md`, `docs/LLD.md`, `docs/OPERATOR_GUIDE.md` updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 839/839 passing (cadence-path tests unmodified). `npm run
+test:integration` — 328/328 passing (+30 new across
+`tests/integration/outreach-send.integration.test.ts` (manual-send branch
+coverage, activityLog dedup, cadence-path regression),
+`tests/integration/inbound-email-webhook.integration.test.ts` (new
+delivery-event branches incl. retry-dedup), and the new
+`tests/integration/outreach-send-route.integration.test.ts` (the route
+end-to-end, `POST /api/outreach-logs` regression, and the
+never-renders-twice Activity-timeline check)). `npm run test:smoke` —
+5/5 passing (issue #205's own smoke-suite text doesn't map cleanly onto
+this repo's actual DB-free smoke suite — same disclosed gap already
+recorded for issue #201's cron endpoint). `npm run audit:gds-style` — 26
+findings, unchanged from the pre-existing baseline (`git stash -u` A/B
+comparison).
+
+## 2.4.195
+
+### Automation: trigger-action rule engine (issue #201)
+
+A minimal, flat trigger→action engine (`automation_rules`) generalizing
+the one proven execution model this repo already had — the daily
+cadence-tick sweep — to a small, fixed set of trigger/action types. A
+brand admin can now say "when X happens on a lead, do Y" from a form,
+without a code change or a new cron route per rule. Parallel to, never a
+replacement for, `lib/cadences.ts` or `lib/stage-gate.ts` (both untouched).
+
+V1 triggers: `lead_created`, `lead_moved_to_column` (fired synchronously
+from `POST /api/leads` and `executeLeadAction()`'s `COLUMN_MOVE`/`PIN`
+path, the latter only after the existing stage gate already passed — a
+blocked move never fires a rule), `stale_no_activity` (a new daily cron,
+`GET/POST /api/admin/automation-tick`, reusing `lib/stale-deal.ts`'s
+`computeStaleness()` verbatim, with no full collection scan). `lead_assigned`
+is schema-defined for forward-compatibility but rejected at save time
+whenever `enabled: true` is requested — this repo has no assignment model
+for it to fire from yet, so an enabled rule of this type could never
+execute; refused rather than silently persisted as dead.
+
+V1 actions, all routed through one shared executor so behavior never
+depends on which trigger fired them: `set_next_action` (writes the
+existing `nextActionDueAt`/`nextActionNote` fields), `apply_tag` (adds one
+tag via `$addToSet`), `log_notification` (writes a `type: 'system'` entry
+to the existing `activityLog` collection). No action case ever re-emits a
+trigger event — rule chaining is structurally impossible, not merely
+undocumented.
+
+New `automation_rule_firings` collection (one doc per `(ruleId, leadId)`
+pair, upserted) makes `stale_no_activity` firing idempotent per UTC day —
+a lead that stays stale across many ticks doesn't re-fire (and re-noise)
+more than once daily.
+
+New CRUD: `GET/POST /api/automation-rules`, `GET/PUT/DELETE
+/api/automation-rules/[id]` (GET unauthenticated, writes `requireApiKey`-
+gated — same auth tier as `/api/cadences`). New `/automation/[brand]` UI
+(structured form, no visual builder — an explicit v1 non-goal), new
+"Automation" nav entry.
+
+`docs/ARCHITECTURE.md`, `docs/LLD.md` updated with the new modules,
+collections, and endpoints.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 839/839 passing (+24 new in `tests/lib/automation-rules.test.ts`).
+`npm run test:integration` — 308/308 passing (+13 new in
+`tests/integration/automation-rules.integration.test.ts`, covering CRUD,
+the `lead_assigned`/`enabled:true` rejection, `lead_created` firing (tag,
+disabled-rule no-op, `log_notification`), `lead_moved_to_column` firing
+including the stage-gate-blocked-never-fires case and the wrong-column
+never-fires case, and the tick's staleness match, idempotent same-day
+re-run, zero-rules short-circuit, and WON/LOST exclusion). `npm run
+test:smoke` — 5/5 passing (issue #201 §19's own "update the smoke suite
+to cover the new cron endpoint" doesn't map cleanly onto this repo's
+actual smoke suite, a pure DB-free/network-free `validate-lead.ts` check
+with no HTTP/DB capability to exercise a cron route — real route coverage
+lives in the integration suite instead, disclosed rather than forced).
+`npm run audit:gds-style` — 26 findings, unchanged from the pre-existing
+baseline (verified via `git stash -u` A/B comparison).
+
+## 2.4.194
+
+### Forecast categories and quota attainment tracking (issue #204)
+
+Additive, never-replacing extensions to `app/lib/forecast.ts`'s
+`computeForecast()`: a rep-editable forecast category (Pipeline / Best
+Case / Commit / Closed) per lead, and real quota-target attainment
+tracking against assigned leads' closed-won revenue.
+
+**Forecast category** — new `Lead.forecastCategory?`/
+`forecastCategoryOverriddenBy?`/`forecastCategoryOverriddenAt?`, a new
+`SET_FORECAST_CATEGORY` lead action. A lead's category is never stored
+until explicitly overridden; the default (DISCOVERED/QUALIFIED/BACKLOG →
+pipeline, ENGAGED → best_case, PROPOSAL → commit, WON/LOST → closed) is
+always derived live from the lead's current `kanbanColumn`. This makes the
+override sticky "for free": no other action (ACCEPT/DECLINE/PIN/
+COLUMN_MOVE) ever touches the override fields, so it survives every later
+stage move until explicitly cleared (`forecastCategory: null`). New pure
+`lib/forecast-category.ts` module (`resolveDefaultCategory`,
+`effectiveForecastCategory`, `computeCategoryForecast`). `computeForecast()`
+gains additive `categoryWeightedRevenue`/`byCategory`/`categoryWeightsUsed`
+— `closed` is deliberately never a flat weight (WON counts full value,
+LOST zero, exactly the existing stage-weight treatment, not a category
+constant). Admin-overridable default weights (pipeline 10% / best_case 40%
+/ commit 90%) via a new `settings` doc, `getForecastCategoryWeights()`.
+
+UI: a "Forecast Category" control on lead detail (`app/detail.tsx`)
+matching `ticketSizeEstimate.method === 'manual_override'`'s established
+muted-default-vs-explicit-override visual pattern; the Forecast page
+(`app/forecast/[brand]/forecast-client.tsx`) shows the category-weighted
+total alongside (never toggled against) the existing stage-weighted total.
+
+**Quota attainment** — new `quota_targets` collection (unique-indexed on
+`{brand, userId, period}`), new `lib/quota.ts` (period math, value
+precedence) and `app/lib/quota-store.ts` (the WON-lead/`outcomelogs` join
+that finds each lead's first WON-transition date, the same
+replay-the-audit-trail technique `lib/win-rate-calibration.ts` already
+uses). Attainment value precedence: `actualDealValueUsd` first (the real
+captured close value), falling back through the same `deals[]` sum →
+`ticketSizeEstimate.expected` → `estimated_annual_revenue_usd` chain
+`computeForecast()`'s own revenue expression already uses. New endpoints:
+`GET`/`PUT /api/quota/[brand]` (target CRUD, super-admin only, mirrors
+`/api/admin/teams`'s gate) and `GET /api/quota/[brand]/attainment` (a rep
+can always view their own; viewing another user's requires the caller's
+own brand role to be admin). Forecast page gains a combined rep-facing
+attainment tile / admin quota-entry form — the admin form is only ever
+rendered (never merely disabled) for an actual brand admin, per CLAUDE.md
+Rule 7.
+
+**Dependency note resolved**: the issue's own text flagged quota tracking
+as blocked on lead ownership, not yet in this repo's tracker at filing
+time — that landed in issue #198 (`Lead.assignedTo`) before this issue was
+implemented, so quota attainment ships wired to real assigned leads rather
+than staying inert, the same pattern already disclosed for issue #203's
+`ASSIGN`.
+
+`docs/ARCHITECTURE.md`, `docs/LLD.md` updated with the new modules,
+collection, and endpoints.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 815/815 passing (+35 new: `tests/lib/forecast-category.test.ts`,
+`tests/lib/quota.test.ts`, plus `SET_FORECAST_CATEGORY` cases in
+`tests/lib/validate-lead.test.ts`). `npm run test:integration` — 295/295
+passing (+19 new: `tests/integration/quota.integration.test.ts`,
+`SET_FORECAST_CATEGORY` cases in
+`tests/integration/leads-patch-actions.integration.test.ts`, and
+category-forecast regression coverage in
+`tests/integration/boards.integration.test.ts`, which every pre-existing
+test in that file — and `tests/integration/forecast-export.integration.test.ts`/
+`forecast-snapshot.integration.test.ts` — continues to pass unmodified).
+`npm run test:smoke` — 5/5 passing. `npm run audit:gds-style` — 26
+findings, unchanged from before this change (all pre-existing, all in
+files this change didn't touch).
+
+## 2.4.193
+
+### Kanban bulk actions v2 — field edit, reassignment, and real undo (issue #203)
+
+Three additive extensions to #70/#197's `PATCH /api/leads/bulk`: bulk
+single-field edit, bulk reassignment, and a real, server-verified undo for
+a completed bulk action — none change the existing `ACCEPT`/`DECLINE`/`PIN`
+contract. Bulk reassignment was originally deferred pending `Lead.assignedTo`
+(issue #198, shipped in 2.4.189) — that landed before this issue was
+implemented, so it ships for real here rather than staying inert.
+
+`ALLOWED_BULK_ACTIONS` widened to include `FIELD_EDIT` (add/remove a tag,
+or set `qualityStatus`, per lead against each lead's own current state —
+never a destructive whole-array tag replace) and `ASSIGN` (reuses the
+single-lead action's exact `canAssign()` authorization, self-assign always
+allowed, cross-user reassignment admin-only). New `bulkActionUndoTokens`
+Mongo collection (TTL-indexed on `expiresAt`, since this app runs on
+Vercel serverless functions and undo state can't live in in-process
+memory), a new pure `lib/bulk-undo.ts` module, and a new `POST
+/api/leads/bulk/undo` route: token-scoped to the requester's own
+brand/tenant, `404` unknown / `410` expired, a compare-and-swap check per
+lead before reversing (a lead changed since the original action is
+reported `skipped`, never silently overwritten), and explicit counter
+reversal for `ACCEPT`/`DECLINE`'s cumulative `$inc` fields — a plain
+field-value restore can never undo those on its own. A `DECLINE` that
+cancelled a lead's active outreach cadence is flagged `notReversible` in
+the response — undo restores the column but deliberately never attempts to
+resume that cadence (issue #203's own explicit design decision: nothing in
+this design safely re-validates the cadence-template invariant on
+restore).
+
+UI (`app/kanban.tsx`): a "select all in column" control (the NN/g bulk-
+actions pattern's previously-missing "select-all" leg), "Edit field…" and
+"Reassign…" inline forms on the existing bulk-action bar, and a real,
+keyboard-operable Undo control with a live countdown after a successful
+undo-eligible action.
+
+**Corrected in the same change**: bulk-setting `qualityStatus` via the
+shared `MODIFY` path was initially silently clamped back to `DRAFT` by
+`lib/quality-registry.ts`'s `enforceQualityCeiling()` (which defaults
+upstream evidence to `['DRAFT']` when none is asserted) — caught by this
+issue's own integration test, fixed by asserting the target value as its
+own upstream evidence (`upstreamQualityStatuses: [value]`), the same trust
+already implicitly extended to any other qualityStatus edit through this
+path.
+
+`docs/ARCHITECTURE.md` updated with the new collection, the undo request
+flow, and the `qualityStatus` ceiling interaction.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 780/780 passing (+12 new in `tests/lib/bulk-undo.test.ts`).
+`npm run test:integration` — 276/276 passing (+17 new in
+`tests/integration/leads-bulk.integration.test.ts`, covering FIELD_EDIT's
+per-lead tag add/remove and qualityStatus set, ASSIGN's self/cross-user/
+admin cases, undo-token capture including the `notReversible` cadence
+flag, and the undo route's happy path with explicit counter reversal,
+404/410/CAS-mismatch/single-use/cross-brand-rejection, and a check that
+the TTL index itself — not just the application-level `expiresAt` check —
+actually exists on the collection). `npm run test:smoke` — 5/5 passing.
+`npm run audit:gds-style` — same 26 pre-existing violations before and
+after, none in the files this change touches.
+
+**Disclosed, not live-measured**: the 15s undo window is a reasoned
+implementation choice (deliberately above the issue's own cited 10s
+default), not a measured p99 — this sandbox has no way to load-test real
+`executeLeadAction` timing across a 100-lead sequential batch, per the
+issue's own explicit anticipation that this number might need revisiting
+once real usage data exists.
+
+**Disclosed, pre-existing, out of scope for this change**: the same 7
+pre-existing `npm audit` dependency vulnerabilities and 26 GDS-audit
+violations noted in prior entries — neither introduced by this change.
+
+## 2.4.192
+
+### Adopt GDS-native kanban scroll routing; retire local wheel-passthrough workaround (issue #125)
+
+This issue's blocker resolved itself over time: GDS shipped the zone-based
+`KanbanBoard` wheel-scroll routing this repo's local workaround (2.4.95)
+was always meant to be replaced by — `columnPanZone?: 'header' | 'none'` —
+in `general-design-system` 3.14.12 (2026-07-27), and this repo has been on
+`^6.5.0` (three majors past it) the whole time without adopting it.
+
+`app/kanban.tsx`'s `<GdsKanbanBoard>` now sets `columnPanZone="header"`.
+Removed: the `boardWrapperRef` wheel-listener `useEffect`, its
+`isVerticalScrollIntent` import, and `lib/desktop-scroll-passthrough.ts`
+(plus its now-orphaned unit test) entirely — confirmed via grep that
+nothing else imported it. Routing is now by cursor **zone** (a gesture over
+a column header pans the columns; anywhere else always scrolls the page)
+rather than gesture *shape* — strictly more precise, since the old
+heuristic could misroute a fast diagonal gesture over a card and the new
+zone check can't. No other `GdsKanbanBoard` behavior changed.
+
+`docs/ARCHITECTURE.md` and `docs/LLD.md` updated;
+`docs/OPERATOR_GUIDE.md`'s real-hardware-trackpad caveat is **not**
+removed (per this issue's own explicit instruction not to remove it
+preemptively) — it's updated to describe the same disclosed verification
+gap against GDS's own routing instead of this repo's, since this sandbox
+still can't exercise a real trackpad driver.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 768/768 passing (net -7: the 7 orphaned
+`desktop-scroll-passthrough.test.ts` cases removed, no replacement needed
+since GDS unit-tests its own routing decision). `npm run test:smoke` —
+5/5 passing. `npm run audit:gds-style` — same 26 pre-existing violations
+before and after, none in the file this change touches.
+
+**Disclosed, not yet done (per the issue's own Acceptance Criteria)**:
+real-device desktop trackpad confirmation (macOS Safari/Chrome, Windows
+Precision Touchpad) that GDS's native routing behaves correctly — this
+sandbox cannot exercise real trackpad-driver behavior, the same limitation
+2.4.95's original implementation disclosed. Needs the owner.
+
+## 2.4.191
+
+### Manual call logging — structured Call activity type with outcome disposition (issue #200)
+
+Sales reps make real outbound calls today; until now the only place to
+record one was the free-text `notes` field or nothing at all. Owner-
+confirmed scope: manual, by-hand entry only — no dialer/telephony
+integration, no auto-detection.
+
+`app/lib/activity-log-store.ts`'s `ActivityEntryType` gains a `'call'`
+variant, additive alongside the existing `email-outbound`/`email-inbound`/
+`note`/`system` types (all unchanged). New closed 6-value `CallDisposition`
+enum (`connected`/`voicemail`/`no-answer`/`busy`/`wrong-number`/
+`not-interested`), mirroring `app/types.ts`'s `DeclineReason` as this
+codebase's existing closed-enum convention for a manually-chosen outcome.
+New `POST /api/leads/[id]/activity` (alongside the existing `GET` in the
+same file) writes a `type: 'call'` document into the existing `activityLog`
+collection — no new collection. The contact called is validated server-side
+against the lead's *current* `contacts[]` via the existing `contactKey()`
+matching convention (`lib/contacts.ts`), never trusted from a stale client
+snapshot. Logging a call also touches the lead's `updatedAt`, so it counts
+as a real touch for the existing rotten-indicator/staleness computation.
+`loggedBy` is the verified session's email, never client-supplied, and
+simply omitted (not guessed) for the `x-api-key`/machine-caller path.
+
+UI: `app/components/ActivityPanel.tsx` gains a "Log a call" button above
+the Activity timeline — disabled with an explanatory tooltip when the lead
+has zero contacts — that opens an inline 4-field form (Contact/Outcome/
+Duration/Notes). A logged call renders in the same unified timeline with a
+distinct badge, its disposition, duration, and who logged it.
+
+`docs/ARCHITECTURE.md` and `docs/OPERATOR_GUIDE.md` updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 775/775 passing (+5 new in `tests/lib/activity-log-store.test.ts`
+covering `isValidCallDisposition`, call-entry mapping, and timeline
+interleaving). `npm run test:integration` — 259/259 passing (+6 new in
+`tests/integration/leads-activity.integration.test.ts`, covering a
+successful call log + `updatedAt` advance, rejected disposition/duration/
+unknown-contact payloads with no document written, the `401`/no-document
+unauthenticated case, and the call's correct position in the merged
+timeline). `npm run test:smoke` — 5/5 passing. `npm run audit:gds-style` —
+same 26 pre-existing violations before and after, none in the files this
+change touches.
+
+**Disclosed, pre-existing, out of scope for this change**: the same 7
+pre-existing `npm audit` dependency vulnerabilities and 26 GDS-audit
+violations noted in 2.4.189/2.4.190 — neither introduced by this change.
+
+## 2.4.190
+
+### Team visibility — teams collection, manager role, and My Team pipeline scope (issue #199)
+
+Phase 0 of the CRM-parity roadmap, sequenced directly after Lead ownership
+(2.4.189, issue #198) per its own dependency: a sales manager previously had
+no way to see their reports' leads as a group — only their own ("My Leads")
+or the entire brand's pipeline (by being made a full brand admin, which also
+grants settings/user-management access they don't need).
+
+New `teams` Mongo collection (`{_id, brand, name, memberIds, managerIds,
+createdAt, updatedAt}` — a team never spans brands) and a new `lib/teams.ts`
+module, following `lib/sso-access.ts`'s own DB-function/pure-function split.
+`OrgAccessMap`/`SsoUserAccessRecord` are byte-for-byte unchanged — team
+membership composes on top of the existing flat brand role, it never
+replaces or weakens it: `getTeamVisibilityFilter()` returns no narrowing at
+all for a super admin or brand admin, and a non-manager plain user degrades
+gracefully to exactly their own leads (never a `400`/`403` — "you manage
+zero teams" is a normal state).
+
+`GET /api/leads` and `GET /api/leads/columns` gain a new `assignedTo=team`
+value, added onto the same `assignedTo` param Lead ownership shipped
+(`me`/`unassigned`/`<ssoUserId>`) rather than a separate `scope` param —
+issue #199's own draft contract proposed `scope=team`, but the actual
+shipped Lead ownership convention was `assignedTo`, so this reconciles onto
+that (its own §24 flagged this exact reconciliation as needed at
+implementation time). Resolving `team` needs a DB read of the caller's
+managed teams, so it's resolved by the route directly (`getUserAccess` +
+`listTeamsForBrand` + `getTeamVisibilityFilter`), never inside
+`resolveAssignedToFilter()` (deliberately kept DB-free). New
+`GET/POST /api/admin/teams` + `PATCH/DELETE /api/admin/teams/[teamId]`,
+super-admin-gated exactly like `/api/admin/users/*` — `PATCH` validates
+every member/manager id against `sso_user_access` before writing, rejecting
+an id nobody has ever signed in with. `GET /api/leads/assignable-users`
+(Lead ownership's endpoint) gains `callerManagesTeam: boolean`, piggybacked
+on its existing session resolution.
+
+UI: new `/admin/teams` page (`admin-teams-client.tsx`, same
+`AdminDataTable`/`MultiSelect`-per-row pattern as `admin-users-client.tsx`)
+linked from the nav's Admin section; a new "My Team" toggle in
+`app/components/FilterBar.tsx`, shown only for a user who actually manages
+at least one team in the current brand, mutually exclusive with "My Leads"
+via the same single-valued `LeadFilter.assignedTo` field. Deleting a team
+requires `window.confirm()` (it instantly narrows its managers' visibility),
+matching this codebase's established destructive-action confirmation
+convention.
+
+`docs/ARCHITECTURE.md` gains a new subsection under Per-Organization Access
+Control; `docs/OPERATOR_GUIDE.md`'s "Admin Tools" section gains a "Teams"
+subsection and the Filters section documents "My Leads"/"My Team" together
+(the latter was never separately documented when #198 shipped, since that
+issue's own doc requirements didn't call for an OPERATOR_GUIDE.md update).
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 770/770 passing (+13 new in `tests/lib/teams.test.ts`). `npm
+run test:integration` — 253/253 passing (+14 new in
+`tests/integration/teams.integration.test.ts`, covering team CRUD
+auth/validation/cross-brand isolation and `assignedTo=team`'s manager/
+non-manager/brand-admin/super-admin/no-session cases against a real
+`mongodb-memory-server` database — `lib/session.ts`'s
+`requireSuperAdminSession`/`resolveSessionFromIdToken` mocked as a clean
+dependency boundary, same convention as every other session-gated
+integration suite in this repo). `npm run test:smoke` — 5/5 passing. `npm
+run audit:gds-style` — same 26 pre-existing violations before and after,
+none in the files this change touches.
+
+**Disclosed, pre-existing, out of scope for this change**: the same 7
+pre-existing `npm audit` dependency vulnerabilities noted in 2.4.189 — none
+introduced by this change, no dependency added or changed.
+
+## 2.4.189
+
+### Lead ownership — assignedTo, My Leads, and assignment workflow (issue #198)
+
+The CRM-parity roadmap's Phase 0 foundation: this app had no per-user lead
+ownership at all before this change — `app/lib/lead-actions.ts` stamped every
+action with a hardcoded `actedBy: 'webapp-user'`, and `docs/ARCHITECTURE.md`'s
+own #121 entry explicitly noted "no `assignedTo`/`ownerId`/user-identity model
+at all." Nearly every other CRM-parity issue (#199 team visibility and beyond)
+depends on this existing first.
+
+New `Lead.assignedTo?: string | null` (a verified `ssoUserId`), `assignedToEmail?`,
+`assignedAt?`, `assignedBy?`. New `PATCH .../leads?id=X` action `ASSIGN` —
+session-gated by definition (requires a real `actorId` resolved from the
+caller's verified SSO session; the `x-api-key` research-agent path can never
+call it, since "who may assign this to whom" has no meaning without a real
+caller identity). A non-admin assigning to (or clearing) someone else's lead
+gets a real 403, not the PATCH route's usual 400-for-every-failure default —
+`LeadActionResult` gained an optional `status` field so `executeLeadAction`
+can carry that one authorization failure's real status code through, per the
+issue's own acceptance criteria. New `lib/lead-assignment.ts` (pure, DB-free, unit-tested):
+`canAssign()` — self-assign always allowed, a brand `admin` may assign/clear
+anyone, and a non-admin may additionally self-release their own assignment (a
+deliberate extension past the issue's literal two-argument spec, via an
+optional `currentAssignedTo` parameter — without it a non-admin could
+self-assign but never undo it, a real UX gap); `resolveAssignedToFilter()` /
+`combineFilterWithAssignedTo()` add an `assignedTo=me|unassigned|<ssoUserId>`
+filter to both `GET /api/leads` and `GET /api/leads/columns` (`me` resolved
+server-side from the verified session, never a trusted literal; `unassigned`
+matches both a legacy document with no `assignedTo` field and one explicitly
+cleared to `null`, combined via `$and` rather than spread so a pre-existing
+`$or` — e.g. `tenantFilter()`'s own default-tenant `$or` — is never silently
+dropped, the exact bug class documented in `docs/LESSONS_LEARNED.md` §1). New
+`GET /api/leads/assignable-users?brand=<brand>` — brand-scoped user listing
+(any user with brand access, not super-admin-only) plus the caller's own
+resolved `callerRole`/`callerSsoUserId`, so the UI can disable "assign to
+someone else" with a visible reason for a non-admin rather than only
+discovering the 403 after the attempt (CLAUDE.md's UI-affordances rule).
+
+UI: `app/components/FilterBar.tsx` gained a "My Leads" toggle (kanban and
+table view both). `app/detail.tsx` gained an Assignment section — GDS
+`AdminSelect` plus an Assign/Clear button, `window.confirm()` before applying
+(matching this codebase's existing confirm-before-destructive-action
+convention, not GDS's `ConfirmDialog`, per a grep against four other
+call sites first).
+
+`docs/ARCHITECTURE.md`'s #121 entry corrected — it no longer claims this app
+has no user-identity model.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest
+run` — 757/757 passing (+14 new in `tests/lib/lead-assignment.test.ts`).
+`npm run test:integration` — 239/239 passing (+11 new in
+`tests/integration/leads.integration.test.ts`, covering ASSIGN's
+self-assign/admin-assign/blocked-assign/self-release/blocked-release paths,
+the `assignedTo=me` filter on both `GET /api/leads` and
+`GET /api/leads/columns`, the `assignedTo=unassigned` legacy-vs-explicit-null
+match, and `GET /api/leads/assignable-users`'s brand scoping and 401 gate — all
+against a real `mongodb-memory-server` database, with `lib/session.ts`'s
+`resolveSessionFromIdToken` mocked as a clean dependency boundary the same way
+`admin-clients.integration.test.ts`/`duplicate-review-merge.integration.test.ts`
+already mock `requireSuperAdminSession`, since this sandbox cannot mint a real
+signed SSO JWT). `npm run test:smoke` — 5/5 passing. `npm run audit:gds-style`
+— same 26 pre-existing violations before and after (git-stash A/B comparison),
+none newly introduced by this change's 2 touched UI files.
+
+**Disclosed, pre-existing, out of scope for this change**: `npm install`
+surfaces 7 pre-existing dependency vulnerabilities (3 moderate, 3 high, 1
+critical — `@tiptap/core`, `@vitest/mocker`, `js-yaml`, `next`, `sharp`), none
+introduced by this change (no `package.json` dependency was added or
+changed — `package-lock.json`'s only diff is its own `version` field catching
+up to `package.json`'s, which was already out of sync before this change).
+Upgrading them is a separate, larger piece of work (a `next` major-version
+bump in particular) than this feature's own scope justifies.
+
 ## 2.4.188
 
 ### Bulk Accept + inline card Accept/Decline on the kanban (issue #197)

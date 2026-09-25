@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Box, Group, Loader, Button, Checkbox, Text, Menu } from '@mantine/core';
+import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
+import { Box, Group, Loader, Button, Checkbox, Text, Menu, Select, TextInput, Badge } from '@mantine/core';
 import { IconArchive, IconArrowBackUp, IconChevronDown } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import { KanbanBoard as GdsKanbanBoard } from '@sovereignsquad/gds-core/client';
@@ -12,8 +12,8 @@ import { LeadCard } from './card';
 import { COLUMNS } from './constants';
 import { computeStaleness, DEFAULT_STALE_THRESHOLDS, type KanbanColumn as StaleDealColumn } from '../lib/stale-deal';
 import { getNextStepNudge } from '../lib/next-step-nudge';
+import { DEFAULT_WIP_LIMITS, resolveWipThreshold, isOverWipLimit } from '../lib/wip-limits';
 import type { LeadFilter } from '../lib/saved-filters';
-import { isVerticalScrollIntent } from '../lib/desktop-scroll-passthrough';
 import { TOUR_SELECTOR } from './lib/tour/selectors';
 
 type ColumnState = {
@@ -58,6 +58,13 @@ type BoardProps = {
   // same action — added 2026-09-02 alongside bulk Accept: reviewing at scale
   // previously required opening every lead's own modal one at a time.
   onAction?: (leadId: string, action: string, payload?: Record<string, unknown>) => Promise<void>;
+  // Issue #213 — the command palette's "jump to lead" command needs a
+  // flattened, deduped list of whatever leads are currently loaded across
+  // this board's columns (GDS's CommandPalette exposes no query-change
+  // hook to back a live search instead — see docs/ARCHITECTURE.md). Fired
+  // from an effect whenever columnStates changes; optional and additive —
+  // a caller that doesn't pass it sees zero behavior change.
+  onVisibleLeadsChange?: (leads: Lead[]) => void;
 };
 
 type LeadKanbanItem = {
@@ -69,7 +76,13 @@ type LeadKanbanItem = {
 
 type LeadKanbanColumn = {
   id: string;
-  title: string;
+  title: ReactNode;
+  // Issue #213 — GDS's own KanbanColumnData.title accepts a ReactNode (an
+  // icon+label, a colored dot, a custom count pill, …), and its own doc
+  // comment requires ariaLabel be set whenever title isn't plain text so
+  // move-menu targets/drag announcements keep a meaningful accessible name.
+  // Only actually differs from `title` once the WIP cue badge is shown.
+  ariaLabel?: string;
   items: LeadKanbanItem[];
   totalCount: number;
 };
@@ -106,7 +119,7 @@ function LoadMoreSentinel({ onLoadMore }: { onLoadMore: () => void }) {
   );
 }
 
-export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false, columnDefs = COLUMNS, onAction }: BoardProps) {
+export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false, columnDefs = COLUMNS, onAction, onVisibleLeadsChange }: BoardProps) {
   // Record<string, ...> (not Record<KanbanColumn, ...>) — this component no
   // longer always manages all 6 Pipeline columns; the Backlog board mounts
   // it with a single 'BACKLOG' entry instead (issue #126).
@@ -118,6 +131,19 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     return init
   })
   const [bootstrapped, setBootstrapped] = useState(false)
+
+  // Issue #213 — flattened, deduped-by-id lead list for the command
+  // palette's "jump to lead" command. No new network call: this only ever
+  // reflects leads already fetched into columnStates by this board's own
+  // existing load/loadColumn calls.
+  useEffect(() => {
+    if (!onVisibleLeadsChange) return
+    const byId = new Map<string, Lead>()
+    for (const col of Object.values(columnStates)) {
+      for (const lead of col.leads) byId.set(lead._id, lead)
+    }
+    onVisibleLeadsChange(Array.from(byId.values()))
+  }, [columnStates, onVisibleLeadsChange])
 
   // Real in-place collapse (issue #53) — GDS 3.14.0 added native
   // collapsible/collapsedColumnIds/onCollapsedChange support to KanbanBoard,
@@ -134,45 +160,25 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     )
   }, [])
 
-  // Desktop trackpad "natural scroll" fix — see lib/desktop-scroll-passthrough.ts
-  // for the full explanation. Attached as a real (non-React-synthetic)
-  // listener via addEventListener, not onWheel: React attaches its own root
-  // wheel listeners as passive for scroll-performance reasons, so
-  // event.preventDefault() inside a React onWheel handler is silently a
-  // no-op — only a manually-added { passive: false } listener can actually
-  // cancel the browser's native scroll here. Desktop-only by design
-  // (matchMedia('(pointer: fine)')): on a touchscreen, GDS renders a
-  // stacked layout with no horizontal ScrollArea to fight, and native touch
-  // panning must never be intercepted by this.
-  const boardWrapperRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const el = boardWrapperRef.current
-    if (!el || typeof window === 'undefined' || !window.matchMedia('(pointer: fine)').matches) return
-
-    function handleWheel(event: WheelEvent) {
-      if (!isVerticalScrollIntent(event.deltaX, event.deltaY)) return
-      event.preventDefault()
-      window.scrollBy(0, event.deltaY)
-    }
-
-    el.addEventListener('wheel', handleWheel, { passive: false })
-    return () => el.removeEventListener('wheel', handleWheel)
-  }, [])
-
   // Fetched once per board mount, not per card — stale/critical badges are
   // computed client-side in renderItem from data already in memory, so this
   // is the only network call staleness detection needs. Falls back to
   // DEFAULT_STALE_THRESHOLDS on fetch failure, matching the pipeline-weights
   // GET fallback pattern in app/api/settings/route.ts.
   const [staleThresholds, setStaleThresholds] = useState<Record<StaleDealColumn, number>>(DEFAULT_STALE_THRESHOLDS)
+  // Issue #213 — same fetch, same fallback-to-default-on-failure contract
+  // as staleThresholds above; extends the one existing /api/settings round
+  // trip rather than adding a second one (§16's own explicit requirement).
+  const [wipLimits, setWipLimits] = useState<Record<string, number>>(DEFAULT_WIP_LIMITS)
 
   useEffect(() => {
     let cancelled = false
     fetch('/api/settings')
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`Settings load failed: ${res.status}`))))
       .then((data) => {
-        if (!cancelled && data.thresholds) setStaleThresholds(data.thresholds)
+        if (cancelled) return
+        if (data.thresholds) setStaleThresholds(data.thresholds)
+        if (data.wipLimits) setWipLimits(data.wipLimits)
       })
       .catch((err) => {
         console.error('Stale thresholds load error:', err)
@@ -195,6 +201,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       if (filter?.region) url.searchParams.set('region', filter.region)
       if (filter?.industry?.trim()) url.searchParams.set('industry', filter.industry.trim())
       if (filter?.tags && filter.tags.length > 0) url.searchParams.set('tags', filter.tags.join(','))
+      if (filter?.assignedTo) url.searchParams.set('assignedTo', filter.assignedTo)
 
       const res = await fetch(url.toString())
       if (!res.ok) throw new Error(`Column load failed: ${res.status}`)
@@ -308,12 +315,86 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   const [selectedColumn, setSelectedColumn] = useState<KanbanColumn | null>(null)
   const [bulkRunning, setBulkRunning] = useState(false)
 
+  // Bulk actions v2 (issue #203) — the NN/g baseline bulk-actions pattern's
+  // first leg ("select-all"), previously entirely absent from this board:
+  // a column picker + "select all loaded" button that seeds a selection
+  // without needing to tick every card by hand first.
+  const [selectAllColumn, setSelectAllColumn] = useState<KanbanColumn | null>(null)
+
+  // Bulk single-field edit (issue #203) — "Edit field…" inline form state.
+  const [fieldEditOpen, setFieldEditOpen] = useState(false)
+  const [fieldEditField, setFieldEditField] = useState<'tags' | 'qualityStatus'>('tags')
+  const [fieldEditTagOp, setFieldEditTagOp] = useState<'add' | 'remove'>('add')
+  const [fieldEditTagValue, setFieldEditTagValue] = useState('')
+  const [fieldEditQualityStatus, setFieldEditQualityStatus] = useState<string | null>('DRAFT')
+
+  // Bulk reassignment (issue #203, unblocked by issue #198's Lead.assignedTo)
+  // — "Reassign…" inline form state. Options are fetched lazily, only once
+  // select mode is actually active, from the same brand-scoped endpoint
+  // app/detail.tsx's single-lead assignee picker already uses.
+  const [assignOpen, setAssignOpen] = useState(false)
+  const [assignableUsers, setAssignableUsers] = useState<Array<{ ssoUserId: string; email: string; name?: string }>>([])
+  const [assignTarget, setAssignTarget] = useState<string | null>(null)
+
+  // Real, server-verified undo (issue #203) — Mongo-backed on the server
+  // (bulkActionUndoTokens, TTL-indexed), not in-process client state beyond
+  // what's needed to render the countdown and know which column(s) to
+  // reload afterward.
+  type UndoInfo = {
+    token: string
+    expiresAt: string
+    notReversible: Array<{ leadId: string; reason: string }>
+    sourceColumn: KanbanColumn
+    action: 'ACCEPT' | 'DECLINE' | 'PIN' | 'FIELD_EDIT' | 'ASSIGN'
+  }
+  const [undoInfo, setUndoInfo] = useState<UndoInfo | null>(null)
+  const [undoSecondsLeft, setUndoSecondsLeft] = useState(0)
+  const [undoRunning, setUndoRunning] = useState(false)
+
   useEffect(() => {
     if (!selectMode) {
       setSelectedIds(new Set())
       setSelectedColumn(null)
+      setSelectAllColumn(null)
+      setFieldEditOpen(false)
+      setAssignOpen(false)
     }
   }, [selectMode])
+
+  // Server-side expiresAt is the real authority (issue #203 §15's "window
+  // expiry race") — this countdown is purely a display convenience; a click
+  // after it hits 0 still gets a real 410 from the server, handled in
+  // runUndo below, not assumed client-side.
+  useEffect(() => {
+    if (!undoInfo) {
+      setUndoSecondsLeft(0)
+      return
+    }
+    const tick = () => {
+      setUndoSecondsLeft(Math.max(0, Math.ceil((new Date(undoInfo.expiresAt).getTime() - Date.now()) / 1000)))
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [undoInfo])
+
+  useEffect(() => {
+    if (!selectMode) return
+    let cancelled = false
+    fetch(`/api/leads/assignable-users?brand=${encodeURIComponent(brand)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled) setAssignableUsers(data?.users || []) })
+      .catch(() => { if (!cancelled) setAssignableUsers([]) })
+    return () => { cancelled = true }
+  }, [selectMode, brand])
+
+  const handleSelectAllInColumn = useCallback(() => {
+    if (!selectAllColumn) return
+    const state = columnStates[selectAllColumn]
+    if (!state || state.leads.length === 0) return
+    setSelectedIds(new Set(state.leads.map((l) => l._id)))
+    setSelectedColumn(selectAllColumn)
+  }, [selectAllColumn, columnStates])
 
   const toggleSelected = useCallback((leadId: string, column: KanbanColumn) => {
     setSelectedIds((prev) => {
@@ -341,7 +422,10 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     })
   }, [selectedColumn])
 
-  const runBulkAction = useCallback(async (action: 'ACCEPT' | 'DECLINE' | 'PIN') => {
+  const runBulkAction = useCallback(async (
+    action: 'ACCEPT' | 'DECLINE' | 'PIN' | 'FIELD_EDIT' | 'ASSIGN',
+    payload: Record<string, any> = {}
+  ) => {
     if (selectedIds.size === 0 || !selectedColumn) return
     setBulkRunning(true)
     try {
@@ -353,7 +437,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           tenantId,
           leadIds: Array.from(selectedIds),
           action,
-          payload: action === 'DECLINE' ? { declineReason: 'OTHER' } : {},
+          payload: action === 'DECLINE' ? { declineReason: 'OTHER' } : payload,
         }),
       })
       if (!res.ok) {
@@ -365,7 +449,8 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       const succeeded = results.filter((r) => r.success).length
       const failed = results.length - succeeded
       const firstError = results.find((r) => !r.success)?.error
-      const verb = action === 'DECLINE' ? 'declined' : action === 'PIN' ? 'pinned' : 'accepted'
+      const verb = action === 'DECLINE' ? 'declined' : action === 'PIN' ? 'pinned' : action === 'ACCEPT' ? 'accepted'
+        : action === 'ASSIGN' ? 'reassigned' : 'updated'
 
       showNotification({
         message: failed === 0
@@ -375,10 +460,20 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         autoClose: failed === 0 ? 4000 : 8000,
       })
 
+      // Real, server-verified undo (issue #203) — captured alongside the
+      // column/action this run applied to, so a later Undo click knows
+      // which column(s) to reload without depending on selectedColumn
+      // (cleared below, right after this).
+      if (data.undo) {
+        setUndoInfo({ ...data.undo, sourceColumn: selectedColumn, action })
+      }
+
       await loadColumn(selectedColumn)
       if (action === 'PIN') await loadColumn('ENGAGED')
       setSelectedIds(new Set())
       setSelectedColumn(null)
+      setFieldEditOpen(false)
+      setAssignOpen(false)
     } catch (err) {
       showNotification({
         message: err instanceof Error ? err.message : 'Bulk action failed',
@@ -389,6 +484,52 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       setBulkRunning(false)
     }
   }, [brand, tenantId, selectedIds, selectedColumn, loadColumn])
+
+  const runUndo = useCallback(async () => {
+    if (!undoInfo) return
+    setUndoRunning(true)
+    try {
+      const res = await fetch('/api/leads/bulk/undo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand, tenantId, token: undoInfo.token }),
+      })
+      if (res.status === 410) {
+        showNotification({ message: 'Undo window has expired.', color: 'yellow' })
+        setUndoInfo(null)
+        return
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || `Undo failed: ${res.status}`)
+      }
+      const data = await res.json()
+      const results: Array<{ leadId: string; success: boolean }> = data.results || []
+      const skipped: Array<{ leadId: string; reason: string }> = data.skipped || []
+      const restored = results.filter((r) => r.success).length
+
+      showNotification({
+        message: skipped.length === 0
+          ? `${restored} lead${restored === 1 ? '' : 's'} restored.`
+          : `${restored} restored, ${skipped.length} skipped — changed since the original action.`,
+        color: skipped.length === 0 ? 'teal' : 'yellow',
+        autoClose: 6000,
+      })
+
+      await loadColumn(undoInfo.sourceColumn)
+      if (undoInfo.action === 'DECLINE') await loadColumn('LOST')
+      if (undoInfo.action === 'PIN') await loadColumn('ENGAGED')
+      setUndoInfo(null)
+    } catch (err) {
+      showNotification({
+        message: err instanceof Error ? err.message : 'Undo failed',
+        color: 'red',
+        autoClose: 5000,
+      })
+    } finally {
+      setUndoRunning(false)
+    }
+  }, [undoInfo, brand, tenantId, loadColumn])
 
   // Per-card Accept/Decline (2026-09-02), reusing the same `onAction` handler
   // the detail modal's own Accept/Decline buttons call — never a second
@@ -441,10 +582,26 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     const forecastLabel = colForecast && colForecast.rawRevenue > 0
       ? ` · ${formatForecast(colForecast.weightedRevenue)}`
       : ''
+    const plainTitle = `${col.label}${forecastLabel}`
+
+    // Issue #213 — a non-blocking, purely visual WIP-limit cue. Never
+    // touches totalCount (#48's own count badge, unchanged) or anything
+    // that would affect the column's ability to accept more cards.
+    const wipThreshold = resolveWipThreshold(col.key, wipLimits)
+    const overWipLimit = isOverWipLimit(colState.count, wipThreshold)
+    const title = overWipLimit ? (
+      <Group gap={6} wrap="nowrap">
+        <span>{plainTitle}</span>
+        <Badge color="yellow" variant="light" size="sm" aria-label={`${colState.count} leads, over the configured limit of ${wipThreshold}`}>
+          {colState.count}/{wipThreshold}
+        </Badge>
+      </Group>
+    ) : plainTitle
 
     return {
       id: col.key,
-      title: `${col.label}${forecastLabel}`,
+      title,
+      ariaLabel: overWipLimit ? `${plainTitle}, ${colState.count} of ${wipThreshold} WIP limit` : undefined,
       totalCount: colState.count,
       items: colState.leads.map((lead) => ({
         id: lead._id,
@@ -453,7 +610,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         lead,
       })),
     }
-  }), [columnStates, forecast, formatForecast, columnDefs])
+  }), [columnStates, forecast, formatForecast, columnDefs, wipLimits])
 
   // Issue #185 — onboarding tour needs exactly one real card to spotlight,
   // not every card on the board. `LeadCard` mounts once per card
@@ -561,6 +718,33 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // provides full move functionality without it.
   return (
     <>
+      {/* Bulk actions v2 (issue #203) — the NN/g "select-all" leg, always
+          visible while select mode is on regardless of current selection
+          size, so a rep can start a batch from zero without hand-ticking
+          every card first. */}
+      {selectMode && (
+        <Group gap="sm" mb="sm" p="xs" style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 6 }} role="region" aria-label="Bulk selection">
+          <Text size="xs" c="dimmed">Select all in:</Text>
+          <Select
+            size="xs"
+            data={columnDefs.map((c) => ({ value: c.key, label: c.label }))}
+            value={selectAllColumn}
+            onChange={(v) => setSelectAllColumn(v as KanbanColumn | null)}
+            placeholder="Choose a column"
+            aria-label="Column to select all leads in"
+            style={{ width: 160 }}
+          />
+          <Button size="xs" variant="default" onClick={handleSelectAllInColumn} disabled={!selectAllColumn}>
+            Select all loaded
+          </Button>
+          {selectedIds.size > 0 && (
+            <Button size="xs" variant="subtle" color="gray" onClick={() => { setSelectedIds(new Set()); setSelectedColumn(null); setFieldEditOpen(false); setAssignOpen(false) }}>
+              Clear selection
+            </Button>
+          )}
+        </Group>
+      )}
+
       {selectMode && selectedIds.size > 0 && (
         <Group
           gap="sm"
@@ -582,10 +766,122 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           <Button size="xs" color="teal" variant="light" onClick={() => runBulkAction('PIN')} loading={bulkRunning}>
             Pin selected
           </Button>
+          <Button size="xs" variant="light" onClick={() => { setFieldEditOpen((v) => !v); setAssignOpen(false) }} loading={bulkRunning}>
+            Edit field…
+          </Button>
+          <Button size="xs" variant="light" onClick={() => { setAssignOpen((v) => !v); setFieldEditOpen(false) }} loading={bulkRunning}>
+            Reassign…
+          </Button>
         </Group>
       )}
 
-      <div ref={boardWrapperRef} data-tour={TOUR_SELECTOR.kanbanBoard}>
+      {selectMode && selectedIds.size > 0 && fieldEditOpen && (
+        <Group gap="xs" mb="sm" p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }} role="region" aria-label="Bulk field edit">
+          <Select
+            size="xs"
+            label="Field"
+            data={[{ value: 'tags', label: 'Tags' }, { value: 'qualityStatus', label: 'Quality status' }]}
+            value={fieldEditField}
+            onChange={(v) => setFieldEditField((v as 'tags' | 'qualityStatus') || 'tags')}
+            aria-label="Field to bulk edit"
+            style={{ width: 140 }}
+          />
+          {fieldEditField === 'tags' ? (
+            <>
+              <Select
+                size="xs"
+                label="Action"
+                data={[{ value: 'add', label: 'Add tag' }, { value: 'remove', label: 'Remove tag' }]}
+                value={fieldEditTagOp}
+                onChange={(v) => setFieldEditTagOp((v as 'add' | 'remove') || 'add')}
+                aria-label="Add or remove the tag"
+                style={{ width: 130 }}
+              />
+              <TextInput
+                size="xs"
+                label="Tag"
+                placeholder="e.g. hot-lead"
+                value={fieldEditTagValue}
+                onChange={(e) => setFieldEditTagValue(e.currentTarget.value)}
+                aria-label="Tag value"
+              />
+            </>
+          ) : (
+            <Select
+              size="xs"
+              label="New quality status"
+              data={[{ value: 'DRAFT', label: 'Draft' }, { value: 'CHECKED', label: 'Checked' }, { value: 'VERIFIED', label: 'Verified' }]}
+              value={fieldEditQualityStatus}
+              onChange={setFieldEditQualityStatus}
+              aria-label="New quality status"
+              style={{ width: 160 }}
+            />
+          )}
+          <Button
+            size="xs"
+            color="blue"
+            loading={bulkRunning}
+            disabled={fieldEditField === 'tags' ? !fieldEditTagValue.trim() : !fieldEditQualityStatus}
+            onClick={() => runBulkAction('FIELD_EDIT', fieldEditField === 'tags'
+              ? { field: 'tags', op: fieldEditTagOp, value: fieldEditTagValue.trim() }
+              : { field: 'qualityStatus', value: fieldEditQualityStatus })}
+          >
+            Apply to {selectedIds.size} lead{selectedIds.size === 1 ? '' : 's'}
+          </Button>
+        </Group>
+      )}
+
+      {selectMode && selectedIds.size > 0 && assignOpen && (
+        <Group gap="xs" mb="sm" p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }} role="region" aria-label="Bulk reassign">
+          <Select
+            size="xs"
+            label="Assign to"
+            placeholder="Choose a user"
+            data={assignableUsers.map((u) => ({ value: u.ssoUserId, label: u.name ? `${u.name} (${u.email})` : u.email }))}
+            value={assignTarget}
+            onChange={setAssignTarget}
+            aria-label="User to bulk-assign the selection to"
+            style={{ minWidth: 220 }}
+            searchable
+          />
+          <Button
+            size="xs"
+            color="blue"
+            loading={bulkRunning}
+            disabled={!assignTarget}
+            onClick={() => runBulkAction('ASSIGN', { assignedTo: assignTarget })}
+          >
+            Assign {selectedIds.size} lead{selectedIds.size === 1 ? '' : 's'}
+          </Button>
+        </Group>
+      )}
+
+      {/* Real, server-verified undo (issue #203) — a countdown to a real
+          server-enforced expiry, not a cosmetic timer; role="status"
+          aria-live="polite" so a screen-reader user hears the window and
+          its expiry, not just sees it. */}
+      {undoInfo && (
+        <Group gap="sm" mb="sm" p="xs" style={{ border: '1px solid var(--mantine-color-blue-4)', borderRadius: 6 }} role="status" aria-live="polite">
+          <Text size="sm">
+            {undoSecondsLeft > 0
+              ? `You can undo this — expires in ${undoSecondsLeft}s.`
+              : 'Undo window expired.'}
+          </Text>
+          <Button size="xs" variant="light" loading={undoRunning} disabled={undoSecondsLeft <= 0} onClick={runUndo}>
+            Undo
+          </Button>
+          <Button size="xs" variant="subtle" color="gray" onClick={() => setUndoInfo(null)}>
+            Dismiss
+          </Button>
+          {undoInfo.notReversible.length > 0 && (
+            <Text size="xs" c="dimmed" w="100%">
+              {undoInfo.notReversible.length} of these had an active outreach cadence — Undo will restore their column but will not resume that cadence.
+            </Text>
+          )}
+        </Group>
+      )}
+
+      <div data-tour={TOUR_SELECTOR.kanbanBoard}>
         <GdsKanbanBoard
           columns={columns}
           onMoveItem={handleMoveItem}
@@ -594,6 +890,16 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           collapsible
           collapsedColumnIds={collapsedColumnIds}
           onCollapsedChange={handleCollapsedChange}
+          // Issue #125 — GDS's native zone-based wheel-scroll routing
+          // (columnPanZone, shipped in general-design-system 3.14.12,
+          // already installed here via ^6.5.0), replacing this repo's own
+          // gesture-shape heuristic (formerly lib/desktop-scroll-passthrough.ts).
+          // A wheel gesture over a column header pans the columns
+          // horizontally; anywhere else (a card, empty space) always
+          // scrolls the page — routed by cursor zone, not gesture shape,
+          // so a fast diagonal gesture over a card can no longer misroute.
+          // Fine-pointer-only and inert on touch, per GDS's own contract.
+          columnPanZone="header"
         />
       </div>
     </>
