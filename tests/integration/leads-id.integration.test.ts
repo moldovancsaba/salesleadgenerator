@@ -202,6 +202,75 @@ describe('PUT /api/leads/[id]', () => {
   });
 });
 
+// Issue #206 — buyingRole accepted on PUT alongside the legacy
+// isDecisionMaker-only shape, both regression-tested against the real
+// write path (not just the pure normalizeContact() unit tests).
+describe('PUT /api/leads/[id] — buyingRole (issue #206)', () => {
+  it('accepts the legacy isDecisionMaker-only payload shape unchanged', async () => {
+    const id = await seedLeadDirect('Legacy Contact Shape FC');
+    const res = await idPUT(
+      req(`/api/leads/${id}?brand=cogmap`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacts: [{ name: 'Jordan Smith', isDecisionMaker: true }] }),
+      }),
+      { params: Promise.resolve({ id }) }
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.contacts[0].isDecisionMaker).toBe(true);
+    expect(body.contacts[0].buyingRole).toBe('decision_maker');
+  });
+
+  it('accepts the new buyingRole shape and derives isDecisionMaker from it', async () => {
+    const id = await seedLeadDirect('New Buying Role Shape FC');
+    const res = await idPUT(
+      req(`/api/leads/${id}?brand=cogmap`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacts: [{ name: 'Jordan Smith', buyingRole: 'blocker' }] }),
+      }),
+      { params: Promise.resolve({ id }) }
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.contacts[0].buyingRole).toBe('blocker');
+    expect(body.contacts[0].isDecisionMaker).toBe(false);
+  });
+
+  it('an explicit buyingRole wins over a conflicting isDecisionMaker in the same payload', async () => {
+    const id = await seedLeadDirect('Conflicting Payload FC');
+    const res = await idPUT(
+      req(`/api/leads/${id}?brand=cogmap`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacts: [{ name: 'Jordan Smith', buyingRole: 'champion', isDecisionMaker: false }] }),
+      }),
+      { params: Promise.resolve({ id }) }
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.contacts[0].buyingRole).toBe('champion');
+  });
+
+  it('rejects an invalid buyingRole value with 400 and never writes it', async () => {
+    const id = await seedLeadDirect('Invalid Buying Role FC');
+    const res = await idPUT(
+      req(`/api/leads/${id}?brand=cogmap`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacts: [{ name: 'Jordan Smith', buyingRole: 'ceo' }] }),
+      }),
+      { params: Promise.resolve({ id }) }
+    );
+    expect(res.status).toBe(400);
+
+    const getRes = await idGET(req(`/api/leads/${id}?brand=cogmap`), { params: Promise.resolve({ id }) });
+    const getBody = await getRes.json();
+    expect(getBody.contacts).toEqual([]);
+  });
+});
+
 describe('DELETE /api/leads/[id]', () => {
   it('deletes a lead and a subsequent GET 404s', async () => {
     const id = await createLead('Deletable FC');

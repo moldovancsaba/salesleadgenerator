@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.196
+**Version:** 2.4.197
 
 ---
 
@@ -395,7 +395,7 @@ Deliberately does **not** guess a specific tier (e.g. `'Small'`) and run it thro
 
 Key fields:
 - `entity_name`, `url`, `region`, `country`
-- `contacts[]` with `name`, `title`, `email`, `phone`, `linkedin`, `role`, `isDecisionMaker`, `lastVerifiedAt`, `emailVerificationStatus` (issue #67, `{status, checkedAt, isRoleAccount, isFreeProvider, mxHosts?, error?}`), `seniorityTier`/`department` (issue #68, rule-based, re-derived from `title` on every write)
+- `contacts[]` with `name`, `title`, `email`, `phone`, `linkedin`, `role`, `buyingRole` (issue #206, below), `isDecisionMaker`, `lastVerifiedAt`, `emailVerificationStatus` (issue #67, `{status, checkedAt, isRoleAccount, isFreeProvider, mxHosts?, error?}`), `seniorityTier`/`department` (issue #68, rule-based, re-derived from `title` on every write)
 - `techSignals[]`, `techSignalsScannedAt`, `techSignalsScanStatus` (issue #69, top-level, server-computed by the SSRF-guarded homepage scan — see above)
 - `ticketSizeEstimate` (issue #79, top-level, server-computed firmographic-tiered deal-size band — see above)
 - `deals[]`, `checklist[]`, `nextActionDueAt`/`nextActionNote`, `qualification`, `source` (issues #113–#123, all manually/user-managed — see above)
@@ -694,6 +694,25 @@ A minimal, flat trigger→action engine (`automation_rules`) generalizing the on
 `app/contacts/[brand]/page.tsx` + `contacts-client.tsx` — read-only page, same Server Component (`resolveBrand()`/`requireBrandAccess()`) + Client Component split as every other per-brand page. Search box (debounced, matching the sales board's own search-box pattern) plus a GDS `AdminDataTable` listing name/title/email/phone/decision-maker flag/connected-lead chips. No create/edit affordance anywhere on this page — a contact is only ever edited from inside its own lead's detail modal (`app/components/ContactsEditor.tsx`); this page would otherwise imply an edit capability it doesn't have, which CLAUDE.md's UI-affordance rule forbids.
 
 **Deep-linking to a specific lead (2.4.137).** Clicking a connected-lead chip navigates to `/sales/[brand]?leadId=<id>`. Previously `app/sales/[brand]/sales-page-client.tsx` had no way to open a specific lead's detail modal except by clicking an already-rendered card/row/search-result on that same page — there was no URL-driven entry point. A small addition: when `?leadId=` is present, the page fetches that lead via the existing `GET /api/leads/[id]?brand=` and opens the detail modal with it; the param is stripped from the URL again on close (via `router.replace`) so refreshing after dismissing the modal doesn't reopen it. This capability is genuinely real (not a cosmetic link) — it was added specifically so the Contacts view's chips are honest per-lead links rather than only pointing at the board in general.
+
+### Buying-committee roles (2.4.197, issue #206)
+
+**Additive, not a replacement.** `isDecisionMaker` (a single boolean) predates this work and remains fully supported on every read/write path; this issue adds a closed-enum `buyingRole` field (`'economic_buyer' | 'champion' | 'influencer' | 'blocker' | 'decision_maker' | 'unknown'`, `lib/contacts.ts`'s `BuyingRole`/`BUYING_ROLES`) alongside it, and makes `isDecisionMaker` a value permanently *derived* from `buyingRole` rather than an independently-settable flag going forward: `deriveIsDecisionMaker(role)` returns `true` iff `role` is `'decision_maker'` or `'economic_buyer'`, `false` for every other role including `'unknown'`.
+
+**Resolution precedence, computed once per contact in `normalizeContact()` (`lib/contacts.ts`) on every write path** (`POST /api/leads`, `PUT /api/leads/[id]`, `PATCH` `MODIFY` action — this repo's one shared contact-normalization layer, not a new one) via `resolveBuyingRole(contact)`:
+1. A valid `buyingRole` string already on the contact wins outright, even against a conflicting `isDecisionMaker` in the same payload (e.g. `{buyingRole: 'blocker', isDecisionMaker: true}` resolves to `'blocker'`/`false` — the enum is authoritative, the boolean is not silently trusted over it).
+2. Else, legacy `isDecisionMaker: true` alone maps to `'decision_maker'`.
+3. Else, `'unknown'` (and therefore `isDecisionMaker: false`).
+
+An explicitly-provided `buyingRole` that isn't one of the six valid values is rejected at validation time (`lib/validate-lead.ts`, `contacts[N].buyingRole must be one of: ...`) with a `400` — never silently coerced to `'unknown'` or dropped.
+
+**Dedup-merge precedence (`dedupeContacts()`, `lib/contacts.ts`).** When two contact entries collide under the existing `contactKey()` merge (same name+phone/name+email/bare-name), the survivor keeps its own `buyingRole` unless it was `'unknown'` and the duplicate carried a real classification — a concrete role already recorded is never silently overwritten by a duplicate write that happens to arrive with less information. `isDecisionMaker` on the merged record is re-derived from the merged `buyingRole`, never merged as its own independent boolean. The same aggregation feeds `aggregateContactsAcrossLeads()` (issue #139's contacts directory), so `buyingRole` is present on every `ContactDirectoryEntry` too.
+
+**`checkStageGate()` (`lib/stage-gate.ts`) is deliberately unaffected.** The ENGAGED/PROPOSAL gate's contact requirement is satisfied by "any contact at all" (issue #88's own correction, predating this work) — `buyingRole` adds a classification dimension without re-coupling gating to any particular role; `tests/lib/stage-gate.test.ts` locks this in with an explicit regression test (a `blocker`-only or `unknown`-only contact still satisfies the gate).
+
+**Backfill (`lib/backfill-buying-role.ts` + `POST /api/admin/buying-role-backfill`, `requireApiKey`-gated, `{brand?, apply?}`, defaults to dry-run across every brand via `getAllBrandConfigs()`).** Exists purely for stored-data/reporting consistency, not correctness — every read already re-derives nothing (the value is stored, not computed at read time) but every *write* already re-derives `buyingRole`/`isDecisionMaker` correctly via `normalizeContact()`, so a lead that's never touched again after this ships simply keeps its pre-migration shape (`isDecisionMaker` present, `buyingRole` absent) until either the backfill runs or the lead is next written. Mirrors `lib/backfill-title-normalization.ts`'s exact shape (`{scanned, updated, unchanged, contactsUpdated, docs: [...]}`), idempotent by construction — a second `apply` run over already-backfilled data reports zero updates.
+
+**UI.** `app/components/ContactsEditor.tsx`'s "Decision maker" checkbox is replaced by a "Buying role" `Select` (six options, default `Unknown`); choosing a role updates both `buyingRole` and a re-derived `isDecisionMaker` together, so the two fields can never independently drift apart from inside this editor. `app/detail.tsx`'s contact display and `app/contacts/[brand]/contacts-client.tsx`'s directory table both replace the single "Decision Maker" badge with a per-role colored badge (`economic_buyer`/`decision_maker` → blue/indigo, `champion` → green, `influencer` → grape, `blocker` → red; `'unknown'` intentionally renders no badge at all, rather than a misleading neutral one).
 
 ### Unified activity timeline (2.4.142, issue #140)
 

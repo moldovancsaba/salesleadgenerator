@@ -30,7 +30,8 @@ Every field below is grouped by how confidently and how often it's worth re-rese
 | `phone` | string, E.164-ish (`+`-prefixed) | Same as email | Non-`+`-prefixed 10-digit numbers are assumed US and auto-formatted; prefer sending a `+`-prefixed number for anywhere else. |
 | `linkedin` | full profile URL | Same as email | Used only as a verifiable-field signal, not fetched/parsed. |
 | `role` | string | Same as email | Free text, e.g. "Primary buyer", "Technical evaluator". |
-| `isDecisionMaker` | boolean | Whenever your research changes this judgment | Multiple contacts may carry this flag (co-decision-makers). |
+| `buyingRole` | one of `economic_buyer`/`champion`/`influencer`/`blocker`/`decision_maker`/`unknown` (exact enum, case-sensitive) | Whenever your research changes this judgment | New, issue #206 — a closed buying-committee classification, richer than the old boolean. **Prefer this over `isDecisionMaker`** when you can tell someone's actual posture (e.g. a procurement/legal contact pushing back is `blocker`, not just "not a decision maker"). If sent, it wins over `isDecisionMaker` in the same object — the server never stores a self-contradictory pair. Anything outside the 6 listed values is rejected with a 400, not silently coerced. |
+| `isDecisionMaker` | boolean | Whenever your research changes this judgment | **Still fully supported** — omit `buyingRole` and send only this (as before) if you can't tell more than yes/no; the server maps `true` → `buyingRole: 'decision_maker'` automatically. Multiple contacts may carry this flag (co-decision-makers). |
 
 **Send the whole `contacts[]` array, not a delta.** `PUT` replaces it entirely (deduped by name+phone, falling back to name+email, falling back to bare name — see `lib/contacts.ts`'s `contactKey()`). Every contact you include in a `PUT` payload gets `lastVerifiedAt` stamped to *now*, unconditionally — this is exactly what separates "I re-confirmed this contact" from "I'm just passing through data I didn't touch." **Concretely: if you didn't personally re-verify a contact this run, don't include it in the payload's `contacts[]` at all — omit it, don't resend it unchanged**, or you'll falsely mark stale data as fresh. (This is a real, previously-undocumented gotcha — see `docs/LESSONS_LEARNED.md` for the general pattern of write-path assumptions not being written down anywhere until an audit surfaces them.)
 
@@ -49,6 +50,20 @@ Every field below is grouped by how confidently and how often it's worth re-rese
 ```
 
 `isDecisionMaker` (this exact camelCase spelling) is the only key the server reads for the decision-maker flag — `decision_maker`, `decisionMaker`, `is_decision_maker`, or any other variant is silently ignored (the server only ever reads the literal key `isDecisionMaker`), so a contact sent under a wrong key name defaults to `false` with no error and no warning. **This is a real failure mode, not a hypothetical one**: in a live test of this prompt against 5 real leads (2026-07-28), 3 of 5 test runs independently invented a plausible-but-wrong key name (`decision_maker` twice, `decisionMaker` once) for exactly this field, because earlier revisions of this guide only described the field in prose. Omit any field you don't have a value for rather than guessing its name — every other field in the object above (`name` through `role`) follows the same exact-key-name rule.
+
+**When you can tell someone's actual buying-committee posture, send `buyingRole` instead** (issue #206) — same exact-key-name discipline applies:
+
+```json
+{
+  "name": "Alex Chen",
+  "title": "Director of Procurement",
+  "email": "alex@example.com",
+  "role": "Procurement gatekeeper",
+  "buyingRole": "blocker"
+}
+```
+
+`buyingRole` must be exactly one of `economic_buyer`, `champion`, `influencer`, `blocker`, `decision_maker`, `unknown` — any other string (a typo, wrong casing, a made-up value) is rejected with a `400` for the whole request, not silently dropped or coerced. Do not send both `buyingRole` and a conflicting `isDecisionMaker` in the same object expecting the server to reconcile them sensibly for your purposes — it always stores the value derived from `buyingRole` (`true` only for `decision_maker`/`economic_buyer`), silently overriding whatever `isDecisionMaker` you sent alongside it.
 
 **Staleness signal to query against**: `lib/contact-freshness.ts`'s `isContactStale()` — a contact with no `lastVerifiedAt`, or one older than `CONTACT_STALENESS_THRESHOLD_DAYS` (180 by default), is stale. Prioritize leads with stale contacts, especially ones still active in the pipeline (not `WON`/`LOST`).
 

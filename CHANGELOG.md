@@ -1,5 +1,68 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.197
+
+### Buying-committee roles on contacts (issue #206)
+
+Contacts previously carried only a single `isDecisionMaker` boolean — not
+enough to model a real buying committee, where a champion, an economic
+buyer, an influencer, and a blocker are all distinct roles a rep needs to
+track separately. Adds a closed-enum `buyingRole` field (`economic_buyer`
+/ `champion` / `influencer` / `blocker` / `decision_maker` / `unknown`)
+alongside it, additive rather than a replacement: `isDecisionMaker` stays
+fully supported on every existing read/write path, and becomes a value
+permanently *derived* from `buyingRole` (`true` iff the role is
+`decision_maker` or `economic_buyer`) rather than an independently
+settable flag.
+
+Resolution precedence (`resolveBuyingRole()`, `lib/contacts.ts`, run
+inside the single shared `normalizeContact()` every lead write path
+already goes through): an explicit valid `buyingRole` always wins, even
+against a conflicting `isDecisionMaker` in the same payload; legacy
+`isDecisionMaker: true`-only maps to `decision_maker`; both absent
+defaults to `unknown`/`false`. An invalid `buyingRole` string is rejected
+with `400` (`lib/validate-lead.ts`), never silently coerced.
+`dedupeContacts()`'s existing collision-merge gained the same precedence:
+a duplicate contact's `buyingRole` only ever upgrades a survivor's
+`unknown`, never overwrites a concrete role already on record.
+
+**`checkStageGate()` (`lib/stage-gate.ts`) deliberately left untouched** —
+the ENGAGED/PROPOSAL gate's "any contact satisfies it" behavior
+(issue #88's own correction, predating this work) is not re-coupled to
+any particular `buyingRole`; a regression test locks this in.
+
+New backfill (`lib/backfill-buying-role.ts`,
+`POST /api/admin/buying-role-backfill`, `requireApiKey`-gated,
+`{brand?, apply?}`, dry-run by default across every brand) for stored-data
+consistency only — correctness never depends on running it, since every
+write already re-derives both fields correctly.
+
+**UI**: `app/components/ContactsEditor.tsx`'s "Decision maker" checkbox
+replaced by a "Buying role" select (six options); `app/detail.tsx` and
+`app/contacts/[brand]/contacts-client.tsx` both replace the single
+"Decision Maker" badge with a per-role colored badge (`unknown`
+intentionally renders no badge, rather than a misleading neutral one).
+
+`docs/ARCHITECTURE.md`, `docs/LEAD_ENRICHMENT_GUIDE.md` updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 859/859 passing (+20 new, `tests/lib/contacts.test.ts`'s new
+`resolveBuyingRole`/`deriveIsDecisionMaker`/`isValidBuyingRole`/
+`normalizeContact` buyingRole describe blocks plus a dedup collision-merge
+case, `tests/lib/stage-gate.test.ts`'s regression guard, and the new
+`tests/lib/backfill-buying-role.test.ts`, 7 tests). `npm run
+test:integration` — 332/332 passing (+4 new,
+`tests/integration/leads-id.integration.test.ts`'s new
+`PUT /api/leads/[id] — buyingRole` describe block: legacy shape unchanged,
+new shape derives correctly, explicit `buyingRole` wins over a conflicting
+`isDecisionMaker`, invalid value rejected with `400` and nothing written).
+`npm run test:smoke` — 5/5 passing (unrelated to this change; validation
+logic touched is covered by the integration suite instead). `npm run
+audit:gds-style` — 26 (unchanged baseline, verified via `git stash -u`
+A/B comparison; no new UI in this change beyond a `Select`/badge swap in
+already-audited files).
+
 ## 2.4.196
 
 ### Outreach: one-off tracked email send, decoupled from cadence automation (issue #205)
