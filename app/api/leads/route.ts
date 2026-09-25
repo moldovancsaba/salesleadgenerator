@@ -483,6 +483,17 @@ export async function POST(request: NextRequest) {
       console.error('[API:leads] automation rule evaluation failed', { brand, tenantId, leadId: result.insertedId.toString(), error })
     }
 
+    // Outbound webhooks (issue #210 sub-issue #219) — enqueue-only (no
+    // outbound HTTP happens here), so this can never add latency to lead
+    // creation. Caught so a webhook-store issue can never fail the create
+    // itself, matching the automation-rules try/catch just above.
+    try {
+      const { emitWebhookEvent } = await import('../../lib/webhook-store')
+      await emitWebhookEvent(db, brand, 'lead.created', { leadId: result.insertedId.toString(), tenantId, lead: normalizeLead({ ...responseLead, _id: result.insertedId.toString() }) })
+    } catch (error) {
+      console.error('[API:leads] webhook emission failed', { brand, tenantId, leadId: result.insertedId.toString(), error })
+    }
+
     return NextResponse.json({
       success: true,
       lead: responseLead

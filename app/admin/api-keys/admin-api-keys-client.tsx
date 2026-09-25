@@ -1,12 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Container, Title, Text, Stack, Group, Button, Select, Paper, TextInput, CopyButton, ActionIcon, Tooltip } from '@mantine/core'
+import { Container, Title, Text, Stack, Group, Button, Select, Paper, TextInput, CopyButton, ActionIcon, Tooltip, Checkbox, Divider } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminModal } from '@sovereignsquad/gds-admin/client'
 import { StatusBadge } from '@sovereignsquad/gds-core/client'
-import { IconPlus, IconTrash, IconCopy, IconCheck } from '@tabler/icons-react'
+import { IconPlus, IconTrash, IconCopy, IconCheck, IconRefresh } from '@tabler/icons-react'
 import { useAuth } from '@/app/components/AuthProvider'
 import type { ApiKeyScope } from '@/lib/scoped-api-keys'
+import { VALID_WEBHOOK_EVENT_TYPES, type WebhookEventType } from '@/lib/webhooks'
 
 type ApiKeyRow = {
   id: string
@@ -20,6 +21,18 @@ type ApiKeyRow = {
   revokedAt: string | null
 }
 
+type WebhookRow = {
+  id: string
+  brand: string
+  url: string
+  events: WebhookEventType[]
+  createdBy: string
+  createdAt: string
+  disabledAt: string | null
+  disabledReason: string | null
+  consecutiveFailures: number
+}
+
 function relativeTime(iso: string | null): string {
   if (!iso) return 'Never used'
   const then = new Date(iso).getTime()
@@ -30,10 +43,9 @@ function relativeTime(iso: string | null): string {
   return `${Math.floor(hours / 24)}d ago`
 }
 
-// Issue #210, Phase 1 — API key management (issuance, listing, revocation).
-// Webhook management (the issue's own second half) is deliberately not
-// built here — see docs/ARCHITECTURE.md for why this delivery is scoped
-// to Phase 1/5-partial of the issue's own 6-phase sequencing.
+// Issue #210 — API key management (Phase 1) plus outbound webhook
+// subscription management (sub-issue #219), sharing this one page and its
+// brand selector rather than splitting into a second admin route.
 export function AdminApiKeysClient() {
   const { brandLabels } = useAuth()
   const brandKeys = Object.keys(brandLabels)
@@ -51,6 +63,19 @@ export function AdminApiKeysClient() {
   const [revealedKey, setRevealedKey] = useState<string | null>(null)
 
   const [revokeTarget, setRevokeTarget] = useState<ApiKeyRow | null>(null)
+
+  const [webhooks, setWebhooks] = useState<WebhookRow[]>([])
+  const [webhooksLoading, setWebhooksLoading] = useState(true)
+  const [webhooksError, setWebhooksError] = useState<string | null>(null)
+
+  const [createWebhookOpen, setCreateWebhookOpen] = useState(false)
+  const [webhookUrl, setWebhookUrl] = useState('')
+  const [webhookEvents, setWebhookEvents] = useState<WebhookEventType[]>([])
+  const [savingWebhook, setSavingWebhook] = useState(false)
+  const [webhookSaveError, setWebhookSaveError] = useState<string | null>(null)
+  const [revealedSecret, setRevealedSecret] = useState<string | null>(null)
+
+  const [deleteWebhookTarget, setDeleteWebhookTarget] = useState<WebhookRow | null>(null)
 
   useEffect(() => {
     if (!brand && brandKeys.length > 0) setBrand(brandKeys[0])
@@ -116,13 +141,87 @@ export function AdminApiKeysClient() {
     }
   }
 
+  const loadWebhooks = useCallback(async (forBrand: string) => {
+    setWebhooksLoading(true)
+    setWebhooksError(null)
+    try {
+      const res = await fetch(`/api/admin/webhooks?brand=${encodeURIComponent(forBrand)}`)
+      if (!res.ok) throw new Error(`Failed to load webhooks (${res.status})`)
+      const data = await res.json()
+      setWebhooks(data.webhooks || [])
+    } catch (err: any) {
+      setWebhooksError(err?.message || 'Failed to load webhooks')
+    } finally {
+      setWebhooksLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { if (brand) loadWebhooks(brand) }, [brand, loadWebhooks])
+
+  function openCreateWebhook() {
+    setWebhookUrl('')
+    setWebhookEvents([])
+    setRevealedSecret(null)
+    setWebhookSaveError(null)
+    setCreateWebhookOpen(true)
+  }
+
+  async function createWebhook() {
+    setSavingWebhook(true)
+    setWebhookSaveError(null)
+    try {
+      const res = await fetch('/api/admin/webhooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand, url: webhookUrl, events: webhookEvents }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || `Failed to create webhook (${res.status})`)
+      }
+      const data = await res.json()
+      setRevealedSecret(data.secret)
+      await loadWebhooks(brand)
+    } catch (err: any) {
+      setWebhookSaveError(err?.message || 'Failed to create webhook')
+    } finally {
+      setSavingWebhook(false)
+    }
+  }
+
+  async function confirmDeleteWebhook() {
+    if (!deleteWebhookTarget) return
+    try {
+      const res = await fetch(`/api/admin/webhooks/${encodeURIComponent(deleteWebhookTarget.id)}?brand=${encodeURIComponent(brand)}`, { method: 'DELETE' })
+      if (!res.ok && res.status !== 204) throw new Error('Failed to delete webhook')
+      setDeleteWebhookTarget(null)
+      await loadWebhooks(brand)
+    } catch (err: any) {
+      setWebhooksError(err?.message || 'Failed to delete webhook')
+    }
+  }
+
+  async function reEnableWebhook(row: WebhookRow) {
+    try {
+      const res = await fetch(`/api/admin/webhooks/${encodeURIComponent(row.id)}?brand=${encodeURIComponent(brand)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: true }),
+      })
+      if (!res.ok) throw new Error('Failed to re-enable webhook')
+      await loadWebhooks(brand)
+    } catch (err: any) {
+      setWebhooksError(err?.message || 'Failed to re-enable webhook')
+    }
+  }
+
   return (
     <Container size="md" py="xl">
       <Stack gap="md">
         <div>
-          <Title order={2}>Admin — API Keys</Title>
+          <Title order={2}>Admin — API Keys &amp; Webhooks</Title>
           <Text size="sm" c="dimmed">
-            Per-integration, per-brand, revocable credentials — a replacement for sharing one unscoped key across every machine caller. The raw key is shown exactly once, at creation.
+            Per-integration, per-brand, revocable credentials — a replacement for sharing one unscoped key across every machine caller. The raw key is shown exactly once, at creation. Below that: outbound webhook subscriptions, which push signed lead-lifecycle events to an external URL instead of requiring that system to poll.
           </Text>
         </div>
 
@@ -131,9 +230,11 @@ export function AdminApiKeysClient() {
           data={brandKeys.map((k) => ({ value: k, label: brandLabels[k] }))}
           value={brand || null}
           onChange={(value) => setBrand(value || '')}
-          aria-label="Select brand to manage API keys for"
+          aria-label="Select brand to manage API keys and webhooks for"
           style={{ maxWidth: 300 }}
         />
+
+        <Title order={3}>API Keys</Title>
 
         <Group justify="flex-end">
           <Button leftSection={<IconPlus size={16} />} onClick={openCreate} disabled={!brand}>Create key</Button>
@@ -172,6 +273,60 @@ export function AdminApiKeysClient() {
               },
             ]}
             empty={<Text c="dimmed" size="sm">No keys.</Text>}
+            getRowKey={(row) => row.id}
+          />
+        )}
+
+        <Divider my="sm" />
+
+        <Title order={3}>Webhooks</Title>
+        <Text size="sm" c="dimmed">
+          Registering a webhook grants the URL you enter a feed of lead data, including contact PII — only register endpoints you control. The signing secret is shown exactly once, at creation.
+        </Text>
+
+        <Group justify="flex-end">
+          <Button leftSection={<IconPlus size={16} />} onClick={openCreateWebhook} disabled={!brand}>Add webhook</Button>
+        </Group>
+
+        {webhooksError && <AdminFormStatus state="error" title="Something went wrong" description={webhooksError} />}
+
+        {webhooksLoading ? (
+          <Group justify="center" py="xl"><Text c="dimmed" size="sm">Loading…</Text></Group>
+        ) : webhooks.length === 0 ? (
+          <AdminResourceEmptyState title="No webhooks yet for this brand" description="Add the first one above." />
+        ) : (
+          <AdminDataTable<WebhookRow & Record<string, unknown>>
+            rows={webhooks as (WebhookRow & Record<string, unknown>)[]}
+            caption={`Webhooks for ${brandLabels[brand] || brand}`}
+            columns={[
+              { key: 'url', header: 'URL', rowHeader: true, accessor: (row) => row.url },
+              { key: 'events', header: 'Events', accessor: (row) => row.events.join(', ') },
+              { key: 'failures', header: 'Consecutive failures', accessor: (row) => row.consecutiveFailures },
+              {
+                key: 'status',
+                header: 'Status',
+                accessor: (row) => row.disabledAt
+                  ? <StatusBadge status="danger">Disabled — {row.disabledReason || 'disabled'}</StatusBadge>
+                  : <StatusBadge status="success">Active</StatusBadge>,
+              },
+              {
+                key: 'actions',
+                header: 'Actions',
+                accessor: (row) => (
+                  <Group gap="xs" wrap="nowrap">
+                    {row.disabledAt && (
+                      <ActionIcon size="lg" variant="light" color="teal" aria-label={`Re-enable webhook for ${row.url}`} onClick={() => reEnableWebhook(row)}>
+                        <IconRefresh size={16} />
+                      </ActionIcon>
+                    )}
+                    <ActionIcon size="lg" variant="light" color="red" aria-label={`Delete webhook for ${row.url}`} onClick={() => setDeleteWebhookTarget(row)}>
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Group>
+                ),
+              },
+            ]}
+            empty={<Text c="dimmed" size="sm">No webhooks.</Text>}
             getRowKey={(row) => row.id}
           />
         )}
@@ -223,6 +378,69 @@ export function AdminApiKeysClient() {
           <Group justify="flex-end" gap="xs">
             <Button variant="subtle" color="gray" onClick={() => setRevokeTarget(null)}>Cancel</Button>
             <Button color="red" onClick={confirmRevoke}>Revoke</Button>
+          </Group>
+        </Stack>
+      </AdminModal>
+
+      <AdminModal opened={createWebhookOpen} onClose={() => setCreateWebhookOpen(false)} title="Add webhook" size="sm">
+        {revealedSecret ? (
+          <Stack gap="sm">
+            <Text size="sm" fw={600} c="red">This signing secret will not be shown again — copy it now. Losing it means revoke and recreate; there is no recovery.</Text>
+            <Group gap="xs" wrap="nowrap">
+              <TextInput value={revealedSecret} readOnly style={{ flex: 1 }} aria-label="New webhook signing secret" />
+              <CopyButton value={revealedSecret}>
+                {({ copied, copy }) => (
+                  <Tooltip label={copied ? 'Copied' : 'Copy'}>
+                    <ActionIcon size="lg" variant="light" color={copied ? 'teal' : 'gray'} onClick={copy} aria-label="Copy webhook secret">
+                      {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+              </CopyButton>
+            </Group>
+            <Group justify="flex-end">
+              <Button onClick={() => setCreateWebhookOpen(false)}>Done</Button>
+            </Group>
+          </Stack>
+        ) : (
+          <Stack gap="sm">
+            <TextInput
+              label="URL"
+              placeholder="https://example.com/webhooks/salesleadgenerator"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.currentTarget.value)}
+              description="Must be a public https:// address you control — private/internal targets are rejected."
+              required
+            />
+            <Checkbox.Group
+              label="Events"
+              value={webhookEvents}
+              onChange={(values) => setWebhookEvents(values as WebhookEventType[])}
+              description="At least one event is required."
+            >
+              <Stack gap="xs" mt="xs">
+                {VALID_WEBHOOK_EVENT_TYPES.map((eventType) => (
+                  <Checkbox key={eventType} value={eventType} label={eventType} />
+                ))}
+              </Stack>
+            </Checkbox.Group>
+            {webhookSaveError && <Text c="red" size="sm">{webhookSaveError}</Text>}
+            <Group justify="flex-end" gap="xs">
+              <Button variant="subtle" color="gray" onClick={() => setCreateWebhookOpen(false)} disabled={savingWebhook}>Cancel</Button>
+              <Button onClick={createWebhook} loading={savingWebhook} disabled={!webhookUrl.trim() || webhookEvents.length === 0}>Add</Button>
+            </Group>
+          </Stack>
+        )}
+      </AdminModal>
+
+      <AdminModal opened={!!deleteWebhookTarget} onClose={() => setDeleteWebhookTarget(null)} title="Delete webhook?" size="sm">
+        <Stack gap="sm">
+          <Text size="sm">
+            Delete the webhook for <Text span fw={700}>{deleteWebhookTarget?.url}</Text>? Delivery stops immediately. This can&apos;t be undone.
+          </Text>
+          <Group justify="flex-end" gap="xs">
+            <Button variant="subtle" color="gray" onClick={() => setDeleteWebhookTarget(null)}>Cancel</Button>
+            <Button color="red" onClick={confirmDeleteWebhook}>Delete</Button>
           </Group>
         </Stack>
       </AdminModal>

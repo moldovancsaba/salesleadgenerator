@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.209  
+**Version:** 2.4.210  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -79,7 +79,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.209**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25) and needs updating on every version-stamp sync pass, not just when someone notices.
+Current app version is **2.4.210**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25) and needs updating on every version-stamp sync pass, not just when someone notices.
 
 Single source of truth: `package.json`
 
@@ -112,6 +112,7 @@ This README is the single source of truth for documentation paths and descriptio
 | `docs/LLD.md` | Low-Level Design — implementation-depth module map: every API route, every `lib`/`app/lib` module, the UI component tree, the full data model |
 | `docs/OPERATOR_GUIDE.md` | Daily workflow, filters, outreach, known issues, and admin usage |
 | `docs/STACK_AND_DEPENDENCIES.md` | Runtime, framework, UI, DB, hosting, agent/runtime stack |
+| `docs/WEBHOOKS.md` | Integrator guide for the outbound webhook system — event set, request shape, signature verification recipe, retry/dead-letter behavior |
 | `docs/INDEX.md` | Documentation index |
 | `docs/DOC_LINT.md` | Doc lint checklist for maintaining documentation quality |
 

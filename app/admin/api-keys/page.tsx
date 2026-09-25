@@ -4,10 +4,11 @@ import { resolveSessionFromIdToken } from '@/lib/session';
 import { isSuperAdminEmail } from '@/lib/sso-access';
 import { AdminApiKeysClient } from './admin-api-keys-client';
 
-export const metadata = { title: 'Admin — API Keys' };
+export const metadata = { title: 'Admin — API Keys & Webhooks' };
 
-// Scoped API keys (issue #210, Phase 1) — gated identically to
-// /admin/teams//admin/clients: super-admin only, global.
+// Scoped API keys (issue #210, Phase 1) + outbound webhooks (sub-issue
+// #219) — gated identically to /admin/teams//admin/clients: super-admin
+// only, global.
 export default async function AdminApiKeysPage() {
   const cookieStore = await cookies();
   const idToken = cookieStore.get('sso_id_token')?.value;
