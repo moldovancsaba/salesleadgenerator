@@ -17,8 +17,11 @@ export const ACTIVITY_LOG_COLLECTION = 'activityLog'
 // Issue #216 — 'gmail-sync' is the second automated writer, alongside
 // 'inbound-webhook'; both can be active for the same brand simultaneously
 // (see app/lib/gmail-sync-store.ts's own cross-source dedup guard).
-export type ActivityEntryType = 'email-outbound' | 'email-inbound' | 'note' | 'system' | 'call'
-export type ActivitySource = 'inbound-webhook' | 'manual' | 'outreach-log' | 'gmail-sync'
+// Issue #207 — 'meeting-scheduled'/'calendar-sync' record a real booked
+// Google Calendar event, written by app/lib/scheduling-store.ts's
+// bookSlot().
+export type ActivityEntryType = 'email-outbound' | 'email-inbound' | 'note' | 'system' | 'call' | 'meeting-scheduled'
+export type ActivitySource = 'inbound-webhook' | 'manual' | 'outreach-log' | 'gmail-sync' | 'calendar-sync'
 
 // Closed set, chosen to cover the outcomes a rep needs to distinguish for
 // reportable call analytics — mirrors app/types.ts's DeclineReason as this
@@ -57,6 +60,13 @@ export type ActivityEntry = {
   callDisposition?: CallDisposition
   callDurationMinutes?: number
   loggedBy?: string
+  // Issue #207 — meeting-specific fields, present only when
+  // type === 'meeting-scheduled'.
+  meetingStartAt?: string
+  meetingEndAt?: string
+  meetingProvider?: 'google'
+  meetingEventId?: string
+  meetingBookedByEmail?: string
 }
 
 // The write-side shape for a new activityLog document (issue #141, this
@@ -106,6 +116,13 @@ export type ActivityLogDocument = {
   // (never guessed) for the x-api-key/machine-caller path, which has no
   // per-user identity to attribute a manually-logged call to.
   loggedBy?: string
+  // Issue #207 — meeting-specific fields, present only when
+  // type === 'meeting-scheduled' (app/lib/scheduling-store.ts's bookSlot()).
+  meetingStartAt?: string
+  meetingEndAt?: string
+  meetingProvider?: 'google'
+  meetingEventId?: string
+  meetingBookedByEmail?: string
 }
 
 // Lazily ensures the documented indexes exist — same idempotent,
@@ -173,6 +190,11 @@ export function mapActivityLogDoc(doc: any): ActivityEntry {
     callDisposition: isValidCallDisposition(doc.callDisposition) ? doc.callDisposition : undefined,
     callDurationMinutes: typeof doc.callDurationMinutes === 'number' ? doc.callDurationMinutes : undefined,
     loggedBy: typeof doc.loggedBy === 'string' ? doc.loggedBy : undefined,
+    meetingStartAt: typeof doc.meetingStartAt === 'string' ? doc.meetingStartAt : undefined,
+    meetingEndAt: typeof doc.meetingEndAt === 'string' ? doc.meetingEndAt : undefined,
+    meetingProvider: doc.meetingProvider === 'google' ? 'google' : undefined,
+    meetingEventId: typeof doc.meetingEventId === 'string' ? doc.meetingEventId : undefined,
+    meetingBookedByEmail: typeof doc.meetingBookedByEmail === 'string' ? doc.meetingBookedByEmail : undefined,
   }
 }
 

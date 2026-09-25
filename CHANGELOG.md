@@ -1,5 +1,57 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.205
+
+### Meeting scheduler: public booking page backed by Google Calendar (issue #207)
+
+Adds a public, unauthenticated booking page (`/schedule/[brand]`) built
+directly on issue #217's connection hub — `google_calendar` was already
+a provider in its registry, so this ships with zero new OAuth flow, zero
+new encryption, and zero new environment variables. A prospect picks an
+open slot computed against the brand's real Google Calendar free/busy
+data; booking creates a real Calendar event, logs a `meeting-scheduled`
+activity entry, and writes the meeting time onto the lead's existing
+`nextActionDueAt` field via the same pattern `cadence-tick` already
+established.
+
+DST-correct slot math (`lib/scheduling.ts`, using `dayjs`'s own
+already-installed `utc`/`timezone` plugins — no new dependency).
+Race-safe booking via a short-lived, unique-indexed slot-claim document
+that closes the gap between the freshness re-check and the real Google
+event-create call — two concurrent bookings for the identical slot
+resolve to exactly one success, verified directly by an integration
+test. A new, real, DB-backed rate limiter (this repo had no rate-limiting
+capability anywhere before this issue) protects the two new public
+routes.
+
+**Real, disclosed architectural mismatch, the same class found for issue
+#216 and now recurring for a second issue against the same hub**: this
+issue's own text assumes a per-rep booking link (keyed by `ssoUserId`),
+but its own current-state analysis also states plainly "this app has no
+user/ownership model" — and the hub it depends on supports exactly one
+connection per `{brand, tenantId, provider}`, with no per-rep dimension.
+Shipped fully consistent with both the hub's real schema and the issue's
+own stated finding: one shared booking calendar per brand, not one per
+rep. See `docs/ARCHITECTURE.md` for the full reasoning.
+
+A real, disclosed root-layout change was required: the public booking
+page must show none of the SSO-gated app chrome, but the nav header was
+previously rendered unconditionally in `app/layout.tsx` for every route.
+Extracted into a new `AppHeader` component that hides itself on
+`/schedule/*`.
+
+Disclosed limitation, same class as issues #216/#217: the required real
+end-to-end run (a real Google account, a real booked event, a real
+external revoke) could not be performed in this sandbox. Unit and
+integration tests (the latter against a real database with Google
+Calendar's REST calls mocked at the fetch boundary, per the issue's own
+explicit testing instruction) cover everything else, including the
+concurrency race and rate-limit enforcement.
+
+tsc: 0 errors. lint: 0 errors/warnings. unit: 1051/1051. integration:
+410/410. smoke: 5/5. audit:gds-style: 26 (unchanged baseline). next
+build: clean. No dependency added.
+
 ## 2.4.204
 
 ### Integrations: Gmail activity sync + Google Contacts import (issue #216)

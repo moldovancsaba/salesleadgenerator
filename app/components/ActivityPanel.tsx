@@ -21,15 +21,18 @@ const DISPOSITION_LABEL: Record<CallDisposition, string> = {
 
 type ActivityEntry = {
   id: string
-  type: 'email-outbound' | 'email-inbound' | 'note' | 'system' | 'call'
+  type: 'email-outbound' | 'email-inbound' | 'note' | 'system' | 'call' | 'meeting-scheduled'
   direction: 'outbound' | 'inbound' | null
   subject?: string
   bodyExcerpt?: string
-  source: 'inbound-webhook' | 'manual' | 'outreach-log' | 'gmail-sync'
+  source: 'inbound-webhook' | 'manual' | 'outreach-log' | 'gmail-sync' | 'calendar-sync'
   createdAt: string
   callDisposition?: CallDisposition
   callDurationMinutes?: number
   loggedBy?: string
+  meetingStartAt?: string
+  meetingEndAt?: string
+  meetingBookedByEmail?: string
 }
 
 type ActivityContact = { name?: string; email?: string; phone?: string }
@@ -78,6 +81,7 @@ const TYPE_LABEL: Record<ActivityEntry['type'], string> = {
   note: 'Note',
   system: 'System',
   call: 'Call',
+  'meeting-scheduled': 'Meeting scheduled',
 }
 
 // Issue #140 — the first genuinely unified per-lead activity timeline in this
@@ -348,7 +352,7 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
             <Box key={entry.id} p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }}>
               <Group justify="space-between" gap="xs" wrap="nowrap">
                 <Group gap={4}>
-                  <Badge size="xs" variant="light" color={entry.type === 'call' ? 'grape' : entry.direction === 'inbound' ? 'teal' : 'blue'}>
+                  <Badge size="xs" variant="light" color={entry.type === 'call' ? 'grape' : entry.type === 'meeting-scheduled' ? 'indigo' : entry.direction === 'inbound' ? 'teal' : 'blue'}>
                     {TYPE_LABEL[entry.type]}
                   </Badge>
                   {entry.source === 'gmail-sync' && (
@@ -367,6 +371,13 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
                   {entry.callDurationMinutes ? `${entry.callDurationMinutes} min` : null}
                   {entry.callDurationMinutes && entry.loggedBy ? ' · ' : null}
                   {entry.loggedBy ? `Logged by ${entry.loggedBy}` : null}
+                </Text>
+              )}
+              {entry.type === 'meeting-scheduled' && entry.meetingStartAt && (
+                <Text size="xs" c="dimmed" mt={2}>
+                  {new Date(entry.meetingStartAt).toLocaleString()}
+                  {entry.meetingEndAt ? ` – ${new Date(entry.meetingEndAt).toLocaleTimeString()}` : ''}
+                  {entry.meetingBookedByEmail ? ` · Booked by ${entry.meetingBookedByEmail}` : ''}
                 </Text>
               )}
             </Box>
