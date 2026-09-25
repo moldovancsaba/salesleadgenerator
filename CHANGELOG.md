@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.214
+
+### Docs: GitHub attribution-footer auto-append on comment creation, and a retroactive Rule 8 cleanup
+
+While posting 2.4.213's progress comment on issue #132, an AI-attribution
+footer (which CLAUDE.md Rule 8 forbids) appeared on the posted comment even
+though the `body` sent to `add_issue_comment` did not contain it — proving
+that pre-call review of outgoing text cannot catch this class of mistake,
+since the text sent is not the text that gets posted. Fixed the just-posted
+comment via `update_issue_comment`, then discovered every one of the other
+10 comments already on issue #132 (dating to 2026-07-29) carried the same
+footer, including one whose own text incorrectly claimed no tool existed to
+remove it. All 11 mechanically stripped this session — `update_issue_comment`
+itself does not re-trigger the auto-append (confirmed: none of the 11 came
+back with a footer after editing). Documented as `docs/LESSONS_LEARNED.md`
+item 22, with a corrected mechanical check (fetch-back-and-diff after every
+`add_issue_comment`, not just review-before-sending). Also cross-referenced
+the already-documented `gds-compliance` false-positive lesson (item 19) to
+its newly-filed tracking issue, #221. No code changed — a documentation and
+GitHub-comment-cleanup-only release.
+
 ## 2.4.213
 
 ### Data: taxonomy classification batch — Real Sociedad, Sportlogiq, Celtic FC, SSC Napoli (issue #132 resumed)
