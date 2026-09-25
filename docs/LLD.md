@@ -72,7 +72,8 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/automation-rules/route.ts` | GET, POST | `requireApiKey` (POST) | List/create automation rules (`lib/automation-rules.ts`, issue #201) |
 | `app/api/automation-rules/[id]/route.ts` | GET, PUT, DELETE | `requireApiKey` (PUT/DELETE) | Single automation rule CRUD |
 | `app/api/admin/automation-tick/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Cron worker: evaluates `stale_no_activity` rules (`app/lib/automation-store.ts`'s `runStaleTickForBrand`) |
-| `app/api/outreach-logs/route.ts` | GET, POST | `requireApiKey` (POST) | Log of sent outreach; POST runs `evaluateOutreachRouting` |
+| `app/api/outreach-logs/route.ts` | GET, POST | `requireApiKey` (POST) | Record-only outreach log, never sends; POST runs `evaluateOutreachRouting` |
+| `app/api/outreach-send/route.ts` | POST | `requireApiKey` | Real, one-off rep-initiated email send via Resend (`lib/outreach-send.ts`'s `sendManualEmail`, issue #205) |
 | `app/api/outreach-templates/route.ts` | GET, POST | `requireApiKey` (POST) | Template CRUD, seeded from `DEFAULT_OUTREACH_TEMPLATES`; GET annotates with `computeTemplateConversions` |
 | `app/api/outcome-logs/route.ts` | GET, POST | `requireApiKey` | Stage-transition outcome log (drives win-rate/velocity calibration) |
 | `app/api/battlecards/route.ts` | GET, POST | `requireApiKey` (POST) | List/create competitor battlecards, seeded from `DEFAULT_BATTLECARDS` |
@@ -162,7 +163,7 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 **Cadences / outreach**
 - `lib/cadences.ts` — `Cadence`, `CadenceStep`, `ActiveCadence`, `sanitizeCadence(Step/Steps)`, `validateCadence`, `computeStepDueAt`, `buildInitialActiveCadence`, `advanceActiveCadence`
 - `lib/automation-rules.ts` — `AutomationRule`, `AutomationTrigger`, `AutomationAction`, `sanitizeAutomationRule`, `validateAutomationRule`, `computeSetNextActionFields`, `buildNotificationLogEntry`, `matchesEventTrigger` (issue #201); `app/lib/automation-store.ts` — `evaluateEventRules`, `runStaleTickForBrand`, `applyAction`, `ensureAutomationIndexes` (the Mongo-aware evaluation layer)
-- `lib/outreach-send.ts` — `isResendSendConfigured`, `resolveOutboundFromAddress`, `sendAutomatedEmail`
+- `lib/outreach-send.ts` — `isResendSendConfigured`, `resolveOutboundFromAddress`, `dispatchOutreachEmail` (shared core), `sendAutomatedEmail` (cadence wrapper), `sendManualEmail` (rep-initiated wrapper, issue #205)
 - `lib/resend-webhook.ts` — `extractResendWebhookHeaders`, `verifyResendWebhook`, `isResendConfigured`
 - `lib/template-conversion.ts` — `computeTemplateConversions`
 
@@ -200,7 +201,7 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 
 ### 4.1 Why this is a separate layer from `lib/*.ts`
 
-`app/lib/*.ts` mixes **App-Router-coupled** and **brand/UI-adjacent** concerns. The import direction is one-way, confirmed by grep: `app/lib/**` imports from `lib/**`, never the reverse. `app/types.ts` itself imports `CurrencyCode` from `app/lib/brand.ts` and `ActiveCadence` from `lib/cadences.ts` — so `app/lib/brand.ts` is upstream even of the core `Lead` type.
+`app/lib/*.ts` mixes **App-Router-coupled** and **brand/UI-adjacent** concerns. **Correction (2.4.196, found while implementing issue #205, previously stated here as strictly one-way):** the import direction is *predominantly* `app/lib/**` → `lib/**`, but a real, established minority of `lib/*.ts` modules import back from `app/lib/*.ts` — re-verified by grep, not assumed: `lib/outreach-send.ts` (`evaluateOutreachRouting`/`getBrandConfig`, and now also `app/lib/activity-log-store.ts`'s `truncateBody`/`ensureActivityLogIndexes` for issue #205's manual-send Activity-timeline write), `lib/contact-reply-matching.ts`, and `lib/validate-lead.ts` all cross back into `app/lib/`. `app/types.ts` itself imports `CurrencyCode` from `app/lib/brand.ts` and `ActiveCadence` from `lib/cadences.ts` — so `app/lib/brand.ts` is upstream even of the core `Lead` type, in the same file that also imports downstream from `lib/`. Read this as "mostly one-way, with a handful of disclosed exceptions where a `lib/` module's job genuinely needs an `app/lib/` concern (brand config, routing rules, activity-log writes)," not a hard invariant.
 
 The concrete pattern that distinguishes the two layers: `lib/cadences.ts` has the pure `sanitizeCadence`/`advanceActiveCadence` logic, but `app/lib/` has **no** cadence store — that CRUD lives directly in `app/api/cadences/**`. Conversely, `app/lib/ticket-size-store.ts` / `app/lib/win-rate-store.ts` / `app/lib/ticket-size-calibration-store.ts` are the **Mongo-aware caching/orchestration layer** ("get cached doc, recompute if stale, persist") sitting on top of the pure calculators in `lib/ticket-size-calibration.ts` / `lib/win-rate-calibration.ts` — the `-store` suffix consistently marks this DB-orchestration role. `app/lib/brand.ts` and `app/lib/sales-settings.ts` also hold real UI-facing option lists (`CUSTOMER_TYPE_OPTIONS`, `BUYER_ROLE_OPTIONS`, etc.) that `lib/*.ts` never does.
 
@@ -319,7 +320,8 @@ See `docs/ARCHITECTURE.md` for the *meaning* of each taxonomy/scoring field — 
 | `activityLog` | `ActivityLogDocument` | `app/lib/activity-log-store.ts` | Inbound webhook + outreach-log merge |
 | `contactSuggestions` | `ContactSuggestionDocument` | `lib/contact-reply-matching.ts` | `generateContactSuggestion()` off inbound webhook events |
 | `cadences` | `Cadence` (`{id, name, steps: CadenceStep[]}`, `CadenceStep = {channel: 'email'\|'linkedin'\|'call', waitDaysAfterPrevious, ...}`) | `lib/cadences.ts` | `/api/cadences` CRUD |
-| `outreach_logs` | inline shape `{id, leadId, brand, templateId, channel, subject, body, createdAt, tenantId, routingAllowed, routingReason}` | `app/api/outreach-logs/route.ts` | `/api/outreach-logs` POST |
+| `outreach_logs` | inline shape `{id, leadId, brand, templateId, channel, subject, body, createdAt, tenantId, routingAllowed, routingReason}`, plus (issue #205, additive) `sendAttempted`, `resendEmailId`, `sentAutomatically`, `cadenceId`/`stepIndex`, `activityLogWritten`, and (webhook-written) `deliveryStatus`/`deliveryStatusUpdatedAt`/`openCount`/`clickCount` | `app/api/outreach-logs/route.ts` (record-only) / `lib/outreach-send.ts` (real sends) | `/api/outreach-logs` POST, `/api/outreach-send` POST, `/api/webhooks/inbound-email` POST (status enrichment only) |
+| `resend_webhook_event_ids` | `{svixId, createdAt, expiresAt}`, unique on `svixId`, TTL on `expiresAt` | `app/api/webhooks/inbound-email/route.ts` | Delivery/open/click event dedup (issue #205) |
 | `company_settings` | `SalesSettings` (`ProductLine[]`, `DealSize`, `Upsell[]`, `ExampleCustomer[]`, `Seasonality`, `RevenueTarget`), keyed by brand | `app/lib/sales-settings.ts` | `/api/sales-settings/[brand]` PUT |
 | `settings` (generic, keyed by `key`) | `pipeline_weights`, `stale_thresholds`, `concentration_risk_settings`, `forecast_calibration` | various `lib/*.ts` | `/api/settings` PUT |
 | `winrate_calibration` | `WinRateDoc` | `app/lib/win-rate-store.ts` | Lazy recompute, 24h TTL |

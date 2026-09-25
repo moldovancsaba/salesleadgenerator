@@ -21,6 +21,7 @@ import { evaluateOutreachRouting, type LeadFieldSnapshot } from '../app/lib/outr
 import { interpolate, type OutreachTemplate } from '../app/lib/outreach/default-templates';
 import { getDecisionMakerContact } from './contacts';
 import { getBrandConfig } from '../app/lib/brand';
+import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes, truncateBody } from '../app/lib/activity-log-store';
 
 export type AutomatedSendContext = {
   brand: string;
@@ -29,12 +30,36 @@ export type AutomatedSendContext = {
   stepIndex: number;
 };
 
+// Issue #205 — one-off, rep-initiated send. idempotencyKey is generated
+// client-side once per click (never server-side — see
+// app/api/outreach-send/route.ts) so a genuine network-level retry of the
+// same click reuses the same key (Resend dedupes it) while two distinct
+// rep-initiated sends always get distinct keys.
+export type ManualSendContext = {
+  brand: string;
+  tenantId: string;
+  idempotencyKey: string;
+};
+
+// The one thing that actually differs between a cadence step firing itself
+// and a rep clicking Send: how the idempotency key is built and whether the
+// resulting outreach_logs row is tagged sentAutomatically. Everything else
+// (routing check, interpolation, the Resend call itself, log-writing) is one
+// shared path — see dispatchOutreachEmail() below.
+export type OutreachSendSource =
+  | { kind: 'cadence'; cadenceId: string; stepIndex: number }
+  | { kind: 'manual'; idempotencyKey: string };
+
 export type AutomatedSendResult = {
   sent: boolean;
   // Set whenever sent is false — why the send didn't happen (routing
   // ineligible, no template, or a Resend-side rejection/failure).
   reason?: string;
   outreachLogId: string;
+  // Present only when sent === true — Resend's own returned email id,
+  // needed by the caller to correlate a later delivery/open/click webhook
+  // event back to this specific send.
+  resendEmailId?: string;
 };
 
 // Just enough of a Lead to route and interpolate — matches
@@ -74,7 +99,7 @@ export function resolveOutboundFromAddress(brand: string, fromEmail?: string): s
 
 async function writeOutreachLog(
   db: Db,
-  context: AutomatedSendContext,
+  context: { brand: string; tenantId: string },
   leadId: string,
   fields: {
     templateId?: string;
@@ -82,6 +107,25 @@ async function writeOutreachLog(
     body: string;
     routingAllowed: boolean;
     routingReason: string | null;
+    // Issue #205 — sendAttempted distinguishes a row this module wrote
+    // (always true here) from a POST /api/outreach-logs record-only row
+    // (which never sets this field at all) — sentAutomatically alone is
+    // ambiguous, since false/absent covers both a Log-outreach row and a
+    // manual real-send row.
+    sendAttempted: true;
+    resendEmailId?: string;
+    sentAutomatically: boolean;
+    cadenceId?: string;
+    stepIndex?: number;
+    // Set true only once a corresponding activityLog row has also been
+    // written for this send (successful manual sends only) — the read-side
+    // merge in GET /api/leads/[id]/activity excludes a row with this set,
+    // since it would otherwise render twice in one lead's timeline (once
+    // via this collection's own existing outreach_logs->email-outbound
+    // mapping, once via the new activityLog row). A cadence send never sets
+    // this — it has no activityLog row, so it keeps rendering exactly as it
+    // always has.
+    activityLogWritten?: boolean;
   }
 ): Promise<string> {
   const result = await db.collection('outreach_logs').insertOne({
@@ -98,32 +142,85 @@ async function writeOutreachLog(
     // Additive-only — every existing outreach_logs reader (GET
     // /api/outreach-logs, template conversion tracking, the Activity
     // timeline merge) ignores fields it doesn't recognize, so a manual-send
-    // row simply lacks these rather than needing a schema migration.
-    cadenceId: context.cadenceId,
-    stepIndex: context.stepIndex,
-    sentAutomatically: true,
+    // row simply lacks the cadence-only ones rather than needing a schema
+    // migration.
+    sendAttempted: fields.sendAttempted,
+    resendEmailId: fields.resendEmailId,
+    sentAutomatically: fields.sentAutomatically,
+    cadenceId: fields.cadenceId,
+    stepIndex: fields.stepIndex,
+    activityLogWritten: fields.activityLogWritten,
   });
   return result.insertedId.toString();
 }
 
-// Sends one cadence email step to one lead, or explains why it didn't.
-// Never throws — a cron tick processing many leads (issue #151) must not
-// have one lead's failure (missing template, routing block, Resend error)
-// abort the whole batch. Every call writes exactly one outreach_logs entry,
+// Issue #205 — writes the activityLog entry for a successful MANUAL send
+// only (never for a cadence send, which has no activityLog row of its own —
+// see writeOutreachLog's own comment on activityLogWritten). externalId
+// carries the sparse+unique index app/lib/activity-log-store.ts's
+// ensureActivityLogIndexes() already creates for the inbound-webhook path —
+// reused here for the identical purpose: a retried call with the same
+// resendEmailId (e.g. this same dispatchOutreachEmail() re-invoked with the
+// same idempotencyKey after a network-level retry) hits a duplicate-key
+// error, treated as already-processed rather than a second timeline entry.
+async function writeManualSendActivityLog(
+  db: Db,
+  context: { brand: string; tenantId: string },
+  leadId: string,
+  fields: { resendEmailId: string; subject: string; body: string }
+): Promise<boolean> {
+  try {
+    await ensureActivityLogIndexes(db);
+    await db.collection(ACTIVITY_LOG_COLLECTION).insertOne({
+      leadId,
+      tenantId: context.tenantId,
+      brand: context.brand,
+      type: 'email-outbound',
+      direction: 'outbound',
+      subject: fields.subject,
+      bodyExcerpt: truncateBody(fields.body),
+      matchedContactKey: null,
+      source: 'manual',
+      externalId: fields.resendEmailId,
+      createdAt: new Date(),
+    });
+    return true;
+  } catch (err: any) {
+    if (err?.code === 11000) return true; // already processed (retry) — not an error
+    // Non-fatal: outreach_logs is already the source-of-truth record of the
+    // send itself; a failure writing this secondary Activity-timeline entry
+    // must never make an otherwise-successful send look like it failed.
+    console.error('[lib/outreach-send] activityLog write for manual send failed', err);
+    return false;
+  }
+}
+
+// The shared core both sendAutomatedEmail() (cadence) and sendManualEmail()
+// (issue #205, rep-initiated) call — the only difference between the two is
+// how the idempotency key is built and which outreach_logs fields get
+// stamped, per OutreachSendSource. Never throws (source.kind === 'cadence'
+// depends on this for cron batch safety, per this function's own original
+// header comment); every call writes exactly one outreach_logs entry,
 // success or failure, so the send history is complete either way.
-export async function sendAutomatedEmail(
+export async function dispatchOutreachEmail(
   db: Db,
   lead: LeadForSend,
   template: OutreachTemplate | null,
-  context: AutomatedSendContext
+  context: { brand: string; tenantId: string },
+  source: OutreachSendSource
 ): Promise<AutomatedSendResult> {
   const leadId = lead._id;
+  const sentAutomatically = source.kind === 'cadence';
+  const cadenceFields = source.kind === 'cadence' ? { cadenceId: source.cadenceId, stepIndex: source.stepIndex } : {};
 
   if (!template) {
     const outreachLogId = await writeOutreachLog(db, context, leadId, {
       body: '',
       routingAllowed: false,
       routingReason: 'template not found',
+      sendAttempted: true,
+      sentAutomatically,
+      ...cadenceFields,
     });
     return { sent: false, reason: 'template not found', outreachLogId };
   }
@@ -143,6 +240,9 @@ export async function sendAutomatedEmail(
       body,
       routingAllowed: false,
       routingReason: routing.reason || null,
+      sendAttempted: true,
+      sentAutomatically,
+      ...cadenceFields,
     });
     return { sent: false, reason: routing.reason, outreachLogId };
   }
@@ -159,21 +259,30 @@ export async function sendAutomatedEmail(
       body,
       routingAllowed: false,
       routingReason: 'Missing decision maker email for email outreach.',
+      sendAttempted: true,
+      sentAutomatically,
+      ...cadenceFields,
     });
     return { sent: false, reason: 'Missing decision maker email for email outreach.', outreachLogId };
   }
 
-  // Idempotency-Key, not a duplicate send: a retried cron tick (issue #151)
-  // for the same lead/step resolves to the same key, so Resend itself
-  // dedupes rather than this module needing to track its own "already sent
-  // this tick" state.
-  const idempotencyKey = `cadence-${context.cadenceId}-${leadId}-${context.stepIndex}`;
+  // Idempotency-Key, not a duplicate send. Cadence: a retried cron tick
+  // (issue #151) for the same lead/step resolves to the same key, so Resend
+  // itself dedupes rather than this module needing to track its own
+  // "already sent this tick" state. Manual (issue #205): built from the
+  // client-generated idempotencyKey so a genuine network-level retry of the
+  // same rep click reuses the same key, while two independently rep-
+  // initiated sends always get distinct keys.
+  const idempotencyKey = source.kind === 'cadence'
+    ? `cadence-${source.cadenceId}-${leadId}-${source.stepIndex}`
+    : `manual-${leadId}-${source.idempotencyKey}`;
 
   let sendError: string | undefined;
+  let resendEmailId: string | undefined;
   try {
     const brandConfig = await getBrandConfig(context.brand);
     const resend = new Resend(process.env.RESEND_API_KEY);
-    const { error } = await resend.emails.send(
+    const { data, error } = await resend.emails.send(
       {
         from: resolveOutboundFromAddress(context.brand, brandConfig?.fromEmail),
         to,
@@ -184,13 +293,21 @@ export async function sendAutomatedEmail(
     );
     if (error) {
       sendError = error.message || error.name;
+    } else {
+      resendEmailId = data?.id;
     }
   } catch (err: any) {
     // Network error, timeout, or any other throw from the SDK itself
     // (distinct from a well-formed API error response, which resolves
     // through `error` above without throwing) — caught here so a transient
-    // Resend outage can never abort a cron tick's whole batch.
+    // Resend outage can never abort a cron tick's whole batch, and never
+    // leaves a rep-initiated send hanging with no error surfaced either.
     sendError = err?.message || 'Resend request failed';
+  }
+
+  let activityLogWritten = false;
+  if (!sendError && source.kind === 'manual' && resendEmailId) {
+    activityLogWritten = await writeManualSendActivityLog(db, context, leadId, { resendEmailId, subject, body });
   }
 
   const outreachLogId = await writeOutreachLog(db, context, leadId, {
@@ -199,10 +316,53 @@ export async function sendAutomatedEmail(
     body,
     routingAllowed: !sendError,
     routingReason: sendError ? `resend rejected: ${sendError}` : null,
+    sendAttempted: true,
+    resendEmailId,
+    sentAutomatically,
+    ...cadenceFields,
+    activityLogWritten,
   });
 
   if (sendError) {
     return { sent: false, reason: `resend rejected: ${sendError}`, outreachLogId };
   }
-  return { sent: true, outreachLogId };
+  return { sent: true, outreachLogId, resendEmailId };
+}
+
+// Sends one cadence email step to one lead, or explains why it didn't.
+// Thin wrapper over dispatchOutreachEmail() — this exported signature and
+// every behavior it produces (idempotency key, cadenceId/stepIndex fields,
+// the cron call site) is unchanged from before issue #205's refactor; the
+// cadence-send integration tests assert this explicitly.
+export async function sendAutomatedEmail(
+  db: Db,
+  lead: LeadForSend,
+  template: OutreachTemplate | null,
+  context: AutomatedSendContext
+): Promise<AutomatedSendResult> {
+  return dispatchOutreachEmail(
+    db,
+    lead,
+    template,
+    { brand: context.brand, tenantId: context.tenantId },
+    { kind: 'cadence', cadenceId: context.cadenceId, stepIndex: context.stepIndex }
+  );
+}
+
+// Issue #205 — the new rep-initiated, one-off send path. Thin wrapper over
+// the same dispatchOutreachEmail() core cadence sends use, diverging only in
+// idempotency-key construction and which outreach_logs fields get stamped.
+export async function sendManualEmail(
+  db: Db,
+  lead: LeadForSend,
+  template: OutreachTemplate | null,
+  context: ManualSendContext
+): Promise<AutomatedSendResult> {
+  return dispatchOutreachEmail(
+    db,
+    lead,
+    template,
+    { brand: context.brand, tenantId: context.tenantId },
+    { kind: 'manual', idempotencyKey: context.idempotencyKey }
+  );
 }

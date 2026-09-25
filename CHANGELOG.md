@@ -1,5 +1,83 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.196
+
+### Outreach: one-off tracked email send, decoupled from cadence automation (issue #205)
+
+The compose modal's only button previously wrote a record-only log row and
+never sent anything — worse, its busy label read "Sending…" while doing
+exactly that nothing (a real CLAUDE.md Rule 7 violation, fixed in the same
+change: relabeled "Logging…"). This adds a genuinely functional second
+action, **"Send email"**, the first rep-initiated real external side effect
+this app has ever had (the cadence cron was the first automated one).
+
+`lib/outreach-send.ts` is generalized into one shared core
+(`dispatchOutreachEmail()`) that both the pre-existing cadence path
+(`sendAutomatedEmail()`, external signature and behavior fully unchanged —
+its own integration tests pass unmodified) and the new manual path
+(`sendManualEmail()`) call, diverging only in idempotency-key construction
+and which `outreach_logs` fields get stamped. New `POST /api/outreach-send`
+(`requireApiKey`, same tier as `POST /api/outreach-logs`) — validates the
+request, pre-checks routing, and sends via Resend; a routing block or
+Resend rejection is a handled `200 {sent:false}` (never a 500), matching
+`AutomatedSendResult`'s existing shape.
+
+**A real duplication bug caught before shipping**: the issue's own
+Architecture diagram has a successful manual send write both an
+`outreach_logs` row and a new `activityLog` row — but `GET
+/api/leads/[id]/activity` already independently maps *every*
+`outreach_logs` row into the same merged Activity timeline, so implementing
+the diagram literally would have shown one real send twice. Fixed with a
+new `activityLogWritten` marker field, excluded from that route's
+`outreach_logs`-branch query exactly when set — a cadence send (never
+`activityLogWritten`) and a plain "Log outreach" row (never sets the field)
+are both unaffected.
+
+Delivery/open/click tracking extends the existing inbound-email webhook
+endpoint's own Resend subscription (one webhook object, more event types,
+same signing secret — no new secret needed) rather than a second endpoint;
+kept the route's existing name despite now covering both directions
+(disclosed reasoning in `docs/ARCHITECTURE.md` — renaming would force an
+operator-side webhook-URL change on top of this deploy). Updates
+`outreach_logs` by `resendEmailId`, never a new `activityLog` row per
+event (avoids timeline spam on repeat opens); retry-dedup on the event's
+own `svix-id` via a new TTL-indexed `resend_webhook_event_ids` collection.
+
+**Disclosed, not performed**: issue #205 §19's own required manual
+verification step (one real send to a real address, a real webhook event
+observed) — this sandbox has no `RESEND_API_KEY`/`RESEND_WEBHOOK_SECRET`
+configured, confirmed directly, so a real send is impossible here, and
+sending real unsolicited email autonomously would be inappropriate
+regardless. Flagged as owner-only, not silently marked done.
+
+**Also fixed while touching this area**: `docs/ARCHITECTURE.md` had a
+stale paragraph still describing `resolveOutboundFromAddress()`'s
+pre-issue-#195 `RESEND_FROM_<BRAND>` env-var design (issue #195 moved this
+to the brand's own `fromEmail` field over a month ago); and `docs/LLD.md`'s
+claim that `lib/**` never imports from `app/lib/**` was already false for
+3 existing files before this change (this issue's own new `lib/outreach-send.ts`
+import of `app/lib/activity-log-store.ts` makes it 3-and-a-half) — both
+corrected in the same change.
+
+`docs/ARCHITECTURE.md`, `docs/LLD.md`, `docs/OPERATOR_GUIDE.md` updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 839/839 passing (cadence-path tests unmodified). `npm run
+test:integration` — 328/328 passing (+30 new across
+`tests/integration/outreach-send.integration.test.ts` (manual-send branch
+coverage, activityLog dedup, cadence-path regression),
+`tests/integration/inbound-email-webhook.integration.test.ts` (new
+delivery-event branches incl. retry-dedup), and the new
+`tests/integration/outreach-send-route.integration.test.ts` (the route
+end-to-end, `POST /api/outreach-logs` regression, and the
+never-renders-twice Activity-timeline check)). `npm run test:smoke` —
+5/5 passing (issue #205's own smoke-suite text doesn't map cleanly onto
+this repo's actual DB-free smoke suite — same disclosed gap already
+recorded for issue #201's cron endpoint). `npm run audit:gds-style` — 26
+findings, unchanged from the pre-existing baseline (`git stash -u` A/B
+comparison).
+
 ## 2.4.195
 
 ### Automation: trigger-action rule engine (issue #201)
