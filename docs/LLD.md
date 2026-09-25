@@ -153,6 +153,8 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 - `lib/pipeline-coverage.ts` — `computeCoverage`, `Coverage`, `CoverageBenchmark`
 - `lib/forecast-concentration.ts` — `computeConcentration`, `getConcentrationRiskSettings`, `DEFAULT_CONCENTRATION_*`
 - `lib/win-rate-calibration.ts` — `computeWinRatesFromLogs`, `mergeCalibratedWeights`, `getForecastCalibrationSettings`, `CALIBRATABLE_STAGES`
+- `lib/forecast-category.ts` — `ForecastCategory`, `resolveDefaultCategory`, `effectiveForecastCategory`, `computeCategoryForecast`, `getForecastCategoryWeights` (issue #204)
+- `lib/quota.ts` — `PeriodType`, `isValidPeriod`, `periodToDateRange`, `dealValueForLead`, `computeAttainmentFromWonLeads`, `getQuotaTarget`, `setQuotaTarget` (issue #204); `app/lib/quota-store.ts` — `getQuotaAttainment` (the WON-lead/outcomelogs Mongo join)
 
 **Cadences / outreach**
 - `lib/cadences.ts` — `Cadence`, `CadenceStep`, `ActiveCadence`, `sanitizeCadence(Step/Steps)`, `validateCadence`, `computeStepDueAt`, `buildInitialActiveCadence`, `advanceActiveCadence`

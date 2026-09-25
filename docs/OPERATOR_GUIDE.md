@@ -184,6 +184,7 @@ Tapping a card (or a table row) opens the full detail view:
 - **Edit Lead Details**: an Edit/Save/Cancel form for `entity_name`, `url`, `country` (2-letter ISO code), `address`, `general_contact`, `size`, `industry`, `sport_or_sector`, `level_league`, `value_proposition`, `notes`, `tags`. This form does **not** yet include the newer controlled-taxonomy fields (`sportCode`, `orgTypeCode`, `businessUnitCode`, etc., added 2.4.109) — those are API-only for now; see [Lead Taxonomy](#lead-taxonomy) and [Known Issues and Limitations](#known-issues-and-limitations).
 - **Actual deal value** (only shown once a lead is WON): capture the real, closed contract value — this feeds Ticket-Size Calibration on the Forecast page.
 - **Manual ticket-size override**: from the same edit form, override the computed Ticket Size with your own number and a required reason (a rep's direct knowledge of a specific deal). "Clear override" reverts to the modelled estimate immediately.
+- **Forecast Category**: shows "Default for stage (X)" when never touched, or "Overridden by Y, &lt;date&gt;" once you've set one explicitly. Pick a category (Pipeline / Best Case / Commit / Closed) and tap **Save** to override; **Reset to default** clears it, going back to tracking the lead's stage automatically. An override sticks through any later kanban move until you clear it.
 
 ---
 
@@ -352,7 +353,9 @@ Reached via **Reporting → Forecast** for a brand. Shows, top to bottom:
 - **Ticket-Size Calibration** — see the [Ticket Size](#ticket-size) section above.
 - **Pricing by Company** (Seyu only) — per-client pricing terms and estimated annual value, plus a grand total.
 - **Pipeline / By Tier / By Model** (CogMap and DVSC, which reuses CogMap's own deal-size-band model — not Seyu) — dollar value per pipeline stage, per company-size tier, and per revenue model.
+- **Forecast Category** — a second, additive total alongside the stage-weighted one above (never a toggle between the two): every lead's Pipeline / Best Case / Commit / Closed bucket, each with its own weighted total. A lead's category defaults from its kanban stage (see [Lead Detail](#lead-detail) below for how to override it) — Closed leads count at their real WON/LOST outcome, not a flat weight.
 - **Pipeline Weights** — editable close-probability percentages per stage, with Save — this is what feeds every "static" probability used above.
+- **Quota Attainment** — pick a period (monthly/quarterly/annual) to see real closed-won revenue against a quota target for yourself, or (if you're a brand admin) for any rep, plus deals-closed count and % to quota. Only a brand admin sees the "Set quota amount" control, since setting someone else's target is an admin action.
 - **Export CSV** button (top of page) — downloads the current brand's pipeline per-column revenue/probability/weighted-revenue breakdown as a spreadsheet, matching the numbers shown on the page (fixed 2.4.92 — it previously always exported CogMap's data regardless of which brand's page you clicked it from).
 
 ---

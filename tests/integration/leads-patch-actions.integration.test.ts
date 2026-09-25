@@ -132,6 +132,45 @@ describe('PATCH /api/leads — ACCEPT/DECLINE (issue #90/#91 investigation)', ()
   });
 });
 
+describe('PATCH /api/leads — SET_FORECAST_CATEGORY (issue 204)', () => {
+  it('sets a sticky override and stamps forecastCategoryOverriddenAt', async () => {
+    const id = await seedLead('Forecast Override Co');
+    const res = await PATCH(patchReq(id, { action: 'SET_FORECAST_CATEGORY', forecastCategory: 'commit' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.forecastCategory).toBe('commit');
+    expect(body.lead.forecastCategoryOverriddenBy).toBeTruthy();
+    expect(body.lead.forecastCategoryOverriddenAt).toBeTruthy();
+  });
+
+  it('rejects an invalid category value', async () => {
+    const id = await seedLead('Bad Forecast Category Co');
+    const res = await PATCH(patchReq(id, { action: 'SET_FORECAST_CATEGORY', forecastCategory: 'not_a_category' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('survives a subsequent COLUMN_MOVE — sticky override semantics', async () => {
+    const id = await seedLead('Sticky Override Co');
+    await PATCH(patchReq(id, { action: 'SET_FORECAST_CATEGORY', forecastCategory: 'best_case' }));
+    const moveRes = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'WON', sortOrder: Date.now() }));
+    expect(moveRes.status).toBe(200);
+    const moveBody = await moveRes.json();
+    expect(moveBody.lead.kanbanColumn).toBe('WON');
+    expect(moveBody.lead.forecastCategory).toBe('best_case');
+    expect(moveBody.lead.forecastCategoryOverriddenBy).toBeTruthy();
+  });
+
+  it('clears the override when sent null, reverting to the live stage default', async () => {
+    const id = await seedLead('Clear Override Co', { kanbanColumn: 'ENGAGED' });
+    await PATCH(patchReq(id, { action: 'SET_FORECAST_CATEGORY', forecastCategory: 'commit' }));
+    const clearRes = await PATCH(patchReq(id, { action: 'SET_FORECAST_CATEGORY', forecastCategory: null }));
+    expect(clearRes.status).toBe(200);
+    const clearBody = await clearRes.json();
+    expect(clearBody.lead.forecastCategory).toBeNull();
+    expect(clearBody.lead.forecastCategoryOverriddenBy).toBeNull();
+  });
+});
+
 describe('PATCH /api/leads — required-fields-per-stage gating (issue #72)', () => {
   it('blocks a COLUMN_MOVE into ENGAGED when required fields are missing, with a clear message', async () => {
     const id = await seedLead('No Contact Co');
