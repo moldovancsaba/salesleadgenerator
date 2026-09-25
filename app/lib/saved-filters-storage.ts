@@ -1,9 +1,12 @@
 import type { SavedFilter } from '../../lib/saved-filters';
 
-// Per-browser (localStorage), not server-persisted — owner-confirmed scope
-// (issue #71): this app has no multi-device user-account concept to scope a
-// shared version to, and localStorage ships faster for a feature whose
-// value is still unproven.
+// Issue #214 — saved filters are now server-persisted per user/brand
+// (lib/saved-filters-store.ts, app/api/saved-filters*), not primarily kept
+// here anymore. This module survives narrowly as the one-time local-import
+// migration source: app/components/FilterBar.tsx reads whatever a browser
+// already has under this key to offer a self-serve "import to your
+// account" action, and clears it only after a confirmed successful server
+// import. Never written to as part of the normal save flow anymore.
 function storageKey(brand: string): string {
   return `slg-saved-filters-${brand}`;
 }

@@ -1,5 +1,35 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.207
+
+### Filters: server-synced, brand-shareable saved views (issue #214)
+
+Moves saved lead-filter presets from per-browser `localStorage` to a
+server-persisted, per-user, per-brand `saved_filters` collection
+(`lib/saved-filters-store.ts`, new `app/api/saved-filters*` routes), now
+that `lib/sso-access.ts` provides a real identity to own them under. A
+saved filter created on one device now follows that user to any other
+device/browser they sign into. A brand admin can mark a filter
+`sharedWithBrand: true`, publishing it read-only (apply only, no edit/
+delete/re-share) to every teammate with access to the brand, attributed
+by owner email. Ownership and sharing permission are both enforced
+server-side on every mutating route — a non-owner (even a brand or super
+admin) gets 403 on `PATCH`/`DELETE`, and only a real brand admin can set
+`sharedWithBrand: true`, independent of whatever the UI does or doesn't
+render.
+
+A one-time, explicit "Import your local saved filters" banner offers to
+migrate a browser's pre-existing `localStorage` data into the new
+server-backed store; declining leaves the local copy untouched (never
+silently discarded), and it's cleared only after a confirmed successful
+import. The Filters drawer gains real loading/error states for the
+saved-filters section for the first time — previously a synchronous,
+can't-fail `localStorage` read, now a real network fetch that can fail
+visibly instead of silently showing an empty list.
+
+Zero new dependencies — reuses the existing `mongodb` driver and Mantine
+primitives already in `package.json`.
+
 ## 2.4.206
 
 ### Kanban: real drag-and-drop, behind an operator kill switch (issue #208)

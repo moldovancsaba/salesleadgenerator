@@ -30,7 +30,10 @@ export function isEmptyFilter(filter: LeadFilter): boolean {
   return !filter.region && !(filter.industry && filter.industry.trim()) && !(filter.tags && filter.tags.length > 0) && !filter.assignedTo;
 }
 
-const MAX_SAVED_FILTERS = 20;
+// Issue #214 — exported so the server-side saved_filters store
+// (lib/saved-filters-store.ts) enforces the exact same cap rather than
+// re-deriving an equivalent constant.
+export const MAX_SAVED_FILTERS = 20;
 
 export function addSavedFilter(
   existing: SavedFilter[],
