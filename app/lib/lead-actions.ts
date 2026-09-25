@@ -34,6 +34,14 @@ export type LeadActionResult = {
   lead?: Record<string, any>
   error?: string
   requestId?: string
+  // Lead ownership (issue #198) — every other failure in this function is a
+  // generic 400 (the route handler's own long-standing default for "the
+  // action couldn't be applied"). The canAssign() rejection is a real
+  // authorization failure (issue #198's own acceptance criteria: "cross-user
+  // assignment by a non-admin returns 403"), so it's the one case that
+  // overrides that default. Optional and unused by every other branch —
+  // 400 remains the default for everything that doesn't set this.
+  status?: number
 }
 
 export async function executeLeadAction(input: LeadActionInput): Promise<LeadActionResult> {
@@ -111,7 +119,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     const actorBrandRole = getRoleForBrand(actorEmail, actorRecord?.orgAccess, brand)
 
     if (!canAssign(actorId, actorBrandRole, targetAssignedTo, currentAssignedTo)) {
-      return { success: false, error: 'Only a brand admin can assign this lead to another user', requestId }
+      return { success: false, error: 'Only a brand admin can assign this lead to another user', requestId, status: 403 }
     }
 
     if (targetAssignedTo === null) {
