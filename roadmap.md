@@ -8,7 +8,7 @@
 
 **Not the same file as `_archived/roadmap.md`** — that's a frozen, historical feature-status log (v2.4.61), superseded by `CHANGELOG.md`, sharing this file's basename by coincidence rather than by relation. See `README.md`'s "Archived Documentation" table.
 
-Last synced: 2026-09-02, against `moldovancsaba/salesleadgenerator`'s real open-issue list (5 issues).
+Last synced: 2026-09-25, against `moldovancsaba/salesleadgenerator`'s real open-issue list (7 issues).
 
 ---
 
@@ -22,9 +22,12 @@ Last synced: 2026-09-02, against `moldovancsaba/salesleadgenerator`'s real open-
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
+| [#202](https://github.com/moldovancsaba/salesleadgenerator/issues/202) | Ops: Inbound email activation - DNS cutover and live verification of the built webhook | P1 | Follows closed #141/#142 (webhook + reply matching, fully built and tested, never live). Needs owner-only steps: `MX leads.haho.ai` DNS record, `RESEND_API_KEY`/`RESEND_WEBHOOK_SECRET` in Vercel production, re-verification of the existing Resend `email.received` webhook subscription, and (for the intended automatic flow) a Google Workspace routing rule. **Needs the owner**, not another agent turn — this session has no access to any of the four systems involved. |
 | [#137](https://github.com/moldovancsaba/salesleadgenerator/issues/137) | Duplicate lead records at scale: 43.8% of Seyu, 10.7% of CogMap | P1 | Root-cause matching-algorithm fix already shipped. What remains needs a real browser session at `/admin/duplicates` (super-admin SSO) — confirmed blocked via both `x-api-key` and direct MongoDB attempts. **Needs the owner**, not another agent turn. |
 | [#125](https://github.com/moldovancsaba/salesleadgenerator/issues/125) | Adopt GDS zone-based kanban scroll routing once available | P2 | See Blocked below — the local workaround (2.4.95) is a live, tested fix; this issue tracks retiring it once the upstream dependency ships the real one. |
 | [#165](https://github.com/moldovancsaba/salesleadgenerator/issues/165) | New-user onboarding tour: step-by-step spotlight walkthrough (design record) | P3 | Design plan, decision made 2026-08-08 (`driver.js`). Implementation (#185) shipped 2.4.187 — this issue stays open by explicit owner design as the permanent design record, not because anything remains to be done. |
+| [#200](https://github.com/moldovancsaba/salesleadgenerator/issues/200) | Activity: Manual call logging - structured Call activity type with outcome disposition | P1 | Owner-confirmed scope (2026-09-25): manual, by-hand call entry only — no dialer/telephony integration. Extends the `activityLog` collection from #140/#141/#142 with a `type: 'call'` variant (closed `CallDisposition` enum, `matchedContactKey` reuse, `loggedBy`) and a new `POST /api/leads/[id]/activity`; logging a call also touches the lead's `updatedAt` so it counts toward the existing rotten-indicator/staleness computation. Not started. |
+| [#201](https://github.com/moldovancsaba/salesleadgenerator/issues/201) | Automation: Workflow engine - trigger-action rules generalizing cadence-tick and stage-gate | P2 | New `automation_rules` collection + flat trigger→action engine, generalizing `lib/cadences.ts`'s tick model (`app/api/admin/cadence-tick/route.ts`) rather than replacing it. V1 triggers: `lead_created`, `lead_moved_to_column`, `stale_no_activity` (reuses `lib/stale-deal.ts`'s `computeStaleness()`); `lead_assigned` is schema-defined but shipped unreachable — this repo confirmed to have no user/assignment model (`app/types.ts` line 203). Actions reuse existing `nextActionDueAt`/`nextActionNote`/`tags` fields plus a `log_notification` write to the existing `activityLog` collection (not a per-user notification, since no addressee model exists). No chaining, no visual builder — explicit v1 non-goals. Not started. |
 
 ## Blocked
 
@@ -60,7 +63,7 @@ Last synced: 2026-09-02, against `moldovancsaba/salesleadgenerator`'s real open-
 | [#169](https://github.com/moldovancsaba/salesleadgenerator/issues/169) | Manually-added deals default to USD regardless of brand | Fixed (2.4.171, PR #175) — root cause was deeper than the title: every ticket-size currency computation site ignored the operator's saved Sales Settings currency selection in favor of the brand's fixed default. Fixed at every call site; Sales Settings currency option preserved, now actually honored. |
 | [#166](https://github.com/moldovancsaba/salesleadgenerator/issues/166) | 4 bugs/type gaps surfaced during the docs/LLD audit | Split into #169–#172 above for independent tracking. |
 | [#163](https://github.com/moldovancsaba/salesleadgenerator/issues/163) | Apply #136's federation/tournament rule to the 4 remaining leads | Resolved — all 4 researched and reclassified with real citations. |
-| [#142](https://github.com/moldovancsaba/salesleadgenerator/issues/142) | Reply matching + contact-enrichment suggestions from inbound email | Shipped (2.4.165). Live webhook trigger still pending two owner-only infra steps (Resend/DNS) — tracked in `docs/STACK_AND_DEPENDENCIES.md`, not a separate issue. |
+| [#142](https://github.com/moldovancsaba/salesleadgenerator/issues/142) | Reply matching + contact-enrichment suggestions from inbound email | Shipped (2.4.165). Live webhook trigger still pending owner-only infra steps — now tracked as its own issue, [#202](https://github.com/moldovancsaba/salesleadgenerator/issues/202), in Ready above. |
 | [#135](https://github.com/moldovancsaba/salesleadgenerator/issues/135) / [#136](https://github.com/moldovancsaba/salesleadgenerator/issues/136) / [#143](https://github.com/moldovancsaba/salesleadgenerator/issues/143) | Taxonomy governance decisions (brand convention, federation/tournament rule, entertainment-event value) | Resolved per owner decision, retroactively applied to known data points. |
 
 ---
