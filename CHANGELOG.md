@@ -1,5 +1,68 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.199
+
+### Catalog: Product and price book, feeding Deal line items (issue #215)
+
+A "product" in this app was only ever a free-text entry inside Sales
+Settings' questionnaire — no stable id, no single selectable price, no way
+for a rep to attach a concrete, priced thing-being-sold to a specific
+`Deal` (only a bare number). Adds a first-class, per-brand/tenant
+`products` catalog (`app/lib/products.ts`: stable id, name, unit price,
+currency, one `pricingModel` reused verbatim from Sales Settings' existing
+9-value enum, active/inactive) and an optional `Deal.lineItems` array
+(`lib/deals.ts`) so a rep can build a deal's value from priced catalog
+items instead. Sales Settings' own `ProductLine[]` is untouched and keeps
+feeding `lib/ticket-size.ts`'s `per_unit` estimation exactly as before —
+this is a separate, additive, pricing-facing structure.
+
+When `lineItems` resolves to at least one valid entry, the server-computed
+line total (`Σ quantity × (unitPriceOverride ?? product.unitPrice)`,
+clamped to the same `50_000_000` ceiling every deal already shares) always
+becomes `Deal.value`, overriding any client-sent `value` outright — every
+existing reader of `Deal.value`/`sumDeals()` needed zero changes, since a
+line-item-derived total is, downstream, an indistinguishable plain number.
+An unknown `productId`, an invalid quantity, or a currency mismatch (no FX
+conversion anywhere in this app) drops just that one line, never the whole
+deal; an empty/all-invalid `lineItems` falls back to the pre-existing
+bare-value path unchanged.
+
+One-time idempotent backfill (`lib/backfill-products.ts` +
+`POST /api/admin/products-backfill`, mirroring `lib/backfill-ticket-size.ts`'s
+three-file shape) promotes each existing `ProductLine` into one catalog row
+per priced pricing model — never clobbers a row an admin has manually
+edited since backfill, verified by a dedicated re-run test.
+
+New `/admin/products/[brand]` catalog CRUD screen — this app's first
+genuine `AdminModal`-based create/edit form (every prior admin screen used
+a plain inline form instead). `app/detail.tsx`'s deal editor gains a
+"Build from catalog" mode alongside the existing bare-value entry.
+
+**Disclosed, deliberate scope reduction**: the line-item picker uses
+Mantine's own already-ARIA-compliant `Select`/`NumberInput` rather than a
+bespoke combobox with a dedicated live-region running-total announcement —
+the real accessibility baseline is met, but that specific §14 behavior
+wasn't built as its own feature, prioritizing this issue's (much larger)
+data-layer scope. No new dependency was added.
+
+`docs/ARCHITECTURE.md`, `docs/OPERATOR_GUIDE.md` updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 909/909 passing (+34: `tests/lib/products.test.ts` 16,
+`tests/lib/backfill-products.test.ts` 8, `tests/lib/deals.test.ts`'s new
+catalog-line-item describe block 10). `npm run test:integration` —
+356/356 passing (+14: `tests/integration/products.integration.test.ts` 7
+— full CRUD round-trip, the 409 delete guard, tenant isolation;
+`tests/integration/products-backfill.integration.test.ts` 4 — the
+`x-api-key` guard, dry-run vs `apply: true`;
+`tests/integration/leads-patch-actions.integration.test.ts`'s new 3-test
+describe block exercising the real end-to-end `PATCH /api/leads` →
+`executeLeadAction()` → real `products` collection query path, not a
+mocked lookup). `npm run test:smoke` — 5/5 passing. `npm run
+audit:gds-style` — 26 (unchanged baseline, verified via `git stash -u`
+A/B comparison).
+
 ## 2.4.198
 
 ### Accounts: parent-organization rollup, Phase 1 (issue #209)

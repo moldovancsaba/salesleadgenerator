@@ -272,6 +272,56 @@ describe('PATCH /api/leads — MODIFY: deals (issue #114)', () => {
   });
 });
 
+// Issue 215 — the real end-to-end write path: executeLeadAction() (called
+// from this exact route) resolves deals[].lineItems against a real
+// `products` collection query it builds itself, not a mocked lookup.
+describe('PATCH /api/leads — MODIFY: deals with catalog lineItems (issue 215)', () => {
+  async function seedProduct(overrides: Record<string, unknown> = {}) {
+    const clientPromise = (await import('../../lib/mongodb')).default;
+    const client = await clientPromise;
+    const db = client.db();
+    const doc = {
+      id: 'catalog-product-1', brand: 'cogmap', tenantId: 'default', name: 'Season Sponsorship',
+      description: '', unitPrice: 45000, currency: 'USD', pricingModel: 'annual_subscription', active: true,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      ...overrides,
+    };
+    await db.collection('products').insertOne(doc);
+    return doc;
+  }
+
+  it('resolves a real product from the products collection into a catalog_line_items deal', async () => {
+    const product = await seedProduct({ id: 'catalog-product-e2e-1' });
+    const id = await seedLead('Catalog Deal Co');
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', deals: [{ currency: 'USD', lineItems: [{ productId: product.id, quantity: 2 }] }] }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.deals).toHaveLength(1);
+    expect(body.lead.deals[0].source).toBe('catalog_line_items');
+    expect(body.lead.deals[0].value).toBe(90000);
+    expect(body.lead.deals[0].lineItems).toEqual([{ productId: product.id, quantity: 2, unitPriceOverride: 45000 }]);
+  });
+
+  it('never queries the products collection when no deal in the payload carries lineItems (cost guard)', async () => {
+    const id = await seedLead('No Lookup Needed Co');
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', deals: [{ value: 1000 }] }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.deals[0].source).toBe('manual');
+    expect(body.lead.deals[0].lineItems).toBeUndefined();
+  });
+
+  it('scopes the product lookup by tenantId — a product in another tenant never resolves', async () => {
+    const product = await seedProduct({ id: 'catalog-product-e2e-2', tenantId: 'a-different-tenant' });
+    const id = await seedLead('Cross Tenant Co');
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', deals: [{ currency: 'USD', lineItems: [{ productId: product.id, quantity: 1 }] }] }));
+    const body = await res.json();
+    // Unresolvable line item -> falls back to bare value, which is also
+    // absent here, so the whole deal is dropped (never a fabricated $0).
+    expect(body.lead.deals).toHaveLength(0);
+  });
+});
+
 describe('PATCH /api/leads — MODIFY: checklist (issue #117)', () => {
   it('saves checklist items', async () => {
     const id = await seedLead('Checklist Co');

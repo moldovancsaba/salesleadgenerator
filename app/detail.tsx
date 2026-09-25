@@ -337,15 +337,39 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
   // Manually-managed deals (issue #114) — always distinct from the
   // auto-computed ticketSizeEstimate above; nothing here ever runs
   // automatically.
-  type DealRow = { id?: string; value: number | ''; currency: CurrencyCode; label: string; source?: Deal['source'] };
+  type DealLineItemRow = { productId: string; quantity: number; unitPriceOverride?: number };
+  type DealRow = { id?: string; value: number | ''; currency: CurrencyCode; label: string; source?: Deal['source']; lineItems?: DealLineItemRow[] };
   const [editingDeals, setEditingDeals] = useState(false);
   const [dealsForm, setDealsForm] = useState<DealRow[]>([]);
   const [savingDeals, setSavingDeals] = useState(false);
 
+  // Catalog products for the "build from catalog" line-item mode (issue
+  // #215) — loaded lazily, only once a rep actually starts editing deals,
+  // never on every lead-detail open.
+  type CatalogProduct = { id: string; name: string; unitPrice: number; currency: CurrencyCode; pricingModel: string; active: boolean };
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+
   function openEditDeals() {
     if (!lead) return;
-    setDealsForm((lead.deals || []).map((d) => ({ id: d.id, value: d.value, currency: d.currency, label: d.label || '', source: d.source })));
+    setDealsForm((lead.deals || []).map((d) => ({ id: d.id, value: d.value, currency: d.currency, label: d.label || '', source: d.source, lineItems: d.lineItems })));
     setEditingDeals(true);
+    if (!catalogLoaded) {
+      setCatalogLoaded(true);
+      fetch(`/api/products/${encodeURIComponent(brand)}?tenantId=default`)
+        .then((res) => (res.ok ? res.json() : { products: [] }))
+        .then((data) => setCatalogProducts(Array.isArray(data.products) ? data.products : []))
+        .catch(() => setCatalogProducts([]));
+    }
+  }
+
+  function dealLineItemTotal(row: DealRow): number {
+    if (!Array.isArray(row.lineItems)) return 0;
+    return row.lineItems.reduce((sum, item) => {
+      const product = catalogProducts.find((p) => p.id === item.productId);
+      const unitPrice = typeof item.unitPriceOverride === 'number' ? item.unitPriceOverride : (product?.unitPrice ?? 0);
+      return sum + item.quantity * unitPrice;
+    }, 0);
   }
 
   // Pre-fills a new deal row from the current ticket-size estimate
@@ -732,6 +756,14 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
 
   async function handleSaveDeals() {
     if (!lead) return;
+    // A deal switched to "Build from catalog" with zero lines added yet
+    // would resolve to no usable value at all server-side and be silently
+    // dropped (never a fabricated $0 deal) — caught here instead of
+    // surprising the rep after save.
+    if (dealsForm.some((r) => Array.isArray(r.lineItems) && r.lineItems.length === 0)) {
+      showNotification({ message: 'Add at least one line item, or switch back to a bare value, before saving.', color: 'red', autoClose: 5000 });
+      return;
+    }
     setSavingDeals(true);
     try {
       await onAction(lead._id, 'MODIFY', { deals: dealsForm });
@@ -1349,7 +1381,13 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
               <Group key={d.id} justify="space-between">
                 <Box>
                   <Text size="sm" fw={600}>{formatTicketSizeCurrency(d.value, d.currency)}</Text>
-                  <Text size="xs" c="dimmed">{d.label || (d.source === 'converted_ticket_estimate' ? 'Converted from ticket estimate' : 'Manual deal')}</Text>
+                  <Text size="xs" c="dimmed">
+                    {d.label || (
+                      d.source === 'converted_ticket_estimate' ? 'Converted from ticket estimate'
+                      : d.source === 'catalog_line_items' ? `${d.lineItems?.length ?? 0} catalog line item${(d.lineItems?.length ?? 0) === 1 ? '' : 's'}`
+                      : 'Manual deal'
+                    )}
+                  </Text>
                 </Box>
               </Group>
             ))}
@@ -1361,7 +1399,16 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
         {editingDeals && (
           <Stack gap="sm">
             {dealsForm.length === 0 && <Text size="sm" c="dimmed">No deals yet.</Text>}
-            {dealsForm.map((d, i) => (
+            {dealsForm.map((d, i) => {
+              const usesCatalog = Array.isArray(d.lineItems);
+              // Only active products in this deal's own currency are
+              // selectable — a currency-mismatched or deactivated product
+              // is never offered for a new line (issue #215 §6/§13/§15 #4),
+              // though a historical line already referencing one still
+              // renders (with an "inactive"/"different currency" tag) so it
+              // stays legible.
+              const pickableProducts = catalogProducts.filter((p) => p.active && p.currency === d.currency);
+              return (
               <Box key={i} p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }}>
                 <Group justify="space-between" align="center" mb={4}>
                   <Text size="xs" c="dimmed" fw={600}>Deal {i + 1}</Text>
@@ -1369,21 +1416,100 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
                     <IconTrash size={14} />
                   </ActionIcon>
                 </Group>
-                <Group gap="xs" align="flex-end">
-                  <NumberInput
-                    size="xs"
-                    label="Value"
-                    prefix={d.currency === 'EUR' ? '€' : '$'}
-                    thousandSeparator=","
-                    value={d.value}
-                    onChange={(v) => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, value: typeof v === 'number' ? v : '' } : r))}
-                    min={0}
-                    style={{ flex: 1 }}
-                  />
-                  <TextInput size="xs" label="Label (optional)" value={d.label} onChange={(e) => { const v = e.currentTarget.value; setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, label: v } : r)); }} style={{ flex: 1 }} />
+                <Group gap="xs" mb={6}>
+                  <Button
+                    size="compact-xs"
+                    variant={usesCatalog ? 'subtle' : 'filled'}
+                    onClick={() => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: undefined } : r))}
+                  >
+                    Bare value
+                  </Button>
+                  <Button
+                    size="compact-xs"
+                    variant={usesCatalog ? 'filled' : 'subtle'}
+                    onClick={() => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: r.lineItems ?? [] } : r))}
+                  >
+                    Build from catalog
+                  </Button>
                 </Group>
+                {!usesCatalog && (
+                  <Group gap="xs" align="flex-end">
+                    <NumberInput
+                      size="xs"
+                      label="Value"
+                      prefix={d.currency === 'EUR' ? '€' : '$'}
+                      thousandSeparator=","
+                      value={d.value}
+                      onChange={(v) => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, value: typeof v === 'number' ? v : '' } : r))}
+                      min={0}
+                      style={{ flex: 1 }}
+                    />
+                    <TextInput size="xs" label="Label (optional)" value={d.label} onChange={(e) => { const v = e.currentTarget.value; setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, label: v } : r)); }} style={{ flex: 1 }} />
+                  </Group>
+                )}
+                {usesCatalog && (
+                  <Stack gap="xs">
+                    <TextInput size="xs" label="Label (optional)" value={d.label} onChange={(e) => { const v = e.currentTarget.value; setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, label: v } : r)); }} />
+                    {pickableProducts.length === 0 && (d.lineItems?.length ?? 0) === 0 && (
+                      <Text size="xs" c="dimmed">No active {d.currency} products in the catalog yet — add some at Product Catalog, or use a bare value instead.</Text>
+                    )}
+                    {(d.lineItems || []).map((item, li) => {
+                      const product = catalogProducts.find((p) => p.id === item.productId);
+                      const unitPrice = typeof item.unitPriceOverride === 'number' ? item.unitPriceOverride : (product?.unitPrice ?? 0);
+                      const options = product && !pickableProducts.some((p) => p.id === product.id)
+                        ? [{ value: product.id, label: `${product.name}${product.active ? '' : ' (inactive)'}` }, ...pickableProducts.map((p) => ({ value: p.id, label: p.name }))]
+                        : pickableProducts.map((p) => ({ value: p.id, label: p.name }));
+                      return (
+                        <Group key={li} gap="xs" align="flex-end" wrap="nowrap">
+                          <Select
+                            size="xs"
+                            label="Product"
+                            aria-label="Product"
+                            data={options}
+                            value={item.productId || null}
+                            onChange={(v) => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: (r.lineItems || []).map((li2, li2i) => li2i === li ? { ...li2, productId: v || '' } : li2) } : r))}
+                            style={{ flex: 2 }}
+                          />
+                          <NumberInput
+                            size="xs"
+                            label="Qty"
+                            aria-label="Quantity"
+                            value={item.quantity}
+                            onChange={(v) => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: (r.lineItems || []).map((li2, li2i) => li2i === li ? { ...li2, quantity: typeof v === 'number' ? v : 1 } : li2) } : r))}
+                            min={1}
+                            style={{ flex: 1 }}
+                          />
+                          <NumberInput
+                            size="xs"
+                            label="Unit price"
+                            aria-label="Unit price override"
+                            prefix={d.currency === 'EUR' ? '€' : '$'}
+                            value={unitPrice}
+                            onChange={(v) => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: (r.lineItems || []).map((li2, li2i) => li2i === li ? { ...li2, unitPriceOverride: typeof v === 'number' ? v : undefined } : li2) } : r))}
+                            min={0}
+                            style={{ flex: 1 }}
+                          />
+                          <ActionIcon size="sm" variant="subtle" color="red" aria-label="Remove line item" onClick={() => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: (r.lineItems || []).filter((_, li2i) => li2i !== li) } : r))}>
+                            <IconTrash size={14} />
+                          </ActionIcon>
+                        </Group>
+                      );
+                    })}
+                    <Button
+                      size="compact-xs"
+                      variant="subtle"
+                      leftSection={<IconPlus size={12} />}
+                      disabled={pickableProducts.length === 0}
+                      onClick={() => setDealsForm((rows) => rows.map((r, idx) => idx === i ? { ...r, lineItems: [...(r.lineItems || []), { productId: pickableProducts[0]?.id || '', quantity: 1 }] } : r))}
+                    >
+                      Add line
+                    </Button>
+                    <Text size="xs" fw={600}>Running total: {formatTicketSizeCurrency(dealLineItemTotal(d), d.currency)}</Text>
+                  </Stack>
+                )}
               </Box>
-            ))}
+              );
+            })}
             <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} onClick={() => {
               // Issue #169 — default a new manual deal to the currency
               // actually configured for this brand/tenant rather than a

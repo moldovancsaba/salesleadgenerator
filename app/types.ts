@@ -195,7 +195,12 @@ export type Lead = {
     label?: string;
     createdAt: string;
     updatedAt: string;
-    source: 'manual' | 'converted_ticket_estimate';
+    source: 'manual' | 'converted_ticket_estimate' | 'catalog_line_items';
+    // Catalog line items (issue #215) — present only when source is
+    // 'catalog_line_items'; see lib/deals.ts's DealLineItem for the
+    // resolution/precedence rules. `value` above is still the single
+    // authoritative, persisted total every existing reader already uses.
+    lineItems?: Array<{ productId: string; quantity: number; unitPriceOverride?: number }>;
   }>;
   // Per-item action checklist, distinct from the free-text `notes` field
   // above — see lib/checklist.ts, issue #117.

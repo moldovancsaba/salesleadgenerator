@@ -10,6 +10,7 @@ import { createManualTicketSizeOverride } from '../../lib/ticket-size'
 import { defaultRevenueTargetCurrency } from './sales-settings'
 import { checkStageGate, formatStageGateError } from '../../lib/stage-gate'
 import { sanitizeDeals } from '../../lib/deals'
+import type { ProductPriceLookup } from '../../lib/deals'
 import { sanitizeChecklist } from '../../lib/checklist'
 import { generateClassificationTags, buildMergeKey } from '../../lib/lead-classification'
 import { isForecastCategory } from '../../lib/forecast-category'
@@ -314,7 +315,16 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     // contacts[] above. Never auto-populated; only present when the UI
     // explicitly sends a deals[] array (add/edit/remove/convert).
     if (Array.isArray(normalizedBody.deals)) {
-      updateData.deals = sanitizeDeals(normalizedBody.deals, existing.deals, new Date())
+      // Issue #215 — only queried when at least one deal in this payload
+      // actually carries lineItems, so a lead save that never touches the
+      // catalog costs this function nothing extra.
+      let productLookup: ProductPriceLookup | undefined
+      const needsProductLookup = normalizedBody.deals.some((d: any) => Array.isArray(d?.lineItems) && d.lineItems.length > 0)
+      if (needsProductLookup) {
+        const products = await db.collection('products').find({ brand, tenantId }, { projection: { id: 1, unitPrice: 1, currency: 1 } }).toArray()
+        productLookup = new Map(products.map((p: any) => [p.id, { unitPrice: p.unitPrice, currency: p.currency }]))
+      }
+      updateData.deals = sanitizeDeals(normalizedBody.deals, existing.deals, new Date(), productLookup)
     }
     // Checklist (issue #117) — same whole-array-replace convention.
     if (Array.isArray(normalizedBody.checklist)) {
