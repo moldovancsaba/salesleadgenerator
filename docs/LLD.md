@@ -72,6 +72,10 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/automation-rules/route.ts` | GET, POST | `requireApiKey` (POST) | List/create automation rules (`lib/automation-rules.ts`, issue #201) |
 | `app/api/automation-rules/[id]/route.ts` | GET, PUT, DELETE | `requireApiKey` (PUT/DELETE) | Single automation rule CRUD |
 | `app/api/admin/automation-tick/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Cron worker: evaluates `stale_no_activity` rules (`app/lib/automation-store.ts`'s `runStaleTickForBrand`) |
+| `app/api/reports/route.ts` | GET, POST | `requireBrandAccessApi` | List/create ad-hoc report definitions (`lib/report-definitions.ts`, issue #212) |
+| `app/api/reports/[id]/route.ts` | GET, PATCH, DELETE | `requireBrandAccessApi` | Single report definition CRUD |
+| `app/api/reports/[id]/run/route.ts` | POST | `requireBrandAccessApi` | Executes a definition's pipeline now (`app/lib/report-store.ts`'s `runReportDefinition`) |
+| `app/api/admin/reports-tick/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Cron worker: sends due scheduled report emails via `lib/report-delivery.ts` |
 | `app/api/outreach-logs/route.ts` | GET, POST | `requireApiKey` (POST) | Record-only outreach log, never sends; POST runs `evaluateOutreachRouting` |
 | `app/api/outreach-send/route.ts` | POST | `requireApiKey` | Real, one-off rep-initiated email send via Resend (`lib/outreach-send.ts`'s `sendManualEmail`, issue #205) |
 | `app/api/outreach-templates/route.ts` | GET, POST | `requireApiKey` (POST) | Template CRUD, seeded from `DEFAULT_OUTREACH_TEMPLATES`; GET annotates with `computeTemplateConversions` |
@@ -159,6 +163,7 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 - `lib/win-rate-calibration.ts` — `computeWinRatesFromLogs`, `mergeCalibratedWeights`, `getForecastCalibrationSettings`, `CALIBRATABLE_STAGES`
 - `lib/forecast-category.ts` — `ForecastCategory`, `resolveDefaultCategory`, `effectiveForecastCategory`, `computeCategoryForecast`, `getForecastCategoryWeights` (issue #204)
 - `lib/quota.ts` — `PeriodType`, `isValidPeriod`, `periodToDateRange`, `dealValueForLead`, `computeAttainmentFromWonLeads`, `getQuotaTarget`, `setQuotaTarget` (issue #204); `app/lib/quota-store.ts` — `getQuotaAttainment` (the WON-lead/outcomelogs Mongo join)
+- `lib/report-pipeline.ts` — `validateReportInput`, `buildReportPipeline`, `shapeReportRows`, `resolveDateRange` (issue #212, pure allowlist-validated Mongo pipeline builder); `lib/report-definitions.ts` — `ReportDefinition`, `ReportSchedule`, `validateReportDefinitionInput`, `buildReportDefinition`, `validateAndBuildSchedule`, `computeNextRunAt`; `lib/report-delivery.ts` — `sendReportEmail`, `renderReportEmailHtml`, `isReportDeliveryConfigured`; `app/lib/report-store.ts` — `runReportDefinition`, `ensureReportIndexes`, `ensureLeadReportIndexes` (the Mongo-aware layer)
 
 **Cadences / outreach**
 - `lib/cadences.ts` — `Cadence`, `CadenceStep`, `ActiveCadence`, `sanitizeCadence(Step/Steps)`, `validateCadence`, `computeStepDueAt`, `buildInitialActiveCadence`, `advanceActiveCadence`
@@ -323,6 +328,7 @@ See `docs/ARCHITECTURE.md` for the *meaning* of each taxonomy/scoring field — 
 | `outreach_logs` | inline shape `{id, leadId, brand, templateId, channel, subject, body, createdAt, tenantId, routingAllowed, routingReason}`, plus (issue #205, additive) `sendAttempted`, `resendEmailId`, `sentAutomatically`, `cadenceId`/`stepIndex`, `activityLogWritten`, and (webhook-written) `deliveryStatus`/`deliveryStatusUpdatedAt`/`openCount`/`clickCount` | `app/api/outreach-logs/route.ts` (record-only) / `lib/outreach-send.ts` (real sends) | `/api/outreach-logs` POST, `/api/outreach-send` POST, `/api/webhooks/inbound-email` POST (status enrichment only) |
 | `resend_webhook_event_ids` | `{svixId, createdAt, expiresAt}`, unique on `svixId`, TTL on `expiresAt` | `app/api/webhooks/inbound-email/route.ts` | Delivery/open/click event dedup (issue #205) |
 | `company_settings` | `SalesSettings` (`ProductLine[]`, `DealSize`, `Upsell[]`, `ExampleCustomer[]`, `Seasonality`, `RevenueTarget`), keyed by brand | `app/lib/sales-settings.ts` | `/api/sales-settings/[brand]` PUT |
+| `report_definitions` | `ReportDefinition` (`{id, brand, tenantId, name, metric, groupBy[], filters[], dateRange, chartType, schedule: ReportSchedule \| null, createdBy, ...}`) | `lib/report-definitions.ts` | `/api/reports` CRUD (issue #212) |
 | `settings` (generic, keyed by `key`) | `pipeline_weights`, `stale_thresholds`, `concentration_risk_settings`, `forecast_calibration` | various `lib/*.ts` | `/api/settings` PUT |
 | `winrate_calibration` | `WinRateDoc` | `app/lib/win-rate-store.ts` | Lazy recompute, 24h TTL |
 | `ticket_size_calibration` | `TicketSizeCalibrationDoc` | `app/lib/ticket-size-calibration-store.ts` | Lazy recompute, 24h TTL |

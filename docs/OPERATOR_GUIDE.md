@@ -410,6 +410,27 @@ Switch to Metrics via the hamburger menu's View section (or `?view=metrics`), fo
 
 ---
 
+## Reports (ad-hoc report builder)
+
+Go to **Reporting → Reports** for a brand when Metrics' fixed set of views doesn't answer your question — e.g. "leads by industry, WON only, last quarter." Click **New report**, then:
+
+1. Pick a **metric**: lead count, average ICE score, win rate, or decline count.
+2. Optionally **group by** up to 2 dimensions (industry, sport/sector, region, source, pipeline stage, decline reason, quality status).
+3. Optionally add up to 5 **filters** (a dimension equals a value, or is one of several values).
+4. Pick a **date range**: all time, the last N days, or a fixed start/end date.
+5. Pick a **chart type**: table, bar, or line.
+6. Name it and **Save**.
+
+Once saved, click **Run** on the report's row to see the result. A win-rate or average-ICE group with fewer than 10 leads shows "Insufficient data" rather than a misleading number — the same rule the Metrics dashboard already follows.
+
+### Scheduling
+
+Open a saved report, turn on **Schedule recurring delivery**, pick a frequency (daily/weekly/monthly), a time (UTC), and one or more recipient email addresses, then save. The report re-runs and emails its current result to every recipient at each due time — a plain summary table, not a rendered chart. A schedule stays off until you explicitly turn it on; turning it off stops delivery immediately without deleting the report. The saved-reports list shows a "Scheduled" badge and each report's last-run time/status.
+
+A report always runs against exactly one brand's own leads — there is no cross-brand reporting.
+
+---
+
 ## Search Learning
 
 Switch to Search Learning via the hamburger menu's View section (or `?view=search`), for a brand. A read-only report — nothing to click or filter — answering "which search terms, domains, and saved queries are actually finding leads I keep, versus wasting my time?" Shows Total Search Runs, Average Success Rate, Last Updated, a **Top Queries** list (with accepted/declined counts and success %), **Top Terms** and **Top Domains**, and **Recent Queries**. This data is fed automatically every time you accept or decline a lead, and — unlike everything else in this app — is not scoped per-brand; it's shared globally.
