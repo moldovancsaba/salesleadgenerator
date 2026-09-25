@@ -1,5 +1,30 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.208
+
+### Security: patch two critical Next.js CVEs, found incidentally
+
+While installing new dependencies for issue #211, `npm audit` surfaced two
+critical advisories against `next@16.3.0` not previously flagged (both
+requiring `next >=16.3.3`, both disclosed after this repo's last dependency
+audit re-check): GHSA-p293-qw3h-jr36 (unauthenticated RCE on
+Windows-hosted servers) and GHSA-2xp9-vwfh-vxw4 (unauthenticated RCE in
+the Image Optimization API via AVIF files). Neither is specific to, or
+caused by, issue #211's own two new dependencies — confirmed by
+`git stash`-comparing before/after. Fixed immediately, ahead of and
+separately from issue #211's own diff: `next`/`eslint-config-next` bumped
+16.3.0 → 16.3.6 (a patch-level jump within the already-installed 16.x
+line), which also moved the transitively-bundled `sharp` to 0.35.4 (the
+fix version for a previously-documented CVE class). This deployment has
+no exposure to the Windows-specific advisory (Vercel's serverless
+functions run Linux) and doesn't use `next/image`/AVIF, so neither was
+likely exploitable here even before the fix — applied regardless. Also
+patch-bumped `vitest`/`@vitest/coverage-v8` 4.1.10 → 4.1.11 (found in the
+same audit pass, resolves a moderate `@vitest/mocker` path-traversal CVE,
+not a major-version jump). Full quality gate re-verified clean at both
+new versions. See `docs/STACK_AND_DEPENDENCIES.md`'s Dependency Audit
+section for full detail.
+
 ## 2.4.207
 
 ### Filters: server-synced, brand-shareable saved views (issue #214)
