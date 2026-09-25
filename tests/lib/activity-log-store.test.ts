@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ObjectId } from 'mongodb';
 import {
   mapOutreachLogToActivityEntry, mapActivityLogDoc, mergeActivityTimeline,
+  isValidCallDisposition, CALL_DISPOSITIONS,
 } from '../../app/lib/activity-log-store';
 
 describe('mapOutreachLogToActivityEntry (issue #140)', () => {
@@ -70,6 +71,54 @@ describe('mapActivityLogDoc (issue #140)', () => {
   });
 });
 
+describe('isValidCallDisposition (issue #200)', () => {
+  it('accepts every real CallDisposition value', () => {
+    for (const d of CALL_DISPOSITIONS) {
+      expect(isValidCallDisposition(d)).toBe(true);
+    }
+  });
+
+  it('rejects an unknown string, a non-string, undefined, and null', () => {
+    expect(isValidCallDisposition('answered')).toBe(false);
+    expect(isValidCallDisposition(123)).toBe(false);
+    expect(isValidCallDisposition(undefined)).toBe(false);
+    expect(isValidCallDisposition(null)).toBe(false);
+  });
+});
+
+describe('mapActivityLogDoc — call entries (issue #200)', () => {
+  it('maps callDisposition/callDurationMinutes/loggedBy for a type: call document', () => {
+    const entry = mapActivityLogDoc({
+      _id: new ObjectId(), leadId: 'lead-1', type: 'call', direction: 'outbound',
+      matchedContactKey: 'jane doe|+1 555 0100', callDisposition: 'connected',
+      callDurationMinutes: 12, loggedBy: 'rep@example.com', source: 'manual',
+      createdAt: new Date('2026-09-01T00:00:00.000Z'),
+    });
+    expect(entry.type).toBe('call');
+    expect(entry.direction).toBe('outbound');
+    expect(entry.callDisposition).toBe('connected');
+    expect(entry.callDurationMinutes).toBe(12);
+    expect(entry.loggedBy).toBe('rep@example.com');
+    expect(entry.matchedContactKey).toBe('jane doe|+1 555 0100');
+  });
+
+  it('drops a corrupted/unknown callDisposition rather than surfacing garbage, and leaves optional call fields undefined for a non-call entry', () => {
+    const corrupted = mapActivityLogDoc({
+      _id: new ObjectId(), leadId: 'lead-1', type: 'call', direction: 'outbound',
+      callDisposition: 'not-a-real-value', source: 'manual', createdAt: new Date(),
+    });
+    expect(corrupted.callDisposition).toBeUndefined();
+
+    const email = mapActivityLogDoc({
+      _id: new ObjectId(), leadId: 'lead-1', type: 'email-inbound', direction: 'inbound',
+      source: 'inbound-webhook', createdAt: new Date(),
+    });
+    expect(email.callDisposition).toBeUndefined();
+    expect(email.callDurationMinutes).toBeUndefined();
+    expect(email.loggedBy).toBeUndefined();
+  });
+});
+
 describe('mergeActivityTimeline (issue #140)', () => {
   const entry = (id: string, createdAt: string) => mapOutreachLogToActivityEntry({
     _id: new ObjectId(), leadId: 'lead-1', subject: id, createdAt: new Date(createdAt),
@@ -91,5 +140,15 @@ describe('mergeActivityTimeline (issue #140)', () => {
 
   it('returns [] for empty sources', () => {
     expect(mergeActivityTimeline([[], []], 10)).toEqual([]);
+  });
+
+  it('interleaves a manually-logged call among email entries by createdAt (issue #200)', () => {
+    const callEntry = mapActivityLogDoc({
+      _id: new ObjectId(), leadId: 'lead-1', type: 'call', direction: 'outbound',
+      callDisposition: 'connected', source: 'manual', createdAt: new Date('2026-07-10T00:00:00.000Z'),
+    });
+    const emails = [entry('a1', '2026-07-15T00:00:00.000Z'), entry('a2', '2026-07-01T00:00:00.000Z')];
+    const merged = mergeActivityTimeline([emails, [callEntry]], 10);
+    expect(merged.map((e) => e.type)).toEqual(['email-outbound', 'call', 'email-outbound']);
   });
 });

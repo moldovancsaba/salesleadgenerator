@@ -12,8 +12,24 @@ export const ACTIVITY_LOG_COLLECTION = 'activityLog'
 // Issue #141 (the inbound-email webhook, app/api/webhooks/inbound-email/
 // route.ts) is the first real writer to this collection — it now writes on
 // every inbound-classified event.
-export type ActivityEntryType = 'email-outbound' | 'email-inbound' | 'note' | 'system'
+// Issue #200 — 'call' is the first manually-triggered writer to this
+// collection (every prior writer was the inbound-email webhook, #141).
+export type ActivityEntryType = 'email-outbound' | 'email-inbound' | 'note' | 'system' | 'call'
 export type ActivitySource = 'inbound-webhook' | 'manual' | 'outreach-log'
+
+// Closed set, chosen to cover the outcomes a rep needs to distinguish for
+// reportable call analytics — mirrors app/types.ts's DeclineReason as this
+// codebase's existing closed-enum-for-a-manually-chosen-outcome convention.
+export type CallDisposition =
+  | 'connected' | 'voicemail' | 'no-answer' | 'busy' | 'wrong-number' | 'not-interested'
+
+export const CALL_DISPOSITIONS: CallDisposition[] = [
+  'connected', 'voicemail', 'no-answer', 'busy', 'wrong-number', 'not-interested',
+]
+
+export function isValidCallDisposition(value: unknown): value is CallDisposition {
+  return typeof value === 'string' && (CALL_DISPOSITIONS as string[]).includes(value)
+}
 
 export type ActivityEntry = {
   id: string
@@ -34,6 +50,10 @@ export type ActivityEntry = {
   matchedLeadIds?: string[]
   source: ActivitySource
   createdAt: string
+  // Issue #200 — call-specific fields, present only when type === 'call'.
+  callDisposition?: CallDisposition
+  callDurationMinutes?: number
+  loggedBy?: string
 }
 
 // The write-side shape for a new activityLog document (issue #141, this
@@ -68,6 +88,13 @@ export type ActivityLogDocument = {
   // provider) a no-op instead of a duplicate.
   externalId?: string
   createdAt: Date
+  // Issue #200 — call-specific fields, present only when type === 'call'.
+  callDisposition?: CallDisposition
+  callDurationMinutes?: number
+  // claims.email from the authenticated session (lib/session.ts) — omitted
+  // (never guessed) for the x-api-key/machine-caller path, which has no
+  // per-user identity to attribute a manually-logged call to.
+  loggedBy?: string
 }
 
 // Lazily ensures the documented indexes exist — same idempotent,
@@ -91,7 +118,7 @@ export async function ensureActivityLogIndexes(db: Db): Promise<void> {
   }
 }
 
-function truncateBody(body: string | undefined | null, maxLength = 280): string | undefined {
+export function truncateBody(body: string | undefined | null, maxLength = 280): string | undefined {
   if (!body) return undefined
   const trimmed = body.trim()
   if (trimmed.length <= maxLength) return trimmed
@@ -132,6 +159,9 @@ export function mapActivityLogDoc(doc: any): ActivityEntry {
     matchedLeadIds: Array.isArray(doc.matchedLeadIds) ? doc.matchedLeadIds : undefined,
     source: doc.source,
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
+    callDisposition: isValidCallDisposition(doc.callDisposition) ? doc.callDisposition : undefined,
+    callDurationMinutes: typeof doc.callDurationMinutes === 'number' ? doc.callDurationMinutes : undefined,
+    loggedBy: typeof doc.loggedBy === 'string' ? doc.loggedBy : undefined,
   }
 }
 

@@ -1378,7 +1378,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
 
       <Divider />
 
-      <ActivityPanel leadId={lead._id} brand={brand} />
+      <ActivityPanel leadId={lead._id} brand={brand} contacts={lead.contacts} />
 
       {((normalizedPro && normalizedPro.length > 0) || (normalizedCon && normalizedCon.length > 0)) && (
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">

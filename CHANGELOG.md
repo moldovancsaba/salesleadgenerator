@@ -1,5 +1,55 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.191
+
+### Manual call logging — structured Call activity type with outcome disposition (issue #200)
+
+Sales reps make real outbound calls today; until now the only place to
+record one was the free-text `notes` field or nothing at all. Owner-
+confirmed scope: manual, by-hand entry only — no dialer/telephony
+integration, no auto-detection.
+
+`app/lib/activity-log-store.ts`'s `ActivityEntryType` gains a `'call'`
+variant, additive alongside the existing `email-outbound`/`email-inbound`/
+`note`/`system` types (all unchanged). New closed 6-value `CallDisposition`
+enum (`connected`/`voicemail`/`no-answer`/`busy`/`wrong-number`/
+`not-interested`), mirroring `app/types.ts`'s `DeclineReason` as this
+codebase's existing closed-enum convention for a manually-chosen outcome.
+New `POST /api/leads/[id]/activity` (alongside the existing `GET` in the
+same file) writes a `type: 'call'` document into the existing `activityLog`
+collection — no new collection. The contact called is validated server-side
+against the lead's *current* `contacts[]` via the existing `contactKey()`
+matching convention (`lib/contacts.ts`), never trusted from a stale client
+snapshot. Logging a call also touches the lead's `updatedAt`, so it counts
+as a real touch for the existing rotten-indicator/staleness computation.
+`loggedBy` is the verified session's email, never client-supplied, and
+simply omitted (not guessed) for the `x-api-key`/machine-caller path.
+
+UI: `app/components/ActivityPanel.tsx` gains a "Log a call" button above
+the Activity timeline — disabled with an explanatory tooltip when the lead
+has zero contacts — that opens an inline 4-field form (Contact/Outcome/
+Duration/Notes). A logged call renders in the same unified timeline with a
+distinct badge, its disposition, duration, and who logged it.
+
+`docs/ARCHITECTURE.md` and `docs/OPERATOR_GUIDE.md` updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 775/775 passing (+5 new in `tests/lib/activity-log-store.test.ts`
+covering `isValidCallDisposition`, call-entry mapping, and timeline
+interleaving). `npm run test:integration` — 259/259 passing (+6 new in
+`tests/integration/leads-activity.integration.test.ts`, covering a
+successful call log + `updatedAt` advance, rejected disposition/duration/
+unknown-contact payloads with no document written, the `401`/no-document
+unauthenticated case, and the call's correct position in the merged
+timeline). `npm run test:smoke` — 5/5 passing. `npm run audit:gds-style` —
+same 26 pre-existing violations before and after, none in the files this
+change touches.
+
+**Disclosed, pre-existing, out of scope for this change**: the same 7
+pre-existing `npm audit` dependency vulnerabilities and 26 GDS-audit
+violations noted in 2.4.189/2.4.190 — neither introduced by this change.
+
 ## 2.4.190
 
 ### Team visibility — teams collection, manager role, and My Team pipeline scope (issue #199)
