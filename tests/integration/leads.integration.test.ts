@@ -1,26 +1,93 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
 import { buildApiRequest } from './helpers/api-request';
-import type { NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
+
+// Lead ownership (issue: CRM Lead ownership) — ASSIGN and the assignedTo=me/
+// assignable-users paths all require a real verified session, which this
+// sandbox cannot mint (see tests/integration/helpers/api-request.ts's own
+// comment: these tests otherwise authenticate via x-api-key only). Mocked
+// here exactly like admin-clients.integration.test.ts and
+// duplicate-review-merge.integration.test.ts mock requireSuperAdminSession —
+// a clean dependency-boundary mock, not a forged token — so the ownership
+// tests below can exercise the real role/ownership business logic end-to-end
+// against a real database, not just a 401 check. app/api/leads/route.ts,
+// app/api/leads/columns/route.ts, and app/api/leads/assignable-users/route.ts
+// each import only resolveSessionFromIdToken from this module (confirmed via
+// grep), so mocking that single export is sufficient.
+const resolveSessionFromIdTokenMock = vi.fn();
+vi.mock('@/lib/session', () => ({
+  resolveSessionFromIdToken: (...args: any[]) => resolveSessionFromIdTokenMock(...args),
+}));
 
 let mongod: MongoMemoryServer;
 let GET: typeof import('../../app/api/leads/route').GET;
 let POST: typeof import('../../app/api/leads/route').POST;
+let PATCH: typeof import('../../app/api/leads/route').PATCH;
+let columnsGET: typeof import('../../app/api/leads/columns/route').GET;
+let assignableUsersGET: typeof import('../../app/api/leads/assignable-users/route').GET;
 
 beforeAll(async () => {
   mongod = await startTestMongo();
   const mod = await import('../../app/api/leads/route');
   GET = mod.GET;
   POST = mod.POST;
+  PATCH = mod.PATCH;
+  columnsGET = (await import('../../app/api/leads/columns/route')).GET;
+  assignableUsersGET = (await import('../../app/api/leads/assignable-users/route')).GET;
 }, 60000);
 
 afterAll(async () => {
   await stopTestMongo(mongod);
 });
 
+beforeEach(() => {
+  resolveSessionFromIdTokenMock.mockReset();
+  resolveSessionFromIdTokenMock.mockResolvedValue(null);
+});
+
 function req(url: string, init?: ConstructorParameters<typeof NextRequest>[1]) {
   return buildApiRequest(url, init);
+}
+
+// A request with no x-api-key header at all, so requireBrandAccessApi falls
+// through to the session branch and actually invokes the (mocked)
+// resolveSessionFromIdToken — req()/buildApiRequest above always injects a
+// valid x-api-key unless the caller overrides it, which would short-circuit
+// past the session check and defeat the point of the ownership tests below.
+function sessionReq(url: string, init?: ConstructorParameters<typeof NextRequest>[1]) {
+  return new NextRequest(`http://localhost${url}`, init);
+}
+
+async function leadsDb() {
+  const clientPromise = (await import('../../lib/mongodb')).default;
+  const client = await clientPromise;
+  return client.db();
+}
+
+async function seedUserAccess(overrides: { ssoUserId: string; email: string; orgAccess: Record<string, 'admin' | 'user'> }) {
+  const database = await leadsDb();
+  const now = new Date().toISOString();
+  await database.collection('sso_user_access').insertOne({
+    ssoUserId: overrides.ssoUserId,
+    email: overrides.email,
+    orgAccess: overrides.orgAccess,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+function leadPayload(entityName: string) {
+  const slug = entityName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  return {
+    entity_name: entityName,
+    url: `https://${slug}.example.com`,
+    country: 'US',
+    kanbanColumn: 'DISCOVERED',
+    ice: { impact: 5, confidence: 5, ease: 5 },
+    contacts: [{ name: 'Contact', email: `contact@${slug}.example.com`, isDecisionMaker: true }],
+  };
 }
 
 describe('GET /api/leads', () => {
@@ -277,5 +344,308 @@ describe('brand=dvsc lead lifecycle', () => {
   it('rejects a genuinely unrecognized brand with 400, never silently falling back to cogmap (issue #147 regression)', async () => {
     const res = await GET(req('/api/leads?brand=not_a_real_brand'));
     expect(res.status).toBe(400);
+  });
+});
+
+// Lead ownership (issue: CRM Lead ownership) — PATCH .../leads?id=X ASSIGN.
+describe('PATCH /api/leads — ASSIGN action (lead ownership)', () => {
+  it('requires an authenticated session — an x-api-key-only caller cannot ASSIGN', async () => {
+    const create = await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('Assign No Session FC')),
+    }));
+    const created = await create.json();
+
+    // req() sends a valid x-api-key, which authorizes requireBrandAccessApi
+    // without ever resolving a session — actorId stays undefined.
+    const res = await PATCH(req(`/api/leads?id=${created.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: 'user-1' }),
+    }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/authenticated session/);
+  });
+
+  it('sets assignedTo/assignedToEmail/assignedAt/assignedBy on self-assign and returns them in the response', async () => {
+    await seedUserAccess({ ssoUserId: 'assign-user-1', email: 'assign-user-1@test.example.com', orgAccess: { cogmap: 'user' } });
+
+    const create = await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('Self Assign FC')),
+    }));
+    const created = await create.json();
+
+    resolveSessionFromIdTokenMock.mockResolvedValue({ sub: 'assign-user-1', email: 'assign-user-1@test.example.com' });
+    const res = await PATCH(sessionReq(`/api/leads?id=${created.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: 'assign-user-1' }),
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.assignedTo).toBe('assign-user-1');
+    expect(body.lead.assignedToEmail).toBe('assign-user-1@test.example.com');
+    expect(body.lead.assignedBy).toBe('assign-user-1');
+    expect(body.lead.assignedAt).toBeTruthy();
+  });
+
+  it('allows an admin to assign a lead to another user', async () => {
+    await seedUserAccess({ ssoUserId: 'assign-admin-1', email: 'assign-admin-1@test.example.com', orgAccess: { cogmap: 'admin' } });
+    await seedUserAccess({ ssoUserId: 'assign-target-1', email: 'assign-target-1@test.example.com', orgAccess: { cogmap: 'user' } });
+
+    const create = await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('Admin Assign FC')),
+    }));
+    const created = await create.json();
+
+    resolveSessionFromIdTokenMock.mockResolvedValue({ sub: 'assign-admin-1', email: 'assign-admin-1@test.example.com' });
+    const res = await PATCH(sessionReq(`/api/leads?id=${created.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: 'assign-target-1' }),
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.assignedTo).toBe('assign-target-1');
+    expect(body.lead.assignedToEmail).toBe('assign-target-1@test.example.com');
+    expect(body.lead.assignedBy).toBe('assign-admin-1');
+  });
+
+  // executeLeadAction returns { success: false } for every authorization
+  // failure, and the PATCH handler maps that uniformly to 400 for every
+  // action (stage-gate failures included) — there is no separate 403 path,
+  // so 400 is this route's real, consistent contract, asserted here rather
+  // than a 403 the code has never actually returned.
+  it('blocks a non-admin from assigning to another user (400) and leaves the document unchanged', async () => {
+    await seedUserAccess({ ssoUserId: 'assign-user-2', email: 'assign-user-2@test.example.com', orgAccess: { cogmap: 'user' } });
+    await seedUserAccess({ ssoUserId: 'assign-target-2', email: 'assign-target-2@test.example.com', orgAccess: { cogmap: 'user' } });
+
+    const create = await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('Blocked Assign FC')),
+    }));
+    const created = await create.json();
+
+    resolveSessionFromIdTokenMock.mockResolvedValue({ sub: 'assign-user-2', email: 'assign-user-2@test.example.com' });
+    const res = await PATCH(sessionReq(`/api/leads?id=${created.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: 'assign-target-2' }),
+    }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/brand admin/);
+
+    const getRes = await GET(req('/api/leads?brand=cogmap'));
+    const getBody = await getRes.json();
+    const stillUnassigned = getBody.leads.find((l: any) => l.entity_name === 'Blocked Assign FC');
+    expect(stillUnassigned.assignedTo ?? null).toBeNull();
+  });
+
+  it('allows a non-admin to release (clear) their own assignment', async () => {
+    await seedUserAccess({ ssoUserId: 'assign-user-3', email: 'assign-user-3@test.example.com', orgAccess: { cogmap: 'user' } });
+
+    const create = await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('Self Release FC')),
+    }));
+    const created = await create.json();
+
+    resolveSessionFromIdTokenMock.mockResolvedValue({ sub: 'assign-user-3', email: 'assign-user-3@test.example.com' });
+    const assignRes = await PATCH(sessionReq(`/api/leads?id=${created.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: 'assign-user-3' }),
+    }));
+    expect(assignRes.status).toBe(200);
+
+    const releaseRes = await PATCH(sessionReq(`/api/leads?id=${created.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: null }),
+    }));
+    expect(releaseRes.status).toBe(200);
+    const releaseBody = await releaseRes.json();
+    expect(releaseBody.lead.assignedTo ?? null).toBeNull();
+    expect(releaseBody.lead.assignedToEmail ?? null).toBeNull();
+  });
+
+  it("blocks a non-admin from clearing someone else's assignment (400)", async () => {
+    await seedUserAccess({ ssoUserId: 'assign-admin-2', email: 'assign-admin-2@test.example.com', orgAccess: { cogmap: 'admin' } });
+    await seedUserAccess({ ssoUserId: 'assign-user-4', email: 'assign-user-4@test.example.com', orgAccess: { cogmap: 'user' } });
+    await seedUserAccess({ ssoUserId: 'assign-target-4', email: 'assign-target-4@test.example.com', orgAccess: { cogmap: 'user' } });
+
+    const create = await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('Blocked Release FC')),
+    }));
+    const created = await create.json();
+
+    resolveSessionFromIdTokenMock.mockResolvedValue({ sub: 'assign-admin-2', email: 'assign-admin-2@test.example.com' });
+    await PATCH(sessionReq(`/api/leads?id=${created.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: 'assign-target-4' }),
+    }));
+
+    resolveSessionFromIdTokenMock.mockResolvedValue({ sub: 'assign-user-4', email: 'assign-user-4@test.example.com' });
+    const res = await PATCH(sessionReq(`/api/leads?id=${created.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: null }),
+    }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/brand admin/);
+  });
+});
+
+describe('GET /api/leads and /api/leads/columns — assignedTo filter (lead ownership)', () => {
+  it("assignedTo=me returns only the authenticated caller's leads (list view)", async () => {
+    await seedUserAccess({ ssoUserId: 'filter-user-1', email: 'filter-user-1@test.example.com', orgAccess: { cogmap: 'user' } });
+
+    const mine = await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('My Filtered Lead FC')),
+    }));
+    const mineBody = await mine.json();
+    resolveSessionFromIdTokenMock.mockResolvedValue({ sub: 'filter-user-1', email: 'filter-user-1@test.example.com' });
+    await PATCH(sessionReq(`/api/leads?id=${mineBody.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: 'filter-user-1' }),
+    }));
+
+    await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('Not My Filtered Lead FC')),
+    }));
+
+    const res = await GET(sessionReq('/api/leads?brand=cogmap&assignedTo=me'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const names = body.leads.map((l: any) => l.entity_name);
+    expect(names).toContain('My Filtered Lead FC');
+    expect(names).not.toContain('Not My Filtered Lead FC');
+  });
+
+  it('assignedTo=me scopes the kanban column view the same way', async () => {
+    await seedUserAccess({ ssoUserId: 'filter-user-2', email: 'filter-user-2@test.example.com', orgAccess: { cogmap: 'user' } });
+
+    const mine = await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('My Column Lead FC')),
+    }));
+    const mineBody = await mine.json();
+    resolveSessionFromIdTokenMock.mockResolvedValue({ sub: 'filter-user-2', email: 'filter-user-2@test.example.com' });
+    await PATCH(sessionReq(`/api/leads?id=${mineBody.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: 'filter-user-2' }),
+    }));
+
+    await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('Not My Column Lead FC')),
+    }));
+
+    const res = await columnsGET(sessionReq('/api/leads/columns?brand=cogmap&column=DISCOVERED&assignedTo=me'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const names = body.leads.map((l: any) => l.entity_name);
+    expect(names).toContain('My Column Lead FC');
+    expect(names).not.toContain('Not My Column Lead FC');
+  });
+
+  it('assignedTo=unassigned matches both a legacy document with no assignedTo field and one explicitly cleared via ASSIGN', async () => {
+    await seedUserAccess({ ssoUserId: 'filter-user-3', email: 'filter-user-3@test.example.com', orgAccess: { cogmap: 'user' } });
+
+    // Legacy: never touched by ASSIGN, so it has no assignedTo field at all.
+    await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('Legacy Unassigned FC')),
+    }));
+
+    // Explicitly cleared: assignedTo: null is a real stored field, not an
+    // absent one — the two must both match the same filter (see
+    // resolveAssignedToFilter's own regression-guard unit test).
+    const cleared = await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('Explicitly Cleared FC')),
+    }));
+    const clearedBody = await cleared.json();
+    resolveSessionFromIdTokenMock.mockResolvedValue({ sub: 'filter-user-3', email: 'filter-user-3@test.example.com' });
+    await PATCH(sessionReq(`/api/leads?id=${clearedBody.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: 'filter-user-3' }),
+    }));
+    await PATCH(sessionReq(`/api/leads?id=${clearedBody.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: null }),
+    }));
+
+    // Still-assigned: must NOT show up in the unassigned filter.
+    const assigned = await POST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leadPayload('Still Assigned FC')),
+    }));
+    const assignedBody = await assigned.json();
+    await PATCH(sessionReq(`/api/leads?id=${assignedBody.lead._id}&brand=cogmap`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'ASSIGN', assignedTo: 'filter-user-3' }),
+    }));
+
+    const res = await GET(req('/api/leads?brand=cogmap&assignedTo=unassigned'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const names = body.leads.map((l: any) => l.entity_name);
+    expect(names).toContain('Legacy Unassigned FC');
+    expect(names).toContain('Explicitly Cleared FC');
+    expect(names).not.toContain('Still Assigned FC');
+  });
+});
+
+describe('GET /api/leads/assignable-users (lead ownership)', () => {
+  it("returns only brand-scoped users, plus the caller's own resolved role", async () => {
+    await seedUserAccess({ ssoUserId: 'assignable-caller', email: 'assignable-caller@test.example.com', orgAccess: { cogmap: 'user' } });
+    await seedUserAccess({ ssoUserId: 'assignable-peer', email: 'assignable-peer@test.example.com', orgAccess: { cogmap: 'admin' } });
+    // Only dvsc access — must not appear in a cogmap-scoped listing.
+    await seedUserAccess({ ssoUserId: 'assignable-other-brand', email: 'assignable-other-brand@test.example.com', orgAccess: { dvsc: 'user' } });
+
+    resolveSessionFromIdTokenMock.mockResolvedValue({ sub: 'assignable-caller', email: 'assignable-caller@test.example.com' });
+    const res = await assignableUsersGET(sessionReq('/api/leads/assignable-users?brand=cogmap'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const ids = body.users.map((u: any) => u.ssoUserId);
+    expect(ids).toContain('assignable-caller');
+    expect(ids).toContain('assignable-peer');
+    expect(ids).not.toContain('assignable-other-brand');
+    expect(body.callerSsoUserId).toBe('assignable-caller');
+    expect(body.callerRole).toBe('user');
+  });
+
+  it('rejects an unauthenticated caller (401)', async () => {
+    resolveSessionFromIdTokenMock.mockResolvedValue(null);
+    const res = await assignableUsersGET(sessionReq('/api/leads/assignable-users?brand=cogmap'));
+    expect(res.status).toBe(401);
   });
 });
