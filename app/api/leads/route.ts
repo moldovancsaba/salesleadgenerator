@@ -4,7 +4,9 @@ import { getBrandConfig, resolveBrand, getForbiddenTermsFor, PRO_FIELD, CON_FIEL
 import type { Brand } from '../../lib/brand'
 import { normalizeLead, extractWarnings } from '../../lib/normalize-lead'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
+import { resolveSessionFromIdToken } from '../../../lib/session'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
+import { resolveAssignedToFilter, combineFilterWithAssignedTo } from '../../../lib/lead-assignment'
 import { validateLeadPayload, validatePatchPayload, bestContactConfidence } from '../../../lib/validate-lead'
 import { generateRequestId } from '../../lib/request-id'
 import { executeLeadAction } from '../../lib/lead-actions'
@@ -85,6 +87,10 @@ export async function GET(request: NextRequest) {
     // Issue #116 — comma-separated, OR-matched against Lead.tags[].
     const tagsParam = searchParams.get('tags') || undefined
     const tags = tagsParam ? tagsParam.split(',').map((t) => t.trim()).filter(Boolean) : undefined
+    // Lead ownership (issue: CRM Lead ownership) — 'me'|'unassigned'|<ssoUserId>.
+    // 'me' is resolved from the verified session below, never trusted as a
+    // literal client-supplied value — see lib/lead-assignment.ts.
+    const assignedToParam = searchParams.get('assignedTo') || undefined
     const limit = Math.max(1, Math.min(5000, parseInt(searchParams.get('limit') || '5000') || 5000))
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
     const skip = (page - 1) * limit
@@ -98,15 +104,32 @@ export async function GET(request: NextRequest) {
     const db = client.db()
 
     // Backward-compatible tenant filter: include legacy docs without tenantId when querying default
-    const filter: any = { ...tenantFilter(tenantId) }
-    if (region) filter.region = region
+    const baseFilter: any = { ...tenantFilter(tenantId) }
+    if (region) baseFilter.region = region
     // Case-insensitive substring match — industry is free text entered via
     // Sales Settings/lead creation, not a fixed enum, so an exact match
     // would miss casing/whitespace variants a user reasonably expects to
     // match (issue #71).
-    if (industry) filter.industry = { $regex: escapeRegExp(industry), $options: 'i' }
-    if (kanbanColumn) filter.kanbanColumn = kanbanColumn
-    if (tags && tags.length > 0) filter.tags = { $in: tags }
+    if (industry) baseFilter.industry = { $regex: escapeRegExp(industry), $options: 'i' }
+    if (kanbanColumn) baseFilter.kanbanColumn = kanbanColumn
+    if (tags && tags.length > 0) baseFilter.tags = { $in: tags }
+
+    // Lead ownership — 'me' needs the caller's verified ssoUserId, resolved
+    // here (not trusted from the query string). '' is a safe no-match
+    // fallback (see resolveAssignedToFilter) if assignedTo=me is requested
+    // with no resolvable session (e.g. an x-api-key caller).
+    let actorSub = ''
+    if (assignedToParam === 'me') {
+      const idToken = request.cookies.get('sso_id_token')?.value
+      const claims = await resolveSessionFromIdToken(idToken)
+      actorSub = claims?.sub || ''
+    }
+    const assignedToClause = resolveAssignedToFilter(assignedToParam, actorSub)
+    // tenantFilter() above may itself carry a top-level $or (default
+    // tenant); the 'unassigned' clause also carries one — spreading both
+    // into one object would silently drop one (docs/LESSONS_LEARNED.md §1),
+    // so they're combined via $and instead whenever assignedToClause exists.
+    const filter: any = combineFilterWithAssignedTo(baseFilter, assignedToClause)
 
     const totalCount = await db.collection(config.dbCollection).countDocuments(filter)
 
@@ -468,10 +491,19 @@ export async function PATCH(request: NextRequest) {
     }
 
     const action = String(body.action || '').toUpperCase()
-    const allowed = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH'])
+    const allowed = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH', 'ASSIGN'])
     if (!allowed.has(action)) {
       return NextResponse.json({ error: `Unsupported action: ${action}` }, { status: 400 })
     }
+
+    // Lead ownership — resolved separately from requireBrandAccessApi above
+    // (which only returns a NextResponse-or-null, discarding the claims it
+    // verified) rather than changing that shared guard's return contract,
+    // which every other brand-scoped route also depends on. Only actually
+    // needed by ASSIGN and the outcomelogs actor stamp; every other action
+    // ignores actorId/actorEmail exactly as before this change.
+    const idToken = request.cookies.get('sso_id_token')?.value
+    const claims = await resolveSessionFromIdToken(idToken)
 
     const result = await executeLeadAction({
       leadId: id,
@@ -479,6 +511,8 @@ export async function PATCH(request: NextRequest) {
       brand,
       tenantId,
       payload: body,
+      actorId: claims?.sub,
+      actorEmail: claims?.email,
     })
 
     if (!result.success) {

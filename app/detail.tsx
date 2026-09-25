@@ -365,6 +365,44 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
   const [qualTimeline, setQualTimeline] = useState('');
   const [savingQualification, setSavingQualification] = useState(false);
 
+  // Lead ownership (issue: CRM Lead ownership) — assignee picker. Fetched
+  // from GET /api/leads/assignable-users (brand-scoped, not the super-
+  // admin-only /api/admin/users) whenever the modal opens for a given
+  // brand; callerRole/callerSsoUserId drive the disabled-with-reason state
+  // for a non-admin trying to assign to someone other than themselves
+  // (CLAUDE.md Rule 7 — no live-looking control that silently fails).
+  const [assignableUsers, setAssignableUsers] = useState<Array<{ ssoUserId: string; email: string; name?: string }>>([]);
+  const [callerSsoUserId, setCallerSsoUserId] = useState<string | null>(null);
+  const [callerRole, setCallerRole] = useState<'admin' | 'user' | null>(null);
+  const [loadingAssignable, setLoadingAssignable] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState(false);
+
+  useEffect(() => {
+    if (!opened) return;
+    let cancelled = false;
+    setLoadingAssignable(true);
+    fetch(`/api/leads/assignable-users?brand=${encodeURIComponent(brand)}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`Failed to load assignable users (${res.status})`))))
+      .then((data) => {
+        if (cancelled) return;
+        setAssignableUsers(Array.isArray(data.users) ? data.users : []);
+        setCallerSsoUserId(data.callerSsoUserId ?? null);
+        setCallerRole(data.callerRole ?? null);
+      })
+      .catch((err) => {
+        // Non-fatal — the assignment display/current-state section above
+        // still renders; only the picker's own option list is affected.
+        console.error('assignable-users fetch error:', err);
+      })
+      .finally(() => { if (!cancelled) setLoadingAssignable(false); });
+    return () => { cancelled = true; };
+  }, [opened, brand]);
+
+  useEffect(() => {
+    setAssignTarget(lead?.assignedTo ?? null);
+  }, [lead?._id, lead?.assignedTo]);
+
   useEffect(() => {
     setNextActionDueAt(lead?.nextActionDueAt ? new Date(lead.nextActionDueAt) : null);
     setNextActionNote(lead?.nextActionNote || '');
@@ -709,6 +747,30 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
     }
   }
 
+  // Lead ownership (issue: CRM Lead ownership) — clearing an existing
+  // assignment requires an explicit confirm step (removes visibility from
+  // whoever currently owns the lead), matching this app's own established
+  // window.confirm convention for every other destructive action
+  // (CadencePanel.tsx, battlecards/templates/cadences delete flows) rather
+  // than introducing a different confirm pattern for just this one action.
+  async function handleAssign(target: string | null) {
+    if (!lead) return;
+    if (target === null) {
+      const confirmed = window.confirm('Clear this lead\'s assignment? It will show as Unassigned until someone claims or is assigned it again.');
+      if (!confirmed) return;
+    }
+    setAssigning(true);
+    try {
+      await onAction(lead._id, 'ASSIGN', { assignedTo: target });
+      setAssignTarget(target);
+      showNotification({ message: target === null ? 'Assignment cleared' : 'Lead assigned', color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Assignment failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setAssigning(false);
+    }
+  }
+
   async function handleSaveQualification() {
     if (!lead) return;
     setSavingQualification(true);
@@ -929,6 +991,12 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
           <Text size="sm">{lead.source || '—'}</Text>
         </Box>
         <Box>
+          <Text size="xs" c="dimmed">Assigned to</Text>
+          <Text size="sm" title={lead.assignedAt ? `Changed ${new Date(lead.assignedAt).toLocaleString()}` : undefined}>
+            {lead.assignedToEmail || (lead.assignedTo ? lead.assignedTo : 'Unassigned')}
+          </Text>
+        </Box>
+        <Box>
           <Text size="xs" c="dimmed">Created</Text>
           <Text size="sm">{lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '—'}</Text>
         </Box>
@@ -937,6 +1005,56 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
           <Text size="sm">{lead.updatedAt ? new Date(lead.updatedAt).toLocaleString() : '—'}</Text>
         </Box>
       </SimpleGrid>
+
+      {/* Lead ownership (issue: CRM Lead ownership) — self-assign is always
+          allowed; assigning to (or clearing) someone else's assignment is
+          disabled with a visible reason for a non-admin (CLAUDE.md Rule 7)
+          rather than only failing after the attempt via the server's own
+          403. GDS's AdminSelect primitive (already imported/used elsewhere
+          in this file) per the issue's Design System requirement. */}
+      <Box>
+        <Text size="xs" c="dimmed" fw={600} mb={4}>ASSIGNMENT</Text>
+        <Group gap="xs" align="flex-end">
+          <AdminSelect
+            name="assignTo"
+            label="Assign to"
+            placeholder={loadingAssignable ? 'Loading…' : 'Unassigned'}
+            disabled={loadingAssignable}
+            data={[
+              { value: '__unassigned__', label: 'Unassigned' },
+              ...assignableUsers.map((u) => ({
+                value: u.ssoUserId,
+                label: u.name ? `${u.name} (${u.email})` : u.email,
+              })),
+            ]}
+            value={assignTarget ?? '__unassigned__'}
+            onChange={(value: string | null) => setAssignTarget(value === '__unassigned__' || !value ? null : value)}
+          />
+          <Button
+            size="xs"
+            variant="light"
+            loading={assigning}
+            disabled={
+              assignTarget === (lead.assignedTo ?? null)
+              || (
+                // Self-assign/self-release is always allowed; anything else
+                // (assigning to, or clearing, someone else's assignment)
+                // needs the brand-admin role — matches lib/lead-assignment.ts's
+                // canAssign() exactly, client-side, for immediate feedback.
+                callerRole !== 'admin'
+                && assignTarget !== callerSsoUserId
+                && !(assignTarget === null && lead.assignedTo === callerSsoUserId)
+              )
+            }
+            onClick={() => handleAssign(assignTarget)}
+          >
+            {assignTarget === null ? 'Clear assignment' : 'Assign'}
+          </Button>
+        </Group>
+        {callerRole !== 'admin' && assignTarget !== callerSsoUserId && assignTarget !== (lead.assignedTo ?? null) && !(assignTarget === null && lead.assignedTo === callerSsoUserId) && (
+          <Text size="xs" c="dimmed" mt={4}>Only a brand admin can assign this lead to another user.</Text>
+        )}
+      </Box>
 
       <Box>
         <Group justify="space-between" align="center">

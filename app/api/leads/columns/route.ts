@@ -4,7 +4,9 @@ import { getBrandConfig, resolveBrand, type Brand } from '@/app/lib/brand'
 import { isAutoManagedColumn, ICE_SCORE_AGGREGATION_EXPR } from '@/lib/kanban-column'
 import { escapeRegExp } from '@/app/lib/search/tagged-content-filter'
 import { requireBrandAccessApi } from '@/lib/require-brand-access-api'
+import { resolveSessionFromIdToken } from '@/lib/session'
 import { getTenantId, tenantFilter } from '@/lib/tenant'
+import { resolveAssignedToFilter, combineFilterWithAssignedTo } from '@/lib/lead-assignment'
 
 const CHUNK_SIZE = 50
 
@@ -47,14 +49,29 @@ export async function GET(request: NextRequest) {
     const industry = searchParams.get('industry') || undefined
     const tagsParam = searchParams.get('tags') || undefined
     const tags = tagsParam ? tagsParam.split(',').map((t) => t.trim()).filter(Boolean) : undefined
+    // Lead ownership — identical semantics to GET /api/leads (see that
+    // route's own comment for why 'me' is resolved server-side).
+    const assignedToParam = searchParams.get('assignedTo') || undefined
 
     const client = await clientPromise
     const db = client.db()
     const collection = db.collection(config.dbCollection)
-    const colFilter: Record<string, any> = { kanbanColumn: column, ...filter }
-    if (region) colFilter.region = region
-    if (industry) colFilter.industry = { $regex: escapeRegExp(industry), $options: 'i' }
-    if (tags && tags.length > 0) colFilter.tags = { $in: tags }
+    const baseColFilter: Record<string, any> = { kanbanColumn: column, ...filter }
+    if (region) baseColFilter.region = region
+    if (industry) baseColFilter.industry = { $regex: escapeRegExp(industry), $options: 'i' }
+    if (tags && tags.length > 0) baseColFilter.tags = { $in: tags }
+
+    let actorSub = ''
+    if (assignedToParam === 'me') {
+      const idToken = request.cookies.get('sso_id_token')?.value
+      const claims = await resolveSessionFromIdToken(idToken)
+      actorSub = claims?.sub || ''
+    }
+    const assignedToClause = resolveAssignedToFilter(assignedToParam, actorSub)
+    // filter (tenantFilter, spread above) may itself carry a top-level $or
+    // for the default tenant; the 'unassigned' clause also carries one —
+    // combined via $and rather than spread, same reasoning as GET /api/leads.
+    const colFilter: Record<string, any> = combineFilterWithAssignedTo(baseColFilter, assignedToClause)
 
     const [countDoc] = await collection.aggregate([
       { $match: colFilter },

@@ -128,6 +128,7 @@ export function SalesPageClient({ brand, currency }: Props) {
         if (leadFilter.region) url.searchParams.set('region', leadFilter.region)
         if (leadFilter.industry?.trim()) url.searchParams.set('industry', leadFilter.industry.trim())
         if (leadFilter.tags && leadFilter.tags.length > 0) url.searchParams.set('tags', leadFilter.tags.join(','))
+        if (leadFilter.assignedTo) url.searchParams.set('assignedTo', leadFilter.assignedTo)
 
         const res = await fetch(url.toString())
         if (!res.ok) throw new Error(`${res.status}`)
@@ -143,7 +144,7 @@ export function SalesPageClient({ brand, currency }: Props) {
       .catch(console.error)
       .finally(() => { if (!cancelled) setTableLoading(false) })
     return () => { cancelled = true }
-  }, [view, brand, leadFilter.region, leadFilter.industry, leadFilter.tags, refreshKey])
+  }, [view, brand, leadFilter.region, leadFilter.industry, leadFilter.tags, leadFilter.assignedTo, refreshKey])
 
   const handleAction = useCallback(async (leadId: string, action: string, payload?: any) => {
     try {

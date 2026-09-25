@@ -195,6 +195,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       if (filter?.region) url.searchParams.set('region', filter.region)
       if (filter?.industry?.trim()) url.searchParams.set('industry', filter.industry.trim())
       if (filter?.tags && filter.tags.length > 0) url.searchParams.set('tags', filter.tags.join(','))
+      if (filter?.assignedTo) url.searchParams.set('assignedTo', filter.assignedTo)
 
       const res = await fetch(url.toString())
       if (!res.ok) throw new Error(`Column load failed: ${res.status}`)

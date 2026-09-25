@@ -17,8 +17,16 @@ export type LeadActionInput = {
   brand: string
   tenantId: string
   leadId: string
-  action: 'ACCEPT' | 'DECLINE' | 'MODIFY' | 'PIN' | 'REQUEST_REFRESH' | 'COLUMN_MOVE' | 'RESCAN_TECH'
+  action: 'ACCEPT' | 'DECLINE' | 'MODIFY' | 'PIN' | 'REQUEST_REFRESH' | 'COLUMN_MOVE' | 'RESCAN_TECH' | 'ASSIGN'
   payload: Record<string, any>
+  // Lead ownership (issue: CRM Lead ownership) — the real actor's identity,
+  // resolved server-side from the caller's verified session
+  // (lib/session.ts's SsoIdTokenClaims) by the route handler and threaded
+  // through here so ASSIGN and the outcomelogs audit trail can stamp a real
+  // ssoUserId instead of the 'webapp-user' placeholder. Undefined for the
+  // x-api-key (research agent) path, which never calls ASSIGN.
+  actorId?: string
+  actorEmail?: string
 }
 
 export type LeadActionResult = {
@@ -29,7 +37,7 @@ export type LeadActionResult = {
 }
 
 export async function executeLeadAction(input: LeadActionInput): Promise<LeadActionResult> {
-  const { brand, tenantId, leadId, action, payload } = input
+  const { brand, tenantId, leadId, action, payload, actorId, actorEmail } = input
   const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
   if (!isMongoConfigured()) {
@@ -80,6 +88,47 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     updateData.manualLaneFloorColumn = normalizedBody.kanbanColumn
     updateData.manualLaneOverrideBy = normalizedBody.manualLaneOverrideBy || 'webapp-user'
     outcomeValue = `Moved to ${normalizedBody.kanbanColumn}`
+  }
+
+  // Lead ownership (issue: CRM Lead ownership) — set/clear Lead.assignedTo.
+  // ASSIGN is session-gated by definition (see route handler): it requires
+  // a real actorId, never falls back to the x-api-key/'webapp-user' path,
+  // since "who is allowed to assign this to whom" has no meaning without a
+  // real caller identity to check a role against.
+  if (action === 'ASSIGN') {
+    if (!actorId) {
+      return { success: false, error: 'ASSIGN requires an authenticated session', requestId }
+    }
+
+    const { canAssign } = await import('../../lib/lead-assignment')
+    const { getUserAccess, getRoleForBrand } = await import('../../lib/sso-access')
+
+    const rawTarget = payload.assignedTo
+    const targetAssignedTo = rawTarget === null || rawTarget === undefined ? null : String(rawTarget)
+    const currentAssignedTo: string | null = existing.assignedTo ?? null
+
+    const actorRecord = await getUserAccess(db, actorId)
+    const actorBrandRole = getRoleForBrand(actorEmail, actorRecord?.orgAccess, brand)
+
+    if (!canAssign(actorId, actorBrandRole, targetAssignedTo, currentAssignedTo)) {
+      return { success: false, error: 'Only a brand admin can assign this lead to another user', requestId }
+    }
+
+    if (targetAssignedTo === null) {
+      updateData.assignedTo = null
+      updateData.assignedToEmail = null
+      outcomeValue = 'Unassigned'
+    } else {
+      const targetUser = await getUserAccess(db, targetAssignedTo)
+      if (!targetUser) {
+        return { success: false, error: 'Unknown user', requestId }
+      }
+      updateData.assignedTo = targetAssignedTo
+      updateData.assignedToEmail = targetUser.email
+      outcomeValue = `Assigned to ${targetUser.email}`
+    }
+    updateData.assignedAt = new Date()
+    updateData.assignedBy = actorId
   }
 
   // Issue #108: acceptanceCount/declineCount/feedbackScore are incremented
@@ -342,7 +391,12 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     // docs/ARCHITECTURE.md's Outcome Log section.
     teachingWeight: action === 'MODIFY' ? 95 : action === 'DECLINE' ? 100 : 70,
     actorType: 'USER',
-    actedBy: 'webapp-user',
+    // Lead ownership (issue: CRM Lead ownership) — the real ssoUserId when
+    // the caller has a verified session (every action from the browser UI,
+    // now including ASSIGN), unchanged 'webapp-user' placeholder fallback
+    // for the x-api-key (research agent) path, which never has actorId —
+    // byte-for-byte identical behavior to before this change on that path.
+    actedBy: actorId || 'webapp-user',
     beforeState: {
       kanbanColumn: existing.kanbanColumn,
       status: existing.status,

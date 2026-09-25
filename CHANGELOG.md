@@ -1,5 +1,76 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.189
+
+### Lead ownership — assignedTo, My Leads, and assignment workflow (issue #198)
+
+The CRM-parity roadmap's Phase 0 foundation: this app had no per-user lead
+ownership at all before this change — `app/lib/lead-actions.ts` stamped every
+action with a hardcoded `actedBy: 'webapp-user'`, and `docs/ARCHITECTURE.md`'s
+own #121 entry explicitly noted "no `assignedTo`/`ownerId`/user-identity model
+at all." Nearly every other CRM-parity issue (#199 team visibility and beyond)
+depends on this existing first.
+
+New `Lead.assignedTo?: string | null` (a verified `ssoUserId`), `assignedToEmail?`,
+`assignedAt?`, `assignedBy?`. New `PATCH .../leads?id=X` action `ASSIGN` —
+session-gated by definition (requires a real `actorId` resolved from the
+caller's verified SSO session; the `x-api-key` research-agent path can never
+call it, since "who may assign this to whom" has no meaning without a real
+caller identity). New `lib/lead-assignment.ts` (pure, DB-free, unit-tested):
+`canAssign()` — self-assign always allowed, a brand `admin` may assign/clear
+anyone, and a non-admin may additionally self-release their own assignment (a
+deliberate extension past the issue's literal two-argument spec, via an
+optional `currentAssignedTo` parameter — without it a non-admin could
+self-assign but never undo it, a real UX gap); `resolveAssignedToFilter()` /
+`combineFilterWithAssignedTo()` add an `assignedTo=me|unassigned|<ssoUserId>`
+filter to both `GET /api/leads` and `GET /api/leads/columns` (`me` resolved
+server-side from the verified session, never a trusted literal; `unassigned`
+matches both a legacy document with no `assignedTo` field and one explicitly
+cleared to `null`, combined via `$and` rather than spread so a pre-existing
+`$or` — e.g. `tenantFilter()`'s own default-tenant `$or` — is never silently
+dropped, the exact bug class documented in `docs/LESSONS_LEARNED.md` §1). New
+`GET /api/leads/assignable-users?brand=<brand>` — brand-scoped user listing
+(any user with brand access, not super-admin-only) plus the caller's own
+resolved `callerRole`/`callerSsoUserId`, so the UI can disable "assign to
+someone else" with a visible reason for a non-admin rather than only
+discovering the 403 after the attempt (CLAUDE.md's UI-affordances rule).
+
+UI: `app/components/FilterBar.tsx` gained a "My Leads" toggle (kanban and
+table view both). `app/detail.tsx` gained an Assignment section — GDS
+`AdminSelect` plus an Assign/Clear button, `window.confirm()` before applying
+(matching this codebase's existing confirm-before-destructive-action
+convention, not GDS's `ConfirmDialog`, per a grep against four other
+call sites first).
+
+`docs/ARCHITECTURE.md`'s #121 entry corrected — it no longer claims this app
+has no user-identity model.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx vitest
+run` — 757/757 passing (+14 new in `tests/lib/lead-assignment.test.ts`).
+`npm run test:integration` — 239/239 passing (+11 new in
+`tests/integration/leads.integration.test.ts`, covering ASSIGN's
+self-assign/admin-assign/blocked-assign/self-release/blocked-release paths,
+the `assignedTo=me` filter on both `GET /api/leads` and
+`GET /api/leads/columns`, the `assignedTo=unassigned` legacy-vs-explicit-null
+match, and `GET /api/leads/assignable-users`'s brand scoping and 401 gate — all
+against a real `mongodb-memory-server` database, with `lib/session.ts`'s
+`resolveSessionFromIdToken` mocked as a clean dependency boundary the same way
+`admin-clients.integration.test.ts`/`duplicate-review-merge.integration.test.ts`
+already mock `requireSuperAdminSession`, since this sandbox cannot mint a real
+signed SSO JWT). `npm run test:smoke` — 5/5 passing. `npm run audit:gds-style`
+— same 26 pre-existing violations before and after (git-stash A/B comparison),
+none newly introduced by this change's 2 touched UI files.
+
+**Disclosed, pre-existing, out of scope for this change**: `npm install`
+surfaces 7 pre-existing dependency vulnerabilities (3 moderate, 3 high, 1
+critical — `@tiptap/core`, `@vitest/mocker`, `js-yaml`, `next`, `sharp`), none
+introduced by this change (no `package.json` dependency was added or
+changed — `package-lock.json`'s only diff is its own `version` field catching
+up to `package.json`'s, which was already out of sync before this change).
+Upgrading them is a separate, larger piece of work (a `next` major-version
+bump in particular) than this feature's own scope justifies.
+
 ## 2.4.188
 
 ### Bulk Accept + inline card Accept/Decline on the kanban (issue #197)

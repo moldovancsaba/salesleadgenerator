@@ -226,6 +226,26 @@ export type Lead = {
   // (not a closed enum) so brand-specific channels don't require a code
   // change to record.
   source?: string;
+  // Lead ownership (issue: CRM Lead ownership) — the SSO ssoUserId (claims.sub,
+  // see lib/sso.ts's SsoIdTokenClaims) of the rep this lead is currently
+  // assigned to. null = explicitly unassigned (set by a CLEAR); undefined =
+  // never assigned (pre-migration documents and brand-new leads alike) —
+  // both null and undefined mean "unassigned" for every read path; there is
+  // no third state. Never a display name or email — see app/lib/lead-actions.ts
+  // for why ssoUserId (not email) is the stable key.
+  assignedTo?: string | null;
+  // Denormalized display value, kept in sync with assignedTo on every write —
+  // same "durable id + denormalized display field" convention as
+  // SsoUserAccessRecord (lib/sso-access.ts). Never authoritative on its own;
+  // always recomputed from assignedTo, never accepted as raw client input.
+  assignedToEmail?: string | null;
+  // ISO 8601 timestamp of the most recent assignment change (set or clear).
+  // undefined means never assigned.
+  assignedAt?: string | null;
+  // ssoUserId of the actor who performed the most recent assignment change —
+  // distinct from assignedTo itself (who a lead is assigned TO vs. who did
+  // the assigning most recently; these differ whenever an admin reassigns).
+  assignedBy?: string;
   // Per-field provenance for SCALAR lead fields only — issue #188. Each entry
   // says where one data point came from, how, and when it was established.
   //
