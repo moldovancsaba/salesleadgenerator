@@ -35,6 +35,14 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/leads/[id]/activity/route.ts` | GET | `requireBrandAccessApi` | Merges `activityLog` + `outreach_logs` into one timeline via `mergeActivityTimeline` |
 | `app/api/leads/[id]/cadence/route.ts` | POST, DELETE | `requireBrandAccessApi` | Enroll/cancel a lead's `activeCadence` via `buildInitialActiveCadence` |
 
+### Saved filters (issue #214)
+
+| Route | Methods | Auth | Purpose |
+|---|---|---|---|
+| `app/api/saved-filters/route.ts` | GET, POST | `requireBrandAccessApi` + a real session (401 for an `x-api-key`-only caller — see `docs/ARCHITECTURE.md`) | List the caller's own + brand-shared saved filters (`canShare` flag included); create/replace-in-place a saved filter via `upsertSavedFilter` |
+| `app/api/saved-filters/[id]/route.ts` | PATCH, DELETE | same | Owner-only sharing toggle / delete; 403 for a non-owner (even a brand/super admin), 404 for a cross-brand id |
+| `app/api/saved-filters/import/route.ts` | POST | same | One-time bulk import of a browser's pre-#214 `localStorage` saved filters; `sharedWithBrand` always forced `false` |
+
 ### Boards / forecast / metrics
 
 | Route | Methods | Auth | Purpose |
@@ -197,7 +205,8 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 - `lib/request-retry.ts` — `withRetry`
 - `lib/tech-stack-scan.ts` — SSRF-guarded homepage scanner: `scanTechStack`, `matchSignatures`, `isPrivateOrReservedIp`, `parseTargetUrl`
 - `lib/iso-week.ts` — `isoWeekKey`
-- `lib/saved-filters.ts` — `LeadFilter`, `SavedFilter`, `isEmptyFilter`, `addSavedFilter`, `removeSavedFilter`
+- `lib/saved-filters.ts` — `LeadFilter`, `SavedFilter`, `isEmptyFilter`, `MAX_SAVED_FILTERS`, `addSavedFilter`, `removeSavedFilter` (the latter two now used only by the local-import migration path as of issue #214 — see `lib/saved-filters-store.ts` below for the primary, server-persisted store)
+- `lib/saved-filters-store.ts` — server-persisted saved filters (issue #214): `SavedFilterRecord`, `SavedFilterListItem`, `listSavedFiltersForCaller`, `getSavedFilterById`, `upsertSavedFilter`, `setSavedFilterSharing`, `deleteSavedFilter`, `importLocalFilters`, plus pure `validateSavedFilterUpsert`/`pickOldestForEviction`
 - `lib/backfill-title-normalization.ts` — one-time migration for `normalizeTitle`
 
 ---
@@ -234,7 +243,7 @@ The concrete pattern that distinguishes the two layers: `lib/cadences.ts` has th
 - `app/lib/battlecards/validate-battlecard.ts` — `validateBattlecardPayload`, `normalizeProofPoints`, `normalizeObjections`
 - `app/lib/search/tagged-content-filter.ts` — `escapeRegExp`, `normalizeTags`, `buildTaggedContentFilter` (shared by battlecards/outreach-templates/contacts/search/columns routes)
 - `app/lib/request-id.ts` — `generateRequestId`
-- `app/lib/saved-filters-storage.ts` — `loadSavedFilters`, `persistSavedFilters` (localStorage-backed, client-only — pairs with `lib/saved-filters.ts`'s pure logic)
+- `app/lib/saved-filters-storage.ts` — `loadSavedFilters`, `persistSavedFilters` (localStorage-backed, client-only). As of issue #214, this is no longer the primary saved-filters store (that's `lib/saved-filters-store.ts`, server-persisted) — it survives narrowly as the one-time local-import migration source, read once to offer the import and cleared only after a confirmed successful server import.
 - `app/lib/use-is-compact-viewport.ts` — `useIsCompactViewport` (React hook, UI-only — could never live in `lib/`)
 
 ---
