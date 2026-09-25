@@ -1,5 +1,46 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.192
+
+### Adopt GDS-native kanban scroll routing; retire local wheel-passthrough workaround (issue #125)
+
+This issue's blocker resolved itself over time: GDS shipped the zone-based
+`KanbanBoard` wheel-scroll routing this repo's local workaround (2.4.95)
+was always meant to be replaced by — `columnPanZone?: 'header' | 'none'` —
+in `general-design-system` 3.14.12 (2026-07-27), and this repo has been on
+`^6.5.0` (three majors past it) the whole time without adopting it.
+
+`app/kanban.tsx`'s `<GdsKanbanBoard>` now sets `columnPanZone="header"`.
+Removed: the `boardWrapperRef` wheel-listener `useEffect`, its
+`isVerticalScrollIntent` import, and `lib/desktop-scroll-passthrough.ts`
+(plus its now-orphaned unit test) entirely — confirmed via grep that
+nothing else imported it. Routing is now by cursor **zone** (a gesture over
+a column header pans the columns; anywhere else always scrolls the page)
+rather than gesture *shape* — strictly more precise, since the old
+heuristic could misroute a fast diagonal gesture over a card and the new
+zone check can't. No other `GdsKanbanBoard` behavior changed.
+
+`docs/ARCHITECTURE.md` and `docs/LLD.md` updated;
+`docs/OPERATOR_GUIDE.md`'s real-hardware-trackpad caveat is **not**
+removed (per this issue's own explicit instruction not to remove it
+preemptively) — it's updated to describe the same disclosed verification
+gap against GDS's own routing instead of this repo's, since this sandbox
+still can't exercise a real trackpad driver.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 768/768 passing (net -7: the 7 orphaned
+`desktop-scroll-passthrough.test.ts` cases removed, no replacement needed
+since GDS unit-tests its own routing decision). `npm run test:smoke` —
+5/5 passing. `npm run audit:gds-style` — same 26 pre-existing violations
+before and after, none in the file this change touches.
+
+**Disclosed, not yet done (per the issue's own Acceptance Criteria)**:
+real-device desktop trackpad confirmation (macOS Safari/Chrome, Windows
+Precision Touchpad) that GDS's native routing behaves correctly — this
+sandbox cannot exercise real trackpad-driver behavior, the same limitation
+2.4.95's original implementation disclosed. Needs the owner.
+
 ## 2.4.191
 
 ### Manual call logging — structured Call activity type with outcome disposition (issue #200)
