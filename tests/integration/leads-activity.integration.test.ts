@@ -2,11 +2,13 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
 import { buildApiRequest, TEST_API_KEY } from './helpers/api-request';
+import { contactKey } from '../../lib/contacts';
 
 let mongod: MongoMemoryServer;
 let leadsPOST: typeof import('../../app/api/leads/route').POST;
 let leadsGET: typeof import('../../app/api/leads/route').GET;
 let activityGET: typeof import('../../app/api/leads/[id]/activity/route').GET;
+let activityPOST: typeof import('../../app/api/leads/[id]/activity/route').POST;
 
 beforeAll(async () => {
   mongod = await startTestMongo();
@@ -15,6 +17,7 @@ beforeAll(async () => {
   leadsGET = leadsMod.GET;
   const activityMod = await import('../../app/api/leads/[id]/activity/route');
   activityGET = activityMod.GET;
+  activityPOST = activityMod.POST;
 }, 60000);
 
 afterAll(async () => {
@@ -53,6 +56,12 @@ async function insertOutreachLog(leadId: string, subject: string, createdAt: Dat
     subject, body: `Body for ${subject}`, routingAllowed: true, routingReason: null, createdAt,
   });
   await client.close();
+}
+
+async function getLead(leadId: string): Promise<any> {
+  const res = await leadsGET(req('/api/leads?brand=cogmap'));
+  const body = await res.json();
+  return body.leads.find((l: any) => l._id === leadId);
 }
 
 async function insertActivityLogEntry(leadId: string, subject: string, createdAt: Date) {
@@ -132,5 +141,133 @@ describe('GET /api/leads/[id]/activity', () => {
       { params: Promise.resolve({ id: leadId }) }
     );
     expect(res.status).toBe(200);
+  });
+});
+
+// Issue #200 — manual call logging.
+describe('POST /api/leads/[id]/activity', () => {
+  it('creates an activityLog document with type: call and advances the lead\'s updatedAt', async () => {
+    const leadId = await createLead('Call Log FC');
+    const before = await getLead(leadId);
+    const key = contactKey(before.contacts[0]);
+
+    const res = await activityPOST(
+      req(`/api/leads/${leadId}/activity?brand=cogmap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactKey: key, disposition: 'connected', durationMinutes: 12, notes: 'Discussed renewal.' }),
+      }),
+      { params: Promise.resolve({ id: leadId }) }
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.type).toBe('call');
+    expect(body.disposition).toBe('connected');
+    expect(body.leadId).toBe(leadId);
+
+    const after = await getLead(leadId);
+    expect(new Date(after.updatedAt).getTime()).toBeGreaterThan(new Date(before.updatedAt).getTime());
+  });
+
+  it('rejects an unknown disposition (400) and writes no document', async () => {
+    const leadId = await createLead('Bad Disposition FC');
+    const lead = await getLead(leadId);
+    const key = contactKey(lead.contacts[0]);
+
+    const res = await activityPOST(
+      req(`/api/leads/${leadId}/activity?brand=cogmap`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactKey: key, disposition: 'answered' }),
+      }),
+      { params: Promise.resolve({ id: leadId }) }
+    );
+    expect(res.status).toBe(400);
+
+    const getRes = await activityGET(req(`/api/leads/${leadId}/activity?brand=cogmap`), { params: Promise.resolve({ id: leadId }) });
+    const getBody = await getRes.json();
+    expect(getBody.activity).toEqual([]);
+  });
+
+  it('rejects a non-positive duration (400)', async () => {
+    const leadId = await createLead('Bad Duration FC');
+    const lead = await getLead(leadId);
+    const key = contactKey(lead.contacts[0]);
+
+    const zero = await activityPOST(
+      req(`/api/leads/${leadId}/activity?brand=cogmap`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactKey: key, disposition: 'connected', durationMinutes: 0 }),
+      }),
+      { params: Promise.resolve({ id: leadId }) }
+    );
+    expect(zero.status).toBe(400);
+
+    const negative = await activityPOST(
+      req(`/api/leads/${leadId}/activity?brand=cogmap`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactKey: key, disposition: 'connected', durationMinutes: -5 }),
+      }),
+      { params: Promise.resolve({ id: leadId }) }
+    );
+    expect(negative.status).toBe(400);
+  });
+
+  it('rejects a contactKey not present on the lead\'s current contacts[] (400)', async () => {
+    const leadId = await createLead('Unknown Contact FC');
+    const res = await activityPOST(
+      req(`/api/leads/${leadId}/activity?brand=cogmap`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactKey: 'nobody real|+1 555 9999', disposition: 'connected' }),
+      }),
+      { params: Promise.resolve({ id: leadId }) }
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/[Cc]ontact/);
+  });
+
+  it('rejects a request with no valid auth (401), writes no document', async () => {
+    const leadId = await createLead('Unauthed Call Log FC');
+    const lead = await getLead(leadId);
+    const key = contactKey(lead.contacts[0]);
+    const NextRequest = (await import('next/server')).NextRequest;
+
+    const res = await activityPOST(
+      new NextRequest(`http://localhost/api/leads/${leadId}/activity?brand=cogmap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactKey: key, disposition: 'connected' }),
+      }),
+      { params: Promise.resolve({ id: leadId }) }
+    );
+    expect(res.status).toBe(401);
+
+    const getRes = await activityGET(req(`/api/leads/${leadId}/activity?brand=cogmap`), { params: Promise.resolve({ id: leadId }) });
+    const getBody = await getRes.json();
+    expect(getBody.activity).toEqual([]);
+  });
+
+  it('the logged call appears in GET\'s merged timeline in the correct sort position', async () => {
+    const leadId = await createLead('Merged Timeline FC');
+    const lead = await getLead(leadId);
+    const key = contactKey(lead.contacts[0]);
+    await insertOutreachLog(leadId, 'Older email', new Date('2026-07-01T00:00:00.000Z'));
+
+    const postRes = await activityPOST(
+      req(`/api/leads/${leadId}/activity?brand=cogmap`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactKey: key, disposition: 'voicemail' }),
+      }),
+      { params: Promise.resolve({ id: leadId }) }
+    );
+    expect(postRes.status).toBe(201);
+
+    const getRes = await activityGET(req(`/api/leads/${leadId}/activity?brand=cogmap`), { params: Promise.resolve({ id: leadId }) });
+    const getBody = await getRes.json();
+    // The call was just logged (now) — newer than the 2026-07-01 email —
+    // so it sorts first in the newest-first merged timeline.
+    expect(getBody.activity[0].type).toBe('call');
+    expect(getBody.activity[0].callDisposition).toBe('voicemail');
+    expect(getBody.activity[1].subject).toBe('Older email');
   });
 });
