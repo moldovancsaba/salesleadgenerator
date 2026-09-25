@@ -1,5 +1,66 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.200
+
+### UX: Kanban card density, WIP cue, and command palette (issue #213)
+
+Two independently shippable kanban UX upgrades.
+
+**Card density.** `LeadCard` previously rendered 14 simultaneous signal
+types with zero prioritization. Reduced to a fixed, always-visible Tier 0
+(entity name, rotten/staleness/DEAL/quality badges, Region, ticket-size-or-
+deal-value) with everything else behind a new in-card "Show more" chevron
+— reachable without opening the full detail modal. Stays entirely within
+GDS's `KanbanCard`/`renderItem` contract, no fork.
+
+**WIP-limit header cue.** A small, non-blocking yellow badge
+(`count/limit`) on a column header once its lead count exceeds a
+per-column threshold — configurable via the existing `/api/settings`
+surface (additive `wipLimits` field, same pattern as `stale_thresholds`),
+sane per-column defaults (higher for auto-managed DISCOVERED/QUALIFIED
+than manually-worked ENGAGED/PROPOSAL). Purely visual — never blocks
+adding or moving a lead into an over-limit column.
+
+**Command palette.** Adopted GDS's own already-shipped
+`CommandRegistryProvider`/`useCommandLauncher`/`CommandPalette` (verified
+directly against its real source before implementing) — Cmd/Ctrl+K opens a
+quick-action palette on desktop: jump to an already-loaded lead, add a
+lead, toggle Select mode, switch organization. A single command-list
+assembler owns the sales board's full command set (`registerCommands`
+replaces rather than merges) and clears it on unmount.
+
+**A real, disclosed deviation from the issue's own §8 architecture note**:
+`CommandRegistryProvider` is mounted unconditionally in
+`app/components/Providers.tsx`, not gated on desktop/pointer type at the
+provider level — gating it there would remount the entire app subtree
+(session state, tour state, every page) the instant the pointer-type media
+query first resolves client-side. Used §8's own explicitly sanctioned
+alternative instead: every command-registering component checks
+`useIsFinePointer()` itself and registers an empty command list off-
+desktop. One consequence, disclosed rather than silently overclaimed: GDS's
+own global Cmd/Ctrl+K keydown listener technically stays attached on every
+viewport (it has no pointer-type gating of its own, confirmed from its
+source) — in practice inert on touch devices with no physical keyboard,
+but not the literal "must not render/listen on mobile" the issue's own
+non-goal asks for. Flagged as a third upstream GDS gap alongside the two
+the issue itself already names (no query-change hook; no arrow-key list
+navigation) — GDS's primitive has no mobile/pointer opt-out of its own.
+
+`docs/ARCHITECTURE.md`, `docs/OPERATOR_GUIDE.md`, `gds-adoption.json`
+updated.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. A clean
+`next build` (every route, not just `tsc`/lint, since this issue touches
+shared provider/client-boundary wiring broadly). `npx vitest run` —
+929/929 passing (+20: `tests/lib/card-tiering.test.ts` 5,
+`tests/lib/wip-limits.test.ts` 9, `tests/lib/command-palette-commands.test.ts`
+6). `npm run test:integration` — 359/359 passing (+3,
+`tests/integration/settings-wip-limits.integration.test.ts` — the new
+`wipLimits`/`wipLimitsSource` round-trip through `GET`/`PUT /api/settings`).
+`npm run test:smoke` — 5/5 passing. `npm run audit:gds-style` — 26
+(unchanged baseline, verified via `git stash -u` A/B comparison).
+
 ## 2.4.199
 
 ### Catalog: Product and price book, feeding Deal line items (issue #215)
