@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.212
+
+### Docs: bring docs/LLD.md current across ~15 features it had gone stale on
+
+A routine `docs/DOC_LINT.md` audit found `docs/LLD.md` — the doc explicitly
+scoped as "every API route, every shared library module, every major UI
+component" — hadn't been touched since it was first written at 2.4.177
+(2026-08-02), while the app had moved on to 2.4.211. Backfilled every
+feature shipped in between, verified against the real source rather than
+extrapolated from issue numbers or commit messages: lead ownership and
+teams (#198/#199), buying-committee roles (#206), manual call logging
+(#200), the workflow/automation engine (#201), ad-hoc reporting (#212),
+forecast quota (#204), bulk actions v2 (#203), the accounts rollup
+(#209), kanban real drag-and-drop and card-density/command-palette
+(#208/#213), the third-party integration hub and Gmail/Contacts sync
+(#217/#216), the meeting scheduler (#207), the product catalog (#215),
+scoped API keys (#210), quote generation (#211), and outbound webhooks
+(#219). Also corrected two real staleness bugs found along the way: §8.2
+described five auth-guard mechanisms where a sixth (`requireBrandAccessSession`,
+issue #217) already existed, and the `app/lib/brand.ts`/`lib/tenant.ts`
+import-count callouts (51/30 files) were stale (now 63/54, re-derived
+live via grep, not assumed). No code changed — a documentation-only
+release.
+
 ## 2.4.211
 
 ### Security: two Tiptap advisories, found in a routine post-ship dependency re-audit
