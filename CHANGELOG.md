@@ -1,5 +1,80 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.194
+
+### Forecast categories and quota attainment tracking (issue #204)
+
+Additive, never-replacing extensions to `app/lib/forecast.ts`'s
+`computeForecast()`: a rep-editable forecast category (Pipeline / Best
+Case / Commit / Closed) per lead, and real quota-target attainment
+tracking against assigned leads' closed-won revenue.
+
+**Forecast category** — new `Lead.forecastCategory?`/
+`forecastCategoryOverriddenBy?`/`forecastCategoryOverriddenAt?`, a new
+`SET_FORECAST_CATEGORY` lead action. A lead's category is never stored
+until explicitly overridden; the default (DISCOVERED/QUALIFIED/BACKLOG →
+pipeline, ENGAGED → best_case, PROPOSAL → commit, WON/LOST → closed) is
+always derived live from the lead's current `kanbanColumn`. This makes the
+override sticky "for free": no other action (ACCEPT/DECLINE/PIN/
+COLUMN_MOVE) ever touches the override fields, so it survives every later
+stage move until explicitly cleared (`forecastCategory: null`). New pure
+`lib/forecast-category.ts` module (`resolveDefaultCategory`,
+`effectiveForecastCategory`, `computeCategoryForecast`). `computeForecast()`
+gains additive `categoryWeightedRevenue`/`byCategory`/`categoryWeightsUsed`
+— `closed` is deliberately never a flat weight (WON counts full value,
+LOST zero, exactly the existing stage-weight treatment, not a category
+constant). Admin-overridable default weights (pipeline 10% / best_case 40%
+/ commit 90%) via a new `settings` doc, `getForecastCategoryWeights()`.
+
+UI: a "Forecast Category" control on lead detail (`app/detail.tsx`)
+matching `ticketSizeEstimate.method === 'manual_override'`'s established
+muted-default-vs-explicit-override visual pattern; the Forecast page
+(`app/forecast/[brand]/forecast-client.tsx`) shows the category-weighted
+total alongside (never toggled against) the existing stage-weighted total.
+
+**Quota attainment** — new `quota_targets` collection (unique-indexed on
+`{brand, userId, period}`), new `lib/quota.ts` (period math, value
+precedence) and `app/lib/quota-store.ts` (the WON-lead/`outcomelogs` join
+that finds each lead's first WON-transition date, the same
+replay-the-audit-trail technique `lib/win-rate-calibration.ts` already
+uses). Attainment value precedence: `actualDealValueUsd` first (the real
+captured close value), falling back through the same `deals[]` sum →
+`ticketSizeEstimate.expected` → `estimated_annual_revenue_usd` chain
+`computeForecast()`'s own revenue expression already uses. New endpoints:
+`GET`/`PUT /api/quota/[brand]` (target CRUD, super-admin only, mirrors
+`/api/admin/teams`'s gate) and `GET /api/quota/[brand]/attainment` (a rep
+can always view their own; viewing another user's requires the caller's
+own brand role to be admin). Forecast page gains a combined rep-facing
+attainment tile / admin quota-entry form — the admin form is only ever
+rendered (never merely disabled) for an actual brand admin, per CLAUDE.md
+Rule 7.
+
+**Dependency note resolved**: the issue's own text flagged quota tracking
+as blocked on lead ownership, not yet in this repo's tracker at filing
+time — that landed in issue #198 (`Lead.assignedTo`) before this issue was
+implemented, so quota attainment ships wired to real assigned leads rather
+than staying inert, the same pattern already disclosed for issue #203's
+`ASSIGN`.
+
+`docs/ARCHITECTURE.md`, `docs/LLD.md` updated with the new modules,
+collection, and endpoints.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 815/815 passing (+35 new: `tests/lib/forecast-category.test.ts`,
+`tests/lib/quota.test.ts`, plus `SET_FORECAST_CATEGORY` cases in
+`tests/lib/validate-lead.test.ts`). `npm run test:integration` — 295/295
+passing (+19 new: `tests/integration/quota.integration.test.ts`,
+`SET_FORECAST_CATEGORY` cases in
+`tests/integration/leads-patch-actions.integration.test.ts`, and
+category-forecast regression coverage in
+`tests/integration/boards.integration.test.ts`, which every pre-existing
+test in that file — and `tests/integration/forecast-export.integration.test.ts`/
+`forecast-snapshot.integration.test.ts` — continues to pass unmodified).
+`npm run test:smoke` — 5/5 passing. `npm run audit:gds-style` — 26
+findings, unchanged from before this change (all pre-existing, all in
+files this change didn't touch).
+
 ## 2.4.193
 
 ### Kanban bulk actions v2 — field edit, reassignment, and real undo (issue #203)

@@ -12,12 +12,13 @@ import { checkStageGate, formatStageGateError } from '../../lib/stage-gate'
 import { sanitizeDeals } from '../../lib/deals'
 import { sanitizeChecklist } from '../../lib/checklist'
 import { generateClassificationTags, buildMergeKey } from '../../lib/lead-classification'
+import { isForecastCategory } from '../../lib/forecast-category'
 
 export type LeadActionInput = {
   brand: string
   tenantId: string
   leadId: string
-  action: 'ACCEPT' | 'DECLINE' | 'MODIFY' | 'PIN' | 'REQUEST_REFRESH' | 'COLUMN_MOVE' | 'RESCAN_TECH' | 'ASSIGN' | 'UNDO_BULK'
+  action: 'ACCEPT' | 'DECLINE' | 'MODIFY' | 'PIN' | 'REQUEST_REFRESH' | 'COLUMN_MOVE' | 'RESCAN_TECH' | 'ASSIGN' | 'UNDO_BULK' | 'SET_FORECAST_CATEGORY'
   payload: Record<string, any>
   // Lead ownership (issue: CRM Lead ownership) — the real actor's identity,
   // resolved server-side from the caller's verified session
@@ -137,6 +138,31 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     }
     updateData.assignedAt = new Date()
     updateData.assignedBy = actorId
+  }
+
+  // Forecast category override (issue #204) — sticky, mirrors
+  // ticketSizeEstimate's manual_override precedent (issue #86): a rep's
+  // explicit classification takes precedence over the stage-derived default
+  // and survives every later kanbanColumn move until explicitly cleared. No
+  // hard actorId requirement (unlike ASSIGN) — the fallback 'webapp-user'
+  // stamp matches every other non-ownership action's audit-trail
+  // convention, since "which forecast bucket is this deal in" carries no
+  // cross-user authorization concern the way reassigning a lead does.
+  if (action === 'SET_FORECAST_CATEGORY') {
+    const raw = payload.forecastCategory
+    if (raw === null) {
+      updateData.forecastCategory = null
+      updateData.forecastCategoryOverriddenBy = null
+      updateData.forecastCategoryOverriddenAt = null
+      outcomeValue = 'Forecast category override cleared'
+    } else if (isForecastCategory(raw)) {
+      updateData.forecastCategory = raw
+      updateData.forecastCategoryOverriddenBy = actorId || 'webapp-user'
+      updateData.forecastCategoryOverriddenAt = new Date()
+      outcomeValue = `Forecast category set to ${raw}`
+    } else {
+      return { success: false, error: 'forecastCategory must be one of: pipeline, best_case, commit, closed, or null to clear', requestId }
+    }
   }
 
   // Issue #108: acceptanceCount/declineCount/feedbackScore are incremented

@@ -48,7 +48,8 @@ const ORG_SIZE_SET = new Set(ORG_SIZES);
 // app/api/leads/bulk/undo/route.ts, restoring an already-known-valid prior
 // snapshot rather than accepting new user input, so it needs no extra
 // per-action validation beyond the base action-name check below.
-const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH', 'ASSIGN', 'UNDO_BULK']);
+const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH', 'ASSIGN', 'UNDO_BULK', 'SET_FORECAST_CATEGORY']);
+const FORECAST_CATEGORY_SET = new Set(['pipeline', 'best_case', 'commit', 'closed']);
 
 function contactConfidence(contact: any): number {
   if (!contact || typeof contact !== 'object') return 0;
@@ -217,7 +218,7 @@ export function validatePatchPayload(body: any, brand: string, forbiddenTerms: s
 
   const action = body.action;
   if (!action || typeof action !== 'string' || !PATCH_ACTIONS.has(action.toUpperCase())) {
-    errors.push('action must be one of: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH, ASSIGN');
+    errors.push('action must be one of: ACCEPT, DECLINE, MODIFY, PIN, REQUEST_REFRESH, COLUMN_MOVE, RESCAN_TECH, ASSIGN, SET_FORECAST_CATEGORY');
     return { valid: false, errors };
   }
 
@@ -240,6 +241,13 @@ export function validatePatchPayload(body: any, brand: string, forbiddenTerms: s
     const kanbanColumn = body.kanbanColumn;
     if (!kanbanColumn || typeof kanbanColumn !== 'string' || !KANBAN_COLUMN_SET.has(kanbanColumn.toUpperCase())) {
       errors.push('kanbanColumn must be one of: ' + KANBAN_COLUMNS.join(', '));
+    }
+  }
+
+  if (action === 'SET_FORECAST_CATEGORY') {
+    const value = body.forecastCategory;
+    if (value !== null && !FORECAST_CATEGORY_SET.has(value)) {
+      errors.push('forecastCategory must be one of: pipeline, best_case, commit, closed, or null to clear');
     }
   }
 

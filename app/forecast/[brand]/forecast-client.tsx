@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Container, Title, Text, Paper, SimpleGrid, Group, Badge, TextInput, Loader, Button, Stack } from '@mantine/core';
+import { Container, Title, Text, Paper, SimpleGrid, Group, Badge, TextInput, NumberInput, Loader, Button, Stack } from '@mantine/core';
 import { StatusBadge, InlineAlert, MetricCard, MissingDataPrompt } from '@sovereignsquad/gds-core/client';
 import { AdminSelect, AdminDataTable, AdminResourceEmptyState, AdminFormStatus } from '@sovereignsquad/gds-admin/client';
 import { CALIBRATABLE_STAGES } from '@/lib/win-rate-calibration';
 import type { CurrencyCode } from '@/app/lib/brand';
+import { PERIOD_TYPES, isValidPeriod } from '@/lib/quota';
+import type { PeriodType } from '@/lib/quota';
 
 type ConcentrationRisk = {
   topLeadId: string;
@@ -27,6 +29,10 @@ type Coverage = {
   currencyMismatch: boolean;
 };
 
+type ForecastCategory = 'pipeline' | 'best_case' | 'commit' | 'closed';
+
+type CategoryBreakdownEntry = { leads: number; rawRevenue: number; weightedRevenue: number; weight: number | null };
+
 type Forecast = {
   pipeline?: Record<string, { leads: number; participants: number; rawRevenue: number; probability: number; weightedRevenue: number; probabilitySource?: 'static' | 'calibrated'; concentrationRisk?: ConcentrationRisk | null }>;
   totalWeightedRevenue?: number;
@@ -38,6 +44,19 @@ type Forecast = {
   totals?: { revenue: number; participants: number };
   byCompany?: Array<{ company: string; leads: number; currency: string; upfrontEur: number; monthlyEur: number; annualFeeEur: number; revenueSharePercent: number; discountPercent: number; estimatedAnnualValueEur: number }>;
   totalEstimatedAnnualValueEur?: number;
+  // Forecast categories (issue #204) — additive; totalWeightedRevenue above
+  // (the existing stage-weighted total) is never replaced by this.
+  categoryWeightedRevenue?: number;
+  byCategory?: Record<ForecastCategory, CategoryBreakdownEntry>;
+  categoryWeightsUsed?: Record<ForecastCategory, number>;
+};
+
+const FORECAST_CATEGORY_ORDER: ForecastCategory[] = ['pipeline', 'best_case', 'commit', 'closed'];
+const FORECAST_CATEGORY_LABEL: Record<ForecastCategory, string> = {
+  pipeline: 'Pipeline',
+  best_case: 'Best Case',
+  commit: 'Commit',
+  closed: 'Closed',
 };
 
 type StageStat = { sampleSize: number; wonCount: number; lostCount: number; rate: number; confidence: 'ok' | 'insufficient' };
@@ -66,6 +85,22 @@ type TicketSizeCalibrationResponse = {
 };
 
 const DEFAULT_CALIBRATION_SETTINGS: CalibrationSettings = { mode: 'static', minSampleSize: 20, windowDays: null };
+
+type QuotaAttainment = {
+  userId: string;
+  period: string;
+  periodType: PeriodType;
+  quotaAmount: number | null;
+  currency: string | null;
+  attained: number;
+  leadCount: number;
+  attainmentPercent: number | null;
+};
+
+function currentMonthPeriod(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+}
 
 const COVERAGE_BENCHMARK_LABEL: Record<Coverage['benchmark'], string> = {
   below: 'Below healthy range',
@@ -100,6 +135,26 @@ export function ForecastClient({ brand, label }: Props) {
   const [ticketSizeCalibration, setTicketSizeCalibration] = useState<TicketSizeCalibrationResponse | null>(null);
   const [ticketSizeCalibrationLoading, setTicketSizeCalibrationLoading] = useState(true);
   const [ticketSizeCalibrationError, setTicketSizeCalibrationError] = useState<string | null>(null);
+
+  // Quota attainment (issue #204) — callerRole/callerSsoUserId reused from
+  // the same brand-scoped /api/leads/assignable-users endpoint
+  // app/detail.tsx's Assignment picker already relies on, rather than a new
+  // round-trip. The admin-only "Set quota" form is only ever RENDERED (not
+  // merely disabled) when callerRole === 'admin' — CLAUDE.md Rule 7: a
+  // control a non-admin could see but that would always 403 on click is a
+  // live-looking-but-non-functional control, not just an unauthorized one.
+  const [assignableUsers, setAssignableUsers] = useState<Array<{ ssoUserId: string; email: string; name?: string }>>([]);
+  const [callerRole, setCallerRole] = useState<'admin' | 'user' | null>(null);
+  const [callerSsoUserId, setCallerSsoUserId] = useState<string | null>(null);
+  const [quotaPeriodType, setQuotaPeriodType] = useState<PeriodType>('monthly');
+  const [quotaPeriod, setQuotaPeriod] = useState<string>(currentMonthPeriod());
+  const [quotaUserId, setQuotaUserId] = useState<string>('');
+  const [attainment, setAttainment] = useState<QuotaAttainment | null>(null);
+  const [attainmentLoading, setAttainmentLoading] = useState(false);
+  const [attainmentError, setAttainmentError] = useState<string | null>(null);
+  const [quotaAmountInput, setQuotaAmountInput] = useState<number | ''>('');
+  const [savingQuota, setSavingQuota] = useState(false);
+  const [quotaSaveError, setQuotaSaveError] = useState<string | null>(null);
 
   const loadForecast = useCallback(async (brandKey: string) => {
     setLoading(true);
@@ -191,6 +246,71 @@ export function ForecastClient({ brand, label }: Props) {
     loadWinRates(brand);
     loadTicketSizeCalibration(brand);
   }, [brand, loadForecast, loadWinRates, loadTicketSizeCalibration]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/leads/assignable-users?brand=${encodeURIComponent(brand)}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`Failed to load users (${res.status})`))))
+      .then((json) => {
+        if (cancelled) return;
+        setAssignableUsers(Array.isArray(json.users) ? json.users : []);
+        setCallerRole(json.callerRole ?? null);
+        setCallerSsoUserId(json.callerSsoUserId ?? null);
+        setQuotaUserId((prev) => prev || json.callerSsoUserId || '');
+      })
+      .catch(() => {
+        if (!cancelled) { setAssignableUsers([]); setCallerRole(null); setCallerSsoUserId(null); }
+      });
+    return () => { cancelled = true; };
+  }, [brand]);
+
+  const loadAttainment = useCallback(async (brandKey: string, userId: string, period: string, periodType: PeriodType) => {
+    if (!userId || !isValidPeriod(period, periodType)) { setAttainment(null); return; }
+    setAttainmentLoading(true);
+    setAttainmentError(null);
+    try {
+      const res = await fetch(`/api/quota/${encodeURIComponent(brandKey)}/attainment?userId=${encodeURIComponent(userId)}&period=${encodeURIComponent(period)}&periodType=${periodType}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `Attainment API: ${res.status}`);
+      setAttainment(json.attainment);
+      setQuotaAmountInput(typeof json.attainment?.quotaAmount === 'number' ? json.attainment.quotaAmount : '');
+    } catch (err: any) {
+      setAttainmentError(err?.message || 'Load failed');
+      setAttainment(null);
+    } finally {
+      setAttainmentLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAttainment(brand, quotaUserId, quotaPeriod, quotaPeriodType);
+  }, [brand, quotaUserId, quotaPeriod, quotaPeriodType, loadAttainment]);
+
+  const saveQuotaTarget = async () => {
+    if (quotaAmountInput === '' || !quotaUserId) return;
+    setSavingQuota(true);
+    setQuotaSaveError(null);
+    try {
+      const res = await fetch(`/api/quota/${encodeURIComponent(brand)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: quotaUserId,
+          period: quotaPeriod,
+          periodType: quotaPeriodType,
+          amount: quotaAmountInput,
+          currency: attainment?.currency || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `Save failed: ${res.status}`);
+      await loadAttainment(brand, quotaUserId, quotaPeriod, quotaPeriodType);
+    } catch (err: any) {
+      setQuotaSaveError(err?.message || 'Save failed');
+    } finally {
+      setSavingQuota(false);
+    }
+  };
 
   const handleCalibrationModeChange = async (value: string | null) => {
     if (value !== 'static' && value !== 'calibrated') return;
@@ -554,6 +674,40 @@ export function ForecastClient({ brand, label }: Props) {
         </SimpleGrid>
       )}
 
+      {data.byCategory && (
+        <Paper withBorder p="md" radius="md" mb="lg">
+          <Group justify="space-between" align="flex-start" mb="xs">
+            <div>
+              <Title order={4}>Forecast Category</Title>
+              <Text size="xs" c="dimmed">
+                Rep-editable Pipeline / Best Case / Commit / Closed view, shown alongside the stage-weighted
+                total above — an additive second lens on the same leads, not a replacement.
+              </Text>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <Text size="xs" c="dimmed">Category-weighted total</Text>
+              <Text fw={700} size="lg">${(data.categoryWeightedRevenue || 0).toLocaleString()}</Text>
+            </div>
+          </Group>
+          <SimpleGrid cols={{ base: 2, md: 4 }}>
+            {FORECAST_CATEGORY_ORDER.map((cat) => {
+              const row = data.byCategory?.[cat];
+              if (!row) return null;
+              return (
+                <div key={cat}>
+                  <Text size="xs" c="dimmed">{FORECAST_CATEGORY_LABEL[cat]}</Text>
+                  <Text fw={700}>${row.weightedRevenue.toLocaleString()}</Text>
+                  <Text size="xs" c="dimmed">
+                    {row.leads} leads · raw ${row.rawRevenue.toLocaleString()}
+                    {row.weight !== null ? ` · ${Math.round(row.weight * 100)}%` : ''}
+                  </Text>
+                </div>
+              );
+            })}
+          </SimpleGrid>
+        </Paper>
+      )}
+
       <Paper withBorder p="md" radius="md">
         <Title order={4} mb="xs">Pipeline Weights</Title>
         <Text size="xs" c="dimmed" mb="sm">Close probability per stage.</Text>
@@ -578,6 +732,81 @@ export function ForecastClient({ brand, label }: Props) {
         <Button mt="sm" size="xs" onClick={saveWeights} loading={saving}>
           Save weights
         </Button>
+      </Paper>
+
+      <Paper withBorder p="md" radius="md" mt="lg">
+        <Title order={4} mb="xs">Quota Attainment</Title>
+        <Text size="xs" c="dimmed" mb="sm">
+          Real closed-won revenue (assigned leads only) against a quota target for the selected period.
+        </Text>
+        <Group gap="xs" align="flex-end" mb="sm">
+          <AdminSelect
+            name="quotaPeriodType"
+            label="Period type"
+            data={PERIOD_TYPES.map((pt) => ({ value: pt, label: pt.charAt(0).toUpperCase() + pt.slice(1) }))}
+            value={quotaPeriodType}
+            onChange={(value: string | null) => {
+              if (!value) return;
+              const pt = value as PeriodType;
+              setQuotaPeriodType(pt);
+              setQuotaPeriod(pt === 'monthly' ? currentMonthPeriod() : pt === 'annual' ? String(new Date().getUTCFullYear()) : `${new Date().getUTCFullYear()}-Q${Math.floor(new Date().getUTCMonth() / 3) + 1}`);
+            }}
+          />
+          <TextInput
+            label="Period"
+            description={quotaPeriodType === 'monthly' ? 'YYYY-MM' : quotaPeriodType === 'quarterly' ? 'YYYY-QN' : 'YYYY'}
+            value={quotaPeriod}
+            onChange={(e) => setQuotaPeriod(e.currentTarget.value)}
+            error={!isValidPeriod(quotaPeriod, quotaPeriodType) ? 'Invalid period format' : undefined}
+          />
+          {callerRole === 'admin' && (
+            <AdminSelect
+              name="quotaUser"
+              label="Rep"
+              data={assignableUsers.map((u) => ({ value: u.ssoUserId, label: u.name ? `${u.name} (${u.email})` : u.email }))}
+              value={quotaUserId}
+              onChange={(value: string | null) => { if (value) setQuotaUserId(value); }}
+            />
+          )}
+        </Group>
+
+        {attainmentLoading && <Loader size="sm" />}
+        {attainmentError && <AdminFormStatus state="error" title="Couldn't load quota attainment" description={attainmentError} />}
+        {!attainmentLoading && !attainmentError && attainment && (
+          <SimpleGrid cols={{ base: 2, md: 4 }} mb="sm">
+            <div>
+              <Text size="xs" c="dimmed">Attained</Text>
+              <Text fw={700}>${attainment.attained.toLocaleString()}</Text>
+            </div>
+            <div>
+              <Text size="xs" c="dimmed">Quota</Text>
+              <Text fw={700}>{attainment.quotaAmount !== null ? `$${attainment.quotaAmount.toLocaleString()}` : 'Not set'}</Text>
+            </div>
+            <div>
+              <Text size="xs" c="dimmed">% to quota</Text>
+              <Text fw={700}>{attainment.attainmentPercent !== null ? `${attainment.attainmentPercent}%` : '—'}</Text>
+            </div>
+            <div>
+              <Text size="xs" c="dimmed">Deals closed</Text>
+              <Text fw={700}>{attainment.leadCount}</Text>
+            </div>
+          </SimpleGrid>
+        )}
+
+        {callerRole === 'admin' && (
+          <Group gap="xs" align="flex-end" mt="sm">
+            <NumberInput
+              label="Set quota amount"
+              value={quotaAmountInput}
+              onChange={(value) => setQuotaAmountInput(typeof value === 'number' ? value : '')}
+              min={0}
+            />
+            <Button size="xs" onClick={saveQuotaTarget} loading={savingQuota} disabled={quotaAmountInput === '' || !isValidPeriod(quotaPeriod, quotaPeriodType)}>
+              Save quota
+            </Button>
+          </Group>
+        )}
+        {quotaSaveError && <AdminFormStatus state="error" title="Quota save failed" description={quotaSaveError} />}
       </Paper>
     </Container>
   );

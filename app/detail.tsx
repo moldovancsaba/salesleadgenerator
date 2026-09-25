@@ -19,6 +19,8 @@ import type { Deal } from '@/lib/deals';
 import { ContactsEditor, type ContactRow } from './components/ContactsEditor';
 import { ActivityPanel } from './components/ActivityPanel';
 import { CadencePanel } from './components/CadencePanel';
+import { FORECAST_CATEGORIES, resolveDefaultCategory, effectiveForecastCategory } from '@/lib/forecast-category';
+import type { ForecastCategory } from '@/lib/forecast-category';
 import {
   IconX,
   IconThumbUp,
@@ -36,6 +38,13 @@ import { TOUR_SELECTOR } from './lib/tour/selectors';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
+
+const FORECAST_CATEGORY_LABEL: Record<ForecastCategory, string> = {
+  pipeline: 'Pipeline',
+  best_case: 'Best Case',
+  commit: 'Commit',
+  closed: 'Closed',
+};
 
 type Props = {
   lead: Lead;
@@ -378,6 +387,15 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
   const [assignTarget, setAssignTarget] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
 
+  // Forecast category (issue #204) — sticky override control, same
+  // "select a value, Save applies it as its own action" shape as the
+  // Assignment control above. forecastCategoryTarget always starts at the
+  // lead's current effective category (override if one exists, else the
+  // stage-derived default) so opening the picker never shows a blank/wrong
+  // starting value.
+  const [forecastCategoryTarget, setForecastCategoryTarget] = useState<ForecastCategory>(() => effectiveForecastCategory(lead));
+  const [settingForecastCategory, setSettingForecastCategory] = useState(false);
+
   useEffect(() => {
     if (!opened) return;
     let cancelled = false;
@@ -402,6 +420,14 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
   useEffect(() => {
     setAssignTarget(lead?.assignedTo ?? null);
   }, [lead?._id, lead?.assignedTo]);
+
+  useEffect(() => {
+    setForecastCategoryTarget(effectiveForecastCategory({
+      kanbanColumn: lead?.kanbanColumn,
+      forecastCategory: lead?.forecastCategory,
+      forecastCategoryOverriddenBy: lead?.forecastCategoryOverriddenBy,
+    }));
+  }, [lead?._id, lead?.kanbanColumn, lead?.forecastCategory, lead?.forecastCategoryOverriddenBy]);
 
   useEffect(() => {
     setNextActionDueAt(lead?.nextActionDueAt ? new Date(lead.nextActionDueAt) : null);
@@ -771,6 +797,38 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
     }
   }
 
+  // Forecast category (issue #204) — a lead never has forecastCategory
+  // stored until it's explicitly overridden (see lib/forecast-category.ts),
+  // so "Reset to default" sends null to clear the override rather than
+  // computing and sending the current default value — the two are only
+  // equivalent right now, and would silently diverge the moment the lead's
+  // stage changes again if this sent an explicit value instead.
+  async function handleSetForecastCategory(category: ForecastCategory) {
+    if (!lead) return;
+    setSettingForecastCategory(true);
+    try {
+      await onAction(lead._id, 'SET_FORECAST_CATEGORY', { forecastCategory: category });
+      showNotification({ message: `Forecast category set to ${FORECAST_CATEGORY_LABEL[category]}`, color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Forecast category update failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setSettingForecastCategory(false);
+    }
+  }
+
+  async function handleResetForecastCategory() {
+    if (!lead) return;
+    setSettingForecastCategory(true);
+    try {
+      await onAction(lead._id, 'SET_FORECAST_CATEGORY', { forecastCategory: null });
+      showNotification({ message: 'Forecast category reset to stage default', color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Reset failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setSettingForecastCategory(false);
+    }
+  }
+
   async function handleSaveQualification() {
     if (!lead) return;
     setSavingQualification(true);
@@ -1053,6 +1111,47 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
         </Group>
         {callerRole !== 'admin' && assignTarget !== callerSsoUserId && assignTarget !== (lead.assignedTo ?? null) && !(assignTarget === null && lead.assignedTo === callerSsoUserId) && (
           <Text size="xs" c="dimmed" mt={4}>Only a brand admin can assign this lead to another user.</Text>
+        )}
+      </Box>
+
+      {/* Forecast category (issue #204) — neutral/muted "Default for stage"
+          state vs. an explicit "Overridden by X, date" state, matching
+          ticketSizeEstimate.method === 'manual_override''s own established
+          visual pattern (see the Manual Ticket-Size Override block below). */}
+      <Box>
+        <Text size="xs" c="dimmed" fw={600} mb={4}>FORECAST CATEGORY</Text>
+        <Group gap="xs" align="flex-end">
+          <AdminSelect
+            name="forecastCategory"
+            label="Category"
+            data={FORECAST_CATEGORIES.map((cat) => ({ value: cat, label: FORECAST_CATEGORY_LABEL[cat] }))}
+            value={forecastCategoryTarget}
+            onChange={(value: string | null) => { if (value) setForecastCategoryTarget(value as ForecastCategory); }}
+          />
+          <Button
+            size="xs"
+            variant="light"
+            loading={settingForecastCategory}
+            disabled={forecastCategoryTarget === effectiveForecastCategory(lead)}
+            onClick={() => handleSetForecastCategory(forecastCategoryTarget)}
+          >
+            Save
+          </Button>
+          {lead.forecastCategoryOverriddenBy && (
+            <Button size="xs" variant="subtle" color="gray" loading={settingForecastCategory} onClick={handleResetForecastCategory}>
+              Reset to default
+            </Button>
+          )}
+        </Group>
+        {lead.forecastCategoryOverriddenBy ? (
+          <Text size="xs" c="dimmed" mt={4}>
+            Overridden by {lead.forecastCategoryOverriddenBy}
+            {lead.forecastCategoryOverriddenAt ? `, ${new Date(lead.forecastCategoryOverriddenAt).toLocaleString()}` : ''}
+          </Text>
+        ) : (
+          <Text size="xs" c="dimmed" mt={4}>
+            Default for stage ({FORECAST_CATEGORY_LABEL[resolveDefaultCategory(lead.kanbanColumn)]})
+          </Text>
         )}
       </Box>
 

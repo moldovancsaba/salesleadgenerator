@@ -3,8 +3,9 @@
 import type { CurrencyCode } from './lib/brand';
 import type { ActiveCadence } from '../lib/cadences';
 import type { FieldVerification } from '../lib/field-verifications';
+import type { ForecastCategory } from '../lib/forecast-category';
 
-export type { FieldVerification };
+export type { FieldVerification, ForecastCategory };
 
 // Kanban columns
 export type KanbanColumn =
@@ -246,6 +247,18 @@ export type Lead = {
   // distinct from assignedTo itself (who a lead is assigned TO vs. who did
   // the assigning most recently; these differ whenever an admin reassigns).
   assignedBy?: string;
+  // Forecast category (issue #204) — rep-editable classification distinct
+  // from kanbanColumn, mirroring the standard CRM Pipeline/Best Case/
+  // Commit/Closed forecast breakdown. Present ONLY when a rep has explicitly
+  // overridden it via SET_FORECAST_CATEGORY (see
+  // lib/forecast-category.ts's effectiveForecastCategory()) — a
+  // never-overridden lead has no stored value at all and its effective
+  // category is derived live from kanbanColumn, same "sticky override,
+  // absent otherwise" contract as ticketSizeEstimate.method ===
+  // 'manual_override' above.
+  forecastCategory?: ForecastCategory | null;
+  forecastCategoryOverriddenBy?: string | null;
+  forecastCategoryOverriddenAt?: string | null;
   // Per-field provenance for SCALAR lead fields only — issue #188. Each entry
   // says where one data point came from, how, and when it was established.
   //
