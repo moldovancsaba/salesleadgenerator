@@ -1,5 +1,79 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.193
+
+### Kanban bulk actions v2 — field edit, reassignment, and real undo (issue #203)
+
+Three additive extensions to #70/#197's `PATCH /api/leads/bulk`: bulk
+single-field edit, bulk reassignment, and a real, server-verified undo for
+a completed bulk action — none change the existing `ACCEPT`/`DECLINE`/`PIN`
+contract. Bulk reassignment was originally deferred pending `Lead.assignedTo`
+(issue #198, shipped in 2.4.189) — that landed before this issue was
+implemented, so it ships for real here rather than staying inert.
+
+`ALLOWED_BULK_ACTIONS` widened to include `FIELD_EDIT` (add/remove a tag,
+or set `qualityStatus`, per lead against each lead's own current state —
+never a destructive whole-array tag replace) and `ASSIGN` (reuses the
+single-lead action's exact `canAssign()` authorization, self-assign always
+allowed, cross-user reassignment admin-only). New `bulkActionUndoTokens`
+Mongo collection (TTL-indexed on `expiresAt`, since this app runs on
+Vercel serverless functions and undo state can't live in in-process
+memory), a new pure `lib/bulk-undo.ts` module, and a new `POST
+/api/leads/bulk/undo` route: token-scoped to the requester's own
+brand/tenant, `404` unknown / `410` expired, a compare-and-swap check per
+lead before reversing (a lead changed since the original action is
+reported `skipped`, never silently overwritten), and explicit counter
+reversal for `ACCEPT`/`DECLINE`'s cumulative `$inc` fields — a plain
+field-value restore can never undo those on its own. A `DECLINE` that
+cancelled a lead's active outreach cadence is flagged `notReversible` in
+the response — undo restores the column but deliberately never attempts to
+resume that cadence (issue #203's own explicit design decision: nothing in
+this design safely re-validates the cadence-template invariant on
+restore).
+
+UI (`app/kanban.tsx`): a "select all in column" control (the NN/g bulk-
+actions pattern's previously-missing "select-all" leg), "Edit field…" and
+"Reassign…" inline forms on the existing bulk-action bar, and a real,
+keyboard-operable Undo control with a live countdown after a successful
+undo-eligible action.
+
+**Corrected in the same change**: bulk-setting `qualityStatus` via the
+shared `MODIFY` path was initially silently clamped back to `DRAFT` by
+`lib/quality-registry.ts`'s `enforceQualityCeiling()` (which defaults
+upstream evidence to `['DRAFT']` when none is asserted) — caught by this
+issue's own integration test, fixed by asserting the target value as its
+own upstream evidence (`upstreamQualityStatuses: [value]`), the same trust
+already implicitly extended to any other qualityStatus edit through this
+path.
+
+`docs/ARCHITECTURE.md` updated with the new collection, the undo request
+flow, and the `qualityStatus` ceiling interaction.
+
+### Testing
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors/warnings. `npx
+vitest run` — 780/780 passing (+12 new in `tests/lib/bulk-undo.test.ts`).
+`npm run test:integration` — 276/276 passing (+17 new in
+`tests/integration/leads-bulk.integration.test.ts`, covering FIELD_EDIT's
+per-lead tag add/remove and qualityStatus set, ASSIGN's self/cross-user/
+admin cases, undo-token capture including the `notReversible` cadence
+flag, and the undo route's happy path with explicit counter reversal,
+404/410/CAS-mismatch/single-use/cross-brand-rejection, and a check that
+the TTL index itself — not just the application-level `expiresAt` check —
+actually exists on the collection). `npm run test:smoke` — 5/5 passing.
+`npm run audit:gds-style` — same 26 pre-existing violations before and
+after, none in the files this change touches.
+
+**Disclosed, not live-measured**: the 15s undo window is a reasoned
+implementation choice (deliberately above the issue's own cited 10s
+default), not a measured p99 — this sandbox has no way to load-test real
+`executeLeadAction` timing across a 100-lead sequential batch, per the
+issue's own explicit anticipation that this number might need revisiting
+once real usage data exists.
+
+**Disclosed, pre-existing, out of scope for this change**: the same 7
+pre-existing `npm audit` dependency vulnerabilities and 26 GDS-audit
+violations noted in prior entries — neither introduced by this change.
+
 ## 2.4.192
 
 ### Adopt GDS-native kanban scroll routing; retire local wheel-passthrough workaround (issue #125)
