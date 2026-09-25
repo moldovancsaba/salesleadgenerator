@@ -7,14 +7,29 @@ import { IconSearch } from '@tabler/icons-react'
 import Link from 'next/link'
 import type { Brand } from '@/app/lib/brand'
 
+type BuyingRole = 'economic_buyer' | 'champion' | 'influencer' | 'blocker' | 'decision_maker' | 'unknown'
+
 type ContactRow = {
   key: string
   name: string
   title: string
   email: string
   phone: string
+  buyingRole: BuyingRole
   isDecisionMaker: boolean
   leads: Array<{ leadId: string; entity_name: string }>
+}
+
+// Issue #206 — role-specific badge, replacing the single "Decision maker"
+// badge. 'blocker' is red/orange (a real risk signal to flag, not
+// decorative); 'unknown' renders no badge, same as the old
+// isDecisionMaker: false "no badge" state.
+const BUYING_ROLE_BADGE: Partial<Record<BuyingRole, { label: string; color: string }>> = {
+  economic_buyer: { label: 'Economic Buyer', color: 'indigo' },
+  champion: { label: 'Champion', color: 'green' },
+  influencer: { label: 'Influencer', color: 'grape' },
+  blocker: { label: 'Blocker', color: 'red' },
+  decision_maker: { label: 'Decision Maker', color: 'indigo' },
 }
 
 type Props = {
@@ -111,7 +126,11 @@ export function ContactsClient({ brand, label }: Props) {
                 accessor: (row) => (
                   <Group gap={6} wrap="nowrap">
                     <Text fw={600}>{row.name || '—'}</Text>
-                    {row.isDecisionMaker && <Badge size="xs" color="indigo" variant="light">Decision maker</Badge>}
+                    {BUYING_ROLE_BADGE[row.buyingRole] && (
+                      <Badge size="xs" color={BUYING_ROLE_BADGE[row.buyingRole]!.color} variant="light">
+                        {BUYING_ROLE_BADGE[row.buyingRole]!.label}
+                      </Badge>
+                    )}
                   </Group>
                 ),
               },

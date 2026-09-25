@@ -6,6 +6,7 @@ import {
   GENDER_CODES, DEMOGRAPHIC_CODES, COMPETITION_LEVEL_CODES, RELATIONSHIP_CODES,
 } from './lead-taxonomy';
 import { validateFieldVerifications } from './field-verifications';
+import { isValidBuyingRole, BUYING_ROLES } from './contacts';
 
 export interface ValidationResult {
   valid: boolean;
@@ -199,6 +200,14 @@ export function validateLeadPayload(body: any, brand: string, forbiddenTerms: st
     body.contacts.forEach((contact: any, index: number) => {
       if (contact && typeof contact === 'object') {
         errors.push(...validateFieldVerifications(contact.fieldVerifications, 'contact', `contacts[${index}].fieldVerifications`));
+        // Buying-committee role (issue #206) — a closed enum, same
+        // format-checked-only-when-present convention as `size`/`sportCode`
+        // above. An invalid value is rejected outright (400), never silently
+        // coerced to 'unknown' — a bad agent payload should be visible, not
+        // quietly lose the data it was trying to send.
+        if (contact.buyingRole !== undefined && !isValidBuyingRole(contact.buyingRole)) {
+          errors.push(`contacts[${index}].buyingRole must be one of: ${BUYING_ROLES.join(', ')}`);
+        }
       }
     });
   }

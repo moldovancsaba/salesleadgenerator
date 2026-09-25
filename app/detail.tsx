@@ -19,6 +19,7 @@ import type { Deal } from '@/lib/deals';
 import { ContactsEditor, type ContactRow } from './components/ContactsEditor';
 import { ActivityPanel } from './components/ActivityPanel';
 import { CadencePanel } from './components/CadencePanel';
+import { resolveBuyingRole, deriveIsDecisionMaker } from '@/lib/contacts';
 import { FORECAST_CATEGORIES, resolveDefaultCategory, effectiveForecastCategory } from '@/lib/forecast-category';
 import type { ForecastCategory } from '@/lib/forecast-category';
 import {
@@ -38,6 +39,18 @@ import { TOUR_SELECTOR } from './lib/tour/selectors';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
+
+// Issue #206 — buying-committee role badge, replacing the single "Decision
+// Maker" badge. 'blocker' uses red (a real risk signal, not decorative);
+// 'unknown' renders no badge at all, same "no badge" convention the old
+// isDecisionMaker: false state already had.
+const BUYING_ROLE_BADGE: Partial<Record<NonNullable<Lead['contacts']>[number]['buyingRole'] & string, { label: string; color: string }>> = {
+  economic_buyer: { label: 'Economic Buyer', color: 'blue' },
+  champion: { label: 'Champion', color: 'green' },
+  influencer: { label: 'Influencer', color: 'grape' },
+  blocker: { label: 'Blocker', color: 'red' },
+  decision_maker: { label: 'Decision Maker', color: 'blue' },
+};
 
 const FORECAST_CATEGORY_LABEL: Record<ForecastCategory, string> = {
   pipeline: 'Pipeline',
@@ -311,10 +324,13 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
 
   function openEditContacts() {
     if (!lead) return;
-    setContactsForm((lead.contacts || []).map((c) => ({
-      name: c.name || '', title: c.title || '', email: c.email || '', phone: c.phone || '',
-      linkedin: c.linkedin || '', role: c.role || '', isDecisionMaker: c.isDecisionMaker === true,
-    })));
+    setContactsForm((lead.contacts || []).map((c) => {
+      const buyingRole = resolveBuyingRole(c);
+      return {
+        name: c.name || '', title: c.title || '', email: c.email || '', phone: c.phone || '',
+        linkedin: c.linkedin || '', role: c.role || '', buyingRole, isDecisionMaker: deriveIsDecisionMaker(buyingRole),
+      };
+    }));
     setEditingContacts(true);
   }
 
@@ -1267,7 +1283,11 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
               <Box key={i}>
                 <Group gap="xs">
                   <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
-                  {contact.isDecisionMaker && <Badge variant="light" size="xs" color="blue">Decision Maker</Badge>}
+                  {BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE] && (
+                    <Badge variant="light" size="xs" color={BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE]!.color}>
+                      {BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE]!.label}
+                    </Badge>
+                  )}
                   {isContactStale(contact, DEFAULT_STALENESS_THRESHOLD_DAYS) && (
                     <Badge variant="light" size="xs" color="orange">Needs re-verification</Badge>
                   )}

@@ -99,6 +99,13 @@ export type Lead = {
     phone?: string;
     linkedin?: string;
     role?: string;
+    // Closed buying-committee role (issue #206) — additive alongside
+    // isDecisionMaker, which remains present as a value permanently DERIVED
+    // from this field (true iff buyingRole is 'decision_maker' or
+    // 'economic_buyer' — see lib/contacts.ts's deriveIsDecisionMaker()).
+    // Undefined on raw input; always resolved to a concrete value
+    // (defaulting to 'unknown') by normalizeContact() on every write.
+    buyingRole?: 'economic_buyer' | 'champion' | 'influencer' | 'blocker' | 'decision_maker' | 'unknown';
     isDecisionMaker?: boolean;
     // ISO timestamp of last confirmed-accurate verifiable-field data — see
     // lib/contact-freshness.ts, issue #66. Undefined means never verified.
