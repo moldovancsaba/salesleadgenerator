@@ -439,7 +439,7 @@ Switch to Search Learning via the hamburger menu's View section (or `?view=searc
 
 ## Admin Tools (Super Admin Only)
 
-These five pages only appear in the hamburger menu, under **Admin**, for the app's designated super admin(s) — configured outside this app entirely (an environment variable listing specific email addresses), not something any in-app control grants.
+These six pages only appear in the hamburger menu, under **Admin**, for the app's designated super admin(s) — configured outside this app entirely (an environment variable listing specific email addresses), not something any in-app control grants.
 
 ### Clients
 
@@ -476,6 +476,12 @@ On a **Confirmed** pair: **Merge**. This opens a screen that:
 ### Prompt Editor
 
 Edit the text instructions that drive the autonomous research agent for a brand/tenant — separate tabs for **Discovery** (finding new leads) and **Enrichment** (adding detail to existing leads). Changing and saving the prompt text directly affects the agent's future runs, not just documentation. Each tab also has its own **Enabled** switch, turning that operation on/off for the tenant immediately (separate from saving the prompt text itself) — if the toggle fails to save, the switch reverts and shows an error rather than displaying a false "on" state.
+
+### API Keys
+
+Issue a revocable credential for a machine integration (a script, an external tool) that needs to call this app's lead API for one specific brand, without handing out the one shared key every other integration also uses. Pick a **Brand**, click **Create key**, give it a name (e.g. `research-agent-cogmap`) and a scope — **Read only** or **Read + write** — and click **Create**. The raw key is shown exactly once, right after creation; copy it immediately, since it's never shown or retrievable again after you close that screen (only its first few characters stay visible afterward, to tell keys apart). Paste it into the integration's own configuration as an `x-api-key` header.
+
+**Revoke** kills a key immediately and permanently — the integration's very next request fails, and there's no way to restore a revoked key, only issue a new one. **Currently this app's own existing integrations (the research agent, its scheduled jobs) do not use these keys yet** — they still authenticate with the app's original shared key, unchanged, until that migration is separately planned and carried out; a key issued here today only grants access to this app's own core lead API, nothing else.
 
 ---
 
