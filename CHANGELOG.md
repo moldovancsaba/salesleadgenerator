@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.220
+
+### Lib: ISO 3166-1 alpha-2 allowlist module (groundwork for issues #222/#223)
+
+New `lib/iso-country-codes.ts`: the 249 officially assigned ISO 3166-1
+alpha-2 codes as a literal set, copied from the Debian iso-codes data and
+cross-checked against the datasets/country-codes list (both fetched live;
+they agree exactly), plus `XK` (Kosovo, user-assigned but used by the EU,
+the IMF and sports bodies — a documented policy choice). Exports
+`isValidIsoCountry()` and `US_STATE_ISO_COLLISIONS` (the US postal
+abbreviations such as DE/CA/NE/GA that are also country codes, so an
+address ending in one is ambiguous). Deliberately not built from
+`Intl.DisplayNames`, which returns names for non-codes like EA, UK, EU
+and ZZ — exactly the bad values #223 found. Not wired into validation
+yet; the server-side country-consistency check and the validator change
+follow as separate, tracked deliverables. 4 unit tests.
+
 ## 2.4.219
 
 ### Ops: production cron outage found and made visible; docs corrected (issue #224)
