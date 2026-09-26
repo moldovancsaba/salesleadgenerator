@@ -431,7 +431,11 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     }
     if (normalizedBody[PRO_FIELD]) updateData[PRO_FIELD] = normalizedBody[PRO_FIELD]
     if (normalizedBody[CON_FIELD]) updateData[CON_FIELD] = normalizedBody[CON_FIELD]
-    if (normalizedBody.qualityStatus) {
+    // Only when this request actually sets qualityStatus: normalizedBody
+    // merges the stored lead in, so without this guard every unrelated save
+    // re-ran the stored status through the ceiling below (whose default
+    // upstream is DRAFT) and silently demoted CHECKED/VERIFIED leads.
+    if (payload.qualityStatus !== undefined && normalizedBody.qualityStatus) {
       const { enforceQualityCeiling } = await import('../../lib/quality-registry')
       const upstreamQuality = normalizedBody.upstreamQualityStatuses || ['DRAFT']
       updateData.qualityStatus = enforceQualityCeiling(normalizedBody.qualityStatus, upstreamQuality)

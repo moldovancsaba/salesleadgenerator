@@ -457,3 +457,36 @@ describe('DELETE /api/leads/[id] — action succeeds with valid credentials (iss
     expect(res.status).toBe(200);
   });
 });
+
+// A MODIFY that does not touch qualityStatus must leave it alone. MODIFY
+// merges the stored lead into the payload, so the stored status used to be
+// re-run through the upstream-evidence ceiling (defaulting to DRAFT) on every
+// unrelated Lead Detail save, silently demoting CHECKED/VERIFIED leads.
+describe('PATCH /api/leads — MODIFY: qualityStatus is preserved when not being changed', () => {
+  it('keeps VERIFIED when saving contacts', async () => {
+    const id = await seedLead('Verified Keep Co', { qualityStatus: 'VERIFIED' });
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', contacts: [{ name: 'Jamie Rivera', title: 'Director', email: 'jamie@example.com' }] }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.qualityStatus).toBe('VERIFIED');
+  });
+
+  it('keeps CHECKED when saving a checklist', async () => {
+    const id = await seedLead('Checked Keep Co', { qualityStatus: 'CHECKED' });
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', checklist: [{ id: 'c1', label: 'Call', done: true }] }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.qualityStatus).toBe('CHECKED');
+  });
+
+  it('still applies the upstream-evidence ceiling when the request itself sets qualityStatus', async () => {
+    const id = await seedLead('Ceiling Co', { qualityStatus: 'DRAFT' });
+    const res = await PATCH(patchReq(id, { action: 'MODIFY', qualityStatus: 'VERIFIED' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.qualityStatus).toBe('DRAFT');
+
+    const res2 = await PATCH(patchReq(id, { action: 'MODIFY', qualityStatus: 'CHECKED', upstreamQualityStatuses: ['CHECKED'] }));
+    expect((await res2.json()).lead.qualityStatus).toBe('CHECKED');
+  });
+});

@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.224
+
+### Fix: Lead Detail saves no longer demote CHECKED/VERIFIED leads to DRAFT (fixes #225)
+
+Every `PATCH /api/leads` MODIFY that did not touch `qualityStatus` — saving
+contacts, deals, the checklist, a follow-up, the deal value or
+qualification — reset a CHECKED or VERIFIED lead to DRAFT. MODIFY merges
+the stored lead into the request, so the stored status was re-run through
+the upstream-evidence ceiling on every save, and with no stored
+`upstreamQualityStatuses` that ceiling defaulted to DRAFT. Found by an
+independent review during the #193 triage and reproduced with failing
+integration tests first. The ceiling now applies only when the request
+itself sets `qualityStatus`; explicit changes, including bulk field edits,
+behave exactly as before. Three new integration tests. Leads already
+demoted in production cannot be identified (no stored history of the prior
+value); the #132 research loop re-promotes the ones it re-verifies.
+
 ## 2.4.223
 
 ### Fix: US-state collision set missed TN, VA, AS and GU; SO correction (refs #222 #223)
