@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true })
   } catch (error: any) {
     console.error('POST /api/webhooks/inbound-email Error:', error)
-    return NextResponse.json({ error: 'Failed to process inbound email', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to process inbound email' }, { status: 500 })
   }
 }
 

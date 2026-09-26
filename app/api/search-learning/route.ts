@@ -78,15 +78,26 @@ export async function POST(request: NextRequest) {
     const db = client.db()
     const body = await request.json()
 
-    const company = body.company || 'slg'
+    const company = body.company ?? 'slg'
     const query = body.query
     const domain = body.domain
-    const terms = body.terms || []
+    const terms = body.terms ?? []
     const outcome = body.outcome
     const teachingWeight = body.teachingWeight || 50
 
     if (!query) {
       return NextResponse.json({ error: 'query required' }, { status: 400 })
+    }
+    // Issue #229: every one of these lands in a Mongo filter (companyId,
+    // topQueries.query, topTerms.key, topDomains.key), so a non-string value
+    // such as {"$ne": null} would act as a query operator. Strings only.
+    const isStr = (v: unknown) => typeof v === 'string'
+    if (!isStr(company) || !isStr(query) || (domain !== undefined && domain !== null && !isStr(domain))
+      || !Array.isArray(terms) || !terms.every(isStr)) {
+      return NextResponse.json({ error: 'company, query, domain and terms must be strings' }, { status: 400 })
+    }
+    if (outcome !== undefined && !['ACCEPT', 'DECLINE', 'CREATED'].includes(outcome)) {
+      return NextResponse.json({ error: 'outcome must be ACCEPT, DECLINE or CREATED' }, { status: 400 })
     }
 
     const now = new Date()

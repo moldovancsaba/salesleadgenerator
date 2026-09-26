@@ -1,5 +1,42 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.229
+
+### Security hardening from the 2026-09-26 auth audit (refs #229)
+
+- **Global settings needed only a login.** `PUT /api/settings` and `POST
+  /api/search-learning` accepted any verified SSO session. The SSO server
+  lets anyone sign in, so a user nobody had granted a brand to could change
+  the global ICE thresholds, WIP limits, drag toggle and forecast weights.
+  The session must now reach at least one brand (super admins always do).
+  The legacy key still works.
+- **Operator injection in search learning.** `POST /api/search-learning`
+  put `company`, `query`, `domain` and each `terms` entry straight into
+  Mongo filters, so an object such as `{"$ne": null}` acted as a query
+  operator. Non-string values and unknown `outcome` values now get 400.
+- **Quote share view:** the token compare is constant-time. A wrong token
+  now answers 404, like an unknown quote, so the response no longer
+  confirms which quote ids exist. Malformed ids are refused before a
+  rate-limit write. The rate limit counts per quote and client IP, so one
+  client hammering a link no longer locks out the real recipient.
+- **Error details:** the 500 bodies of the login callback, the inbound
+  email webhook, win-rate recalculation and the quote view no longer echo
+  `error.message`. 57 route files (all behind a credential) still include
+  `details: error.message`; that is recorded on #229, not changed here.
+- **README** now lists every route that is public by design (booking,
+  quote view, inbound webhook, both OAuth callbacks) and what gates each.
+
+Booking attribution (a signed token on scheduling links) is still open on
+#229. Google Calendar's `events.insert` sends no notification emails by
+default (`sendUpdates`/`sendNotifications` default to false per Google's
+API reference), and this app never sets either, so the booking route does
+not relay invitation email.
+
+New `tests/integration/global-settings-auth.integration.test.ts` (9
+tests; the 5 rejection tests fail against the previous code) and 2 new
+quote-view tests (malformed id, per-IP limit). The wrong-token quote test
+now expects 404.
+
 ## 2.4.228
 
 ### Security: the integrations OAuth callback no longer trusts a browser-editable cookie (fixes #228)

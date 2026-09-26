@@ -1,5 +1,5 @@
 import type { Db } from 'mongodb';
-import { randomBytes } from 'crypto';
+import { randomBytes, timingSafeEqual } from 'crypto';
 import { getBrandConfig, type Brand } from './brand';
 import { tenantFilter } from '../../lib/tenant';
 import type { Deal } from '../../lib/deals';
@@ -175,10 +175,19 @@ export type ViewQuoteResult =
 // 'viewed', and only once (issue #211 §15's own explicit edge case). A lost
 // race against a concurrent first view (two tabs opening the link at once)
 // re-reads the now-current record rather than erroring.
+// Constant-time, so response timing reveals nothing about how much of a
+// guessed token matched (issue #229).
+function shareTokenMatches(expected: string | undefined, given: string): boolean {
+  if (!expected) return false;
+  const a = Buffer.from(expected);
+  const b = Buffer.from(given);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export async function recordQuoteView(db: Db, quoteId: string, token: string): Promise<ViewQuoteResult> {
   const quote = await getQuoteById(db, quoteId);
   if (!quote) return { ok: false, status: 404 };
-  if (quote.shareToken !== token) return { ok: false, status: 403 };
+  if (!shareTokenMatches(quote.shareToken, token)) return { ok: false, status: 403 };
 
   if (quote.status !== 'sent') {
     return { ok: true, quote };
@@ -251,10 +260,13 @@ async function ensureViewRateLimitIndex(db: Db): Promise<void> {
 // Returns true when the request is ALLOWED. Inserts a record unconditionally
 // (whether allowed or not), so repeated hammering is itself reflected in the
 // count until the TTL index expires it.
-export async function checkQuoteViewRateLimit(db: Db, quoteId: string): Promise<boolean> {
+// Keyed per quote AND client IP (issue #229): keyed on quoteId alone, anyone
+// hammering a quote's URL locked its real recipient out too. Vercel
+// overwrites x-forwarded-for, so the IP can't be spoofed there.
+export async function checkQuoteViewRateLimit(db: Db, quoteId: string, clientIp: string = 'unknown'): Promise<boolean> {
   await ensureViewRateLimitIndex(db);
   const windowStart = new Date(Date.now() - VIEW_RATE_LIMIT_WINDOW_MS);
-  const recentCount = await db.collection(VIEW_RATE_LIMIT_COLLECTION).countDocuments({ quoteId, createdAt: { $gte: windowStart } });
-  await db.collection(VIEW_RATE_LIMIT_COLLECTION).insertOne({ quoteId, createdAt: new Date() });
+  const recentCount = await db.collection(VIEW_RATE_LIMIT_COLLECTION).countDocuments({ quoteId, clientIp, createdAt: { $gte: windowStart } });
+  await db.collection(VIEW_RATE_LIMIT_COLLECTION).insertOne({ quoteId, clientIp, createdAt: new Date() });
   return recentCount < VIEW_RATE_LIMIT_MAX_PER_WINDOW;
 }
