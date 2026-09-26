@@ -80,7 +80,7 @@ export async function GET(
     return NextResponse.json({ activity, leadId: id, brand, tenantId, returned: activity.length });
   } catch (error: any) {
     console.error('GET /api/leads/[id]/activity Error:', error)
-    return NextResponse.json({ error: 'Failed to fetch activity', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch activity' }, { status: 500 })
   }
 }
 
@@ -194,7 +194,7 @@ export async function POST(
     }, { status: 201 });
   } catch (error: any) {
     console.error('POST /api/leads/[id]/activity Error:', error)
-    return NextResponse.json({ error: 'Failed to log call', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to log call' }, { status: 500 })
   }
 }
 

@@ -221,6 +221,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ results, ...(undo ? { undo } : {}) })
   } catch (error: any) {
     console.error('[API:leads/bulk] PATCH error:', error)
-    return NextResponse.json({ error: 'Failed to process bulk action', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to process bulk action' }, { status: 500 })
   }
 }

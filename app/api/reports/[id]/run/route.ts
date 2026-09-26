@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ rows, metric: definition.metric, groupBy: definition.groupBy })
   } catch (error: any) {
     console.error('POST /api/reports/[id]/run Error:', error)
-    return NextResponse.json({ error: 'Failed to run report', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to run report' }, { status: 500 })
   }
 }
 

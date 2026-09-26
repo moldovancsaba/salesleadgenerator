@@ -72,7 +72,7 @@ export async function GET(
     return NextResponse.json(toResponseShape(doc))
   } catch (error: any) {
     console.error('[API:cadences/[id]] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch cadence', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch cadence' }, { status: 500 })
   }
 }
 
@@ -133,7 +133,7 @@ export async function PUT(
     return NextResponse.json(toResponseShape(result))
   } catch (error: any) {
     console.error('[API:cadences/[id]] PUT error:', error)
-    return NextResponse.json({ error: 'Failed to update cadence', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update cadence' }, { status: 500 })
   }
 }
 
@@ -189,6 +189,6 @@ export async function DELETE(
     return NextResponse.json({ ok: true, id })
   } catch (error: any) {
     console.error('[API:cadences/[id]] DELETE error:', error)
-    return NextResponse.json({ error: 'Failed to delete cadence', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete cadence' }, { status: 500 })
   }
 }

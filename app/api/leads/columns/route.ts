@@ -196,7 +196,6 @@ export async function GET(request: NextRequest) {
     console.error('[API:leads/columns] GET error:', error)
     return NextResponse.json({
       error: 'Failed to fetch column chunk',
-      details: error.message,
     }, { status: 500 })
   }
 }

@@ -72,7 +72,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ attainment })
   } catch (error: any) {
     console.error('GET /api/quota/[brand]/attainment Error:', error)
-    return NextResponse.json({ error: 'Failed to fetch quota attainment', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch quota attainment' }, { status: 500 })
   }
 }
 

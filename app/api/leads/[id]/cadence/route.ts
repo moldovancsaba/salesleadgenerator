@@ -109,7 +109,7 @@ export async function POST(
     return NextResponse.json({ ok: true, activeCadence })
   } catch (error: any) {
     console.error('POST /api/leads/[id]/cadence Error:', error)
-    return NextResponse.json({ error: 'Failed to enroll lead in cadence', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to enroll lead in cadence' }, { status: 500 })
   }
 }
 
@@ -155,6 +155,6 @@ export async function DELETE(
     return NextResponse.json({ ok: true })
   } catch (error: any) {
     console.error('DELETE /api/leads/[id]/cadence Error:', error)
-    return NextResponse.json({ error: 'Failed to cancel cadence enrollment', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to cancel cadence enrollment' }, { status: 500 })
   }
 }

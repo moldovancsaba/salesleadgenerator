@@ -46,7 +46,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ settings, source: 'mongodb' })
   } catch (error: any) {
     console.error('[API:sales-settings/[brand]] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch sales settings', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch sales settings' }, { status: 500 })
   }
 }
 
@@ -107,6 +107,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ settings: { ...sanitized, updatedAt }, source: 'mongodb' })
   } catch (error: any) {
     console.error('[API:sales-settings/[brand]] PUT error:', error)
-    return NextResponse.json({ error: 'Failed to save sales settings', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to save sales settings' }, { status: 500 })
   }
 }

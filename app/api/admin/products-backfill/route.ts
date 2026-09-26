@@ -61,6 +61,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ apply, tenantId, totals, byBrand: results })
   } catch (error: any) {
     console.error('[API:admin/products-backfill] POST error:', error)
-    return NextResponse.json({ error: 'Failed to backfill products', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to backfill products' }, { status: 500 })
   }
 }

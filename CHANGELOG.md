@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.237
+
+### Security hardening: 500 responses no longer echo internal error messages (refs #229)
+
+57 API route files returned `details: error.message` in their 500 bodies.
+That can expose driver, database or stack wording to any caller of a
+failing request; 2.4.229 already removed it from the four public routes.
+It is now gone from all of them (91 occurrences). Every one of these
+errors is still logged server-side with `console.error`, so nothing is
+lost for debugging. Validation errors (4xx) still say what was wrong, on
+purpose.
+
 ## 2.4.236
 
 ### Fix: contact names starting with a non-ASCII letter keep their capital; #132 research round of 38 leads

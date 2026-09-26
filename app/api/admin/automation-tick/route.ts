@@ -62,7 +62,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ranAt: new Date().toISOString(), ...summary })
   } catch (error: any) {
     console.error('[API:admin/automation-tick] GET error:', error)
-    return NextResponse.json({ error: 'Failed to run automation tick', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to run automation tick' }, { status: 500 })
   }
 }
 
@@ -82,6 +82,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ranAt: new Date().toISOString(), ...summary })
   } catch (error: any) {
     console.error('[API:admin/automation-tick] POST error:', error)
-    return NextResponse.json({ error: 'Failed to run automation tick', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to run automation tick' }, { status: 500 })
   }
 }

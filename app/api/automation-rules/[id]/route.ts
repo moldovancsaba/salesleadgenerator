@@ -50,7 +50,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json(automationRuleToResponseShape(doc))
   } catch (error: any) {
     console.error('[API:automation-rules/[id]] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch automation rule', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch automation rule' }, { status: 500 })
   }
 }
 
@@ -111,7 +111,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json(automationRuleToResponseShape(result))
   } catch (error: any) {
     console.error('[API:automation-rules/[id]] PUT error:', error)
-    return NextResponse.json({ error: 'Failed to update automation rule', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update automation rule' }, { status: 500 })
   }
 }
 
@@ -141,6 +141,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     return NextResponse.json({ ok: true, id })
   } catch (error: any) {
     console.error('[API:automation-rules/[id]] DELETE error:', error)
-    return NextResponse.json({ error: 'Failed to delete automation rule', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete automation rule' }, { status: 500 })
   }
 }

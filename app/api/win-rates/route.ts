@@ -44,6 +44,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('[API:win-rates] GET error:', error)
-    return NextResponse.json({ error: 'Failed to compute win rates', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to compute win rates' }, { status: 500 })
   }
 }

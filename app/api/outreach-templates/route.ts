@@ -226,7 +226,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ templates: mapped, source: 'mongodb', brand })
   } catch (error: any) {
     console.error('[API:outreach-templates] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch templates', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch templates' }, { status: 500 })
   }
 }
 
@@ -294,6 +294,6 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
   } catch (error: any) {
     console.error('[API:outreach-templates] POST error:', error)
-    return NextResponse.json({ error: 'Failed to create template', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create template' }, { status: 500 })
   }
 }

@@ -64,7 +64,7 @@ export async function GET() {
     })
   } catch (error: any) {
     console.error('[API:settings] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch settings', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
   }
 }
 
@@ -188,6 +188,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ ok: true, weights, thresholds, concentrationRiskSettings, calibration, wipLimits, dragEnabled })
   } catch (error: any) {
     console.error('[API:settings] PUT error:', error)
-    return NextResponse.json({ error: 'Failed to update settings', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 })
   }
 }

@@ -99,7 +99,7 @@ export async function GET(
     return NextResponse.json(lead)
   } catch (error: any) {
     console.error('GET lead/:id Error:', error)
-    return NextResponse.json({ error: 'Failed to fetch lead', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch lead' }, { status: 500 })
   }
 }
 
@@ -344,7 +344,7 @@ export async function PUT(
     return NextResponse.json(normalizeLead({ ...updatedLead, _id: updatedLead._id.toString() }))
   } catch (error: any) {
     console.error('PUT lead/:id Error:', error)
-    return NextResponse.json({ error: 'Failed to update lead', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update lead' }, { status: 500 })
   }
 }
 
@@ -402,7 +402,7 @@ export async function DELETE(
   } catch (error: any) {
     console.error('DELETE Error:', error)
     return NextResponse.json(
-      { error: 'Failed to delete lead', details: error.message },
+      { error: 'Failed to delete lead' },
       { status: 500 }
     )
   }

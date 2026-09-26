@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     })
   } catch (error: any) {
     console.error('[API:admin/forecast-snapshot] GET error:', error)
-    return NextResponse.json({ error: 'Failed to write forecast snapshots', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to write forecast snapshots' }, { status: 500 })
   }
 }
 
@@ -99,6 +99,6 @@ export async function POST(request: Request) {
     })
   } catch (error: any) {
     console.error('[API:admin/forecast-snapshot] POST error:', error)
-    return NextResponse.json({ error: 'Failed to write forecast snapshots', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to write forecast snapshots' }, { status: 500 })
   }
 }

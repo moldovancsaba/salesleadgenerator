@@ -68,6 +68,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ brands: report, source: 'mongodb' })
   } catch (error: any) {
     console.error('[API:admin/data-hygiene] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch hygiene report', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch hygiene report' }, { status: 500 })
   }
 }

@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ prompt, source: 'mongodb' })
   } catch (error: any) {
     console.error('[API:prompts] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch prompt', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch prompt' }, { status: 500 })
   }
 }
 
@@ -115,6 +115,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ ok: true, brand, tenantId, type, source: 'mongodb', updatedAt: new Date().toISOString() })
   } catch (error: any) {
     console.error('[API:prompts] PUT error:', error)
-    return NextResponse.json({ error: 'Failed to save prompt', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to save prompt' }, { status: 500 })
   }
 }

@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ rules, total: rules.length, source: 'mongodb', brand })
   } catch (error: any) {
     console.error('[API:automation-rules] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch automation rules', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch automation rules' }, { status: 500 })
   }
 }
 
@@ -82,6 +82,6 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
   } catch (error: any) {
     console.error('[API:automation-rules] POST error:', error)
-    return NextResponse.json({ error: 'Failed to create automation rule', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create automation rule' }, { status: 500 })
   }
 }

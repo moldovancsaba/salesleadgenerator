@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ reports: docs.map(reportDocToDefinition), brand, tenantId })
   } catch (error: any) {
     console.error('GET /api/reports Error:', error)
-    return NextResponse.json({ error: 'Failed to fetch reports', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch reports' }, { status: 500 })
   }
 }
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ report: definition }, { status: 201 })
   } catch (error: any) {
     console.error('POST /api/reports Error:', error)
-    return NextResponse.json({ error: 'Failed to create report', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create report' }, { status: 500 })
   }
 }
 

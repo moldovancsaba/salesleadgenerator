@@ -120,7 +120,7 @@ export async function PATCH(
     return NextResponse.json({ ok: true, status: 'accepted' })
   } catch (error: any) {
     console.error('PATCH /api/contact-suggestions/[id] Error:', error)
-    return NextResponse.json({ error: 'Failed to update contact suggestion', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update contact suggestion' }, { status: 500 })
   }
 }
 

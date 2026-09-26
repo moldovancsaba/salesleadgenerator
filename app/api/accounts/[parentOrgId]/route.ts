@@ -74,7 +74,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ account, brand, tenantId });
   } catch (error: any) {
     console.error('GET /api/accounts/[parentOrgId] Error:', error)
-    return NextResponse.json({ error: 'Failed to fetch account', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch account' }, { status: 500 })
   }
 }
 

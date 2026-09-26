@@ -70,6 +70,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('[API:metrics/by-source] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch source metrics', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch source metrics' }, { status: 500 })
   }
 }

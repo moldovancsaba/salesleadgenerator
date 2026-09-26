@@ -55,7 +55,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ ok: true, brand, tenantId, operation, enabled, updatedAt: new Date().toISOString() })
   } catch (error: any) {
     console.error('[API:admin:toggle] PUT error:', error)
-    return NextResponse.json({ error: 'Failed to update toggle', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update toggle' }, { status: 500 })
   }
 }
 
@@ -86,6 +86,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ toggles, brand, tenantId })
   } catch (error: any) {
     console.error('[API:admin:toggle] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch toggles', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch toggles' }, { status: 500 })
   }
 }

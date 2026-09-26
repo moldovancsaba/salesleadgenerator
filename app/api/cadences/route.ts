@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('[API:cadences] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch cadences', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch cadences' }, { status: 500 })
   }
 }
 
@@ -117,6 +117,6 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
   } catch (error: any) {
     console.error('[API:cadences] POST error:', error)
-    return NextResponse.json({ error: 'Failed to create cadence', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create cadence' }, { status: 500 })
   }
 }

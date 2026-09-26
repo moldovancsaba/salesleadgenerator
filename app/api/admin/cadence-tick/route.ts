@@ -206,7 +206,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ranAt: new Date().toISOString(), ...summary })
   } catch (error: any) {
     console.error('[API:admin/cadence-tick] GET error:', error)
-    return NextResponse.json({ error: 'Failed to run cadence tick', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to run cadence tick' }, { status: 500 })
   }
 }
 
@@ -226,6 +226,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ranAt: new Date().toISOString(), ...summary })
   } catch (error: any) {
     console.error('[API:admin/cadence-tick] POST error:', error)
-    return NextResponse.json({ error: 'Failed to run cadence tick', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to run cadence tick' }, { status: 500 })
   }
 }

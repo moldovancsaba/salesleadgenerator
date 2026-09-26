@@ -176,6 +176,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('[API:search] GET error:', error)
-    return NextResponse.json({ error: 'Search failed', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Search failed' }, { status: 500 })
   }
 }

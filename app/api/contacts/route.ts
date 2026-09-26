@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('GET /api/contacts Error:', error)
-    return NextResponse.json({ error: 'Failed to fetch contacts', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch contacts' }, { status: 500 })
   }
 }
 

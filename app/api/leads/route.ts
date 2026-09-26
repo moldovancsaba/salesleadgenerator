@@ -238,7 +238,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('GET Error:', error)
-    return NextResponse.json({ error: 'Failed to fetch leads', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch leads' }, { status: 500 })
   }
 }
 
@@ -502,7 +502,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('POST Error:', error)
     return NextResponse.json(
-      { error: 'Failed to create lead', details: error.message },
+      { error: 'Failed to create lead' },
       { status: 500 }
     )
   }
@@ -573,7 +573,7 @@ export async function PATCH(request: NextRequest) {
   } catch (error: any) {
     console.error('PATCH Error:', error)
     return NextResponse.json(
-      { error: 'Failed to update lead', details: error.message, requestId },
+      { error: 'Failed to update lead', requestId },
       { status: 500 }
     )
   }

@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     })
   } catch (error: any) {
     console.error('[API:outreach-logs] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch outreach logs', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch outreach logs' }, { status: 500 })
   }
 }
 
@@ -118,6 +118,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ id: result.insertedId.toString(), ...log }, { status: 201 })
   } catch (error: any) {
     console.error('[API:outreach-logs] POST error:', error)
-    return NextResponse.json({ error: 'Failed to create outreach log', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create outreach log' }, { status: 500 })
   }
 }

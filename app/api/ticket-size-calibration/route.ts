@@ -40,6 +40,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('[API:ticket-size-calibration] GET error:', error)
-    return NextResponse.json({ error: 'Failed to compute ticket-size calibration', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to compute ticket-size calibration' }, { status: 500 })
   }
 }

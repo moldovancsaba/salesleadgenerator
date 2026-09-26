@@ -65,6 +65,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ apply, tenantId, totals, byBrand: results })
   } catch (error: any) {
     console.error('[API:admin/ticket-size-backfill] POST error:', error)
-    return NextResponse.json({ error: 'Failed to backfill ticket sizes', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to backfill ticket sizes' }, { status: 500 })
   }
 }
