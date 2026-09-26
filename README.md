@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.218  
+**Version:** 2.4.219  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -62,7 +62,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 |---|---|---|
 | `MONGODB_URI` | Yes | Database connection |
 | `SLG_API_KEY` | Yes | `x-api-key` auth for API clients (research agent, scripts) |
-| `CRON_SECRET` | Yes | Auth for scheduled/cron-triggered admin routes |
+| `CRON_SECRET` | Yes | The only credential Vercel Cron can send (`Authorization: Bearer`). If unset, every one of the 7 scheduled jobs returns 401 and nothing scheduled runs (issue #224); `x-api-key` only covers manual triggers |
 | `CONTACT_STALENESS_THRESHOLD_DAYS` | No | Days before a contact is flagged stale (has a code default) |
 | `SSO_BASE_URL` | For SSO | SSO provider base URL |
 | `SSO_CLIENT_ID` | For SSO | SSO OAuth client ID |
@@ -79,7 +79,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.218**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25) and needs updating on every version-stamp sync pass, not just when someone notices.
+Current app version is **2.4.219**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25) and needs updating on every version-stamp sync pass, not just when someone notices.
 
 Single source of truth: `package.json`
 

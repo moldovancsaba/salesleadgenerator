@@ -1,5 +1,30 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.219
+
+### Ops: production cron outage found and made visible; docs corrected (issue #224)
+
+While investigating issue #220, the Vercel project was found to have no
+`CRON_SECRET` variable at all — verified against the live env-var list
+and runtime logs, where 6 of 6 hourly cron invocations in the last six
+hours returned 401 across three deployments. Vercel Cron can only send
+`Authorization: Bearer $CRON_SECRET`, so with the variable unset every
+scheduled job (forecast snapshot, ticket-size recalc, cadence tick,
+automation tick, reports tick, Gmail sync, webhook delivery) has been
+rejected at the route guard. Filed as issue #224; the fix itself is an
+owner action in the Vercel dashboard (add the variable, redeploy).
+
+Code side: `requireCronOrApiKey()` now logs a `[api-auth] Vercel Cron
+invocation rejected` error naming the cause (unset vs mismatched secret),
+the path and the schedule, whenever a request carrying Vercel's
+`x-vercel-cron-schedule` header is rejected — so this class of silent
+failure shows up in logs instead of as bare 401s. The header is never
+used as an auth signal. Five new unit tests. `docs/STACK_AND_DEPENDENCIES.md`
+no longer claims crons "fall back to x-api-key" (that fallback cannot
+apply to a scheduled run) and now lists all seven crons; the README env
+table says the same. Agent commits from this release on are authored
+under the repo owner's identity per CLAUDE.md Rule 8.
+
 ## 2.4.218
 
 ### Repo: removed AI-attribution trailers from 4 commit messages on `main` (CLAUDE.md Rule 8)
