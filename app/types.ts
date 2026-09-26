@@ -237,7 +237,14 @@ export type Lead = {
   // Acquisition channel, e.g. "manual" | "research_agent" | "referral" |
   // "outbound_list" | "event" | "inbound" — see issue #123. Freeform string
   // (not a closed enum) so brand-specific channels don't require a code
-  // change to record.
+  // change to record. What the historical values mean (issue #193):
+  // - absent: created before #123 (2026-07-27); not recoverable, left absent.
+  // - "csv_import": the 2026-07-27 CogMap bulk import, a real channel; each
+  //   such lead also carries the csv-import-2026-07-27 tag.
+  // - "manual": a human-added lead, or a research-agent lead created before
+  //   ~2026-08-13 (the agent sent no source then and POST defaulted it).
+  // - "discovery-cron", "search-router-discovery" and a few descriptive
+  //   strings on DVSC leads: written by the research agent, left as is.
   source?: string;
   // Lead ownership (issue: CRM Lead ownership) — the SSO ssoUserId (claims.sub,
   // see lib/sso.ts's SsoIdTokenClaims) of the rep this lead is currently

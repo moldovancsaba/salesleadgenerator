@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.235
+
+### Docs: what historical `Lead.source` values mean (refs #193)
+
+2,739 of 3,075 leads have a `source` outside the documented example
+vocabulary. Rather than rewrite them, the historical values are now
+documented on the field in `app/types.ts` (the triage's resolution
+D1–D4; no data changed):
+
+- **absent** (977 leads): created before `source` existed (#123,
+  2026-07-27); not recoverable.
+- **`csv_import`** (1,730): the 2026-07-27 CogMap import, a real channel.
+  Each of these leads also carries the `csv-import-2026-07-27` tag.
+- **`manual`**: a human-added lead, or a research-agent lead created
+  before about 2026-08-13, when the agent sent no source.
+- The DVSC agent strings are left as they are.
+
+Found while checking: DVSC production holds 4 obvious test records
+(`Test Company XYZ`, `Test Company Ltd`, `Test Lead Discovery`,
+`Test No Brand Field`), listed on #193. They are not deleted until the
+owner approves.
+
 ## 2.4.234
 
 ### Fix: only real ISO country codes are accepted, after correcting the 30 stored invalid ones (fixes #223)
