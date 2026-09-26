@@ -1,5 +1,33 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.231
+
+### Feature: read-only country check across a whole brand (refs #222 #223)
+
+`GET /api/admin/data-hygiene/country?brand=<brand>` (`x-api-key`) checks
+every lead's stored `country` against its own address inside the server.
+It returns counts per reason and at most 20 rows for one reason at a time,
+so the full scope of the wrong-country problem (#222, #223) can be
+measured without paging through lead data. `lib/country-consistency.ts`
+does the classification and is conservative:
+
+- only a full country name in the address (including aliases such as UK,
+  England, España) counts as strong evidence (`mismatch`);
+- a bare two-letter tail is never confirmation;
+- a tail equal to the stored code is `echo-only`, because the create path
+  may have appended the wrong value itself;
+- a code that is also a US state is `ambiguous-tail`;
+- a US state tail confirms only a stored `US`.
+
+Fixes stay manual, one lead at a time, and change `country` only.
+
+Also: `GET /api/admin/data-hygiene` now honors `?brand=`; it computed the
+brand and then reported every brand anyway.
+
+11 classifier unit tests (built from the real #222 cases) and 6 route
+integration tests (auth, required brand, counts, 20-row cap, paging,
+reason filter, brand isolation, parent-route brand filter).
+
 ## 2.4.230
 
 ### Fix: inbound email direction comes from lead matching, not header position (fixes #230)
