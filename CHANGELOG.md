@@ -1,5 +1,37 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.226
+
+### Security: sales settings, product catalog and two log reads required no credential (fixes #226)
+
+A route-by-route auth audit (2026-09-26, every finding checked by a second
+reviewer) found brand business data open to anyone with the URL. The only
+layer in front of these routes, `proxy.ts`, sets CORS and security headers
+and checks no credential; CORS does not stop `curl`.
+
+- `GET`/`PUT /api/sales-settings/[brand]`: anyone could read or overwrite a
+  brand's company settings, and a write also started a ticket-size
+  recompute of every lead in that brand. Now `requireBrandAccessApi`.
+- `GET`/`POST /api/products/[brand]`, `PATCH`/`DELETE
+  /api/products/[brand]/[productId]`: anyone could read, add, change or
+  delete catalog products. Now `requireBrandAccessApi`.
+- `GET /api/outcome-logs`: returned up to 500 audit rows across every brand
+  and tenant (rep emails, notes, decline reasons, SSO subject ids). Now
+  `requireApiKey`, like its POST.
+- `GET /api/outreach-logs`: returned recent outreach subjects and bodies.
+  Now `requireApiKey`.
+
+`requireBrandAccessApi` accepts the browser's SSO session for a user with
+access to that brand, a scoped key with the right brand and scope, or the
+legacy key, so the Sales Settings page, the products admin page and the
+deals editor keep working. Nothing in the app calls the two log reads.
+New `tests/integration/brand-data-auth.integration.test.ts` (10 tests: no
+credential 401, another brand's scoped key 403, legacy key succeeds,
+rejected writes change nothing); 8 fail against the previous code.
+Existing sales-settings and products tests now send a credential. Related
+findings are tracked in #227 (browser writes that 401 in production),
+#228 (integrations OAuth callback) and #229 (hardening).
+
 ## 2.4.225
 
 ### Fix: duplicate scan covers all of CogMap and no longer resurfaces decided pairs (refs #137)

@@ -1,17 +1,20 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { getBrandConfig, resolveBrand } from '@/app/lib/brand'
 import { getTenantId } from '@/lib/tenant'
 import { sanitizeSalesSettings, emptySalesSettings } from '@/app/lib/sales-settings'
 import { backfillTicketSizeCollection } from '@/lib/backfill-ticket-size'
+import { requireBrandAccessApi } from '@/lib/require-brand-access-api'
 
 const COLLECTION = 'company_settings'
 
-export async function GET(request: Request, { params }: { params: Promise<{ brand: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ brand: string }> }) {
   try {
     const { brand: brandParam } = await params
     const brand = await resolveBrand(brandParam)
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
     const tenantId = getTenantId(request)
 
     if (!process.env.MONGODB_URI) {
@@ -47,17 +50,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ bran
   }
 }
 
-// No requireApiKey guard here, deliberately: this route is meant to be written
-// directly from the browser Save button (app/salessettings/[client]), which has
-// no way to safely carry a server-side secret without a login system — the
-// same reasoning /api/settings's PUT already follows for its own browser-edited
-// document. Company settings are not lead/contact data, so the blast radius of
-// an anonymous write is limited to a company's own sales-context text.
-export async function PUT(request: Request, { params }: { params: Promise<{ brand: string }> }) {
+// Issue #226: this route had no guard at all, on the reasoning that the
+// browser Save button (app/salessettings/[client]) could not carry a secret
+// before SSO existed — so anyone could overwrite a brand's settings and
+// trigger a ticket-size recompute of every lead. requireBrandAccessApi takes
+// the page's own SSO session (the page is gated by requireBrandAccess for
+// the same brand), a brand/scope-matched scoped key, or the legacy key. Not
+// requireApiKey (breaks the browser Save, as in 2.4.21) and not
+// requireApiKeyOrSession (no brand check: any login could write any brand).
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ brand: string }> }) {
   try {
     const { brand: brandParam } = await params
     const brand = await resolveBrand(brandParam)
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
     const tenantId = getTenantId(request)
 
     if (!process.env.MONGODB_URI) {

@@ -2,7 +2,14 @@ import { NextResponse } from 'next/server';
 import { getClientPromise } from '../../../lib/mongodb';
 import { requireApiKey } from '../../../lib/api-auth';
 
+// Issue #226: GET had no guard, and its filter is cross-brand and
+// cross-tenant, so anyone could read audit rows (rep emails, notes, decline
+// reasons). Same key-only guard as POST: no browser or in-app caller exists —
+// every in-app reader queries the outcomelogs collection directly.
 export async function GET(request: Request) {
+  const authError = requireApiKey(request);
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
     const leadId = searchParams.get('leadId');

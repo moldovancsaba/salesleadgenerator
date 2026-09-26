@@ -84,7 +84,7 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/reports/[id]/route.ts` | GET, PATCH, DELETE | `requireBrandAccessApi` | Single report definition CRUD |
 | `app/api/reports/[id]/run/route.ts` | POST | `requireBrandAccessApi` | Executes a definition's pipeline now (`app/lib/report-store.ts`'s `runReportDefinition`) |
 | `app/api/admin/reports-tick/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Cron worker: sends due scheduled report emails via `lib/report-delivery.ts` |
-| `app/api/outreach-logs/route.ts` | GET, POST | `requireApiKey` (POST) | Record-only outreach log, never sends; POST runs `evaluateOutreachRouting` |
+| `app/api/outreach-logs/route.ts` | GET, POST | `requireApiKey` (GET since 2.4.226, issue #226) | Record-only outreach log, never sends; POST runs `evaluateOutreachRouting` |
 | `app/api/outreach-send/route.ts` | POST | `requireApiKey` | Real, one-off rep-initiated email send via Resend (`lib/outreach-send.ts`'s `sendManualEmail`, issue #205) |
 | `app/api/outreach-templates/route.ts` | GET, POST | `requireApiKey` (POST) | Template CRUD, seeded from `DEFAULT_OUTREACH_TEMPLATES`; GET annotates with `computeTemplateConversions` |
 | `app/api/outcome-logs/route.ts` | GET, POST | `requireApiKey` | Stage-transition outcome log (drives win-rate/velocity calibration) |
@@ -96,7 +96,7 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
 | `app/api/settings/route.ts` | GET, PUT | GET: none; PUT: `requireApiKeyOrSession` (fixed, issue #192 — previously none) | `settings` collection: pipeline weights, stale thresholds, concentration risk, forecast calibration |
-| `app/api/sales-settings/[brand]/route.ts` | GET, PUT | none | Per-brand `SalesSettings` document (`company_settings` collection), sanitized via `sanitizeSalesSettings` |
+| `app/api/sales-settings/[brand]/route.ts` | GET, PUT | `requireBrandAccessApi` (since 2.4.226, issue #226; previously none) | Per-brand `SalesSettings` document (`company_settings` collection), sanitized via `sanitizeSalesSettings` |
 | `app/api/lead-taxonomy/route.ts` | GET | none | Serves `lib/lead-taxonomy.ts`'s controlled vocabularies live so the external enrichment-agent prompt never drifts from code |
 | `app/api/search/route.ts` | GET | `requireBrandAccessApi` when `brand` given; `requireSuperAdminSession` (no `x-api-key` bypass) for the no-brand cross-all-brands mode (fixed, issue #192 — previously none) | Regex-escaped (`escapeRegExp`) free-text lead search |
 | `app/api/search-learning/route.ts` | GET, POST | GET: none; POST: `requireApiKeyOrSession` (fixed, issue #192 — previously none) | "Search memory" — tracks which search queries/domains produced good leads |
@@ -200,8 +200,8 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
-| `app/api/products/[brand]/route.ts` | GET, POST | **none — deliberate**, same disclosed browser-writable-commercial-config posture already established for `GET`/`PUT /api/sales-settings/[brand]` | List/create a brand's priced catalog line items (`app/lib/products.ts`'s `sanitizeProduct(s)`) |
-| `app/api/products/[brand]/[productId]/route.ts` | PATCH, DELETE | none (same posture) | Update/delete one product |
+| `app/api/products/[brand]/route.ts` | GET, POST | `requireBrandAccessApi` (since 2.4.226, issue #226; previously none) | List/create a brand's priced catalog line items (`app/lib/products.ts`'s `sanitizeProduct(s)`) |
+| `app/api/products/[brand]/[productId]/route.ts` | PATCH, DELETE | `requireBrandAccessApi` (since 2.4.226) | Update/delete one product |
 | `app/api/admin/products-backfill/route.ts` | POST | `requireApiKey` | One-time idempotent backfill promoting Sales Settings' free-text `ProductLine[]` into the priced catalog (`lib/backfill-products.ts`) |
 
 ---
