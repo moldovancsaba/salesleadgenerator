@@ -167,6 +167,97 @@ describe('OAuth connect -> callback -> connection created (issue 217)', () => {
   });
 });
 
+// Issue #228: the callback used to take brand, tenant, provider and user
+// from a plain-JSON cookie the browser could rewrite, and never checked the
+// session. It now uses a single-use server-side state record and requires
+// the same user, still holding access to that brand.
+describe('OAuth callback trusts only the server-side state and the live session (issue 228)', () => {
+  async function startConnect(provider: 'google_calendar' | 'gmail' | 'google_contacts', tenantId = 'default') {
+    const res = await connectGET(
+      sessionReq(`/api/integrations/${provider}/connect?brand=cogmap&tenantId=${tenantId}`),
+      { params: Promise.resolve({ provider }) }
+    );
+    const stateCookie = res.cookies.get('integ_oauth_state')?.value as string;
+    const verifierCookie = res.cookies.get('integ_oauth_verifier')?.value as string;
+    const { state } = JSON.parse(decodeURIComponent(stateCookie));
+    return { state, stateCookie, verifierCookie };
+  }
+
+  function callback(state: string, stateCookie: string, verifierCookie: string) {
+    return callbackGET(sessionReq(
+      `/api/integrations/oauth/callback?code=test-auth-code&state=${encodeURIComponent(state)}`,
+      { headers: { cookie: `integ_oauth_state=${stateCookie}; integ_oauth_verifier=${verifierCookie}` } }
+    ));
+  }
+
+  async function connectionsFor(tenantId: string) {
+    const database = await integrationsDb();
+    return database.collection('integration_connections').find({ tenantId }).toArray();
+  }
+
+  beforeEach(async () => {
+    mockGoogleAndCalendly();
+    const database = await integrationsDb();
+    await database.collection('sso_user_access').deleteMany({ ssoUserId: { $in: ['admin-1', 'admin-2'] } });
+    await seedUserAccess({ ssoUserId: 'admin-1', email: 'admin@test.example.com', orgAccess: { cogmap: 'admin' } });
+    await seedUserAccess({ ssoUserId: 'admin-2', email: 'admin2@test.example.com', orgAccess: { cogmap: 'admin' } });
+  });
+
+  it('ignores tenant, provider and user written into the cookie', async () => {
+    const { state, verifierCookie } = await startConnect('google_contacts', 't228-real');
+    const forged = encodeURIComponent(JSON.stringify({
+      state, brand: 'cogmap', tenantId: 't228-victim', provider: 'gmail', ssoUserId: 'someone-else',
+    }));
+    const res = await callback(state, forged, verifierCookie);
+    expect(res.headers.get('location')).toContain('connected=google_contacts');
+    expect(await connectionsFor('t228-victim')).toHaveLength(0);
+    const stored = await connectionsFor('t228-real');
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({ provider: 'google_contacts', connectedBy: 'admin-1' });
+  });
+
+  it('rejects a state that was never issued by the connect route', async () => {
+    const forged = encodeURIComponent(JSON.stringify({ state: 'made-up-state', brand: 'cogmap' }));
+    const res = await callback('made-up-state', forged, 'any-verifier');
+    expect(res.headers.get('location')).toContain('connect_error=invalid_state');
+  });
+
+  it('accepts a state only once', async () => {
+    const { state, stateCookie, verifierCookie } = await startConnect('google_calendar', 't228-replay');
+    expect((await callback(state, stateCookie, verifierCookie)).headers.get('location')).toContain('connected=google_calendar');
+    expect((await callback(state, stateCookie, verifierCookie)).headers.get('location')).toContain('connect_error=invalid_state');
+  });
+
+  it('redirects with session_expired when there is no session at the callback', async () => {
+    const { state, stateCookie, verifierCookie } = await startConnect('gmail', 't228-nosession');
+    resolveSessionFromIdTokenMock.mockResolvedValueOnce(null);
+    const res = await callback(state, stateCookie, verifierCookie);
+    expect(res.headers.get('location')).toContain('connect_error=session_expired');
+    expect(await connectionsFor('t228-nosession')).toHaveLength(0);
+  });
+
+  it('rejects a callback completed by a different user than the one who started it', async () => {
+    const { state, stateCookie, verifierCookie } = await startConnect('gmail', 't228-otheruser');
+    resolveSessionFromIdTokenMock.mockResolvedValueOnce({ sub: 'admin-2', email: 'admin2@test.example.com' });
+    const res = await callback(state, stateCookie, verifierCookie);
+    expect(res.headers.get('location')).toContain('connect_error=forbidden');
+    expect(await connectionsFor('t228-otheruser')).toHaveLength(0);
+  });
+
+  it('rejects a callback when the user lost access to the brand mid-flow', async () => {
+    const { state, stateCookie, verifierCookie } = await startConnect('gmail', 't228-revoked');
+    const database = await integrationsDb();
+    await database.collection('sso_user_access').updateMany({ ssoUserId: 'admin-1' }, { $set: { orgAccess: { seyu: 'admin' } } });
+    try {
+      const res = await callback(state, stateCookie, verifierCookie);
+      expect(res.headers.get('location')).toContain('connect_error=forbidden');
+      expect(await connectionsFor('t228-revoked')).toHaveLength(0);
+    } finally {
+      await database.collection('sso_user_access').updateMany({ ssoUserId: 'admin-1' }, { $set: { orgAccess: { cogmap: 'admin' } } });
+    }
+  });
+});
+
 describe('API-key connect (Calendly) — verify before store (issue 217)', () => {
   it('rejects an invalid token before it is ever persisted', async () => {
     mockGoogleAndCalendly({ calendlyOk: false });

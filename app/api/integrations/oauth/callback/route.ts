@@ -2,13 +2,18 @@ import { NextResponse, type NextRequest } from 'next/server';
 import clientPromise, { isMongoConfigured } from '../../../../../lib/mongodb';
 import { isIntegrationEncryptionConfigured } from '../../../../../lib/integration-crypto';
 import { isKnownProvider, isOAuthProvider, oauthConfigFor, type IntegrationProvider } from '../../../../../lib/integration-connections';
-import { isGoogleOAuthConfigured, GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URI, upsertOAuthConnection } from '../../../../lib/integration-store';
+import { isGoogleOAuthConfigured, GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URI, upsertOAuthConnection, consumePendingOAuthState } from '../../../../lib/integration-store';
 import { fetchWithRetry } from '../../../../../lib/integration-http';
+import { requireBrandAccessSession } from '../../../../../lib/require-brand-session';
+import { resolveBrand } from '../../../../lib/brand';
 
 const OAUTH_STATE_COOKIE = 'integ_oauth_state';
 const OAUTH_VERIFIER_COOKIE = 'integ_oauth_verifier';
 
-type OAuthStateCookie = { state: string; provider: string; brand: string; tenantId: string; ssoUserId: string };
+// Only `state` and the brand used to choose a redirect target are read from
+// the cookie; brand, tenant, provider and user for the stored connection
+// come from the server-side record (issue #228).
+type OAuthStateCookie = { state: string; brand: string };
 
 function clearOauthCookies(response: NextResponse) {
   response.cookies.delete(OAUTH_STATE_COOKIE);
@@ -22,8 +27,8 @@ function settingsUrl(request: NextRequest, brand: string, query: Record<string, 
 }
 
 // Single shared callback for every oauth2 provider (issue #217 §8) — the
-// provider is looked up from the validated state cookie, not a per-provider
-// route, since the token-exchange shape is identical across the whole
+// provider is looked up from the server-side state record (issue #228), not
+// a per-provider route, since the token-exchange shape is identical across the whole
 // Google family and only the requested scopes differ.
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -44,37 +49,53 @@ export async function GET(request: NextRequest) {
   // No parseable state cookie at all — nowhere safe to redirect back to
   // (we don't know which brand's settings page to send the admin to), so
   // this is the one case that returns a bare JSON error instead.
-  if (!stateCookie || !stateCookie.brand) {
+  const redirectBrand = stateCookie?.brand ? await resolveBrand(stateCookie.brand) : null;
+  if (!stateCookie || !redirectBrand) {
     const response = NextResponse.json({ error: 'Invalid or expired connection attempt — please try connecting again' }, { status: 400 });
     clearOauthCookies(response);
     return response;
   }
-
-  if (errorParam) {
-    const response = NextResponse.redirect(settingsUrl(request, stateCookie.brand, { connect_error: errorParam }));
+  const fail = (reason: string, brand: string = redirectBrand) => {
+    const response = NextResponse.redirect(settingsUrl(request, brand, { connect_error: reason }));
     clearOauthCookies(response);
     return response;
-  }
+  };
+
+  if (errorParam) return fail(errorParam);
 
   if (!code || !returnedState || returnedState !== stateCookie.state || !verifier) {
-    const response = NextResponse.redirect(settingsUrl(request, stateCookie.brand, { connect_error: 'invalid_state' }));
-    clearOauthCookies(response);
-    return response;
+    return fail('invalid_state');
   }
 
-  if (!isKnownProvider(stateCookie.provider) || !isOAuthProvider(stateCookie.provider)) {
-    const response = NextResponse.redirect(settingsUrl(request, stateCookie.brand, { connect_error: 'unknown_provider' }));
-    clearOauthCookies(response);
-    return response;
+  if (!isGoogleOAuthConfigured() || !isIntegrationEncryptionConfigured() || !isMongoConfigured()) {
+    return fail('not_configured');
   }
-  const provider = stateCookie.provider as IntegrationProvider;
+
+  // Issue #228: the cookie is plain JSON the browser can rewrite, so the
+  // brand, tenant, provider and user come from the single-use record the
+  // connect route stored, and the person completing the flow must still
+  // hold a session with access to that brand — the same person who started
+  // it. Consumed before the session check, so a failed attempt burns it.
+  const client = await clientPromise;
+  const db = client.db();
+  const pending = await consumePendingOAuthState(db, returnedState);
+  if (!pending) return fail('invalid_state');
+  const brand = await resolveBrand(pending.brand);
+  if (!brand) return fail('invalid_state');
+
+  const claimsOrResponse = await requireBrandAccessSession(request, brand);
+  if (claimsOrResponse instanceof NextResponse) {
+    const reason = claimsOrResponse.status === 401 ? 'session_expired' : claimsOrResponse.status === 403 ? 'forbidden' : 'not_configured';
+    return fail(reason, brand);
+  }
+  if (claimsOrResponse.sub !== pending.ssoUserId) return fail('forbidden', brand);
+
+  if (!isKnownProvider(pending.provider) || !isOAuthProvider(pending.provider)) {
+    return fail('unknown_provider', brand);
+  }
+  const provider = pending.provider as IntegrationProvider;
   const cfg = oauthConfigFor(provider);
-
-  if (!cfg || !isGoogleOAuthConfigured() || !isIntegrationEncryptionConfigured() || !isMongoConfigured()) {
-    const response = NextResponse.redirect(settingsUrl(request, stateCookie.brand, { connect_error: 'not_configured' }));
-    clearOauthCookies(response);
-    return response;
-  }
+  if (!cfg) return fail('not_configured', brand);
 
   try {
     // Real Google OAuth2 token endpoint contract: application/x-www-form-
@@ -94,33 +115,27 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenRes.ok) {
-      const response = NextResponse.redirect(settingsUrl(request, stateCookie.brand, { connect_error: 'token_exchange_failed' }));
-      clearOauthCookies(response);
-      return response;
+      return fail('token_exchange_failed', brand);
     }
 
     const tokens = await tokenRes.json();
-    const client = await clientPromise;
-    const db = client.db();
     await upsertOAuthConnection(db, {
-      brand: stateCookie.brand,
-      tenantId: stateCookie.tenantId || 'default',
+      brand,
+      tenantId: pending.tenantId || 'default',
       provider,
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       expiresInSeconds: tokens.expires_in,
       scopes: cfg.scopes,
-      connectedBy: stateCookie.ssoUserId,
+      connectedBy: claimsOrResponse.sub,
     });
 
-    const response = NextResponse.redirect(settingsUrl(request, stateCookie.brand, { connected: provider }));
+    const response = NextResponse.redirect(settingsUrl(request, brand, { connected: provider }));
     clearOauthCookies(response);
     return response;
   } catch (error) {
     console.error('[api/integrations/oauth/callback] error:', error);
-    const response = NextResponse.redirect(settingsUrl(request, stateCookie.brand, { connect_error: 'unexpected_error' }));
-    clearOauthCookies(response);
-    return response;
+    return fail('unexpected_error', brand);
   }
 }
 
