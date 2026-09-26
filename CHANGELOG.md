@@ -1,5 +1,34 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.228
+
+### Security: the integrations OAuth callback no longer trusts a browser-editable cookie (fixes #228)
+
+`GET /api/integrations/oauth/callback` took the brand, tenant, provider
+and connecting user from the `integ_oauth_state` cookie, which is plain
+JSON the browser can rewrite. It also never checked the session. Anyone
+who could complete a Google consent could attach their Google account to
+any brand and tenant, replacing that brand's real connection.
+
+- The connect route now stores the state server-side in a new
+  `integration_oauth_states` collection. Records are single use and expire
+  after 10 minutes (TTL index). The cookie now carries only `state` and the
+  brand used to pick a redirect page.
+- The callback requires three things. The cookie's `state` must match the
+  query, as before. The server-side record is consumed, so a state works
+  once. The user must hold a live session with access to the record's
+  brand and be the same user who started the flow. Brand, tenant and
+  provider come from the record, and `connectedBy` comes from the session.
+- New `connect_error` codes on the integrations page: `session_expired`
+  and `forbidden`. An unknown, expired or reused state gives
+  `invalid_state`.
+
+Six new integration tests cover a forged cookie tenant/provider/user, a
+state that was never issued, reuse of a state, no session, a different
+user, and brand access revoked mid-flow. All six fail against the
+previous code. A consent that was in progress during the deploy fails
+once, and the user connects again.
+
 ## 2.4.227
 
 ### Fix: outreach, templates, cadences, automation rules and battlecards work from the browser again, and their reads need a credential (fixes #227)

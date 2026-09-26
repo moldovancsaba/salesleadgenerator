@@ -9,7 +9,7 @@ import {
   isKnownProvider, isOAuthProvider, apiKeyConfigFor, buildGoogleAuthorizeUrl,
   type IntegrationProvider,
 } from '../../../../../lib/integration-connections';
-import { isGoogleOAuthConfigured, GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_REDIRECT_URI, upsertApiKeyConnection } from '../../../../lib/integration-store';
+import { isGoogleOAuthConfigured, GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_REDIRECT_URI, upsertApiKeyConnection, savePendingOAuthState } from '../../../../lib/integration-store';
 import { fetchWithRetry } from '../../../../../lib/integration-http';
 
 const OAUTH_STATE_COOKIE = 'integ_oauth_state';
@@ -42,11 +42,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!isIntegrationEncryptionConfigured()) {
     return NextResponse.json({ error: 'Integration credential storage is not configured' }, { status: 503 });
   }
+  if (!isMongoConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
 
   const tenantId = getTenantId(request);
   const state = generateState();
   const verifier = generateCodeVerifier();
   const codeChallenge = generateCodeChallenge(verifier);
+
+  // Issue #228: the callback trusts only this server-side record for brand,
+  // tenant, provider and user, never the cookie below.
+  const client = await clientPromise;
+  await savePendingOAuthState(client.db(), {
+    state, provider, brand, tenantId, ssoUserId: claimsOrResponse.sub,
+    expiresAt: new Date(Date.now() + OAUTH_COOKIE_MAX_AGE * 1000),
+  });
 
   const authorizeUrl = buildGoogleAuthorizeUrl({
     provider: provider as 'google_calendar' | 'gmail' | 'google_contacts',
@@ -65,7 +74,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // a test-writing inconvenience.
   response.cookies.set(
     OAUTH_STATE_COOKIE,
-    encodeURIComponent(JSON.stringify({ state, provider, brand, tenantId, ssoUserId: claimsOrResponse.sub })),
+    encodeURIComponent(JSON.stringify({ state, brand })),
     { httpOnly: true, secure: secureCookie, sameSite: 'lax', path: '/', maxAge: OAUTH_COOKIE_MAX_AGE }
   );
   response.cookies.set(OAUTH_VERIFIER_COOKIE, verifier, {

@@ -32,6 +32,51 @@ export async function ensureIntegrationConnectionIndexes(db: Db): Promise<void> 
   }
 }
 
+// Issue #228: the OAuth state for a Google connect is kept server-side,
+// single-use, instead of trusting the browser cookie for brand, tenant,
+// provider and user — that cookie was plain JSON anyone could rewrite. The
+// cookie still carries `state` (binding the callback to the browser that
+// started the flow) and the brand used only to pick a redirect target.
+export const INTEGRATION_OAUTH_STATES_COLLECTION = 'integration_oauth_states';
+
+export type PendingOAuthState = {
+  state: string;
+  provider: IntegrationProvider;
+  brand: string;
+  tenantId: string;
+  ssoUserId: string;
+  expiresAt: Date;
+};
+
+let oauthStateIndexesEnsured = false;
+async function ensureOAuthStateIndexes(db: Db): Promise<void> {
+  if (oauthStateIndexesEnsured) return;
+  try {
+    await db.collection(INTEGRATION_OAUTH_STATES_COLLECTION).createIndex({ state: 1 }, { unique: true });
+    // TTL cleanup only; expiry itself is enforced in consumePendingOAuthState,
+    // since Mongo's TTL monitor runs about once a minute.
+    await db.collection(INTEGRATION_OAUTH_STATES_COLLECTION).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    oauthStateIndexesEnsured = true;
+  } catch (error) {
+    console.error('[integration-store] oauth state index creation failed', error);
+  }
+}
+
+export async function savePendingOAuthState(db: Db, record: PendingOAuthState): Promise<void> {
+  await ensureOAuthStateIndexes(db);
+  await db.collection(INTEGRATION_OAUTH_STATES_COLLECTION).insertOne({ ...record });
+}
+
+// Deletes on read, so a state can complete at most one callback — a replayed
+// or second callback for the same state finds nothing.
+export async function consumePendingOAuthState(db: Db, state: string): Promise<PendingOAuthState | null> {
+  const doc = await db.collection(INTEGRATION_OAUTH_STATES_COLLECTION).findOneAndDelete({ state });
+  if (!doc) return null;
+  if (!(doc.expiresAt instanceof Date) || doc.expiresAt.getTime() <= Date.now()) return null;
+  const { _id, ...rest } = doc;
+  return rest as unknown as PendingOAuthState;
+}
+
 function makeId(): string {
   return `intconn_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
