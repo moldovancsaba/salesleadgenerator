@@ -170,6 +170,49 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     $expr: { $eq: ['$leadIdA', '$leadIdB'] },
   });
 
+  // Issue #137: the repoint above swaps an id in place, so a row can end up
+  // with leadIdA > leadIdB — every other writer (findCandidatePairs, the
+  // scan) stores pairs sorted, and a reversed row read as "never reviewed"
+  // by the scan's pair lookup let a decided pair resurface. Re-sorted here
+  // so stored order stays canonical.
+  await db.collection('duplicate_reviews').updateMany(
+    {
+      _id: { $ne: review._id },
+      $or: [{ leadIdA: primaryId }, { leadIdB: primaryId }],
+      $expr: { $gt: ['$leadIdA', '$leadIdB'] },
+    },
+    [{ $set: { leadIdA: '$leadIdB', leadIdB: '$leadIdA' } }]
+  );
+
+  // Repointing can also leave two rows naming the same pair (one had
+  // (secondary, X), another already had (primary, X)). A human decision
+  // (dismissed/confirmed/merged) always wins over a pending row, so pending
+  // copies are removed when a decided row exists; with only pending rows,
+  // the oldest is kept. Decided rows are never deleted — they are the audit
+  // trail — even if two of them now name the same pair.
+  const touched = await db.collection('duplicate_reviews')
+    .find(
+      { _id: { $ne: review._id }, $or: [{ leadIdA: primaryId }, { leadIdB: primaryId }] },
+      { projection: { _id: 1, leadIdA: 1, leadIdB: 1, status: 1, createdAt: 1 } }
+    )
+    .sort({ createdAt: 1, _id: 1 })
+    .toArray();
+  const byPair = new Map<string, any[]>();
+  for (const row of touched) {
+    const key = `${row.leadIdA}:${row.leadIdB}`;
+    byPair.set(key, [...(byPair.get(key) || []), row]);
+  }
+  const redundantPendingIds: any[] = [];
+  for (const rows of byPair.values()) {
+    const pending = rows.filter((r) => r.status === 'pending');
+    if (pending.length === 0 || rows.length < 2) continue;
+    const drop = pending.length === rows.length ? pending.slice(1) : pending;
+    redundantPendingIds.push(...drop.map((r) => r._id));
+  }
+  if (redundantPendingIds.length > 0) {
+    await db.collection('duplicate_reviews').deleteMany({ _id: { $in: redundantPendingIds }, status: 'pending' });
+  }
+
   await db.collection(config.dbCollection).deleteOne({ _id: new ObjectId(secondaryId) });
 
   await db.collection('duplicate_reviews').updateOne(
