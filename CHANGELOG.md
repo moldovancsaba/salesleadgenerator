@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.239
+
+### Data: #132 research round 2 — 36 leads classified and enriched
+
+- 36 QUALIFIED leads (25 Seyu, 11 CogMap) were researched,
+  adversarially verified and applied one lead at a time. All 36 re-read
+  exactly as sent.
+- 22 near-duplicate candidates were skipped and listed on #137.
+- Leads with wrong websites, a competitor listed as a CogMap prospect, a
+  stale "passed" decision and a doubtful contact are listed for review in
+  `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`. They were not changed.
+- One research agent put the owner's email address in a Wikipedia API
+  `User-Agent` header once. No lead data is affected, and later rounds
+  forbid personal data in requests.
+
 ## 2.4.238
 
 ### Security: scheduling links carry a private token, not the lead id (fixes #229)

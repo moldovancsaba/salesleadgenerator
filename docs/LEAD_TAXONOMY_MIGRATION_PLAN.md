@@ -18,6 +18,37 @@ Each lead was researched by an independent agent doing real web research (fetchi
 
 Two corrections were made to agent output before applying: Feyenoord's proposed `notes` would have overwritten the existing field (the brief given to that agent omitted the stored notes, so it couldn't see them) — merged instead; and EBANX's `canonicalLeadName` just repeated `entity_name`, so it was dropped. Post-write verification caught a real side effect (see the `kanbanColumn` checklist item in §9): 5 QUALIFIED leads across both 2026-09-25/26 batches were auto-demoted to DISCOVERED by the `ice` re-score and were restored to QUALIFIED the same day.
 
+### Progress update — 2026-09-26 — research round 2, 36 leads (issue #132)
+
+This round covered 36 QUALIFIED leads: 25 Seyu and 11 CogMap. They were picked from CogMap QUALIFIED page 2 and Seyu QUALIFIED pages 3–4, one single-column page read at a time, keeping leads with no `orgTypeCode`.
+
+Before research, each candidate was searched by name within its brand, first by full name and then by a distinctive core word. 22 near-duplicates were skipped and listed on #137.
+
+The same research plus adversarial-verification workflow as round 1 ran on the rest, with two extra rules:
+- never send the legacy `decision_maker_*`/`contact_phone` fields;
+- research only the lead's own organisation, even when a near-duplicate exists.
+
+Verdicts: 36 "apply with corrections", 0 rejected. All 36 were applied one at a time with notes kept first and `kanbanColumn` pinned. All 36 re-read exactly as sent.
+
+Eighteen verifications first failed on an account session limit. They were re-run from the cached research after the limit reset, so every applied lead was verified before its write.
+
+**Found for human review (not changed; `url` and `entity_name` are identity fields):**
+- **Wrong website:**
+  - Dubai Sports Council: `dubaisports.ae` is a sports-news site; the council is `dubaisc.ae`.
+  - Al Wahda FC: `alwahda.ae` is a Sharjah business-setup consultancy; the club is `alwahda-sc.com`.
+  - Legia Warsaw Academy: the stored page returns 404; it is now at `akademia.legia.com`.
+  - Real Betis Baloncesto: stores the football club's site.
+  - Al Wahda's QUALIFIED/CHECKED status was built on the wrong site.
+- **Fit:** Cogstate sells clinical-trial cognitive assessments, which makes it a CogMap peer or competitor rather than a buyer.
+- **Stale pass:** Lech Poznań is marked `passed` because it was called "a Hungarian club outside priority countries". It is Polish.
+- **Wrong contact:** "Mike DuBose" is stored on both University of Alabama Athletics records (Seyu and CogMap). He is not in the athletics staff directory, and the name matches a former head coach.
+- **Cross-brand leftovers:** Sevilla FC (Seyu) still carries CogMap forecast fields (`estimated_participants` 500, `recommended_tier`, `revenue_model`).
+- **Name dispute:** Real Betis Balompié publicly asks that the Betis name not be used for the basketball company, which now trades as Baloncesto Sevilla.
+
+**Process incident:** one research agent sent a Wikipedia API request with the owner's email address in its `User-Agent` header. It happened once and no lead data is affected. Later rounds' prompts forbid putting personal data in any request.
+
+Leads: Seyu — Hungarian Football Federation, Hellas Verona FC, The St. James, Al Wahda Football Club, CSKA Sofia Academy, Al Hilal SFC Academy, Legia Warsaw Academy, Aspire Academy, University of Alabama Athletics, New York Red Bulls Academy, Nashville Soccer Club, Rhode Island FC, AC Perugia Calcio, SS Lazio, Sevilla FC, Deportivo Alavés, Real Betis Baloncesto, Real Betis Balompié, Real Zaragoza, Villarreal CF, Atalanta BC, Udinese Calcio, AC Monza, Granada CF, CD Leganés. CogMap — Japan Esports Union (JESU), Cogstate, Kitman Labs, Leicester City FC, Nashville SC Academy, Jordan Basketball Federation, Lech Poznań, Dubai Sports Council, San Antonio Spurs, Cleveland Browns, Los Angeles Lakers.
+
 ### Progress update — 2026-09-26 — research round of 38 leads (issue #132)
 
 This round covered 38 leads: 27 Seyu and 11 CogMap, all in QUALIFIED/ENGAGED. They were picked from single-column, single-page reads. A 76-agent workflow ran one research agent and one adversarial verifier per lead; each verifier re-checked the claims against sources and returned the corrected payload. Verdicts: 3 "apply", 35 "apply with corrections", 0 rejected.
