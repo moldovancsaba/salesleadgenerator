@@ -5,7 +5,7 @@ import { Container, Title, Text, Stack, Group, Button, TextInput, Loader, Paper 
 
 type Slot = { start: string; end: string }
 
-type Props = { brand: string; label: string; leadId?: string }
+type Props = { brand: string; label: string; linkToken?: string }
 
 function formatDayHeader(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
@@ -22,7 +22,7 @@ function formatTime(iso: string): string {
 // browser-local timezone (computed client-side from the UTC ISO strings
 // the API returns) — distinct from the rep's stored IANA timeZone, which
 // only governs which wall-clock hours count as available server-side.
-export function ScheduleClient({ brand, label, leadId }: Props) {
+export function ScheduleClient({ brand, label, linkToken }: Props) {
   const [loading, setLoading] = useState(true)
   const [slots, setSlots] = useState<Slot[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -76,7 +76,7 @@ export function ScheduleClient({ brand, label, leadId }: Props) {
       const res = await fetch(`/api/schedule/${encodeURIComponent(brand)}/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slotStart: selected.start, slotEnd: selected.end, leadId, prospectName: name.trim(), prospectEmail: email.trim() }),
+        body: JSON.stringify({ slotStart: selected.start, slotEnd: selected.end, linkToken, prospectName: name.trim(), prospectEmail: email.trim() }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {

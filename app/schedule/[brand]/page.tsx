@@ -18,13 +18,15 @@ export async function generateMetadata({ params }: { params: Promise<{ brand: st
 
 export default async function SchedulePage({ params, searchParams }: {
   params: Promise<{ brand: string }>;
-  searchParams: Promise<{ leadId?: string }>;
+  searchParams: Promise<{ t?: string }>;
 }) {
   const { brand: brandParam } = await params;
-  const { leadId } = await searchParams;
+  // Issue #229: `t` is the lead's scheduling-link token; an old `?leadId=`
+  // link still loads and books, it just isn't attributed to a lead.
+  const { t: linkToken } = await searchParams;
   const brand = await resolveBrand(brandParam);
   if (!brand) notFound();
   const config = await getBrandConfig(brand);
 
-  return <ScheduleClient brand={brand} label={config?.label ?? brand} leadId={leadId} />;
+  return <ScheduleClient brand={brand} label={config?.label ?? brand} linkToken={linkToken} />;
 }
