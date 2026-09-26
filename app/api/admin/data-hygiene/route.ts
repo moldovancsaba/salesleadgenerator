@@ -29,8 +29,10 @@ export async function GET(request: Request) {
 
     const client = await clientPromise
     const db = client.db()
+    // ?brand= narrows the report to that brand; it used to be computed and
+    // then ignored, so every call reported every brand (issue #222 review).
     const report = await Promise.all(
-      Object.entries(allBrandConfigs).map(async ([brandKey, config]) => {
+      Object.entries(allBrandConfigs).filter(([brandKey]) => targetBrand.includes(brandKey)).map(async ([brandKey, config]) => {
         const total = await db.collection(config.dbCollection).countDocuments(tenantFilter)
 
         const malformedWithProFor = await db.collection(config.dbCollection).countDocuments({

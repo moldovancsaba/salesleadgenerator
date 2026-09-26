@@ -616,7 +616,8 @@ curl "https://salesleadgenerator.vercel.app/api/outreach-templates?brand=cogmap&
 
 - `GET /api/admin/cron-status` — cron run health and counts (`x-api-key` required)
 - `GET/POST /api/admin/automation-tick` — daily automation-rule check for "no activity for N days" rules; a "lead created"/"lead moved to column" rule fires immediately instead, not from this endpoint (`x-api-key` required for the manual `POST` re-trigger; Vercel Cron authorizes the scheduled `GET`)
-- `GET /api/admin/data-hygiene` — malformed lead counts by brand (`x-api-key` required)
+- `GET /api/admin/data-hygiene` — malformed lead counts by brand (`x-api-key` required; `?brand=` narrows it)
+- `GET /api/admin/data-hygiene/country?brand=<brand>` — how many of a brand's leads have a country that disagrees with their address (`x-api-key` required). Returns counts per reason and up to 20 leads for one reason (`&reason=mismatch` by default, `&offset=20` for the next 20). Read-only: fix each lead's `country` by hand after checking it
 - `POST /api/admin/ticket-size-backfill` — recompute Ticket Size across a brand's leads (dry-run by default, `{apply: true}` to commit) (`x-api-key` required)
 - `POST /api/win-rates/recalculate` — force a Forecast Calibration recompute (`x-api-key` required)
 - `GET /api/stats` — legacy, brand-agnostic totals/column-counts/region-breakdowns/forecast data. `x-api-key` required (fixed, issue #178 — previously had no auth check at all). Not called by any UI in this app; superseded by the per-brand `GET /api/boards/[brand]` the real Forecast page actually uses.

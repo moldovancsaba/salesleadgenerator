@@ -118,7 +118,8 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/admin/users/route.ts` | GET | `requireSuperAdminSession` | List all users + org access for `/admin/users` |
 | `app/api/admin/users/[userId]/access/route.ts` | PUT | `requireSuperAdminSession` | Grant/revoke per-brand role via `setUserOrgAccess` |
 | `app/api/admin/toggle/route.ts` | PUT, GET | `requireSuperAdminSession` | Reads/writes a feature-flag-style JSON file on disk |
-| `app/api/admin/data-hygiene/route.ts` | GET | `requireApiKey` | Data-quality scan (missing `PRO_FIELD`/`CON_FIELD` etc.) |
+| `app/api/admin/data-hygiene/route.ts` | GET | `requireApiKey` | Data-quality scan (missing `PRO_FIELD`/`CON_FIELD` etc.); honors `?brand=` since 2.4.231 |
+| `app/api/admin/data-hygiene/country/route.ts` | GET | `requireApiKey` | Read-only country-vs-address check over a whole brand (`lib/country-consistency.ts`, issue #222): per-reason counts plus at most 20 rows for one `?reason=` (`?offset=` to page) |
 | `app/api/admin/cron-status/route.ts` | GET | `requireApiKey` | Health/last-run status per brand from `outcomelogs` |
 | `app/api/admin/forecast-snapshot/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Cron worker writing weekly `forecast_snapshots` via `discoverTenantIds`/`writeForecastSnapshot` |
 | `app/api/admin/forecast-snapshot/history/route.ts` | GET | `requireApiKey` | Historical snapshot series for a future trend chart |
