@@ -1,5 +1,31 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.222
+
+### Fix: the one real GDS color finding moved into the theme folder; audit root cause corrected (issue #221)
+
+`app/layout.tsx`'s `<meta name="theme-color">` literal moved to a new
+`lib/theme/app-chrome-colors.ts`, the tool's approved home for raw colors
+(same pattern as `lib/theme/quote-pdf-colors.ts`). The rendered HTML is
+unchanged. New `tests/lib/app-chrome-colors.test.ts` keeps it in sync with
+`theme_color` in `public/manifest.json`, which cannot import TypeScript.
+
+`npm run audit:gds-style` now reports exactly 27 findings, down from 28,
+all false positives in test titles (12 integration, 15 lib; full list in
+`docs/STACK_AND_DEPENDENCIES.md`). **Corrections to earlier entries:** the
+2.4.213 entry and issue #221's body said the false positives came from
+issue-number references in code comments. That was wrong. The tool strips
+comments first; the matches are issue references inside
+`describe()`/`it()` title strings (verified by applying the tool's own
+`stripComments` and regex to every flagged file). The 2.4.186 entry's
+claim that the `brand.integration.test.ts` match was the `E11000` error
+code with no `#` present was also wrong: the match is `#195` in that
+file's describe title. `docs/LESSONS_LEARNED.md` item 19 rewritten with
+the verified cause and a reproduction method; the stale "Known
+Package-Manager Constraint" section in the stack doc now matches `.npmrc`
+(GitHub Packages, not release-asset URLs); README says which audit
+findings are known. The upstream part of #221 stays with the owner.
+
 ## 2.4.221
 
 ### Safety: cadence and report crons hold due work while email sending is not configured (issue #224)
