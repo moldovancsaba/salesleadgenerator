@@ -12,7 +12,21 @@ import { findCandidatePairs } from '@/lib/near-duplicate';
 // sub-few-second, in-process scan; sorted by createdAt desc (newest first)
 // so a truncated scan is at least deterministic across repeated runs rather
 // than depending on Mongo's unspecified natural order.
-const MAX_SCAN_SIZE = 2000;
+// Issue #137: raised from 2000 once CogMap outgrew it (the newest-first cap
+// meant its oldest leads were never compared at all). Measured locally with
+// every lead in one sport (the worst case, since the sport gate is what
+// normally skips most comparisons): ~1s at 2000, ~8s at 5000 — hence the
+// explicit maxDuration below rather than relying on the platform default.
+const MAX_SCAN_SIZE = 5000;
+export const maxDuration = 60;
+
+// A pair's identity is order-independent. findCandidatePairs() already
+// emits sorted ids, but stored rows can be unsorted: a merge repoints the
+// losing lead's id to the primary's on whichever side it sat (issue #137),
+// so the lookup key is sorted on both sides rather than trusting either.
+function pairKey(a: string, b: string): string {
+  return a < b ? `${a}:${b}` : `${b}:${a}`;
+}
 
 // Session-based (not x-api-key), matching app/api/admin/users/*: this is a
 // human clicking "Scan for duplicates" in a browser at /admin/duplicates,
@@ -57,12 +71,17 @@ export async function POST(request: NextRequest) {
   // dismissed or confirmed on an earlier scan (issue #73's own requirement
   // that a dismissal decision doesn't resurface on a later scan).
   const existing = await db.collection('duplicate_reviews')
-    .find({ tenantId, brand }, { projection: { leadIdA: 1, leadIdB: 1 } })
+    .find({ tenantId, brand }, { projection: { leadIdA: 1, leadIdB: 1, status: 1 } })
     .toArray();
-  const alreadySeen = new Set(existing.map((r: any) => `${r.leadIdA}:${r.leadIdB}`));
+  const alreadySeen = new Set(existing.map((r: any) => pairKey(String(r.leadIdA), String(r.leadIdB))));
+  const decided = new Set(
+    existing
+      .filter((r: any) => r.status && r.status !== 'pending')
+      .map((r: any) => pairKey(String(r.leadIdA), String(r.leadIdB)))
+  );
 
   const newRows = pairs
-    .filter((pair) => !alreadySeen.has(`${pair.leadIdA}:${pair.leadIdB}`))
+    .filter((pair) => !alreadySeen.has(pairKey(pair.leadIdA, pair.leadIdB)))
     .map((pair) => ({
       tenantId,
       brand,
@@ -84,5 +103,10 @@ export async function POST(request: NextRequest) {
     truncated: totalAvailable > leads.length,
     candidatesFound: pairs.length,
     newPairs: newRows.length,
+    // Issue #137: candidatesFound also counts pairs a human already
+    // dismissed or confirmed, and newPairs is 0 on every re-scan, so neither
+    // shows whether the duplicate backlog is shrinking. This is the number
+    // of candidate pairs found now that nobody has decided yet.
+    unresolvedPairs: pairs.filter((pair) => !decided.has(pairKey(pair.leadIdA, pair.leadIdB))).length,
   });
 }

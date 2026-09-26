@@ -208,6 +208,85 @@ describe('POST /api/duplicate-reviews/merge — commit', () => {
     expect(drivingReview?.mergedInto).toBe(idA);
   });
 
+  // Issue #137: seeded in creation order secondary < third < primary, so
+  // the repoint turns the stored (secondary, third) row into (primary,
+  // third) — reversed — unless the merge re-sorts it.
+  async function seedReversalScenario(name: string) {
+    const secondaryId = await seedLead({ entity_name: name });
+    const thirdId = await seedLead({ entity_name: name });
+    const primaryId = await seedLead({ entity_name: name });
+    expect(secondaryId < thirdId && thirdId < primaryId).toBe(true);
+    const reviewId = await seedReview(secondaryId, primaryId, 'confirmed');
+    return { secondaryId, thirdId, primaryId, reviewId };
+  }
+
+  // Matches either stored order, so the collapse assertions below test
+  // collapsing itself rather than passing just because a reversed row
+  // was never found.
+  async function rowsForPair(x: string, y: string) {
+    const database = await db();
+    return database.collection('duplicate_reviews')
+      .find({ $or: [{ leadIdA: x, leadIdB: y }, { leadIdA: y, leadIdB: x }] })
+      .toArray();
+  }
+
+  async function mergeInto(reviewId: string, primaryId: string) {
+    const res = await mergePOST(req('/api/duplicate-reviews/merge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewId, primaryId, resolutions: {} }),
+    }));
+    expect(res.status).toBe(200);
+  }
+
+  it('re-sorts a repointed review row so leadIdA < leadIdB still holds (issue 137)', async () => {
+    const { secondaryId, thirdId, primaryId, reviewId } = await seedReversalScenario('Eta Resort FC');
+    const otherReviewId = await seedReview(secondaryId, thirdId, 'dismissed');
+
+    await mergeInto(reviewId, primaryId);
+
+    const database = await db();
+    const { ObjectId } = await import('mongodb');
+    const other = await database.collection('duplicate_reviews').findOne({ _id: ObjectId.createFromHexString(otherReviewId) });
+    expect(other?.leadIdA).toBe(thirdId);
+    expect(other?.leadIdB).toBe(primaryId);
+    expect(other?.status).toBe('dismissed');
+  });
+
+  it('drops a pending row that now duplicates a decided row for the same pair, keeping the decision (issue 137)', async () => {
+    const { secondaryId, thirdId, primaryId, reviewId } = await seedReversalScenario('Theta Resort FC');
+    const pendingId = await seedReview(secondaryId, thirdId, 'pending');
+    const dismissedId = await seedReview(primaryId, thirdId, 'dismissed');
+
+    await mergeInto(reviewId, primaryId);
+
+    const rows = await rowsForPair(thirdId, primaryId);
+    expect(rows.map((r) => r._id.toString())).toEqual([dismissedId]);
+    expect(rows.map((r) => r._id.toString())).not.toContain(pendingId);
+  });
+
+  it('keeps only the oldest when two pending rows collapse onto one pair (issue 137)', async () => {
+    const { secondaryId, thirdId, primaryId, reviewId } = await seedReversalScenario('Iota Resort FC');
+    const olderPendingId = await seedReview(secondaryId, thirdId, 'pending');
+    await seedReview(primaryId, thirdId, 'pending');
+
+    await mergeInto(reviewId, primaryId);
+
+    const rows = await rowsForPair(thirdId, primaryId);
+    expect(rows.map((r) => r._id.toString())).toEqual([olderPendingId]);
+  });
+
+  it('never deletes a decided row even when two decided rows collapse onto one pair (issue 137)', async () => {
+    const { secondaryId, thirdId, primaryId, reviewId } = await seedReversalScenario('Kappa Resort FC');
+    const dismissedId = await seedReview(secondaryId, thirdId, 'dismissed');
+    const confirmedId = await seedReview(primaryId, thirdId, 'confirmed');
+
+    await mergeInto(reviewId, primaryId);
+
+    const rows = await rowsForPair(thirdId, primaryId);
+    expect(rows.map((r) => r._id.toString()).sort()).toEqual([dismissedId, confirmedId].sort());
+  });
+
   it('404s when a lead in the pair was already deleted (re-running an already-completed merge)', async () => {
     const idA = await seedLead({ entity_name: 'Zeta Co' });
     const idB = await seedLead({ entity_name: 'Zeta Co' });

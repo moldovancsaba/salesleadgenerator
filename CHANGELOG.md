@@ -1,5 +1,32 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.225
+
+### Fix: duplicate scan covers all of CogMap and no longer resurfaces decided pairs (refs #137)
+
+- **Scan cap 2000 → 5000.** CogMap has 2,308 leads, and the scan takes the
+  newest 2,000, so its oldest ~300 leads were never compared. Measured
+  locally with every lead in one sport (the worst case): ~1s at 2,000,
+  ~8s at 5,000; the route now sets `maxDuration = 60`.
+- **Decided pairs came back after a merge.** A merge repoints the losing
+  lead's id in other review rows in place, which could store a pair
+  reversed. The scan's already-reviewed check keyed on stored order, so the
+  next scan filed a new pending row for a pair already dismissed or
+  confirmed. The scan now compares sorted keys; the merge re-sorts
+  repointed rows and collapses rows that now name the same pair (a pending
+  copy goes when a decided row exists; with only pending copies the oldest
+  stays; decided rows are never deleted).
+- **`unresolvedPairs` in the scan response.** Candidate pairs nobody has
+  decided yet, shown in the notification after a scan. `candidatesFound`
+  also counts decided pairs and `newPairs` is 0 on re-scans, so neither
+  could show the duplicate backlog shrinking (#137's last acceptance
+  criterion).
+
+New `tests/integration/duplicate-scan.integration.test.ts` (4 tests) and 4
+new merge tests; 3 of the merge tests and the scan resurfacing test fail
+against the previous code. Running the scan and the merge review still
+needs the owner's super-admin browser session.
+
 ## 2.4.224
 
 ### Fix: Lead Detail saves no longer demote CHECKED/VERIFIED leads to DRAFT (fixes #225)
