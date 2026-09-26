@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { NextRequest } from 'next/server';
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
 import { buildApiRequest } from './helpers/api-request';
@@ -122,14 +123,171 @@ describe('PUT/DELETE /api/automation-rules/[id]', () => {
     expect(updated.name).toBe('Renamed');
     expect(updated.enabled).toBe(true);
 
-    const getRes = await ruleGET(req(`/api/automation-rules/${created.id}?tenantId=default`), { params: Promise.resolve({ id: created.id }) });
+    const getRes = await ruleGET(req(`/api/automation-rules/${created.id}?brand=cogmap&tenantId=default`), { params: Promise.resolve({ id: created.id }) });
     expect(getRes.status).toBe(200);
 
-    const deleteRes = await ruleDELETE(req(`/api/automation-rules/${created.id}?tenantId=default`, { method: 'DELETE' }), { params: Promise.resolve({ id: created.id }) });
+    const deleteRes = await ruleDELETE(req(`/api/automation-rules/${created.id}?brand=cogmap&tenantId=default`, { method: 'DELETE' }), { params: Promise.resolve({ id: created.id }) });
     expect(deleteRes.status).toBe(200);
 
-    const secondDelete = await ruleDELETE(req(`/api/automation-rules/${created.id}?tenantId=default`, { method: 'DELETE' }), { params: Promise.resolve({ id: created.id }) });
+    const secondDelete = await ruleDELETE(req(`/api/automation-rules/${created.id}?brand=cogmap&tenantId=default`, { method: 'DELETE' }), { params: Promise.resolve({ id: created.id }) });
     expect(secondDelete.status).toBe(404);
+  });
+});
+
+// Issue #227: every handler is gated by requireBrandAccessApi and scoped to
+// the resolved brand slug.
+describe('auth and brand scoping on /api/automation-rules (issue 227)', () => {
+  // No x-api-key and no sso_id_token cookie — the unauthenticated browser
+  // case the legacy requireApiKey guard used to reject for every write.
+  function unauthReq(url: string, init?: ConstructorParameters<typeof NextRequest>[1]) {
+    return new NextRequest(`http://localhost${url}`, init);
+  }
+
+  function idParams(id: string) {
+    return { params: Promise.resolve({ id }) };
+  }
+
+  async function createCogmapRule(name: string) {
+    const res = await createRule('cogmap', {
+      name,
+      trigger: { type: 'lead_created' },
+      action: { type: 'apply_tag', tag: 'scoping-test' },
+    });
+    expect(res.status).toBe(201);
+    return res.json();
+  }
+
+  it('rejects the list GET with no credential (401)', async () => {
+    const res = await rulesGET(unauthReq('/api/automation-rules?brand=cogmap&tenantId=default'));
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects POST with no credential (401) and stores nothing', async () => {
+    const res = await rulesPOST(unauthReq('/api/automation-rules?brand=cogmap&tenantId=default', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Unauth create', trigger: { type: 'lead_created' }, action: { type: 'apply_tag', tag: 'x' } }),
+    }));
+    expect(res.status).toBe(401);
+    const db = await testDb();
+    expect(await db.collection('automation_rules').findOne({ name: 'Unauth create' })).toBeNull();
+  });
+
+  it('rejects [id] PUT and DELETE with no credential (401) and leaves the rule unchanged', async () => {
+    const created = await createCogmapRule('Unauth target');
+
+    const putRes = await rulePUT(unauthReq(`/api/automation-rules/${created.id}?brand=cogmap&tenantId=default`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Hijacked', enabled: true }),
+    }), idParams(created.id));
+    expect(putRes.status).toBe(401);
+
+    const deleteRes = await ruleDELETE(unauthReq(`/api/automation-rules/${created.id}?brand=cogmap&tenantId=default`, { method: 'DELETE' }), idParams(created.id));
+    expect(deleteRes.status).toBe(401);
+
+    const db = await testDb();
+    const { ObjectId } = await import('mongodb');
+    const doc = await db.collection('automation_rules').findOne({ _id: new ObjectId(created.id) });
+    expect(doc?.name).toBe('Unauth target');
+    expect(doc?.enabled).toBe(false);
+  });
+
+  it('returns 400 for an unknown brand on every handler', async () => {
+    const created = await createCogmapRule('Unknown brand target');
+    const url = '/api/automation-rules?brand=not-a-brand&tenantId=default';
+    const idUrl = `/api/automation-rules/${created.id}?brand=not-a-brand&tenantId=default`;
+
+    expect((await rulesGET(req(url))).status).toBe(400);
+    expect((await rulesPOST(req(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Unknown brand', trigger: { type: 'lead_created' }, action: { type: 'apply_tag', tag: 'x' } }),
+    }))).status).toBe(400);
+    expect((await ruleGET(req(idUrl), idParams(created.id))).status).toBe(400);
+    expect((await rulePUT(req(idUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'x' }),
+    }), idParams(created.id))).status).toBe(400);
+    expect((await ruleDELETE(req(idUrl, { method: 'DELETE' }), idParams(created.id))).status).toBe(400);
+  });
+
+  it('stores a rule under the resolved slug, including when created via an alias', async () => {
+    const direct = await createCogmapRule('Stored under cogmap');
+    const aliasRes = await createRule('cogmapsales', {
+      name: 'Stored via alias',
+      trigger: { type: 'lead_created' },
+      action: { type: 'apply_tag', tag: 'alias-test' },
+    });
+    expect(aliasRes.status).toBe(201);
+    const viaAlias = await aliasRes.json();
+    expect(viaAlias.brand).toBe('cogmap');
+
+    const db = await testDb();
+    const { ObjectId } = await import('mongodb');
+    const directDoc = await db.collection('automation_rules').findOne({ _id: new ObjectId(direct.id) });
+    const aliasDoc = await db.collection('automation_rules').findOne({ _id: new ObjectId(viaAlias.id) });
+    expect(directDoc?.brand).toBe('cogmap');
+    expect(aliasDoc?.brand).toBe('cogmap');
+  });
+
+  it('returns 404 for a cogmap rule addressed under brand=seyu, and leaves it unchanged', async () => {
+    const created = await createCogmapRule('Cross-brand target');
+    const seyuUrl = `/api/automation-rules/${created.id}?brand=seyu&tenantId=default`;
+
+    const getRes = await ruleGET(req(seyuUrl), idParams(created.id));
+    expect(getRes.status).toBe(404);
+
+    const putRes = await rulePUT(req(seyuUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Cross-brand rename', enabled: true }),
+    }), idParams(created.id));
+    expect(putRes.status).toBe(404);
+
+    const deleteRes = await ruleDELETE(req(seyuUrl, { method: 'DELETE' }), idParams(created.id));
+    expect(deleteRes.status).toBe(404);
+
+    const listRes = await rulesGET(req('/api/automation-rules?brand=seyu&tenantId=default'));
+    const listBody = await listRes.json();
+    expect(listBody.rules.some((r: any) => r.id === created.id)).toBe(false);
+
+    const db = await testDb();
+    const { ObjectId } = await import('mongodb');
+    const doc = await db.collection('automation_rules').findOne({ _id: new ObjectId(created.id) });
+    expect(doc?.name).toBe('Cross-brand target');
+    expect(doc?.enabled).toBe(false);
+    expect(doc?.brand).toBe('cogmap');
+  });
+
+  it('rejects a scoped key issued for another brand (403), and a read-only key on a write (403)', async () => {
+    const { createApiKey } = await import('../../app/lib/api-key-store');
+    const db = await testDb();
+    const seyuKey = await createApiKey(db, { name: 'Seyu read-write', brand: 'seyu', scopes: ['read-write'] }, 'test');
+    const cogmapReadKey = await createApiKey(db, { name: 'Cogmap read only', brand: 'cogmap', scopes: ['read'] }, 'test');
+    const body = JSON.stringify({ name: 'Scoped key create', trigger: { type: 'lead_created' }, action: { type: 'apply_tag', tag: 'x' } });
+
+    const wrongBrand = await rulesPOST(unauthReq('/api/automation-rules?brand=cogmap&tenantId=default', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': seyuKey.rawKey },
+      body,
+    }));
+    expect(wrongBrand.status).toBe(403);
+
+    const readOnlyWrite = await rulesPOST(unauthReq('/api/automation-rules?brand=cogmap&tenantId=default', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': cogmapReadKey.rawKey },
+      body,
+    }));
+    expect(readOnlyWrite.status).toBe(403);
+
+    const readOnlyList = await rulesGET(unauthReq('/api/automation-rules?brand=cogmap&tenantId=default', {
+      headers: { 'x-api-key': cogmapReadKey.rawKey },
+    }));
+    expect(readOnlyList.status).toBe(200);
+
+    expect(await db.collection('automation_rules').findOne({ name: 'Scoped key create' })).toBeNull();
   });
 });
 

@@ -1,15 +1,17 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise, { isMongoConfigured } from '../../../lib/mongodb'
 import { requireApiKey } from '../../../lib/api-auth'
+import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { evaluateOutreachRouting } from '../../lib/outreach/routing-rules'
 import { getTenantId } from '../../../lib/tenant'
+import { resolveBrand } from '../../lib/brand'
 
 export const dynamic = 'force-dynamic'
 
 // Issue #226: GET had no guard and returned outreach subjects and bodies.
-// Key-only, like POST: no in-repo caller reads this route (the lead Activity
-// tab reads outreach_logs through the brand-gated GET
-// /api/leads/[id]/activity).
+// Key-only: no in-repo caller reads this route (the lead Activity tab reads
+// outreach_logs through the brand-gated GET /api/leads/[id]/activity). POST
+// is browser-called and uses requireBrandAccessApi (issue #227).
 export async function GET(request: Request) {
   const authError = requireApiKey(request)
   if (authError) return authError
@@ -50,16 +52,21 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
+// Issue #227: brand-gated (requireBrandAccessApi) rather than key-only, so
+// the compose modal's "Log outreach" works from a signed-in session. Brand
+// comes from ?brand= first, then body.brand, and is stored as the resolved
+// slug.
+export async function POST(request: NextRequest) {
   try {
     const tenantId = getTenantId(request)
-    const body = await request.json()
+    const body = await request.json().catch(() => ({} as Record<string, any>))
+
+    const brand = await resolveBrand(new URL(request.url).searchParams.get('brand') || body.brand)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
 
     const leadId = String(body.leadId || '').trim()
-    const brand = String(body.brand || 'default').trim()
     const channel = String(body.channel || '').trim() as 'email' | 'linkedin'
     const templateId = body.templateId ? String(body.templateId) : undefined
     const subject = body.subject ? String(body.subject) : undefined

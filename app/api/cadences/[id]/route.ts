@@ -1,14 +1,23 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { ObjectId } from 'mongodb'
 import clientPromise, { isMongoConfigured } from '../../../../lib/mongodb'
-import { requireApiKey } from '../../../../lib/api-auth'
+import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../../lib/tenant'
 import { sanitizeCadenceSteps, validateCadence } from '../../../../lib/cadences'
 import type { Cadence } from '../../../../lib/cadences'
+import { getBrandConfig, resolveBrand } from '../../../lib/brand'
+import type { Brand } from '../../../lib/brand'
 
 export const dynamic = 'force-dynamic'
 
 const COLLECTION = 'cadences'
+
+// Same brand resolution as app/api/cadences/route.ts — the resolved slug is
+// both the access-check scope and part of every lookup/write filter below.
+async function getBrand(request: Request): Promise<Brand | null> {
+  const url = new URL(request.url)
+  return await resolveBrand((url.searchParams.get('brand') || '').trim())
+}
 
 function toResponseShape(doc: any): Cadence {
   return {
@@ -23,21 +32,29 @@ function toResponseShape(doc: any): Cadence {
   }
 }
 
-async function findCadence(db: any, id: string, tenantId: string) {
+// Scoped by brand as well as tenant (issue #227): access is checked against
+// the requested brand, so an id belonging to another brand in the same
+// tenant must 404 rather than be readable/editable through this brand.
+async function findCadence(db: any, id: string, tenantId: string, brand: Brand) {
   let objectId: ObjectId
   try {
     objectId = new ObjectId(id.trim())
   } catch {
     return null
   }
-  return db.collection(COLLECTION).findOne({ _id: objectId, ...tenantFilter(tenantId) })
+  return db.collection(COLLECTION).findOne({ _id: objectId, brand, ...tenantFilter(tenantId) })
 }
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const brand = await getBrand(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const { id } = await params
     const tenantId = getTenantId(request)
 
@@ -47,7 +64,7 @@ export async function GET(
 
     const client = await clientPromise
     const db = client.db()
-    const doc = await findCadence(db, id, tenantId)
+    const doc = await findCadence(db, id, tenantId, brand)
     if (!doc) {
       return NextResponse.json({ error: 'Cadence not found' }, { status: 404 })
     }
@@ -60,13 +77,15 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
   try {
+    const brand = await getBrand(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const { id } = await params
     const tenantId = getTenantId(request)
 
@@ -76,7 +95,7 @@ export async function PUT(
 
     const client = await clientPromise
     const db = client.db()
-    const existing = await findCadence(db, id, tenantId)
+    const existing = await findCadence(db, id, tenantId, brand)
     if (!existing) {
       return NextResponse.json({ error: 'Cadence not found' }, { status: 404 })
     }
@@ -102,7 +121,7 @@ export async function PUT(
     if (body.enabled !== undefined) updateData.enabled = body.enabled === true
 
     const result = await db.collection(COLLECTION).findOneAndUpdate(
-      { _id: existing._id, ...tenantFilter(tenantId) },
+      { _id: existing._id, brand, ...tenantFilter(tenantId) },
       { $set: updateData },
       { returnDocument: 'after' }
     )
@@ -119,13 +138,15 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
   try {
+    const brand = await getBrand(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const { id } = await params
     const tenantId = getTenantId(request)
 
@@ -135,7 +156,7 @@ export async function DELETE(
 
     const client = await clientPromise
     const db = client.db()
-    const existing = await findCadence(db, id, tenantId)
+    const existing = await findCadence(db, id, tenantId, brand)
     if (!existing) {
       return NextResponse.json({ error: 'Cadence not found' }, { status: 404 })
     }
@@ -144,7 +165,7 @@ export async function DELETE(
     // has leads actively enrolled on it, rather than silently leaving those
     // leads' activeCadence pointing at a deleted template with no error
     // path. The operator must cancel each lead's enrollment first.
-    const config = await (await import('../../../../app/lib/brand')).getBrandConfig(existing.brand)
+    const config = await getBrandConfig(brand)
     if (config) {
       const leadsCollection = db.collection(config.dbCollection)
       // tenantFilter(), not a literal `{tenantId}` match — for the 'default'
@@ -163,7 +184,7 @@ export async function DELETE(
       }
     }
 
-    await db.collection(COLLECTION).deleteOne({ _id: existing._id, ...tenantFilter(tenantId) })
+    await db.collection(COLLECTION).deleteOne({ _id: existing._id, brand, ...tenantFilter(tenantId) })
 
     return NextResponse.json({ ok: true, id })
   } catch (error: any) {

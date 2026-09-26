@@ -1,19 +1,21 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise, { isMongoConfigured } from '../../../lib/mongodb'
-import { requireApiKey } from '../../../lib/api-auth'
+import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { sanitizeCadence, validateCadence } from '../../../lib/cadences'
 import type { Cadence } from '../../../lib/cadences'
-import { getBrandConfig } from '../../lib/brand'
+import { getBrandConfig, resolveBrand } from '../../lib/brand'
+import type { Brand } from '../../lib/brand'
 
 export const dynamic = 'force-dynamic'
 
 const COLLECTION = 'cadences'
 
-function getBrand(request: Request): string {
+// Resolved through the brand registry (aliases, case) rather than stored
+// verbatim — an unknown brand is a 400, never a silently-created new scope.
+async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url)
-  const brand = (url.searchParams.get('brand') || '').trim()
-  return brand || 'default'
+  return await resolveBrand((url.searchParams.get('brand') || '').trim())
 }
 
 function toResponseShape(doc: any): Cadence {
@@ -29,13 +31,19 @@ function toResponseShape(doc: any): Cadence {
   }
 }
 
-// GET is unauthenticated, matching GET /api/outreach-templates and GET
-// /api/battlecards — read-only reference data, same trust level as every
-// other per-brand template list this app already serves without a gate.
-export async function GET(request: Request) {
+// Every handler here (issue #227) is gated by requireBrandAccessApi — a
+// valid x-api-key, a scoped key for this brand, or an SSO session with
+// access to this brand — the same dual-auth app/api/leads/[id]/cadence
+// uses. The list is per-brand sales playbook data with live enrolled-lead
+// counts, not public reference data, so GET is gated like the writes.
+export async function GET(request: NextRequest) {
   try {
+    const brand = await getBrand(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const tenantId = getTenantId(request)
-    const brand = getBrand(request)
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ cadences: [], total: 0, source: 'default', brand })
@@ -73,13 +81,14 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
+export async function POST(request: NextRequest) {
   try {
+    const brand = await getBrand(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const tenantId = getTenantId(request)
-    const brand = getBrand(request)
     const body = await request.json()
 
     const cadence = sanitizeCadence(body, brand, tenantId)

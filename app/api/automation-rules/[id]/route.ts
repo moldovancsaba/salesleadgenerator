@@ -1,25 +1,38 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { ObjectId } from 'mongodb'
 import clientPromise, { isMongoConfigured } from '../../../../lib/mongodb'
-import { requireApiKey } from '../../../../lib/api-auth'
+import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
+import { resolveBrand } from '../../../lib/brand'
 import { getTenantId, tenantFilter } from '../../../../lib/tenant'
 import { sanitizeAutomationTrigger, sanitizeAutomationAction, validateAutomationRule } from '../../../../lib/automation-rules'
 import { automationRuleToResponseShape, AUTOMATION_RULES_COLLECTION } from '../../../lib/automation-store'
 
 export const dynamic = 'force-dynamic'
 
-async function findRule(db: any, id: string, tenantId: string) {
+async function getBrand(request: NextRequest) {
+  const url = new URL(request.url)
+  return await resolveBrand((url.searchParams.get('brand') || '').trim())
+}
+
+// Scoped by brand as well as tenant (issue #227): an id belonging to another
+// brand is a 404 here, never readable or writable through this brand's access.
+async function findRule(db: any, id: string, tenantId: string, brand: string) {
   let objectId: ObjectId
   try {
     objectId = new ObjectId(id.trim())
   } catch {
     return null
   }
-  return db.collection(AUTOMATION_RULES_COLLECTION).findOne({ _id: objectId, ...tenantFilter(tenantId) })
+  return db.collection(AUTOMATION_RULES_COLLECTION).findOne({ _id: objectId, brand, ...tenantFilter(tenantId) })
 }
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const brand = await getBrand(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const { id } = await params
     const tenantId = getTenantId(request)
 
@@ -29,7 +42,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const client = await clientPromise
     const db = client.db()
-    const doc = await findRule(db, id, tenantId)
+    const doc = await findRule(db, id, tenantId, brand)
     if (!doc) {
       return NextResponse.json({ error: 'Automation rule not found' }, { status: 404 })
     }
@@ -41,11 +54,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const brand = await getBrand(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const { id } = await params
     const tenantId = getTenantId(request)
 
@@ -55,7 +70,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const client = await clientPromise
     const db = client.db()
-    const existing = await findRule(db, id, tenantId)
+    const existing = await findRule(db, id, tenantId, brand)
     if (!existing) {
       return NextResponse.json({ error: 'Automation rule not found' }, { status: 404 })
     }
@@ -84,7 +99,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (body.enabled !== undefined) updateData.enabled = merged.enabled
 
     const result = await db.collection(AUTOMATION_RULES_COLLECTION).findOneAndUpdate(
-      { _id: existing._id, ...tenantFilter(tenantId) },
+      { _id: existing._id, brand, ...tenantFilter(tenantId) },
       { $set: updateData },
       { returnDocument: 'after' }
     )
@@ -100,11 +115,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const brand = await getBrand(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const { id } = await params
     const tenantId = getTenantId(request)
 
@@ -114,12 +131,12 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     const client = await clientPromise
     const db = client.db()
-    const existing = await findRule(db, id, tenantId)
+    const existing = await findRule(db, id, tenantId, brand)
     if (!existing) {
       return NextResponse.json({ error: 'Automation rule not found' }, { status: 404 })
     }
 
-    await db.collection(AUTOMATION_RULES_COLLECTION).deleteOne({ _id: existing._id, ...tenantFilter(tenantId) })
+    await db.collection(AUTOMATION_RULES_COLLECTION).deleteOne({ _id: existing._id, brand, ...tenantFilter(tenantId) })
 
     return NextResponse.json({ ok: true, id })
   } catch (error: any) {

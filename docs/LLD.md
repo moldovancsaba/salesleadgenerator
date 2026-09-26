@@ -74,22 +74,22 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
-| `app/api/cadences/route.ts` | GET, POST | `requireApiKey` | List/create cadence templates (`lib/cadences.ts`) |
-| `app/api/cadences/[id]/route.ts` | GET, PUT, DELETE | `requireApiKey` | Single cadence CRUD |
+| `app/api/cadences/route.ts` | GET, POST | `requireBrandAccessApi` (since 2.4.227, issue #227) | List/create cadence templates (`lib/cadences.ts`) |
+| `app/api/cadences/[id]/route.ts` | GET, PUT, DELETE | `requireBrandAccessApi` (since 2.4.227, issue #227); lookups filtered by brand | Single cadence CRUD |
 | `app/api/admin/cadence-tick/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Cron worker: advances every lead's `activeCadence`, sends due steps via `sendAutomatedEmail` |
-| `app/api/automation-rules/route.ts` | GET, POST | `requireApiKey` (POST) | List/create automation rules (`lib/automation-rules.ts`, issue #201) |
-| `app/api/automation-rules/[id]/route.ts` | GET, PUT, DELETE | `requireApiKey` (PUT/DELETE) | Single automation rule CRUD |
+| `app/api/automation-rules/route.ts` | GET, POST | `requireBrandAccessApi` (since 2.4.227, issue #227) | List/create automation rules (`lib/automation-rules.ts`, issue #201) |
+| `app/api/automation-rules/[id]/route.ts` | GET, PUT, DELETE | `requireBrandAccessApi` (since 2.4.227, issue #227); lookups filtered by brand | Single automation rule CRUD |
 | `app/api/admin/automation-tick/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Cron worker: evaluates `stale_no_activity` rules (`app/lib/automation-store.ts`'s `runStaleTickForBrand`) |
 | `app/api/reports/route.ts` | GET, POST | `requireBrandAccessApi` | List/create ad-hoc report definitions (`lib/report-definitions.ts`, issue #212) |
 | `app/api/reports/[id]/route.ts` | GET, PATCH, DELETE | `requireBrandAccessApi` | Single report definition CRUD |
 | `app/api/reports/[id]/run/route.ts` | POST | `requireBrandAccessApi` | Executes a definition's pipeline now (`app/lib/report-store.ts`'s `runReportDefinition`) |
 | `app/api/admin/reports-tick/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Cron worker: sends due scheduled report emails via `lib/report-delivery.ts` |
-| `app/api/outreach-logs/route.ts` | GET, POST | `requireApiKey` (GET since 2.4.226, issue #226) | Record-only outreach log, never sends; POST runs `evaluateOutreachRouting` |
-| `app/api/outreach-send/route.ts` | POST | `requireApiKey` | Real, one-off rep-initiated email send via Resend (`lib/outreach-send.ts`'s `sendManualEmail`, issue #205) |
-| `app/api/outreach-templates/route.ts` | GET, POST | `requireApiKey` (POST) | Template CRUD, seeded from `DEFAULT_OUTREACH_TEMPLATES`; GET annotates with `computeTemplateConversions` |
+| `app/api/outreach-logs/route.ts` | GET, POST | GET `requireApiKey` (since 2.4.226, issue #226); POST `requireBrandAccessApi` (since 2.4.227, issue #227) | Record-only outreach log, never sends; POST runs `evaluateOutreachRouting` |
+| `app/api/outreach-send/route.ts` | POST | `requireBrandAccessApi` (since 2.4.227, issue #227) | Real, one-off rep-initiated email send via Resend (`lib/outreach-send.ts`'s `sendManualEmail`, issue #205); recipients come from the stored lead in that brand's collection, never the request body |
+| `app/api/outreach-templates/route.ts` | GET, POST | `requireBrandAccessApi` (since 2.4.227, issue #227) | Template CRUD, seeded from `DEFAULT_OUTREACH_TEMPLATES`; GET annotates with `computeTemplateConversions` |
 | `app/api/outcome-logs/route.ts` | GET, POST | `requireApiKey` | Stage-transition outcome log (drives win-rate/velocity calibration) |
-| `app/api/battlecards/route.ts` | GET, POST | `requireApiKey` (POST) | List/create competitor battlecards, seeded from `DEFAULT_BATTLECARDS` |
-| `app/api/battlecards/[id]/route.ts` | GET, PUT, DELETE | `requireApiKey` | Single battlecard CRUD |
+| `app/api/battlecards/route.ts` | GET, POST | `requireBrandAccessApi` (since 2.4.227, issue #227); `?brand=` required | List/create competitor battlecards, seeded from `DEFAULT_BATTLECARDS` |
+| `app/api/battlecards/[id]/route.ts` | GET, PUT, DELETE | `requireBrandAccessApi` (since 2.4.227, issue #227); lookups filtered by brand | Single battlecard CRUD |
 
 ### Settings / taxonomy / search
 

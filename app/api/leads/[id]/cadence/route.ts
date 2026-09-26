@@ -26,8 +26,8 @@ function parseObjectId(id: string): ObjectId | null {
 // POST /api/leads/[id]/cadence — enroll a lead on a cadence template (issue
 // #124/#149). Gated by requireBrandAccessApi, matching PATCH /api/leads's own
 // dual-auth convention for lead-scoped actions (ACCEPT/DECLINE/PIN/etc.) —
-// this is the same kind of browser-triggered lead action, not admin template
-// management (which uses requireApiKey alone, see app/api/cadences/route.ts).
+// this is the same kind of browser-triggered lead action. Cadence template
+// management (app/api/cadences/**) uses the same guard since issue #227.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
