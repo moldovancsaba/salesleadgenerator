@@ -1,5 +1,24 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.223
+
+### Fix: US-state collision set missed TN, VA, AS and GU; SO correction (refs #222 #223)
+
+`US_STATE_ISO_COLLISIONS` in `lib/iso-country-codes.ts` (shipped 2.4.220)
+listed 30 codes but missed `TN` and `VA` (states) and `AS` and `GU`
+(territories). Any address-to-country logic built on it would have read
+"Nashville, TN" as Tunisia and "Richmond, VA" as the Holy See. Found by an
+independent review before any caller used the set; no production data was
+affected. The set now has all 34 collisions (26 of the 51 state/DC codes
+plus 8 territories), and a new test derives it from the full state list so
+it cannot drift again. The module's Kosovo note was verified live: Seyu
+has a "Football Federation of Kosovo" lead stored with `XK`.
+
+Correction to 2.4.216 and `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`: `SO` is
+not an invalid code, it is Somalia. Gloucester Rugby's stored `SO` was a
+real country code applied to the wrong lead, the same class as `NE`/`NO`.
+The fix applied then (to `GB`) was correct; only the description was wrong.
+
 ## 2.4.222
 
 ### Fix: the one real GDS color finding moved into the theme folder; audit root cause corrected (issue #221)

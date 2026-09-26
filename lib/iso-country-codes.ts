@@ -41,11 +41,13 @@ export function isValidIsoCountry(code: unknown): code is string {
 }
 
 // US state/territory postal abbreviations that are also ISO country codes.
-// A bare "…, DE" or "…, CA" at the end of a US-style address is a state, not
-// Germany or Canada — callers deriving a country from an address must treat
-// these as ambiguous rather than as a country hit.
+// A bare "…, DE" or "…, TN" at the end of a US-style address is a state, not
+// Germany or Tunisia — callers deriving a country from an address must treat
+// these as ambiguous rather than as a country hit. 26 of the 51 state/DC
+// codes collide, plus 8 territory codes (AS FM GU MH MP PR PW VI).
+// Corrected 2026-09-26: the first version missed TN, VA, AS and GU.
 export const US_STATE_ISO_COLLISIONS: ReadonlySet<string> = new Set([
-  'AL', 'AR', 'AZ', 'CA', 'CO', 'DE', 'FM', 'GA', 'ID', 'IL', 'IN', 'KY',
-  'LA', 'MA', 'MD', 'ME', 'MH', 'MN', 'MO', 'MP', 'MS', 'MT', 'NC', 'NE',
-  'PA', 'PR', 'PW', 'SC', 'SD', 'VI',
+  'AL', 'AR', 'AZ', 'CA', 'CO', 'DE', 'GA', 'ID', 'IL', 'IN', 'KY', 'LA', 'MA',
+  'MD', 'ME', 'MN', 'MO', 'MS', 'MT', 'NC', 'NE', 'PA', 'SC', 'SD', 'TN', 'VA',
+  'AS', 'FM', 'GU', 'MH', 'MP', 'PR', 'PW', 'VI',
 ]);

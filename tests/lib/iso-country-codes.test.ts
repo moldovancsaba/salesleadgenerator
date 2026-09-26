@@ -28,4 +28,15 @@ describe('iso-country-codes', () => {
     expect(US_STATE_ISO_COLLISIONS.has('CA')).toBe(true);
     expect(US_STATE_ISO_COLLISIONS.has('GB')).toBe(false);
   });
+
+  it('contains exactly every US state, DC and territory postal code that is also a country code', () => {
+    const statesAndDc = ('AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND ' +
+      'OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC').split(' ');
+    const territories = ['AS', 'GU', 'MP', 'PR', 'VI', 'FM', 'MH', 'PW'];
+    expect(statesAndDc).toHaveLength(51);
+    const expected = [...statesAndDc, ...territories].filter((c) => ISO_COUNTRY_CODES.has(c)).sort();
+    expect([...US_STATE_ISO_COLLISIONS].sort()).toEqual(expected);
+    expect(expected).toHaveLength(34);
+    for (const c of ['TN', 'VA', 'AS', 'GU']) expect(US_STATE_ISO_COLLISIONS.has(c), c).toBe(true);
+  });
 });
