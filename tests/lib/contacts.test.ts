@@ -73,6 +73,12 @@ describe('toNameCase (issue #96)', () => {
     expect(toNameCase('')).toBe('');
   });
 
+  it('capitalizes a word that starts with a non-ASCII letter', () => {
+    expect(toNameCase('Murat Çolak')).toBe('Murat Çolak');
+    expect(toNameCase('ÉMILE ØDEGAARD')).toBe('Émile Ødegaard');
+    expect(toNameCase('łukasz żelazny-ćwik')).toBe('Łukasz Żelazny-Ćwik');
+  });
+
   it('leaves already-correct Title Case unchanged', () => {
     expect(toNameCase('Jane Doe')).toBe('Jane Doe');
   });
