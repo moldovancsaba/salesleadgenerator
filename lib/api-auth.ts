@@ -46,5 +46,14 @@ export function requireCronOrApiKey(request: Request): NextResponse | null {
     return null;
   }
 
+  // Vercel sets this header on every scheduled invocation (issue #224). It is
+  // used only to make a rejected cron run visible in the logs — never as an
+  // auth signal, since any caller can send it.
+  const cronSchedule = request.headers.get('x-vercel-cron-schedule');
+  if (cronSchedule) {
+    const reason = CRON_SECRET ? 'Authorization header does not match CRON_SECRET' : 'CRON_SECRET is not configured';
+    console.error(`[api-auth] Vercel Cron invocation rejected (${reason}): ${new URL(request.url).pathname} schedule="${cronSchedule}"`);
+  }
+
   return requireApiKey(request);
 }

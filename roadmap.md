@@ -31,6 +31,7 @@ Last synced: 2026-09-25, re-verified directly against `moldovancsaba/salesleadge
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
+| [#224](https://github.com/moldovancsaba/salesleadgenerator/issues/224) | Outage: every Vercel Cron job returns 401 in production because CRON_SECRET is not set | P1 | Found 2026-09-26, verified against the live Vercel env-var list (no `CRON_SECRET`) and runtime logs (6 of 6 hourly runs → 401 across three deployments). Nothing scheduled has been running: forecast snapshots, ticket-size recalc, cadence/automation ticks, report delivery, Gmail sync, webhook delivery. The code side shipped in 2.4.219 (a clear log line on rejected cron calls, docs corrected). **Needs the owner**: add `CRON_SECRET` (Production, Sensitive) in the Vercel dashboard and redeploy — owner confirmed they will do this themselves; verify via runtime logs afterwards. |
 | [#220](https://github.com/moldovancsaba/salesleadgenerator/issues/220) | API: Migrate cron jobs and the research agent to scoped keys; retire SLG_API_KEY | P3 | Sub-issue of #210. Generating the actual scoped keys is code-reachable (the admin API already shipped in #210 Phase 1), but using them for real requires setting new environment variables in the actual deployed Vercel project and updating the external research agent's own separate deployed config — neither reachable from this sandbox. **Needs the owner**, not another agent turn — same class of block as #202/#137. |
 
 ## Backlog
