@@ -1,5 +1,33 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.238
+
+### Security: scheduling links carry a private token, not the lead id (fixes #229)
+
+"Copy scheduling link" used to produce `/schedule/<brand>?leadId=<id>`,
+and booking wrote the meeting (Activity entry and next-action date) onto
+whatever lead that id named. Lead ids are partly predictable, so anyone
+holding one link could attach a booking to a neighbouring lead.
+
+- A link now carries a random 128-bit token stored on the lead
+  (`schedulingLinkToken`). It comes from the new `POST
+  /api/leads/[id]/scheduling-link` (brand-gated), is created on first
+  use, and stays the same afterwards.
+- Booking attributes the meeting to a lead only when that token resolves
+  within the brand.
+- An old `?leadId=` link still books the calendar event but no longer
+  touches any lead. None were in use: production has no Google OAuth
+  credentials, so the booking page could not have worked there yet.
+- The copy button hands the fetch promise to `ClipboardItem`, so copying
+  still works as part of the tap on iOS Safari.
+
+Tests: the booking test now goes through the token link. New tests check
+that a raw lead id and a bogus token book without attribution (this fails
+against the previous route), and that the link route needs brand access,
+returns a stable link and 404s an unknown lead.
+
+This completes #229: items 1, 2, 4 and 5 shipped in 2.4.229 and 2.4.237.
+
 ## 2.4.237
 
 ### Security hardening: 500 responses no longer echo internal error messages (refs #229)

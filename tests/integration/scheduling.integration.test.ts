@@ -17,6 +17,7 @@ let bookPOST: typeof import('../../app/api/schedule/[brand]/book/route').POST;
 let settingsGET: typeof import('../../app/api/scheduling-settings/[brand]/route').GET;
 let settingsPUT: typeof import('../../app/api/scheduling-settings/[brand]/route').PUT;
 let leadsPOST: typeof import('../../app/api/leads/route').POST;
+let linkPOST: typeof import('../../app/api/leads/[id]/scheduling-link/route').POST;
 
 beforeAll(async () => {
   mongod = await startTestMongo();
@@ -26,6 +27,7 @@ beforeAll(async () => {
   settingsGET = settingsMod.GET;
   settingsPUT = settingsMod.PUT;
   leadsPOST = (await import('../../app/api/leads/route')).POST;
+  linkPOST = (await import('../../app/api/leads/[id]/scheduling-link/route')).POST;
 }, 60000);
 
 afterAll(async () => {
@@ -159,13 +161,21 @@ describe('POST /api/schedule/[brand]/book (issue 207)', () => {
     }));
     const leadId = (await leadRes.json()).lead._id;
 
+    // Issue #229: the link carries a per-lead token, not the lead id.
+    const linkRes = await linkPOST(req(`/api/leads/${leadId}/scheduling-link?brand=cogmap`, { method: 'POST' }), { params: Promise.resolve({ id: leadId }) });
+    expect(linkRes.status).toBe(200);
+    const { path } = await linkRes.json();
+    expect(path).toMatch(/^\/schedule\/cogmap\?t=[0-9a-f]{32}$/);
+    expect(path).not.toContain(leadId);
+    const linkToken = new URL(path, 'http://localhost').searchParams.get('t');
+
     const availRes = await availabilityGET(publicReq('/api/schedule/cogmap/availability?days=3'), { params: Promise.resolve({ brand: 'cogmap' }) });
     const slot = (await availRes.json()).slots[0];
 
     const bookRes = await bookPOST(publicReq('/api/schedule/cogmap/book', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slotStart: slot.start, slotEnd: slot.end, leadId, prospectName: 'Prospect Person', prospectEmail: 'prospect@example.com' }),
+      body: JSON.stringify({ slotStart: slot.start, slotEnd: slot.end, linkToken, prospectName: 'Prospect Person', prospectEmail: 'prospect@example.com' }),
     }), { params: Promise.resolve({ brand: 'cogmap' }) });
     expect(bookRes.status).toBe(200);
     const bookBody = await bookRes.json();
@@ -179,6 +189,40 @@ describe('POST /api/schedule/[brand]/book (issue 207)', () => {
     const { ObjectId } = await import('mongodb');
     const leadDoc = await database.collection('leads').findOne({ _id: ObjectId.createFromHexString(leadId) });
     expect(leadDoc!.nextActionDueAt).toBe(slot.start);
+  });
+
+  // Issue #229: an old-style ?leadId= link still books, but a raw id can no
+  // longer write onto a lead, since anyone holding one link could guess
+  // another lead's id.
+  it('books a legacy raw-leadId request without touching that lead', async () => {
+    await createGoogleCalendarConnection('cogmap');
+    await setWideOpenAvailability('cogmap');
+    mockGoogleCalendar({ busy: [] });
+    const leadRes = await leadsPOST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entity_name: 'Guessed Id Org', url: 'https://guessed-id.example.com', country: 'US',
+        kanbanColumn: 'DISCOVERED', ice: { impact: 5, confidence: 5, ease: 5 },
+        contacts: [{ name: 'Contact Person', email: 'contact@guessed-id.example.com', isDecisionMaker: true }],
+      }),
+    }));
+    const leadId = (await leadRes.json()).lead._id;
+    const availRes = await availabilityGET(publicReq('/api/schedule/cogmap/availability?days=3'), { params: Promise.resolve({ brand: 'cogmap' }) });
+    const slot = (await availRes.json()).slots[1];
+
+    const bookRes = await bookPOST(publicReq('/api/schedule/cogmap/book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slotStart: slot.start, slotEnd: slot.end, leadId, linkToken: 'not-a-real-token', prospectName: 'Someone', prospectEmail: 'someone@example.com' }),
+    }), { params: Promise.resolve({ brand: 'cogmap' }) });
+    expect(bookRes.status).toBe(200);
+
+    const database = await db();
+    expect(await database.collection('activityLog').findOne({ leadId, type: 'meeting-scheduled' })).toBeNull();
+    const { ObjectId } = await import('mongodb');
+    const leadDoc = await database.collection('leads').findOne({ _id: ObjectId.createFromHexString(leadId) });
+    expect(leadDoc!.nextActionDueAt).toBeUndefined();
   });
 
   it('rejects an invalid email with 400 before touching Google at all', async () => {
@@ -220,6 +264,33 @@ describe('POST /api/schedule/[brand]/book (issue 207)', () => {
       body: JSON.stringify({ slotStart: '2026-01-05T09:00:00.000Z', slotEnd: '2026-01-05T09:30:00.000Z', prospectName: 'X', prospectEmail: 'x@example.com' }),
     }), { params: Promise.resolve({ brand: 'dvsc' }) });
     expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /api/leads/[id]/scheduling-link (issue 229)', () => {
+  it('requires brand access, returns the same token on repeat, and 404s an unknown lead', async () => {
+    const leadRes = await leadsPOST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entity_name: 'Link Token Org', url: 'https://link-token.example.com', country: 'US',
+        kanbanColumn: 'DISCOVERED', ice: { impact: 5, confidence: 5, ease: 5 },
+        contacts: [{ name: 'Contact Person', email: 'contact@link-token.example.com', isDecisionMaker: true }],
+      }),
+    }));
+    const leadId = (await leadRes.json()).lead._id;
+    const params = { params: Promise.resolve({ id: leadId }) };
+
+    const anonymous = await linkPOST(new NextRequest(`http://localhost/api/leads/${leadId}/scheduling-link?brand=cogmap`, { method: 'POST' }), params);
+    expect(anonymous.status).toBe(401);
+
+    const first = await (await linkPOST(req(`/api/leads/${leadId}/scheduling-link?brand=cogmap`, { method: 'POST' }), { params: Promise.resolve({ id: leadId }) })).json();
+    const second = await (await linkPOST(req(`/api/leads/${leadId}/scheduling-link?brand=cogmap`, { method: 'POST' }), { params: Promise.resolve({ id: leadId }) })).json();
+    expect(first.path).toBe(second.path);
+
+    const missingId = '0123456789abcdef01234567';
+    const missing = await linkPOST(req(`/api/leads/${missingId}/scheduling-link?brand=cogmap`, { method: 'POST' }), { params: Promise.resolve({ id: missingId }) });
+    expect(missing.status).toBe(404);
   });
 });
 

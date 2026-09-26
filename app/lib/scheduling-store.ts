@@ -1,5 +1,6 @@
 import type { Db } from 'mongodb';
 import { ObjectId } from 'mongodb';
+import { randomBytes } from 'crypto';
 import { getActiveConnectionByProvider, getValidCredential, ConnectionRevokedError } from './integration-store';
 import { fetchWithRetry } from '../../lib/integration-http';
 import {
@@ -153,6 +154,43 @@ export type BookingResult =
 // deliberately short: it exists only to win the race at submission time,
 // not as the system of record for "is this slot booked" (Google Calendar's
 // own freeBusy state is, re-checked fresh on every request).
+// Issue #229: a scheduling link used to carry the lead's raw _id, and
+// booking wrote the meeting back onto whatever lead that id named. ObjectIds
+// are partly predictable, so anyone with one link could guess a neighbouring
+// lead's id. A link now carries a random 128-bit token stored on the lead;
+// only a token that resolves attributes a booking to a lead.
+const LINK_TOKEN_RE = /^[0-9a-f]{32}$/;
+
+export async function getOrCreateSchedulingLinkToken(db: Db, brand: Brand, tenantId: string, leadId: string): Promise<string | null> {
+  const config = await getBrandConfig(brand);
+  if (!config || !ObjectId.isValid(leadId)) return null;
+  const collection = db.collection(config.dbCollection);
+  const filter = { _id: new ObjectId(leadId), ...tenantFilter(tenantId) };
+  const lead = await collection.findOne(filter, { projection: { schedulingLinkToken: 1 } });
+  if (!lead) return null;
+  if (typeof lead.schedulingLinkToken === 'string') return lead.schedulingLinkToken;
+  // Set only if still absent, then re-read, so two concurrent requests
+  // settle on one token instead of the second overwriting a link already
+  // handed out.
+  await collection.updateOne(
+    { ...filter, schedulingLinkToken: { $exists: false } },
+    { $set: { schedulingLinkToken: randomBytes(16).toString('hex') } }
+  );
+  const fresh = await collection.findOne(filter, { projection: { schedulingLinkToken: 1 } });
+  return typeof fresh?.schedulingLinkToken === 'string' ? fresh.schedulingLinkToken : null;
+}
+
+export async function resolveSchedulingLinkToken(db: Db, brand: Brand, tenantId: string, token: unknown): Promise<string | undefined> {
+  if (typeof token !== 'string' || !LINK_TOKEN_RE.test(token)) return undefined;
+  const config = await getBrandConfig(brand);
+  if (!config) return undefined;
+  const lead = await db.collection(config.dbCollection).findOne(
+    { schedulingLinkToken: token, ...tenantFilter(tenantId) },
+    { projection: { _id: 1 } }
+  );
+  return lead ? String(lead._id) : undefined;
+}
+
 export async function bookSlot(db: Db, brand: Brand, tenantId: string, params: {
   slotStart: string; slotEnd: string; leadId?: string; prospectName: string; prospectEmail: string;
 }): Promise<BookingResult> {

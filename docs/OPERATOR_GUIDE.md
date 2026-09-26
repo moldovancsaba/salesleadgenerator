@@ -330,6 +330,8 @@ Once Google Calendar is connected for a brand (and its [Booking availability](#i
 - Logs a **Meeting scheduled** entry in that lead's Activity tab, with the time and who booked it.
 - Sets that lead's "next action due" to the meeting time — the same field a manually-set follow-up reminder uses.
 
+Each lead's link contains a private code, not the lead's id, so a recipient can't use it to reach other leads. Copying it again gives the same link. A link copied before 2.4.238 still books a meeting, but it no longer adds anything to the lead.
+
 Only times that are actually open on your calendar (and inside your configured availability window) are ever offered — a busy block is never shown as bookable. If two people try to book the exact same moment, only the first one goes through; the second sees an updated list of times instead.
 
 There's no in-app calendar view — meetings live on your real Google Calendar, and this app only records that one got booked. If you move or delete a meeting directly in Google Calendar afterward, this app has no way to know — its own record of it doesn't update to match. If your Google Calendar connection is disconnected or needs reconnecting, the booking link shows a plain "not available right now" message instead of failing broken.

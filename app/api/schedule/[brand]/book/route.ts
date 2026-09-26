@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import clientPromise, { isMongoConfigured } from '../../../../../lib/mongodb';
 import { resolveBrand } from '../../../../lib/brand';
-import { bookSlot, checkAndRecordRateLimit } from '../../../../lib/scheduling-store';
+import { bookSlot, checkAndRecordRateLimit, resolveSchedulingLinkToken } from '../../../../lib/scheduling-store';
 
 function clientIp(request: NextRequest): string {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -33,7 +33,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const slotEnd = typeof body.slotEnd === 'string' ? body.slotEnd : '';
   const prospectName = typeof body.prospectName === 'string' ? body.prospectName.trim() : '';
   const prospectEmail = typeof body.prospectEmail === 'string' ? body.prospectEmail.trim() : '';
-  const leadId = typeof body.leadId === 'string' ? body.leadId : undefined;
 
   if (!slotStart || !slotEnd || Number.isNaN(new Date(slotStart).getTime()) || Number.isNaN(new Date(slotEnd).getTime())) {
     return NextResponse.json({ error: 'A valid time slot is required' }, { status: 400 });
@@ -41,6 +40,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!prospectName) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
   if (!isValidEmail(prospectEmail)) return NextResponse.json({ error: 'A valid email is required' }, { status: 400 });
 
+  // Issue #229: only a scheduling-link token attributes the booking to a
+  // lead. A raw `leadId` (the old link format) is ignored — the meeting is
+  // still booked, just not written onto any lead.
+  const leadId = await resolveSchedulingLinkToken(db, brand, 'default', body.linkToken);
   const result = await bookSlot(db, brand, 'default', { slotStart, slotEnd, leadId, prospectName, prospectEmail });
   if (!result.ok) {
     return NextResponse.json({ error: result.error, freshSlots: result.freshSlots }, { status: result.status });

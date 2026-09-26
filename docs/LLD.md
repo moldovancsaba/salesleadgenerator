@@ -182,7 +182,8 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
 | `app/api/schedule/[brand]/availability/route.ts` | GET | **none — public**, per-IP+brand rate-limited (`checkAndRecordRateLimit`) | Real Google Calendar free/busy-derived open slots (`lib/scheduling.ts`'s `computeAvailableSlots`); returns only start/end boundaries, never event detail |
-| `app/api/schedule/[brand]/book/route.ts` | POST | **none — public**, same rate limit | Books a slot; race-safe via a short-lived unique-indexed `scheduling_slot_claims` document (closes the two-prospects-same-slot TOCTOU race) |
+| `app/api/schedule/[brand]/book/route.ts` | POST | **none — public**, same rate limit | Books a slot; race-safe via a short-lived unique-indexed `scheduling_slot_claims` document (closes the two-prospects-same-slot TOCTOU race); attributes to a lead only via a `linkToken` that resolves (issue #229) |
+| `app/api/leads/[id]/scheduling-link/route.ts` | POST | `requireBrandAccessApi` | Returns the lead's public booking path `/schedule/{brand}?t={token}`, creating its random `schedulingLinkToken` on first use (issue #229) |
 | `app/api/scheduling-settings/[brand]/route.ts` | GET, PUT | `requireBrandAccessApi` | Weekday/hours/slot-length/buffer configuration (`app/lib/scheduling-store.ts`) |
 
 ### Third-party integration hub, Gmail/Contacts sync (issues #217, #216)

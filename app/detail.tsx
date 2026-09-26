@@ -1868,8 +1868,20 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
           size="xs"
           variant="light"
           onClick={() => {
-            const url = `${window.location.origin}/schedule/${brand}?leadId=${lead._id}`;
-            navigator.clipboard.writeText(url)
+            // Issue #229: the link carries a per-lead token from the server,
+            // not the lead's id. The fetch promise is handed to ClipboardItem
+            // so the copy stays inside the tap (iOS Safari rejects a
+            // clipboard write made after an await).
+            const url = fetch(`/api/leads/${encodeURIComponent(lead._id)}/scheduling-link?brand=${encodeURIComponent(brand)}`, { method: 'POST' })
+              .then(async (res) => {
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.path) throw new Error(data.error || 'Could not create the link');
+                return `${window.location.origin}${data.path}`;
+              });
+            const copied = typeof ClipboardItem !== 'undefined' && navigator.clipboard.write
+              ? navigator.clipboard.write([new ClipboardItem({ 'text/plain': url.then((text) => new Blob([text], { type: 'text/plain' })) })])
+              : url.then((text) => navigator.clipboard.writeText(text));
+            copied
               .then(() => showNotification({ message: 'Scheduling link copied', color: 'green', autoClose: 3000 }))
               .catch(() => showNotification({ message: 'Could not copy link', color: 'red', autoClose: 4000 }));
           }}
