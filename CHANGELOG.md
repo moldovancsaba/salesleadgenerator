@@ -1,5 +1,32 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.233
+
+### Data: country corrected on 192 leads (refs #222 #223)
+
+The new country check (2.4.231) found every lead whose address names a
+different country than its stored `country`. Counts: Seyu 189 of 699,
+CogMap 3 of 2,308, DVSC 0 of 68. All 192 were fixed one lead at a time,
+`country` only, each re-read to verify. The check now reports `mismatch: 0`
+for every brand.
+
+Of Seyu's 189, 180 had been stored as `US`: international federations in
+Switzerland, and clubs in India, the UK, Japan, Saudi Arabia and
+elsewhere. That default is wider than the `DE` cluster #222 was filed for.
+`region` was not changed, because it feeds the ticket-size multipliers and
+needs a business decision. In the first 20 rows reviewed, some leads'
+`region` still matches the old wrong country (for example `AE` on Saudi
+leads, `US` on CD Mirandés); the full count was not measured.
+
+Full per-lead audit log: `docs/data-fixes/2026-09-26-country-corrections.md`.
+
+Still open:
+- 29 Seyu leads and 1 CogMap lead have an invalid code (#223). These carry
+  no suggestion and need a per-lead look.
+- 341 CogMap leads have no country at all.
+- 300 Seyu and 201 CogMap leads have no address, so the check cannot judge
+  them.
+
 ## 2.4.232
 
 ### API: the research agent can use a scoped key, and shared-key use is recorded (refs #220)
