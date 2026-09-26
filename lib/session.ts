@@ -4,6 +4,7 @@ import { verifyIdToken } from './sso';
 import { isSuperAdminEmail, getUserAccess, getAccessibleBrands } from './sso-access';
 import { isMongoConfigured, getClientPromise } from './mongodb';
 import { getAllBrandConfigs } from '@/app/lib/brand';
+import { recordLegacyKeyUse } from './legacy-key-usage';
 
 // Shared core so Route Handlers (NextRequest.cookies, sync) and Server
 // Components (next/headers cookies(), async) verify identically instead of
@@ -58,6 +59,7 @@ function hasValidApiKey(request: NextRequest): boolean {
 
 export async function requireApiKeyOrSession(request: NextRequest): Promise<NextResponse | null> {
   if (hasValidApiKey(request)) {
+    recordLegacyKeyUse(request);
     return null;
   }
 

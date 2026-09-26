@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { recordLegacyKeyUse } from './legacy-key-usage';
 
 const API_KEY = process.env.SLG_API_KEY || '';
 const CRON_SECRET = process.env.CRON_SECRET || '';
@@ -21,6 +22,7 @@ export function requireApiKey(request: Request): NextResponse | null {
 
   const headerKey = request.headers.get('x-api-key');
   if (headerKey === API_KEY) {
+    recordLegacyKeyUse(request);
     return null;
   }
 

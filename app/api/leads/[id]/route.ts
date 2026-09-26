@@ -3,8 +3,7 @@ import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
 import { getBrandConfig, resolveBrand, getForbiddenTermsFor, PRO_FIELD, CON_FIELD } from '../../../lib/brand'
 import type { Brand } from '../../../lib/brand'
 import { normalizeLead } from '../../../lib/normalize-lead'
-import { requireApiKey } from '../../../../lib/api-auth'
-import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
+import { requireBrandAccessApi, requireMachineKeyApi } from '../../../../lib/require-brand-access-api'
 import { validateLeadPayload } from '../../../../lib/validate-lead'
 import { deriveKanbanColumn, isAutoManagedColumn } from '../../../../lib/kanban-column'
 import { dedupeContacts, deriveContactEmails } from '../../../../lib/contacts'
@@ -108,13 +107,15 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = requireApiKey(request);
-  if (authError) return authError;
-
   try {
     const { id } = await params;
     const brand = await getBrand(request);
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
+    // Issue #220: the legacy key or a read-write scoped key for this brand,
+    // so the research agent can move off the shared SLG_API_KEY. Still never
+    // a browser session — this is the agent's enrichment path only.
+    const authError = await requireMachineKeyApi(request, brand);
+    if (authError) return authError;
     const config = (await getBrandConfig(brand))!;
     const tenantId = getTenantId(request);
 
@@ -352,9 +353,10 @@ export async function PUT(
 // [brand]/sales-page-client.tsx's handleDelete) — same "browser can't hold
 // this secret safely" reasoning as PATCH /api/leads above and PUT
 // /api/sales-settings/[brand]. Issue #104: gated by requireBrandAccessApi
-// instead. PUT stays on its own separate requireApiKey guard — it's the
-// external research agent's enrichment write path, never called from the
-// browser (verified via grep, not assumed).
+// instead. PUT stays on its own machine-only guard (requireMachineKeyApi,
+// legacy or scoped key, issue #220) — it's the external research agent's
+// enrichment write path, never called from the browser (verified via grep,
+// not assumed).
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

@@ -10,6 +10,12 @@
 // Pure module — no Mongo/React — same convention as ./sales-settings.ts's
 // own sanitize functions.
 
+// The Mongo collection name, shared by the catalog routes and the backfill.
+// Lives here, not in a route file: Next.js route modules may export only
+// handlers and route config, and a stray export fails `next build`'s type
+// check.
+export const PRODUCTS_COLLECTION = 'products';
+
 import { CURRENCY_CODES } from './brand-constants';
 import type { CurrencyCode } from './brand-constants';
 import { PRICING_MODEL_OPTIONS } from './sales-settings';

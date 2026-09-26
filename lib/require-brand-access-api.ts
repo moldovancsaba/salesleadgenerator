@@ -4,6 +4,7 @@ import { resolveSessionFromIdToken } from './session';
 import { getUserAccess, hasAccessToBrand } from './sso-access';
 import type { Brand } from '@/app/lib/brand';
 import { verifyScopedApiKey } from '@/app/lib/api-key-store';
+import { recordLegacyKeyUse } from './legacy-key-usage';
 
 // Route-handler equivalent of lib/require-brand-access.ts's page-level gate
 // (issue #103) — that one calls redirect(), which only works inside Server
@@ -26,6 +27,7 @@ export async function requireBrandAccessApi(request: NextRequest, brand: Brand):
   // is fine for a route that has no other guard, but would silently defeat
   // the session check below on this combined-auth path.
   if (hasValidApiKey(request)) {
+    recordLegacyKeyUse(request);
     return null;
   }
 
@@ -76,4 +78,29 @@ export async function requireBrandAccessApi(request: NextRequest, brand: Brand):
   }
 
   return null;
+}
+
+// Machine-only variant (issue #220): the legacy key or a scoped key for this
+// brand with the scope the method needs — never a browser session. For
+// routes whose only caller is an integration, e.g. PUT /api/leads/[id], the
+// research agent's enrichment path, which had accepted only the legacy key,
+// so the agent could not move to a per-brand, revocable key. Fails closed
+// when neither key is configured or matches, unlike lib/api-auth.ts's
+// requireApiKey, which fails open outside production.
+export async function requireMachineKeyApi(request: Request, brand: Brand): Promise<NextResponse | null> {
+  const configuredKey = process.env.SLG_API_KEY || '';
+  const rawKey = request.headers.get('x-api-key');
+  if (configuredKey && rawKey === configuredKey) {
+    recordLegacyKeyUse(request);
+    return null;
+  }
+  if (rawKey && isMongoConfigured()) {
+    const client = await getClientPromise();
+    const result = await verifyScopedApiKey(client.db(), rawKey, brand, request.method);
+    if (result.authorized) return null;
+    if (result.matched) {
+      return NextResponse.json({ error: result.status === 403 ? 'Forbidden' : 'Unauthorized' }, { status: result.status });
+    }
+  }
+  return NextResponse.json({ error: 'Unauthorized', details: 'Missing or invalid x-api-key' }, { status: 401 });
 }
