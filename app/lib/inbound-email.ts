@@ -22,9 +22,18 @@ import { buildFallbackHash } from '../../lib/gmail-sync'
 // against a brand slug as a prefix: "cogmap@..." / "seyu@..." (or a longer
 // address like "cogmap-log@..." also resolves, since it's a prefix match,
 // not an exact one).
+// Issue #230: reduces "Name <local@domain>" to "local@domain", lowercased.
+// Resend's documented email.received example uses bare addresses; this is
+// defensive, so a display name can never defeat brand or contact matching.
+export function bareAddress(address: string | undefined | null): string {
+  if (!address) return ''
+  const angle = address.match(/<([^>]+)>/)
+  return (angle ? angle[1] : address).toLowerCase().trim()
+}
+
 export function resolveBrandFromAddress(address: string | undefined | null, allBrands: Brand[]): Brand | null {
   if (!address) return null
-  const localPart = address.split('@')[0]?.toLowerCase().trim()
+  const localPart = bareAddress(address).split('@')[0]
   if (!localPart) return null
   for (const brand of allBrands) {
     if (localPart.startsWith(brand)) return brand
@@ -53,6 +62,10 @@ export function resolveMatchedAddress(receivedFor: string[] | undefined, to: str
   return null
 }
 
+// Header-only fallback (issue #230): the webhook route first decides
+// direction from which party matches a lead contact, and uses this only
+// when neither the sender nor any recipient does.
+//
 // Direction is derived from a real signal already present in the payload,
 // not guessed from sender domain (no rep-domain config exists or is
 // required): if our dedicated address is explicitly in To/Cc, a human
@@ -65,7 +78,7 @@ export function resolveMatchedAddress(receivedFor: string[] | undefined, to: str
 // visibly — it still classifies correctly as 'outbound' here, since the
 // only way it could be inbound-labeled is by being visibly in To/Cc.
 export function resolveDirection(params: { to: string[]; cc: string[]; ourAddress: string }): 'inbound' | 'outbound' {
-  const normalize = (value: string) => value.toLowerCase().trim()
+  const normalize = (value: string) => bareAddress(value)
   const our = normalize(params.ourAddress)
   const inList = (list: string[]) => (list || []).some((address) => normalize(address) === our)
   if (inList(params.to) || inList(params.cc)) return 'inbound'

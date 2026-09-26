@@ -365,6 +365,60 @@ describe('POST /api/webhooks/inbound-email', () => {
 // clicked/bounced/complained), routed to a dedicated handler that updates
 // outreach_logs by resendEmailId — never a new activityLog row per event
 // (that would spam the Activity timeline on repeat opens).
+// Issue #230: direction comes from which party matches a lead contact; the
+// header position of our address is only the fallback.
+describe('POST /api/webhooks/inbound-email — direction from lead matching (issue 230)', () => {
+  async function receive(emailId: string, data: Record<string, unknown>) {
+    mockReceivingApi({ text: 'Best regards,\nSomeone\n+1 555 0100' });
+    const res = await inboundPOST(await buildRequest({
+      type: 'email.received',
+      created_at: new Date().toISOString(),
+      data: { email_id: emailId, bcc: [], cc: [], message_id: `<${emailId}@example.com>`, subject: 'Re: intro', attachments: [], ...data },
+    }));
+    expect(res.status).toBe(200);
+    return (await insertedActivityLogDocs()).find((d) => d.externalId === emailId);
+  }
+
+  it('treats a routed copy of a lead\'s reply (our address only in received_for) as inbound and matches it', async () => {
+    const leadId = await createLead('cogmap', 'Routed Reply FC', [{ name: 'Rita Router', email: 'rita@routed-reply.example.com' }]);
+    const doc = await receive('email-230-routed', {
+      from: 'Rita Router <rita@routed-reply.example.com>', to: ['rep@ourcompany.com'], received_for: ['cogmap@abc123.resend.app'],
+    });
+    expect(doc.direction).toBe('inbound');
+    expect(doc.type).toBe('email-inbound');
+    expect(doc.leadId).toBe(leadId);
+  });
+
+  it('treats a rep\'s outreach that CCs our address as outbound and attaches it to the lead', async () => {
+    const leadId = await createLead('cogmap', 'CC Outreach FC', [{ name: 'Cora Contact', email: 'cora@cc-outreach.example.com' }]);
+    const doc = await receive('email-230-cc', {
+      from: 'rep@ourcompany.com', to: ['cora@cc-outreach.example.com'], cc: ['cogmap@abc123.resend.app'], received_for: ['cogmap@abc123.resend.app'],
+    });
+    expect(doc.direction).toBe('outbound');
+    expect(doc.type).toBe('email-outbound');
+    expect(doc.leadId).toBe(leadId);
+    const suggestions = (await insertedContactSuggestionDocs()).filter((d) => d.leadId === leadId);
+    expect(suggestions).toHaveLength(0);
+  });
+
+  it('attaches a BCC-captured outreach to the lead it was sent to', async () => {
+    const leadId = await createLead('seyu', 'Bcc Capture Arena', [{ name: 'Bea Bcc', email: 'bea@bcc-capture.example.com' }]);
+    const doc = await receive('email-230-bcc', {
+      from: 'rep@ourcompany.com', to: ['bea@bcc-capture.example.com'], received_for: ['seyu@abc123.resend.app'],
+    });
+    expect(doc.direction).toBe('outbound');
+    expect(doc.leadId).toBe(leadId);
+  });
+
+  it('falls back to the header rule when neither party matches a lead', async () => {
+    const doc = await receive('email-230-nomatch', {
+      from: 'stranger@nowhere.example.com', to: ['cogmap@abc123.resend.app'], received_for: ['cogmap@abc123.resend.app'],
+    });
+    expect(doc.direction).toBe('inbound');
+    expect(doc.leadId).toBeNull();
+  });
+});
+
 describe('POST /api/webhooks/inbound-email — outbound delivery events (issue #205)', () => {
   async function outreachLogsDb() {
     const { MongoClient } = await import('mongodb');
