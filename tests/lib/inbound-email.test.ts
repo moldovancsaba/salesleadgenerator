@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   resolveBrandFromAddress, resolveBrandFromRecipients, resolveMatchedAddress,
-  resolveDirection, buildActivityLogDoc,
+  resolveDirection, buildActivityLogDoc, bareAddress,
 } from '../../app/lib/inbound-email';
 
 // Issue #195 — these functions no longer read BRAND_CONFIG themselves
@@ -152,5 +152,23 @@ describe('buildActivityLogDoc (issue #141)', () => {
       receivedFor: ['cogmap@abc.resend.app'], subject: '', messageId: '',
     }, undefined, now, ALL_BRANDS);
     expect(doc.tenantId).toBe('default');
+  });
+});
+
+describe('bareAddress (issue 230)', () => {
+  it('reduces a display-name address to the lowercased bare address', () => {
+    expect(bareAddress('Rita Router <Rita@Example.COM>')).toBe('rita@example.com');
+  });
+
+  it('leaves a bare address as is, lowercased and trimmed', () => {
+    expect(bareAddress('  Lead@Example.com ')).toBe('lead@example.com');
+  });
+
+  it('returns an empty string for a missing value', () => {
+    expect(bareAddress(undefined)).toBe('');
+  });
+
+  it('lets a display-name brand address still resolve its brand', () => {
+    expect(resolveBrandFromAddress('CogMap Inbox <cogmap@abc123.resend.app>', ['cogmap', 'seyu'])).toBe('cogmap');
   });
 });

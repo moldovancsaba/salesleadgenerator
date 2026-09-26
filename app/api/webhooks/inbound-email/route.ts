@@ -3,7 +3,7 @@ import { Resend } from 'resend'
 import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
 import { extractResendWebhookHeaders, verifyResendWebhook, isResendConfigured } from '../../../../lib/resend-webhook'
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes } from '../../../lib/activity-log-store'
-import { buildActivityLogDoc, type ReceivedEmailEvent } from '../../../lib/inbound-email'
+import { buildActivityLogDoc, bareAddress, resolveBrandFromAddress, type ReceivedEmailEvent } from '../../../lib/inbound-email'
 import {
   matchReplyToLeads,
   findMatchedContact,
@@ -204,27 +204,49 @@ export async function POST(request: NextRequest) {
     const allBrands = Object.keys(await getAllBrandConfigs()) as Brand[]
     const doc = buildActivityLogDoc(receivedEvent, bodyExcerpt, new Date(), allBrands)
 
-    // Issue #142 — reply-to-lead matching + contact-enrichment suggestion.
-    // Only for a genuine inbound reply with a brand we recognize; an
-    // outbound-capture entry or an unresolved brand has nothing to match
-    // against. `receivedEvent.from` is the lead's own address here (the
-    // "non-our-address party" for an inbound-classified event is always the
-    // sender, never to/cc, which is why direction resolved 'inbound' in the
-    // first place).
-    if (doc.direction === 'inbound' && doc.brand !== 'unresolved') {
+    // Issue #230 — direction comes from who matches a lead, not from where
+    // our address sits in the headers. The header rule misread a routed copy
+    // of a lead's reply (our address only in received_for) as outbound, and
+    // a rep's outreach that CCs our address as inbound. Sender match first:
+    // a lead contact who wrote it makes it inbound (issue #142's reply
+    // matching + suggestion). Otherwise a lead contact among the recipients
+    // makes it the rep's outbound mail, attached to that lead. Otherwise the
+    // header rule from buildActivityLogDoc stands.
+    if (doc.brand !== 'unresolved') {
       const brand = doc.brand as Brand
       await ensureContactSuggestionsIndexes(db)
-      const match = await matchReplyToLeads(db, brand, doc.tenantId, receivedEvent.from)
-      if (match.kind === 'single-match') {
-        doc.leadId = match.leadId
-        const contact = await findMatchedContact(db, brand, doc.tenantId, match.leadId, receivedEvent.from)
-        if (contact) {
-          doc.matchedContactKey = contactKey(contact)
+      const sender = bareAddress(receivedEvent.from)
+      const senderMatch = await matchReplyToLeads(db, brand, doc.tenantId, sender)
+      if (senderMatch.kind !== 'no-match') {
+        doc.direction = 'inbound'
+        doc.type = 'email-inbound'
+        if (senderMatch.kind === 'single-match') {
+          doc.leadId = senderMatch.leadId
+          const contact = await findMatchedContact(db, brand, doc.tenantId, senderMatch.leadId, sender)
+          if (contact) {
+            doc.matchedContactKey = contactKey(contact)
+          }
+        } else {
+          // Flagged for manual disambiguation, not guessed — leadId stays
+          // null, same as the zero-match case, per issue #142's own spec.
+          doc.matchedLeadIds = senderMatch.leadIds
         }
-      } else if (match.kind === 'multi-match') {
-        // Flagged for manual disambiguation, not guessed — leadId stays
-        // null, same as the zero-match case, per issue #142's own spec.
-        doc.matchedLeadIds = match.leadIds
+      } else {
+        const recipients = [...receivedEvent.to, ...receivedEvent.cc, ...receivedEvent.bcc]
+          .map(bareAddress)
+          .filter((address, index, all) => address && all.indexOf(address) === index && !resolveBrandFromAddress(address, allBrands))
+        const leadIds = new Set<string>()
+        for (const recipient of recipients) {
+          const match = await matchReplyToLeads(db, brand, doc.tenantId, recipient)
+          if (match.kind === 'single-match') leadIds.add(match.leadId)
+          if (match.kind === 'multi-match') match.leadIds.forEach((id) => leadIds.add(id))
+        }
+        if (leadIds.size > 0) {
+          doc.direction = 'outbound'
+          doc.type = 'email-outbound'
+          if (leadIds.size === 1) doc.leadId = [...leadIds][0]
+          else doc.matchedLeadIds = [...leadIds]
+        }
       }
     }
 
@@ -247,7 +269,9 @@ export async function POST(request: NextRequest) {
     // request — a signature-parsing miss or a transient error here must not
     // turn an already-successfully-logged reply into a 500 the webhook
     // sender would retry.
-    if (doc.leadId) {
+    // Inbound only: an outbound capture's signature is the rep's own, never
+    // an enrichment signal for the lead's contact (issue #230).
+    if (doc.leadId && doc.direction === 'inbound') {
       try {
         await generateContactSuggestion(
           db,

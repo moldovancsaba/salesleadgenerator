@@ -1,5 +1,33 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.230
+
+### Fix: inbound email direction comes from lead matching, not header position (fixes #230)
+
+The inbound-email webhook decided whether a received email was a lead's
+reply or the rep's own outreach only from whether our
+`<brand>@leads.haho.ai` address appeared in To/Cc. That misread three
+real cases (found during the #202 triage):
+
+- A lead's reply copied to us by a mail routing rule was classified
+  outbound, so reply matching never ran.
+- A rep's outreach that CCs our address was classified inbound.
+- BCC'd outreach was stored with no lead, so it never appeared in an
+  Activity tab.
+
+The webhook now checks the sender first. A known lead contact means
+inbound, with reply matching and the contact suggestion as before.
+Otherwise a lead contact among the recipients means outbound, attached to
+that lead, with no contact suggestion (the signature is the rep's). Only
+when neither matches does the old header rule decide. Addresses are
+reduced to the bare `local@domain` before matching, defensively; Resend's
+documented example uses bare addresses.
+
+4 new webhook integration tests (the three shapes fail against the
+previous code; the fallback test passes on both) and 4 `bareAddress` unit
+tests. Nothing runs in production until #202's owner steps (Resend key and
+webhook secret) are done.
+
 ## 2.4.229
 
 ### Security hardening from the 2026-09-26 auth audit (refs #229)
