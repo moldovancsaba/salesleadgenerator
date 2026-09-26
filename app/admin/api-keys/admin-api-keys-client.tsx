@@ -21,6 +21,8 @@ type ApiKeyRow = {
   revokedAt: string | null
 }
 
+type LegacyUsageRow = { method: string; path: string; count: number; days: number; lastSeenAt: string }
+
 type WebhookRow = {
   id: string
   brand: string
@@ -158,6 +160,19 @@ export function AdminApiKeysClient() {
 
   useEffect(() => { if (brand) loadWebhooks(brand) }, [brand, loadWebhooks])
 
+  // Issue #220: shared-key usage is global, not per brand, so it loads once.
+  const [legacyUsage, setLegacyUsage] = useState<LegacyUsageRow[] | null>(null)
+  const [legacyUsageError, setLegacyUsageError] = useState<string | null>(null)
+  useEffect(() => {
+    fetch('/api/admin/api-keys/legacy-usage?days=30')
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Failed to load legacy key usage (${res.status})`)
+        const data = await res.json()
+        setLegacyUsage(data.usage || [])
+      })
+      .catch((err) => setLegacyUsageError(err?.message || 'Failed to load legacy key usage'))
+  }, [])
+
   function openCreateWebhook() {
     setWebhookUrl('')
     setWebhookEvents([])
@@ -274,6 +289,32 @@ export function AdminApiKeysClient() {
             ]}
             empty={<Text c="dimmed" size="sm">No keys.</Text>}
             getRowKey={(row) => row.id}
+          />
+        )}
+
+        <Divider my="sm" />
+
+        <Title order={3}>Shared key usage (last 30 days)</Title>
+        <Text size="sm" c="dimmed">
+          Requests that authenticated with the shared SLG_API_KEY instead of a scoped key, across all brands. Once this list stays empty for long enough, the shared key can be deleted.
+        </Text>
+        {legacyUsageError && <AdminFormStatus state="error" title="Something went wrong" description={legacyUsageError} />}
+        {legacyUsage === null && !legacyUsageError ? (
+          <Group justify="center" py="md"><Text c="dimmed" size="sm">Loading…</Text></Group>
+        ) : legacyUsage && legacyUsage.length === 0 ? (
+          <AdminResourceEmptyState title="No shared-key requests in the last 30 days" description="Nothing recorded since recording started." />
+        ) : legacyUsage && (
+          <AdminDataTable<LegacyUsageRow & Record<string, unknown>>
+            rows={legacyUsage as (LegacyUsageRow & Record<string, unknown>)[]}
+            caption="Shared key usage by route"
+            columns={[
+              { key: 'route', header: 'Route', rowHeader: true, accessor: (row) => `${row.method} ${row.path}` },
+              { key: 'count', header: 'Requests', accessor: (row) => row.count },
+              { key: 'days', header: 'Days used', accessor: (row) => row.days },
+              { key: 'lastSeen', header: 'Last used', accessor: (row) => relativeTime(row.lastSeenAt) },
+            ]}
+            empty={<Text c="dimmed" size="sm">No usage.</Text>}
+            getRowKey={(row) => `${row.method} ${row.path}`}
           />
         )}
 

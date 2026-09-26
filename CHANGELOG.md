@@ -1,5 +1,37 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.232
+
+### API: the research agent can use a scoped key, and shared-key use is recorded (refs #220)
+
+- `PUT /api/leads/[id]`, the research agent's enrichment path, accepted
+  only the shared `SLG_API_KEY`. That meant the agent could not move to a
+  per-brand, revocable key. It now also accepts a read-write scoped key
+  for that brand (`requireMachineKeyApi`). A read-only key or another
+  brand's key gets 403. A browser session is still never accepted. Unlike
+  `requireApiKey`, it fails closed when no key is configured.
+- Every request accepted with the shared key is counted in the new
+  `legacy_api_key_usage` collection: daily buckets per method and route,
+  with lead ids collapsed to `:id`, kept 120 days. The recording is
+  fire-and-forget, so it never slows or fails the request. Runtime logs
+  keep about a day, so this is how the owner can show that nothing still
+  uses the shared key before deleting it. It is shown on `/admin/api-keys`
+  as "Shared key usage (last 30 days)", served by `GET
+  /api/admin/api-keys/legacy-usage` (super-admin session only).
+
+7 new integration tests: scoped read-write accepted; read-only, other
+brand, bogus and missing keys refused; shared key still works; usage
+bucketing, recording through a real request, no recording for scoped
+keys, and the admin endpoint gate. The two scoped-key tests fail against
+the previous route.
+
+Also: `app/api/products/[brand]/route.ts` exported a `PRODUCTS_COLLECTION`
+constant. Next.js route modules may export only handlers and route config,
+and with this change `next build`'s type check started rejecting it (why
+it passed until now was not established; the export was invalid either
+way). The constant now lives in `app/lib/products.ts`, and the backfill
+module re-exports it from there.
+
 ## 2.4.231
 
 ### Feature: read-only country check across a whole brand (refs #222 #223)

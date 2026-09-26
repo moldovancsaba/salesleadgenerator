@@ -2,11 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
 import { getBrandConfig, resolveBrand } from '../../../lib/brand'
 import { getTenantId } from '../../../../lib/tenant'
-import { sanitizeProduct } from '../../../lib/products'
+import { sanitizeProduct, PRODUCTS_COLLECTION } from '../../../lib/products'
 import type { Product } from '../../../lib/products'
 import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
-
-export const PRODUCTS_COLLECTION = 'products'
 
 // Issue #226: guarded by requireBrandAccessApi (SSO session with access to
 // this brand, a matching scoped key, or the legacy key) — not requireApiKey,

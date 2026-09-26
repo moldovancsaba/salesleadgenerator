@@ -8,12 +8,12 @@
 // "unchanged". Never clobbers a row an admin has manually edited since the
 // initial backfill (checked via updatedAt > createdAt, issue #215 §11/§15 #13).
 
-import { sanitizeProduct, resolveProductLinePrice, PRODUCT_ABSOLUTE_CEILING } from '../app/lib/products';
+import { sanitizeProduct, resolveProductLinePrice, PRODUCT_ABSOLUTE_CEILING, PRODUCTS_COLLECTION } from '../app/lib/products';
 import type { Product } from '../app/lib/products';
 import type { CurrencyCode } from '../app/lib/brand-constants';
 import type { PricingModel, ProductLine } from '../app/lib/sales-settings';
 
-export const PRODUCTS_COLLECTION = 'products';
+export { PRODUCTS_COLLECTION };
 
 export type BackfillProductResult = { id: string; outcome: 'created' | 'updated' | 'unchanged' | 'skipped_unnamed' | 'skipped_unpriced' };
 export type BackfillProductsResult = {
