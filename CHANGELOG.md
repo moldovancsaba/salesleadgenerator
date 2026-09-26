@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.217
+
+### Data: taxonomy batch 2 — Villarreal CF, EBANX, FC Bayern Munich, Feyenoord Rotterdam; restored 5 leads auto-demoted out of QUALIFIED (issue #132)
+
+Four more leads researched, validated, applied via `PUT`, and re-verified
+via a fresh `GET`. Villarreal CF: `country` filled, a second confirmed
+decision-maker (the club's CEO) added. EBANX: confirmed a payments fintech
+with no fit for CogMap's product — classified `brand` per issue #135,
+`country` filled, a wrong "Sports Performance Analytics" sector corrected,
+a generic placeholder contact replaced with a named director, `ice`
+lowered. FC Bayern Munich: invalid lowercase `size` value corrected.
+Feyenoord Rotterdam: a generic placeholder contact replaced with the real
+Chief Commercial Officer, chairman's name casing corrected.
+
+Post-write verification caught a real side effect: `PUT` re-derives a
+DISCOVERED/QUALIFIED lead's column from its ICE score (threshold 500), and
+the enrichment rubric keeps most re-scored leads below that — so 5
+sales-active QUALIFIED leads from this and the previous batch (Real
+Sociedad, Celtic FC, Villarreal CF, EBANX, Feyenoord Rotterdam) had been
+silently moved to DISCOVERED. All 5 restored to QUALIFIED and re-verified;
+`docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9's checklist now requires sending
+`kanbanColumn` with any `ice` re-score on a QUALIFIED lead. No code
+changed — a data and documentation release.
+
 ## 2.4.216
 
 ### Data: fixed 8 more Seyu leads with invalid/wrong country codes — a second, distinct bad-data pattern (issue #223)
