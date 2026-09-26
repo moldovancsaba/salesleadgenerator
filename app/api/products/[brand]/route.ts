@@ -4,13 +4,15 @@ import { getBrandConfig, resolveBrand } from '../../../lib/brand'
 import { getTenantId } from '../../../../lib/tenant'
 import { sanitizeProduct } from '../../../lib/products'
 import type { Product } from '../../../lib/products'
+import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 
 export const PRODUCTS_COLLECTION = 'products'
 
-// Deliberately no requireApiKey guard — same posture already recorded for
-// GET/PUT /api/sales-settings/[brand] (issue #215 §17): this is
-// browser-writable, brand-scoped commercial configuration a logged-in-context
-// rep edits directly, not lead/contact PII.
+// Issue #226: guarded by requireBrandAccessApi (SSO session with access to
+// this brand, a matching scoped key, or the legacy key) — not requireApiKey,
+// because the admin products page and the lead deals editor call this from
+// the browser. It previously had no guard at all (issue #215 §17's posture,
+// copied from sales-settings, which issue #226 also closed).
 let indexEnsured = false;
 async function ensureProductsIndex(db: any): Promise<void> {
   if (indexEnsured) return;
@@ -29,6 +31,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const config = await getBrandConfig(brand);
     if (!config) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
+    const authError = await requireBrandAccessApi(request, brand);
+    if (authError) return authError;
     const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
@@ -54,6 +58,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const config = await getBrandConfig(brand);
     if (!config) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
+    const authError = await requireBrandAccessApi(request, brand);
+    if (authError) return authError;
     const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 });

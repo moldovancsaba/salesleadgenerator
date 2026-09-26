@@ -6,7 +6,14 @@ import { getTenantId } from '../../../lib/tenant'
 
 export const dynamic = 'force-dynamic'
 
+// Issue #226: GET had no guard and returned outreach subjects and bodies.
+// Key-only, like POST: no in-repo caller reads this route (the lead Activity
+// tab reads outreach_logs through the brand-gated GET
+// /api/leads/[id]/activity).
 export async function GET(request: Request) {
+  const authError = requireApiKey(request)
+  if (authError) return authError
+
   try {
     const tenantId = getTenantId(request)
     if (!isMongoConfigured()) {

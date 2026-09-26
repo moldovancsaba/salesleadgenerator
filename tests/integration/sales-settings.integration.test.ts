@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
+import { buildApiRequest } from './helpers/api-request';
+import type { NextRequest } from 'next/server';
 
 let mongod: MongoMemoryServer;
 let GET: typeof import('../../app/api/sales-settings/[brand]/route').GET;
@@ -17,8 +19,10 @@ afterAll(async () => {
   await stopTestMongo(mongod);
 });
 
-function req(url: string, init?: RequestInit) {
-  return new Request(`http://localhost${url}`, init);
+// Issue #226: these routes now require a credential; the legacy key
+// stands in for the browser session the real page uses.
+function req(url: string, init?: ConstructorParameters<typeof NextRequest>[1]) {
+  return buildApiRequest(url, init);
 }
 
 describe('GET /api/sales-settings/[brand]', () => {

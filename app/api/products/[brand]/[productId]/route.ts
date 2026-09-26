@@ -5,6 +5,7 @@ import { getTenantId, tenantFilter } from '../../../../../lib/tenant'
 import { sanitizeProduct } from '../../../../lib/products'
 import type { Product } from '../../../../lib/products'
 import { PRODUCTS_COLLECTION } from '../route'
+import { requireBrandAccessApi } from '../../../../../lib/require-brand-access-api'
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ brand: string; productId: string }> }) {
   try {
@@ -13,6 +14,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const config = await getBrandConfig(brand);
     if (!config) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
+    const authError = await requireBrandAccessApi(request, brand);
+    if (authError) return authError;
     const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
@@ -47,6 +50,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
     const config = await getBrandConfig(brand);
     if (!config) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
+    const authError = await requireBrandAccessApi(request, brand);
+    if (authError) return authError;
     const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
