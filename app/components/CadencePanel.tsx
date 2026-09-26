@@ -44,6 +44,7 @@ export function CadencePanel({ leadId, brand, activeCadence: initialActiveCadenc
   const [selectedCadenceId, setSelectedCadenceId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => {
     setActiveCadence(initialActiveCadence ?? null)
@@ -52,13 +53,24 @@ export function CadencePanel({ leadId, brand, activeCadence: initialActiveCadenc
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setLoadFailed(false)
+    // A refused/failed list (401/403 since issue #227 gated it) surfaces as
+    // an error, not as the "no enabled cadences, build one" empty state.
     fetch(`/api/cadences?brand=${encodeURIComponent(brand)}`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.error || 'Failed to load cadences')
+        return data
+      })
       .then((data) => {
         if (!cancelled) setAllCadences(data.cadences || [])
       })
-      .catch(() => {
-        if (!cancelled) setAllCadences([])
+      .catch((err: any) => {
+        if (!cancelled) {
+          setAllCadences([])
+          setLoadFailed(true)
+          setError(err?.message || 'Failed to load cadences')
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -152,7 +164,7 @@ export function CadencePanel({ leadId, brand, activeCadence: initialActiveCadenc
             </Button>
           </Group>
         </Stack>
-      ) : enabledCadences.length === 0 ? (
+      ) : loadFailed ? null : enabledCadences.length === 0 ? (
         <Text size="xs" c="dimmed">
           No enabled cadences for this brand yet. <Link href={`/outreach/cadences/${brand}`}>Build one</Link> to enroll leads.
         </Text>

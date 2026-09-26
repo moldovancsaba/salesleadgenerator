@@ -62,6 +62,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [logging, setLogging] = useState(false);
+  const [logError, setLogError] = useState<string | null>(null);
   // Issue #205 — a genuinely distinct busy/error state from "Log outreach"'s
   // own `logging` above; the two buttons must never share state, since they
   // perform two different, distinguishable actions (CLAUDE.md Rule 7).
@@ -106,7 +107,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
     let cancelled = false;
     setLoading(true);
     const tagsParam = filterTags.length ? `&tags=${encodeURIComponent(filterTags.join(','))}` : '';
-    fetch(`/api/outreach-templates?brand=${brand}${industry ? `&industry=${encodeURIComponent(industry)}` : ''}${tagsParam}`)
+    fetch(`/api/outreach-templates?brand=${encodeURIComponent(brand)}${industry ? `&industry=${encodeURIComponent(industry)}` : ''}${tagsParam}`)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
@@ -142,7 +143,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
     let cancelled = false;
     setBattlecardsLoading(true);
     const tagsParam = filterTags.length ? `&tags=${encodeURIComponent(filterTags.join(','))}` : '';
-    fetch(`/api/battlecards?brand=${brand}${tagsParam}`)
+    fetch(`/api/battlecards?brand=${encodeURIComponent(brand)}${tagsParam}`)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
@@ -175,12 +176,12 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
       return;
     }
     setLogging(true);
+    setLogError(null);
     try {
-      await fetch('/api/outreach-logs', {
+      const res = await fetch(`/api/outreach-logs?brand=${encodeURIComponent(brand)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          brand,
           leadId: lead._id,
           templateId: templateId || undefined,
           channel,
@@ -192,10 +193,18 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           sport_or_sector: lead.sport_or_sector,
         }),
       })
+      // Issue #227 — a rejected log (401/403/400) stays open with the reason
+      // shown, instead of closing as if the outreach had been recorded.
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setLogError(data.error || 'Log failed');
+        return;
+      }
       onSent?.({ leadId: lead._id, templateId: templateId || undefined, channel, subject, body })
       onClose()
     } catch (err) {
       console.error('Outreach log failed', err);
+      setLogError('Network error — the outreach may not have been logged.');
     } finally {
       setLogging(false);
     }
@@ -203,7 +212,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
 
   // Issue #205 — the first genuinely functional "send" affordance in this
   // app's compose modal; every prior click here only ever wrote a record
-  // (see handleSend above, unchanged). window.confirm() before the network
+  // (see handleSend above). window.confirm() before the network
   // call, naming the real recipient, matches this repo's own established
   // destructive/irreversible-action pattern (cadences/battlecards/templates
   // delete, cadence-cancel).
@@ -225,20 +234,16 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
       ? crypto.randomUUID()
       : `manual-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     try {
-      const res = await fetch('/api/outreach-send', {
+      // Recipients and lead fields are loaded server-side from the stored
+      // lead (issue #227), so only the rep's own message goes in the body.
+      const res = await fetch(`/api/outreach-send?brand=${encodeURIComponent(brand)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          brand,
           leadId: lead._id,
           templateId: templateId || undefined,
           subject,
           body,
-          contacts: lead.contacts,
-          entity_name: lead.entity_name,
-          url: lead.url,
-          industry: lead.industry,
-          sport_or_sector: lead.sport_or_sector,
           idempotencyKey,
         }),
       });
@@ -389,6 +394,9 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
             </Group>
             {channelBlockReason && (
               <Text size="xs" c="red">{channelBlockReason}</Text>
+            )}
+            {logError && (
+              <Text size="xs" c="red" aria-live="polite">{logError}</Text>
             )}
             {sendError && (
               <Text size="xs" c="red" aria-live="polite">{sendError}</Text>

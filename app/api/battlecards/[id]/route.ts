@@ -1,18 +1,28 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { ObjectId } from 'mongodb'
 import clientPromise, { isMongoConfigured } from '../../../../lib/mongodb'
-import { requireApiKey } from '../../../../lib/api-auth'
+import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../../lib/tenant'
 import { validateBattlecardPayload, normalizeProofPoints, normalizeObjections } from '../../../lib/battlecards/validate-battlecard'
 import { normalizeTags } from '../../../lib/search/tagged-content-filter'
-import { getForbiddenTermsFor } from '../../../lib/brand'
+import { getForbiddenTermsFor, resolveBrand } from '../../../lib/brand'
+import type { Brand } from '../../../lib/brand'
 
 export const dynamic = 'force-dynamic'
 
-function getBrand(request: Request): string {
-  const url = new URL(request.url)
-  const brand = (url.searchParams.get('brand') || '').trim()
-  return brand || 'default'
+// Issue #227: same required-?brand= + requireBrandAccessApi guard as
+// app/api/battlecards/route.ts (route modules can't export helpers, so it's
+// repeated here). Every lookup and write below is also filtered by the
+// resolved brand, so another brand's card id reads as 404 and PUT's
+// forbidden-terms check always runs against the card's own brand.
+async function resolveBattlecardBrand(request: NextRequest): Promise<Brand | NextResponse> {
+  const raw = (request.nextUrl.searchParams.get('brand') || '').trim()
+  if (!raw) return NextResponse.json({ error: 'Missing brand' }, { status: 400 })
+  const brand = await resolveBrand(raw)
+  if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+  const authError = await requireBrandAccessApi(request, brand)
+  if (authError) return authError
+  return brand
 }
 
 function toResponseShape(doc: any) {
@@ -26,21 +36,23 @@ function toResponseShape(doc: any) {
   }
 }
 
-async function findBattlecard(db: any, id: string, tenantId: string) {
+async function findBattlecard(db: any, id: string, tenantId: string, brand: Brand) {
   let objectId: ObjectId
   try {
     objectId = new ObjectId(id.trim())
   } catch {
     return null
   }
-  return db.collection('battlecards').findOne({ _id: objectId, ...tenantFilter(tenantId) })
+  return db.collection('battlecards').findOne({ _id: objectId, brand, ...tenantFilter(tenantId) })
 }
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const brand = await resolveBattlecardBrand(request)
+    if (brand instanceof NextResponse) return brand
     const { id } = await params
     const tenantId = getTenantId(request)
 
@@ -50,7 +62,7 @@ export async function GET(
 
     const client = await clientPromise
     const db = client.db()
-    const doc = await findBattlecard(db, id, tenantId)
+    const doc = await findBattlecard(db, id, tenantId, brand)
     if (!doc) {
       return NextResponse.json({ error: 'Battlecard not found' }, { status: 404 })
     }
@@ -63,16 +75,14 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
   try {
+    const brand = await resolveBattlecardBrand(request)
+    if (brand instanceof NextResponse) return brand
     const { id } = await params
     const tenantId = getTenantId(request)
-    const brand = getBrand(request)
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
@@ -80,7 +90,7 @@ export async function PUT(
 
     const client = await clientPromise
     const db = client.db()
-    const existing = await findBattlecard(db, id, tenantId)
+    const existing = await findBattlecard(db, id, tenantId, brand)
     if (!existing) {
       return NextResponse.json({ error: 'Battlecard not found' }, { status: 404 })
     }
@@ -111,7 +121,7 @@ export async function PUT(
     if (body.tags !== undefined) updateData.tags = normalizeTags(body.tags)
 
     const result = await db.collection('battlecards').findOneAndUpdate(
-      { _id: existing._id, ...tenantFilter(tenantId) },
+      { _id: existing._id, brand, ...tenantFilter(tenantId) },
       { $set: updateData },
       { returnDocument: 'after' }
     )
@@ -128,13 +138,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
   try {
+    const brand = await resolveBattlecardBrand(request)
+    if (brand instanceof NextResponse) return brand
     const { id } = await params
     const tenantId = getTenantId(request)
 
@@ -144,12 +153,12 @@ export async function DELETE(
 
     const client = await clientPromise
     const db = client.db()
-    const existing = await findBattlecard(db, id, tenantId)
+    const existing = await findBattlecard(db, id, tenantId, brand)
     if (!existing) {
       return NextResponse.json({ error: 'Battlecard not found' }, { status: 404 })
     }
 
-    await db.collection('battlecards').deleteOne({ _id: existing._id, ...tenantFilter(tenantId) })
+    await db.collection('battlecards').deleteOne({ _id: existing._id, brand, ...tenantFilter(tenantId) })
 
     return new NextResponse(null, { status: 204 })
   } catch (error: any) {

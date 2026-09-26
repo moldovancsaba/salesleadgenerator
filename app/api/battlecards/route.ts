@@ -1,21 +1,31 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise, { isMongoConfigured } from '../../../lib/mongodb'
-import { requireApiKey } from '../../../lib/api-auth'
+import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { DEFAULT_BATTLECARDS } from '../../lib/battlecards/default-battlecards'
 import type { Battlecard } from '../../lib/battlecards/default-battlecards'
 import { validateBattlecardPayload, normalizeProofPoints, normalizeObjections } from '../../lib/battlecards/validate-battlecard'
 import { buildTaggedContentFilter, normalizeTags } from '../../lib/search/tagged-content-filter'
 import { getTenantId } from '../../../lib/tenant'
-import { getForbiddenTermsFor } from '../../lib/brand'
+import { getForbiddenTermsFor, resolveBrand } from '../../lib/brand'
+import type { Brand } from '../../lib/brand'
 
 export const dynamic = 'force-dynamic'
 
 const SEARCH_TEXT_FIELDS = ['competitorName', 'positioningSummary']
 
-function getBrand(request: Request): string {
-  const url = new URL(request.url)
-  const brand = (url.searchParams.get('brand') || '').trim()
-  return brand || 'default'
+// Issue #227: every handler is guarded by requireBrandAccessApi (SSO session
+// with access to this brand, a matching scoped key, or the legacy key) — not
+// requireApiKey, because the Battlecards page calls POST/PUT/DELETE from the
+// browser. ?brand= is required here: an empty value is rejected explicitly
+// rather than letting resolveBrand('') default to 'cogmap'.
+async function resolveBattlecardBrand(request: NextRequest): Promise<Brand | NextResponse> {
+  const raw = (request.nextUrl.searchParams.get('brand') || '').trim()
+  if (!raw) return NextResponse.json({ error: 'Missing brand' }, { status: 400 })
+  const brand = await resolveBrand(raw)
+  if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+  const authError = await requireBrandAccessApi(request, brand)
+  if (authError) return authError
+  return brand
 }
 
 function matchesFilters(
@@ -31,10 +41,11 @@ function matchesFilters(
   return true
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    const brand = await resolveBattlecardBrand(request)
+    if (brand instanceof NextResponse) return brand
     const tenantId = getTenantId(request)
-    const brand = getBrand(request)
     const { searchParams } = new URL(request.url)
     const competitor = (searchParams.get('competitor') || '').trim()
     const tagsRaw = (searchParams.get('tags') || searchParams.get('tag') || '').trim()
@@ -71,13 +82,11 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
+export async function POST(request: NextRequest) {
   try {
+    const brand = await resolveBattlecardBrand(request)
+    if (brand instanceof NextResponse) return brand
     const tenantId = getTenantId(request)
-    const brand = getBrand(request)
     const body = await request.json()
 
     const forbiddenTerms = await getForbiddenTermsFor(brand)

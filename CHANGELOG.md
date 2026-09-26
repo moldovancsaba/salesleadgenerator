@@ -1,5 +1,52 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.227
+
+### Fix: outreach, templates, cadences, automation rules and battlecards work from the browser again, and their reads need a credential (fixes #227)
+
+Found by the 2026-09-26 auth audit. These write routes used
+`requireApiKey`, which accepts only an `x-api-key` header. No browser code
+sends one and production has `SLG_API_KEY` set, so every one of these
+returned 401 for every user:
+
+- **Send email** and **Log outreach** in the compose modal
+- saving an outreach template
+- creating, editing, enabling or deleting a cadence
+- creating, editing, enabling or deleting an automation rule, so the rules
+  engine could never be switched on from the UI
+- creating, editing or deleting a battlecard
+
+Their list and by-id reads had no guard at all.
+
+Every handler now resolves `?brand=` through `resolveBrand` (400 for an
+unknown brand; stored under the canonical slug, never the old raw
+`'default'`) and uses `requireBrandAccessApi`: the page's SSO session with
+access to that brand, a scoped key with the right brand and scope, or the
+legacy key. By-id lookups for rules, cadences and battlecards now filter by
+brand, so another brand's id returns 404. This also closes a
+forbidden-terms bypass on battlecard edits. Battlecard routes require
+`?brand=` rather than defaulting to cogmap.
+
+`POST /api/outreach-send` now loads the lead from that brand's own
+collection and takes the recipients from the stored record, not the
+request body. Log outreach shows an inline error on failure instead of
+closing as if it had worked. The cadence panel no longer shows the "no
+cadences yet" empty state when loading fails.
+
+A production read on 2026-09-26 found no stored template, cadence, rule or
+battlecard under the raw `'default'` brand, so none become unreachable.
+
+Tests: new `battlecards` and `outreach-templates` integration test files,
+plus extended cadences, automation-rules and outreach-send tests. They
+cover no credential (401), another brand's scoped key (403), an unknown
+brand (400), a cross-brand id (404), canonical-slug storage, and that
+recipients come from the stored lead. The auth and brand-filter tests fail
+with the guards removed.
+
+**Owner decision still open:** any user with access to a brand can now
+manage its cadences and automation rules. Whether that should need the
+brand admin role is recorded on #227.
+
 ## 2.4.226
 
 ### Security: sales settings, product catalog and two log reads required no credential (fixes #226)

@@ -123,7 +123,7 @@ export function OutreachTemplatesClient({ brand, label }: Props) {
         tags: (form.tags || []).filter(Boolean),
       }
 
-      const res = await fetch('/api/outreach-templates', {
+      const res = await fetch(`/api/outreach-templates?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

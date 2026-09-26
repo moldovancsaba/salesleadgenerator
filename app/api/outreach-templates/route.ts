@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise, { isMongoConfigured } from '../../../lib/mongodb'
-import { requireApiKey } from '../../../lib/api-auth'
+import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
+import { resolveBrand } from '../../lib/brand'
 import { DEFAULT_OUTREACH_TEMPLATES } from '../../lib/outreach/default-templates'
 import type { OutreachTemplate } from '../../lib/outreach/default-templates'
 import { buildTaggedContentFilter, normalizeTags } from '../../lib/search/tagged-content-filter'
@@ -12,10 +13,11 @@ export const dynamic = 'force-dynamic'
 
 const SEARCH_TEXT_FIELDS = ['name', 'subject', 'body']
 
-function getBrand(request: Request): string {
-  const url = new URL(request.url)
-  const brand = (url.searchParams.get('brand') || '').trim()
-  return brand || 'default'
+// Issue #227: every mode of GET and POST is brand-gated
+// (requireBrandAccessApi), and templates are stored/queried under the
+// resolved brand slug — never a raw ?brand= value or a 'default' fallback.
+async function getBrand(request: Request) {
+  return resolveBrand(new URL(request.url).searchParams.get('brand'))
 }
 
 function getRequestedTags(searchParams: URLSearchParams): string[] {
@@ -46,10 +48,14 @@ function matchesFilters(
   return true
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    const brand = await getBrand(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const tenantId = getTenantId(request)
-    const brand = getBrand(request)
     const { searchParams } = new URL(request.url)
     const industry = (searchParams.get('industry') || '').trim()
     const channel = (searchParams.get('channel') || '').trim()
@@ -224,14 +230,24 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
+export async function POST(request: NextRequest) {
   try {
+    const brand = await getBrand(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const tenantId = getTenantId(request)
-    const brand = getBrand(request)
     const body = await request.json()
+
+    // The brand is taken from ?brand= (the one the guard above checked); a
+    // body brand naming a different brand is rejected rather than ignored.
+    if (body.brand !== undefined && body.brand !== null && body.brand !== '') {
+      const bodyBrand = await resolveBrand(String(body.brand))
+      if (bodyBrand !== brand) {
+        return NextResponse.json({ error: 'body brand does not match ?brand=' }, { status: 400 })
+      }
+    }
 
     const name = String(body.name || '').trim()
     const channel = String(body.channel || '').trim()

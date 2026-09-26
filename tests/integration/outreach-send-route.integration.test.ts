@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import type { MongoMemoryServer } from 'mongodb-memory-server';
+import { NextRequest } from 'next/server';
+import { ObjectId, type Db } from 'mongodb';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
 import { buildApiRequest } from './helpers/api-request';
 
@@ -8,6 +10,10 @@ import { buildApiRequest } from './helpers/api-request';
 // pre-existing record-only path, untouched by this issue) and the merged
 // Activity timeline (GET /api/leads/[id]/activity) both still behave
 // correctly once a real send can also write to activityLog.
+//
+// Issue #227 — both write routes are brand-gated (requireBrandAccessApi,
+// not key-only), resolve ?brand= to a canonical slug, and outreach-send
+// takes recipients from the stored lead rather than the request body.
 
 process.env.RESEND_API_KEY = 're_test_placeholder_key';
 
@@ -16,9 +22,13 @@ let sendPOST: typeof import('../../app/api/outreach-send/route').POST;
 let logsPOST: typeof import('../../app/api/outreach-logs/route').POST;
 let leadsPOST: typeof import('../../app/api/leads/route').POST;
 let activityGET: typeof import('../../app/api/leads/[id]/activity/route').GET;
+let createApiKey: typeof import('../../app/lib/api-key-store').createApiKey;
+let db: Db;
 
 beforeAll(async () => {
   mongod = await startTestMongo();
+  createApiKey = (await import('../../app/lib/api-key-store')).createApiKey;
+  db = (await (await import('../../lib/mongodb')).getClientPromise()).db();
   sendPOST = (await import('../../app/api/outreach-send/route')).POST;
   logsPOST = (await import('../../app/api/outreach-logs/route')).POST;
   leadsPOST = (await import('../../app/api/leads/route')).POST;
@@ -38,11 +48,15 @@ function req(url: string, init?: Record<string, any>) {
 }
 
 // Same real-network-boundary mock as tests/integration/outreach-send.integration.test.ts.
+// Returns the JSON bodies actually sent to the email API, so a test can
+// assert on the real recipient.
 function mockSendApi(response: { id: string } | { errorStatus: number; message?: string }) {
   const original = global.fetch;
+  const sentBodies: any[] = [];
   vi.spyOn(global, 'fetch').mockImplementation(async (input: any, init?: any) => {
     const url = typeof input === 'string' ? input : input.url;
     if (url.endsWith('/emails')) {
+      sentBodies.push(init?.body ? JSON.parse(String(init.body)) : null);
       if ('errorStatus' in response) {
         return new Response(JSON.stringify({ name: 'validation_error', message: response.message || 'rejected' }), {
           status: response.errorStatus,
@@ -53,6 +67,32 @@ function mockSendApi(response: { id: string } | { errorStatus: number; message?:
     }
     return original(input, init);
   });
+  return sentBodies;
+}
+
+// A request with no credential at all — buildApiRequest always adds the
+// legacy x-api-key, and requireBrandAccessApi then falls through to the
+// (absent) SSO session cookie.
+function unauthenticated(url: string, body: Record<string, any>) {
+  return new NextRequest(`http://localhost${url}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+async function seyuScopedKey(): Promise<string> {
+  const { rawKey } = await createApiKey(db, { name: 'seyu-only', brand: 'seyu', scopes: ['read-write'] }, 'integration-test');
+  return rawKey;
+}
+
+// Inserted directly (not via POST /api/leads) so a test can store a lead
+// that POST /api/leads' own validation would reject, or in another brand's
+// collection.
+async function insertLead(collection: string, doc: Record<string, any>): Promise<string> {
+  const _id = new ObjectId();
+  await db.collection(collection).insertOne({ _id, tenantId: 'default', ...doc });
+  return _id.toString();
 }
 
 async function createLead(entityName: string): Promise<{ id: string; contacts: any[] }> {
@@ -77,7 +117,6 @@ async function createLead(entityName: string): Promise<{ id: string; contacts: a
 
 function sendPayload(leadId: string, contacts: any[], overrides: Record<string, any> = {}) {
   return {
-    brand: 'cogmap',
     leadId,
     templateId: 'tpl-1',
     subject: 'Hello there',
@@ -88,39 +127,96 @@ function sendPayload(leadId: string, contacts: any[], overrides: Record<string, 
   };
 }
 
+const SEND_URL = '/api/outreach-send?brand=cogmap';
+
 describe('POST /api/outreach-send', () => {
-  it('rejects an unauthenticated request', async () => {
+  it('rejects a request with no credential (401)', async () => {
     const { id, contacts } = await createLead('Unauth Send Co');
-    const res = await sendPOST(new Request('http://localhost/api/outreach-send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const res = await sendPOST(unauthenticated(SEND_URL, sendPayload(id, contacts)));
+    expect(res.status).toBe(401);
+  });
+
+  it('400s on an unknown brand', async () => {
+    const { id, contacts } = await createLead('Unknown Brand Send Co');
+    const res = await sendPOST(req('/api/outreach-send?brand=not-a-brand', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sendPayload(id, contacts)),
     }));
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('Invalid brand');
+  });
+
+  it('403s a scoped key issued for a different brand', async () => {
+    const { id, contacts } = await createLead('Wrong Brand Key Send Co');
+    const res = await sendPOST(req(SEND_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': await seyuScopedKey() },
+      body: JSON.stringify(sendPayload(id, contacts)),
+    }));
+    expect(res.status).toBe(403);
   });
 
   it('400s on a missing required field', async () => {
     const { id, contacts } = await createLead('Missing Field Co');
     const payload = sendPayload(id, contacts, { idempotencyKey: undefined });
-    const res = await sendPOST(req('/api/outreach-send', {
+    const res = await sendPOST(req(SEND_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }));
     expect(res.status).toBe(400);
   });
 
-  it('400s when routing disallows (no decision-maker email)', async () => {
-    const res = await sendPOST(req('/api/outreach-send', {
+  it('404s when the lead does not exist', async () => {
+    const res = await sendPOST(req(SEND_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sendPayload('lead-x', [{ name: 'No Email', isDecisionMaker: true }])),
+      body: JSON.stringify(sendPayload(new ObjectId().toString(), [{ name: 'Jamie', email: 'jamie@x.example.com', isDecisionMaker: true }])),
+    }));
+    expect(res.status).toBe(404);
+  });
+
+  it("404s for a lead that exists only in another brand's collection", async () => {
+    const contacts = [{ name: 'Sam', email: 'sam@seyu-only.example.com', isDecisionMaker: true }];
+    const seyuLeadId = await insertLead('seyu_leads', { entity_name: 'Seyu Only Co', url: 'https://seyu-only.example.com', contacts });
+    const res = await sendPOST(req(SEND_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sendPayload(seyuLeadId, contacts)),
+    }));
+    expect(res.status).toBe(404);
+  });
+
+  it("400s when the stored lead's decision-maker has no email, even if the body supplies one", async () => {
+    const leadId = await insertLead('leads', {
+      entity_name: 'No Email Co',
+      url: 'https://no-email.example.com',
+      contacts: [{ name: 'No Email', isDecisionMaker: true }],
+    });
+    const res = await sendPOST(req(SEND_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sendPayload(leadId, [{ name: 'Injected', email: 'injected@attacker.example.com', isDecisionMaker: true }])),
     }));
     expect(res.status).toBe(400);
+  });
+
+  it('sends to the stored lead\'s decision-maker, never to contacts supplied in the body', async () => {
+    const sentBodies = mockSendApi({ id: 'route-send-stored-recipient' });
+    const { id } = await createLead('Stored Recipient Co');
+    const res = await sendPOST(req(SEND_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sendPayload(id, [{ name: 'Injected', email: 'injected@attacker.example.com', isDecisionMaker: true }], {
+        url: 'https://attacker.example.com',
+      })),
+    }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).sent).toBe(true);
+    expect(sentBodies).toHaveLength(1);
+    const recipients = JSON.stringify(sentBodies[0].to);
+    expect(recipients).toContain('jamie@stored-recipient-co.example.com');
+    expect(recipients).not.toContain('attacker');
   });
 
   it('sends successfully and returns sent:true with an outreachLogId', async () => {
     mockSendApi({ id: 'route-send-id-1' });
     const { id, contacts } = await createLead('Route Send Co');
-    const res = await sendPOST(req('/api/outreach-send', {
+    const res = await sendPOST(req(SEND_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sendPayload(id, contacts)),
     }));
@@ -133,7 +229,7 @@ describe('POST /api/outreach-send', () => {
   it('a Resend-side rejection resolves to a handled 200 {sent:false}, not a 500', async () => {
     mockSendApi({ errorStatus: 422, message: 'recipient is on suppression list' });
     const { id, contacts } = await createLead('Route Reject Co');
-    const res = await sendPOST(req('/api/outreach-send', {
+    const res = await sendPOST(req(SEND_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sendPayload(id, contacts)),
     }));
@@ -148,7 +244,7 @@ describe('POST /api/outreach-send', () => {
     delete process.env.RESEND_API_KEY;
     try {
       const { id, contacts } = await createLead('No Resend Config Co');
-      const res = await sendPOST(req('/api/outreach-send', {
+      const res = await sendPOST(req(SEND_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sendPayload(id, contacts)),
       }));
@@ -159,8 +255,8 @@ describe('POST /api/outreach-send', () => {
   });
 });
 
-describe('POST /api/outreach-logs — unaffected by issue 205 (regression)', () => {
-  it('still logs a record-only outreach entry with no sendAttempted field', async () => {
+describe('POST /api/outreach-logs', () => {
+  it('still logs a record-only outreach entry with no sendAttempted field (body brand fallback)', async () => {
     const { id, contacts } = await createLead('Log Only Co');
     const res = await logsPOST(req('/api/outreach-logs', {
       method: 'POST',
@@ -170,6 +266,47 @@ describe('POST /api/outreach-logs — unaffected by issue 205 (regression)', () 
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.sendAttempted).toBeUndefined();
+    expect(body.brand).toBe('cogmap');
+  });
+
+  it('stores the canonical brand slug resolved from a ?brand= alias', async () => {
+    const { id, contacts } = await createLead('Log Alias Co');
+    const res = await logsPOST(req('/api/outreach-logs?brand=cogmapsales', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leadId: id, channel: 'email', subject: 'Hi', body: 'Hi there', contacts }),
+    }));
+    expect(res.status).toBe(201);
+    const stored = await db.collection('outreach_logs').findOne({ _id: new ObjectId((await res.json()).id) });
+    expect(stored?.brand).toBe('cogmap');
+  });
+
+  it('rejects a request with no credential (401)', async () => {
+    const { id, contacts } = await createLead('Log Unauth Co');
+    const res = await logsPOST(unauthenticated('/api/outreach-logs?brand=cogmap', {
+      leadId: id, channel: 'email', subject: 'Hi', body: 'Hi there', contacts,
+    }));
+    expect(res.status).toBe(401);
+  });
+
+  it('400s on an unknown brand', async () => {
+    const { id, contacts } = await createLead('Log Unknown Brand Co');
+    const res = await logsPOST(req('/api/outreach-logs?brand=not-a-brand', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leadId: id, channel: 'email', subject: 'Hi', body: 'Hi there', contacts }),
+    }));
+    expect(res.status).toBe(400);
+  });
+
+  it('403s a scoped key issued for a different brand', async () => {
+    const { id, contacts } = await createLead('Log Wrong Brand Key Co');
+    const res = await logsPOST(req('/api/outreach-logs?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': await seyuScopedKey() },
+      body: JSON.stringify({ leadId: id, channel: 'email', subject: 'Hi', body: 'Hi there', contacts }),
+    }));
+    expect(res.status).toBe(403);
   });
 });
 
@@ -178,7 +315,7 @@ describe('GET /api/leads/[id]/activity — a real manual send never renders twic
     mockSendApi({ id: 'timeline-dedup-id-1' });
     const { id, contacts } = await createLead('Timeline Dedup Co');
 
-    const sendRes = await sendPOST(req('/api/outreach-send', {
+    const sendRes = await sendPOST(req(SEND_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sendPayload(id, contacts)),
     }));
@@ -194,9 +331,9 @@ describe('GET /api/leads/[id]/activity — a real manual send never renders twic
 
   it('a plain "Log outreach" record-only entry still renders (source: outreach-log)', async () => {
     const { id, contacts } = await createLead('Log Outreach Timeline Co');
-    await logsPOST(req('/api/outreach-logs', {
+    await logsPOST(req('/api/outreach-logs?brand=cogmap', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ brand: 'cogmap', leadId: id, channel: 'email', subject: 'Hi', body: 'Hi there', contacts }),
+      body: JSON.stringify({ leadId: id, channel: 'email', subject: 'Hi', body: 'Hi there', contacts }),
     }));
 
     const activityRes = await activityGET(req(`/api/leads/${id}/activity?brand=cogmap`), { params: Promise.resolve({ id }) });

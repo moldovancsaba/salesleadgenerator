@@ -1,24 +1,32 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise, { isMongoConfigured } from '../../../lib/mongodb'
-import { requireApiKey } from '../../../lib/api-auth'
+import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
+import { resolveBrand } from '../../lib/brand'
 import { getTenantId } from '../../../lib/tenant'
 import { sanitizeAutomationRule, validateAutomationRule } from '../../../lib/automation-rules'
 import { ensureAutomationIndexes, automationRuleToResponseShape, AUTOMATION_RULES_COLLECTION } from '../../lib/automation-store'
 
 export const dynamic = 'force-dynamic'
 
-function getBrand(request: Request): string {
+// Resolves ?brand= (slug or alias) to the real slug, so a rule is always
+// stored under the same key evaluateEventRules/runStaleTickForBrand query by
+// (issue #227). A missing value resolves to 'cogmap'; an unknown one → null.
+async function getBrand(request: NextRequest) {
   const url = new URL(request.url)
-  const brand = (url.searchParams.get('brand') || '').trim()
-  return brand || 'default'
+  return await resolveBrand((url.searchParams.get('brand') || '').trim())
 }
 
-// GET is unauthenticated, matching GET /api/cadences — read-only reference
-// data, same trust level as this app's other per-brand config lists.
-export async function GET(request: Request) {
+// Every handler is gated by requireBrandAccessApi (issue #227): the SSO
+// session the Automation page already carries, or the legacy/scoped
+// x-api-key for machine callers.
+export async function GET(request: NextRequest) {
   try {
+    const brand = await getBrand(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const tenantId = getTenantId(request)
-    const brand = getBrand(request)
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ rules: [], total: 0, source: 'default', brand })
@@ -36,16 +44,14 @@ export async function GET(request: Request) {
   }
 }
 
-// Write auth matches POST /api/cadences exactly (issue #201 §17: "same
-// admin/session auth already gating /api/cadences") — requireApiKey, not a
-// new pattern.
-export async function POST(request: Request) {
-  const authError = requireApiKey(request)
-  if (authError) return authError
-
+export async function POST(request: NextRequest) {
   try {
+    const brand = await getBrand(request)
+    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+    const authError = await requireBrandAccessApi(request, brand)
+    if (authError) return authError
+
     const tenantId = getTenantId(request)
-    const brand = getBrand(request)
     const body = await request.json()
 
     const rule = sanitizeAutomationRule(body, brand, tenantId)

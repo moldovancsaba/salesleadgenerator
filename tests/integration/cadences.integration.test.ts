@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
 import { buildApiRequest } from './helpers/api-request';
-import type { NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Issue #124/#149: cadence template CRUD (app/api/cadences) and the
 // lead-level enroll/cancel lifecycle (app/api/leads/[id]/cadence). Exercises
@@ -506,5 +506,113 @@ describe('validateCadence rejects an email step with no templateId at the API bo
     });
     expect(status).toBe(400);
     expect(body.error).toContain('templateId is required');
+  });
+});
+
+// Issue #227: every cadence handler is gated by requireBrandAccessApi and
+// scoped by the resolved brand, so the browser (SSO session) can write and a
+// caller with no credential, an unknown brand, another brand's scoped key or
+// another brand's cadence id gets nothing.
+describe('cadence routes require brand access and stay brand-scoped (issue 227)', () => {
+  const anonymous = (url: string, init?: ConstructorParameters<typeof NextRequest>[1]) =>
+    new NextRequest(`http://localhost${url}`, init);
+  const idParams = (id: string) => ({ params: Promise.resolve({ id }) });
+  const jsonInit = (method: string, body: unknown) => ({
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const fakeId = '507f1f77bcf86cd799439011';
+
+  it('401s every handler when no credential is sent', async () => {
+    const created = await createCadence({ name: 'Anonymous Probe Cadence', steps: [{ channel: 'call' }] });
+    const id = created.body.id;
+
+    const list = await cadencesGET(anonymous('/api/cadences?brand=cogmap'));
+    expect(list.status).toBe(401);
+    const post = await cadencesPOST(anonymous('/api/cadences?brand=cogmap', jsonInit('POST', { name: 'Anon', steps: [{ channel: 'call' }] })));
+    expect(post.status).toBe(401);
+    const get = await cadenceIdGET(anonymous(`/api/cadences/${id}?brand=cogmap`), idParams(id));
+    expect(get.status).toBe(401);
+    const put = await cadenceIdPUT(anonymous(`/api/cadences/${id}?brand=cogmap`, jsonInit('PUT', { name: 'Anon Renamed' })), idParams(id));
+    expect(put.status).toBe(401);
+    const del = await cadenceIdDELETE(anonymous(`/api/cadences/${id}?brand=cogmap`, { method: 'DELETE' }), idParams(id));
+    expect(del.status).toBe(401);
+
+    const after = await cadenceIdGET(req(`/api/cadences/${id}?brand=cogmap`), idParams(id));
+    expect(after.status).toBe(200);
+    expect((await after.json()).name).toBe('Anonymous Probe Cadence');
+  });
+
+  it('400s an unknown brand on every handler', async () => {
+    const list = await cadencesGET(req('/api/cadences?brand=not-a-brand'));
+    expect(list.status).toBe(400);
+    expect((await list.json()).error).toBe('Invalid brand');
+    const post = await cadencesPOST(req('/api/cadences?brand=not-a-brand', jsonInit('POST', { name: 'X', steps: [{ channel: 'call' }] })));
+    expect(post.status).toBe(400);
+    const get = await cadenceIdGET(req(`/api/cadences/${fakeId}?brand=not-a-brand`), idParams(fakeId));
+    expect(get.status).toBe(400);
+    const put = await cadenceIdPUT(req(`/api/cadences/${fakeId}?brand=not-a-brand`, jsonInit('PUT', { name: 'X' })), idParams(fakeId));
+    expect(put.status).toBe(400);
+    const del = await cadenceIdDELETE(req(`/api/cadences/${fakeId}?brand=not-a-brand`, { method: 'DELETE' }), idParams(fakeId));
+    expect(del.status).toBe(400);
+  });
+
+  it('stores a cadence under the resolved brand slug, not the raw query value', async () => {
+    const { status, body } = await createCadence({ name: 'Uppercase Brand Cadence', steps: [{ channel: 'call' }] }, 'CogMap');
+    expect(status).toBe(201);
+    expect(body.brand).toBe('cogmap');
+  });
+
+  it('404s another brand\'s cadence id on GET/PUT/DELETE and leaves it unchanged', async () => {
+    const created = await createCadence({ name: 'CogMap Private Cadence', steps: [{ channel: 'call' }] });
+    const id = created.body.id;
+
+    const get = await cadenceIdGET(req(`/api/cadences/${id}?brand=seyu`), idParams(id));
+    expect(get.status).toBe(404);
+    const put = await cadenceIdPUT(req(`/api/cadences/${id}?brand=seyu`, jsonInit('PUT', { name: 'Hijacked', enabled: true })), idParams(id));
+    expect(put.status).toBe(404);
+    const del = await cadenceIdDELETE(req(`/api/cadences/${id}?brand=seyu`, { method: 'DELETE' }), idParams(id));
+    expect(del.status).toBe(404);
+
+    const seyuList = await (await cadencesGET(req('/api/cadences?brand=seyu&tenantId=default'))).json();
+    expect(seyuList.cadences.some((c: any) => c.id === id)).toBe(false);
+
+    const after = await cadenceIdGET(req(`/api/cadences/${id}?brand=cogmap`), idParams(id));
+    expect(after.status).toBe(200);
+    const body = await after.json();
+    expect(body.name).toBe('CogMap Private Cadence');
+    expect(body.enabled).toBe(false);
+  });
+
+  it('403s another brand\'s scoped API key on every handler and writes nothing', async () => {
+    const clientPromise = (await import('../../lib/mongodb')).default;
+    const db = (await clientPromise).db();
+    const { createApiKey } = await import('../../app/lib/api-key-store');
+    const seyuKey = (await createApiKey(db, { name: 'seyu-cadences', brand: 'seyu', scopes: ['read-write'] }, 'test')).rawKey;
+    const withSeyuKey = (url: string, init?: ConstructorParameters<typeof NextRequest>[1]) =>
+      buildApiRequest(url, { ...init, headers: { ...(init?.headers as Record<string, string>), 'x-api-key': seyuKey } });
+
+    const created = await createCadence({ name: 'Scoped Key Probe Cadence', steps: [{ channel: 'call' }] });
+    const id = created.body.id;
+
+    const list = await cadencesGET(withSeyuKey('/api/cadences?brand=cogmap'));
+    expect(list.status).toBe(403);
+    const post = await cadencesPOST(withSeyuKey('/api/cadences?brand=cogmap', jsonInit('POST', { name: 'Seyu Key Cadence', steps: [{ channel: 'call' }] })));
+    expect(post.status).toBe(403);
+    const get = await cadenceIdGET(withSeyuKey(`/api/cadences/${id}?brand=cogmap`), idParams(id));
+    expect(get.status).toBe(403);
+    const put = await cadenceIdPUT(withSeyuKey(`/api/cadences/${id}?brand=cogmap`, jsonInit('PUT', { name: 'Seyu Renamed' })), idParams(id));
+    expect(put.status).toBe(403);
+    const del = await cadenceIdDELETE(withSeyuKey(`/api/cadences/${id}?brand=cogmap`, { method: 'DELETE' }), idParams(id));
+    expect(del.status).toBe(403);
+
+    const cogmapList = await (await cadencesGET(req('/api/cadences?brand=cogmap&tenantId=default'))).json();
+    expect(cogmapList.cadences.some((c: any) => c.name === 'Seyu Key Cadence')).toBe(false);
+    const after = await (await cadenceIdGET(req(`/api/cadences/${id}?brand=cogmap`), idParams(id))).json();
+    expect(after.name).toBe('Scoped Key Probe Cadence');
+
+    const ownBrand = await cadencesGET(withSeyuKey('/api/cadences?brand=seyu'));
+    expect(ownBrand.status).toBe(200);
   });
 });

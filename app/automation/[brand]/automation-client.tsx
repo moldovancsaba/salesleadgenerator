@@ -49,8 +49,9 @@ type Props = {
 
 // Structured form only — no visual/drag-and-drop builder (issue #201's own
 // explicit v1 Non-Goal). Mirrors app/outreach/cadences's own client
-// component shape and auth conventions exactly (GDS/Mantine primitives, the
-// same requireApiKey-gated write endpoints).
+// component shape (GDS/Mantine primitives). Every call carries ?brand= and
+// relies on the page's SSO session cookie — the endpoints are gated by
+// requireBrandAccessApi (issue #227), so no API key is ever held client-side.
 export function AutomationClient({ brand, label }: Props) {
   const [tenantId, setTenantId] = useState('default')
 
