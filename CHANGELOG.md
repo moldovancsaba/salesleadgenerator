@@ -1,5 +1,35 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.221
+
+### Safety: cadence and report crons hold due work while email sending is not configured (issue #224)
+
+An independent review of the #224 fix found that setting `CRON_SECRET` on
+its own would have caused silent data loss. `RESEND_API_KEY` is also
+absent in production, and both email crons treat a failed send as
+"done": `cadence-tick` advances a lead's cadence even when the email
+fails (by design, no retry within a tick), and `reports-tick` moves a
+report's `nextRunAt` forward after a failed delivery. The first
+scheduled run would therefore have walked every enrolled lead through
+its email steps, up to 200 per brand per day, and skipped every due
+report, with nothing actually sent. #224's own text ("nothing is lost")
+was wrong on this point and has been corrected on the issue.
+
+Now, when `RESEND_API_KEY` is not configured, `cadence-tick` holds each
+due email step (no send attempt, no advance, new `emailStepsHeld` count
+in the tick summary) and `reports-tick` holds each due definition
+(`nextRunAt` and `lastRunStatus` unchanged), so the work resumes once
+sending is configured. A configured key whose send fails still advances
+exactly as before. `linkedin`/`call` reminder steps are unaffected.
+Integration tests cover both sides for both crons (19 passing in the two
+suites). README env table now lists `RESEND_API_KEY` and
+`RESEND_WEBHOOK_SECRET`, which were missing; ARCHITECTURE updated.
+
+Also recorded: CLAUDE.md Rule 6 now carries the owner's standing
+instruction to commit and push every finished deliverable to `main`
+with its documentation, and to write every finding into the repo or the
+relevant issue before moving on.
+
 ## 2.4.220
 
 ### Lib: ISO 3166-1 alpha-2 allowlist module (groundwork for issues #222/#223)

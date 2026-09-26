@@ -12,8 +12,10 @@ import { buildApiRequest } from './helpers/api-request';
 // leads are due, email-vs-reminder branching, step advancement/completion,
 // the per-tick cap, and the disabled/missing-cadence edge cases.
 const sendAutomatedEmailMock = vi.fn();
+const resendConfiguredMock = vi.fn(() => true);
 vi.mock('../../lib/outreach-send', () => ({
   sendAutomatedEmail: (...args: any[]) => sendAutomatedEmailMock(...args),
+  isResendSendConfigured: () => resendConfiguredMock(),
 }));
 
 let mongod: MongoMemoryServer;
@@ -30,6 +32,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
+  resendConfiguredMock.mockReturnValue(true);
   sendAutomatedEmailMock.mockReset();
   sendAutomatedEmailMock.mockResolvedValue({ sent: true, outreachLogId: 'log-mock-1' });
 });
@@ -309,4 +312,50 @@ describe('GET /api/admin/cadence-tick — per-tick cap (issue #151)', () => {
     });
     expect(stillDueCount).toBe(5);
   }, 30000);
+});
+
+// Issue #224: enabling the scheduled trigger while RESEND_API_KEY is unset must
+// not walk enrolled leads through their email steps without sending anything.
+describe('GET /api/admin/cadence-tick — email sending not configured', () => {
+  it('holds a due email step: no send attempt, cadence position and due date unchanged', async () => {
+    resendConfiguredMock.mockReturnValue(false);
+    const cadenceId = await createCadence('cogmap', [
+      { id: 's1', channel: 'email', waitDaysAfterPrevious: 0, templateId: 'tpl-1' },
+      { id: 's2', channel: 'call', waitDaysAfterPrevious: 2 },
+    ]);
+    const due = dueNow(-1000);
+    const leadId = await seedLead('leads', 'Held Email Co', {
+      cadenceId, currentStepIndex: 0, stepDueAt: due, enrolledAt: due,
+    });
+
+    const res = await tickGET(req('/api/admin/cadence-tick'));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(sendAutomatedEmailMock).not.toHaveBeenCalled();
+    expect(body.emailStepsHeld).toBeGreaterThanOrEqual(1);
+    expect(body.failures).toEqual(
+      expect.arrayContaining([expect.objectContaining({ leadId, reason: expect.stringContaining('not configured') })])
+    );
+    const lead = await getLead('leads', leadId);
+    expect(lead?.activeCadence.currentStepIndex).toBe(0);
+    expect(lead?.activeCadence.stepDueAt).toBe(due);
+  });
+
+  it('still processes linkedin/call reminder steps normally while email is unconfigured', async () => {
+    resendConfiguredMock.mockReturnValue(false);
+    const cadenceId = await createCadence('seyu', [
+      { id: 's1', channel: 'call', waitDaysAfterPrevious: 0 },
+      { id: 's2', channel: 'email', waitDaysAfterPrevious: 3, templateId: 'tpl-1' },
+    ]);
+    const leadId = await seedLead('seyu_leads', 'Reminder Still Runs Co', {
+      cadenceId, currentStepIndex: 0, stepDueAt: dueNow(-1000), enrolledAt: dueNow(-1000),
+    });
+
+    await tickGET(req('/api/admin/cadence-tick'));
+
+    const lead = await getLead('seyu_leads', leadId);
+    expect(lead?.activeCadence.currentStepIndex).toBe(1);
+    expect(lead?.nextActionDueAt).toBeTruthy();
+  });
 });
