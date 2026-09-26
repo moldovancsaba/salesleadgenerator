@@ -18,6 +18,30 @@ Each lead was researched by an independent agent doing real web research (fetchi
 
 Two corrections were made to agent output before applying: Feyenoord's proposed `notes` would have overwritten the existing field (the brief given to that agent omitted the stored notes, so it couldn't see them) — merged instead; and EBANX's `canonicalLeadName` just repeated `entity_name`, so it was dropped. Post-write verification caught a real side effect (see the `kanbanColumn` checklist item in §9): 5 QUALIFIED leads across both 2026-09-25/26 batches were auto-demoted to DISCOVERED by the `ice` re-score and were restored to QUALIFIED the same day.
 
+### Progress update — 2026-09-26 — research round 3, 34 leads (issue #132)
+
+This round covered 34 QUALIFIED leads: 23 CogMap and 11 Seyu, picked from CogMap QUALIFIED pages 3–4 and Seyu QUALIFIED page 5.
+- **Duplicates:** 25 near-duplicates were skipped and listed on #137. Their creation dates trace CogMap's twins to the 2026-07-27 CSV import.
+- **Verification:** 34 "apply with corrections", 0 rejected.
+- **Applied:** one lead at a time; all 34 re-read exactly as sent.
+- **Crash:** the first apply attempt failed on a proxy TLS timeout before any write. A per-lead state check confirmed that no lead had been touched. The apply script now retries longer and saves its report after every lead.
+- **New rule:** round 3 added a prompt rule against putting any app user's details in requests (the round-2 incident).
+
+**Convention questions**, now tracked as #231:
+- NCAA athletics has no competition level, so Duke and Alabama are `unknown`.
+- National Olympic Committees have no org type (coded `federation`).
+- Whole-club leads split between `men` and `mixed`.
+- Section leads (Real Madrid Baloncesto) are sized by their parent.
+
+**For human review (not changed):**
+- **Renamed:** the International Tennis Federation has been "World Tennis" since 25 June 2026; the Saudi Arabian Olympic Committee is now the Saudi Olympic & Paralympic Committee.
+- **Academy or whole club:** Al Gharafa, DAC 1904 Dunajská Streda.
+- **Copied content:** the CogMap RC Celta de Vigo record's old text was copied from the Seyu record's research; its notes were kept verbatim as required.
+- **Tennessee Soccer Academy** shares leadership with Arlington Soccer Academy.
+- **North Carolina FC** may overlap with NC Courage and North Carolina FC Youth.
+
+Leads: CogMap — International Tennis Federation, Southampton FC, Al Gharafa Sports Club, DAC 1904 Dunajská Streda, Tennessee Soccer Academy, Legia Esport Schools, Precision Football, SCM Timisoara Basketball, Federația Română de Baschet, Duke University Athletics, University of Alabama Athletics, Saudi Arabian Olympic Committee, Stade Rennais FC, RC Celta de Vigo, North Carolina FC, Detroit City FC, FC Tulsa, Real Salt Lake-Arizona Academy, Villarreal Dubai Academy, Sporting JAX, Tampa Bay United Soccer Club, LA Galaxy San Diego, Egyptian Olympic Committee. Seyu — Parma Calcio 1913, RCD Mallorca, Getafe CF, Real Madrid Baloncesto, FC Internazionale Milano, Torino FC, Palermo FC, U.S. Sassuolo Calcio, UD Las Palmas, Girona FC, RC Celta de Vigo.
+
 ### Progress update — 2026-09-26 — research round 2, 36 leads (issue #132)
 
 This round covered 36 QUALIFIED leads: 25 Seyu and 11 CogMap. They were picked from CogMap QUALIFIED page 2 and Seyu QUALIFIED pages 3–4, one single-column page read at a time, keeping leads with no `orgTypeCode`.

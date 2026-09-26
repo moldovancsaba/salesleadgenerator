@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.240
+
+### Data: #132 research round 3 — 34 leads classified and enriched
+
+- 34 QUALIFIED leads (23 CogMap, 11 Seyu) were researched, adversarially
+  verified and applied one at a time. All 34 re-read exactly as sent.
+- 25 near-duplicates were skipped and listed on #137.
+- Four taxonomy gaps that keep recurring (NCAA level, Olympic committees,
+  whole-club gender, section sizing) are filed as #231 for an owner
+  decision.
+- This session's three rounds now total 108 leads.
+
 ## 2.4.239
 
 ### Data: #132 research round 2 — 36 leads classified and enriched
