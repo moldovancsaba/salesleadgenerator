@@ -1,5 +1,24 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.216
+
+### Data: fixed 8 more Seyu leads with invalid/wrong country codes — a second, distinct bad-data pattern (issue #223)
+
+While quantifying issue #222's scope, found a second, distinct bad-`country`
+signature in the same samples already in hand: values that are either not
+real ISO 3166-1 alpha-2 codes at all (`EA`, `LO`, `SO`, `SP`) or a real
+country's code applied to the wrong lead (`NE`/Niger on PSV Eindhoven,
+`NO`/Norway on two US-based entertainment companies) — consistent with a
+mechanical "first two letters of a free-text region string" derivation
+bug, distinct from issue #222's "hardcoded to the literal string DE"
+cluster (different creation-date signature, different `region` shape).
+Fixed all 8 from their own stored, unambiguous addresses (Northampton
+Saints, Saracens RFC, Gloucester Rugby → `GB`; Valencia Basket Club,
+LALIGA → `ES`; PSV Eindhoven → `NL`; AEG Presents, Live Nation
+Entertainment → `US`), each independently re-verified via a fresh `GET`.
+Filed as issue #223 — full scope not yet quantified, same bulk-read
+constraint as #222. No code changed — a data-only release.
+
 ## 2.4.215
 
 ### Data: fixed 6 more Seyu leads with country hardcoded to DE regardless of actual location (issue #222)
