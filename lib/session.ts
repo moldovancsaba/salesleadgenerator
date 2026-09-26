@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import type { SsoIdTokenClaims } from './sso';
 import { verifyIdToken } from './sso';
-import { isSuperAdminEmail } from './sso-access';
+import { isSuperAdminEmail, getUserAccess, getAccessibleBrands } from './sso-access';
+import { isMongoConfigured, getClientPromise } from './mongodb';
+import { getAllBrandConfigs } from '@/app/lib/brand';
 
 // Shared core so Route Handlers (NextRequest.cookies, sync) and Server
 // Components (next/headers cookies(), async) verify identically instead of
@@ -34,8 +36,10 @@ export async function requireSuperAdminSession(request: NextRequest): Promise<Ss
   return claims;
 }
 
-// x-api-key OR any authenticated session, with no brand or admin check —
-// for global (not brand-scoped) config that any signed-in user may read or
+// x-api-key OR an authenticated session that has access to at least one
+// brand (issue #229; before that any verified login passed), with no
+// specific-brand or admin check —
+// for global (not brand-scoped) config that any brand-authorized user may
 // write, distinct from requireSuperAdminSession (admin-only) above and
 // lib/require-brand-access-api.ts's requireBrandAccessApi (brand-scoped).
 // Issue #192: PUT /api/settings is called from app/forecast/[brand]/
@@ -61,6 +65,21 @@ export async function requireApiKeyOrSession(request: NextRequest): Promise<Next
   const claims = await resolveSessionFromIdToken(idToken);
   if (!claims || !claims.email) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  }
+
+  // Issue #229: a verified login alone is not enough — the SSO server lets
+  // anyone sign in, and a user nobody has granted a brand to landed on the
+  // welcome page but could still write global scoring config. The session
+  // must now reach at least one brand (super admins always do).
+  if (isSuperAdminEmail(claims.email)) return null;
+  if (!isMongoConfigured()) {
+    return NextResponse.json({ error: 'Access control not configured' }, { status: 503 });
+  }
+  const client = await getClientPromise();
+  const record = await getUserAccess(client.db(), claims.sub);
+  const brands = getAccessibleBrands(claims.email, record?.orgAccess, Object.keys(await getAllBrandConfigs()));
+  if (brands.length === 0) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   return null;

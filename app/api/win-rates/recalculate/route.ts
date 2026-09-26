@@ -41,6 +41,6 @@ export async function POST(request: Request) {
     })
   } catch (error: any) {
     console.error('[API:win-rates/recalculate] POST error:', error)
-    return NextResponse.json({ error: 'Failed to recalculate win rates', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to recalculate win rates' }, { status: 500 })
   }
 }

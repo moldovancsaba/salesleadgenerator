@@ -282,10 +282,35 @@ describe('GET /api/quotes/[quoteId]/view (issue 211)', () => {
     return new NextRequest(`http://localhost/api/quotes/${quoteId}/view?token=${encodeURIComponent(token)}`);
   }
 
-  it('403s for a wrong token', async () => {
+  // Issue #229: a wrong token and an unknown quote answer identically, so
+  // the response doesn't confirm that a quote id exists.
+  it('404s for a wrong token, same as for an unknown quote', async () => {
     const { quoteId } = await generateDraftQuote('Wrong Token Co');
     const res = await viewGET(publicViewReq(quoteId, 'not-the-real-token'), { params: Promise.resolve({ quoteId }) });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
+  });
+
+  it('404s a malformed quote id without recording a rate-limit attempt', async () => {
+    const database = await (async () => (await (await import('../../lib/mongodb')).default).db())();
+    const before = await database.collection('quote_view_rate_limits').countDocuments({});
+    const res = await viewGET(publicViewReq('not-an-object-id', 'x'), { params: Promise.resolve({ quoteId: 'not-an-object-id' }) });
+    expect(res.status).toBe(404);
+    expect(await database.collection('quote_view_rate_limits').countDocuments({})).toBe(before);
+  });
+
+  it('rate-limits per client IP, so one client hammering a quote does not lock out another', async () => {
+    const { quoteId, token } = await generateDraftQuote('Rate Limit Split Co');
+    const fromIp = (ip: string, t: string) => new NextRequest(
+      `http://localhost/api/quotes/${quoteId}/view?token=${encodeURIComponent(t)}`,
+      { headers: { 'x-forwarded-for': ip } }
+    );
+    let last = 0;
+    for (let i = 0; i < 40 && last !== 429; i++) {
+      last = (await viewGET(fromIp('198.51.100.1', 'wrong'), { params: Promise.resolve({ quoteId }) })).status;
+    }
+    expect(last).toBe(429);
+    const other = await viewGET(fromIp('198.51.100.2', token), { params: Promise.resolve({ quoteId }) });
+    expect(other.status).not.toBe(429);
   });
 
   it('404s for an unknown quoteId', async () => {

@@ -21,10 +21,17 @@ export async function GET(
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
     }
 
+    // Issue #229: a malformed id can never be a quote, so it is refused
+    // before it costs a rate-limit write.
+    if (!/^[0-9a-f]{24}$/i.test(quoteId)) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     const client = await getClientPromise();
     const db = client.db();
 
-    const allowed = await checkQuoteViewRateLimit(db, quoteId);
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const allowed = await checkQuoteViewRateLimit(db, quoteId, clientIp);
     if (!allowed) {
       return NextResponse.json({ error: 'Too many attempts, try again shortly' }, { status: 429 });
     }
@@ -34,7 +41,9 @@ export async function GET(
       if (result.status === 403) {
         console.warn('[GET /api/quotes/[quoteId]/view] invalid token attempt', { quoteId });
       }
-      return NextResponse.json({ error: 'Not found' }, { status: result.status });
+      // One status for both "no such quote" and "wrong token" (issue #229),
+      // so the response doesn't confirm which quote ids exist.
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
     const pdfBytes = await fetchQuotePdfBytes(result.quote);
@@ -56,7 +65,7 @@ export async function GET(
     });
   } catch (error: any) {
     console.error('GET /api/quotes/[quoteId]/view Error:', error);
-    return NextResponse.json({ error: 'Failed to load quote', details: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to load quote' }, { status: 500 });
   }
 }
 

@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.228  
+**Version:** 2.4.229  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -83,7 +83,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.228**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25) and needs updating on every version-stamp sync pass, not just when someone notices.
+Current app version is **2.4.229**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25) and needs updating on every version-stamp sync pass, not just when someone notices.
 
 Single source of truth: `package.json`
 
@@ -137,7 +137,7 @@ This README is the single source of truth for documentation paths and descriptio
 
 ## API Overview
 
-`/api/health`, `/api/lead-taxonomy` (added 2.4.111, serves the controlled sports-industry taxonomy vocabularies), `GET /api/settings`, and `GET /api/search-learning` are the only fully public endpoints — all four serve non-sensitive, non-lead, non-PII data (static metadata or read-only aggregate config). Every lead-data endpoint (listings, search, boards, forecast export, metrics, win-rates, ticket-size calibration) requires either an `x-api-key` header or an authenticated browser session with access to the requested `brand` (issues #104, #192) — there is no unauthenticated read path to lead or business data (sales settings, the product catalog and the outcome/outreach log reads were open until 2.4.226, issue #226). One exception within the lead endpoints: `PUT /api/leads/[id]` (the research agent's enrichment path) accepts `x-api-key` only, not a session — see `docs/OPERATOR_GUIDE.md`'s Auth section. `GET /api/search` with no `brand` searches every brand's leads at once and requires a super-admin session specifically (no `x-api-key` bypass), since no single brand grant covers that scope. `PUT /api/settings` and `POST /api/search-learning` (global, not brand-scoped) require `x-api-key` or any authenticated session (issue #192).
+`/api/health`, `/api/lead-taxonomy` (added 2.4.111, serves the controlled sports-industry taxonomy vocabularies), `GET /api/settings`, and `GET /api/search-learning` are the only fully public data endpoints — all four serve non-sensitive, non-lead, non-PII data (static metadata or read-only aggregate config). A few more routes are public by design because their caller cannot sign in, and each has its own gate (issue #229): the prospect booking page's `GET /api/schedule/[brand]/availability` and `POST /api/schedule/[brand]/book` (per-IP rate limit, slot must match a free slot), `GET /api/quotes/[quoteId]/view` (a 128-bit share token, constant-time compare, rate limited per quote and client IP), `POST /api/webhooks/inbound-email` (Resend/Svix signature), and the two OAuth callbacks `GET /api/oauth/callback` (login, PKCE state) and `GET /api/integrations/oauth/callback` (single-use server-side state plus a session check, issue #228). Every lead-data endpoint (listings, search, boards, forecast export, metrics, win-rates, ticket-size calibration) requires either an `x-api-key` header or an authenticated browser session with access to the requested `brand` (issues #104, #192) — there is no unauthenticated read path to lead or business data (sales settings, the product catalog and the outcome/outreach log reads were open until 2.4.226, issue #226). One exception within the lead endpoints: `PUT /api/leads/[id]` (the research agent's enrichment path) accepts `x-api-key` only, not a session — see `docs/OPERATOR_GUIDE.md`'s Auth section. `GET /api/search` with no `brand` searches every brand's leads at once and requires a super-admin session specifically (no `x-api-key` bypass), since no single brand grant covers that scope. `PUT /api/settings` and `POST /api/search-learning` (global, not brand-scoped) require `x-api-key` or any authenticated session (issue #192).
 
 Key endpoints:
 - `GET /api/leads?brand=<brand>` — list leads (page-based by default; cursor pagination via `?cursor=`)
