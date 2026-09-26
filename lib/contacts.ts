@@ -142,9 +142,13 @@ export function normalizeEmail(email: string): string {
 // - Name particles ("van der berg", "de la cruz") are capitalized like every
 //   other word rather than kept lowercase per locale/family convention —
 //   this app has no data to decide otherwise.
+//
+// Any lowercase letter counts as a word start, not just a-z: an ASCII-only
+// pattern stored "Murat Çolak" as "Murat çolak" (and likewise Émile,
+// Ødegaard, Łukasz, Željko), found in the 2026-09-26 #132 research round.
 export function toNameCase(name: string): string {
   if (!name) return '';
-  return name.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_match, boundary, letter) => boundary + letter.toUpperCase());
+  return name.toLowerCase().replace(/(^|[\s'-])(\p{Ll})/gu, (_match, boundary, letter) => boundary + letter.toUpperCase());
 }
 
 export function normalizeContact(c: ContactInput, options?: NormalizeContactOptions): NormalizedContact {

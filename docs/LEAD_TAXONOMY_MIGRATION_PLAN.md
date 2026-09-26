@@ -18,6 +18,20 @@ Each lead was researched by an independent agent doing real web research (fetchi
 
 Two corrections were made to agent output before applying: Feyenoord's proposed `notes` would have overwritten the existing field (the brief given to that agent omitted the stored notes, so it couldn't see them) — merged instead; and EBANX's `canonicalLeadName` just repeated `entity_name`, so it was dropped. Post-write verification caught a real side effect (see the `kanbanColumn` checklist item in §9): 5 QUALIFIED leads across both 2026-09-25/26 batches were auto-demoted to DISCOVERED by the `ice` re-score and were restored to QUALIFIED the same day.
 
+### Progress update — 2026-09-26 — research round of 38 leads (issue #132)
+
+This round covered 38 leads: 27 Seyu and 11 CogMap, all in QUALIFIED/ENGAGED. They were picked from single-column, single-page reads. A 76-agent workflow ran one research agent and one adversarial verifier per lead; each verifier re-checked the claims against sources and returned the corrected payload. Verdicts: 3 "apply", 35 "apply with corrections", 0 rejected.
+
+Every payload was applied with `PUT /api/leads/{id}`, one lead at a time, with guards: existing notes kept first, and `kanbanColumn` pinned so an ICE re-score could not move the lead's stage. Each lead was then re-read. 35 came back fully matching. 3 flagged only `decision_maker_name`/`decision_maker_title`/`contact_phone`. Those are legacy fields the PUT route deliberately ignores: the same people are stored in `contacts` with `isDecisionMaker`, and the Cracovia phone is in `general_contact`, so nothing was lost.
+
+Where a payload set `country`, it agreed with the address-based correction made the same day (e.g. UCI `CH`, KS Cracovia `PL`, CD Mirandés `ES`, Al Ahli `SA`). That is an independent cross-check of the #222 fixes.
+
+16 duplicate candidates found while picking were skipped rather than researched and are listed on #137.
+
+The round also exposed a contact-name bug: `toNameCase` capitalised only `a-z`, so "Murat Çolak" was stored as "Murat çolak". Fixed in 2.4.236. Existing names are corrected the next time the lead's contacts are saved.
+
+Leads: Seyu — Seattle Sounders FC Academy, San Jose Earthquakes Academy, Sacramento Republic FC, U.S. Soccer Federation, Sporting Clube de Portugal, Olympique de Marseille, Green Bay Packers, Bethesda Soccer Club, Cleveland Cavaliers Academy, Sky Sports, Leicester City FC, Nottingham Forest FC, Saracens RFC, UCI, New England Revolution Academy, New York City FC Academy, HNK Hajduk Split, KS Cracovia SA, MotorLand Aragón, Northampton Saints, Gloucester Rugby, Stade Toulousain Rugby, RMC Sport, Hungarian Handball Federation, CD Mirandés, Valencia Basket Club, Al Ahli Club Company. CogMap — Barça Academy USA, Altron HealthTech, Playermaker, Qatar Football Association, AHFC Royals, Al-Ahli Saudi FC, FC Slovan Liberec, FC Shakhtar Donetsk, Latvian Higher League, SciTEP, Entropiq.
+
 ### Progress update — 2026-09-25/26 — two distinct bad-`country` signatures found and partially fixed (issues #222, #223)
 
 While picking the next issue #132 batch, small-scoped sampling of Seyu's QUALIFIED column (and a few other columns/pages, all within the same small-page-single-brand-single-column pattern established above — never a bulk multi-page dump) surfaced two **distinct, confirmed** bad-`country` data-quality patterns, each now tracked as its own issue since their root-cause signatures don't match:
@@ -26,7 +40,7 @@ While picking the next issue #132 batch, small-scoped sampling of Seyu's QUALIFI
 - **Issue #223** — a **different** pattern, found in the same sampling pass: `country` values that are either not real ISO 3166-1 alpha-2 codes at all (`EA`, `LO`, `SP`) or a real-but-wrong country's code (`SO`/Somalia on Gloucester Rugby — corrected 2026-09-26, earlier text wrongly called it invalid — `NE`/Niger, `NO`/Norway) — consistent with a mechanical "first two letters of the free-text `region` string" derivation bug, distinct from #222's identical-literal-`"DE"` signature (varied creation dates, a `region` field holding real descriptive text rather than a repeated wrong constant). 8 confirmed and fixed the same day (2.4.216): Northampton Saints, Saracens RFC, Gloucester Rugby → `GB`; Valencia Basket Club, LALIGA → `ES`; PSV Eindhoven → `NL`; AEG Presents, Live Nation Entertainment → `US`. **This pattern is silently self-masking roughly a third of the time** — `SSC Napoli`/`AS Roma` (region `"ITALY"` → coincidentally correct `"IT"`) and `Stade Toulousain Rugby` (region `"FRANCE"` → coincidentally correct `"FR"`) show the same mechanical derivation producing a right answer by chance, meaning a naive "does `country` look like a plausible ISO code" spot-check would miss real instances of this bug elsewhere in the database.
   - **Resolved 2026-09-26 (2.4.233–2.4.234):** the new country check found 30 stored invalid codes (Seyu 29, CogMap 1), all region-derived (`CE`, `SP`, `EM`, `EU`); all 30 were corrected and verified, and `lib/validate-lead.ts` now rejects any code not on the ISO list. Audit log: `docs/data-fixes/2026-09-26-country-corrections.md`.
 
-Both issues remain open pending a full-database scan this session's own bulk-read safeguard doesn't allow — see each issue's own Acceptance Criteria.
+The full-database scan was then done server-side with `GET /api/admin/data-hygiene/country` (2.4.231), which returns counts and at most 20 rows. It found 192 address-contradicted countries (fixed in 2.4.233) and 30 invalid codes (fixed in 2.4.234). #223 is closed. #222 stays open for `region`, which is a business decision; the details are on the issue.
 
 ### Progress update — 2026-08-02 (issue #132 resumed)
 

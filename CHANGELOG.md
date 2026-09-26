@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.236
+
+### Fix: contact names starting with a non-ASCII letter keep their capital; #132 research round of 38 leads
+
+- **Name casing.** `toNameCase` (`lib/contacts.ts`) capitalised only `a-z`,
+  so a name word starting with any other letter stayed lowercase: "Murat
+  Çolak" was stored as "Murat çolak", and likewise Émile, Ødegaard, Łukasz.
+  It now capitalises any lowercase letter. Names already stored are
+  corrected the next time the lead's contacts are saved. Found in this
+  round's data; a new unit test covers it and fails against the old code.
+- **Data (#132).** 38 leads (27 Seyu, 11 CogMap) were
+  researched, adversarially verified and applied one at a time, each
+  re-read afterwards. Three flagged only legacy fields the PUT route
+  ignores (the same people are in `contacts`, the phone is in
+  `general_contact`), so nothing was lost. Details are in
+  `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`.
+
 ## 2.4.235
 
 ### Docs: what historical `Lead.source` values mean (refs #193)
