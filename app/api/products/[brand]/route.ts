@@ -45,7 +45,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ products: products as unknown as Product[], brand, tenantId });
   } catch (error: any) {
     console.error('GET /api/products/[brand] Error:', error)
-    return NextResponse.json({ error: 'Failed to fetch products', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 })
   }
 }
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ product }, { status: 201 });
   } catch (error: any) {
     console.error('POST /api/products/[brand] Error:', error)
-    return NextResponse.json({ error: 'Failed to create product', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create product' }, { status: 500 })
   }
 }
 

@@ -41,7 +41,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     console.error('[API:boards/[brand]] GET error:', error)
     return NextResponse.json({
       error: 'Failed to fetch board metadata',
-      details: error.message,
     }, { status: 500 })
   }
 }

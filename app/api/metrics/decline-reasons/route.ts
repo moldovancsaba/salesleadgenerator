@@ -93,6 +93,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('[API:metrics/decline-reasons] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch decline reason metrics', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch decline reason metrics' }, { status: 500 })
   }
 }

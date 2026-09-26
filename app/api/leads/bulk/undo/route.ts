@@ -97,6 +97,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ results, skipped })
   } catch (error: any) {
     console.error('[API:leads/bulk/undo] POST error:', error)
-    return NextResponse.json({ error: 'Failed to undo bulk action', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to undo bulk action' }, { status: 500 })
   }
 }

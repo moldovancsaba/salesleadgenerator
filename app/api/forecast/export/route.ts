@@ -56,6 +56,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ brand, pipeline, totals: { weighted: pipeline.reduce((sum, row) => sum + row.weightedRevenue, 0) } })
   } catch (error: any) {
     console.error('[API:forecast/export] GET error:', error)
-    return NextResponse.json({ error: 'Failed to export forecast', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to export forecast' }, { status: 500 })
   }
 }

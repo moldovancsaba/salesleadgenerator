@@ -70,7 +70,7 @@ export async function GET(
     return NextResponse.json(toResponseShape(doc))
   } catch (error: any) {
     console.error('[API:battlecards/[id]] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch battlecard', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch battlecard' }, { status: 500 })
   }
 }
 
@@ -133,7 +133,7 @@ export async function PUT(
     return NextResponse.json(toResponseShape(result))
   } catch (error: any) {
     console.error('[API:battlecards/[id]] PUT error:', error)
-    return NextResponse.json({ error: 'Failed to update battlecard', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update battlecard' }, { status: 500 })
   }
 }
 
@@ -163,6 +163,6 @@ export async function DELETE(
     return new NextResponse(null, { status: 204 })
   } catch (error: any) {
     console.error('[API:battlecards/[id]] DELETE error:', error)
-    return NextResponse.json({ error: 'Failed to delete battlecard', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete battlecard' }, { status: 500 })
   }
 }

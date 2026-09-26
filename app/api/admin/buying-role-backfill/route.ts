@@ -56,6 +56,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ apply, totals, byBrand: results })
   } catch (error: any) {
     console.error('[API:admin/buying-role-backfill] POST error:', error)
-    return NextResponse.json({ error: 'Failed to backfill buying roles', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to backfill buying roles' }, { status: 500 })
   }
 }

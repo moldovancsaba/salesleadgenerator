@@ -94,7 +94,7 @@ export async function POST(
     return NextResponse.json({ sent: true, quote: updated ? { status: updated.status, sentAt: updated.sentAt } : { status: 'sent' } });
   } catch (error: any) {
     console.error('POST /api/leads/[id]/quotes/[quoteId]/send Error:', error);
-    return NextResponse.json({ error: 'Failed to send quote', details: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to send quote' }, { status: 500 });
   }
 }
 

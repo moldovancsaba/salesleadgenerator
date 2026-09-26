@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ report: reportDocToDefinition(doc) })
   } catch (error: any) {
     console.error('GET /api/reports/[id] Error:', error)
-    return NextResponse.json({ error: 'Failed to fetch report', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch report' }, { status: 500 })
   }
 }
 
@@ -65,7 +65,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ report: definition })
   } catch (error: any) {
     console.error('PATCH /api/reports/[id] Error:', error)
-    return NextResponse.json({ error: 'Failed to update report', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update report' }, { status: 500 })
   }
 }
 
@@ -92,7 +92,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     return new NextResponse(null, { status: 204 })
   } catch (error: any) {
     console.error('DELETE /api/reports/[id] Error:', error)
-    return NextResponse.json({ error: 'Failed to delete report', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete report' }, { status: 500 })
   }
 }
 

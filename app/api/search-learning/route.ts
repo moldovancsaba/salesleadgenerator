@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error('[API:search-learning] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch search learning data', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch search learning data' }, { status: 500 })
   }
 }
 
@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('[API:search-learning] POST error:', error)
-    return NextResponse.json({ error: 'Failed to update search learning data', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update search learning data' }, { status: 500 })
   }
 }
 

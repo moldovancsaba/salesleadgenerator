@@ -53,7 +53,7 @@ export async function POST(
     return NextResponse.json({ quote: { status: result.quote.status, signedAt: result.quote.signedAt, signedBy: result.quote.signedBy } });
   } catch (error: any) {
     console.error('POST /api/leads/[id]/quotes/[quoteId]/mark-signed Error:', error);
-    return NextResponse.json({ error: 'Failed to mark quote as signed', details: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to mark quote as signed' }, { status: 500 });
   }
 }
 

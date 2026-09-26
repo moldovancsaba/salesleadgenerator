@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ suggestions, brand, tenantId, returned: suggestions.length })
   } catch (error: any) {
     console.error('GET /api/contact-suggestions Error:', error)
-    return NextResponse.json({ error: 'Failed to fetch contact suggestions', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch contact suggestions' }, { status: 500 })
   }
 }
 

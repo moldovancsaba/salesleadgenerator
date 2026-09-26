@@ -42,6 +42,6 @@ export async function GET(request: Request) {
     })
   } catch (error: any) {
     console.error('[API:boards] GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch boards', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch boards' }, { status: 500 })
   }
 }

@@ -38,7 +38,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ product });
   } catch (error: any) {
     console.error('PATCH /api/products/[brand]/[productId] Error:', error)
-    return NextResponse.json({ error: 'Failed to update product', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update product' }, { status: 500 })
   }
 }
 
@@ -79,7 +79,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     return new NextResponse(null, { status: 204 });
   } catch (error: any) {
     console.error('DELETE /api/products/[brand]/[productId] Error:', error)
-    return NextResponse.json({ error: 'Failed to delete product', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 })
   }
 }
 

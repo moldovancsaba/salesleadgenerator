@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('GET /api/leads/assignable-users Error:', error)
-    return NextResponse.json({ error: 'Failed to fetch assignable users', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch assignable users' }, { status: 500 })
   }
 }
 

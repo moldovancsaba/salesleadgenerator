@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ recalculatedAt: new Date().toISOString(), ...result })
   } catch (error: any) {
     console.error('[API:admin/ticket-size-recalc] GET error:', error)
-    return NextResponse.json({ error: 'Failed to recalculate ticket sizes', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to recalculate ticket sizes' }, { status: 500 })
   }
 }
 
@@ -85,6 +85,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ recalculatedAt: new Date().toISOString(), ...result })
   } catch (error: any) {
     console.error('[API:admin/ticket-size-recalc] POST error:', error)
-    return NextResponse.json({ error: 'Failed to recalculate ticket sizes', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to recalculate ticket sizes' }, { status: 500 })
   }
 }
