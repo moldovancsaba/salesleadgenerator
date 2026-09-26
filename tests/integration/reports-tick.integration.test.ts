@@ -1,8 +1,28 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import { NextRequest } from 'next/server';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
 import { buildApiRequest } from './helpers/api-request';
+
+// Delivery is mocked at the module boundary so both sides of issue #224's
+// guard can be exercised: sending not configured (run held) vs configured
+// but the send failing (run still advances, recorded as an error).
+const deliveryConfiguredMock = vi.fn(() => false);
+const sendReportEmailMock = vi.fn();
+vi.mock('../../lib/report-delivery', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/report-delivery')>();
+  return {
+    ...actual,
+    isReportDeliveryConfigured: () => deliveryConfiguredMock(),
+    sendReportEmail: (...args: any[]) => sendReportEmailMock(...args),
+  };
+});
+
+beforeEach(() => {
+  deliveryConfiguredMock.mockReturnValue(false);
+  sendReportEmailMock.mockReset();
+  sendReportEmailMock.mockResolvedValue({ sent: false, reason: 'Resend rejected the send' });
+});
 
 let mongod: MongoMemoryServer;
 let tickGET: typeof import('../../app/api/admin/reports-tick/route').GET;
@@ -56,20 +76,49 @@ describe('GET /api/admin/reports-tick (issue 212)', () => {
     expect(res.status).toBe(401);
   });
 
-  it('processes a due, enabled definition and advances nextRunAt', async () => {
+  it('with delivery configured but the send failing, still advances nextRunAt and records an error', async () => {
+    deliveryConfiguredMock.mockReturnValue(true);
     const doc = await seedDueReport();
     const res = await tickGET(buildApiRequest('/api/admin/reports-tick'));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.processed).toBeGreaterThanOrEqual(1);
+    expect(sendReportEmailMock).toHaveBeenCalled();
 
     const database = await db();
     const updated = await database.collection('report_definitions').findOne({ id: doc.id });
     expect(new Date(updated!.schedule.nextRunAt).getTime()).toBeGreaterThan(new Date(doc.schedule.nextRunAt).getTime());
-    // No RESEND_API_KEY in this sandbox — the send itself fails, but the
-    // tick must still run to completion and record a real, honest status
-    // rather than crashing or silently marking it "ok".
+    // A configured-but-failing send must still let the tick finish and
+    // record an honest status rather than crashing or claiming "ok".
     expect(updated!.lastRunStatus).toBe('error');
+  });
+
+  it('with delivery configured and the send succeeding, advances nextRunAt with status ok', async () => {
+    deliveryConfiguredMock.mockReturnValue(true);
+    sendReportEmailMock.mockResolvedValue({ sent: true });
+    const doc = await seedDueReport();
+    await tickGET(buildApiRequest('/api/admin/reports-tick'));
+
+    const database = await db();
+    const updated = await database.collection('report_definitions').findOne({ id: doc.id });
+    expect(updated!.lastRunStatus).toBe('ok');
+    expect(new Date(updated!.schedule.nextRunAt).getTime()).toBeGreaterThan(new Date(doc.schedule.nextRunAt).getTime());
+  });
+
+  // Issue #224: without RESEND_API_KEY the run must be held, not skipped.
+  it('with delivery not configured, holds the run: no send attempt, nextRunAt and status unchanged', async () => {
+    const doc = await seedDueReport();
+    const res = await tickGET(buildApiRequest('/api/admin/reports-tick'));
+    const body = await res.json();
+    expect(sendReportEmailMock).not.toHaveBeenCalled();
+    expect(body.failures).toEqual(
+      expect.arrayContaining([expect.objectContaining({ reportId: doc.id, reason: expect.stringContaining('not configured') })])
+    );
+
+    const database = await db();
+    const updated = await database.collection('report_definitions').findOne({ id: doc.id });
+    expect(updated!.schedule.nextRunAt).toBe(doc.schedule.nextRunAt);
+    expect(updated!.lastRunStatus).toBeUndefined();
   });
 
   it('never processes a disabled or not-yet-due definition', async () => {
@@ -86,6 +135,7 @@ describe('GET /api/admin/reports-tick (issue 212)', () => {
   });
 
   it('tolerates a definition whose brand cannot be resolved, without aborting the batch', async () => {
+    deliveryConfiguredMock.mockReturnValue(true);
     const unresolvable = await seedDueReport({ id: 'report-bad-brand', brand: 'not-a-real-brand' });
     const goodOne = await seedDueReport({ id: 'report-good' });
 

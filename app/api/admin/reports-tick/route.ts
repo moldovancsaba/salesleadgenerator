@@ -4,7 +4,7 @@ import { requireCronOrApiKey, requireApiKey } from '../../../../lib/api-auth'
 import { getAllBrandConfigs } from '../../../lib/brand'
 import { resolveOutboundFromAddress } from '../../../../lib/outreach-send'
 import { computeNextRunAt } from '../../../../lib/report-definitions'
-import { sendReportEmail, renderReportEmailHtml } from '../../../../lib/report-delivery'
+import { sendReportEmail, renderReportEmailHtml, isReportDeliveryConfigured } from '../../../../lib/report-delivery'
 import { REPORT_DEFINITIONS_COLLECTION, reportDocToDefinition, runReportDefinition } from '../../../lib/report-store'
 
 export const dynamic = 'force-dynamic'
@@ -43,6 +43,15 @@ async function runReportsTick(): Promise<TickSummary> {
     // crashes the tick (issue #212 §15).
     if (!config || !definition.schedule) {
       summary.failures.push({ reportId: definition.id, brand: definition.brand, reason: 'brand or schedule unresolvable' })
+      continue
+    }
+
+    // Issue #224: without RESEND_API_KEY every delivery fails, and the
+    // failure path below would still advance nextRunAt — silently skipping
+    // each scheduled run. Hold the run instead so it is delivered once
+    // sending is configured.
+    if (!isReportDeliveryConfigured()) {
+      summary.failures.push({ reportId: definition.id, brand: definition.brand, reason: 'report delivery not configured (RESEND_API_KEY unset): run held, nextRunAt unchanged' })
       continue
     }
 

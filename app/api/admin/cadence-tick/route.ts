@@ -9,7 +9,7 @@ import { DEFAULT_OUTREACH_TEMPLATES } from '../../../lib/outreach/default-templa
 import type { OutreachTemplate } from '../../../lib/outreach/default-templates'
 import { advanceActiveCadence } from '../../../../lib/cadences'
 import type { CadenceStep, ActiveCadence } from '../../../../lib/cadences'
-import { sendAutomatedEmail } from '../../../../lib/outreach-send'
+import { sendAutomatedEmail, isResendSendConfigured } from '../../../../lib/outreach-send'
 import type { LeadForSend } from '../../../../lib/outreach-send'
 
 export const dynamic = 'force-dynamic'
@@ -33,6 +33,7 @@ type TickSummary = {
   emailsSent: number
   remindersSet: number
   cadencesCompleted: number
+  emailStepsHeld: number
   failures: Array<{ leadId: string; brand: string; reason: string }>
 }
 
@@ -71,7 +72,7 @@ async function runCadenceTick(): Promise<TickSummary> {
   const now = new Date()
   const nowIso = now.toISOString()
 
-  const summary: TickSummary = { processed: 0, emailsSent: 0, remindersSet: 0, cadencesCompleted: 0, failures: [] }
+  const summary: TickSummary = { processed: 0, emailsSent: 0, remindersSet: 0, cadencesCompleted: 0, emailStepsHeld: 0, failures: [] }
 
   // Derived from BRAND_CONFIG, never a hardcoded brand list (issue #147's
   // own fix for the same class of bug) — a future brand needs no change here.
@@ -134,6 +135,16 @@ async function runCadenceTick(): Promise<TickSummary> {
       const cadenceForAdvance = { id: cadenceDoc._id.toString(), steps }
 
       if (currentStep.channel === 'email') {
+        // Issue #224: with no RESEND_API_KEY every send is guaranteed to fail,
+        // and the advance-on-failure rule below would silently walk every
+        // enrolled lead through its email steps without sending anything.
+        // Hold the step instead — no send attempt, no advance — so the
+        // cadence resumes exactly where it was once sending is configured.
+        if (!isResendSendConfigured()) {
+          summary.emailStepsHeld++
+          summary.failures.push({ leadId, brand, reason: 'email sending not configured (RESEND_API_KEY unset): step held, cadence not advanced' })
+          continue
+        }
         const template = await resolveTemplate(db, brand, currentStep.templateId)
         const leadForSend: LeadForSend = { ...leadDoc, _id: leadId }
         const result = await sendAutomatedEmail(db, leadForSend, template, {
