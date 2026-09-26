@@ -857,8 +857,12 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
       // one yet (this field was only just wired up — see CHANGELOG) would
       // 400 every other edit on this form too. Leaving it out here means
       // "no change," matching the manual-ticket-size fields' own contract below.
-      if (editForm.country.trim()) {
-        payload.country = editForm.country.trim().toUpperCase();
+      // Issue #223: also omitted when unchanged, so a lead whose stored code
+      // is invalid can still save its other fields; only an actual country
+      // edit is validated.
+      const editedCountry = editForm.country.trim().toUpperCase();
+      if (editedCountry && editedCountry !== String(lead.country || '').toUpperCase()) {
+        payload.country = editedCountry;
       }
       // Only included when both fields are actually filled in — a blank
       // reason server-side silently skips setting the override rather than

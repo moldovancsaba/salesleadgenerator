@@ -207,3 +207,50 @@ Of Seyu's 189 fixes, 180 had been stored as `US`. That is a second default-value
 | seyu | `6a62edc618edb7e1050003ba` | Euro Hockey League | US | NL | Netherlands |
 | seyu | `6a63030ecb085977ed76222a` | MAZ Staging | DE | NL | Netherlands |
 | seyu | `6a682ca9febef7e0d4f3ae5c` | Global Esports Federation | US | SG | Singapore |
+
+## Invalid country codes (issue #223)
+
+30 leads stored a `country` that is not an ISO code. Each code was the first two letters of the free-text `region`: `CEE`→`CE`, `Spain`/`SPAIN`→`SP`, `EMEA`→`EM`/`EU`. They were fixed with the same one-lead-at-a-time procedure as above.
+
+The evidence is the lead's own address, with 4 exceptions:
+- 3 leads have no address, but their own names contain their city (Sparta Praha, Legia Warsaw, CSKA Sofia).
+- Infront Sports & Media's headquarters was confirmed from its own contact page (infront.sport/contact: Grafenauweg 2, 6302 Zug, Switzerland).
+
+After the run the check reports `invalid-code: 0` for every brand.
+
+Two records to review separately:
+- Seyu lead `Verify Real Madrid` is named like a to-do item, not an organisation.
+- Real Madrid Baloncesto's address contains a stray non-Latin character (`Avenida de las绮`).
+
+| Brand | Lead id | Lead | Was | Now | Evidence |
+|---|---|---|---|---|---|
+| seyu | `6a57f752ec5bee09b71ea52e` | KS Cracovia SA | CE | PL | the lead's own address names "Poland" |
+| seyu | `6a57f752ec5bee09b71ea530` | SK Slavia Praha | CE | CZ | the lead's own address names "Czech Republic" |
+| seyu | `6a57f753ec5bee09b71ea532` | HNK Hajduk Split | CE | HR | the lead's own address names "Croatia" |
+| seyu | `6a57f760ec5bee09b71ea56e` | Red Star Belgrade (Crvena zvezda) | CE | RS | the lead's own address names "Serbia" |
+| seyu | `6a5800d0c32aacfacd04eeee` | AC Sparta Praha | CE | CZ | the lead name names Praha (Prague) |
+| seyu | `6a5800d1c32aacfacd04eef2` | Legia Warsaw Academy | CE | PL | the lead name names Warsaw |
+| seyu | `6a5800d3c32aacfacd04eef8` | CSKA Sofia Academy | CE | BG | the lead name names Sofia |
+| seyu | `6a58281725ec8c91af9b33ea` | CD Leganés | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58281725ec8c91af9b33ec` | Granada CF | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a583d9a2de94f978074fdf3` | RCD Espanyol | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a585345e246f59b514b01f9` | Club Atlético de Madrid | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58726f8a72b619ae4eb91e` | Atlético de Madrid | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58732c8a72b619ae4eb920` | Villarreal CF | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a587d549821316ebfd38f66` | Real Zaragoza | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a589c284a93769cb782aff8` | Real Betis Balompié | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58ac529689d4dc7e733c4c` | Real Betis Baloncesto | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58ac5c9689d4dc7e733c4e` | Deportivo Alavés | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58add0f20f09610a99125f` | Sevilla FC | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58c2e4c5c92bff93e54e93` | RC Celta de Vigo | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58c3973869171d5c2245a9` | Real Sociedad de Fútbol | SP | ES | the lead's own address names "Spain" |
+| cogmap | `6a6063fd5634a8768d6f670b` | Huddersfield Town AFC | EU | GB | the lead's own address names "England" |
+| seyu | `6a58c70f5d03eb4d060f7d6b` | Girona FC | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58c70f756e44a5e8ca6aeb` | Athletic Club Bilbao | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58c7fa756e44a5e8ca6aed` | UD Las Palmas | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58c940756e44a5e8ca6aef` | Real Sociedad | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58dbc4342dc3346d04bcd6` | Real Madrid Baloncesto | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58dbe6342dc3346d04bcd8` | Verify Real Madrid | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58e9989b6d14a45345b3b9` | Getafe CF | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a58e9999b6d14a45345b3bb` | RCD Mallorca | SP | ES | the lead's own address names "Spain" |
+| seyu | `6a6337d762c63b1c3426e389` | Infront Sports & Media | EM | CH | Infront's own contact page (infront.sport/contact) gives its headquarters as Grafenauweg 2, 6302 Zug, Switzerland |

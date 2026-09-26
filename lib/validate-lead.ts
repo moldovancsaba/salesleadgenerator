@@ -6,6 +6,7 @@ import {
   GENDER_CODES, DEMOGRAPHIC_CODES, COMPETITION_LEVEL_CODES, RELATIONSHIP_CODES,
 } from './lead-taxonomy';
 import { validateFieldVerifications } from './field-verifications';
+import { isValidIsoCountry } from './iso-country-codes';
 import { isValidBuyingRole, BUYING_ROLES } from './contacts';
 
 export interface ValidationResult {
@@ -13,7 +14,6 @@ export interface ValidationResult {
   errors: string[];
 }
 
-const ISO_COUNTRY_RE = /^[A-Z]{2}$/;
 const URL_RE = /^https?:\/\/\S+$/i;
 // Exported so lib/email-verification.ts's verifyEmail() runs the identical
 // format check before ever attempting an MX lookup (issue #67) — one
@@ -95,8 +95,13 @@ export function validateLeadPayload(body: any, brand: string, forbiddenTerms: st
   }
 
   if (!partial || body.country !== undefined) {
-    if (!body.country || typeof body.country !== 'string' || !ISO_COUNTRY_RE.test(body.country)) {
-      errors.push('country must be a 2-letter ISO code');
+    // Issue #223: the real ISO 3166-1 alpha-2 list (plus XK), not just any two
+    // capitals — 'SP' (Spain), 'CE' (from "CEE") and 'EM'/'EU' (from "EMEA")
+    // all passed the old /^[A-Z]{2}$/ check and reached production. Tightened
+    // only after every stored invalid value was corrected (2.4.234), so an
+    // existing lead can't start failing unrelated saves.
+    if (!body.country || typeof body.country !== 'string' || !isValidIsoCountry(body.country)) {
+      errors.push('country must be an ISO 3166-1 alpha-2 country code (e.g. ES, GB, US)');
     }
   }
 

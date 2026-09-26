@@ -32,8 +32,24 @@ describe('validateLeadPayload', () => {
   it('rejects invalid country and bad URL', () => {
     const result = validateLeadPayload({ ...basePayload, country: 'USA', url: 'not-a-url' }, 'cogmap', []);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContain('country must be a 2-letter ISO code');
+    expect(result.errors).toContain('country must be an ISO 3166-1 alpha-2 country code (e.g. ES, GB, US)');
     expect(result.errors.some((e) => e.includes('url must be a valid HTTP(S) URL'))).toBe(true);
+  });
+
+  // Issue #223: each of these passed the old two-capitals check and reached
+  // production, derived from the first letters of a free-text region.
+  it.each(['SP', 'CE', 'EM', 'EU', 'EA', 'LO'])('rejects the non-ISO code %s', (country) => {
+    const result = validateLeadPayload({ ...basePayload, country }, 'cogmap', []);
+    expect(result.valid).toBe(false);
+  });
+
+  it.each(['ES', 'GB', 'CH', 'XK'])('accepts the real code %s', (country) => {
+    expect(validateLeadPayload({ ...basePayload, country }, 'cogmap', []).valid).toBe(true);
+  });
+
+  it('checks country on a partial update only when it is sent', () => {
+    expect(validateLeadPayload({ notes: 'x' }, 'cogmap', [], { partial: true }).valid).toBe(true);
+    expect(validateLeadPayload({ country: 'SP' }, 'cogmap', [], { partial: true }).valid).toBe(false);
   });
 
   it('rejects invalid ICE values', () => {
