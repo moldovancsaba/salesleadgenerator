@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.218
+
+### Repo: removed AI-attribution trailers from 4 commit messages on `main` (CLAUDE.md Rule 8)
+
+Commits for 2.4.213-2.4.216 had been pushed with `Co-Authored-By`/
+`Claude-Session` trailers, which Rule 8 forbids. With the owner's explicit
+approval, the messages were rewritten and `main` force-pushed with a
+lease pinned to the expected remote hash. Code tree verified byte-identical
+before and after; only commit messages and hashes changed. Anyone holding a
+copy of `main` from before 2026-09-26 00:55 UTC should reset to
+`origin/main`. Recorded as `docs/LESSONS_LEARNED.md` item 23. No code
+changed.
+
 ## 2.4.217
 
 ### Data: taxonomy batch 2 — Villarreal CF, EBANX, FC Bayern Munich, Feyenoord Rotterdam; restored 5 leads auto-demoted out of QUALIFIED (issue #132)
