@@ -80,7 +80,7 @@ Every field below is grouped by how confidently and how often it's worth re-rese
 | `sport_or_sector` | string | Occasionally | |
 | `level_league` | string | Occasionally | e.g. "Professional", "Youth", "Semi-pro" — whatever's relevant to the sport. |
 | `region` | `US`/`CEE`/`MENA` (currently observed values; `region` has no server-side enum, so this is a convention, not an enforced set) | Rarely | Feeds `regionMultipliers` in the brand's Sales Settings for ticket-size estimation — get this right, it has downstream financial impact. |
-| `country` | 2-letter ISO 3166-1 alpha-2 | Once, if missing | **Every lead created before 2.4.98 has a permanently blank `country`** (see `docs/LESSONS_LEARNED.md` §6) — filling this in for an existing lead that's missing it is a genuinely valuable, safe enrichment target with no downside. |
+| `country` | ISO 3166-1 alpha-2 (`XK` for Kosovo). Since 2.4.234 the API rejects any code that isn't on the official list — `SP`, `UK` or a region's first letters (`CE`, `EM`) get a 400 | Once, if missing | **Every lead created before 2.4.98 has a permanently blank `country`** (see `docs/LESSONS_LEARNED.md` §6) — filling this in for an existing lead that's missing it is a genuinely valuable, safe enrichment target with no downside. |
 
 ### 2.3 Qualitative / narrative fields
 
@@ -405,8 +405,9 @@ has — do not attempt to fill in fields that are already fresh and correct:
      contact unchanged without actually re-checking it, since sending it
      is itself the claim "I verified this person just now."
 2. **Missing `country`.** If blank, determine the lead's actual country
-   (2-letter ISO code) from public sources (official site, registry,
-   address) — this is a safe, high-value, low-risk fill-in.
+   (ISO 3166-1 alpha-2 code: `ES` not `SP`, `GB` not `UK`) from public
+   sources (official site, registry, address) — this is a safe,
+   high-value, low-risk fill-in. Never derive it from the `region` text.
 3. **Firmographic signals** relevant to deal sizing: organization size tier
    (Small/Medium/Large/Enterprise — pick the closest real match, or omit
    the field if genuinely unclear), industry, sport/sector, and

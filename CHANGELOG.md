@@ -1,5 +1,33 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.234
+
+### Fix: only real ISO country codes are accepted, after correcting the 30 stored invalid ones (fixes #223)
+
+- **Data.** The country check found 30 leads (Seyu 29, CogMap 1) with a
+  code that isn't a country at all. Each was the first letters of the
+  free-text region: `CE` from "CEE", `SP` from "Spain", `EM`/`EU` from
+  "EMEA". All 30 were corrected one lead at a time and verified.
+  - Evidence was the lead's own address for 26 of them.
+  - 3 have no address, but their own name contains their city (Sparta
+    Praha, Legia Warsaw, CSKA Sofia).
+  - Infront Sports & Media was confirmed from its own contact page (Zug,
+    Switzerland).
+  - The check now reports `invalid-code: 0` everywhere. The audit log is
+    extended in `docs/data-fixes/2026-09-26-country-corrections.md`.
+- **Validation.** `lib/validate-lead.ts` checked only for two capital
+  letters, so `SP`, `CE` and `EM` all passed. It now checks the ISO
+  3166-1 alpha-2 list, plus `XK`. This was tightened only after the stored
+  values were fixed, so no existing lead starts failing.
+- **Edit Lead Details** no longer re-sends an unchanged country on every
+  save, so a lead with a bad stored code can still save its other fields.
+- Two records flagged for review in the audit log: a Seyu lead named
+  "Verify Real Madrid", and a stray non-Latin character in Real Madrid
+  Baloncesto's address.
+
+Validator tests: 6 non-ISO codes rejected, 4 real codes (including `XK`)
+accepted, and partial updates check `country` only when it is sent.
+
 ## 2.4.233
 
 ### Data: country corrected on 192 leads (refs #222 #223)
