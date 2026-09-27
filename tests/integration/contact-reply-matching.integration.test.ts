@@ -59,7 +59,7 @@ async function getDb() {
   return client.db();
 }
 
-describe('matchReplyToLeads (issue #142)', () => {
+describe('matchReplyToLeads (issue 142)', () => {
   it('returns no-match when no lead has the sender email in contactEmails[]', async () => {
     const db = await getDb();
     const result = await matchReplyToLeads(db, 'cogmap', 'default', 'nobody@nowhere.example.com');
@@ -96,7 +96,7 @@ describe('matchReplyToLeads (issue #142)', () => {
   });
 });
 
-describe('findMatchedContact (issue #142)', () => {
+describe('findMatchedContact (issue 142)', () => {
   it('finds the specific contact within the lead owning the sender email', async () => {
     const leadId = await createLead('cogmap', 'Find Contact FC', [
       { name: 'Other Contact', email: 'other@example.com' },
@@ -115,7 +115,7 @@ describe('findMatchedContact (issue #142)', () => {
   });
 });
 
-describe('generateContactSuggestion (issue #142)', () => {
+describe('generateContactSuggestion (issue 142)', () => {
   it('creates a pending suggestion when the signature reveals a changed title/phone', async () => {
     const leadId = await createLead('cogmap', 'Suggestion FC', [
       { name: 'Alex Chen', email: 'alex.chen@example.com', title: 'Manager' },

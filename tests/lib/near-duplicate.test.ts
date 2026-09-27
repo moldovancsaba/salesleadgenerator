@@ -171,7 +171,7 @@ describe('findCandidatePairs', () => {
   // lowercasing alone — confirmed via a standalone Dice-coefficient
   // computation before writing this fix (diacritic pair: 0.778, spacing
   // pair: 0.727).
-  describe('real duplicates found in production (issue #137)', () => {
+  describe('real duplicates found in production (issue 137)', () => {
     it('flags a diacritic-only variant at the default threshold', () => {
       const leads = [
         { _id: '1', entity_name: 'Fenerbahçe', url: 'fenerbahce.org', sport_or_sector: 'Soccer' },

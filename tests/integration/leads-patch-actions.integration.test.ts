@@ -70,7 +70,7 @@ function patchReq(id: string, body: Record<string, unknown>) {
   });
 }
 
-describe('PATCH /api/leads — action succeeds with valid credentials (issue #91/#104)', () => {
+describe('PATCH /api/leads — action succeeds with valid credentials (issue 91/104)', () => {
   it('succeeds with a valid credential and no browser session, matching the machine-caller path requireBrandAccessApi supports', async () => {
     const id = await seedLead('No Auth Header Co');
     const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'QUALIFIED', sortOrder: Date.now() }));
@@ -84,7 +84,7 @@ describe('PATCH /api/leads — action succeeds with valid credentials (issue #91
   });
 });
 
-describe('PATCH /api/leads — COLUMN_MOVE (issue #91)', () => {
+describe('PATCH /api/leads — COLUMN_MOVE (issue 91)', () => {
   it('moves a lead to the requested column and it is reflected on a subsequent GET', async () => {
     const id = await seedLead('Move Target Co');
     const patchRes = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'QUALIFIED', sortOrder: Date.now() }));
@@ -98,7 +98,7 @@ describe('PATCH /api/leads — COLUMN_MOVE (issue #91)', () => {
     expect(moved.kanbanColumn).toBe('QUALIFIED');
   });
 
-  it('an explicit same-column COLUMN_MOVE is still accepted as a no-op-shaped success — regression guard for issue #208, which replaced app/kanban.tsx\'s old unconditional same-column short-circuit with real branching (cross-column/auto-managed-reject/reorder) that no longer sends COLUMN_MOVE for a same-column drag at all; this route\'s own COLUMN_MOVE behavior for a same-column target must stay unchanged regardless', async () => {
+  it('an explicit same-column COLUMN_MOVE is still accepted as a no-op-shaped success — regression guard for issue 208, which replaced app/kanban.tsx\'s old unconditional same-column short-circuit with real branching (cross-column/auto-managed-reject/reorder) that no longer sends COLUMN_MOVE for a same-column drag at all; this route\'s own COLUMN_MOVE behavior for a same-column target must stay unchanged regardless', async () => {
     // ENGAGED is gated (issue #72) — seeded with the required fields so this
     // test exercises same-column-move behavior, not the unrelated stage gate.
     const id = await seedLead('Same Column Co', {
@@ -111,7 +111,7 @@ describe('PATCH /api/leads — COLUMN_MOVE (issue #91)', () => {
   });
 });
 
-describe('PATCH /api/leads — ACCEPT/DECLINE (issue #90/#91 investigation)', () => {
+describe('PATCH /api/leads — ACCEPT/DECLINE (issue 90/91 investigation)', () => {
   it('ACCEPT sets status=qualified and increments acceptanceCount/feedbackScore', async () => {
     const id = await seedLead('Accept Me Co');
     const res = await PATCH(patchReq(id, { action: 'ACCEPT', annotation: 'Accepted' }));
@@ -171,7 +171,7 @@ describe('PATCH /api/leads — SET_FORECAST_CATEGORY (issue 204)', () => {
   });
 });
 
-describe('PATCH /api/leads — required-fields-per-stage gating (issue #72)', () => {
+describe('PATCH /api/leads — required-fields-per-stage gating (issue 72)', () => {
   it('blocks a COLUMN_MOVE into ENGAGED when required fields are missing, with a clear message', async () => {
     const id = await seedLead('No Contact Co');
     const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'ENGAGED', sortOrder: Date.now() }));
@@ -230,7 +230,7 @@ describe('PATCH /api/leads — MODIFY: country (regression guard, 2026-07-27)', 
   });
 });
 
-describe('PATCH /api/leads — MODIFY: deals (issue #114)', () => {
+describe('PATCH /api/leads — MODIFY: deals (issue 114)', () => {
   it('saves a manual deal and sums it', async () => {
     const id = await seedLead('Deal Co');
     const res = await PATCH(patchReq(id, { action: 'MODIFY', deals: [{ value: 50000, currency: 'USD', label: 'Renewal' }] }));
@@ -322,7 +322,7 @@ describe('PATCH /api/leads — MODIFY: deals with catalog lineItems (issue 215)'
   });
 });
 
-describe('PATCH /api/leads — MODIFY: checklist (issue #117)', () => {
+describe('PATCH /api/leads — MODIFY: checklist (issue 117)', () => {
   it('saves checklist items', async () => {
     const id = await seedLead('Checklist Co');
     const res = await PATCH(patchReq(id, { action: 'MODIFY', checklist: [{ text: 'Send proposal', done: false }] }));
@@ -342,7 +342,7 @@ describe('PATCH /api/leads — MODIFY: checklist (issue #117)', () => {
   });
 });
 
-describe('PATCH /api/leads — MODIFY: follow-up reminder (issue #121)', () => {
+describe('PATCH /api/leads — MODIFY: follow-up reminder (issue 121)', () => {
   it('sets nextActionDueAt and nextActionNote', async () => {
     const id = await seedLead('Followup Co');
     const due = new Date('2026-08-01T00:00:00.000Z').toISOString();
@@ -374,7 +374,7 @@ describe('PATCH /api/leads — MODIFY: follow-up reminder (issue #121)', () => {
   });
 });
 
-describe('PATCH /api/leads — MODIFY: qualification (issue #122)', () => {
+describe('PATCH /api/leads — MODIFY: qualification (issue 122)', () => {
   it('saves qualification fields', async () => {
     const id = await seedLead('Qual Co');
     const res = await PATCH(patchReq(id, {
@@ -409,7 +409,7 @@ describe('PATCH /api/leads — MODIFY: qualification (issue #122)', () => {
   });
 });
 
-describe('PATCH /api/leads — COLUMN_MOVE into/out of BACKLOG (issue #126)', () => {
+describe('PATCH /api/leads — COLUMN_MOVE into/out of BACKLOG (issue 126)', () => {
   it('moves a lead to BACKLOG', async () => {
     const id = await seedLead('Backlog Bound Co');
     const res = await PATCH(patchReq(id, { action: 'COLUMN_MOVE', kanbanColumn: 'BACKLOG', sortOrder: Date.now() }));
@@ -447,7 +447,7 @@ describe('PATCH /api/leads — COLUMN_MOVE into/out of BACKLOG (issue #126)', ()
   });
 });
 
-describe('DELETE /api/leads/[id] — action succeeds with valid credentials (issue #91/#104)', () => {
+describe('DELETE /api/leads/[id] — action succeeds with valid credentials (issue 91/104)', () => {
   it('succeeds with a valid credential and no browser session, matching the machine-caller path requireBrandAccessApi supports', async () => {
     const id = await seedLead('No Auth Delete Co');
     const res = await idDELETE(

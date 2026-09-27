@@ -107,7 +107,7 @@ describe('brands collection populated — Mongo becomes fully authoritative', ()
   });
 });
 
-describe('slug/alias uniqueness (issue #195 Risk D — TOCTOU on concurrent create)', () => {
+describe('slug/alias uniqueness (issue 195 Risk D — TOCTOU on concurrent create)', () => {
   it('rejects a second brand with a duplicate slug', async () => {
     await createBrand(testBrandRecord());
     await expect(createBrand(testBrandRecord({ aliases: ['testco2'] }))).rejects.toThrow(/E11000|duplicate key/);

@@ -33,7 +33,7 @@ describe('lib/sso', () => {
   });
 
   describe('isSsoConfigured', () => {
-    it('is false when client credentials are unset (the current real state — issue #102 is blocked on manual registration)', async () => {
+    it('is false when client credentials are unset (the current real state — issue 102 is blocked on manual registration)', async () => {
       delete process.env.SSO_CLIENT_ID;
       delete process.env.SSO_CLIENT_SECRET;
       delete process.env.SSO_REDIRECT_URI;

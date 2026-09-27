@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { decodeHtmlEntities, decodeHtmlEntitiesInArray } from '../../lib/text-sanitize';
 
 describe('decodeHtmlEntities', () => {
-  it('decodes a literal &amp; artifact — the single most frequent real mistake found in the lead-taxonomy classification loop (issue #132)', () => {
+  it('decodes a literal &amp; artifact — the single most frequent real mistake found in the lead-taxonomy classification loop (issue 132)', () => {
     expect(decodeHtmlEntities('Owner &amp; General Manager')).toBe('Owner & General Manager');
   });
 

@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.243
+
+### Chore: `audit:gds-style` now exits clean (fixes #221)
+
+Its `forbidden-color` rule read a test title's own `#NNN` issue reference
+as a hex color literal. Removed the `#` from every issue-number
+reference inside a test title across the 27 affected files (`it(`/
+`describe(` title strings only — a `// issue #NNN` code comment is
+untouched, since the tool already strips comments and those are fine as
+they are). `npm run audit:gds-style` now exits 0 for the first time.
+
+No behavior change — titles only. Full gate green: 0 `tsc`/lint errors,
+1169/1169 unit, 582/582 integration, 5/5 smoke.
+
 ## 2.4.242
 
 ### Bug: a failed Google Calendar event-create left a booking slot falsely locked (fixes #232)

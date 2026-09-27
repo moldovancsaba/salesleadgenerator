@@ -276,7 +276,7 @@ describe('POST /api/webhooks/inbound-email', () => {
   // criteria. Builds on the matching/suggestion unit coverage in
   // tests/integration/contact-reply-matching.integration.test.ts by proving
   // the full webhook wiring (route -> matching -> suggestion) end-to-end.
-  describe('reply matching + contact-enrichment suggestions (issue #142)', () => {
+  describe('reply matching + contact-enrichment suggestions (issue 142)', () => {
     it('matches a reply to its lead, sets leadId/matchedContactKey, and stores a pending suggestion', async () => {
       const leadId = await createLead('cogmap', 'Reply Match FC', [
         { name: 'Pat Morgan', email: 'pat.morgan@example.com', title: 'Manager' },
@@ -419,7 +419,7 @@ describe('POST /api/webhooks/inbound-email — direction from lead matching (iss
   });
 });
 
-describe('POST /api/webhooks/inbound-email — outbound delivery events (issue #205)', () => {
+describe('POST /api/webhooks/inbound-email — outbound delivery events (issue 205)', () => {
   async function outreachLogsDb() {
     const { MongoClient } = await import('mongodb');
     const client = new MongoClient(process.env.MONGODB_URI!);

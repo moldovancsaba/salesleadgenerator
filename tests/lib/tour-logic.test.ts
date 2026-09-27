@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { shouldAutoStartOnPath, shouldMarkSeen, TOUR_REQUEST_STORAGE_KEY } from '../../app/lib/tour/tour-logic';
 
-describe('shouldAutoStartOnPath (issue #185)', () => {
+describe('shouldAutoStartOnPath (issue 185)', () => {
   it('matches the real sales board path for any brand slug', () => {
     expect(shouldAutoStartOnPath('/sales/cogmap')).toBe(true);
     expect(shouldAutoStartOnPath('/sales/seyu')).toBe(true);
@@ -29,7 +29,7 @@ describe('shouldAutoStartOnPath (issue #185)', () => {
   });
 });
 
-describe('shouldMarkSeen (issue #185)', () => {
+describe('shouldMarkSeen (issue 185)', () => {
   it('is true once at least one real step was highlighted', () => {
     expect(shouldMarkSeen({}, {})).toBe(true);
   });

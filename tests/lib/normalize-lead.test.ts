@@ -12,7 +12,7 @@ describe('normalizeLead', () => {
     expect(lead.sport_or_sector).toBe('Quantitative Hedge Fund');
   });
 
-  it('decodes stray HTML-entity artifacts in value_proposition/notes (issue #132, the loop\'s single most frequent real mistake)', () => {
+  it('decodes stray HTML-entity artifacts in value_proposition/notes (issue 132, the loop\'s single most frequent real mistake)', () => {
     const lead = normalizeLead({
       entity_name: 'Acme',
       value_proposition: 'Serving clients &amp; partners',

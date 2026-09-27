@@ -120,7 +120,7 @@ async function latestLog(leadId: string) {
   return db.collection('outreach_logs').findOne({ leadId }, { sort: { createdAt: -1 } });
 }
 
-describe('sendAutomatedEmail — routing failure never calls Resend (issue #150)', () => {
+describe('sendAutomatedEmail — routing failure never calls Resend (issue 150)', () => {
   it('returns sent:false and writes a routingAllowed:false log when the lead has no decision-maker email', async () => {
     const getCaptured = mockSendApi({ id: 'should-not-be-called' });
     const lead = makeLead({ contacts: [{ name: 'No Email Guy', isDecisionMaker: true }] });
@@ -139,7 +139,7 @@ describe('sendAutomatedEmail — routing failure never calls Resend (issue #150)
   });
 });
 
-describe('sendAutomatedEmail — missing template (issue #150)', () => {
+describe('sendAutomatedEmail — missing template (issue 150)', () => {
   it('returns sent:false with reason "template not found" and never calls Resend', async () => {
     const getCaptured = mockSendApi({ id: 'should-not-be-called' });
     const lead = makeLead();
@@ -156,7 +156,7 @@ describe('sendAutomatedEmail — missing template (issue #150)', () => {
   });
 });
 
-describe('sendAutomatedEmail — successful send (issue #150)', () => {
+describe('sendAutomatedEmail — successful send (issue 150)', () => {
   it('sends via Resend with the interpolated subject/body and writes a success log', async () => {
     const getCaptured = mockSendApi({ id: 'resend-email-id-1' });
     const lead = makeLead();
@@ -195,7 +195,7 @@ describe('sendAutomatedEmail — successful send (issue #150)', () => {
   });
 });
 
-describe('sendAutomatedEmail — Resend-side rejection is caught, never thrown (issue #150)', () => {
+describe('sendAutomatedEmail — Resend-side rejection is caught, never thrown (issue 150)', () => {
   it('a Resend API error response resolves to sent:false with a "resend rejected" reason, and logs it', async () => {
     mockSendApi({ errorStatus: 422, message: 'recipient is on suppression list' });
     const lead = makeLead();
@@ -227,7 +227,7 @@ describe('sendAutomatedEmail — Resend-side rejection is caught, never thrown (
   });
 });
 
-describe('sendAutomatedEmail — from-address resolution (issue #150, updated #195)', () => {
+describe('sendAutomatedEmail — from-address resolution (issue 150, updated 195)', () => {
   // Issue #195 — the per-brand override moved from the RESEND_FROM_<BRAND>
   // env var to the brand's own `fromEmail` field (app/lib/brand.ts's
   // BrandConfig), read from Mongo via getBrandConfig() instead of

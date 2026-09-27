@@ -189,7 +189,7 @@ describe('PATCH /api/leads/bulk', () => {
     expect(body.results[1].success).toBe(false);
   });
 
-  it('de-duplicates a repeated leadId instead of running the action twice for it (issue #109)', async () => {
+  it('de-duplicates a repeated leadId instead of running the action twice for it (issue 109)', async () => {
     const id = await seedLead('Bulk Duplicate Id Co');
 
     const res = await PATCH(req({
@@ -216,7 +216,7 @@ describe('PATCH /api/leads/bulk', () => {
     expect(lead?.feedbackScore).toBe(-1);
   });
 
-  it('blocks a bulk PIN for a lead missing stage-gate required fields (issue #72 interaction), without failing the batch', async () => {
+  it('blocks a bulk PIN for a lead missing stage-gate required fields (issue 72 interaction), without failing the batch', async () => {
     const ready = await seedLead('Bulk Pin Ready Co', {
       contacts: [{ isDecisionMaker: true }],
       value_proposition: 'Cognitive performance training',
@@ -233,7 +233,7 @@ describe('PATCH /api/leads/bulk', () => {
   });
 });
 
-describe('PATCH /api/leads/bulk — FIELD_EDIT (issue #203)', () => {
+describe('PATCH /api/leads/bulk — FIELD_EDIT (issue 203)', () => {
   it('rejects an unknown field', async () => {
     const id = await seedLead('Field Edit Bad Field Co');
     const res = await PATCH(req({ brand: 'cogmap', leadIds: [id], action: 'FIELD_EDIT', payload: { field: 'notes', value: 'x' } }));
@@ -292,7 +292,7 @@ describe('PATCH /api/leads/bulk — FIELD_EDIT (issue #203)', () => {
   });
 });
 
-describe('PATCH /api/leads/bulk — ASSIGN (issue #203)', () => {
+describe('PATCH /api/leads/bulk — ASSIGN (issue 203)', () => {
   it('self-assigns every lead in the selection', async () => {
     await seedUserAccess({ ssoUserId: 'bulk-user-1', email: 'bulk-user-1@test.example.com', orgAccess: { cogmap: 'user' } });
     const id1 = await seedLead('Bulk Self Assign Co A');
@@ -343,7 +343,7 @@ describe('PATCH /api/leads/bulk — ASSIGN (issue #203)', () => {
   });
 });
 
-describe('PATCH /api/leads/bulk — undo capture (issue #203)', () => {
+describe('PATCH /api/leads/bulk — undo capture (issue 203)', () => {
   it('returns an undo token for a successful DECLINE, flagging cadence-cancelled leads as not reversible', async () => {
     const withCadence = await seedLead('Undo Capture Cadence Co', {
       activeCadence: { cadenceId: 'c1', currentStepIndex: 0, stepDueAt: new Date().toISOString(), enrolledAt: new Date().toISOString() },
@@ -368,7 +368,7 @@ describe('PATCH /api/leads/bulk — undo capture (issue #203)', () => {
   });
 });
 
-describe('POST /api/leads/bulk/undo (issue #203)', () => {
+describe('POST /api/leads/bulk/undo (issue 203)', () => {
   it('rejects a missing token', async () => {
     const res = await undoPOST(undoReq({ brand: 'cogmap' }));
     expect(res.status).toBe(400);
@@ -475,7 +475,7 @@ describe('POST /api/leads/bulk/undo (issue #203)', () => {
     expect(second.status).toBe(404);
   });
 
-  it('creates the bulkActionUndoTokens TTL index on expiresAt (issue #203 §19 — the TTL mechanism itself, not just the application-level check)', async () => {
+  it('creates the bulkActionUndoTokens TTL index on expiresAt (issue 203 §19 — the TTL mechanism itself, not just the application-level check)', async () => {
     const id = await seedLead('Undo Ttl Index Co');
     await PATCH(req({ brand: 'cogmap', leadIds: [id], action: 'DECLINE', payload: { declineReason: 'OTHER' } }));
 

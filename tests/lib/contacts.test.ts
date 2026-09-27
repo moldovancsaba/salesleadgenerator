@@ -15,7 +15,7 @@ describe('normalizeContact', () => {
     expect(normalizeContact({ name: 'A', isDecisionMaker: true }).isDecisionMaker).toBe(true);
   });
 
-  it('decodes stray HTML-entity artifacts in name/title/role (issue #132, the loop\'s single most frequent real mistake)', () => {
+  it('decodes stray HTML-entity artifacts in name/title/role (issue 132, the loop\'s single most frequent real mistake)', () => {
     const c = normalizeContact({ name: 'Bed &amp; Breakfast Owner', title: 'Owner &amp; General Manager', role: 'Communications &amp; Marketing Director' });
     expect(c.name).toBe('Bed & Breakfast Owner');
     expect(c.title).toBe('Owner & General Manager');
@@ -29,7 +29,7 @@ describe('normalizeContact', () => {
     expect(c.name).toBe('');
   });
 
-  it('derives seniorityTier/department from title on every normalize (issue #68)', () => {
+  it('derives seniorityTier/department from title on every normalize (issue 68)', () => {
     const c = normalizeContact({ name: 'A', title: 'VP of Sales' });
     expect(c.seniorityTier).toBe('VP');
     expect(c.department).toBe('Sales');
@@ -51,7 +51,7 @@ describe('normalizeContact', () => {
   });
 });
 
-describe('toNameCase (issue #96)', () => {
+describe('toNameCase (issue 96)', () => {
   it('title-cases all-caps input', () => {
     expect(toNameCase('JOHN SMITH')).toBe('John Smith');
   });
@@ -88,7 +88,7 @@ describe('toNameCase (issue #96)', () => {
   });
 });
 
-describe('normalizeContact — name casing (issue #96)', () => {
+describe('normalizeContact — name casing (issue 96)', () => {
   it('title-cases a contact name on every normalize', () => {
     expect(normalizeContact({ name: 'JOHN SMITH' }).name).toBe('John Smith');
     expect(normalizeContact({ name: 'john smith' }).name).toBe('John Smith');
@@ -227,7 +227,7 @@ describe('dedupeContacts', () => {
   });
 });
 
-describe('resolveBuyingRole (issue #206)', () => {
+describe('resolveBuyingRole (issue 206)', () => {
   it('an explicit, valid buyingRole always wins, even over a conflicting isDecisionMaker', () => {
     expect(resolveBuyingRole({ buyingRole: 'blocker', isDecisionMaker: true })).toBe('blocker');
     expect(resolveBuyingRole({ buyingRole: 'champion', isDecisionMaker: false })).toBe('champion');
@@ -249,7 +249,7 @@ describe('resolveBuyingRole (issue #206)', () => {
   });
 });
 
-describe('deriveIsDecisionMaker (issue #206)', () => {
+describe('deriveIsDecisionMaker (issue 206)', () => {
   it('true only for decision_maker and economic_buyer', () => {
     expect(deriveIsDecisionMaker('decision_maker')).toBe(true);
     expect(deriveIsDecisionMaker('economic_buyer')).toBe(true);
@@ -263,7 +263,7 @@ describe('deriveIsDecisionMaker (issue #206)', () => {
   });
 });
 
-describe('isValidBuyingRole (issue #206)', () => {
+describe('isValidBuyingRole (issue 206)', () => {
   it('accepts exactly the 6 closed-enum values', () => {
     for (const role of BUYING_ROLES) expect(isValidBuyingRole(role)).toBe(true);
   });
@@ -276,7 +276,7 @@ describe('isValidBuyingRole (issue #206)', () => {
   });
 });
 
-describe('normalizeContact — buyingRole (issue #206)', () => {
+describe('normalizeContact — buyingRole (issue 206)', () => {
   it('derives isDecisionMaker from buyingRole, not the other way around', () => {
     const c = normalizeContact({ name: 'A', buyingRole: 'economic_buyer' });
     expect(c.buyingRole).toBe('economic_buyer');
@@ -324,7 +324,7 @@ describe('normalizePhone', () => {
   // Issue #133 — extension notation was silently fusing into the subscriber
   // number ("+1-804-823-9191 ext. 5" -> the real, wrong "+180482391915").
   // Every notation below must now truncate at the marker, never fuse.
-  describe('extension notation (issue #133)', () => {
+  describe('extension notation (issue 133)', () => {
     it('drops "ext. N" — the exact real-world corruption case', () => {
       expect(normalizePhone('+1-804-823-9191 ext. 5')).toBe('+18048239191');
     });
@@ -378,7 +378,7 @@ describe('normalizeEmail', () => {
   });
 });
 
-describe('aggregateContactsAcrossLeads (issue #139)', () => {
+describe('aggregateContactsAcrossLeads (issue 139)', () => {
   it('groups the same contact (by contactKey) across two leads into one entry with both leads attached', () => {
     const result = aggregateContactsAcrossLeads([
       { _id: 'lead-1', entity_name: 'Acme FC', contacts: [{ name: 'Jane Doe', phone: '5551234567', isDecisionMaker: true }] },
@@ -430,7 +430,7 @@ describe('aggregateContactsAcrossLeads (issue #139)', () => {
   });
 });
 
-describe('deriveContactEmails (issue #142)', () => {
+describe('deriveContactEmails (issue 142)', () => {
   it('collects lowercased emails from every contact that has one', () => {
     const contacts = [
       normalizeContact({ name: 'Jane', email: 'JANE@Example.com' }),

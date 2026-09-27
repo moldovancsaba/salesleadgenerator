@@ -79,7 +79,7 @@ describe('backfillTicketSizeCollection', () => {
     expect(db._updates[0].set.ticketSizeEstimate.method).toBe('tier_band');
   });
 
-  it('backfills to the smallest configured band, flagged sizeAssumed, when the lead has no size (issue #112)', async () => {
+  it('backfills to the smallest configured band, flagged sizeAssumed, when the lead has no size (issue 112)', async () => {
     const db = fakeDb([{ _id: '1' }], { dealSize: { small: 5000, medium: 20000 }, products: [] });
     const result = await backfillTicketSizeCollection(db, 'leads', 'cogmap', 'default', 'USD', { apply: true }, NOW);
 
@@ -108,7 +108,7 @@ describe('backfillTicketSizeCollection', () => {
     expect(db._updates[0].set.ticketSizeEstimate.method).toBe('unconfigured');
   });
 
-  it('applies a configured region multiplier keyed by the lead\'s own (uppercased) region (issue #84)', async () => {
+  it('applies a configured region multiplier keyed by the lead\'s own (uppercased) region (issue 84)', async () => {
     const db = fakeDb(
       [{ _id: '1', size: 'Medium', region: 'cee' }],
       { dealSize: { medium: 40000, largestWon: 300000 }, products: [], regionMultipliers: { CEE: 0.5 } }
@@ -129,7 +129,7 @@ describe('backfillTicketSizeCollection', () => {
     expect(db._updates[0].set.ticketSizeEstimate.expected).toBe(40000);
   });
 
-  it('permanently skips a lead with a manual ticket-size override, never overwriting it (issue #86)', async () => {
+  it('permanently skips a lead with a manual ticket-size override, never overwriting it (issue 86)', async () => {
     const overridden = [{
       _id: '1', size: 'Medium',
       // A stale-looking override relative to today's settings (medium band

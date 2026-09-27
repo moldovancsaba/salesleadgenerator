@@ -57,7 +57,7 @@ function patchReq(id: string, body: Record<string, unknown>) {
   });
 }
 
-describe('PATCH /api/leads — COLUMN_REORDER (issue #208)', () => {
+describe('PATCH /api/leads — COLUMN_REORDER (issue 208)', () => {
   it('reorders a lead between two existing neighbors and persists a sortOrder strictly between them', async () => {
     const topId = await seedLead('Top Lead Co', { sortOrder: 2000 });
     const bottomId = await seedLead('Bottom Lead Co', { sortOrder: 1000 });
