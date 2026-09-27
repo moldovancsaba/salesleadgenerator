@@ -1,5 +1,36 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.246
+
+### Enhancement: two new taxonomy codes, two documented rules (fixes #231)
+
+Owner decided all four #132-surfaced conventions 2026-09-27.
+
+- `competitionLevelCode` gains `collegiate` (NCAA-style college athletics
+  is a different buyer than an adult amateur/semi-pro club). Re-coded:
+  Duke University Athletics, University of Alabama Athletics (both
+  brands) — all three were `unknown`.
+- `orgTypeCode` gains `olympic-committee` (a National Olympic Committee
+  is a whole-country umbrella body, not a single-sport federation).
+  Re-coded: Saudi Arabian Olympic Committee, Egyptian Olympic Committee
+  (were `federation`), United States Olympic & Paralympic Committee
+  (had none).
+- `docs/LEAD_ENRICHMENT_GUIDE.md` now states two more rules with no data
+  change needed: `genderCode` describes a lead's sales scope, not its
+  whole organisation; a section of a larger club is sized by its own
+  economics when known, its parent only as a fallback. Real Madrid
+  Baloncesto (the issue's own motivating example for the sizing rule)
+  was deliberately **not** re-sized — no real evidence of its own
+  economics was in hand, and guessing either direction would violate
+  this project's own "never guess" rule. Flagged for a future #132
+  round to verify with real research.
+- The enrichment guide's inlined vocabulary lists were updated in the
+  same change; `tests/lib/lead-taxonomy-doc-sync.test.ts` guards they
+  can't drift from `lib/lead-taxonomy.ts` again.
+
+Full gate green: 0 `tsc`/lint errors, 1170/1170 unit, 582/582
+integration, 5/5 smoke, clean build, `audit:gds-style` clean.
+
 ## 2.4.245
 
 ### Data: resync `region` for the 192 leads whose `country` was already fixed (fixes #222)
