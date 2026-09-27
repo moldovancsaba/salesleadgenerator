@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.244
+
+### Data: delete the 4 confirmed DVSC test records (fixes #193)
+
+Owner approved deletion 2026-09-27. The 4 test/fixture leads found and
+listed on #193 (D5) — `example.com`/`example.hu` URLs, obviously
+placeholder names — were each re-read fresh to confirm nothing had
+changed, deleted one at a time via `DELETE /api/leads/[id]`, and
+re-confirmed gone via a fresh `GET` (404). DVSC's lead count drops from
+68 to 64. No other brand or record touched. Full record in
+`docs/data-fixes/2026-09-27-dvsc-test-record-deletion.md`. This closes
+#193 entirely — D1–D4 (the `Lead.source` vocabulary) were already
+resolved without data writes in 2.4.235.
+
 ## 2.4.243
 
 ### Chore: `audit:gds-style` now exits clean (fixes #221)
