@@ -33,7 +33,7 @@ function signRequest(payload: string, msgId = 'msg_test123', timestamp = new Dat
   };
 }
 
-describe('extractResendWebhookHeaders (issue #141)', () => {
+describe('extractResendWebhookHeaders (issue 141)', () => {
   it('extracts all 3 headers when present', () => {
     const headers = new Headers({ 'svix-id': 'a', 'svix-timestamp': 'b', 'svix-signature': 'c' });
     expect(extractResendWebhookHeaders(headers)).toEqual({ id: 'a', timestamp: 'b', signature: 'c' });
@@ -45,7 +45,7 @@ describe('extractResendWebhookHeaders (issue #141)', () => {
   });
 });
 
-describe('verifyResendWebhook (issue #141)', () => {
+describe('verifyResendWebhook (issue 141)', () => {
   const resend = new Resend('re_test_placeholder_key');
 
   it('accepts a validly-signed payload and returns the parsed JSON', () => {

@@ -42,7 +42,7 @@ describe('findForbiddenBrandTerms', () => {
   // getForbiddenTermsFor coverage) rather than a hand-maintained list; the
   // two scenarios below just confirm findForbiddenBrandTerms itself still
   // matches correctly against DVSC's derived forbidden set.
-  describe('DVSC symmetry (issue #147)', () => {
+  describe('DVSC symmetry (issue 147)', () => {
     it('flags a CogMap or Seyu mention in a DVSC lead', () => {
       expect(findForbiddenBrandTerms('Similar to cogmap', DVSC_FORBIDDEN)).toEqual(['cogmap']);
       expect(findForbiddenBrandTerms('Like seyu for fan engagement', DVSC_FORBIDDEN)).toEqual(['seyu']);

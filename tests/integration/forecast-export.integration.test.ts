@@ -84,7 +84,7 @@ async function seedCogmapLeadWithDeal(): Promise<void> {
   });
 }
 
-describe('GET /api/forecast/export — deals take priority (issue #114)', () => {
+describe('GET /api/forecast/export — deals take priority (issue 114)', () => {
   it('sums deals[] instead of using ticketSizeEstimate or the legacy revenue field', async () => {
     await seedCogmapLeadWithDeal();
     const res = await exportGET(req('/api/forecast/export?format=json&brand=cogmap'));

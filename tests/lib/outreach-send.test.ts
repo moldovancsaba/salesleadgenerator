@@ -7,7 +7,7 @@ afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
 });
 
-describe('isResendSendConfigured (issue #150)', () => {
+describe('isResendSendConfigured (issue 150)', () => {
   it('is false when RESEND_API_KEY is unset', () => {
     delete process.env.RESEND_API_KEY;
     expect(isResendSendConfigured()).toBe(false);
@@ -27,7 +27,7 @@ describe('isResendSendConfigured (issue #150)', () => {
 // it via getBrandConfig() — see tests/integration for that live-DB path).
 // This function itself is now a pure formatter: given brand + optional
 // fromEmail, no env/DB access at all beyond the domain-default fallback.
-describe('resolveOutboundFromAddress (issue #150, updated #195)', () => {
+describe('resolveOutboundFromAddress (issue 150, updated 195)', () => {
   beforeEach(() => {
     delete process.env.RESEND_OUTBOUND_DOMAIN;
   });

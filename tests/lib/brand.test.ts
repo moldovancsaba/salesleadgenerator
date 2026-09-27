@@ -15,7 +15,7 @@ describe('FALLBACK_BRAND_CONFIG currency', () => {
     expect(FALLBACK_BRAND_CONFIG.seyu.currency).toBe('EUR');
   });
 
-  it('reports DVSC in EUR (issue #147)', () => {
+  it('reports DVSC in EUR (issue 147)', () => {
     expect(FALLBACK_BRAND_CONFIG.dvsc.currency).toBe('EUR');
   });
 
@@ -72,7 +72,7 @@ describe('resolveBrand', () => {
   });
 });
 
-describe('getBrandConfig / getAllBrandConfigs (issue #195)', () => {
+describe('getBrandConfig / getAllBrandConfigs (issue 195)', () => {
   it('getBrandConfig returns the fallback config for a known brand when the brands collection is unavailable', async () => {
     const config = await getBrandConfig('cogmap');
     expect(config?.label).toBe('CogMap');
@@ -95,7 +95,7 @@ describe('getBrandConfig / getAllBrandConfigs (issue #195)', () => {
 // the same real-world symmetry tests/lib/validate-battlecard.test.ts used
 // to assert directly against the old static map, now proven as a property
 // of the derivation instead of a hand-authored list.
-describe('getForbiddenTermsFor (issue #195, formerly FORBIDDEN_BRAND_TERMS)', () => {
+describe('getForbiddenTermsFor (issue 195, formerly FORBIDDEN_BRAND_TERMS)', () => {
   it('every brand is forbidden from mentioning either other brand\'s own name', async () => {
     expect(await getForbiddenTermsFor('cogmap')).toEqual(expect.arrayContaining(['seyu', 'dvsc']));
     expect(await getForbiddenTermsFor('seyu')).toEqual(expect.arrayContaining(['cogmap', 'dvsc']));
@@ -109,7 +109,7 @@ describe('getForbiddenTermsFor (issue #195, formerly FORBIDDEN_BRAND_TERMS)', ()
     expect(seyuForbidden).not.toContain('fan selfie');
   });
 
-  it('DVSC\'s derived forbidden set is now the full union (fixes a real pre-#195 gap where its hand list was missing several terms)', async () => {
+  it('DVSC\'s derived forbidden set is now the full union (fixes a real gap that predated issue 195, where its hand list was missing several terms)', async () => {
     const dvscForbidden = await getForbiddenTermsFor('dvsc');
     expect(dvscForbidden).toEqual(expect.arrayContaining([
       'cognitive assessment', 'player performance analytics', 'decision-making profiling',

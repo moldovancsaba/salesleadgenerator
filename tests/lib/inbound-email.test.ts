@@ -10,7 +10,7 @@ import {
 // the Mongo-backed registry and passes it in.
 const ALL_BRANDS = ['cogmap', 'seyu', 'dvsc'];
 
-describe('resolveBrandFromAddress (issue #141)', () => {
+describe('resolveBrandFromAddress (issue 141)', () => {
   it('resolves cogmap from a matching local-part prefix', () => {
     expect(resolveBrandFromAddress('cogmap@abc123.resend.app', ALL_BRANDS)).toBe('cogmap');
   });
@@ -38,7 +38,7 @@ describe('resolveBrandFromAddress (issue #141)', () => {
   });
 });
 
-describe('resolveBrandFromRecipients (issue #141)', () => {
+describe('resolveBrandFromRecipients (issue 141)', () => {
   it('prefers received_for over to when both are present', () => {
     expect(resolveBrandFromRecipients(['seyu@abc.resend.app'], ['cogmap@abc.resend.app'], ALL_BRANDS)).toBe('seyu');
   });
@@ -56,7 +56,7 @@ describe('resolveBrandFromRecipients (issue #141)', () => {
   });
 });
 
-describe('resolveMatchedAddress (issue #141)', () => {
+describe('resolveMatchedAddress (issue 141)', () => {
   it('returns the specific address that matched, not just the first entry', () => {
     expect(resolveMatchedAddress(['unknown@x.com'], ['cogmap@abc.resend.app', 'someone-else@x.com'], ALL_BRANDS))
       .toBe('cogmap@abc.resend.app');
@@ -67,7 +67,7 @@ describe('resolveMatchedAddress (issue #141)', () => {
   });
 });
 
-describe('resolveDirection (issue #141)', () => {
+describe('resolveDirection (issue 141)', () => {
   const ourAddress = 'cogmap@abc123.resend.app';
 
   it('classifies as inbound when our address is explicitly in To', () => {
@@ -87,7 +87,7 @@ describe('resolveDirection (issue #141)', () => {
   });
 });
 
-describe('buildActivityLogDoc (issue #141)', () => {
+describe('buildActivityLogDoc (issue 141)', () => {
   const now = new Date('2026-07-31T12:00:00.000Z');
 
   it('builds an inbound entry when our address is in To (a genuine reply shape)', () => {

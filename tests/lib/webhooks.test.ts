@@ -39,7 +39,7 @@ describe('parseWebhookUrl (issue 210/219)', () => {
     expect(url?.hostname).toBe('example.com');
   });
 
-  it('rejects http (non-https) — SSRF/transport requirement, issue #210 §17', () => {
+  it('rejects http (non-https) — SSRF/transport requirement, issue 210 §17', () => {
     expect(parseWebhookUrl('http://example.com/webhooks/slg')).toBeNull();
   });
 
@@ -158,7 +158,7 @@ describe('signWebhookPayload / verifyWebhookSignature round-trip (issue 210/219)
 });
 
 describe('nextRetryDelaySeconds / isDeadLetterThresholdReached (issue 210/219)', () => {
-  it('returns the exact 1m/5m/30m/2h/12h schedule from issue #210 §11', () => {
+  it('returns the exact 1m/5m/30m/2h/12h schedule from issue 210 §11', () => {
     expect(RETRY_SCHEDULE_SECONDS).toEqual([60, 300, 1800, 7200, 43200]);
     expect(nextRetryDelaySeconds(1)).toBe(60);
     expect(nextRetryDelaySeconds(2)).toBe(300);
@@ -177,7 +177,7 @@ describe('nextRetryDelaySeconds / isDeadLetterThresholdReached (issue 210/219)',
     expect(nextRetryDelaySeconds(-1)).toBeNull();
   });
 
-  it('auto-disable threshold is exactly 5 consecutive exhausted deliveries, per issue #210 §11', () => {
+  it('auto-disable threshold is exactly 5 consecutive exhausted deliveries, per issue 210 §11', () => {
     expect(isDeadLetterThresholdReached(4)).toBe(false);
     expect(isDeadLetterThresholdReached(5)).toBe(true);
     expect(isDeadLetterThresholdReached(6)).toBe(true);
@@ -185,7 +185,7 @@ describe('nextRetryDelaySeconds / isDeadLetterThresholdReached (issue 210/219)',
 });
 
 describe('VALID_WEBHOOK_EVENT_TYPES (issue 210/219)', () => {
-  it('is exactly the 4-event set from issue #210 §9', () => {
+  it('is exactly the 4-event set from issue 210 §9', () => {
     expect(VALID_WEBHOOK_EVENT_TYPES).toEqual(['lead.created', 'lead.stage_changed', 'lead.won', 'lead.lost']);
   });
 });

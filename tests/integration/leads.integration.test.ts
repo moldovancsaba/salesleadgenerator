@@ -138,7 +138,7 @@ describe('POST /api/leads', () => {
     });
   });
 
-  it('ignores legacy decision_maker_*/contact_phone fields on create rather than storing them (hard cutover, issue #45)', async () => {
+  it('ignores legacy decision_maker_*/contact_phone fields on create rather than storing them (hard cutover, issue 45)', async () => {
     const payload = {
       entity_name: 'Legacy Field FC',
       url: 'https://legacy-field-fc.example.com',
@@ -230,7 +230,7 @@ describe('POST /api/leads', () => {
 // docs/ARCHITECTURE.md documents as the backward-compatible machine-caller
 // path) and confirms a manually-added lead lands in DISCOVERED rather than
 // being auto-qualified.
-describe('POST /api/leads — manual Add Lead flow (issue #127)', () => {
+describe('POST /api/leads — manual Add Lead flow (issue 127)', () => {
   it('creates a manual lead with a full contact, lands in DISCOVERED, and persists source: manual', async () => {
     const payload = {
       entity_name: 'Manually Added FC',
@@ -341,7 +341,7 @@ describe('brand=dvsc lead lifecycle', () => {
     expect(cogmapBody.leads.some((l: any) => l.entity_name === 'DVSC Sponsor Prospect Kft.')).toBe(false);
   });
 
-  it('rejects a genuinely unrecognized brand with 400, never silently falling back to cogmap (issue #147 regression)', async () => {
+  it('rejects a genuinely unrecognized brand with 400, never silently falling back to cogmap (issue 147 regression)', async () => {
     const res = await GET(req('/api/leads?brand=not_a_real_brand'));
     expect(res.status).toBe(400);
   });

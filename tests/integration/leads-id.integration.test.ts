@@ -133,7 +133,7 @@ describe('PUT /api/leads/[id]', () => {
     expect(body.ice.ease).toBe(7);
   });
 
-  it('decodes stray HTML-entity artifacts in value_proposition/notes/pro_for_organization/contacts (issue #132, the loop\'s single most frequent real mistake)', async () => {
+  it('decodes stray HTML-entity artifacts in value_proposition/notes/pro_for_organization/contacts (issue 132, the loop\'s single most frequent real mistake)', async () => {
     const id = await createLead('Entity Artifact FC');
     const res = await idPUT(
       req(`/api/leads/${id}?brand=cogmap`, {
@@ -205,7 +205,7 @@ describe('PUT /api/leads/[id]', () => {
 // Issue #206 — buyingRole accepted on PUT alongside the legacy
 // isDecisionMaker-only shape, both regression-tested against the real
 // write path (not just the pure normalizeContact() unit tests).
-describe('PUT /api/leads/[id] — buyingRole (issue #206)', () => {
+describe('PUT /api/leads/[id] — buyingRole (issue 206)', () => {
   it('accepts the legacy isDecisionMaker-only payload shape unchanged', async () => {
     const id = await seedLeadDirect('Legacy Contact Shape FC');
     const res = await idPUT(

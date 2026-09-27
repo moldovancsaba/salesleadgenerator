@@ -93,7 +93,7 @@ function patchReq(id: string, body: Record<string, unknown>) {
   });
 }
 
-describe('POST /api/cadences (issue #149)', () => {
+describe('POST /api/cadences (issue 149)', () => {
   it('rejects a cadence with no name/steps', async () => {
     const { status, body } = await createCadence({});
     expect(status).toBe(400);
@@ -119,7 +119,7 @@ describe('POST /api/cadences (issue #149)', () => {
   });
 });
 
-describe('GET /api/cadences (issue #149)', () => {
+describe('GET /api/cadences (issue 149)', () => {
   it('lists cadences scoped to brand and tenant', async () => {
     await createCadence({ name: 'Brand Scoped Cadence', steps: [{ channel: 'call' }] });
     const res = await cadencesGET(req('/api/cadences?brand=cogmap&tenantId=default'));
@@ -127,7 +127,7 @@ describe('GET /api/cadences (issue #149)', () => {
     expect(body.cadences.some((c: any) => c.name === 'Brand Scoped Cadence')).toBe(true);
   });
 
-  it('reports enrolledCount: 0 for a cadence with no active leads (issue #152)', async () => {
+  it('reports enrolledCount: 0 for a cadence with no active leads (issue 152)', async () => {
     await createCadence({ name: 'No Enrollees Cadence', steps: [{ channel: 'call' }] });
     const res = await cadencesGET(req('/api/cadences?brand=cogmap&tenantId=default'));
     const body = await res.json();
@@ -135,7 +135,7 @@ describe('GET /api/cadences (issue #149)', () => {
     expect(cadence.enrolledCount).toBe(0);
   });
 
-  it('reports a real leads-currently-enrolled count per cadence (issue #152)', async () => {
+  it('reports a real leads-currently-enrolled count per cadence (issue 152)', async () => {
     const created = await createCadence({ name: 'Enrolled Count Cadence', steps: [{ channel: 'call' }] });
     const cadenceId = created.body.id;
     const leadA = await seedLead('Enrolled Count Lead A');
@@ -163,7 +163,7 @@ describe('GET /api/cadences (issue #149)', () => {
   });
 });
 
-describe('PUT /api/cadences/[id] (issue #149)', () => {
+describe('PUT /api/cadences/[id] (issue 149)', () => {
   it('partially updates only the provided fields', async () => {
     const created = await createCadence({ name: 'Editable Cadence', steps: [{ channel: 'call' }] });
     const id = created.body.id;
@@ -196,7 +196,7 @@ describe('PUT /api/cadences/[id] (issue #149)', () => {
   });
 });
 
-describe('Lead enroll/cancel lifecycle (issue #149)', () => {
+describe('Lead enroll/cancel lifecycle (issue 149)', () => {
   it('enrolls a lead, computing stepDueAt from the first step\'s own wait', async () => {
     const created = await createCadence({
       name: 'Enroll Test Cadence',
@@ -297,7 +297,7 @@ describe('Lead enroll/cancel lifecycle (issue #149)', () => {
   });
 });
 
-describe('DELETE /api/cadences/[id] blocked while leads are enrolled (issue #149)', () => {
+describe('DELETE /api/cadences/[id] blocked while leads are enrolled (issue 149)', () => {
   it('returns 409 when a lead is actively enrolled, and succeeds after cancellation', async () => {
     const created = await createCadence({ name: 'In Use Cadence', steps: [{ channel: 'call' }] });
     const cadenceId = created.body.id;
@@ -330,7 +330,7 @@ describe('DELETE /api/cadences/[id] blocked while leads are enrolled (issue #149
   });
 });
 
-describe('GET /api/cadences/[id] (issue #149)', () => {
+describe('GET /api/cadences/[id] (issue 149)', () => {
   it('404s for a malformed id rather than throwing', async () => {
     const res = await cadenceIdGET(
       req('/api/cadences/not-an-object-id?brand=cogmap&tenantId=default'),
@@ -340,7 +340,7 @@ describe('GET /api/cadences/[id] (issue #149)', () => {
   });
 });
 
-describe('activeCadence auto-cancelled on terminal LOST transitions (review finding, issue #149)', () => {
+describe('activeCadence auto-cancelled on terminal LOST transitions (review finding, issue 149)', () => {
   it('PATCH ... DECLINE clears an enrolled lead\'s activeCadence', async () => {
     const created = await createCadence({ name: 'Decline Clears Cadence', steps: [{ channel: 'call' }] });
     const leadId = await seedLead('Decline Clears Co');
@@ -417,7 +417,7 @@ describe('activeCadence auto-cancelled on terminal LOST transitions (review find
   });
 });
 
-describe('Cross-brand cadence enrollment is rejected (review finding, issue #149)', () => {
+describe('Cross-brand cadence enrollment is rejected (review finding, issue 149)', () => {
   it('404s enrolling a CogMap lead into a Seyu cadence in the same tenant', async () => {
     const seyuCadence = await createCadence({ name: 'Seyu Only Cadence', steps: [{ channel: 'call' }] }, 'seyu');
     const cogmapLeadId = await seedLead('Cross Brand Lead Co');
@@ -447,7 +447,7 @@ describe('Cross-brand cadence enrollment is rejected (review finding, issue #149
   });
 });
 
-describe('Concurrent enroll requests cannot both win (review finding, issue #149)', () => {
+describe('Concurrent enroll requests cannot both win (review finding, issue 149)', () => {
   it('exactly one of two racing enroll requests for the same lead succeeds', async () => {
     const created = await createCadence({ name: 'Race Cadence', steps: [{ channel: 'call' }] });
     const leadId = await seedLead('Race Enroll Co');
@@ -473,7 +473,7 @@ describe('Concurrent enroll requests cannot both win (review finding, issue #149
   });
 });
 
-describe('DELETE /api/cadences/[id] enrollment guard counts legacy (tenantId-less) leads (review finding, issue #149)', () => {
+describe('DELETE /api/cadences/[id] enrollment guard counts legacy (tenantId-less) leads (review finding, issue 149)', () => {
   it('blocks deletion when a legacy lead with no tenantId field is enrolled', async () => {
     const created = await createCadence({ name: 'Legacy Tenant Cadence', steps: [{ channel: 'call' }] });
     const cadenceId = created.body.id;
@@ -498,7 +498,7 @@ describe('DELETE /api/cadences/[id] enrollment guard counts legacy (tenantId-les
   });
 });
 
-describe('validateCadence rejects an email step with no templateId at the API boundary (review finding, issue #149)', () => {
+describe('validateCadence rejects an email step with no templateId at the API boundary (review finding, issue 149)', () => {
   it('POST /api/cadences 400s for an email step missing templateId', async () => {
     const { status, body } = await createCadence({
       name: 'Missing Template Cadence',

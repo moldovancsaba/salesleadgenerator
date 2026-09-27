@@ -91,7 +91,7 @@ async function getLead(collection: string, id: string) {
   return database.collection(collection).findOne({ _id: new ObjectId(id) });
 }
 
-describe('GET /api/admin/cadence-tick — email step (issue #151)', () => {
+describe('GET /api/admin/cadence-tick — email step (issue 151)', () => {
   it('calls sendAutomatedEmail for a due email step and advances to the next step on success', async () => {
     const cadenceId = await createCadence('cogmap', [
       { id: 's1', channel: 'email', waitDaysAfterPrevious: 0, templateId: 'tpl-1' },
@@ -153,7 +153,7 @@ describe('GET /api/admin/cadence-tick — email step (issue #151)', () => {
   });
 });
 
-describe('GET /api/admin/cadence-tick — linkedin/call reminder step (issue #151)', () => {
+describe('GET /api/admin/cadence-tick — linkedin/call reminder step (issue 151)', () => {
   it('never calls sendAutomatedEmail for a linkedin step, and sets nextActionDueAt/nextActionNote instead', async () => {
     const cadenceId = await createCadence('cogmap', [
       { id: 's1', channel: 'linkedin', waitDaysAfterPrevious: 0, reminderNote: 'Send a personalized connection request' },
@@ -192,7 +192,7 @@ describe('GET /api/admin/cadence-tick — linkedin/call reminder step (issue #15
   });
 });
 
-describe('GET /api/admin/cadence-tick — leads not yet due are untouched (issue #151)', () => {
+describe('GET /api/admin/cadence-tick — leads not yet due are untouched (issue 151)', () => {
   it('skips a lead whose stepDueAt is in the future', async () => {
     const cadenceId = await createCadence('cogmap', [{ id: 's1', channel: 'call', waitDaysAfterPrevious: 0 }]);
     const leadId = await seedLead('leads', 'Not Due Yet Co', {
@@ -209,7 +209,7 @@ describe('GET /api/admin/cadence-tick — leads not yet due are untouched (issue
   });
 });
 
-describe('GET /api/admin/cadence-tick — disabled/missing cadence (issue #151)', () => {
+describe('GET /api/admin/cadence-tick — disabled/missing cadence (issue 151)', () => {
   it('clears activeCadence for a due lead on a disabled cadence, without sending', async () => {
     const cadenceId = await createCadence('cogmap', [{ id: 's1', channel: 'email', waitDaysAfterPrevious: 0, templateId: 'tpl-1' }], false);
     const leadId = await seedLead('leads', 'Disabled Cadence Co', {
@@ -259,7 +259,7 @@ describe('GET /api/admin/cadence-tick — disabled/missing cadence (issue #151)'
   });
 });
 
-describe('GET /api/admin/cadence-tick — multi-brand (issue #151)', () => {
+describe('GET /api/admin/cadence-tick — multi-brand (issue 151)', () => {
   it('processes due leads independently across brands', async () => {
     const cogmapCadenceId = await createCadence('cogmap', [{ id: 's1', channel: 'call', waitDaysAfterPrevious: 0 }]);
     const seyuCadenceId = await createCadence('seyu', [{ id: 's1', channel: 'call', waitDaysAfterPrevious: 0 }]);
@@ -282,7 +282,7 @@ describe('GET /api/admin/cadence-tick — multi-brand (issue #151)', () => {
   });
 });
 
-describe('GET /api/admin/cadence-tick — per-tick cap (issue #151)', () => {
+describe('GET /api/admin/cadence-tick — per-tick cap (issue 151)', () => {
   it('caps processing at 200 leads per brand per run, leaving the rest for the next tick', async () => {
     const cadenceId = await createCadence('cogmap', [
       { id: 's1', channel: 'call', waitDaysAfterPrevious: 0 },

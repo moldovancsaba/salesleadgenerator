@@ -21,7 +21,7 @@ describe('estimateTicketSize', () => {
     expect(result.method).toBe('unconfigured');
   });
 
-  describe('no reliable size-tier data (issue #112)', () => {
+  describe('no reliable size-tier data (issue 112)', () => {
     it('uses the smallest configured deal-size band instead of unconfigured', () => {
       const dealSize: DealSizeBands = { small: 10000, medium: 40000, large: 100000, enterprise: 250000, largestWon: 300000 };
       const result = estimateTicketSize(inputs({ sizeTier: undefined }), dealSize, [], now);
@@ -103,7 +103,7 @@ describe('estimateTicketSize', () => {
     expect(result.high).toBeLessThanOrEqual(1_000_000);
   });
 
-  it('caps a tier_band estimate to an absolute ceiling even when largestWon is completely unset (issue #94)', () => {
+  it('caps a tier_band estimate to an absolute ceiling even when largestWon is completely unset (issue 94)', () => {
     // The previously-uncapped case: the sanity cap used to be a total no-op
     // whenever largestWon was unconfigured — a very plausible real-world
     // state for a brand-new brand. An absolute ceiling now applies
@@ -115,7 +115,7 @@ describe('estimateTicketSize', () => {
     expect(result.high).toBeLessThanOrEqual(50_000_000);
   });
 
-  it('caps a per_unit estimate to the same absolute ceiling when largestWon is unset (issue #94)', () => {
+  it('caps a per_unit estimate to the same absolute ceiling when largestWon is unset (issue 94)', () => {
     const products: TicketSizeProductInput[] = [{ customerSize: ['enterprise'], perUnitRate: 1_000_000 }];
     const result = estimateTicketSize(inputs({ sizeTier: 'Enterprise', unitCount: 1000 }), {}, products, now);
     if (result.method !== 'per_unit') throw new Error('expected per_unit');
@@ -171,7 +171,7 @@ describe('estimateTicketSize', () => {
     expect(result.computedAt).toBe('2020-01-01T00:00:00.000Z');
   });
 
-  describe('regionMultiplier (issue #84)', () => {
+  describe('regionMultiplier (issue 84)', () => {
     it('scales a tier_band estimate by the configured region multiplier', () => {
       const dealSize: DealSizeBands = { medium: 40000, largestWon: 300000 };
       const result = estimateTicketSize(inputs({ sizeTier: 'Medium', regionMultiplier: 0.5 }), dealSize, [], now);
@@ -210,7 +210,7 @@ describe('estimateTicketSize', () => {
     });
   });
 
-  describe('createManualTicketSizeOverride (issue #86)', () => {
+  describe('createManualTicketSizeOverride (issue 86)', () => {
     it('builds a manual_override estimate with low/expected/high all equal to the given figure', () => {
       const result = createManualTicketSizeOverride({ expected: 75000, reason: 'Verbal budget confirmed by prospect', overriddenBy: 'webapp-user' }, 'USD', now);
       expect(result.method).toBe('manual_override');

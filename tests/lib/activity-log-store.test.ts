@@ -5,7 +5,7 @@ import {
   isValidCallDisposition, CALL_DISPOSITIONS,
 } from '../../app/lib/activity-log-store';
 
-describe('mapOutreachLogToActivityEntry (issue #140)', () => {
+describe('mapOutreachLogToActivityEntry (issue 140)', () => {
   it('maps an outreach_logs document into an ActivityEntry with type email-outbound', () => {
     const entry = mapOutreachLogToActivityEntry({
       _id: new ObjectId(),
@@ -36,7 +36,7 @@ describe('mapOutreachLogToActivityEntry (issue #140)', () => {
   });
 });
 
-describe('mapActivityLogDoc (issue #140)', () => {
+describe('mapActivityLogDoc (issue 140)', () => {
   it('maps a raw activityLog document, defaulting matchedContactKey to null', () => {
     const entry = mapActivityLogDoc({
       _id: new ObjectId(), leadId: 'lead-1', type: 'email-inbound', direction: 'inbound',
@@ -71,7 +71,7 @@ describe('mapActivityLogDoc (issue #140)', () => {
   });
 });
 
-describe('isValidCallDisposition (issue #200)', () => {
+describe('isValidCallDisposition (issue 200)', () => {
   it('accepts every real CallDisposition value', () => {
     for (const d of CALL_DISPOSITIONS) {
       expect(isValidCallDisposition(d)).toBe(true);
@@ -86,7 +86,7 @@ describe('isValidCallDisposition (issue #200)', () => {
   });
 });
 
-describe('mapActivityLogDoc — call entries (issue #200)', () => {
+describe('mapActivityLogDoc — call entries (issue 200)', () => {
   it('maps callDisposition/callDurationMinutes/loggedBy for a type: call document', () => {
     const entry = mapActivityLogDoc({
       _id: new ObjectId(), leadId: 'lead-1', type: 'call', direction: 'outbound',
@@ -119,7 +119,7 @@ describe('mapActivityLogDoc — call entries (issue #200)', () => {
   });
 });
 
-describe('mergeActivityTimeline (issue #140)', () => {
+describe('mergeActivityTimeline (issue 140)', () => {
   const entry = (id: string, createdAt: string) => mapOutreachLogToActivityEntry({
     _id: new ObjectId(), leadId: 'lead-1', subject: id, createdAt: new Date(createdAt),
   });
@@ -142,7 +142,7 @@ describe('mergeActivityTimeline (issue #140)', () => {
     expect(mergeActivityTimeline([[], []], 10)).toEqual([]);
   });
 
-  it('interleaves a manually-logged call among email entries by createdAt (issue #200)', () => {
+  it('interleaves a manually-logged call among email entries by createdAt (issue 200)', () => {
     const callEntry = mapActivityLogDoc({
       _id: new ObjectId(), leadId: 'lead-1', type: 'call', direction: 'outbound',
       callDisposition: 'connected', source: 'manual', createdAt: new Date('2026-07-10T00:00:00.000Z'),
