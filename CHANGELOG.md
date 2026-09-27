@@ -1,5 +1,33 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.241
+
+### Data: #132 research round 4 (partial) — 14 of 36 leads classified and enriched
+
+- 14 CogMap QUALIFIED leads were researched and applied one at a time. All
+  14 re-read exactly as sent.
+- The research workflow hit the account's session usage limit mid-batch
+  twice (36 of 50 agent calls failed both times). Rather than keep paying
+  to re-run it, the 14 leads whose research had already completed were
+  recovered from the run's own saved transcripts (no re-research needed)
+  and applied after the standing automated field checklist (taxonomy
+  codes against the live vocabulary, ICE integer checks, notes-prepended
+  check, HTML-entity scan) — the independent AI verify pass that normally
+  runs second was skipped for this batch, on the owner's explicit,
+  cost-driven decision. Findings below are as reported by the single
+  research pass, not cross-checked by a second agent.
+- 90 near-duplicate candidates were skipped and listed on #137.
+- The other 22 candidates (research never started) are still queued in
+  `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` for a future round.
+- **For human review:** Al Wahda Football Club's stored `url` names an
+  unrelated Sharjah consultancy, not the football club, and was left
+  unchanged. U.S. Military Academy (West Point)'s stored notes belonged
+  to a different, unrelated Saudi-club record. USA Hockey's stored
+  contact "Tara Smith" could not be confirmed anywhere and was dropped as
+  a likely fabricated contact from an earlier discovery run. England
+  Rugby (RFU) and the separate CogMap lead "Rugby Football Union (RFU)"
+  share the same website and are probably the same organisation.
+
 ## 2.4.240
 
 ### Data: #132 research round 3 — 34 leads classified and enriched

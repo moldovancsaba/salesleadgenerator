@@ -18,6 +18,23 @@ Each lead was researched by an independent agent doing real web research (fetchi
 
 Two corrections were made to agent output before applying: Feyenoord's proposed `notes` would have overwritten the existing field (the brief given to that agent omitted the stored notes, so it couldn't see them) — merged instead; and EBANX's `canonicalLeadName` just repeated `entity_name`, so it was dropped. Post-write verification caught a real side effect (see the `kanbanColumn` checklist item in §9): 5 QUALIFIED leads across both 2026-09-25/26 batches were auto-demoted to DISCOVERED by the `ice` re-score and were restored to QUALIFIED the same day.
 
+### Progress update — 2026-09-27 — research round 4 (partial), 14 of 36 leads (issue #132)
+
+This round picked 36 QUALIFIED leads (35 CogMap, 1 Seyu) from CogMap QUALIFIED pages 5–9 and Seyu QUALIFIED pages 6–7.
+- **Duplicates:** 90 near-duplicates were skipped and listed on #137 — the largest count yet. Seyu pages 6–7 were almost entirely twins of the 2026-07-21 batch re-creation; CogMap's MLS clubs and academies repeat across the 2026-07-27 CSV import and 2026-08-05/06 academy records (FC Dallas alone has 13 records sharing its name or site).
+- **Session limit, twice:** the research workflow hit the account's usage limit partway through the 36-lead batch, was resumed after the reset, and hit it again before a single additional lead finished. Rather than keep re-running an expensive batch against the same wall, the owner asked to stop spending on it (2026-09-27) and use what had already been produced.
+- **Recovered, not re-run:** the 14 leads whose research had already completed were extracted directly from the workflow's own saved agent transcripts (each subagent's structured output is written to disk regardless of what happens to the workflow afterward) — no research was repeated.
+- **Verification: automated checklist only, not a second AI pass.** Every other round in this plan ran an independent adversarial-verify agent on top of the programmatic checklist. This round skipped that second AI pass on the owner's explicit, cost-driven decision and relied only on the standing automated field checklist (taxonomy codes checked against the live vocabulary, `size`/ICE range and type checks, notes-prepended check, forbidden-field and HTML-entity scans) that also runs before every other round's writes. This is a real reduction in scrutiny for this batch specifically — findings below are as reported by a single research pass, not independently re-checked.
+- **Applied:** one lead at a time; all 14 re-read exactly as sent.
+- **Deferred:** the other 22 candidates from this round's picked pages never started research and are unspent. Their ids are in `round4/worklist.json` in this session's scratch space for whoever runs round 5; they are ordinary QUALIFIED leads with no `orgTypeCode`, not near-duplicates.
+
+**For human review (not changed):**
+- **Wrong website:** Al Wahda Football Club's stored `url` (`alwahda.ae`) is an unrelated Sharjah business consultancy, not the football club (whose real site appears to be `alwahda-sc.com`).
+- **Contaminated notes:** U.S. Military Academy (West Point)'s stored notes read "Enrichment cycle 1: Saudi professional club outside priority countries. Passed." — text that belongs to a different, unrelated record, most likely from a batch-run mistake. Kept verbatim as the guard rule requires, with a correction appended.
+- **Likely fabricated contact:** USA Hockey's stored contact "Tara Smith" does not appear in the national office or NTDP staff directories and her email domain does not match USA Hockey's; dropped as unconfirmable. Worth checking whether the same original discovery run produced similar contacts elsewhere.
+- **Probable duplicate:** England Rugby (RFU) and the separate CogMap lead "Rugby Football Union (RFU)" (`6a5951fb25451eb521664250`) share the same website; only the first was researched.
+- **Possibly compromised site:** the Polish Basketball Federation's official office page (`pzkosz.pl/biuro`) currently shows gambling-spam text below its real staff list.
+
 ### Progress update — 2026-09-26 — research round 3, 34 leads (issue #132)
 
 This round covered 34 QUALIFIED leads: 23 CogMap and 11 Seyu, picked from CogMap QUALIFIED pages 3–4 and Seyu QUALIFIED page 5.
