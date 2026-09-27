@@ -575,18 +575,28 @@ has — do not attempt to fill in fields that are already fresh and correct:
    `athletics`; "Ping Pong"/"Pingpong" → `table-tennis`; bare "Rugby" →
    `rugby-union`.)
 
-   `orgTypeCode` — one of: `club`, `academy`, `federation`, `association`,
-   `league`, `confederation`, `tournament`, `event-organiser`,
-   `entertainment-event`, `competition-organiser`, `training-centre`,
-   `performance-centre`, `sports-school`, `school`, `college`, `university`,
-   `municipality`, `sports-council`, `government-body`, `facility-operator`,
-   `stadium`, `arena`, `venue`, `sports-complex`, `foundation`, `ngo`,
-   `sponsor`, `brand`, `agency`, `broadcaster`, `media`, `unknown`.
+   `orgTypeCode` — one of: `club`, `academy`, `federation`,
+   `olympic-committee`, `association`, `league`, `confederation`,
+   `tournament`, `event-organiser`, `entertainment-event`,
+   `competition-organiser`, `training-centre`, `performance-centre`,
+   `sports-school`, `school`, `college`, `university`, `municipality`,
+   `sports-council`, `government-body`, `facility-operator`, `stadium`,
+   `arena`, `venue`, `sports-complex`, `foundation`, `ngo`, `sponsor`,
+   `brand`, `agency`, `broadcaster`, `media`, `unknown`.
    `entertainment-event` is for non-sport recurring public events (music
    festivals, e.g. Tomorrowland, Glastonbury Festival) genuinely within
    Seyu's fan-engagement/sponsor-activation target market (issue #143,
    owner-confirmed 2026-08-01) — distinct from `event-organiser`, which is
    the generic fit for any large recurring event regardless of industry.
+
+   **`olympic-committee` convention** (issue #231, owner-confirmed
+   2026-09-27): a National Olympic Committee (e.g. the Saudi Olympic &
+   Paralympic Committee, the Egyptian Olympic Committee, the US Olympic &
+   Paralympic Committee) uses `olympic-committee`, never `federation` — an
+   NOC is a whole-country, multi-sport umbrella body reporting to the IOC,
+   not a single-sport governing body. A continental multi-sport body (e.g.
+   the European Olympic Committees) is a defensible `association` instead,
+   since it isn't itself a country's NOC.
 
    **`tournament` / `federation` / `competition-organiser` decision rule**
    (issue #136, owner-confirmed 2026-08-01), for a global sports property
@@ -621,6 +631,15 @@ has — do not attempt to fill in fields that are already fresh and correct:
    `genderCode` — one of: `men`, `women`, `mixed`, `unknown`,
    `not-applicable`.
 
+   **Gender for a whole-club lead with more than one section** (issue
+   #231, owner-confirmed 2026-09-27): `genderCode` describes the actual
+   sales scope of this lead, not the organisation as a whole. A lead for
+   a club's men's first-team matchday product is `men` even if the same
+   club also runs a separately-branded women's team, exactly as
+   `businessUnitCode` already distinguishes `first-team` from `general`
+   on the same lead. Use `mixed` only when the lead's own scope really is
+   the whole multi-section organisation.
+
    `demographicCodes` (array — zero or more of, non-exclusive): `children`,
    `youth`, `adult`, `masters`, `senior`, `mixed-age`, `unknown`,
    `not-applicable`.
@@ -633,9 +652,16 @@ has — do not attempt to fill in fields that are already fresh and correct:
    team is "adult" plus "senior" together, not "masters."
 
    `competitionLevelCode` — one of: `recreational`, `grassroots`,
-   `developmental`, `school`, `amateur`, `semi-professional`,
+   `developmental`, `school`, `collegiate`, `amateur`, `semi-professional`,
    `professional`, `elite`, `national`, `international`, `unknown`,
    `not-applicable`.
+
+   **`collegiate` convention** (issue #231, owner-confirmed 2026-09-27):
+   NCAA Division I (and equivalent US college) athletics uses `collegiate`,
+   never `amateur` or `unknown`. A college athletics department is a
+   different buyer from an adult amateur/semi-pro club — an
+   academic-year budget cycle inside a university — even though NCAA
+   schools can now pay athletes directly (NIL, revenue sharing).
 
    `relationshipToParent` — one of: `owned`, `operated`, `licensed`,
    `franchise`, `affiliate`, `partner`, `unverified`.

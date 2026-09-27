@@ -62,6 +62,13 @@ describe('controlled-vocabulary validators', () => {
     expect(isValidRelationshipCode('licensed')).toBe(true);
   });
 
+  // Issue 231: NCAA college athletics and National Olympic Committees are
+  // recurring shapes this taxonomy previously had no real code for.
+  it('accept the issue 231 additions', () => {
+    expect(isValidCompetitionLevelCode('collegiate')).toBe(true);
+    expect(isValidOrgTypeCode('olympic-committee')).toBe(true);
+  });
+
   it('reject a value from a different vocabulary or free text', () => {
     expect(isValidSportCode('club')).toBe(false);
     expect(isValidOrgTypeCode('football')).toBe(false);

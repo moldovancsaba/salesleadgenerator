@@ -18,6 +18,17 @@ Each lead was researched by an independent agent doing real web research (fetchi
 
 Two corrections were made to agent output before applying: Feyenoord's proposed `notes` would have overwritten the existing field (the brief given to that agent omitted the stored notes, so it couldn't see them) — merged instead; and EBANX's `canonicalLeadName` just repeated `entity_name`, so it was dropped. Post-write verification caught a real side effect (see the `kanbanColumn` checklist item in §9): 5 QUALIFIED leads across both 2026-09-25/26 batches were auto-demoted to DISCOVERED by the `ice` re-score and were restored to QUALIFIED the same day.
 
+### Progress update — 2026-09-27 — the four #231 taxonomy conventions decided and applied
+
+The owner accepted all four recommendations 2026-09-27. Two are additive vocabulary codes, applied to `lib/lead-taxonomy.ts` and `docs/LEAD_ENRICHMENT_GUIDE.md` together (a test guards the two staying in sync); two are rules for how the research agent should classify going forward, with no single already-existing value definitively wrong enough to mechanically re-code today.
+
+1. **`collegiate` added to `competitionLevelCode`.** NCAA Division I athletics is a different buyer from an adult amateur/semi-pro club (a university's academic-year budget cycle), and `amateur` no longer fits now that schools pay athletes directly. Re-coded: Duke University Athletics (CogMap, `6a50f67b64c066494dfbb70a`), University of Alabama Athletics (CogMap, `6a50f67b64c066494dfbb70b`; Seyu, `6a57f761ec5bee09b71ea570`) — all three were `unknown`, now `collegiate`.
+2. **`olympic-committee` added to `orgTypeCode`.** A National Olympic Committee is a whole-country, multi-sport umbrella body, not a single-sport federation. Re-coded: Saudi Arabian Olympic Committee (CogMap, `6a50f67b64c066494dfbb735`) and Egyptian Olympic Committee (CogMap, `6a50f67b64c066494dfbb738`) — both were `federation`, now `olympic-committee`. The United States Olympic & Paralympic Committee (CogMap, `6a5b14c45cc48424c2d59ce0`) had no `orgTypeCode` at all — set to `olympic-committee` directly. A continental multi-sport body (e.g. European Olympic Committees, round 4) stays `association`, since it isn't itself a country's NOC — this was already applied correctly in round 4 before the rule was written down.
+3. **`genderCode` describes sales scope, not the whole organisation** (documented in the guide; no data change — no lead was found definitively wrong under this rule, only ambiguous).
+4. **A section of a larger club is sized by its own economics when known, the parent only as a fallback** (documented in the guide). Real Madrid Baloncesto (Seyu, `6a58dbc4342dc3346d04bcd6`), the issue's own motivating example, was **not** re-sized here — its stored `Enterprise` size was inherited from its parent club's revenue, and neither keeping nor changing it without real evidence of the basketball section's own economics would satisfy Rule 5. Flagged for a future #132 research round to verify with real evidence, not guessed either direction.
+
+Applied via the same fresh-`GET` → `PUT` → fresh-`GET` discipline as every other round. `#231` is now closed.
+
 ### Progress update — 2026-09-27 — research round 4 (partial), 14 of 36 leads (issue #132)
 
 This round picked 36 QUALIFIED leads (35 CogMap, 1 Seyu) from CogMap QUALIFIED pages 5–9 and Seyu QUALIFIED pages 6–7.

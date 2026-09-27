@@ -38,6 +38,21 @@ left alone. All 192 re-read and confirmed correct — zero mismatches. Full
 per-lead before/after values are in this session's own report; the counts
 above are the durable record.
 
+## A caveat found after shipping
+
+`docs/LEAD_ENRICHMENT_GUIDE.md` §2.2 documents `region`'s existing
+convention as macro-region abbreviations (`US`, `CEE`, `MENA` are its
+listed examples), not raw ISO country codes. This resync set `region` to
+the same 2-letter country code as the corrected `country` for each lead,
+matching the shape the original bug had already put there (it copied a
+country-code-shaped literal into both fields, just the wrong one) —
+not the macro-region grouping the guide's examples show. Since `region`
+has no enforced format and zero live multiplier is configured anywhere,
+this is a defensible, disclosed choice rather than a silent deviation,
+but a future operator setting up real `regionMultipliers` should know
+these 179 leads now hold country codes, not macro-region names, and
+decide which key shape to standardize on.
+
 ## Rollback
 
 Each lead's prior `region` value is recoverable from its own `notes`

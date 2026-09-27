@@ -72,14 +72,21 @@ export function resolveSportAlias(freeText: string | undefined | null): SportCod
 // from 'event-organiser' (a general org-type fit for any large recurring
 // event, sport or not) so a lead can be tagged specifically as
 // entertainment-industry rather than only generically "runs events."
+// 'olympic-committee' added per issue #231 (owner-confirmed 2026-09-27): a
+// National Olympic Committee is a distinct, recurring shape in this app's
+// pipeline (a whole-country, multi-sport umbrella body reporting to the
+// IOC) that 'federation' doesn't actually describe — several NOCs (Saudi,
+// Egyptian, US) had been coded 'federation' for lack of a better fit before
+// this. Additive only; existing 'federation'-coded NOCs are re-coded as
+// part of the same batch that added this value, not silently left stale.
 export const ORG_TYPE_CODES = [
-  'club', 'academy', 'federation', 'association', 'league', 'confederation',
-  'tournament', 'event-organiser', 'entertainment-event', 'competition-organiser',
-  'training-centre', 'performance-centre', 'sports-school', 'school', 'college',
-  'university', 'municipality', 'sports-council', 'government-body',
-  'facility-operator', 'stadium', 'arena', 'venue', 'sports-complex',
-  'foundation', 'ngo', 'sponsor', 'brand', 'agency', 'broadcaster', 'media',
-  'unknown',
+  'club', 'academy', 'federation', 'olympic-committee', 'association', 'league',
+  'confederation', 'tournament', 'event-organiser', 'entertainment-event',
+  'competition-organiser', 'training-centre', 'performance-centre',
+  'sports-school', 'school', 'college', 'university', 'municipality',
+  'sports-council', 'government-body', 'facility-operator', 'stadium', 'arena',
+  'venue', 'sports-complex', 'foundation', 'ngo', 'sponsor', 'brand', 'agency',
+  'broadcaster', 'media', 'unknown',
 ] as const;
 export type OrgTypeCode = (typeof ORG_TYPE_CODES)[number];
 export const ORG_TYPE_CODE_SET = new Set<string>(ORG_TYPE_CODES);
@@ -105,10 +112,17 @@ export const DEMOGRAPHIC_CODES = [
 export type DemographicCode = (typeof DEMOGRAPHIC_CODES)[number];
 export const DEMOGRAPHIC_CODE_SET = new Set<string>(DEMOGRAPHIC_CODES);
 
+// 'collegiate' added per issue #231 (owner-confirmed 2026-09-27): NCAA
+// Division I athletics (Duke, Alabama) had been coded 'unknown' for lack of
+// a fit, and 'amateur' no longer describes it cleanly now that NCAA schools
+// pay athletes directly (NIL, revenue sharing). Distinct from
+// 'semi-professional': a college athletics department is a different
+// buyer — an academic-year budget cycle inside a university, not an adult
+// club paying part-time athletes.
 export const COMPETITION_LEVEL_CODES = [
-  'recreational', 'grassroots', 'developmental', 'school', 'amateur',
-  'semi-professional', 'professional', 'elite', 'national', 'international',
-  'unknown', 'not-applicable',
+  'recreational', 'grassroots', 'developmental', 'school', 'collegiate',
+  'amateur', 'semi-professional', 'professional', 'elite', 'national',
+  'international', 'unknown', 'not-applicable',
 ] as const;
 export type CompetitionLevelCode = (typeof COMPETITION_LEVEL_CODES)[number];
 export const COMPETITION_LEVEL_CODE_SET = new Set<string>(COMPETITION_LEVEL_CODES);
