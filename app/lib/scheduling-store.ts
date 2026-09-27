@@ -221,19 +221,37 @@ export async function bookSlot(db: Db, brand: Brand, tenantId: string, params: {
   }
 
   await ensureSchedulingIndexes(db);
+  let claimId: unknown;
   try {
-    await db.collection(SCHEDULING_SLOT_CLAIMS_COLLECTION).insertOne({ brand, tenantId, slotStart: params.slotStart, createdAt: new Date() });
+    const claim = await db.collection(SCHEDULING_SLOT_CLAIMS_COLLECTION).insertOne({ brand, tenantId, slotStart: params.slotStart, createdAt: new Date() });
+    claimId = claim.insertedId;
   } catch (error: any) {
     if (error?.code === 11000) return { ok: false, status: 409, error: 'That time is no longer available', freshSlots };
     throw error;
   }
 
-  const event = await createCalendarEvent(token, {
-    start: params.slotStart, end: params.slotEnd,
-    summary: `Meeting: ${params.prospectName}`,
-    attendeeEmail: params.prospectEmail,
-  });
-  if (!event) return { ok: false, status: 409, error: 'That time is no longer available', freshSlots };
+  // The claim above exists only to win the TOCTOU race for the moment of
+  // creation; once we know creation failed (rejected by Google, or the
+  // call itself couldn't complete), it must not keep blocking the slot for
+  // its own TTL — that would tell the very next request (often the same
+  // prospect retrying immediately) the slot is taken when nothing was
+  // actually booked. Release it explicitly on every failure path rather
+  // than waiting out SLOT_CLAIM_TTL_SECONDS.
+  let event: { id: string } | null;
+  try {
+    event = await createCalendarEvent(token, {
+      start: params.slotStart, end: params.slotEnd,
+      summary: `Meeting: ${params.prospectName}`,
+      attendeeEmail: params.prospectEmail,
+    });
+  } catch (error) {
+    await db.collection(SCHEDULING_SLOT_CLAIMS_COLLECTION).deleteOne({ _id: claimId as any }).catch(() => {});
+    return { ok: false, status: 503, error: 'This scheduling link is temporarily unavailable' };
+  }
+  if (!event) {
+    await db.collection(SCHEDULING_SLOT_CLAIMS_COLLECTION).deleteOne({ _id: claimId as any }).catch(() => {});
+    return { ok: false, status: 409, error: 'That time is no longer available', freshSlots };
+  }
 
   await ensureActivityLogIndexes(db);
   const activityDoc: ActivityLogDocument = {

@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.242
+
+### Bug: a failed Google Calendar event-create left a booking slot falsely locked (fixes #232)
+
+Found by a proactive code audit, not a bug report. `bookSlot()`'s
+create-time race guard (a short-lived, unique slot-claim document, issue
+#207) was never released when the actual Google Calendar event-create
+call failed — either rejected by Google or thrown after
+`fetchWithRetry()` exhausted its retries. The slot then read as booked
+for up to 30 seconds with nothing actually created, so an immediate
+retry (the most likely next action for a prospect who just saw an error)
+was wrongly told the time was unavailable; the thrown-error case
+propagated as an unhandled exception instead of the same clean
+"temporarily unavailable" response this function already returns for
+every other calendar-API failure.
+
+- `app/lib/scheduling-store.ts`: the slot claim is now deleted on every
+  failure path after it's inserted, before returning.
+- New tests reproduce both failure modes and were confirmed to fail
+  against the pre-fix code first.
+- Full gate green: 0 `tsc`/lint errors, 1169/1169 unit, 582/582
+  integration, 5/5 smoke, clean build, `audit:gds-style` unchanged at
+  its documented 27-finding baseline.
+
 ## 2.4.241
 
 ### Data: #132 research round 4 (partial) — 14 of 36 leads classified and enriched
