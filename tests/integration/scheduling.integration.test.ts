@@ -258,6 +258,47 @@ describe('POST /api/schedule/[brand]/book (issue 207)', () => {
     expect(statuses).toEqual([200, 409]);
   });
 
+  it('releases the slot claim when Google rejects the event, so an immediate retry for the same slot can succeed', async () => {
+    await createGoogleCalendarConnection('cogmap');
+    await setWideOpenAvailability('cogmap');
+    mockGoogleCalendar({ busy: [], eventCreateFails: true });
+
+    const availRes = await availabilityGET(publicReq('/api/schedule/cogmap/availability?days=3'), { params: Promise.resolve({ brand: 'cogmap' }) });
+    const slots = (await availRes.json()).slots;
+    const slot = slots[Math.floor(slots.length / 2)];
+    const body = JSON.stringify({ slotStart: slot.start, slotEnd: slot.end, prospectName: 'Rejected Then Retried', prospectEmail: 'retry@example.com' });
+
+    const firstAttempt = await bookPOST(publicReq('/api/schedule/cogmap/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }), { params: Promise.resolve({ brand: 'cogmap' }) });
+    expect(firstAttempt.status).toBe(409);
+
+    // A stale claim from the rejected attempt would wrongly 409 this too.
+    mockGoogleCalendar({ busy: [] });
+    const retry = await bookPOST(publicReq('/api/schedule/cogmap/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }), { params: Promise.resolve({ brand: 'cogmap' }) });
+    expect(retry.status).toBe(200);
+  });
+
+  it('returns 503, not an unhandled error, when Google throws while creating the event, and releases the claim', async () => {
+    await createGoogleCalendarConnection('cogmap');
+    await setWideOpenAvailability('cogmap');
+    global.fetch = vi.fn(async (input: any) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.includes('/calendar/v3/freeBusy')) return new Response(JSON.stringify({ calendars: { primary: { busy: [] } } }), { status: 200 });
+      if (url.includes('/calendar/v3/calendars/primary/events')) throw new Error('network unreachable');
+      throw new Error(`Unexpected fetch in test: ${url}`);
+    }) as any;
+
+    const availRes = await availabilityGET(publicReq('/api/schedule/cogmap/availability?days=3'), { params: Promise.resolve({ brand: 'cogmap' }) });
+    const slots = (await availRes.json()).slots;
+    const slot = slots[Math.floor(slots.length / 3)];
+    const body = JSON.stringify({ slotStart: slot.start, slotEnd: slot.end, prospectName: 'Throws', prospectEmail: 'throws@example.com' });
+
+    const attempt = await bookPOST(publicReq('/api/schedule/cogmap/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }), { params: Promise.resolve({ brand: 'cogmap' }) });
+    expect(attempt.status).toBe(503);
+
+    const database = await db();
+    expect(await database.collection('scheduling_slot_claims').findOne({ brand: 'cogmap', slotStart: slot.start })).toBeNull();
+  });
+
   it('gracefully degrades (never a 500) when the connection is missing', async () => {
     const res = await bookPOST(publicReq('/api/schedule/dvsc/book', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

@@ -8,7 +8,7 @@
 
 **Not the same file as `_archived/roadmap.md`** — that's a frozen, historical feature-status log (v2.4.61), superseded by `CHANGELOG.md`, sharing this file's basename by coincidence rather than by relation. See `README.md`'s "Archived Documentation" table.
 
-Last synced: 2026-09-26, re-verified against the live GitHub issue list (9 open plus #193, reopened after a commit-message keyword auto-closed it). #202, #222 and #193 moved to Blocked: each now waits only on owner steps or decisions recorded on the issue.
+Last synced: 2026-09-27. #232 filed and closed same-session (a real bug found by a proactive code audit, not from the backlog above). Every other open issue is genuinely blocked on an owner step or decision recorded on the issue itself — confirmed by re-reading each one, not assumed.
 
 ---
 
@@ -47,6 +47,7 @@ Last synced: 2026-09-26, re-verified against the live GitHub issue list (9 open 
 
 | # | Title | Resolution |
 |---|---|---|
+| [#232](https://github.com/moldovancsaba/salesleadgenerator/issues/232) | Bug: a failed Google Calendar event-create leaves the booking slot falsely locked for its full TTL | Fixed 2.4.242, pushed to `main`. Found by a proactive code audit. The create-time race-guard claim (#207) is now released on every event-create failure path (rejected or thrown) instead of waiting out its 30s TTL; a thrown error now returns the same 503 shape as every other calendar-API failure in that function instead of an unhandled exception. New tests confirmed failing against the pre-fix code first. |
 | [#223](https://github.com/moldovancsaba/salesleadgenerator/issues/223) | Data quality: invalid/non-ISO country codes on multiple Seyu leads, distinct from issue #222's DE-cluster | Fixed 2.4.234, pushed to `main`. All 30 stored invalid codes (region-derived `CE`/`SP`/`EM`/`EU`) corrected and verified; `lib/validate-lead.ts` now accepts only real ISO codes; Edit Lead Details no longer re-sends an unchanged country. |
 | [#229](https://github.com/moldovancsaba/salesleadgenerator/issues/229) | Security hardening: global settings writable by any SSO login, public-endpoint list incomplete, booking and quote-view hardening | Fixed across 2.4.229, 2.4.237 and 2.4.238, pushed to `main`: brand-holding session rule for global settings, search-learning input validation, README public-route list, quote-view hardening, no `error.message` in 500 bodies, tokenized scheduling links. |
 | [#230](https://github.com/moldovancsaba/salesleadgenerator/issues/230) | Bug: inbound email direction is guessed from header position, so routed replies skip reply matching and rep outreach is never attached to a lead | Fixed 2.4.230, pushed to `main`. Direction from lead matching (sender first, then recipients), header rule as fallback. Inactive in production until #202's owner steps. |
