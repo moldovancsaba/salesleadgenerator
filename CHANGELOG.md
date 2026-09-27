@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.245
+
+### Data: resync `region` for the 192 leads whose `country` was already fixed (fixes #222)
+
+Owner accepted the recommendation 2026-09-27. `region` was deliberately
+left untouched in 2.4.233's country fix — it feeds ticket-size region
+multipliers, so changing it needed its own decision. Checked live first:
+none of the three brands has any `regionMultipliers` configured in
+production, so this had no live effect either way; it corrects stored
+data for whenever an operator does configure one.
+
+- 179 of 192 leads updated (177 Seyu, 2 CogMap) — `region` set to the
+  same value as the already-corrected `country`, the same value the
+  original bug had wrongly copied into both fields together. 13 already
+  matched and were left alone.
+- Each lead re-read fresh before and after the write; zero mismatches.
+- No new country-to-macro-region taxonomy was invented — `region` stays
+  free text, matching this app's existing convention.
+- Full record: `docs/data-fixes/2026-09-27-region-resync.md`. This
+  closes #222 entirely.
+
 ## 2.4.244
 
 ### Data: delete the 4 confirmed DVSC test records (fixes #193)
