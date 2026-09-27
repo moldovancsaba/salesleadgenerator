@@ -1,5 +1,28 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.247
+
+### Bug: automation tick's per-brand scan cap now processes oldest-stale leads first (fixes #233)
+
+Found by a proactive code audit, not a bug report. `runStaleTickForBrand()`'s
+candidate query (issue #201's daily `stale_no_activity` sweep) had a
+`.limit(maxScan)` with no `.sort()` — unlike its sibling `cadence-tick`,
+which correctly sorts oldest-due-first before its own identical cap. A
+brand whose stale backlog exceeds the cap could have gotten the same
+leads back every tick indefinitely, silently breaking the documented
+"a lead past the cap is picked up on tomorrow's tick, never lost"
+guarantee.
+
+- `app/lib/automation-store.ts`: sorts `{updatedAt: 1}` before the cap,
+  matching `cadence-tick`'s established convention.
+- New integration test reproduces the gap (3 leads inserted out of
+  `updatedAt` order, a cap of 2, asserts the two oldest — not an
+  arbitrary pair — get the rule's action) and was confirmed failing
+  against the pre-fix code first.
+
+Full gate green: 0 `tsc`/lint errors, 1170/1170 unit, 583/583
+integration, 5/5 smoke, clean build, `audit:gds-style` clean.
+
 ## 2.4.246
 
 ### Enhancement: two new taxonomy codes, two documented rules (fixes #231)
