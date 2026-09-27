@@ -147,6 +147,15 @@ export async function runStaleTickForBrand(
       kanbanColumn: { $nin: ['WON', 'LOST'] },
       updatedAt: { $lte: cutoff },
     })
+    // Oldest-updated first, matching cadence-tick's own identical cap
+    // convention (sorted by stepDueAt ascending) — without this, a plain
+    // find().limit() has no guaranteed order, so a brand with more stale
+    // candidates than maxScan could resurface the same subset every tick
+    // instead of rotating through the backlog, silently breaking the "a
+    // lead past the cap is picked up on tomorrow's tick, never lost"
+    // guarantee this cap is documented (app/api/admin/automation-tick/
+    // route.ts) to provide.
+    .sort({ updatedAt: 1 })
     .limit(maxScan)
     .toArray()
   result.leadsScanned = candidateLeads.length

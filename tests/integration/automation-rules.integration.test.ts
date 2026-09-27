@@ -478,6 +478,44 @@ describe('Tick-fired trigger: stale_no_activity via GET /api/admin/automation-ti
     expect(typeof body.brandsScanned).toBe('number');
   });
 
+  it('a per-tick scan cap processes the oldest-stale leads first, not an arbitrary subset', async () => {
+    await createRule('seyu', {
+      name: 'Cap ordering rule',
+      trigger: { type: 'stale_no_activity', thresholdDays: 1 },
+      action: { type: 'apply_tag', tag: 'cap-order-check' },
+      enabled: true,
+    });
+
+    const db = await testDb();
+    const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
+    // Inserted newest-first, deliberately out of updatedAt order, so a plain
+    // find().limit() with no sort would very likely return them in this
+    // same (wrong) insertion order rather than oldest-updatedAt-first.
+    const newest = await db.collection('seyu_leads').insertOne({
+      entity_name: 'Cap Order Newest', tenantId: 'default', kanbanColumn: 'DISCOVERED', contacts: [], updatedAt: daysAgo(2),
+    });
+    const oldest = await db.collection('seyu_leads').insertOne({
+      entity_name: 'Cap Order Oldest', tenantId: 'default', kanbanColumn: 'DISCOVERED', contacts: [], updatedAt: daysAgo(10),
+    });
+    const middle = await db.collection('seyu_leads').insertOne({
+      entity_name: 'Cap Order Middle', tenantId: 'default', kanbanColumn: 'DISCOVERED', contacts: [], updatedAt: daysAgo(5),
+    });
+
+    const { runStaleTickForBrand } = await import('../../app/lib/automation-store');
+    const result = await runStaleTickForBrand(db, 'seyu', 'default', 'seyu_leads', 2, new Date());
+    expect(result.leadsScanned).toBe(2);
+    expect(result.actionsApplied).toBe(2);
+
+    const [oldestDoc, middleDoc, newestDoc] = await Promise.all([
+      db.collection('seyu_leads').findOne({ _id: oldest.insertedId }),
+      db.collection('seyu_leads').findOne({ _id: middle.insertedId }),
+      db.collection('seyu_leads').findOne({ _id: newest.insertedId }),
+    ]);
+    expect(oldestDoc?.tags).toContain('cap-order-check');
+    expect(middleDoc?.tags).toContain('cap-order-check');
+    expect(newestDoc?.tags).toBeUndefined();
+  });
+
   it('never touches a WON/LOST lead regardless of staleness', async () => {
     await createRule('cogmap', {
       name: 'Flag stale (WON exclusion check)',
