@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Version:** 2.4.176
+**Version:** 2.4.247
 
 ---
 
@@ -21,7 +21,8 @@
 
 ## Supporting Documentation
 
-- `CLAUDE.md` — mandatory operating rules for any AI coding assistant working in this repo
+- `AGENTS.md` / `CLAUDE.md` — mandatory operating rules for any AI coding assistant working in this repo (`AGENTS.md` is canonical, `CLAUDE.md` an identical copy)
+- `HANDOVER.md` — current handover for the next agent (state, commands, open work, traps), dated 2026-10-05
 - `CHANGELOG.md` — version history, feature baselines, and (since 2026-07-27) documented root causes for real bugs found post-release
 - `docs/LESSONS_LEARNED.md` — recurring mistake patterns, sandbox/verification limitations, and architectural rationale ("why do we do what we do")
 - `docs/LEAD_ENRICHMENT_GUIDE.md` — enrichable lead-field catalog and the ready-to-use AI enrichment-agent prompt
@@ -30,6 +31,8 @@
 ## Archived Documentation
 
 `PIPELINE_ARCHITECTURE.md`, `PROPOSAL.md`, `roadmap.md`, and `deployment.md` were archived to `_archived/` on 2026-07-27 — all four were severely stale (15-80 versions behind) and fully superseded by `docs/ARCHITECTURE.md` and `CHANGELOG.md`. See `README.md`'s "Archived Documentation" table.
+
+- `docs/handover-2026-08-13.md` — handover of the 2026-08-13 session, archived 2026-10-05; superseded by `HANDOVER.md`
 
 ---
 

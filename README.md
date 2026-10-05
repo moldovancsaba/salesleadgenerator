@@ -50,7 +50,7 @@ npm run test:smoke
 npm run audit:gds-style
 ```
 
-`npm run audit:gds-style` currently exits 1 with 27 known false positives in test files (issue #221); treat only findings not on the list in `docs/STACK_AND_DEPENDENCIES.md`'s Tooling table as new.
+`npm run audit:gds-style` exits 0 since 2.4.243 (issue #221 fixed the test-title false positives); any new finding is real.
 
 Deploy to Vercel:
 
@@ -65,6 +65,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 | `MONGODB_URI` | Yes | Database connection |
 | `SLG_API_KEY` | Yes | `x-api-key` auth for API clients (research agent, scripts) |
 | `RESEND_API_KEY` | For email | Resend API key, **full access** (inbound matching calls `emails.receiving.get`, which a sending-only key cannot). Without it all outbound email (cadences, one-off sends, quotes, scheduled reports) is off; since 2.4.221 the cadence and report crons hold due work instead of skipping it (issue #224). Not currently set in production |
+| `RESEND_OUTBOUND_DOMAIN` | No | Domain used to build a brand's default from-address (`<brand>@<domain>`); defaults to `haho.ai` (`lib/outreach-send.ts`) |
 | `RESEND_WEBHOOK_SECRET` | For inbound email | Signing secret of the Resend webhook endpoint; with `RESEND_API_KEY` it activates `/api/webhooks/inbound-email` (issue #202). Not currently set in production |
 | `CRON_SECRET` | Yes | The only credential Vercel Cron can send (`Authorization: Bearer`). If unset, every one of the 7 scheduled jobs returns 401 and nothing scheduled runs (issue #224); `x-api-key` only covers manual triggers |
 | `CONTACT_STALENESS_THRESHOLD_DAYS` | No | Days before a contact is flagged stale (has a code default) |
@@ -100,7 +101,8 @@ This README is the single source of truth for documentation paths and descriptio
 | Path | Description |
 |------|-------------|
 | `README.md` | Onboarding, quick start, and documentation index |
-| `CLAUDE.md` | Mandatory operating rules for any AI coding assistant working in this repo (quality gate, issue-driven workflow, DoD, branch/push authorization) |
+| `AGENTS.md` / `CLAUDE.md` | Mandatory operating rules for any AI coding assistant working in this repo (quality gate, issue-driven workflow, DoD, branch/push authorization). `AGENTS.md` is canonical; `CLAUDE.md` is an identical copy |
+| `HANDOVER.md` | Current handover for the next agent: state, commands, open work, traps, first-hour checklist (dated) |
 | `CHANGELOG.md` | Version history, shipped features, and known limitations |
 | `roadmap.md` | Every real open GitHub issue, grouped by status — the standing substitute for a GitHub Projects board, which this session's tooling cannot reach (see `CLAUDE.md` Rule 2.5) |
 | `docs/ISSUE_MANAGEMENT.md` | Canonical, detailed reference for how issues are created/labeled/sequenced, exactly which tools access GitHub, and the verified boundary of what a session can and can't reach (the project-board question in full) — read this before managing issues here |
@@ -125,6 +127,7 @@ This README is the single source of truth for documentation paths and descriptio
 
 | Path | Description |
 |------|-------------|
+| `docs/handover-2026-08-13.md` | Archived handover of the 2026-08-13 session (an unpushed feature branch, since shipped); superseded by `HANDOVER.md` |
 | `_archived/BUILD_STATUS.md` | Historical build status (superseded by `docs/STACK_AND_DEPENDENCIES.md`) |
 | `_archived/STACK_DECISION.md` | Historical stack decision (superseded by `docs/STACK_AND_DEPENDENCIES.md`) |
 | `_archived/architecture.md` | Historical architecture doc (superseded by `docs/ARCHITECTURE.md`) |
@@ -157,3 +160,5 @@ See `docs/OPERATOR_GUIDE.md` for workflow guidance and API examples.
 ---
 
 ## License
+
+MIT. See `LICENSE`.
