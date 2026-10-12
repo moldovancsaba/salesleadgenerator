@@ -1,4 +1,17 @@
 # Changelog — Sales Lead Generator
+ 
+## 2.4.248
+
+### Enhancement: multi-pipeline configuration, stage models, and pipeline-scoped deal validation (Vega CRM ingestion Phase 1, fixes #235)
+
+Ingests Vega CRM Handoff 02 & Handoff 09 into Sales Lead Generator:
+- `lib/pipelines.ts`: defines `Pipeline` and `PipelineStage` models, default canonical pipeline generator (`getDefaultPipeline`), stage transition validator (`validateStageMove`), cross-pipeline move validator (`validatePipelineMove`), and deletion protection (`canDeletePipeline`, `canDeleteStage`). Preserves the Vega CRM invariant where deleting a pipeline or stage is refused while active deals exist.
+- `lib/deals.ts`: extends `Deal` with `pipelineId`, `stageId`, `expectedCloseDate`, `probability` (0..100 clamped), and `contactIds`, preserving them across sanitization and catalog line-item resolutions.
+- `app/api/pipelines/route.ts` & `app/api/pipelines/[id]/route.ts`: authenticated REST endpoints (`GET`, `POST`, `PATCH`, `DELETE`) with brand authorization for listing, creating, updating, and safely deleting brand pipelines.
+- `app/sales/[brand]/sales-page-client.tsx`: supports URL-addressable pipeline selection (`?pipeline=<id>`), toolbar pipeline selector when multiple pipelines exist, and dynamic `columnDefs` passed to `KanbanBoard`.
+- Unit tests (`tests/lib/pipelines.test.ts`, `tests/lib/deals.test.ts`) and integration tests (`tests/integration/pipelines.integration.test.ts`) covering default fallbacks, transition validation, deal fields, and deletion safety.
+
+Full gate green: 0 `tsc`/lint errors, 1191/1191 unit tests passing, smoke tests clean, `audit:gds-style` clean.
 
 ## 2.4.247
 

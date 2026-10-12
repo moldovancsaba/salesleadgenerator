@@ -45,6 +45,13 @@ export type Deal = {
   updatedAt: string;
   source: 'manual' | 'converted_ticket_estimate' | 'catalog_line_items';
   lineItems?: DealLineItem[];
+  // Issue #235 — Ingested from Vega CRM (Handoff 02 & 09):
+  // pipeline-scoped deal association, custom stages, and contact relationships.
+  pipelineId?: string;
+  stageId?: string;
+  expectedCloseDate?: string;
+  probability?: number;
+  contactIds?: string[];
 };
 
 export type SanitizeDealOptions = {
@@ -126,6 +133,34 @@ export function sanitizeDeal(input: DealInput, options?: SanitizeDealOptions): D
   const id = typeof input.id === 'string' && input.id ? input.id : (existing?.id ?? makeId());
   const createdAt = existing?.createdAt ?? (typeof input.createdAt === 'string' ? input.createdAt : nowIso);
 
+  const pipelineId = typeof input.pipelineId === 'string' && input.pipelineId.trim()
+    ? input.pipelineId.trim()
+    : existing?.pipelineId;
+
+  const stageId = typeof input.stageId === 'string' && input.stageId.trim()
+    ? input.stageId.trim()
+    : existing?.stageId;
+
+  const expectedCloseDate = typeof input.expectedCloseDate === 'string' && input.expectedCloseDate.trim()
+    ? input.expectedCloseDate.trim().slice(0, 30)
+    : existing?.expectedCloseDate;
+
+  let probability: number | undefined = existing?.probability;
+  if (input.probability !== undefined && input.probability !== null && input.probability !== '') {
+    const rawProb = Number(input.probability);
+    if (Number.isFinite(rawProb)) {
+      probability = Math.max(0, Math.min(100, Math.round(rawProb)));
+    }
+  }
+
+  let contactIds: string[] | undefined = existing?.contactIds;
+  if (Array.isArray(input.contactIds)) {
+    const cleaned = input.contactIds
+      .filter((c: unknown): c is string => typeof c === 'string' && c.trim().length > 0)
+      .map((c: string) => c.trim());
+    contactIds = cleaned.length > 0 ? Array.from(new Set(cleaned)) : undefined;
+  }
+
   // Issue #215 §11/§15 #9 — when lineItems resolves to at least one valid
   // entry, the server-computed total always wins, ignoring any client-sent
   // input.value outright (prevents a stale/tampered figure from bypassing
@@ -143,6 +178,11 @@ export function sanitizeDeal(input: DealInput, options?: SanitizeDealOptions): D
         updatedAt: nowIso,
         source: 'catalog_line_items',
         lineItems: resolved.lineItems,
+        pipelineId: pipelineId || undefined,
+        stageId: stageId || undefined,
+        expectedCloseDate: expectedCloseDate || undefined,
+        probability,
+        contactIds,
       };
     }
   }
@@ -169,6 +209,11 @@ export function sanitizeDeal(input: DealInput, options?: SanitizeDealOptions): D
     createdAt,
     updatedAt: nowIso,
     source: preservedSource ?? source,
+    pipelineId: pipelineId || undefined,
+    stageId: stageId || undefined,
+    expectedCloseDate: expectedCloseDate || undefined,
+    probability,
+    contactIds,
   };
 }
 

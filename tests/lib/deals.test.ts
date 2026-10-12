@@ -149,6 +149,34 @@ describe('sanitizeDeal — catalog line items (issue 215)', () => {
     expect(edited?.source).toBe('manual');
     expect(edited?.lineItems).toBeUndefined();
   });
+
+  it('sanitizes and preserves pipeline, stage, probability, and contactIds', () => {
+    const deal = sanitizeDeal(
+      {
+        value: 12000,
+        pipelineId: '  pipe_sponsorships  ',
+        stageId: '  stage_proposal  ',
+        expectedCloseDate: '2026-12-31',
+        probability: 60,
+        contactIds: ['c1', '  c2  ', 'c1'],
+      },
+      { now: NOW }
+    );
+
+    expect(deal?.pipelineId).toBe('pipe_sponsorships');
+    expect(deal?.stageId).toBe('stage_proposal');
+    expect(deal?.expectedCloseDate).toBe('2026-12-31');
+    expect(deal?.probability).toBe(60);
+    expect(deal?.contactIds).toEqual(['c1', 'c2']);
+  });
+
+  it('clamps deal probability to [0, 100]', () => {
+    const high = sanitizeDeal({ value: 1000, probability: 140 }, { now: NOW });
+    expect(high?.probability).toBe(100);
+
+    const low = sanitizeDeal({ value: 1000, probability: -10 }, { now: NOW });
+    expect(low?.probability).toBe(0);
+  });
 });
 
 describe('sanitizeDeals', () => {

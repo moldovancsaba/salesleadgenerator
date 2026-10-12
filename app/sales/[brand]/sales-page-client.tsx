@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Group, Text, Paper, Loader, Container, Box, TextInput, UnstyledButton, ActionIcon, Tooltip } from '@mantine/core';
+import { Group, Text, Paper, Loader, Container, Box, TextInput, UnstyledButton, ActionIcon, Tooltip, Select } from '@mantine/core';
 import { IconChecklist, IconX, IconPlus } from '@tabler/icons-react';
 import { useCommandLauncher } from '@sovereignsquad/gds-core/client';
 import type { CommandDef } from '@sovereignsquad/gds-core/client';
@@ -16,6 +16,8 @@ import { MetricsPanel } from '@/app/metrics';
 import { FilterBar } from '@/app/components/FilterBar';
 import { AddLeadModal } from '@/app/components/AddLeadModal';
 import { BACKLOG_COLUMN_DEF } from '@/app/constants';
+import type { Pipeline } from '@/lib/pipelines';
+import { isDefaultPipelineId } from '@/lib/pipelines';
 import type { LeadFilter } from '@/lib/saved-filters';
 import { TOUR_SELECTOR } from '@/app/lib/tour/selectors';
 import { useAuth } from '@/app/components/AuthProvider';
@@ -117,6 +119,39 @@ export function SalesPageClient({ brand, currency }: Props) {
       .finally(() => { if (!cancelled) setMetaLoading(false) })
     return () => { cancelled = true }
   }, [brand, refreshKey])
+
+  // Multi-pipeline support (issue #235, Vega CRM Handoff 09): load pipelines for brand
+  const [pipelines, setPipelines] = useState<Pipeline[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/pipelines?brand=${encodeURIComponent(brand)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!cancelled && Array.isArray(data.pipelines)) setPipelines(data.pipelines)
+      })
+      .catch(err => console.error('Failed to load pipelines:', err))
+    return () => { cancelled = true }
+  }, [brand, refreshKey])
+
+  const pipelineParam = searchParams.get('pipeline')
+  const activePipeline = useMemo(() => {
+    if (pipelineParam) {
+      const found = pipelines.find(p => p.id === pipelineParam)
+      if (found) return found
+    }
+    return pipelines.find(p => p.isDefault) || pipelines[0] || null
+  }, [pipelines, pipelineParam])
+
+  const pipelineColumnDefs = useMemo(() => {
+    if (!activePipeline || activePipeline.isDefault) return undefined
+    return activePipeline.stages.map(st => ({
+      key: st.key as any,
+      label: st.label,
+      description: st.description || '',
+      color: st.color || 'gray',
+      icon: st.isWon ? '🏆' : st.isLost ? '✕' : '⚡',
+    }))
+  }, [activePipeline])
 
   // Load table data server-side when needed. Cursor-paginated (not a single
   // capped fetch) so a brand exceeding one page's worth of leads doesn't get
@@ -373,6 +408,24 @@ export function SalesPageClient({ brand, currency }: Props) {
         {(view === 'kanban' || view === 'table' || view === 'backlog') && (
           <Group gap="xs" mb="sm">
             <FilterBar brand={brand} value={leadFilter} onChange={setLeadFilter} />
+            {pipelines.length > 1 && (
+              <Select
+                size="xs"
+                w={180}
+                aria-label="Select pipeline"
+                value={activePipeline?.id || ''}
+                data={pipelines.map((p) => ({ value: p.id, label: p.name }))}
+                onChange={(val) => {
+                  const url = new URL(window.location.href);
+                  if (val && !isDefaultPipelineId(val, brand)) {
+                    url.searchParams.set('pipeline', val);
+                  } else {
+                    url.searchParams.delete('pipeline');
+                  }
+                  router.replace(`${url.pathname}${url.search}`);
+                }}
+              />
+            )}
             {(view === 'kanban' || view === 'backlog') && (
               <Tooltip label={selectMode ? 'Cancel select' : 'Select leads for a bulk action'}>
                 <ActionIcon
@@ -403,8 +456,9 @@ export function SalesPageClient({ brand, currency }: Props) {
 
         {view === 'kanban' && (
           <KanbanBoard
-            key={`kanban-${refreshKey}`}
+            key={`kanban-${refreshKey}-${activePipeline?.id || 'default'}`}
             brand={brand}
+            columnDefs={pipelineColumnDefs}
             onOpenLead={setSelectedLead}
             forecast={boardMeta?.forecast?.pipeline || null}
             forecastCurrency={boardMeta?.forecast?.currency === 'EUR' ? 'EUR' : 'USD'}

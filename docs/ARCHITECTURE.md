@@ -1280,6 +1280,15 @@ A per-lead quote-generation, send, and e-sign-lite flow: a rep builds a PDF quot
 
 **Test coverage.** `tests/lib/quotes.test.ts` (pure type/logic tests), `tests/lib/quote-pdf.test.ts` (2 tests — real PDF magic bytes and non-trivial size; extractable, non-rasterized text), `tests/lib/quotes-store.test.ts` (2 tests — `generateShareToken()`'s 128-bit hex format and uniqueness across 50 calls), `tests/integration/quotes.integration.test.ts` (15 tests, real database, Blob and Resend mocked at their respective boundaries: full generate→send→view→sign lifecycle, the state-machine's rejection of backward/skipped transitions, view-route rate-limit enforcement, invalid/missing-token rejection, and activity-log/outreach-log write-back verification).
 
+### Multi-Pipeline Configuration and Deal Models (2.4.248, issue #235)
+Ingests Vega CRM Handoff 02 & Handoff 09 into Sales Lead Generator:
+- **Architecture & Domain Boundary:** Allows brands to configure multiple custom pipelines (e.g. Sponsorships, Tech Licensing, Data Rights) with dedicated stages while preserving 100% backward compatibility for existing leads through `getDefaultPipeline(brand)` (the canonical 6-column pipeline: `DISCOVERED`, `QUALIFIED`, `ENGAGED`, `PROPOSAL`, `WON`, `LOST`).
+- **Entity & Move Rules (`lib/pipelines.ts`):** Stages hold order, colors, labels, auto-managed flags, and optional win/loss flags. Moving deals across pipelines (`validatePipelineMove`) requires explicit target stage specification. Deletion safety is strictly enforced (`canDeletePipeline`, `canDeleteStage`): default pipelines cannot be deleted, and custom pipelines or stages cannot be deleted while active deals or leads belong to them (preserving the Vega CRM invariant where `deals.pipeline_id` is restricted on delete).
+- **Deal Model Extension (`lib/deals.ts`):** `Deal` supports `pipelineId`, `stageId`, `expectedCloseDate`, `probability` (0..100 clamped), and `contactIds`, preserved across sanitization and catalog line-item resolutions.
+- **API Surface:** `GET /api/pipelines?brand=<brand>` (list pipelines with default fallback), `POST /api/pipelines` (upsert pipeline), `GET /api/pipelines/[id]`, `PATCH /api/pipelines/[id]`, and `DELETE /api/pipelines/[id]`.
+- **UI Integration:** The sales page (`app/sales/[brand]/sales-page-client.tsx`) supports URL-addressable pipeline selection (`?pipeline=<id>`), toolbar pipeline selection when multiple pipelines exist, and dynamic `columnDefs` passed to `KanbanBoard`.
+- **Test Coverage:** `tests/lib/pipelines.test.ts` (19 pure unit tests), `tests/lib/deals.test.ts` (extended unit tests), `tests/integration/pipelines.integration.test.ts` (7 integration tests exercising full CRUD, deal assignment checks, and deletion refusal).
+
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)
 - Brand-aware field normalization prevents cross-tenant writes

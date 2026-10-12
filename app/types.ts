@@ -4,8 +4,9 @@ import type { CurrencyCode } from './lib/brand';
 import type { ActiveCadence } from '../lib/cadences';
 import type { FieldVerification } from '../lib/field-verifications';
 import type { ForecastCategory } from '../lib/forecast-category';
+import type { Pipeline, PipelineStage } from '../lib/pipelines';
 
-export type { FieldVerification, ForecastCategory };
+export type { FieldVerification, ForecastCategory, Pipeline, PipelineStage };
 
 // Kanban columns
 export type KanbanColumn =
