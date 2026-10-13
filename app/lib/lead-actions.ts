@@ -188,16 +188,17 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     }
 
     const { canAssign } = await import('../../lib/lead-assignment')
-    const { getUserAccess, getRoleForBrand } = await import('../../lib/sso-access')
+    const { getUserAccess, getRoleForBrand, isSuperAdminEmail } = await import('../../lib/sso-access')
 
     const rawTarget = payload.assignedTo
     const targetAssignedTo = rawTarget === null || rawTarget === undefined ? null : String(rawTarget)
     const currentAssignedTo: string | null = existing.assignedTo ?? null
 
-    const actorRecord = await getUserAccess(db, actorId)
-    const actorBrandRole = getRoleForBrand(actorEmail, actorRecord?.orgAccess, brand)
+    const actorRecord = (await getUserAccess(db, actorId)) || (actorEmail ? await getUserAccess(db, actorEmail) : null)
+    const isSuper = isSuperAdminEmail(actorEmail)
+    const actorBrandRole = isSuper ? 'admin' : getRoleForBrand(actorEmail, actorRecord?.orgAccess, brand)
 
-    if (!canAssign(actorId, actorBrandRole, targetAssignedTo, currentAssignedTo)) {
+    if (!canAssign(actorId, actorBrandRole, targetAssignedTo, currentAssignedTo) && !isSuper) {
       return { success: false, error: 'Only a brand admin can assign this lead to another user', requestId, status: 403 }
     }
 
@@ -206,13 +207,17 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
       updateData.assignedToEmail = null
       outcomeValue = 'Unassigned'
     } else {
-      const targetUser = await getUserAccess(db, targetAssignedTo)
-      if (!targetUser) {
+      let targetUser = await getUserAccess(db, targetAssignedTo)
+      if (!targetUser && targetAssignedTo.includes('@')) {
+        targetUser = await getUserAccess(db, targetAssignedTo.toLowerCase())
+      }
+      const resolvedEmail = targetUser?.email || (targetAssignedTo.includes('@') ? targetAssignedTo : null)
+      if (!targetUser && !resolvedEmail) {
         return { success: false, error: 'Unknown user', requestId }
       }
-      updateData.assignedTo = targetUser.ssoUserId || targetAssignedTo
-      updateData.assignedToEmail = targetUser.email
-      outcomeValue = `Assigned to ${targetUser.email}`
+      updateData.assignedTo = targetUser?.ssoUserId || targetAssignedTo
+      updateData.assignedToEmail = resolvedEmail
+      outcomeValue = `Assigned to ${resolvedEmail || targetAssignedTo}`
     }
     updateData.assignedAt = new Date()
     updateData.assignedBy = actorId

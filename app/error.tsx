@@ -23,6 +23,22 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         <Text c="dimmed" ta="center">
           This page hit an unexpected error. Your data is safe — this is a display problem, not a data-loss one.
         </Text>
+        {error?.message && (
+          <Text
+            size="xs"
+            c="red"
+            p="xs"
+            style={{
+              backgroundColor: 'var(--mantine-color-gray-1)',
+              borderRadius: 4,
+              fontFamily: 'monospace',
+              maxWidth: '100%',
+              wordBreak: 'break-word',
+            }}
+          >
+            {error.message}
+          </Text>
+        )}
         <Button onClick={() => reset()}>Try again</Button>
         <Button variant="subtle" onClick={() => window.location.reload()}>
           Reload page

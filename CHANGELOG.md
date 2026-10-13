@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
  
+## 2.4.258
+
+### Fix: Remove redundant top navigation strip, fix organization switching navigation, auto-save lead assignments, and harden Kanban rendering
+
+- **Clean Header Layout (`app/components/AppHeader.tsx`):** Removed redundant top horizontal navigation button strip (`[Today] [Pipeline] [Table] [Backlog] [Contacts] [Reports] [Forecast] [Settings]`) that cluttered the top interface. Restored clean header containing drawer hamburger, app title, quick command search (`⌘K`), and brand switcher.
+- **Organization Switcher Instant Navigation (`app/components/AppNav.tsx` & `app/components/AppHeader.tsx`):** Selecting a brand in the organization switcher now immediately navigates the browser to the corresponding brand URL (`/sales/${newBrand}` or matching section) and updates the active client state.
+- **Smooth Drawer Navigation (`app/components/AppNav.tsx`):** Removed `e.preventDefault()` on drawer `NavLink` items, letting Next.js client-side router handle transitions natively and prefetch routes cleanly.
+- **Lead Assignment Auto-Save & Super Admin Support (`app/detail.tsx`, `app/lib/lead-actions.ts`, `app/api/leads/assignable-users/route.ts`):**
+  - Assigning a lead now auto-saves immediately upon selecting an assignee from the dropdown, eliminating confusing unpersisted selection states.
+  - Enabled super admin (`isSuperAdmin`) to assign leads to any brand user without being blocked by client-side role checks.
+  - Resolved caller session by both `sub` and `email` in `/api/leads/assignable-users`, properly granting admin capabilities to account owners.
+  - Added email lookup fallback in `executeLeadAction` (`app/lib/lead-actions.ts`) to prevent spurious "Unknown user" assignment rejections.
+- **Kanban Rendering Resilience (`app/kanban.tsx`, `app/sales/[brand]/sales-page-client.tsx`, `app/error.tsx`):**
+  - Safeguarded `columnStates` access in `KanbanBoard` with default `{ leads: [], count: 0, hasMore: false, cursor: null, loading: false }` fallbacks so custom/dynamic pipeline stages never cause uncaught render crashes (`Cannot read properties of undefined (reading 'count')`).
+  - Added dynamic `columnDefs` synchronization effect in `KanbanBoard`.
+  - Wrapped `KanbanBoard` renders in `ErrorBoundary` in `sales-page-client.tsx`.
+  - Enhanced `app/error.tsx` to display human-readable error messages for transparent diagnosis.
+- **Test Coverage:** Updated and added tests in `tests/lib/desktop-tablet-nav.test.ts` verifying clean header layout, organization switcher navigation, lead assignment auto-save, and Kanban column safety.
+
+Full gate green: 0 `tsc`/lint errors, 1335/1335 unit tests passing, smoke tests clean, `audit:gds-style` clean.
+
 ## 2.4.257
 
 ### Feature: Google Calendar task reminders sync with deterministic event IDs and fail-safe error handling (fixes #244)

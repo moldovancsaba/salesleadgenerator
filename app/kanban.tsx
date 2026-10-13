@@ -135,6 +135,21 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   })
   const [bootstrapped, setBootstrapped] = useState(false)
 
+  // Ensure columnStates stays populated when columnDefs changes dynamically
+  useEffect(() => {
+    setColumnStates((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const col of columnDefs) {
+        if (!next[col.key]) {
+          next[col.key] = { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [columnDefs])
+
   // Issue #213 — flattened, deduped-by-id lead list for the command
   // palette's "jump to lead" command. No new network call: this only ever
   // reflects leads already fetched into columnStates by this board's own
@@ -143,7 +158,9 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     if (!onVisibleLeadsChange) return
     const byId = new Map<string, Lead>()
     for (const col of Object.values(columnStates)) {
-      for (const lead of col.leads) byId.set(lead._id, lead)
+      if (col && Array.isArray(col.leads)) {
+        for (const lead of col.leads) byId.set(lead._id, lead)
+      }
     }
     onVisibleLeadsChange(Array.from(byId.values()))
   }, [columnStates, onVisibleLeadsChange])
@@ -200,7 +217,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   const loadColumn = useCallback(async (colKey: KanbanColumn, cursor?: string | null) => {
     setColumnStates((prev) => ({
       ...prev,
-      [colKey]: { ...prev[colKey], loading: true },
+      [colKey]: { ...(prev[colKey] || { leads: [], count: 0, hasMore: false, cursor: null }), loading: true },
     }))
 
     try {
@@ -220,17 +237,17 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       const data = await res.json()
 
       setColumnStates((prev) => {
-        const current = prev[colKey]
+        const current = prev[colKey] || { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
         const newLeads = cursor
-          ? [...current.leads, ...data.leads]
-          : [...data.leads]
+          ? [...(current.leads || []), ...(data.leads || [])]
+          : [...(data.leads || [])]
 
         return {
           ...prev,
           [colKey]: {
             leads: newLeads,
-            count: data.count,
-            hasMore: data.hasMore,
+            count: data.count || 0,
+            hasMore: Boolean(data.hasMore),
             cursor: data.nextCursor || null,
             loading: false,
           },
@@ -240,7 +257,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       console.error(`Column ${colKey} load error:`, err)
       setColumnStates((prev) => ({
         ...prev,
-        [colKey]: { ...prev[colKey], loading: false },
+        [colKey]: { ...(prev[colKey] || { leads: [], count: 0, hasMore: false, cursor: null }), loading: false },
       }))
     }
   }, [brand, tenantId, filter])
@@ -257,14 +274,17 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     // Optimistic UI: drop the card from its source column immediately so the
     // move feels instant; reload both columns afterward to reconcile with
     // the server (sortOrder, dedup, etc.)
-    setColumnStates((prev) => ({
-      ...prev,
-      [fromColumn]: {
-        ...prev[fromColumn],
-        leads: prev[fromColumn].leads.filter((l) => l._id !== leadId),
-        count: Math.max(0, prev[fromColumn].count - 1),
-      },
-    }))
+    setColumnStates((prev) => {
+      const current = prev[fromColumn] || { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
+      return {
+        ...prev,
+        [fromColumn]: {
+          ...current,
+          leads: (current.leads || []).filter((l) => l._id !== leadId),
+          count: Math.max(0, (current.count || 0) - 1),
+        },
+      }
+    })
 
     try {
       const url = new URL('/api/leads', window.location.origin)
@@ -650,7 +670,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // has nowhere else to go (no dedicated subtitle slot), so it stays in the
   // title string alongside the plain column label.
   const columns: LeadKanbanColumn[] = useMemo(() => columnDefs.map((col) => {
-    const colState = columnStates[col.key]
+    const colState = columnStates[col.key] || { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
     const colForecast = forecast?.[col.key]
     const forecastLabel = colForecast && colForecast.rawRevenue > 0
       ? ` · ${formatForecast(colForecast.weightedRevenue)}`
@@ -661,12 +681,12 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     // touches totalCount (#48's own count badge, unchanged) or anything
     // that would affect the column's ability to accept more cards.
     const wipThreshold = resolveWipThreshold(col.key, wipLimits)
-    const overWipLimit = isOverWipLimit(colState.count, wipThreshold)
+    const overWipLimit = isOverWipLimit(colState.count || 0, wipThreshold)
     const title = overWipLimit ? (
       <Group gap={6} wrap="nowrap">
         <span>{plainTitle}</span>
-        <Badge color="yellow" variant="light" size="sm" aria-label={`${colState.count} leads, over the configured limit of ${wipThreshold}`}>
-          {colState.count}/{wipThreshold}
+        <Badge color="yellow" variant="light" size="sm" aria-label={`${colState.count || 0} leads, over the configured limit of ${wipThreshold}`}>
+          {colState.count || 0}/{wipThreshold}
         </Badge>
       </Group>
     ) : plainTitle
@@ -674,9 +694,9 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     return {
       id: col.key,
       title,
-      ariaLabel: overWipLimit ? `${plainTitle}, ${colState.count} of ${wipThreshold} WIP limit` : undefined,
-      totalCount: colState.count,
-      items: colState.leads.map((lead) => ({
+      ariaLabel: overWipLimit ? `${plainTitle}, ${colState.count || 0} of ${wipThreshold} WIP limit` : undefined,
+      totalCount: colState.count || 0,
+      items: (colState.leads || []).map((lead) => ({
         id: lead._id,
         title: lead.entity_name,
         ariaLabel: lead.entity_name,
@@ -702,7 +722,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // actually are at runtime, since we built them in `columns` above).
   const renderItem = useCallback((item: GdsKanbanItem, column: GdsKanbanColumnData) => {
     const leadItem = item as LeadKanbanItem
-    const colState = columnStates[column.id as KanbanColumn]
+    const colState = columnStates[column.id as KanbanColumn] || { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
     const isLast = column.items[column.items.length - 1]?.id === item.id
     const now = new Date()
     const staleness = computeStaleness(
@@ -775,7 +795,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
             Move to Backlog
           </Button>
         )}
-        {isLast && colState.hasMore && !colState.loading && (
+        {isLast && Boolean(colState?.hasMore) && !colState?.loading && (
           <LoadMoreSentinel onLoadMore={() => loadColumn(column.id as KanbanColumn, colState.cursor)} />
         )}
       </>

@@ -5,17 +5,11 @@ import { join } from 'path';
 const root = join(__dirname, '..', '..');
 
 describe('desktop and tablet navigation affordances', () => {
-  it('includes horizontal top navigation links in AppHeader', () => {
+  it('keeps AppHeader clean with drawer launcher, title, and organization switcher', () => {
     const content = readFileSync(join(root, 'app', 'components', 'AppHeader.tsx'), 'utf8');
-    expect(content).toContain('visibleFrom="sm"');
-    expect(content).toContain('Today');
-    expect(content).toContain('Pipeline');
-    expect(content).toContain('Table');
-    expect(content).toContain('Backlog');
-    expect(content).toContain('Contacts');
-    expect(content).toContain('Reports');
-    expect(content).toContain('Forecast');
-    expect(content).toContain('Settings');
+    expect(content).toContain('<AppNav />');
+    expect(content).toContain('Sales Lead Generator');
+    expect(content).toContain('activeBrand');
   });
 
   it('includes command launcher trigger affordance in AppHeader', () => {
@@ -46,21 +40,12 @@ describe('desktop and tablet navigation affordances', () => {
     expect(content).toContain('cols={{ base: 2, sm: 3, md: 5 }}');
   });
 
-  it('provides persistent show/hide toggle for top navigation bar in AppHeader', () => {
-    const content = readFileSync(join(root, 'app', 'components', 'AppHeader.tsx'), 'utf8');
-    expect(content).toContain('navVisible');
-    expect(content).toContain('slg_nav_visible');
-    expect(content).toContain('Hide navigation bar');
-    expect(content).toContain('Show Navigation');
-  });
-
-  it('uses programmatic router navigation in AppHeader and AppNav', () => {
+  it('supports organization switcher navigation in AppHeader and AppNav', () => {
     const header = readFileSync(join(root, 'app', 'components', 'AppHeader.tsx'), 'utf8');
-    expect(header).toContain('router.push(item.href)');
+    expect(header).toContain('router.push(`/sales/${newBrand}`)');
 
     const nav = readFileSync(join(root, 'app', 'components', 'AppNav.tsx'), 'utf8');
-    expect(nav).toContain('navigateTo');
-    expect(nav).toContain('router.push(href)');
+    expect(nav).toContain('router.push(`/sales/${nextBrand}`)');
   });
 
   it('keeps modal open and refreshes board on in-place actions like ASSIGN in sales-page-client', () => {
@@ -73,5 +58,22 @@ describe('desktop and tablet navigation affordances', () => {
     const content = readFileSync(join(root, 'app', 'card.tsx'), 'utf8');
     expect(content).toContain("label: 'Assignee'");
     expect(content).toContain('lead.assignedToEmail');
+  });
+
+  it('triggers assignment immediately on change and checks super admin role in detail modal', () => {
+    const content = readFileSync(join(root, 'app', 'detail.tsx'), 'utf8');
+    expect(content).toContain('handleAssign(next)');
+    expect(content).toContain('isSuperAdmin');
+  });
+
+  it('safeguards columnStates in KanbanBoard against missing column definitions', () => {
+    const content = readFileSync(join(root, 'app', 'kanban.tsx'), 'utf8');
+    expect(content).toContain('const colState = columnStates[col.key] ||');
+    expect(content).toContain('const colState = columnStates[column.id as KanbanColumn] ||');
+  });
+
+  it('displays readable error message in global error boundary', () => {
+    const content = readFileSync(join(root, 'app', 'error.tsx'), 'utf8');
+    expect(content).toContain('{error?.message && (');
   });
 });

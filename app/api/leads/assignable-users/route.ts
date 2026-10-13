@@ -3,7 +3,7 @@ import { isMongoConfigured, getClientPromise } from '@/lib/mongodb'
 import { resolveBrand, type Brand } from '@/app/lib/brand'
 import { requireBrandAccessApi } from '@/lib/require-brand-access-api'
 import { resolveSessionFromIdToken } from '@/lib/session'
-import { listAllUserAccess, hasAccessToBrand, getRoleForBrand } from '@/lib/sso-access'
+import { listAllUserAccess, hasAccessToBrand, getRoleForBrand, isSuperAdminEmail } from '@/lib/sso-access'
 import { listTeamsForBrand, managesAnyTeam } from '@/lib/teams'
 
 async function getBrand(request: Request): Promise<Brand | null> {
@@ -45,8 +45,11 @@ export async function GET(request: NextRequest) {
     // x-api-key caller, which has no per-user role to report.
     const idToken = request.cookies.get('sso_id_token')?.value
     const claims = await resolveSessionFromIdToken(idToken)
-    const callerRecord = claims ? all.find((u) => u.ssoUserId === claims.sub) : undefined
-    const callerRole = claims ? getRoleForBrand(claims.email, callerRecord?.orgAccess, brand) : null
+    const callerRecord = claims
+      ? all.find((u) => u.ssoUserId === claims.sub || (claims.email && u.email?.toLowerCase() === claims.email.toLowerCase()))
+      : undefined
+    const isSuper = claims?.email ? isSuperAdminEmail(claims.email) : false
+    const callerRole = isSuper ? 'admin' : claims ? getRoleForBrand(claims.email, callerRecord?.orgAccess, brand) : null
 
     // Team visibility (issue: CRM Team visibility) — drives whether the
     // frontend offers a "My Team" pipeline scope at all: a non-manager

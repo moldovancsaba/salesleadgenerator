@@ -38,6 +38,7 @@ import { OutreachComposeModal } from './outreach/compose-modal';
 import { TABLET_LANDSCAPE_MAX } from './constants';
 import { useIsCompactViewport } from './lib/use-is-compact-viewport';
 import { TOUR_SELECTOR } from './lib/tour/selectors';
+import { useAuth } from './components/AuthProvider';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -286,6 +287,7 @@ const PIPELINE_MOVE_TARGETS = [
 ];
 
 export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false, onClose, onAction, onDelete, onUpdated }: Props) {
+  const { user, isSuperAdmin } = useAuth();
   const [annotation, setAnnotation] = useState("");
   const [declineReason, setDeclineReason] = useState<DeclineReason>("OTHER");
   // Only "decline" is ever actually set (Accept/Pin/Refresh fire
@@ -989,7 +991,10 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
     if (!lead) return;
     if (target === null) {
       const confirmed = window.confirm('Clear this lead\'s assignment? It will show as Unassigned until someone claims or is assigned it again.');
-      if (!confirmed) return;
+      if (!confirmed) {
+        setAssignTarget(lead.assignedTo ?? null);
+        return;
+      }
     }
     setAssigning(true);
     try {
@@ -997,6 +1002,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
       setAssignTarget(target);
       showNotification({ message: target === null ? 'Assignment cleared' : 'Lead assigned', color: 'green', autoClose: 4000 });
     } catch (err) {
+      setAssignTarget(lead.assignedTo ?? null);
       showNotification({ message: err instanceof Error ? err.message : 'Assignment failed', color: 'red', autoClose: 5000 });
     } finally {
       setAssigning(false);
@@ -1292,22 +1298,26 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
               })),
             ]}
             value={assignTarget ?? '__unassigned__'}
-            onChange={(value: string | null) => setAssignTarget(value === '__unassigned__' || !value ? null : value)}
+            onChange={(value: string | null) => {
+              const next = value === '__unassigned__' || !value ? null : value;
+              setAssignTarget(next);
+              handleAssign(next);
+            }}
           />
           <Button
             size="xs"
             variant="light"
             loading={assigning}
             disabled={
-              assignTarget === (lead.assignedTo ?? null)
+              assigning
+              || loadingAssignable
+              || assignTarget === (lead.assignedTo ?? null)
               || (
-                // Self-assign/self-release is always allowed; anything else
-                // (assigning to, or clearing, someone else's assignment)
-                // needs the brand-admin role — matches lib/lead-assignment.ts's
-                // canAssign() exactly, client-side, for immediate feedback.
-                callerRole !== 'admin'
+                !isSuperAdmin
+                && callerRole !== 'admin'
                 && assignTarget !== callerSsoUserId
-                && !(assignTarget === null && lead.assignedTo === callerSsoUserId)
+                && !(Boolean(callerSsoUserId) && user?.id === callerSsoUserId)
+                && !(assignTarget === null && (lead.assignedTo === callerSsoUserId || (Boolean(user?.id) && lead.assignedTo === user?.id)))
               )
             }
             onClick={() => handleAssign(assignTarget)}
@@ -1315,7 +1325,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
             {assignTarget === null ? 'Clear assignment' : 'Assign'}
           </Button>
         </Group>
-        {callerRole !== 'admin' && assignTarget !== callerSsoUserId && assignTarget !== (lead.assignedTo ?? null) && !(assignTarget === null && lead.assignedTo === callerSsoUserId) && (
+        {!isSuperAdmin && callerRole !== 'admin' && assignTarget !== callerSsoUserId && !(Boolean(callerSsoUserId) && user?.id === callerSsoUserId) && assignTarget !== (lead.assignedTo ?? null) && !(assignTarget === null && (lead.assignedTo === callerSsoUserId || (Boolean(user?.id) && lead.assignedTo === user?.id))) && (
           <Text size="xs" c="dimmed" mt={4}>Only a brand admin can assign this lead to another user.</Text>
         )}
       </Box>

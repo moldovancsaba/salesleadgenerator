@@ -20,6 +20,7 @@ import type { Pipeline } from '@/lib/pipelines';
 import { isDefaultPipelineId } from '@/lib/pipelines';
 import type { LeadFilter } from '@/lib/saved-filters';
 import { TOUR_SELECTOR } from '@/app/lib/tour/selectors';
+import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { useAuth } from '@/app/components/AuthProvider';
 import { useIsFinePointer } from '@/app/lib/use-is-fine-pointer';
 import { buildSalesBoardCommandDescriptors } from '@/lib/command-palette-commands';
@@ -144,7 +145,7 @@ export function SalesPageClient({ brand, currency }: Props) {
 
   const pipelineColumnDefs = useMemo(() => {
     if (!activePipeline || activePipeline.isDefault) return undefined
-    return activePipeline.stages.map(st => ({
+    return (activePipeline.stages || []).map(st => ({
       key: st.key as any,
       label: st.label,
       description: st.description || '',
@@ -358,7 +359,7 @@ export function SalesPageClient({ brand, currency }: Props) {
             <Text size="sm" c="dimmed" truncate style={{ minWidth: 0 }}>
               {typeof boardMeta.totalLeads === 'number' ? boardMeta.totalLeads.toLocaleString() : '—'} leads
             </Text>
-            {boardMeta?.forecast?.totalWeightedRevenue !== undefined && (
+            {typeof boardMeta?.forecast?.totalWeightedRevenue === 'number' && !isNaN(boardMeta.forecast.totalWeightedRevenue) && (
               <Text size="sm" c="dimmed" fw={600} style={{ flexShrink: 0 }}>
                 {boardMeta.forecast.currency === 'EUR' ? '€' : '$'}{Math.round(boardMeta.forecast.totalWeightedRevenue).toLocaleString()}
               </Text>
@@ -486,32 +487,48 @@ export function SalesPageClient({ brand, currency }: Props) {
         )}
 
         {view === 'kanban' && (
-          <KanbanBoard
-            key={`kanban-${refreshKey}-${activePipeline?.id || 'default'}`}
-            brand={brand}
-            columnDefs={pipelineColumnDefs}
-            onOpenLead={setSelectedLead}
-            forecast={boardMeta?.forecast?.pipeline || null}
-            forecastCurrency={boardMeta?.forecast?.currency === 'EUR' ? 'EUR' : 'USD'}
-            filter={leadFilter}
-            selectMode={selectMode}
-            onAction={handleAction}
-            onVisibleLeadsChange={setVisibleLeads}
-          />
+          <ErrorBoundary
+            fallback={
+              <Container py="xl">
+                <Text c="dimmed" ta="center">Unable to display the pipeline board. Please try reloading.</Text>
+              </Container>
+            }
+          >
+            <KanbanBoard
+              key={`kanban-${refreshKey}-${activePipeline?.id || 'default'}`}
+              brand={brand}
+              columnDefs={pipelineColumnDefs}
+              onOpenLead={setSelectedLead}
+              forecast={boardMeta?.forecast?.pipeline || null}
+              forecastCurrency={boardMeta?.forecast?.currency === 'EUR' ? 'EUR' : 'USD'}
+              filter={leadFilter}
+              selectMode={selectMode}
+              onAction={handleAction}
+              onVisibleLeadsChange={setVisibleLeads}
+            />
+          </ErrorBoundary>
         )}
 
         {view === 'backlog' && (
           // Issue #126 — Backlog is excluded entirely from Forecast (no
           // `forecast` prop passed), same component otherwise.
-          <KanbanBoard
-            key={`backlog-${refreshKey}`}
-            brand={brand}
-            onOpenLead={setSelectedLead}
-            filter={leadFilter}
-            selectMode={selectMode}
-            columnDefs={BACKLOG_COLUMN_DEF}
-            onAction={handleAction}
-          />
+          <ErrorBoundary
+            fallback={
+              <Container py="xl">
+                <Text c="dimmed" ta="center">Unable to display the backlog board. Please try reloading.</Text>
+              </Container>
+            }
+          >
+            <KanbanBoard
+              key={`backlog-${refreshKey}`}
+              brand={brand}
+              onOpenLead={setSelectedLead}
+              filter={leadFilter}
+              selectMode={selectMode}
+              columnDefs={BACKLOG_COLUMN_DEF}
+              onAction={handleAction}
+            />
+          </ErrorBoundary>
         )}
 
         {view === 'table' && (

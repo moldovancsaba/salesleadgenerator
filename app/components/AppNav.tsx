@@ -177,7 +177,17 @@ function AppNavInner() {
                     size="sm"
                     data={accessibleBrands.map((b) => ({ value: b, label: brandLabels[b] ?? b }))}
                     value={effectiveBrand}
-                    onChange={(value) => value && setSelectedBrand(value as Brand)}
+                    onChange={(value) => {
+                      if (!value) return;
+                      const nextBrand = value as Brand;
+                      setSelectedBrand(nextBrand);
+                      if (urlBrand && pathname.includes(`/${urlBrand}`)) {
+                        router.push(pathname.replace(`/${urlBrand}`, `/${nextBrand}`));
+                      } else {
+                        router.push(`/sales/${nextBrand}`);
+                      }
+                      close();
+                    }}
                     allowDeselect={false}
                     aria-label="Switch organization"
                     data-tour={TOUR_SELECTOR.brandSwitcher}
@@ -199,7 +209,7 @@ function AppNavInner() {
                     label="Today"
                     leftSection={<IconCalendarTime size={18} />}
                     active={pathname === `/today/${effectiveBrand}`}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/today/${effectiveBrand}`); }}
+                    onClick={close}
                   />
                   {/* Issue #126 — positioned immediately before Pipeline,
                       per the owner's explicit request. Reuses the same
@@ -211,7 +221,7 @@ function AppNavInner() {
                     label="Backlog"
                     leftSection={<IconArchive size={18} />}
                     active={currentView === 'backlog'}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/sales/${effectiveBrand}?view=backlog`); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -219,7 +229,7 @@ function AppNavInner() {
                     label="Pipeline"
                     leftSection={<IconLayoutKanban size={18} />}
                     active={pathname === `/sales/${effectiveBrand}` && currentView !== 'backlog'}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/sales/${effectiveBrand}`); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -227,7 +237,7 @@ function AppNavInner() {
                     label="Sales Settings"
                     leftSection={<IconSettings size={18} />}
                     active={pathname === `/salessettings/${effectiveBrand}`}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/salessettings/${effectiveBrand}`); }}
+                    onClick={close}
                     data-tour={TOUR_SELECTOR.salesSettingsLink}
                   />
                   {isSalesBoard && (
@@ -241,7 +251,7 @@ function AppNavInner() {
                         label="Kanban"
                         leftSection={<IconLayoutKanban size={18} />}
                         active={currentView === 'kanban'}
-                        onClick={(e) => { e.preventDefault(); navigateTo(`/sales/${effectiveBrand}?view=kanban`); }}
+                        onClick={close}
                       />
                       <NavLink
                         component={Link}
@@ -249,7 +259,7 @@ function AppNavInner() {
                         label="Table"
                         leftSection={<IconTable size={18} />}
                         active={currentView === 'table'}
-                        onClick={(e) => { e.preventDefault(); navigateTo(`/sales/${effectiveBrand}?view=table`); }}
+                        onClick={close}
                       />
                       <NavLink
                         component={Link}
@@ -257,7 +267,7 @@ function AppNavInner() {
                         label="Metrics"
                         leftSection={<IconChartBar size={18} />}
                         active={currentView === 'metrics'}
-                        onClick={(e) => { e.preventDefault(); navigateTo(`/sales/${effectiveBrand}?view=metrics`); }}
+                        onClick={close}
                       />
                       <NavLink
                         component={Link}
@@ -265,7 +275,7 @@ function AppNavInner() {
                         label="Search Learning"
                         leftSection={<IconSearch size={18} />}
                         active={currentView === 'search'}
-                        onClick={(e) => { e.preventDefault(); navigateTo(`/sales/${effectiveBrand}?view=search`); }}
+                        onClick={close}
                       />
                     </>
                   )}
@@ -294,7 +304,7 @@ function AppNavInner() {
                     label="Forecast"
                     leftSection={<IconTrendingUp size={18} />}
                     active={pathname === `/forecast/${effectiveBrand}`}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/forecast/${effectiveBrand}`); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -302,7 +312,7 @@ function AppNavInner() {
                     label="Battlecards"
                     leftSection={<IconCards size={18} />}
                     active={pathname === `/battlecards/${effectiveBrand}`}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/battlecards/${effectiveBrand}`); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -310,7 +320,7 @@ function AppNavInner() {
                     label="Outreach Templates"
                     leftSection={<IconMail size={18} />}
                     active={pathname === `/outreach/templates/${effectiveBrand}`}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/outreach/templates/${effectiveBrand}`); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -318,7 +328,7 @@ function AppNavInner() {
                     label="Cadences"
                     leftSection={<IconRepeat size={18} />}
                     active={pathname === `/outreach/cadences/${effectiveBrand}`}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/outreach/cadences/${effectiveBrand}`); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -326,7 +336,7 @@ function AppNavInner() {
                     label="Automation"
                     leftSection={<IconBolt size={18} />}
                     active={pathname === `/automation/${effectiveBrand}`}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/automation/${effectiveBrand}`); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -334,7 +344,7 @@ function AppNavInner() {
                     label="Contacts"
                     leftSection={<IconAddressBook size={18} />}
                     active={pathname === `/contacts/${effectiveBrand}`}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/contacts/${effectiveBrand}`); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -342,7 +352,7 @@ function AppNavInner() {
                     label="Accounts"
                     leftSection={<IconBuildings size={18} />}
                     active={pathname === `/accounts/${effectiveBrand}`}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/accounts/${effectiveBrand}`); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -350,7 +360,7 @@ function AppNavInner() {
                     label="Product Catalog"
                     leftSection={<IconShoppingCart size={18} />}
                     active={pathname === `/admin/products/${effectiveBrand}`}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/admin/products/${effectiveBrand}`); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -358,7 +368,7 @@ function AppNavInner() {
                     label="Reports"
                     leftSection={<IconReportAnalytics size={18} />}
                     active={pathname === `/reports/${effectiveBrand}`}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/reports/${effectiveBrand}`); }}
+                    onClick={close}
                   />
                 </>
               )}
@@ -375,7 +385,7 @@ function AppNavInner() {
                     label="Prompt Editor"
                     leftSection={<IconEdit size={18} />}
                     active={pathname.startsWith('/admin/prompts')}
-                    onClick={(e) => { e.preventDefault(); navigateTo(`/admin/prompts/${effectiveBrand}`); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -383,7 +393,7 @@ function AppNavInner() {
                     label="Clients"
                     leftSection={<IconBuilding size={18} />}
                     active={pathname === '/admin/clients'}
-                    onClick={(e) => { e.preventDefault(); navigateTo('/admin/clients'); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -391,7 +401,7 @@ function AppNavInner() {
                     label="Users & Access"
                     leftSection={<IconShieldLock size={18} />}
                     active={pathname === '/admin/users'}
-                    onClick={(e) => { e.preventDefault(); navigateTo('/admin/users'); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -399,7 +409,7 @@ function AppNavInner() {
                     label="Teams"
                     leftSection={<IconUsersGroup size={18} />}
                     active={pathname === '/admin/teams'}
-                    onClick={(e) => { e.preventDefault(); navigateTo('/admin/teams'); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -407,7 +417,7 @@ function AppNavInner() {
                     label="Duplicate Review"
                     leftSection={<IconCopyCheck size={18} />}
                     active={pathname === '/admin/duplicates'}
-                    onClick={(e) => { e.preventDefault(); navigateTo('/admin/duplicates'); }}
+                    onClick={close}
                   />
                   <NavLink
                     component={Link}
@@ -415,7 +425,7 @@ function AppNavInner() {
                     label="API Keys"
                     leftSection={<IconKey size={18} />}
                     active={pathname === '/admin/api-keys'}
-                    onClick={(e) => { e.preventDefault(); navigateTo('/admin/api-keys'); }}
+                    onClick={close}
                   />
                 </>
               )}
