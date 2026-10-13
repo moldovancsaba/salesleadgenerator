@@ -205,6 +205,9 @@ export function getCancelReasonLabel(code: string | undefined | null): string {
     case 'personalization_blocked':
     case 'PERSONALIZATION_BLOCKED':
       return 'Personalization blocked';
+    case 'attachment_missing':
+    case 'ATTACHMENT_MISSING':
+      return 'Attachment missing';
     default:
       return '';
   }

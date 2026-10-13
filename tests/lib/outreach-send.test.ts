@@ -65,6 +65,7 @@ describe('dispatchOutreachEmail — Personalization Gating & Send Invariants (is
           return { insertedId: `mock-id-${insertedLogs.length}` };
         },
         findOne: async () => null,
+        createIndex: async () => 'idx',
       }),
     };
   }
@@ -147,4 +148,61 @@ describe('dispatchOutreachEmail — Personalization Gating & Send Invariants (is
     expect(mockDb.insertedLogs[0].sendAttempted).toBe(true);
     expect(mockDb.insertedLogs[0].routingAllowed).toBe(false);
   });
+
+  it('blocks send with ATTACHMENT_MISSING when referenced documents are missing from library (issue 243)', async () => {
+    const { dispatchOutreachEmail } = await import('../../lib/outreach-send');
+    const insertedLogs: any[] = [];
+    const mockDb = {
+      insertedLogs,
+      collection: (name: string) => {
+        if (name === 'documents') {
+          return {
+            find: () => ({
+              toArray: async () => [],
+            }),
+          };
+        }
+        return {
+          insertOne: async (doc: any) => {
+            insertedLogs.push({ ...doc, _id: `mock-id-${insertedLogs.length + 1}` });
+            return { insertedId: `mock-id-${insertedLogs.length}` };
+          },
+          findOne: async () => null,
+          createIndex: async () => 'idx',
+        };
+      },
+    };
+
+    const lead = {
+      _id: 'lead-3',
+      entity_name: 'Acme Media',
+      contacts: [{ name: 'John Doe', email: 'john@acme.org', isDecisionMaker: true }],
+    };
+
+    const template = {
+      id: 'tpl-deck',
+      name: 'Pitch Deck Template',
+      channel: 'email' as const,
+      industry: '',
+      subject: 'Overview Deck',
+      body: 'Hi {first_name}, attached is our deck.',
+      variables: ['first_name'],
+      documentIds: ['doc-missing-123'],
+    };
+
+    const res = await dispatchOutreachEmail(
+      mockDb as any,
+      lead as any,
+      template,
+      { brand: 'cogmap', tenantId: 'default' },
+      { kind: 'cadence', cadenceId: 'c1', stepIndex: 0 }
+    );
+
+    expect(res.sent).toBe(false);
+    expect(res.reason).toContain('ATTACHMENT_MISSING: missing attachment(s): document_id_doc-missing-123');
+    expect(mockDb.insertedLogs.length).toBe(1);
+    expect(mockDb.insertedLogs[0].sendAttempted).toBe(false);
+    expect(mockDb.insertedLogs[0].routingAllowed).toBe(false);
+  });
 });
+

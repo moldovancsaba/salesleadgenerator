@@ -24,12 +24,14 @@ import { buildPersonalizationContext, interpolateTemplate, validatePersonalizati
 import { getBrandConfig } from '../app/lib/brand';
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes, truncateBody } from '../app/lib/activity-log-store';
 import { isRecipientSuppressed } from './suppression';
+import { deduplicateDocumentIds, resolveDocumentAttachmentRefs, type DocumentRecord } from './documents';
 
 export type AutomatedSendContext = {
   brand: string;
   tenantId: string;
   cadenceId: string;
   stepIndex: number;
+  documentIds?: string[];
 };
 
 // Issue #205 — one-off, rep-initiated send. idempotencyKey is generated
@@ -41,6 +43,7 @@ export type ManualSendContext = {
   brand: string;
   tenantId: string;
   idempotencyKey: string;
+  documentIds?: string[];
 };
 
 // The one thing that actually differs between a cadence step firing itself
@@ -54,9 +57,9 @@ export type ManualSendContext = {
 // resulting outreach_logs row with quoteId so it's traceable back to the
 // specific Quote it sent, never a second/parallel send implementation.
 export type OutreachSendSource =
-  | { kind: 'cadence'; cadenceId: string; stepIndex: number }
-  | { kind: 'manual'; idempotencyKey: string }
-  | { kind: 'quote'; quoteId: string; idempotencyKey: string };
+  | { kind: 'cadence'; cadenceId: string; stepIndex: number; documentIds?: string[] }
+  | { kind: 'manual'; idempotencyKey: string; documentIds?: string[] }
+  | { kind: 'quote'; quoteId: string; idempotencyKey: string; documentIds?: string[] };
 
 export type AutomatedSendResult = {
   sent: boolean;
@@ -345,6 +348,58 @@ export async function dispatchOutreachEmail(
     }
   }
 
+  // CRM Invariant / Predecessor Handoff 11 (issue #243): Attachment reference verification.
+  // Fails closed: if any referenced document in the template or send source is missing from
+  // the document library, block send with ATTACHMENT_MISSING before provider dispatch.
+  const requestedDocumentIds = deduplicateDocumentIds([
+    ...(template.documentIds || []),
+    ...(source.documentIds || []),
+  ]);
+  if (requestedDocumentIds.length > 0) {
+    const rawDocs = await db.collection('documents').find({
+      brand: context.brand,
+      tenantId: context.tenantId,
+      id: { $in: requestedDocumentIds },
+    }).toArray();
+
+    const docLookup = new Map<string, DocumentRecord>();
+    for (const d of rawDocs) {
+      const docId = d.id || d._id?.toString();
+      if (docId) {
+        docLookup.set(docId, {
+          id: docId,
+          brand: d.brand,
+          tenantId: d.tenantId,
+          filename: d.filename,
+          displayName: d.displayName,
+          storageKey: d.storageKey,
+          mimeType: d.mimeType,
+          sizeBytes: d.sizeBytes,
+          createdAt: d.createdAt instanceof Date ? d.createdAt.toISOString() : String(d.createdAt),
+          updatedAt: d.updatedAt instanceof Date ? d.updatedAt.toISOString() : String(d.updatedAt),
+        });
+      }
+    }
+
+    const attachmentResolution = await resolveDocumentAttachmentRefs(requestedDocumentIds, docLookup);
+    if (!attachmentResolution.ok) {
+      const missingList = attachmentResolution.missingNames?.join(', ') || 'unspecified';
+      const reason = `ATTACHMENT_MISSING: missing attachment(s): ${missingList}`;
+      const outreachLogId = await writeOutreachLog(db, context, leadId, {
+        to,
+        templateId: template.id,
+        subject,
+        body,
+        routingAllowed: false,
+        routingReason: reason,
+        sendAttempted: false,
+        sentAutomatically,
+        ...cadenceFields,
+      });
+      return { sent: false, reason, outreachLogId };
+    }
+  }
+
   // Idempotency-Key, not a duplicate send. Cadence: a retried cron tick
   // (issue #151) for the same lead/step resolves to the same key, so Resend
   // itself dedupes rather than this module needing to track its own
@@ -427,7 +482,7 @@ export async function sendAutomatedEmail(
     lead,
     template,
     { brand: context.brand, tenantId: context.tenantId },
-    { kind: 'cadence', cadenceId: context.cadenceId, stepIndex: context.stepIndex }
+    { kind: 'cadence', cadenceId: context.cadenceId, stepIndex: context.stepIndex, documentIds: context.documentIds }
   );
 }
 
@@ -445,7 +500,7 @@ export async function sendManualEmail(
     lead,
     template,
     { brand: context.brand, tenantId: context.tenantId },
-    { kind: 'manual', idempotencyKey: context.idempotencyKey }
+    { kind: 'manual', idempotencyKey: context.idempotencyKey, documentIds: context.documentIds }
   );
 }
 

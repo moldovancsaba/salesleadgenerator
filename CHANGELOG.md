@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
  
+## 2.4.256
+
+### Feature: Document library foundation, attachment references, and deletion safety guards (fixes #243)
+
+- **Document Library Foundation (`lib/documents.ts`):** Ingests CRM Handoff 11 (Document Library) into Sales Lead Generator. Provides workspace-global document metadata (`DocumentRecord`, `DocumentAttachmentRef`), deterministic partitioned blob storage keys (`buildDocumentStorageKey`), file sanitization (`sanitizeDocumentFilename`), and metadata validation (`validateDocumentMetadata`) enforcing a 25MB maximum SMTP attachment limit and supported MIME types (PDF, Word, Excel, PowerPoint, images, text, CSV).
+- **Attachment Reference Deduplication (`deduplicateDocumentIds`):** Invariant enforcement: multiple references to the same document in an outreach template or cadence step deduplicate to a single shared attachment reference, preserving the order of first appearance.
+- **Fail-Closed Attachment Resolution (`resolveDocumentAttachmentRefs`):** Pre-send verification fails closed: if any referenced document in an outreach template or cadence step is missing from the document library catalog or blob storage, outbound dispatch is immediately aborted before provider contact.
+- **Outreach Send Last-Mile Attachment Verification (`lib/outreach-send.ts`):** Updated `dispatchOutreachEmail`, `sendAutomatedEmail`, and `sendManualEmail` to verify requested `documentIds`. Missing attachments abort dispatch with `ATTACHMENT_MISSING: missing attachment(s): ...`, preventing emails from sending with missing collateral.
+- **Cadence Tick Resiliency (`app/api/admin/cadence-tick/route.ts`):** When automated cadence steps encounter `ATTACHMENT_MISSING`, the scheduler marks `activeCadence.status = 'blocked_attachment'` and holds the step at its current position rather than skipping ahead or failing the cadence. Sending automatically resumes once the required document is uploaded to the library.
+- **Deletion Safety Guard (`canDeleteDocument`):** Deleting a document that is actively referenced by any cadence step or outreach template is rejected with `409 Conflict: document_in_use`, returning the list of referencing templates and cadences to protect active outbound campaigns from dangling attachment references.
+- **Documents API Surface (`app/api/documents/route.ts` & `app/api/documents/[id]/route.ts`):** Added `GET /api/documents?brand=<brand>` (list documents) and `POST /api/documents` (register document metadata) with `requireBrandAccessApi` authentication. Added `DELETE /api/documents/[id]?brand=<brand>` protected by the `canDeleteDocument` fail-closed safety check.
+- **Test Coverage:** Added 16 unit tests in `tests/lib/documents.test.ts`, attachment missing dispatch verification in `tests/lib/outreach-send.test.ts`, and cadence step documentIds sanitization tests in `tests/lib/cadences.test.ts`.
+
+Full gate green: 0 `tsc`/lint errors, 1317/1317 unit tests passing, smoke tests clean, `audit:gds-style` clean.
+
 ## 2.4.255
 
 ### Feature: Outreach email engagement read model, status precedence, unique rates analytics, and tracking caveats disclosure (fixes #242)

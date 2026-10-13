@@ -53,6 +53,18 @@ describe('sanitizeCadenceStep', () => {
     expect(sanitizeCadenceStep({ channel: 'call' })?.id).toBeTruthy();
     expect(sanitizeCadenceStep({ channel: 'call', id: 'step_fixed' })?.id).toBe('step_fixed');
   });
+
+  it('sanitizes documentIds when present, omitting empty entries (issue 243)', () => {
+    const step = sanitizeCadenceStep({
+      channel: 'email',
+      templateId: 'tpl_1',
+      documentIds: ['doc_1', '  ', 'doc_2', 123],
+    });
+    expect(step?.documentIds).toEqual(['doc_1', 'doc_2']);
+
+    const emptyDocStep = sanitizeCadenceStep({ channel: 'email', documentIds: [] });
+    expect(emptyDocStep?.documentIds).toBeUndefined();
+  });
 });
 
 describe('sanitizeCadenceSteps', () => {

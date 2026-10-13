@@ -32,6 +32,8 @@ export type CadenceStep = {
   // reminder (issue #151, #236) — irrelevant for an email step, which sends the
   // template's own content instead.
   reminderNote?: string;
+  // Document IDs referenced from the document library (Predecessor Handoff 11, issue #243)
+  documentIds?: string[];
 };
 
 export type CadenceInput = Record<string, any>;
@@ -67,7 +69,7 @@ export type ActiveCadence = {
   taskStepId?: string;
   taskDueAt?: string;
   taskCompletedAt?: string;
-  status?: 'active' | 'waiting_task' | 'replied' | 'completed' | 'cancelled';
+  status?: 'active' | 'waiting_task' | 'blocked_personalization' | 'blocked_attachment' | 'replied' | 'completed' | 'cancelled';
 };
 
 const STEP_CHANNELS: CadenceStepChannel[] = ['email', 'linkedin', 'call', 'general'];
@@ -103,6 +105,11 @@ export function sanitizeCadenceStep(input: any): CadenceStep | null {
   const reminderNote = typeof input.reminderNote === 'string'
     ? input.reminderNote.trim().slice(0, MAX_REMINDER_NOTE_LENGTH)
     : undefined;
+  const documentIds = Array.isArray(input.documentIds)
+    ? input.documentIds
+        .filter((d: unknown) => typeof d === 'string' && d.trim().length > 0)
+        .map((d: string) => d.trim())
+    : undefined;
 
   return {
     id: typeof input.id === 'string' && input.id ? input.id : makeStepId(),
@@ -110,6 +117,7 @@ export function sanitizeCadenceStep(input: any): CadenceStep | null {
     waitDaysAfterPrevious,
     templateId,
     reminderNote: reminderNote || undefined,
+    documentIds: documentIds && documentIds.length > 0 ? documentIds : undefined,
   };
 }
 

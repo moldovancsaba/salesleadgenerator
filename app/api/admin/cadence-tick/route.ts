@@ -162,6 +162,7 @@ async function runCadenceTick(): Promise<TickSummary> {
           tenantId: TENANT_ID,
           cadenceId: cadenceForAdvance.id,
           stepIndex: active.currentStepIndex,
+          documentIds: currentStep.documentIds,
         })
         if (result.sent) {
           summary.emailsSent++
@@ -184,6 +185,18 @@ async function runCadenceTick(): Promise<TickSummary> {
             await leadsCollection.updateOne(
               { _id: leadDoc._id },
               { $set: { 'activeCadence.status': 'blocked_personalization', updatedAt: now } }
+            )
+            summary.failures.push({ leadId, brand, reason: result.reason })
+            continue
+          }
+
+          // CRM Invariant / Predecessor Handoff 11 (issue #243): Missing referenced documents
+          // in the library block the send (blocked_attachment). The cadence step is held rather than advanced,
+          // so reps or operators can restore the missing document rather than skipping the step.
+          if (result.reason?.startsWith('ATTACHMENT_MISSING')) {
+            await leadsCollection.updateOne(
+              { _id: leadDoc._id },
+              { $set: { 'activeCadence.status': 'blocked_attachment', updatedAt: now } }
             )
             summary.failures.push({ leadId, brand, reason: result.reason })
             continue

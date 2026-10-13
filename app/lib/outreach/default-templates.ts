@@ -12,6 +12,8 @@ export type OutreachTemplate = {
   // Free-form, multi-valued classification beyond `industry` — persona, deal
   // stage, competitor mention, etc. Same shape as Lead.tags (issue #64).
   tags?: string[];
+  // Document library attachment references (issue #243).
+  documentIds?: string[];
 };
 
 export const DEFAULT_OUTREACH_TEMPLATES: OutreachTemplate[] = [
