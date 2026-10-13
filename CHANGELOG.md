@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
  
+## 2.4.252
+
+### Enhancement: Laptop and tablet browser UX optimizations, desktop navigation, and view switching (fixes #239)
+
+- **Desktop & Tablet Top Navigation Bar (`app/components/AppHeader.tsx`):** Renders a responsive horizontal navigation strip on viewports `>= 768px` (iPad portrait, iPad landscape, laptop, desktop) with direct 1-click access to Today, Pipeline, Table, Backlog, Contacts, Reports, Forecast, and Settings. Includes route-active highlights, brand switching, and a visible Command Palette (`⌘K`) search trigger button. Preserves the hamburger drawer on mobile (< 768px) and as an admin overflow drawer on tablet/laptop.
+- **Inline View Switcher on Sales Workbench (`app/sales/[brand]/sales-page-client.tsx`):** Added an inline `SegmentedControl` directly on the sales toolbar, allowing reps on laptop or tablet to toggle between Kanban Board, Data Table, Backlog, and Metrics with one tap.
+- **Unblocked Multi-Touch & Zoom in Browser Sessions (`app/components/PwaSetup.tsx` & `app/layout.tsx`):** Gated gesture locks to compact mobile phones (< 768px) in standalone PWA mode only; preserved natural browser pinch-to-zoom, accessibility font scaling, and trackpad two-finger scrolling on laptops and tablets in standard browser sessions.
+- **Responsive Summary Grid in Today Workbench (`app/today/[brand]/today-client.tsx`):** Updated summary metrics strip to `cols={{ base: 2, sm: 3, md: 5 }}` for balanced layout on tablet portrait viewports.
+- **Test Coverage:** Added `tests/lib/desktop-tablet-nav.test.ts` (5 unit tests) verifying horizontal navigation links, command palette affordance, inline view switcher, responsive grid, and gesture lock gating.
+
+Full gate green: 0 `tsc`/lint errors, 1224/1224 unit tests passing, smoke tests clean, `audit:gds-style` clean.
+
 ## 2.4.251
 
 ### Enhancement: Progressive Web App capabilities, self-hosted offline shell fallback, and brand terminology alignment (fixes #238)

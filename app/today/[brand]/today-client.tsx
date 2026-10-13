@@ -236,7 +236,7 @@ export function TodayClient({ brand, label }: Props) {
         </Group>
 
         {/* Metric summary strip */}
-        <SimpleGrid cols={{ base: 2, sm: 5 }} spacing="md">
+        <SimpleGrid cols={{ base: 2, sm: 3, md: 5 }} spacing="md">
           <Card withBorder padding="sm" radius="md">
             <Text size="xs" c="dimmed" fw={600} tt="uppercase">
               Total Queue

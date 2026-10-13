@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Group, Text, Paper, Loader, Container, Box, TextInput, UnstyledButton, ActionIcon, Tooltip, Select } from '@mantine/core';
+import { Group, Text, Paper, Loader, Container, Box, TextInput, UnstyledButton, ActionIcon, Tooltip, Select, SegmentedControl } from '@mantine/core';
 import { IconChecklist, IconX, IconPlus } from '@tabler/icons-react';
 import { useCommandLauncher } from '@sovereignsquad/gds-core/client';
 import type { CommandDef } from '@sovereignsquad/gds-core/client';
@@ -405,52 +405,78 @@ export function SalesPageClient({ brand, currency }: Props) {
       </Group>
 
       <div style={{ flex: 1 }}>
-        {(view === 'kanban' || view === 'table' || view === 'backlog') && (
-          <Group gap="xs" mb="sm">
-            <FilterBar brand={brand} value={leadFilter} onChange={setLeadFilter} />
-            {pipelines.length > 1 && (
-              <Select
-                size="xs"
-                w={180}
-                aria-label="Select pipeline"
-                value={activePipeline?.id || ''}
-                data={pipelines.map((p) => ({ value: p.id, label: p.name }))}
-                onChange={(val) => {
-                  const url = new URL(window.location.href);
-                  if (val && !isDefaultPipelineId(val, brand)) {
-                    url.searchParams.set('pipeline', val);
-                  } else {
-                    url.searchParams.delete('pipeline');
-                  }
-                  router.replace(`${url.pathname}${url.search}`);
-                }}
-              />
-            )}
-            {(view === 'kanban' || view === 'backlog') && (
-              <Tooltip label={selectMode ? 'Cancel select' : 'Select leads for a bulk action'}>
-                <ActionIcon
-                  variant={selectMode ? 'filled' : 'subtle'}
-                  size="lg"
-                  aria-label={selectMode ? 'Cancel select' : 'Select leads for a bulk action'}
-                  onClick={() => setSelectMode((prev) => !prev)}
-                >
-                  {selectMode ? <IconX size={18} /> : <IconChecklist size={18} />}
-                </ActionIcon>
-              </Tooltip>
-            )}
-            {view === 'kanban' && (
-              <Tooltip label="Add a lead manually">
-                <ActionIcon
-                  variant="subtle"
-                  size="lg"
-                  aria-label="Add a lead manually"
-                  onClick={() => setAddLeadOpen(true)}
-                  data-tour={TOUR_SELECTOR.addLeadTrigger}
-                >
-                  <IconPlus size={18} />
-                </ActionIcon>
-              </Tooltip>
-            )}
+        {(view === 'kanban' || view === 'table' || view === 'backlog' || view === 'metrics') && (
+          <Group justify="space-between" align="center" wrap="wrap" gap="xs" mb="sm">
+            <Group gap="xs" wrap="wrap">
+              {(view === 'kanban' || view === 'table' || view === 'backlog') && (
+                <>
+                  <FilterBar brand={brand} value={leadFilter} onChange={setLeadFilter} />
+                  {pipelines.length > 1 && (
+                    <Select
+                      size="xs"
+                      w={180}
+                      aria-label="Select pipeline"
+                      value={activePipeline?.id || ''}
+                      data={pipelines.map((p) => ({ value: p.id, label: p.name }))}
+                      onChange={(val) => {
+                        const url = new URL(window.location.href);
+                        if (val && !isDefaultPipelineId(val, brand)) {
+                          url.searchParams.set('pipeline', val);
+                        } else {
+                          url.searchParams.delete('pipeline');
+                        }
+                        router.replace(`${url.pathname}${url.search}`);
+                      }}
+                    />
+                  )}
+                  {(view === 'kanban' || view === 'backlog') && (
+                    <Tooltip label={selectMode ? 'Cancel select' : 'Select leads for a bulk action'}>
+                      <ActionIcon
+                        variant={selectMode ? 'filled' : 'subtle'}
+                        size="lg"
+                        aria-label={selectMode ? 'Cancel select' : 'Select leads for a bulk action'}
+                        onClick={() => setSelectMode((prev) => !prev)}
+                      >
+                        {selectMode ? <IconX size={18} /> : <IconChecklist size={18} />}
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                  {view === 'kanban' && (
+                    <Tooltip label="Add a lead manually">
+                      <ActionIcon
+                        variant="subtle"
+                        size="lg"
+                        aria-label="Add a lead manually"
+                        onClick={() => setAddLeadOpen(true)}
+                        data-tour={TOUR_SELECTOR.addLeadTrigger}
+                      >
+                        <IconPlus size={18} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </>
+              )}
+            </Group>
+
+            <SegmentedControl
+              size="xs"
+              value={view}
+              onChange={(val) => {
+                const url = new URL(window.location.href);
+                if (val === 'kanban') {
+                  url.searchParams.delete('view');
+                } else {
+                  url.searchParams.set('view', val);
+                }
+                router.replace(`${url.pathname}${url.search}`);
+              }}
+              data={[
+                { label: 'Board', value: 'kanban' },
+                { label: 'Table', value: 'table' },
+                { label: 'Backlog', value: 'backlog' },
+                { label: 'Metrics', value: 'metrics' },
+              ]}
+            />
           </Group>
         )}
 

@@ -21,10 +21,19 @@ export function PwaSetup() {
       }
     };
 
-    // gesturestart/gesturechange/gestureend are WebKit-only (Safari); harmless no-ops elsewhere.
-    document.addEventListener('gesturestart', preventGesture);
-    document.addEventListener('gesturechange', preventGesture);
-    document.addEventListener('touchmove', preventMultiTouchMove, { passive: false });
+    // Only lock pinch gestures on compact mobile phones running in standalone PWA mode.
+    // Laptops, desktops, and tablets in a browser need natural multi-touch zooming,
+    // accessibility font scaling, and trackpad two-finger scrolling.
+    const isMobileStandalone =
+      typeof window !== 'undefined' &&
+      window.innerWidth < 768 &&
+      window.matchMedia('(display-mode: standalone)').matches;
+
+    if (isMobileStandalone) {
+      document.addEventListener('gesturestart', preventGesture);
+      document.addEventListener('gesturechange', preventGesture);
+      document.addEventListener('touchmove', preventMultiTouchMove, { passive: false });
+    }
 
     // Online/offline connection monitoring
     const handleOnline = () => {
@@ -81,9 +90,11 @@ export function PwaSetup() {
     }
 
     return () => {
-      document.removeEventListener('gesturestart', preventGesture);
-      document.removeEventListener('gesturechange', preventGesture);
-      document.removeEventListener('touchmove', preventMultiTouchMove);
+      if (isMobileStandalone) {
+        document.removeEventListener('gesturestart', preventGesture);
+        document.removeEventListener('gesturechange', preventGesture);
+        document.removeEventListener('touchmove', preventMultiTouchMove);
+      }
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
