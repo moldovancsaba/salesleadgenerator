@@ -279,7 +279,7 @@ export async function dispatchOutreachEmail(
     return { sent: false, reason: 'Missing decision maker email for email outreach.', outreachLogId };
   }
 
-  // Vega CRM Invariant 1 & 4: Suppression registry check.
+  // CRM Invariant 1 & 4: Suppression registry check.
   // Never dispatch to an address or domain marked unsubscribed, bounced, complained, or DNC.
   const suppressionCheck = await isRecipientSuppressed(db, context.brand, context.tenantId, to);
   if (suppressionCheck.suppressed) {
@@ -298,7 +298,7 @@ export async function dispatchOutreachEmail(
     return { sent: false, reason, outreachLogId };
   }
 
-  // Vega CRM Invariant 2 & 4: Inbound replies cancel automated cadence outreach.
+  // CRM Invariant 2 & 4: Inbound replies cancel automated cadence outreach.
   // Immediately before provider call, verify the contact hasn't already replied.
   if (source.kind === 'cadence') {
     const reply = await db.collection(ACTIVITY_LOG_COLLECTION).findOne({

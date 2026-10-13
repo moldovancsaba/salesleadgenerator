@@ -26,7 +26,7 @@ function parseObjectId(id: string): ObjectId | null {
 
 // POST /api/leads/[id]/cadence/complete-step — completes the currently waiting
 // manual task step (call/linkedin/general) on a lead's active cadence enrollment.
-// Implements Vega CRM Invariant 3: completion-gated progression.
+// Implements CRM Invariant 3: completion-gated progression.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

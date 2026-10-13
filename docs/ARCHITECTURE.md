@@ -1281,16 +1281,16 @@ A per-lead quote-generation, send, and e-sign-lite flow: a rep builds a PDF quot
 **Test coverage.** `tests/lib/quotes.test.ts` (pure type/logic tests), `tests/lib/quote-pdf.test.ts` (2 tests — real PDF magic bytes and non-trivial size; extractable, non-rasterized text), `tests/lib/quotes-store.test.ts` (2 tests — `generateShareToken()`'s 128-bit hex format and uniqueness across 50 calls), `tests/integration/quotes.integration.test.ts` (15 tests, real database, Blob and Resend mocked at their respective boundaries: full generate→send→view→sign lifecycle, the state-machine's rejection of backward/skipped transitions, view-route rate-limit enforcement, invalid/missing-token rejection, and activity-log/outreach-log write-back verification).
 
 ### Multi-Pipeline Configuration and Deal Models (2.4.248, issue #235)
-Ingests Vega CRM Handoff 02 & Handoff 09 into Sales Lead Generator:
+Ingests CRM Multi-Pipeline and Custom Stage capabilities (Handoff 02 & Handoff 09) into Sales Lead Generator:
 - **Architecture & Domain Boundary:** Allows brands to configure multiple custom pipelines (e.g. Sponsorships, Tech Licensing, Data Rights) with dedicated stages while preserving 100% backward compatibility for existing leads through `getDefaultPipeline(brand)` (the canonical 6-column pipeline: `DISCOVERED`, `QUALIFIED`, `ENGAGED`, `PROPOSAL`, `WON`, `LOST`).
-- **Entity & Move Rules (`lib/pipelines.ts`):** Stages hold order, colors, labels, auto-managed flags, and optional win/loss flags. Moving deals across pipelines (`validatePipelineMove`) requires explicit target stage specification. Deletion safety is strictly enforced (`canDeletePipeline`, `canDeleteStage`): default pipelines cannot be deleted, and custom pipelines or stages cannot be deleted while active deals or leads belong to them (preserving the Vega CRM invariant where `deals.pipeline_id` is restricted on delete).
+- **Entity & Move Rules (`lib/pipelines.ts`):** Stages hold order, colors, labels, auto-managed flags, and optional win/loss flags. Moving deals across pipelines (`validatePipelineMove`) requires explicit target stage specification. Deletion safety is strictly enforced (`canDeletePipeline`, `canDeleteStage`): default pipelines cannot be deleted, and custom pipelines or stages cannot be deleted while active deals or leads belong to them (preserving the CRM invariant where `deals.pipeline_id` is restricted on delete).
 - **Deal Model Extension (`lib/deals.ts`):** `Deal` supports `pipelineId`, `stageId`, `expectedCloseDate`, `probability` (0..100 clamped), and `contactIds`, preserved across sanitization and catalog line-item resolutions.
 - **API Surface:** `GET /api/pipelines?brand=<brand>` (list pipelines with default fallback), `POST /api/pipelines` (upsert pipeline), `GET /api/pipelines/[id]`, `PATCH /api/pipelines/[id]`, and `DELETE /api/pipelines/[id]`.
 - **UI Integration:** The sales page (`app/sales/[brand]/sales-page-client.tsx`) supports URL-addressable pipeline selection (`?pipeline=<id>`), toolbar pipeline selection when multiple pipelines exist, and dynamic `columnDefs` passed to `KanbanBoard`.
 - **Test Coverage:** `tests/lib/pipelines.test.ts` (19 pure unit tests), `tests/lib/deals.test.ts` (extended unit tests), `tests/integration/pipelines.integration.test.ts` (7 integration tests exercising full CRUD, deal assignment checks, and deletion refusal).
 
 ### Outreach Cadences, Completion Gating, and Suppression Registry (2.4.249, issue #236)
-Ingests Vega CRM Outreach Invariants 1–4 into Sales Lead Generator:
+Ingests Outreach Invariants 1–4 into Sales Lead Generator:
 - **Suppression Registry (`lib/suppression.ts`):** `suppressed_recipients` collection keyed by brand, tenantId, kind (`email` | `domain`), and target with reasons (`unsubscribed`, `bounced`, `complained`, `manual`, `do_not_contact`). Evaluated at the final send gateway to guarantee no outreach ever reaches suppressed addresses or domains (Invariant 1).
 - **Completion-Gated Step Progression (`lib/cadences.ts`):** Manual task steps (`call`, `linkedin`, `general`) pause the cadence (`waitingForTask: true`, `status: 'waiting_task'`). The cadence scheduler (`cadence-tick`) does not auto-advance or auto-complete manual tasks even if overdue. The subsequent step delay is calculated from `completed_at` when the rep completes the task, not a precomputed date (Invariant 3).
 - **Reply Cancellation (`app/api/webhooks/inbound-email/route.ts`):** An inbound email reply from a lead contact immediately cancels automated cadence progression (`activeCadence: null`) and clears waiting sequence reminders with `Sequence stopped: contact replied` (Invariant 2).
@@ -1299,7 +1299,7 @@ Ingests Vega CRM Outreach Invariants 1–4 into Sales Lead Generator:
 - **Test Coverage:** `tests/lib/suppression.test.ts` (8 unit tests), `tests/lib/cadences.test.ts` (32 unit tests), `tests/integration/cadence-invariants.integration.test.ts` (3 integration tests verifying all 4 invariants end-to-end), plus updated `cadence-tick.integration.test.ts` and `inbound-email-webhook.integration.test.ts`.
 
 ### CRM 'Today' Rep Execution Surface and Daily Action Queue (2.4.250, issue #237)
-Ingests Vega CRM Handoff 06 / Today View into Sales Lead Generator:
+Ingests 'Today' View Rep Workbench (Handoff 06) into Sales Lead Generator:
 - **Architecture & Domain Boundary (`lib/today.ts`, `lib/today-query.ts`):** Unifies fragmented daily sales work into a consolidated, time-sensitive execution workbench (`/today/[brand]`). Computes local calendar day boundaries `[dayStart, dayEnd)` across timezones with safe UTC fallback (`parseTodayWindow`), snooze durations (`computeSnoozeDate`), and calendar days overdue (`computeOverdueDays`).
 - **4 Action Queue Buckets:**
   1. `cadenceTasks`: manual sequence steps (`activeCadence.waitingForTask: true`) sorted by `taskDueAt`.
@@ -1315,6 +1315,14 @@ Ingests Vega CRM Handoff 06 / Today View into Sales Lead Generator:
   - `POST /api/leads/[id]/activity`: logs quick call outcomes with standardized dispositions.
 - **UI Surface (`app/today/[brand]`):** Top metric summary cards with urgent visual cues, tabbed category filters, action item stream with one-click inline execution (Complete Step, Mark Done, Snooze menu, Log Call modal), and unified navigation entry in `AppNav`.
 - **Test Coverage:** `tests/lib/today.test.ts` (13 unit tests for window, snooze, and overdue calculations) and `tests/integration/today.integration.test.ts` (5 integration tests for MongoDB aggregation, ownership scoping, snooze endpoint, action-done endpoint, and GET API route).
+
+### Progressive Web App (PWA) Architecture (2.4.251, issue #238)
+- **Zero-Dependency & Self-Hosted:** Served 100% from repository-owned Next.js infrastructure and static assets with zero external CDN scripts or deprecated npm wrappers.
+- **Web App Manifest:** Serves both Next.js App Router dynamic `/manifest.webmanifest` (`app/manifest.ts`) and static `/manifest.json` (`public/manifest.json`), declaring standalone display, theme color (`#1a1a2e`), background color (`#ffffff`), maskable icons, and quick-action shortcuts ("Today's Queue" and "Pipelines").
+- **Offline Shell Fallback:** A dedicated route `/offline` (`app/offline/page.tsx`) rendered with GDS-compliant Mantine UI primitives, providing an offline landing screen with connection check/reload affordance when connectivity drops.
+- **Service Worker (`public/sw.js`):** Cache namespace `slg-shell-v2`. Intercepts HTML navigation requests using network-first strategy, falling back gracefully to the precached `/offline` shell when network is unavailable. Static Next.js hashed chunks are served cache-first for instant launch. API routes (`/api/*`) remain network-only with graceful 503 JSON fallback when disconnected to prevent stale CRM state.
+- **Client Lifecycle Controller (`app/components/PwaSetup.tsx`):** Maintains iOS Safari gesture/zoom prevention, registers `/sw.js`, alerts users via Mantine notifications when connection transitions between online/offline, and detects background service worker updates.
+- **Test Coverage:** `tests/lib/pwa-manifest.test.ts` (5 unit tests verifying manifest parsing, shortcut presence, icon file existence, maskable properties, and dynamic route compliance).
 
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)

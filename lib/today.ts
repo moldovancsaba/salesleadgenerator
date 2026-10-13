@@ -1,4 +1,4 @@
-// Today execution surface domain logic & date math (issue #237 — Vega CRM Handoff 06 ingestion).
+// Today execution surface domain logic & date math (issue #237 — CRM Handoff 06 ingestion).
 // Provides pure calculation helpers for calendar windows, snooze math,
 // and Today view data models.
 

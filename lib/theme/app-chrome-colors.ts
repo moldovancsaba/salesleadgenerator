@@ -13,4 +13,5 @@
 // the two stay in sync.
 export const APP_CHROME_COLORS = {
   themeColor: '#1a1a2e',
+  backgroundColor: '#ffffff',
 } as const;

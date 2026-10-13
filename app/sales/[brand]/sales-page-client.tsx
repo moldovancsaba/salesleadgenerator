@@ -120,7 +120,7 @@ export function SalesPageClient({ brand, currency }: Props) {
     return () => { cancelled = true }
   }, [brand, refreshKey])
 
-  // Multi-pipeline support (issue #235, Vega CRM Handoff 09): load pipelines for brand
+  // Multi-pipeline support (issue #235, CRM ingestion Handoff 09): load pipelines for brand
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
   useEffect(() => {
     let cancelled = false

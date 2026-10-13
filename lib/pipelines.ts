@@ -1,5 +1,5 @@
 // Multi-pipeline configuration, stage models, and pipeline-scoped deal validation (issue #235).
-// Ingests Vega CRM Handoff 02 & Handoff 09 into Sales Lead Generator:
+// Ingests CRM Handoff 02 & Handoff 09 into Sales Lead Generator:
 // allows brands to configure multiple pipelines with custom stages, while keeping
 // 100% backward compatibility for existing leads through the default 6-column pipeline.
 
@@ -200,7 +200,7 @@ export function validateStageMove(
 }
 
 /**
- * Validates moving a deal from one pipeline to another, matching Vega CRM invariant (Handoff 09).
+ * Validates moving a deal from one pipeline to another, matching CRM invariant (Handoff 09).
  * Moving across pipelines requires an explicit target stage in the destination pipeline.
  */
 export function validatePipelineMove(
@@ -232,7 +232,7 @@ export function validatePipelineMove(
 
 /**
  * Deleting a pipeline is refused if it is the default pipeline or if active deals exist.
- * Preserves Vega CRM invariant: `deals.pipeline_id` is ON DELETE RESTRICT.
+ * Preserves CRM invariant: `deals.pipeline_id` is ON DELETE RESTRICT.
  */
 export function canDeletePipeline(
   pipeline: Pipeline,

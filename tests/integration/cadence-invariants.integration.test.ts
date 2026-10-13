@@ -38,7 +38,7 @@ function req(url: string, init?: Parameters<typeof buildApiRequest>[1]) {
   return buildApiRequest(url, init);
 }
 
-describe('Vega CRM Invariants Integration Tests', () => {
+describe('CRM Invariants Integration Tests', () => {
   const brand = 'cogmap';
   const tenantId = 'default';
 

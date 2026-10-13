@@ -55,7 +55,7 @@ export type Cadence = {
 // Lead.activeCadence), not here. Exported from this module so both
 // app/types.ts and every consumer (enroll API, cadence-tick) reference the
 // same shape rather than each declaring their own copy.
-// Issue #236 (Vega CRM Invariant 3) — tracks whether the current step is a
+// Issue #236 (CRM Invariant 3) — tracks whether the current step is a
 // waiting manual task, and timestamps completion so subsequent step delays
 // are calculated strictly from actual completion time.
 export type ActiveCadence = {
@@ -215,7 +215,7 @@ export function advanceActiveCadence(
 
 // Completes a manual task step (call/linkedin/general), stamping completion time
 // and computing the subsequent step's due date strictly from that actual completion
-// timestamp. Implements Vega CRM Invariant 3: completion-gated progression.
+// timestamp. Implements CRM Invariant 3: completion-gated progression.
 export function completeTaskStep(
   cadence: Pick<Cadence, 'id' | 'steps'>,
   active: ActiveCadence,

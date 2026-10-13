@@ -1,17 +1,13 @@
 'use client';
 
 import { useEffect } from 'react';
+import { notifications } from '@mantine/notifications';
 
 /**
- * Belt-and-suspenders zoom lock and service-worker registration.
- *
- * The viewport meta tag (maximum-scale/user-scalable) and the
- * touch-action CSS rule in globals.css handle zoom prevention in the
- * vast majority of cases, but iOS Safari has historically had edge
- * cases (older versions, certain scroll containers) where a pinch
- * gesture still gets through either layer. This adds a final JS-level
- * guard: WebKit's legacy gesture events are cancelled outright, and any
- * touchmove with more than one active touch point is prevented.
+ * PWA lifecycle controller:
+ * 1. Belt-and-suspenders WebKit zoom gesture lock.
+ * 2. Service worker registration & update notification.
+ * 3. Online/offline connection state tracking with polite user notifications.
  */
 export function PwaSetup() {
   useEffect(() => {
@@ -30,16 +26,66 @@ export function PwaSetup() {
     document.addEventListener('gesturechange', preventGesture);
     document.addEventListener('touchmove', preventMultiTouchMove, { passive: false });
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch((error) => {
-        console.error('Service worker registration failed:', error);
+    // Online/offline connection monitoring
+    const handleOnline = () => {
+      notifications.show({
+        id: 'pwa-network-status',
+        title: 'Online',
+        message: 'Connection restored. CRM pipelines and cadence tasks are live.',
+        color: 'teal',
+        autoClose: 3000,
       });
+    };
+
+    const handleOffline = () => {
+      notifications.show({
+        id: 'pwa-network-status',
+        title: 'Offline Mode',
+        message: 'Connection lost. Operating in offline shell mode.',
+        color: 'orange',
+        autoClose: 5000,
+      });
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Service worker registration
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((registration) => {
+          registration.addEventListener('updatefound', () => {
+            const installingWorker = registration.installing;
+            if (!installingWorker) return;
+
+            installingWorker.addEventListener('statechange', () => {
+              if (
+                installingWorker.state === 'installed' &&
+                navigator.serviceWorker.controller
+              ) {
+                notifications.show({
+                  id: 'pwa-update-ready',
+                  title: 'Update Available',
+                  message: 'A new version of Sales Lead Generator is installed. Reload to update.',
+                  color: 'indigo',
+                  autoClose: false,
+                });
+              }
+            });
+          });
+        })
+        .catch((error) => {
+          console.error('Service worker registration failed:', error);
+        });
     }
 
     return () => {
       document.removeEventListener('gesturestart', preventGesture);
       document.removeEventListener('gesturechange', preventGesture);
       document.removeEventListener('touchmove', preventMultiTouchMove);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 

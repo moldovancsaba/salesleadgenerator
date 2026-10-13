@@ -101,7 +101,7 @@ async function runCadenceTick(): Promise<TickSummary> {
       const leadId = leadDoc._id.toString()
       const active = leadDoc.activeCadence as ActiveCadence
 
-      // Vega CRM Invariant 3: completion gating. If waiting for manual task, skip.
+      // CRM Invariant 3: completion gating. If waiting for manual task, skip.
       if (active.waitingForTask) {
         continue
       }
@@ -166,7 +166,7 @@ async function runCadenceTick(): Promise<TickSummary> {
         if (result.sent) {
           summary.emailsSent++
         } else {
-          // Vega CRM Invariant 2 & 4: If send was aborted because recipient replied or is suppressed,
+          // CRM Invariant 2 & 4: If send was aborted because recipient replied or is suppressed,
           // stop the cadence immediately.
           if (
             result.reason?.startsWith('SEND_CANCELLED_REPLIED') ||
@@ -192,7 +192,7 @@ async function runCadenceTick(): Promise<TickSummary> {
         }
       } else {
         // linkedin/call/general — never calls Resend.
-        // Vega CRM Invariant 3: manual tasks pause the cadence (completion gating).
+        // CRM Invariant 3: manual tasks pause the cadence (completion gating).
         // The cadence scheduler (cadence-tick) MUST NOT advance the step while waiting.
         // Overdue tasks stay waiting and do not auto-complete.
         const reminderNote = currentStep.reminderNote || (REMINDER_NOTE_DEFAULTS as Record<string, string>)[currentStep.channel] || 'Task due (cadence)'

@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
  
+## 2.4.251
+
+### Enhancement: Progressive Web App capabilities, self-hosted offline shell fallback, and brand terminology alignment (fixes #238)
+
+- **Self-Hosted PWA Manifest (`public/manifest.json` & `app/manifest.ts`):** Next.js 16 App Router native web app manifest generator and static manifest, defining standalone display, orientation, theme color (`#1a1a2e`), background color (`#ffffff`), and app shortcuts ("Today's Queue" at `/today/cogmap` and "Pipelines" at `/sales/cogmap`).
+- **PWA Asset & Icon Support:** Self-hosted icon assets (`/icon-192.png`, `/icon-512.png`, `/maskable-icon-512.png`, and `/apple-touch-icon.png`) with explicit maskable declarations and iOS Safari touch links.
+- **Offline Shell Fallback Route (`app/offline/page.tsx`):** GDS-compliant Mantine UI offline view served when disconnected, featuring polite status notice, retry action, and zero external CDN or deprecated package dependencies.
+- **Resilient Service Worker (`public/sw.js`):** Cache version `slg-shell-v2` precaching app shell assets and `/offline`; intercepts navigation requests using network-first strategy with `/offline` fallback; serves static Next.js assets cache-first; passes API calls network-only with graceful 503 JSON fallback when offline.
+- **PWA Lifecycle & Connection State (`app/components/PwaSetup.tsx`):** Listens to online/offline network events, alerting users with non-intrusive Mantine notifications; registers service worker and detects new worker updates.
+- **Brand Terminology Alignment:** Removed all residual mentions of predecessor project ("Vega") across codebase comments, documentation, and test titles, standardizing fully under native Sales Lead Generator CRM terminology.
+- **Test Coverage:** Added `tests/lib/pwa-manifest.test.ts` (5 tests) verifying manifest structure, shortcuts, icon paths, and theme consistency.
+
+Full gate green: 0 `tsc`/lint errors, 1219/1219 unit tests passing, smoke tests clean, `audit:gds-style` clean.
+
 ## 2.4.250
 
 ### Enhancement: CRM 'Today' rep execution surface and unified daily action queue (Vega CRM ingestion Phase 3, fixes #237)

@@ -45,7 +45,7 @@ export type Deal = {
   updatedAt: string;
   source: 'manual' | 'converted_ticket_estimate' | 'catalog_line_items';
   lineItems?: DealLineItem[];
-  // Issue #235 — Ingested from Vega CRM (Handoff 02 & 09):
+  // Issue #235 — Ingested from CRM ingestion (Handoff 02 & 09):
   // pipeline-scoped deal association, custom stages, and contact relationships.
   pipelineId?: string;
   stageId?: string;

@@ -1,4 +1,4 @@
-// Suppression registry (issue #236 — Ingested from Vega CRM Invariant 1).
+// Suppression registry (issue #236 — Ingested from CRM Invariant 1).
 // Ensures no cadence, automated email, or rep send reaches an address or domain
 // that has unsubscribed, bounced, complained, or been marked Do Not Contact.
 

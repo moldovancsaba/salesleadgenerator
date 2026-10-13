@@ -30,7 +30,7 @@ function req(url: string, init?: ConstructorParameters<typeof NextRequest>[1]) {
   return buildApiRequest(url, init);
 }
 
-describe('Pipelines API (issue 235 - Vega CRM Phase 1)', () => {
+describe('Pipelines API (issue 235 - CRM Phase 1)', () => {
   it('returns canonical default pipeline when none are stored', async () => {
     const res = await pipelinesGET(req('http://localhost/api/pipelines?brand=cogmap'));
     expect(res.status).toBe(200);

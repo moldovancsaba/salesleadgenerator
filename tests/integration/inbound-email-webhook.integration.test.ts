@@ -493,7 +493,7 @@ describe('POST /api/webhooks/inbound-email — outbound delivery events (issue 2
     expect(log?.openCount).toBe(1);
   });
 
-  it('suppresses recipient on email.bounced event (Vega CRM Invariant 1)', async () => {
+  it('suppresses recipient on email.bounced event (CRM Invariant 1)', async () => {
     const emailId = `email-bounce-${Math.random().toString(36).slice(2)}`;
     const db = await outreachLogsDb();
     await db.collection('outreach_logs').insertOne({
@@ -522,7 +522,7 @@ describe('POST /api/webhooks/inbound-email — outbound delivery events (issue 2
     expect(suppressed?.reason).toBe('bounced');
   });
 
-  it('cancels activeCadence when an inbound email reply is received (Vega CRM Invariant 2)', async () => {
+  it('cancels activeCadence when an inbound email reply is received (CRM Invariant 2)', async () => {
     const db = await outreachLogsDb();
     const contactEmail = 'cadence-reply@example.com';
     const leadInsert = await db.collection('leads').insertOne({

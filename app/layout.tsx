@@ -25,7 +25,14 @@ export const metadata = {
     template: "%s · Sales Lead Generator",
     default: "Sales Lead Generator",
   },
-  description: "AI-powered sales lead collection platform" };
+  description: "AI-powered sales lead collection and pipeline CRM platform",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Sales Leads",
+  },
+};
 
 export default function RootLayout({
   children,
