@@ -39,6 +39,7 @@ export async function GET(
     const tenantId = getTenantId(request);
     const { searchParams } = new URL(request.url);
     const limit = Math.max(1, Math.min(500, parseInt(searchParams.get('limit') || '100') || 100));
+    const dealId = searchParams.get('dealId')?.trim() || null;
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
@@ -48,9 +49,15 @@ export async function GET(
     const db = client.db();
     await ensureActivityLogIndexes(db);
 
+    const activityFilter: Record<string, any> = { leadId: id };
+    if (dealId) activityFilter.dealId = dealId;
+
+    const outreachFilter: Record<string, any> = { leadId: id, tenantId, activityLogWritten: { $ne: true } };
+    if (dealId) outreachFilter.dealId = dealId;
+
     const [activityLogDocs, outreachLogDocs] = await Promise.all([
       db.collection(ACTIVITY_LOG_COLLECTION)
-        .find({ leadId: id })
+        .find(activityFilter)
         .sort({ createdAt: -1 })
         .limit(limit)
         .toArray(),
@@ -63,7 +70,7 @@ export async function GET(
       // a cadence send (never activityLogWritten) and a plain "Log outreach"
       // record-only row (never sets this field at all) are both unaffected.
       db.collection('outreach_logs')
-        .find({ leadId: id, tenantId, activityLogWritten: { $ne: true } })
+        .find(outreachFilter)
         .sort({ createdAt: -1 })
         .limit(limit)
         .toArray(),
@@ -127,6 +134,18 @@ export async function POST(
     const claims = await resolveSessionFromIdToken(idToken);
     const loggedBy = claims?.email;
 
+    // Optional deal association (predecessor CRM roadmap §CRM line 20)
+    const rawDealId = typeof body.dealId === 'string' ? body.dealId.trim() : '';
+    let matchedDeal: any = null;
+    if (rawDealId) {
+      if (Array.isArray(lead.deals)) {
+        matchedDeal = lead.deals.find((d: any) => d.id === rawDealId);
+      }
+      if (!matchedDeal) {
+        return NextResponse.json({ error: 'Deal not found on this lead' }, { status: 400 });
+      }
+    }
+
     await ensureActivityLogIndexes(db);
     const now = new Date();
 
@@ -149,6 +168,8 @@ export async function POST(
         matchedContactKey: null,
         bodyExcerpt: truncateBody(noteText, 5000),
         loggedBy,
+        dealId: matchedDeal ? matchedDeal.id : undefined,
+        dealLabel: matchedDeal ? (matchedDeal.label || undefined) : undefined,
         source: 'manual',
         createdAt: now,
       };
@@ -164,6 +185,8 @@ export async function POST(
         id: insertResult.insertedId.toString(),
         leadId: id,
         type: 'note',
+        dealId: matchedDeal ? matchedDeal.id : undefined,
+        dealLabel: matchedDeal ? (matchedDeal.label || undefined) : undefined,
         createdAt: now.toISOString(),
       }, { status: 201 });
     }
@@ -207,6 +230,8 @@ export async function POST(
       callDisposition: disposition,
       callDurationMinutes: durationMinutes,
       loggedBy,
+      dealId: matchedDeal ? matchedDeal.id : undefined,
+      dealLabel: matchedDeal ? (matchedDeal.label || undefined) : undefined,
       source: 'manual',
       createdAt: now,
     };
@@ -227,6 +252,8 @@ export async function POST(
       leadId: id,
       type: 'call',
       disposition,
+      dealId: matchedDeal ? matchedDeal.id : undefined,
+      dealLabel: matchedDeal ? (matchedDeal.label || undefined) : undefined,
       createdAt: now.toISOString(),
     }, { status: 201 });
   } catch (error: any) {

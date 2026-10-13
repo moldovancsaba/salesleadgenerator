@@ -161,6 +161,25 @@ describe('computeAccountDetail', () => {
     const detail = computeAccountDetail('nonexistent', [lead({ _id: 'a', parentOrgId: 'acme' })], 'USD');
     expect(detail).toBeNull();
   });
+
+  it('attaches optional activities array to AccountDetail', () => {
+    const activities = [
+      {
+        id: 'act-1',
+        leadId: 'a',
+        leadName: 'Acme Football Club',
+        type: 'call' as const,
+        direction: 'outbound' as const,
+        callDisposition: 'connected' as const,
+        source: 'manual' as const,
+        createdAt: '2026-09-01T00:00:00.000Z',
+      },
+    ];
+    const detail = computeAccountDetail('acme', [lead({ _id: 'a', parentOrgId: 'acme' })], 'USD', activities);
+    expect(detail?.activities).toHaveLength(1);
+    expect(detail?.activities?.[0].leadName).toBe('Acme Football Club');
+    expect(detail?.activities?.[0].type).toBe('call');
+  });
 });
 
 describe('formatAccountsCsv', () => {

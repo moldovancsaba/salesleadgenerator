@@ -170,4 +170,32 @@ describe('mergeActivityTimeline (issue 140)', () => {
     const merged = mergeActivityTimeline([emails, [noteEntry]], 10);
     expect(merged.map((e) => e.type)).toEqual(['email-outbound', 'note', 'email-outbound']);
   });
+
+  it('maps dealId and dealLabel on call and note entries', () => {
+    const noteWithDeal = mapActivityLogDoc({
+      _id: new ObjectId(),
+      leadId: 'lead-1',
+      type: 'note',
+      bodyExcerpt: 'Agreed on jersey sponsorship deal scope.',
+      dealId: 'deal-99',
+      dealLabel: '2026 Kit Deal',
+      source: 'manual',
+      createdAt: new Date('2026-07-14T00:00:00.000Z'),
+    });
+    expect(noteWithDeal.dealId).toBe('deal-99');
+    expect(noteWithDeal.dealLabel).toBe('2026 Kit Deal');
+
+    const callWithDeal = mapActivityLogDoc({
+      _id: new ObjectId(),
+      leadId: 'lead-1',
+      type: 'call',
+      callDisposition: 'connected',
+      dealId: 'deal-101',
+      source: 'manual',
+      createdAt: new Date('2026-07-14T00:00:00.000Z'),
+    });
+    expect(callWithDeal.dealId).toBe('deal-101');
+    expect(callWithDeal.dealLabel).toBeUndefined();
+  });
 });
+

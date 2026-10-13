@@ -1,5 +1,24 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.261
+
+### CRM & Activity Timeline: Deal-associated activities and account-level activity rollup
+
+- **Deal-Associated Activities (`app/lib/activity-log-store.ts`, `app/api/leads/[id]/activity/route.ts`, `app/components/ActivityPanel.tsx`):**
+  - Added optional `dealId?: string` and `dealLabel?: string` to `ActivityEntry` and `ActivityLogDocument` with a sparse index on `dealId` in MongoDB.
+  - Updated `POST /api/leads/[id]/activity` to accept optional `body.dealId`, verifying that the deal belongs to `lead.deals`, copying its label to `dealLabel`, and persisting on both note and call records.
+  - Added optional `dealId` query filtering to `GET /api/leads/[id]/activity` allowing deal-scoped timeline queries.
+  - Updated `ActivityPanel.tsx` to accept optional `deals?: ActivityDeal[]` prop (passed from `app/detail.tsx` via `lead.deals`), providing an optional "Associated deal" selector in both "Add note" and "Log a call" forms, and an activity timeline filter by deal.
+  - Rendered deal badge (`dealLabel` or `Deal <id>`) on activity cards in the timeline.
+  - Added unit test coverage in `tests/lib/activity-log-store.test.ts`.
+- **Account-Level Activity Rollup (`lib/accounts.ts`, `app/api/accounts/[parentOrgId]/route.ts`, `app/accounts/[brand]/accounts-client.tsx`):**
+  - Added `AccountActivityEntry` and optional `activities?: AccountActivityEntry[]` to `AccountDetail` in `lib/accounts.ts`.
+  - Updated `GET /api/accounts/[parentOrgId]` to aggregate activity logs and outreach logs across all child leads belonging to that parent organization, enriching entries with child lead names and merging them chronologically.
+  - Added an "Account Activity Timeline" section in `AccountsClient` detail drawer/modal (`/accounts/[brand]`), presenting aggregated calls, notes, emails, and meetings across the company's leads with lead name badges linking directly to their lead boards.
+  - Added unit test coverage in `tests/lib/accounts.test.ts`.
+
+Full gate green: 0 `tsc`/lint errors, 1349/1349 unit tests passing, smoke tests clean, `audit:gds-style` clean.
+
 ## 2.4.260
 
 ### CRM & CPQ: Multi-line catalog quotes, activity timeline internal notes, and accounts CSV export

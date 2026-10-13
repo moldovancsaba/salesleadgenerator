@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Container, Title, Text, Group, Stack, Badge, Loader, SimpleGrid, UnstyledButton, Button } from '@mantine/core'
+import { Container, Title, Text, Group, Stack, Badge, Loader, SimpleGrid, UnstyledButton, Button, Box } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminDetailDrawer, AdminModal, InfoCard, type AdminDataTableSort } from '@sovereignsquad/gds-admin/client'
 import Link from 'next/link'
 import type { Brand } from '@/app/lib/brand'
@@ -179,6 +179,60 @@ export function AccountsClient({ brand, label, currency }: Props) {
         empty={<Text c="dimmed" size="sm">No leads.</Text>}
         getRowKey={(row) => row._id}
       />
+      <Box mt="xs">
+        <Group justify="space-between" align="center" mb="xs">
+          <Text size="xs" fw={700} c="dimmed" tt="uppercase">Account Activity Timeline</Text>
+          <Badge size="xs" variant="light" color="indigo">{detail.activities?.length || 0} events</Badge>
+        </Group>
+        {!detail.activities || detail.activities.length === 0 ? (
+          <Text size="xs" c="dimmed">No activity recorded across this account&apos;s leads yet.</Text>
+        ) : (
+          <Stack gap="xs">
+            {detail.activities.map((act) => (
+              <Box key={act.id} p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }}>
+                <Group justify="space-between" gap="xs" wrap="nowrap">
+                  <Group gap={4} wrap="wrap">
+                    {act.leadName && (
+                      <Link href={`/sales/${brand}?leadId=${encodeURIComponent(act.leadId)}`} style={{ textDecoration: 'none' }}>
+                        <Badge size="xs" variant="filled" color="dark">
+                          {act.leadName}
+                        </Badge>
+                      </Link>
+                    )}
+                    <Badge size="xs" variant="light" color={act.type === 'call' ? 'grape' : act.type === 'meeting-scheduled' ? 'indigo' : act.type === 'note' ? 'yellow' : act.direction === 'inbound' ? 'teal' : 'blue'}>
+                      {act.type === 'call' ? 'Call' : act.type === 'meeting-scheduled' ? 'Meeting' : act.type === 'note' ? 'Note' : act.direction === 'inbound' ? 'Inbound reply' : 'Outbound email'}
+                    </Badge>
+                    {(act.dealLabel || act.dealId) && (
+                      <Badge size="xs" variant="outline" color="cyan">{act.dealLabel || `Deal ${act.dealId?.slice(0, 8)}`}</Badge>
+                    )}
+                    {act.callDisposition && (
+                      <Badge size="xs" variant="outline" color="gray">{act.callDisposition}</Badge>
+                    )}
+                    {act.emailStatus && (
+                      <Badge size="xs" variant="light" color={act.emailStatus === 'replied' ? 'teal' : act.emailStatus === 'opened' ? 'green' : 'blue'}>
+                        {act.emailStatus}
+                      </Badge>
+                    )}
+                  </Group>
+                  <Text size="xs" c="dimmed">{new Date(act.createdAt).toLocaleString()}</Text>
+                </Group>
+                {act.subject && <Text size="xs" fw={600} mt={4}>{act.subject}</Text>}
+                {act.bodyExcerpt && (
+                  <Text size="xs" c={act.type === 'note' ? undefined : 'dimmed'} mt={2} lineClamp={act.type === 'note' ? 4 : 2} style={act.type === 'note' ? { whiteSpace: 'pre-wrap' } : undefined}>
+                    {act.bodyExcerpt}
+                  </Text>
+                )}
+                {(act.loggedBy || act.callDurationMinutes) && (
+                  <Text size="xs" c="dimmed" mt={2}>
+                    {act.callDurationMinutes ? `${act.callDurationMinutes} min · ` : ''}
+                    {act.loggedBy ? `Logged by ${act.loggedBy}` : ''}
+                  </Text>
+                )}
+              </Box>
+            ))}
+          </Stack>
+        )}
+      </Box>
     </Stack>
   ) : null;
 

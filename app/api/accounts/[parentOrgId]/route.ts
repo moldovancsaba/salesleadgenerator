@@ -3,7 +3,14 @@ import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
 import { getBrandConfig, resolveBrand } from '../../../lib/brand'
 import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../../lib/tenant'
-import { computeAccountDetail, type AccountSourceLead } from '../../../../lib/accounts'
+import { computeAccountDetail, type AccountSourceLead, type AccountActivityEntry } from '../../../../lib/accounts'
+import {
+  ACTIVITY_LOG_COLLECTION,
+  ensureActivityLogIndexes,
+  mapActivityLogDoc,
+  mapOutreachLogToActivityEntry,
+  mergeActivityTimeline,
+} from '../../../lib/activity-log-store'
 
 // Issue #209, Phase 1 — the detail half of GET /api/accounts: every lead
 // sharing one exact parentOrgId string, within the same brand+tenant.
@@ -68,7 +75,39 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       updatedAt: l.updatedAt,
     }));
 
-    const account = computeAccountDetail(parentOrgId, leads, config.currency);
+    const leadIds = leads.map((l) => l._id);
+    const leadNameById = new Map(leads.map((l) => [l._id, l.entity_name || 'Untitled lead']));
+
+    let activities: AccountActivityEntry[] = [];
+    if (leadIds.length > 0) {
+      await ensureActivityLogIndexes(db);
+      const [activityLogDocs, outreachLogDocs] = await Promise.all([
+        db.collection(ACTIVITY_LOG_COLLECTION)
+          .find({ leadId: { $in: leadIds } })
+          .sort({ createdAt: -1 })
+          .limit(50)
+          .toArray(),
+        db.collection('outreach_logs')
+          .find({ leadId: { $in: leadIds }, tenantId, activityLogWritten: { $ne: true } })
+          .sort({ createdAt: -1 })
+          .limit(50)
+          .toArray(),
+      ]);
+
+      const mappedActivityDocs = activityLogDocs.map((doc: any) => ({
+        ...mapActivityLogDoc(doc),
+        leadName: leadNameById.get(String(doc.leadId || '')),
+      }));
+
+      const mappedOutreachDocs = outreachLogDocs.map((log: any) => ({
+        ...mapOutreachLogToActivityEntry(log),
+        leadName: leadNameById.get(String(log.leadId || '')),
+      }));
+
+      activities = mergeActivityTimeline([mappedActivityDocs, mappedOutreachDocs], 50) as AccountActivityEntry[];
+    }
+
+    const account = computeAccountDetail(parentOrgId, leads, config.currency, activities);
     if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
     return NextResponse.json({ account, brand, tenantId });

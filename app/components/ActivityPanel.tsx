@@ -30,6 +30,8 @@ type ActivityEntry = {
   callDisposition?: CallDisposition
   callDurationMinutes?: number
   loggedBy?: string
+  dealId?: string
+  dealLabel?: string
   meetingStartAt?: string
   meetingEndAt?: string
   meetingBookedByEmail?: string
@@ -61,6 +63,13 @@ const EMAIL_STATUS_LABEL: Record<string, string> = {
 }
 
 type ActivityContact = { name?: string; email?: string; phone?: string }
+
+export type ActivityDeal = {
+  id: string
+  label?: string
+  value?: number
+  currency?: string
+}
 
 // Mirrors lib/contacts.ts's contactKey() exactly (name+phone, else
 // name+email, else bare name, all lowercased) — duplicated rather than
@@ -98,6 +107,7 @@ type Props = {
   // pass it (if any) keep compiling; the picker/button simply behaves as
   // the zero-contacts case (disabled) when omitted.
   contacts?: ActivityContact[]
+  deals?: ActivityDeal[]
 }
 
 const TYPE_LABEL: Record<ActivityEntry['type'], string> = {
@@ -118,12 +128,17 @@ const TYPE_LABEL: Record<ActivityEntry['type'], string> = {
 // unconditionally inside LeadDetailModal's content, which only ever renders
 // while the modal is open (LeadDetailModal returns null when !opened), so
 // this naturally only fetches while the lead detail is actually visible.
-export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
+export function ActivityPanel({ leadId, brand, contacts = [], deals = [] }: Props) {
   const [activity, setActivity] = useState<ActivityEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<ContactSuggestion[]>([])
   const [resolvingId, setResolvingId] = useState<string | null>(null)
+
+  // Deal association state (predecessor CRM roadmap §CRM line 20)
+  const [callDealId, setCallDealId] = useState<string | null>(null)
+  const [noteDealId, setNoteDealId] = useState<string | null>(null)
+  const [selectedDealFilter, setSelectedDealFilter] = useState<string | null>(null)
 
   // Issue #200 — manual call-logging form state, kept inline in this same
   // component (a 4-field form, well within what one component can hold
@@ -151,6 +166,16 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
   const contactOptions = contacts
     .map((c) => ({ value: computeContactKey(c), label: c.name || c.email || c.phone || 'Unnamed contact' }))
     .filter((o) => o.value)
+
+  const dealSelectOptions = [
+    { value: '', label: 'General / All deals' },
+    ...deals.map((d) => ({
+      value: d.id,
+      label: d.label
+        ? `${d.label} (${d.currency || '$'}${Math.round(d.value || 0).toLocaleString()})`
+        : `Deal ${d.id.slice(0, 8)} (${d.currency || '$'}${Math.round(d.value || 0).toLocaleString()})`,
+    })),
+  ]
 
   function loadActivity() {
     setLoading(true)
@@ -249,6 +274,7 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
         disposition: callDisposition,
         durationMinutes: callDuration === '' ? undefined : callDuration,
         notes: callNotes || undefined,
+        dealId: callDealId || undefined,
       }),
     })
       .then(async (res) => {
@@ -265,6 +291,7 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
         setCallDisposition(null)
         setCallDuration('')
         setCallNotes('')
+        setCallDealId(null)
         setCallFieldErrors({})
         loadActivity()
       })
@@ -293,6 +320,7 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
       body: JSON.stringify({
         type: 'note',
         text: trimmed,
+        dealId: noteDealId || undefined,
       }),
     })
       .then(async (res) => {
@@ -306,6 +334,7 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
         showNotification({ message: 'Note saved.', color: 'teal' })
         setNoteFormOpen(false)
         setNoteText('')
+        setNoteDealId(null)
         setNoteError(null)
         loadActivity()
       })
@@ -341,8 +370,22 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
           </Stack>
         </Box>
       )}
-      <Group justify="space-between" align="center" mb={4}>
-        <Text size="xs" c="dimmed" fw={600}>ACTIVITY</Text>
+      <Group justify="space-between" align="center" mb={4} wrap="wrap">
+        <Group gap="xs" align="center">
+          <Text size="xs" c="dimmed" fw={600}>ACTIVITY</Text>
+          {deals.length > 0 && (
+            <Select
+              size="xs"
+              placeholder="All deals"
+              data={[{ value: '', label: 'All deals' }, ...deals.map((d) => ({ value: d.id, label: d.label || `Deal ${d.id.slice(0, 8)}` }))]}
+              value={selectedDealFilter || ''}
+              onChange={(val) => setSelectedDealFilter(val || null)}
+              clearable
+              style={{ width: 130 }}
+              aria-label="Filter activity by deal"
+            />
+          )}
+        </Group>
         <Group gap="xs">
           <Button
             size="xs"
@@ -384,6 +427,17 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
               maxRows={8}
               required
             />
+            {deals.length > 0 && (
+              <Select
+                label="Associated deal (optional)"
+                placeholder="General / All deals"
+                data={dealSelectOptions}
+                value={noteDealId || ''}
+                onChange={(val) => setNoteDealId(val || null)}
+                clearable
+                aria-label="Associated deal for note"
+              />
+            )}
             <Group gap="xs">
               <Button size="xs" color="yellow" loading={loggingNote} onClick={handleSaveNote}>Save note</Button>
               <Button size="xs" variant="subtle" color="gray" disabled={loggingNote} onClick={() => { setNoteFormOpen(false); setNoteError(null); }}>Cancel</Button>
@@ -427,6 +481,17 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
               error={callFieldErrors.duration}
               aria-label="Call duration in minutes"
             />
+            {deals.length > 0 && (
+              <Select
+                label="Associated deal (optional)"
+                placeholder="General / All deals"
+                data={dealSelectOptions}
+                value={callDealId || ''}
+                onChange={(val) => setCallDealId(val || null)}
+                clearable
+                aria-label="Associated deal for call"
+              />
+            )}
             <Textarea
               label="Notes"
               placeholder="Optional"
@@ -448,11 +513,11 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
         <Group gap="xs"><Loader size="xs" /><Text size="xs" c="dimmed">Loading…</Text></Group>
       ) : error ? (
         <Text size="xs" c="red">{error}</Text>
-      ) : activity.length === 0 ? (
-        <Text size="xs" c="dimmed">No activity yet.</Text>
+      ) : (selectedDealFilter ? activity.filter((a) => a.dealId === selectedDealFilter) : activity).length === 0 ? (
+        <Text size="xs" c="dimmed">{selectedDealFilter ? 'No activity associated with this deal yet.' : 'No activity yet.'}</Text>
       ) : (
         <Stack gap="xs">
-          {activity.map((entry) => (
+          {(selectedDealFilter ? activity.filter((a) => a.dealId === selectedDealFilter) : activity).map((entry) => (
             <Box key={entry.id} p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }}>
               <Group justify="space-between" gap="xs" wrap="nowrap">
                 <Group gap={4}>
@@ -461,6 +526,11 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
                   </Badge>
                   {entry.source === 'gmail-sync' && (
                     <Badge size="xs" variant="outline" color="gray">Gmail</Badge>
+                  )}
+                  {(entry.dealLabel || entry.dealId) && (
+                    <Badge size="xs" variant="outline" color="cyan">
+                      {entry.dealLabel || `Deal ${entry.dealId?.slice(0, 8)}`}
+                    </Badge>
                   )}
                   {entry.callDisposition && (
                     <Badge size="xs" variant="outline" color="gray">{DISPOSITION_LABEL[entry.callDisposition]}</Badge>

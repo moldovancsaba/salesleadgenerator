@@ -15,6 +15,11 @@
 
 import type { Db } from 'mongodb';
 import type { CurrencyCode } from '@/app/lib/brand-constants';
+import type { ActivityEntry } from '@/app/lib/activity-log-store';
+
+export type AccountActivityEntry = ActivityEntry & {
+  leadName?: string;
+};
 
 export type AccountRollup = {
   parentOrgId: string;
@@ -67,7 +72,10 @@ export type AccountLeadSummary = {
   updatedAt?: string;
 };
 
-export type AccountDetail = AccountRollup & { leads: AccountLeadSummary[] };
+export type AccountDetail = AccountRollup & {
+  leads: AccountLeadSummary[];
+  activities?: AccountActivityEntry[];
+};
 
 function isNewer(candidate: string | null | undefined, current: string | null | undefined): boolean {
   if (!candidate) return false;
@@ -193,12 +201,13 @@ function toLeadSummary(lead: AccountSourceLead): AccountLeadSummary {
 export function computeAccountDetail(
   parentOrgId: string,
   leads: AccountSourceLead[],
-  brandCurrency: CurrencyCode
+  brandCurrency: CurrencyCode,
+  activities?: AccountActivityEntry[]
 ): AccountDetail | null {
   const groupLeads = leads.filter((lead) => (lead.parentOrgId || '').trim() === parentOrgId);
   if (groupLeads.length === 0) return null;
   const rollup = buildAccountRollup(parentOrgId, groupLeads, brandCurrency);
-  return { ...rollup, leads: groupLeads.map(toLeadSummary) };
+  return { ...rollup, leads: groupLeads.map(toLeadSummary), activities: activities || [] };
 }
 
 export function formatAccountsCsv(accounts: AccountRollup[]): string {

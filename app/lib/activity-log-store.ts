@@ -61,6 +61,9 @@ export type ActivityEntry = {
   callDisposition?: CallDisposition
   callDurationMinutes?: number
   loggedBy?: string
+  // Deal association (predecessor CRM roadmap §CRM line 20)
+  dealId?: string
+  dealLabel?: string
   // Issue #207 — meeting-specific fields, present only when
   // type === 'meeting-scheduled'.
   meetingStartAt?: string
@@ -123,6 +126,8 @@ export type ActivityLogDocument = {
   // (never guessed) for the x-api-key/machine-caller path, which has no
   // per-user identity to attribute a manually-logged call to.
   loggedBy?: string
+  dealId?: string
+  dealLabel?: string
   // Issue #207 — meeting-specific fields, present only when
   // type === 'meeting-scheduled' (app/lib/scheduling-store.ts's bookSlot()).
   meetingStartAt?: string
@@ -148,6 +153,7 @@ export async function ensureActivityLogIndexes(db: Db): Promise<void> {
     const collection = db.collection(ACTIVITY_LOG_COLLECTION)
     await collection.createIndex({ leadId: 1, createdAt: -1 })
     await collection.createIndex({ externalId: 1 }, { unique: true, sparse: true })
+    await collection.createIndex({ dealId: 1 }, { sparse: true })
     indexesEnsured = true
   } catch (error) {
     console.error('[activity-log-store] index creation failed', error)
@@ -213,6 +219,8 @@ export function mapActivityLogDoc(doc: any): ActivityEntry {
     callDisposition: isValidCallDisposition(doc.callDisposition) ? doc.callDisposition : undefined,
     callDurationMinutes: typeof doc.callDurationMinutes === 'number' ? doc.callDurationMinutes : undefined,
     loggedBy: typeof doc.loggedBy === 'string' ? doc.loggedBy : undefined,
+    dealId: typeof doc.dealId === 'string' ? doc.dealId : undefined,
+    dealLabel: typeof doc.dealLabel === 'string' ? doc.dealLabel : undefined,
     meetingStartAt: typeof doc.meetingStartAt === 'string' ? doc.meetingStartAt : undefined,
     meetingEndAt: typeof doc.meetingEndAt === 'string' ? doc.meetingEndAt : undefined,
     meetingProvider: doc.meetingProvider === 'google' ? 'google' : undefined,
