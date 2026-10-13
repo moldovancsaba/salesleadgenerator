@@ -18,6 +18,7 @@ import { TOUR_SELECTOR } from './lib/tour/selectors';
 import { isAutoManagedColumn } from '../lib/kanban-column';
 import { decideMoveItemAction, resolveReorderNeighbors } from '../lib/kanban-reorder';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { isVerticalScrollIntent } from '../lib/desktop-scroll-passthrough';
 
 type ColumnState = {
   leads: Lead[];
@@ -170,6 +171,49 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       onVisibleLeadsChange(leads)
     }
   }, [columnStates, onVisibleLeadsChange])
+
+  // Desktop trackpad and mouse wheel "natural scroll" fix: on desktop layouts,
+  // GDS's KanbanBoard wraps its columns in a horizontally-scrolling Mantine
+  // ScrollArea. While columnPanZone="header" lets GDS pan columns horizontally
+  // when hovering over headers, Chromium desktop browsers trap wheel gestures
+  // over cards/board-body in the Mantine ScrollArea viewport without scrolling
+  // the page vertically.
+  //
+  // Attached as a real (non-passive) DOM listener via addEventListener: React attaches
+  // its root wheel listeners as passive, so event.preventDefault() inside a React
+  // onWheel handler is silently a no-op — only a non-passive listener can cancel
+  // the browser container capture.
+  //
+  // Dual-zone routing:
+  // 1. If target is within [data-gds-kanban-column-header], return early so GDS's
+  //    native columnPanZone="header" handles horizontal column panning.
+  // 2. Otherwise (over cards, empty column space, card actions), if the gesture is
+  //    vertical-dominant, prevent default container capture and dispatch
+  //    window.scrollBy so the page scrolls vertically.
+  //
+  // Desktop-only (matchMedia('(pointer: fine)')): on touch devices / mobile PWA,
+  // GDS handles touch panning natively and native touch gestures must never be intercepted.
+  const boardWrapperRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = boardWrapperRef.current
+    if (!el || typeof window === 'undefined' || !window.matchMedia?.('(pointer: fine)').matches) return
+
+    function handleWheel(event: WheelEvent) {
+      const target = event.target as HTMLElement | null
+      if (target?.closest?.('[data-gds-kanban-column-header]')) {
+        return
+      }
+
+      if (!isVerticalScrollIntent(event.deltaX, event.deltaY)) return
+      event.preventDefault()
+      const multiplier = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1
+      window.scrollBy({ top: event.deltaY * multiplier, left: 0, behavior: 'instant' })
+    }
+
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [])
 
   // Real in-place collapse (issue #53) — GDS 3.14.0 added native
   // collapsible/collapsedColumnIds/onCollapsedChange support to KanbanBoard,
@@ -987,7 +1031,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         </Group>
       )}
 
-      <div data-tour={TOUR_SELECTOR.kanbanBoard}>
+      <div ref={boardWrapperRef} data-tour={TOUR_SELECTOR.kanbanBoard}>
         <ErrorBoundary
           fallback={
             <Box p="md" role="alert">
@@ -1006,15 +1050,11 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
             collapsedColumnIds={collapsedColumnIds}
             onCollapsedChange={handleCollapsedChange}
             enableDrag={dragEnabled}
-            // Issue #125 — GDS's native zone-based wheel-scroll routing
-            // (columnPanZone, shipped in general-design-system 3.14.12,
-            // already installed here via ^6.5.0), replacing this repo's own
-            // gesture-shape heuristic (formerly lib/desktop-scroll-passthrough.ts).
-            // A wheel gesture over a column header pans the columns
-            // horizontally; anywhere else (a card, empty space) always
-            // scrolls the page — routed by cursor zone, not gesture shape,
-            // so a fast diagonal gesture over a card can no longer misroute.
-            // Fine-pointer-only and inert on touch, per GDS's own contract.
+            // GDS's native zone-based wheel-scroll routing (columnPanZone="header")
+            // pans columns horizontally when hovering over column headers.
+            // Combined with boardWrapperRef's vertical scroll passthrough over cards
+            // and board body, this provides a complete dual-zone experience in desktop Chrome:
+            // headers pan horizontally; cards/empty space scroll the page vertically.
             columnPanZone="header"
           />
         </ErrorBoundary>
