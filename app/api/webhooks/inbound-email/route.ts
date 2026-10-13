@@ -16,6 +16,7 @@ import type { Brand } from '../../../lib/brand'
 import { getAllBrandConfigs, getBrandConfig } from '../../../lib/brand'
 import { suppressRecipient } from '../../../../lib/suppression'
 import { detectReplyClassification } from '../../../../lib/email-engagement'
+import { deleteCalendarTaskReminder } from '../../../../lib/gcal-sync'
 
 // A generous cap for what should be a small, metadata-only payload
 // (resend.com/docs/dashboard/receiving/introduction confirms the webhook
@@ -303,6 +304,14 @@ export async function POST(request: NextRequest) {
             let leadObjId: ObjectId | null = null;
             try { leadObjId = new ObjectId(doc.leadId); } catch {}
             if (leadObjId) {
+              const existingLead = await db.collection(brandConfig.dbCollection).findOne({ _id: leadObjId });
+              if (existingLead?.activeCadence?.taskStepId) {
+                await deleteCalendarTaskReminder(db, {
+                  brand: doc.brand,
+                  tenantId: doc.tenantId || 'default',
+                  taskId: existingLead.activeCadence.taskStepId,
+                }).catch(() => {});
+              }
               await db.collection(brandConfig.dbCollection).updateOne(
                 { _id: leadObjId, activeCadence: { $ne: null } },
                 {

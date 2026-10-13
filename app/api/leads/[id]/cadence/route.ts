@@ -6,6 +6,7 @@ import type { Brand } from '../../../../lib/brand'
 import { requireBrandAccessApi } from '../../../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../../../lib/tenant'
 import { buildInitialActiveCadence } from '../../../../../lib/cadences'
+import { deleteCalendarTaskReminder } from '../../../../../lib/gcal-sync'
 
 export const dynamic = 'force-dynamic'
 
@@ -142,15 +143,26 @@ export async function DELETE(
     const client = await getClientPromise()
     const db = client.db()
 
-    const result = await db.collection(config.dbCollection).findOneAndUpdate(
-      { _id: leadObjectId, ...tenantFilter(tenantId) },
-      { $set: { activeCadence: null, updatedAt: new Date() } },
-      { returnDocument: 'after' }
+    const existing = await db.collection(config.dbCollection).findOne(
+      { _id: leadObjectId, ...tenantFilter(tenantId) }
     )
-
-    if (!result) {
+    if (!existing) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
     }
+
+    // Predecessor Handoff 08 (issue #244): Cancelled sequence tasks delete future Google event
+    if (existing.activeCadence?.taskStepId) {
+      await deleteCalendarTaskReminder(db, {
+        brand,
+        tenantId,
+        taskId: existing.activeCadence.taskStepId,
+      }).catch(() => {})
+    }
+
+    await db.collection(config.dbCollection).updateOne(
+      { _id: leadObjectId, ...tenantFilter(tenantId) },
+      { $set: { activeCadence: null, updatedAt: new Date() } }
+    )
 
     return NextResponse.json({ ok: true })
   } catch (error: any) {

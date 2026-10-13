@@ -1366,6 +1366,17 @@ Ingests CRM Handoff 07 (Email Engagement Read Model & Status Precedence) into Sa
 - **Documents REST API Surface (`app/api/documents/route.ts` & `app/api/documents/[id]/route.ts`):** `GET /api/documents?brand=<brand>` (list documents) and `POST /api/documents` (register document metadata) with `requireBrandAccessApi` authentication. `DELETE /api/documents/[id]?brand=<brand>` protected by the `canDeleteDocument` fail-closed safety check.
 - **Test Coverage:** `tests/lib/documents.test.ts` (16 unit tests), `tests/lib/outreach-send.test.ts` (attachment missing dispatch verification), and `tests/lib/cadences.test.ts` (step documentIds sanitization).
 
+### Google Calendar Task Reminders Sync (Phase 8, issue #244)
+- **Google Calendar Task Reminders Engine (`lib/gcal-sync.ts`):** Ingests CRM Handoff 08 (Google Calendar Sync). Bridges manual sequence tasks (`call`, `linkedin`, `general`) and rep follow-up reminders to Google Calendar via the third-party integration connection hub (`lib/integration-connections.ts`).
+- **Deterministic Event IDs (`deriveCalendarEventId`):** Event IDs are derived deterministically from the task ID (`slg` prefix + sanitized `[a-v0-9]` string), strictly meeting Google Calendar RFC requirements. Idempotent retries reuse the deterministic ID so background job retries or worker restarts never duplicate events.
+- **Fail-Safe, Non-Blocking Execution:** Calendar sync failure never aborts or fails CRM task creation, cadence advancement, or lead actions. CRM workbench (`/today/[brand]` and Kanban) remains the single canonical source of truth for task completion.
+- **Lifecycle Synchronization:**
+  - *Creation:* Scheduled manual cadence tasks automatically sync to Google Calendar as timed 30-minute reminder events with contact details, company name, instructions, and deep link to the Today workbench.
+  - *Cancellation:* When a sequence is cancelled or stopped by a human inbound reply (`inbound-email` webhook), future Google Calendar reminder events are automatically deleted via `deleteCalendarTaskReminder`.
+  - *Completion:* Completed CRM tasks retain their calendar events as historical reminders without deletion.
+- **Calendar Sync REST APIs (`app/api/calendar/sync-task/route.ts` & `app/api/calendar/sync-settings/route.ts`):** `POST /api/calendar/sync-task` (manual sync / re-sync), `DELETE /api/calendar/sync-task` (remove calendar event), and `GET/PUT /api/calendar/sync-settings` (manage sync preferences and default durations) under `requireBrandAccessApi` authentication.
+- **Test Coverage:** `tests/lib/gcal-sync.test.ts` (16 unit tests).
+
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)
 - Brand-aware field normalization prevents cross-tenant writes

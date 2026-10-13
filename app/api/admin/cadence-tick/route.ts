@@ -11,6 +11,7 @@ import { advanceActiveCadence } from '../../../../lib/cadences'
 import type { CadenceStep, ActiveCadence } from '../../../../lib/cadences'
 import { sendAutomatedEmail, isResendSendConfigured } from '../../../../lib/outreach-send'
 import type { LeadForSend } from '../../../../lib/outreach-send'
+import { syncTaskReminderToGoogleCalendar } from '../../../../lib/gcal-sync'
 
 export const dynamic = 'force-dynamic'
 
@@ -240,6 +241,25 @@ async function runCadenceTick(): Promise<TickSummary> {
           }
         )
         summary.remindersSet++
+
+        // Predecessor Handoff 08 (issue #244): Google Calendar Task Reminders Sync
+        // Asynchronously sync task reminder to Google Calendar (non-blocking, fail-safe).
+        const primaryContact = Array.isArray(leadDoc.contacts)
+          ? leadDoc.contacts.find((c: any) => c.isDecisionMaker) || leadDoc.contacts[0]
+          : undefined
+        await syncTaskReminderToGoogleCalendar(db, {
+          brand,
+          tenantId: TENANT_ID,
+          taskId: currentStep.id,
+          title: reminderNote,
+          dueAt: nowIso,
+          channel: currentStep.channel,
+          contactName: primaryContact?.name,
+          contactEmail: primaryContact?.email,
+          companyName: leadDoc.entity_name || leadDoc.company,
+          instructions: currentStep.reminderNote,
+          leadId,
+        }).catch(() => {})
       }
     }
   }

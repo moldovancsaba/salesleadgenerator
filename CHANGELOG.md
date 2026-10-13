@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
  
+## 2.4.257
+
+### Feature: Google Calendar task reminders sync with deterministic event IDs and fail-safe error handling (fixes #244)
+
+- **Google Calendar Task Reminders Engine (`lib/gcal-sync.ts`):** Ingests CRM Handoff 08 (Google Calendar Sync) into Sales Lead Generator. Connects manual sequence tasks (`call`, `linkedin`, `general`) and follow-up reminders to Google Calendar via the third-party integration connection hub (`lib/integration-connections.ts`).
+- **Deterministic Event IDs (`deriveCalendarEventId`):** Generates deterministic event IDs (`slg` prefix + task ID sanitized to `[a-v0-9]`), adhering to Google Calendar API RFC specifications. Sync retries reuse this deterministic ID, guaranteeing that retries or server restarts never duplicate calendar events.
+- **Fail-Safe, Non-Blocking Execution:** Calendar sync failure never aborts or fails CRM task creation, cadence advancement, or lead actions. CRM workbench (`/today/[brand]` and Kanban) remains the single canonical source of truth for task completion.
+- **Lifecycle Synchronization & Invariants:**
+  - *Creation:* Scheduled manual cadence tasks automatically sync to Google Calendar as timed 30-minute reminder events with contact details, company name, instructions, and deep link to the Today workbench.
+  - *Cancellation:* When a sequence is cancelled or stopped by a human inbound reply (`inbound-email` webhook), future Google Calendar reminder events are automatically deleted via `deleteCalendarTaskReminder`.
+  - *Completion:* Completed CRM tasks retain their calendar events as historical reminders without deletion.
+- **Calendar Sync REST APIs (`app/api/calendar/sync-task/route.ts` & `app/api/calendar/sync-settings/route.ts`):** Added `POST /api/calendar/sync-task` (manual sync / re-sync), `DELETE /api/calendar/sync-task` (remove calendar event), and `GET/PUT /api/calendar/sync-settings` (manage sync preferences and default durations) under `requireBrandAccessApi` authentication.
+- **Test Coverage:** Added 16 unit tests in `tests/lib/gcal-sync.test.ts` verifying deterministic ID derivation, event payload structuring, fail-safe error handling, and 404 deletion idempotency.
+
+Full gate green: 0 `tsc`/lint errors, 1333/1333 unit tests passing, smoke tests clean, `audit:gds-style` clean.
+
 ## 2.4.256
 
 ### Feature: Document library foundation, attachment references, and deletion safety guards (fixes #243)
