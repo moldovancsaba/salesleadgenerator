@@ -1,6 +1,6 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.212
+**Version:** 2.4.261
 
 **Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212) after a routine `docs/DOC_LINT.md` audit found this doc had gone stale across ~15 features shipped in between (teams, lead ownership, buying-committee roles, call logging, the workflow/automation engine, ad-hoc reporting, forecast quota, bulk actions v2, accounts rollup, kanban real drag-and-drop and card-density/command-palette, the third-party integration hub, Gmail/Contacts sync, the meeting scheduler, the product catalog, scoped API keys, quote generation, and outbound webhooks) — every one of those is now covered below, verified against the real source, not extrapolated from issue numbers. This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 
@@ -207,6 +207,41 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/products/[brand]/[productId]/route.ts` | PATCH, DELETE | `requireBrandAccessApi` (since 2.4.226) | Update/delete one product |
 | `app/api/admin/products-backfill/route.ts` | POST | `requireApiKey` | One-time idempotent backfill promoting Sales Settings' free-text `ProductLine[]` into the priced catalog (`lib/backfill-products.ts`) |
 
+### Today view workbench & action queues (issue #237)
+
+| Route | Methods | Auth | Purpose |
+|---|---|---|---|
+| `app/api/today/[brand]/route.ts` | GET | `requireBrandAccessApi` | Aggregates rep action queues (cadence tasks, overdue followups, due today, deals needing attention) via `getTodayQueue` |
+| `app/api/today/[brand]/complete-step/route.ts` | POST | `requireBrandAccessApi` | Completes manual sequence task (`call`, `linkedin`, `general`) and advances cadence |
+| `app/api/today/[brand]/snooze/route.ts` | POST | `requireBrandAccessApi` | Postpones follow-up reminder date without losing sequence context |
+
+### Multi-pipeline configuration & custom stages (issue #235)
+
+| Route | Methods | Auth | Purpose |
+|---|---|---|---|
+| `app/api/pipelines/route.ts` | GET, POST | `requireBrandAccessApi` | List/create custom deal pipelines (`lib/pipelines.ts`'s `listPipelines`/`createPipeline`) |
+| `app/api/pipelines/[id]/route.ts` | GET, PUT, DELETE | `requireBrandAccessApi` | Single pipeline CRUD, stage configuration, and win probability weights |
+
+### Document library (issue #243)
+
+| Route | Methods | Auth | Purpose |
+|---|---|---|---|
+| `app/api/documents/route.ts` | GET, POST | `requireBrandAccessApi` | Workspace document catalog listing and metadata creation with 25MB attachment limit verification |
+| `app/api/documents/[id]/route.ts` | DELETE | `requireBrandAccessApi` | Deletes document metadata; protected by fail-closed `canDeleteDocument` active campaign check |
+
+### Email engagement read model & tracking (issue #242)
+
+| Route | Methods | Auth | Purpose |
+|---|---|---|---|
+| `app/api/outreach/engagement/route.ts` | GET | `requireBrandAccessApi` | Authoritative email engagement rates (opened, clicked, replied, bounced, cancelled) and canonical tracking caveats |
+
+### Google Calendar task reminders sync (issue #244)
+
+| Route | Methods | Auth | Purpose |
+|---|---|---|---|
+| `app/api/calendar/sync-task/route.ts` | POST, DELETE | `requireBrandAccessApi` | Manual sync, re-sync, or removal of Google Calendar task reminder events via `deriveCalendarEventId` |
+| `app/api/calendar/sync-settings/route.ts` | GET, PUT | `requireBrandAccessApi` | Read/update brand-scoped Google Calendar task reminder sync preferences and event durations |
+
 ---
 
 ## 3. `lib/*.ts` — Shared Library Modules
@@ -266,9 +301,16 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 - `lib/forecast-category.ts` — `ForecastCategory`, `resolveDefaultCategory`, `effectiveForecastCategory`, `computeCategoryForecast`, `getForecastCategoryWeights` (issue #204)
 - `lib/quota.ts` — `PeriodType`, `isValidPeriod`, `periodToDateRange`, `dealValueForLead`, `computeAttainmentFromWonLeads`, `getQuotaTarget`, `setQuotaTarget` (issue #204); `app/lib/quota-store.ts` — `getQuotaAttainment` (the WON-lead/outcomelogs Mongo join)
 - `lib/report-pipeline.ts` — `validateReportInput`, `buildReportPipeline`, `shapeReportRows`, `resolveDateRange` (issue #212, pure allowlist-validated Mongo pipeline builder); `lib/report-definitions.ts` — `ReportDefinition`, `ReportSchedule`, `validateReportDefinitionInput`, `buildReportDefinition`, `validateAndBuildSchedule`, `computeNextRunAt`; `lib/report-delivery.ts` — `sendReportEmail`, `renderReportEmailHtml`, `isReportDeliveryConfigured`; `app/lib/report-store.ts` — `runReportDefinition`, `ensureReportIndexes`, `ensureLeadReportIndexes` (the Mongo-aware layer)
+- `lib/pipelines.ts` — `PipelineDefinition`, `PipelineStage`, `DEFAULT_PIPELINES`, `listPipelines`, `createPipeline`, `updatePipeline`, `deletePipeline` (issue #235)
 
 **Cadences / outreach**
 - `lib/cadences.ts` — `Cadence`, `CadenceStep`, `ActiveCadence`, `sanitizeCadence(Step/Steps)`, `validateCadence`, `computeStepDueAt`, `buildInitialActiveCadence`, `advanceActiveCadence`
+- `lib/cadence-engine.ts` — `advanceLeadCadence`, sequential execution engine and manual task completion gating (`pending_manual_step`) (issue #236)
+- `lib/outreach-suppression.ts` — `isOutreachSuppressed`, `OutreachSuppressionRecord`, last-mile suppression and stop-on-reply check (issue #236)
+- `lib/template-personalization.ts` — `interpolatePersonalization`, `validatePersonalization`, `PersonalizationVariables`, required fields gating (issue #241)
+- `lib/email-engagement.ts` — `CanonicalEmailStatus`, `isHumanReply`, `detectReplyClassification`, `getCancelReasonLabel`, `computeEngagementRates`, `ENGAGEMENT_TRACKING_CAVEATS` (issue #242)
+- `lib/documents.ts` — `DocumentRecord`, `DocumentAttachmentRef`, `MAX_ATTACHMENT_SIZE_BYTES`, `validateDocumentMetadata`, `canDeleteDocument`, `deduplicateDocumentIds` (issue #243)
+- `lib/gcal-sync.ts` — `deriveCalendarEventId`, `syncTaskReminderToGoogleCalendar`, `deleteCalendarTaskReminder`, fail-safe non-blocking execution (issue #244)
 - `lib/automation-rules.ts` — `AutomationRule`, `AutomationTrigger`, `AutomationAction`, `sanitizeAutomationRule`, `validateAutomationRule`, `computeSetNextActionFields`, `buildNotificationLogEntry`, `matchesEventTrigger` (issue #201); `app/lib/automation-store.ts` — `evaluateEventRules`, `runStaleTickForBrand`, `applyAction`, `ensureAutomationIndexes` (the Mongo-aware evaluation layer)
 - `lib/outreach-send.ts` — `isResendSendConfigured`, `resolveOutboundFromAddress`, `dispatchOutreachEmail` (shared core), `sendAutomatedEmail` (cadence wrapper), `sendManualEmail` (rep-initiated wrapper, issue #205)
 - `lib/resend-webhook.ts` — `extractResendWebhookHeaders`, `verifyResendWebhook`, `isResendConfigured`
@@ -323,7 +365,8 @@ The concrete pattern that distinguishes the two layers: `lib/cadences.ts` has th
 
 - **`app/lib/brand-constants.ts`** — the actual home of `Brand` (`type Brand = string`), `PRO_FIELD`/`CON_FIELD`, `CurrencyCode`/`CURRENCY_CODE_OPTIONS`/`CURRENCY_CODES`/`CURRENCY_SYMBOLS`, `ForecastModel`, `BrandSalesVocabulary`, `BrandConfig`/`BrandRecord`, `FALLBACK_BRAND_CONFIG` — pure types/constants, no Mongo import, predating this doc's original 2.4.177 write-up (a real prior gap, not a new split) and already load-bearing for `lib/` modules that need brand constants without pulling in `app/lib/brand.ts`'s Mongo-aware accessors — issue #211's `lib/quote-pdf.tsx` imports `CURRENCY_SYMBOLS` from here directly, for exactly that reason
 - **`app/lib/brand.ts`** — Mongo-backed as of issue #195, re-exports everything from `brand-constants.ts` plus the live accessors: `getBrandConfig`/`getAllBrandConfigs`/`getForbiddenTermsFor` (async, read the `brands` collection), `resolveBrand` (async), `createBrand` (issue #196, `/admin/clients`'s own write path) (63 files import from it as of this backfill, up from 51 at the #195 migration — see §8.1)
-- `app/lib/activity-log-store.ts` — `ACTIVITY_LOG_COLLECTION`, `ActivityEntry`, `ActivityLogDocument`, `ensureActivityLogIndexes`, `mapOutreachLogToActivityEntry`, `mapActivityLogDoc`, `mergeActivityTimeline`
+- `app/lib/activity-log-store.ts` — `ACTIVITY_LOG_COLLECTION`, `ActivityEntry` (note/call/email, dealId, dealLabel), `ActivityLogDocument`, `ensureActivityLogIndexes` (sparse `{ dealId: 1 }`), `mapOutreachLogToActivityEntry`, `mapActivityLogDoc`, `mergeActivityTimeline`
+- `app/lib/today-store.ts` — `TodayQueueResponse`, `getTodayQueue`, `completeManualCadenceStep`, `snoozeFollowUpReminder` (issue #237)
 - `app/lib/forecast.ts` — `ForecastComputation`, `computeForecast(db, brand, tenantId)`
 - `app/lib/forecast-snapshot.ts` — `FORECAST_SNAPSHOT_COLLECTION`, `discoverTenantIds`, `writeForecastSnapshot`
 - `app/lib/velocity-metrics.ts` — `computeVelocity`, `VelocityMetrics`, `OutcomeLogRow`
@@ -369,7 +412,9 @@ The concrete pattern that distinguishes the two layers: `lib/cadences.ts` has th
 - `app/metrics.tsx` — `MetricsPanel` — self-fetches `/api/metrics`, `/api/metrics/by-source`, `/api/metrics/decline-reasons`
 - `app/search-learning.tsx` — `SearchLearningPanel` — self-fetches search-memory API
 - `app/page.tsx` — `LandingPage` (brand picker / marketing landing)
-- `app/layout.tsx` — `RootLayout`, mounts `Providers`/`AuthProvider`/`AppNav`
+- `app/layout.tsx` — `RootLayout`, mounts `Providers`/`AuthProvider`/`AppNav`/`AppSidebar`
+- `app/sidebar.tsx` — `AppSidebar` — docked collapsible sidebar navigation (`>= 768px`) with persistent collapsed toggle, drawer fallback on mobile (issue #245)
+- `app/offline/page.tsx` — `OfflinePage` — standalone PWA offline shell (issue #238)
 - `app/error.tsx` — `GlobalError` (Next.js error boundary page)
 
 ### 5.2 `app/components/*.tsx`
@@ -402,6 +447,7 @@ Every page below is an async Server Component that calls `await requireBrandAcce
 
 | Page | Client component | API routes it/its children call |
 |---|---|---|
+| `app/today/[brand]/page.tsx` | `TodayPageClient` | `/api/today/{brand}`, `/api/today/{brand}/complete-step`, `/api/today/{brand}/snooze` (issue #237) |
 | `app/sales/[brand]/page.tsx` | `SalesPageClient` | `/api/leads/{id}` (direct), `/api/boards/{brand}`; mounts `KanbanBoard` → `/api/leads/columns`, `/api/leads`; mounts `AddLeadModal` → `/api/leads` POST; mounts `FilterBar` (no fetch) |
 | `app/contacts/[brand]/page.tsx` | `ContactsClient` | `/api/contacts` (debounced search) |
 | `app/forecast/[brand]/page.tsx` | `ForecastClient` | `/api/boards/{brand}`, `/api/win-rates`, `/api/ticket-size-calibration` |

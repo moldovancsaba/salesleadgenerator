@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.253  
+**Version:** 2.4.261  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -10,14 +10,22 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 ## What This Repo Contains
 
 - Next.js 16 app with API routes
-- Desktop and tablet browser experience: responsive horizontal top navigation bar (`>= 768px`), inline Board/Table/Backlog/Metrics view switcher, command palette shortcut affordances, and unblocked multi-touch zoom
+- Desktop and tablet browser experience: docked collapsible sidebar navigation (`>= 768px`) with show/hide toggle, inline Board/Table/Backlog/Metrics view switcher, command palette shortcut affordances (`⌘K`), and unblocked multi-touch zoom
 - Progressive Web App (PWA) with self-hosted offline shell fallback (`/offline`), app-shell caching, standalone manifest, and shortcuts
 - Mobile-first kanban board, table view, metrics dashboard, and search-learning panel
 - Today rep execution surface and unified daily action queue (`/today/[brand]`) with inline complete/snooze/call-log actions
+- Multi-pipeline deal management with custom stages, win probabilities, and pipeline coverage metrics
+- Product catalog and CPQ quote generation (`/admin/products/[brand]`, `/api/quotes`) with multi-line PDF quotes and e-signature tracking
+- Sequences and outreach cadences with manual task completion gating (`call`, `linkedin`, `general`), stop-on-reply, and last-mile suppression
+- Unified activity timeline supporting manual call logging, internal notes, deal-associated activities, and Gmail sync
+- Accounts directory (`/accounts/[brand]`) with company rollups, child lead breakdown, account activity timeline, and CSV export
+- Contacts directory (`/contacts/[brand]`) with buying committee roles, search, and CSV export
+- Document library (`/api/documents`) for workspace-global email attachments with SMTP size validation
+- Google Calendar one-way sync for CRM task reminders and public booking links (`/schedule/[brand]`)
 - Backlog board (`view=backlog`) for leads parked outside the main kanban flow
 - Add Lead modal for manually creating leads (shares its contact editor with the detail-page edit form)
 - Duplicate-lead review queue and merge UI (`/admin/duplicates`) — fuzzy near-duplicate detection with a conflict-resolution merge flow
-- Lead detail actions and outreach compose flow
+- Lead detail actions and outreach compose flow with merge-field personalization engine
 - Outreach template management UI
 - Company Setup / Sales Settings page (`/salessettings/[client]`) — a plain-language questionnaire on what a brand sells, who buys it, and how, so the research agent can refine forecasts
 - Research agent integration via OpenClaw cron
@@ -87,7 +95,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.248**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25) and needs updating on every version-stamp sync pass, not just when someone notices.
+Current app version is **2.4.261**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25) and needs updating on every version-stamp sync pass, not just when someone notices.
 
 Single source of truth: `package.json`
 

@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.177
+**Version:** 2.4.261
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -11,7 +11,10 @@
 - [Signing In and Access](#signing-in-and-access)
 - [Navigation](#navigation)
 - [Onboarding Tour](#onboarding-tour)
+- [Today View](#today-view)
 - [Daily Workflow — Kanban Board](#daily-workflow--kanban-board)
+- [Accounts](#accounts)
+- [Contacts](#contacts)
 - [Backlog](#backlog)
 - [Card Indicators](#card-indicators)
 - [Table View](#table-view)
@@ -59,17 +62,20 @@ Access is granted per-brand by a super admin in **Users & Access** (see [Admin T
 
 ## Navigation
 
-Everything in the app is reachable from one place: the hamburger icon (☰), always visible top-left. It opens a slide-out menu with, depending on your access:
+Navigation provides fast, persistent access to all CRM surfaces:
 
-- **Organization** switcher (only shown if you have access to 2+ brands)
-- **\<Brand\>** section: **Backlog** (leads parked for later, see [Backlog](#backlog)), **Pipeline** (the kanban/table board), **Sales Settings** (Company Setup)
-- **View** (only shown while already on the Pipeline page for a brand): Kanban, Table, Metrics, Search Learning — these four views live at the same URL with a `?view=` parameter, not separate pages
-- **Help**: Take the tour (replays the onboarding spotlight walkthrough — see [Onboarding Tour](#onboarding-tour))
-- **Reporting**: Forecast, Battlecards, Outreach Templates, Cadences, Contacts
-- **Admin** (super admins only): Clients, Prompt Editor, Users & Access, Teams, Duplicate Review
-- **Sign out**
-
-There is no on-page dropdown or brand switcher anywhere else in the app (an earlier version had one on the Forecast/Battlecards/Outreach Templates pages; it was removed as a duplicate of this menu). Everything is one brand at a time, chosen either by the URL or by this menu — never guessed or silently defaulted.
+- **Desktop & Tablet (`>= 768px`)**: A docked, collapsible sidebar navigation is visible along the left edge. A toggle button ("Hide navigation bar" / "Show Navigation") collapses or expands the sidebar on demand, saving your preference in browser `localStorage`.
+- **Mobile devices**: Tap the hamburger icon (☰) top-left to open the full responsive navigation drawer.
+- **Organization switcher**: Toggles between accessible brands (`CogMap`, `Seyu`, `DVSC`) if your user account has access to multiple organizations.
+- **Core Surfaces**:
+  - **Today** (`/today/[brand]`): Daily execution workbench with your task queue, due follow-ups, cadence tasks, and stale deals.
+  - **Pipeline** (`/sales/[brand]`): Kanban board and multi-pipeline management (with an inline Board / Table / Backlog / Metrics view switcher).
+  - **Accounts** (`/accounts/[brand]`): Parent organizations directory, lead rollups, and account activity timeline.
+  - **Contacts** (`/contacts/[brand]`): Contact directory with buying committee roles, search, and CSV export.
+  - **Sales Settings**: Company Setup and buyer persona calibration.
+  - **Reporting & Tools**: Forecast, Battlecards, Outreach Templates, Cadences, and Ad-hoc Reports.
+  - **Help**: "Take the tour" replays the onboarding spotlight walkthrough.
+  - **Admin** (super admins only): Clients, Prompt Editor, Users & Access, Teams, Duplicate Review.
 
 ---
 
@@ -80,6 +86,26 @@ A guided spotlight walkthrough runs automatically the first time you land on the
 **Replay it any time** via the hamburger menu's **Help → Take the tour** entry. Clicking it from a page other than the Pipeline board takes you there first, since the tour's steps are grounded in real elements on that page.
 
 This is first-run orientation to the 5-7 core screens, not a replacement for this guide — come back here for the complete reference on any feature.
+
+---
+
+## Today View
+
+The **Today** page (`/today/[brand]`) is the rep's daily execution console. Rather than hunting across columns in the board, Today aggregates time-sensitive actions into four prioritized queues:
+
+1. **Cadence Tasks**: Scheduled manual sequence tasks (`Call`, `LinkedIn`, `Task`) waiting for rep completion. Completing the task unlocks automated sequence progression.
+2. **Overdue Follow-ups**: Follow-up commitments that were scheduled for prior calendar days and require immediate attention (highlighted in red with days overdue).
+3. **Due Today**: Scheduled follow-up commitments due in today's calendar window.
+4. **Deals Needing Attention**: Active pipeline deals that have exceeded their expected close date or have had no recorded activity for 7+ days.
+
+### Inline Actions
+Each item in the Today queue provides one-click inline actions:
+- **Complete Step**: For cadence tasks, records task completion (`completed_at`), logs an audit entry in the activity timeline, and advances the sequence to the next scheduled step.
+- **Mark Done**: For scheduled follow-ups, marks the commitment done, clears `nextActionDueAt`, and logs an activity audit record.
+- **Snooze**: Postpones a follow-up commitment by 1 day, 3 days, 1 week, or a custom date.
+- **Log Call**: Opens the call disposition modal directly to record a call outcome.
+
+Use the **My Work / All** toggle at the top of the page to focus strictly on leads assigned to you or view the whole team's action items.
 
 ---
 
@@ -128,6 +154,39 @@ Once you've checked at least one card, a bulk action bar appears:
 Each lead is actioned individually server-side, so a partial failure (e.g. one lead blocked by the required-fields gate above) doesn't fail the whole batch — you'll see a summary like "8 of 10 pinned — 2 blocked: Missing required fields for ENGAGED: ..." (the required-fields gate above only blocks a move into ENGAGED/PROPOSAL, so this message can only appear for **Pin selected**, which always targets ENGAGED — not Decline, which targets LOST and is never gated).
 
 **Undo.** After a successful bulk action, a row appears offering **Undo** with a countdown (about 15 seconds) — tap it to put every reversible lead back exactly where it was, including reversing any Accept/Decline counters so they aren't left permanently off. If any declined lead had an active outreach cadence, it's called out before you undo: the column reverts, but that cadence is **not** resumed — re-enroll it by hand if you still want it running. If a lead was changed by something else in the meantime, undo skips just that one (reported by name) rather than overwriting the newer change. Once the countdown runs out, undo is no longer available for that batch.
+
+---
+
+## Accounts
+
+The Accounts view (`/accounts/[brand]`, reachable from the sidebar navigation under **Accounts**) provides a parent-organization roll-up lens across your leads.
+
+- **Virtual Lens**: Accounts is an aggregated view over leads that share a common `parentOrgId` taxonomy value (e.g. multi-franchise sports clubs, regional leagues, holding companies, or agency networks). It does not create a disjoint database record — lead records remain the underlying source of truth.
+- **Rollup Metrics**: Top summary metrics display total pipeline value, won contract value, total child leads across all organizations, and total known contacts.
+- **Organization Hierarchy Table**:
+  - Displays Parent Organization Name, relationship types (`owned`, `operated`, `licensed`, `franchise`, `affiliate`, `partner`), child lead counts, total contact count, aggregate pipeline value, won contract value, and date of most recent activity.
+  - Sortable by organization name or pipeline value rank.
+- **Detail Drawer & Account Activity Rollup**:
+  - Tapping an account row opens a slide-over detail drawer (or modal on mobile) listing all child leads under that organization with their current kanban stage, ICE score, deals total, and contact count.
+  - An **Account Activity Timeline** aggregates all calls, internal notes, outreach emails, and meetings across every child lead under the parent organization, giving reps a complete historical view of relationship touches across the entire entity.
+- **Export**: Tap **Export CSV** at the top right to download a CSV export of all account rollups for offline reporting or CRM sync.
+
+---
+
+## Contacts
+
+The Contacts view (`/contacts/[brand]`, reachable from the sidebar navigation under **Contacts**) provides a searchable directory of every individual contact across all leads in the brand.
+
+- **Unified Contact Directory**: Surfaces contacts from all leads in the brand's database without duplicating data.
+- **Buying Committee Roles**: Each contact displays their designated role in the buying committee:
+  - **Economic Buyer** (`indigo` badge): controls budget allocation.
+  - **Champion** (`green` badge): internal advocate driving deal forward.
+  - **Influencer** (`grape` badge): subject-matter or stakeholder input.
+  - **Blocker** (`red` badge): active risk or objection source requiring rep attention.
+  - **Decision Maker** (`indigo` badge): authority to sign and approve agreements.
+- **Associated Leads**: Shows which lead(s) the contact is associated with, with one-click navigation directly to the lead detail card.
+- **Real-Time Search**: Filter contacts instantly by name, email, title, or phone number.
+- **Export**: Tap **Export CSV** to download the complete contact list with buying roles and associated lead names.
 
 ---
 
@@ -203,13 +262,16 @@ Tapping a card (or a table row) opens the full detail view:
 
 ## Deals
 
-Deals are separate from the automatic **Ticket Size** estimate below — Ticket Size is always a modelled guess; a Deal is something a rep has typed in themselves and is always managed manually (nothing here is ever auto-created, auto-edited, or auto-removed by the system). A lead can carry multiple deals at once (e.g. a base contract plus a later add-on).
+Deals represent qualified pipeline opportunities, distinct from the automatic **Ticket Size** estimate — Ticket Size is always a modelled estimate; a Deal is managed directly by a rep. A lead can carry multiple deals at once across different pipelines (e.g. a base contract, a renewal, or a media rights package).
 
 - **Add a deal**: tap **Edit** under Deals, then **Add deal**, enter a value (and an optional label like "Renewal"), and **Save**.
-- **Convert ticket estimate to a Deal**: a one-tap shortcut that pre-fills a new deal's value from the current Ticket Size estimate — the value is fully editable before you save, it never saves automatically.
-- **Deal currency** — there's no per-deal currency picker; both "Add a deal" and "Convert ticket estimate to a Deal" default a new deal to the currency actually configured for that brand/tenant (issue #169, fixed in 2.4.171) — the brand's own default currency (set in Company Setup / Sales Settings) unless the Ticket Size estimate for that lead has already resolved to something else. This is a default only, applied once when the row is added; it is not editable afterward in this UI.
-- **Once a lead has any deal**, the Forecast page uses the sum of its deals instead of the Ticket Size estimate for that lead's revenue contribution — the Ticket Size estimate keeps recalculating in the background as a reference figure, it just stops being the number that counts toward Forecast.
-- Every lead with at least one deal shows a **DEAL** badge on its kanban card, in every column, alongside (not replacing) the quality-status badge.
+- **Build from catalog line items**: when configuring deals, select reusable items from the Product Catalog (`/admin/products/[brand]`). Adding catalog line items automatically calculates deal value from unit prices and quantities while honoring manual unit price overrides.
+- **Generate Quotes & E-Signature Tracking**: tap **Generate Quote** on a lead to produce a formal multi-line PDF quote from deal line items. You can send the quote via email or copy a secure, token-gated viewing link (`/api/quotes/[quoteId]/view`). As the prospect interacts with the quote, its status updates monotonically from `draft` → `sent` → `viewed` → `signed`.
+- **Pipelines & custom stages**: deals can be routed into dedicated pipelines (e.g. Sponsorship, Media, Licensing) with custom stages, win probabilities, and close dates, without duplicating contact or company records.
+- **Convert ticket estimate to a Deal**: a one-tap shortcut that pre-fills a new deal's value from the current Ticket Size estimate.
+- **Deal currency**: defaults to the configured brand currency (USD for CogMap, EUR for Seyu/DVSC).
+- **Forecast contribution**: once a lead has any deal, Forecast uses the sum of its deals instead of the Ticket Size estimate.
+- Every lead with at least one deal shows a **DEAL** badge on its kanban card across all columns.
 
 ---
 
@@ -233,15 +295,13 @@ A lightweight (BANT-style) qualification checklist: Budget confirmed, Budget not
 
 ## Activity
 
-A unified, time-ordered timeline of activity for this lead — email and, as of the section below, manually-logged calls — the first place in this app that shows real conversation/contact history in one place, rather than only the record of outreach you sent (previously scattered, with no dedicated view of its own). Each entry shows its type (Outbound email / Inbound reply / Call), a timestamp, and a subject/excerpt or call outcome where available. Entries themselves aren't editable once logged (there's no "edit a past call" action) — you can only add new ones.
+A unified, time-ordered timeline of activity for this lead — internal notes, calls, outbound emails, inbound replies, and scheduled meetings.
 
-Email entries appear here from either of the **Outreach** compose modal's two buttons — "Log outreach" (a record of something you sent yourself elsewhere) or "Send email" (a real send this app made on your behalf) — see [Outreach](#outreach) below for the difference; each real send appears exactly once here, never duplicated. Automatic inbound-reply capture (a dedicated inbound address the system can receive at) and reply-to-lead matching are both fully built, but capture isn't live yet — it still needs a Resend account and a couple of settings only someone with dashboard/Vercel access can provide (see `docs/STACK_AND_DEPENDENCIES.md`'s "Inbound email webhook" section). An otherwise-empty Activity section on most leads today reflects that, not a bug. Once inbound capture is live, a genuine reply from a lead you've contacted will match to this lead automatically and appear here as an "Inbound reply" entry.
-
-A second, independent way entries can appear here: if [Gmail is connected](#integrations) for the brand, a message to/from an already-known contact shows up automatically, tagged with a **Gmail** badge — see the Integrations section above for how. A third: booking a meeting through the [Meeting Scheduler](#meeting-scheduler) logs a **Meeting scheduled** entry automatically.
-
-### Logging a call
-
-Tap **Log a call** above the Activity timeline, pick who you called, an outcome, and (optionally) how long it lasted and any notes, then **Save call**. The button is disabled with a tooltip if the lead has no contacts yet — add one under Contacts first. Outcomes are a fixed set: **Connected** (reached them, had a conversation), **Voicemail**, **No answer**, **Busy**, **Wrong number**, and **Not interested** (reached them, explicit decline in-call) — pick the closest match rather than writing it as a note. Logging a call also counts as a real touch on the lead, the same as any other activity, so it refreshes its "how stale is this deal" signal. There's no dialer or click-to-call here — this is purely a record of a call you already made by phone.
+- **Internal Notes**: tap **Add note** above the timeline to record internal notes, meeting recaps, or strategy context (up to 10,000 characters). Notes render with a distinct yellow badge, preserve multiline formatting, and attribute the author's email.
+- **Logging a call**: tap **Log a call** above the timeline, select the contact called, the outcome disposition (**Connected**, **Voicemail**, **No answer**, **Busy**, **Wrong number**, **Not interested**), call duration in minutes, and optional notes.
+- **Deal-Associated Activities**: both notes and calls can be tagged to a specific deal via the "Associated deal" dropdown. Entries linked to a deal display a cyan deal badge (`dealLabel` or `Deal <id>`) in the timeline. You can filter the activity timeline by deal using the "Filter by deal" selector.
+- **Email History & Engagement**: outbound emails sent via cadences or one-off compose render with their canonical status badge (**Opened**, **Clicked**, **Replied**, **Sent**, **Bounced**, **Cancelled**). Inbound human replies show as **Inbound reply**.
+- **Gmail & Calendar Sync**: if Google Workspace integration is connected, synced Gmail emails appear with a **Gmail** badge, and booked calendar meetings show as **Meeting scheduled**.
 
 ### Suggested contact updates
 
@@ -593,7 +653,7 @@ curl -X PUT "https://salesleadgenerator.vercel.app/api/leads/<LEAD_ID>?brand=cog
   -d '{"contacts": [{"name": "New Name", "isDecisionMaker": true}]}'
 ```
 
-As of 2.4.109 this same call also accepts the new controlled-taxonomy fields (`sportCode`, `orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`, `competitionLevelCode`, `cityName`, `parentOrgId`, `parentOrgName`, `relationshipToParent`, `canonicalLeadName`) — see [Lead Taxonomy](#lead-taxonomy) below for where the valid values come from. **There is no UI for these fields yet** — see [Known Issues and Limitations](#known-issues-and-limitations).
+As of 2.4.109 this same call also accepts the controlled-taxonomy fields (`sportCode`, `orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`, `competitionLevelCode`, `cityName`, `parentOrgId`, `parentOrgName`, `relationshipToParent`, `canonicalLeadName`) — see [Lead Taxonomy](#lead-taxonomy) below for where the valid values come from. `parentOrgId` and `relationshipToParent` are surfaced directly in the rep-facing [Accounts](#accounts) view (`/accounts/[brand]`).
 
 ### Lead Taxonomy
 ```bash
@@ -642,7 +702,7 @@ There is no browser button for any of them — the browser has no safe way to ho
 - Automation Rules' `lead_assigned` trigger type exists in the schema/API but is rejected if you try to enable it — a rule that fires on a lead being (re)assigned, or notifies the specific person it's assigned to, is real future scope, not yet built (see [Automation Rules](#automation-rules)).
 - Qualification fields are informational only and can't yet be required before a lead moves to ENGAGED/PROPOSAL.
 - Duplicate-lead merging (2.4.97) is permanent — the losing lead is deleted, not archived, with no undo. It was verified via a real database-backed test suite and a live dev-server smoke check, but the authenticated click-through (opening the merge screen and confirming a real merge as a signed-in super admin) hasn't been walked through in a browser yet — the first real merge should be watched closely.
-- **The new controlled sports-industry taxonomy (2.4.109 — `sportCode`, `orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`, `competitionLevelCode`, `cityName`, `parentOrgId`/`parentOrgName`, `relationshipToParent`, `canonicalLeadName`) has no UI yet.** You can't see, filter, or edit these fields anywhere in the app today — they're API-only (`PUT /api/leads/[id]`, see [Update Lead](#update-lead)), written by the enrichment agent. Backfill onto existing leads (issue #132) is underway but far from complete — as of 2.4.166, ~89% of leads have `sportCode` set (mechanical, from existing free text) but only ~5% have the rest of the fields (`orgTypeCode` etc., which need real per-lead research, not a mechanical migration). See `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` for current real numbers. A UI to view/edit/filter on these fields is a real, disclosed gap, not yet scheduled.
+- **Controlled sports-industry taxonomy fields (`sportCode`, `orgTypeCode`, `businessUnitCode`, etc.)**: `parentOrgId` and `relationshipToParent` are surfaced via the [Accounts](#accounts) directory (`/accounts/[brand]`). Other raw classification codes (`sportCode`, `competitionLevelCode`, etc.) are written by the enrichment agent and evaluated in API queries, without standalone lead-detail inline editing. Backfill onto existing leads (issue #132) is underway — as of 2.4.166, ~89% of leads have `sportCode` set (mechanical, from existing free text) but only ~5% have the rest of the fields (`orgTypeCode` etc., which need real per-lead research, not a mechanical migration). See `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` for current numbers.
 
 ---
 

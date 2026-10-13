@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.224
+**Version:** 2.4.261
 
 ---
 
@@ -1376,6 +1376,45 @@ Ingests CRM Handoff 07 (Email Engagement Read Model & Status Precedence) into Sa
   - *Completion:* Completed CRM tasks retain their calendar events as historical reminders without deletion.
 - **Calendar Sync REST APIs (`app/api/calendar/sync-task/route.ts` & `app/api/calendar/sync-settings/route.ts`):** `POST /api/calendar/sync-task` (manual sync / re-sync), `DELETE /api/calendar/sync-task` (remove calendar event), and `GET/PUT /api/calendar/sync-settings` (manage sync preferences and default durations) under `requireBrandAccessApi` authentication.
 - **Test Coverage:** `tests/lib/gcal-sync.test.ts` (16 unit tests).
+
+### Today View Rep Workbench & Unified Action Queues (2.4.256, issue #237)
+Ingests CRM Today Execution Surface (Handoff 04) into Sales Lead Generator:
+- **Dedicated Daily Execution View (`/today/[brand]`):** Serves as the primary operational surface for reps at the start of each day. Backed by `GET /api/today/[brand]` with `requireBrandAccessApi` authentication.
+- **4 Action Queues:**
+  - *Cadence Tasks:* Scheduled manual outreach tasks (`call`, `linkedin`, `general`) from active sequences waiting for rep execution.
+  - *Overdue Follow-ups:* Manually scheduled reminders whose due date has passed.
+  - *Due Today:* Reminders and scheduled touchpoints due on the current calendar day.
+  - *Deals Needing Attention:* Leads carrying active deals that are stale (past column staleness threshold), closing within 7 days, or lacking scheduled next steps.
+- **Inline Task Execution & Mutations:** Reps can complete cadence steps (`POST /api/today/[brand]/complete-step`), snooze follow-ups (`POST /api/today/[brand]/snooze`), mark follow-ups done, and launch call logging directly within the queue without navigating to separate lead detail views.
+
+### PWA Offline Shell & Service Worker Fallback (2.4.257, issue #238)
+- **Offline Shell Route (`/offline`):** Dedicated standalone offline landing page built using Mantine components that provides connectivity status, clear recovery guidance, and cached navigation shortcuts without crashing or rendering an unstyled white page.
+- **Service Worker Precaching (`public/sw.js` & `app/components/PwaSetup.tsx`):** Precaches static app-shell assets and catches navigation fetch failures, returning the `/offline` shell response when network access is unavailable while passing all `/api/*` data requests straight to the network without stale caching.
+
+### Cadence Completion Gating, Manual Task Workbench, & Last-Mile Suppression (2.4.258, issue #236)
+Ingests CRM Cadence Engine & Sequence Enforcement into Sales Lead Generator:
+- **Sequential Completion Gating (`lib/cadence-engine.ts`):** Automated steps cannot skip ahead of manual tasks (`call`, `linkedin`, `general`). If a step requires rep execution, the cadence pauses at that step (`status: 'pending_manual_step'`) until the rep marks it complete or skips it in the Today workbench or Lead Detail.
+- **Last-Mile Suppression & Stop-on-Reply (`lib/outreach-suppression.ts`):** Immediately before sending any automated cadence email, `isOutreachSuppressed()` verifies that the recipient has not replied, bounced, opted out, or been placed on a brand suppression list. If suppressed or already replied, the send is cancelled with `SEND_CANCELLED_SUPPRESSED` or `SEND_CANCELLED_REPLIED` without contacting Resend.
+- **Out-of-Office Sequence Preservation:** Verified human replies cancel sequences (`activeCadence = null`), whereas automated out-of-office responses record an activity log entry without breaking cadence progression.
+
+### Docked Collapsible Sidebar Navigation & React Error #185 Fix (2.4.259, issue #245)
+- **Docked Collapsible Sidebar (`app/sidebar.tsx`):** Replaces horizontal floating top navigation on desktop and tablet viewports (`>= 768px`). Provides quick access to Today, Pipeline, Backlog, Accounts, Contacts, Reporting, and Settings with a toggle button that expands/collapses the navigation pane. State is persisted in browser `localStorage` (`slg_sidebar_collapsed`). On mobile screens (`< 768px`), navigation gracefully transitions to an off-canvas drawer.
+- **React Error #185 Infinite Render Loop Root Cause & Fix:**
+  - *Symptom:* Minified React error #185 ("Maximum update depth exceeded") triggered upon loading `/sales/[brand]` when switching brands or updating filters.
+  - *Root Cause:* In `app/sales/[brand]/sales-page-client.tsx`, unmemoized inline objects and arrays in `useEffect` dependency arrays caused cascading state re-renders between URL query parameter synchronization, filter initialization, and board data fetching.
+  - *Fix:* Stabilized object references using `useMemo`, extracted callback handlers using `useCallback`, and separated URL query state propagation from board fetch triggers, guaranteeing strictly bounded render passes.
+
+### Multi-Line Catalog CPQ Quotes & Internal Notes (2.4.260)
+- **Product Catalog Line Items (`lib/quotes.ts`):** Reps can assemble deals from reusable catalog products (`/admin/products/[brand]`), configuring quantities, unit prices, and manual price overrides to calculate total contract value.
+- **Vector PDF Quote Generation (`lib/quote-pdf.tsx`):** Produces searchable, non-rasterized vector PDFs via `@react-pdf/renderer` with token-governed colors (`lib/theme/quote-pdf-colors.ts`) complying with GDS styling constraints. Uploaded to private Blob storage (`lib/blob-storage.ts`).
+- **Token-Gated Viewing & E-Signature Tracking:** Prospects access quotes via `/api/quotes/[quoteId]/view?token=...`, protected by rate limiting (20 req/min). Quote status transitions monotonically: `draft` → `sent` → `viewed` → `signed`.
+- **Internal Note Logging (`app/lib/activity-log-store.ts`):** Reps can log internal notes (`type: 'note'`) with up to 10,000 characters, markdown line breaks, and author email attribution from the authenticated session. Rendered with yellow badge in activity timelines.
+
+### Deal-Associated Activities & Account-Level Activity Rollup (2.4.261, issue #246)
+- **Deal Association (`dealId`, `dealLabel`):** Both calls and internal notes can be associated with a specific deal on the lead via `dealId` and `dealLabel`. Persisted in `activity_logs` with a MongoDB sparse index on `{ dealId: 1 }`.
+- **Deal Filter in Activity Timeline:** The Lead Detail activity timeline includes a "Filter by deal" dropdown, isolating notes, calls, and outreach for a specific deal while displaying cyan deal badges on associated timeline cards.
+- **Account-Level Activity Rollup (`app/api/accounts/[parentOrgId]/route.ts`):** In the Accounts directory (`/accounts/[brand]`), selecting an account fetches all activities across every child lead sharing that `parentOrgId`. Gives commercial teams a single, unified chronological view of all rep interactions, meetings, calls, notes, and emails across multi-entity sports organizations and holding companies.
+- **Test Coverage:** `tests/lib/activity-log-store.test.ts` (6 unit tests) and `tests/lib/accounts.test.ts` (account activity rollup unit tests).
 
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)

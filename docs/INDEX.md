@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Version:** 2.4.247
+**Version:** 2.4.261
 
 ---
 
@@ -13,6 +13,7 @@
 ## Detailed Documentation
 
 - `docs/ARCHITECTURE.md` — system context, request flows, data model, module map, auth, deployment
+- `docs/LLD.md` — low-level design, route inventory, module catalog, component hierarchy
 - `docs/OPERATOR_GUIDE.md` — daily workflow, outreach, filters, API examples, known issues
 - `docs/STACK_AND_DEPENDENCIES.md` — runtime, framework, UI, DB, hosting, agent/runtime stack
 - `docs/DOC_LINT.md` — doc lint checklist for maintaining documentation quality
