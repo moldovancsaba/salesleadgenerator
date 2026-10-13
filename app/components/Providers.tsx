@@ -5,6 +5,7 @@ import { Notifications } from "@mantine/notifications";
 import { CommandRegistryProvider } from "@sovereignsquad/gds-core/client";
 import { AuthProvider } from "./AuthProvider";
 import { TourProvider } from "./TourProvider";
+import { NavProvider } from "./NavContext";
 
 // createTheme() must run in a Client Component: `Input.vars` below is a
 // function, and functions can't be serialized across the Server -> Client
@@ -81,7 +82,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           reach it via useTour(). */}
       <CommandRegistryProvider>
         <AuthProvider>
-          <TourProvider>{children}</TourProvider>
+          <TourProvider>
+            <NavProvider>{children}</NavProvider>
+          </TourProvider>
         </AuthProvider>
       </CommandRegistryProvider>
     </MantineProvider>

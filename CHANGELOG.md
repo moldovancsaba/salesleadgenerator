@@ -1,6 +1,22 @@
 # Changelog — Sales Lead Generator
  
-## 2.4.258
+## 2.4.259
+
+### Fix: Resolve React error #185 infinite render loop and provide docked, collapsible sidebar navigation on desktop and tablet
+
+- **Fix Minified React Error #185 (`sales-page-client.tsx`, `app/kanban.tsx`):**
+  - Eliminated the root cause of the "Maximum update depth exceeded" crash when loading the sales board.
+  - In `app/sales/[brand]/sales-page-client.tsx`, decoupled `registerCommands` from the command registration effect's dependency array using `registerCommandsRef`. Because GDS's `CommandRegistryProvider` produces a new `registerCommands` callback whenever its internal `commands` array changes, having `registerCommands` in `useEffect` deps triggered an immediate infinite loop of re-renders upon command registration on desktop/fine-pointer viewports.
+  - Wrapped `visibleLeads` updates in `handleVisibleLeadsChange` with shallow/ID equality comparison to prevent redundant state dispatches in `sales-page-client.tsx`.
+  - Added `lastVisibleLeadIdsRef` in `KanbanBoard` (`app/kanban.tsx`) to deduplicate `onVisibleLeadsChange` emissions when lead IDs are unchanged.
+- **Persistent Docked Sidebar for Desktop & Tablet (`app/components/AppLayout.tsx`, `app/components/NavContext.tsx`, `app/components/AppNav.tsx`):**
+  - Introduced `AppLayout` and `NavContext` providing a dedicated, docked navigation sidebar on tablet and desktop/laptop viewports (screens >= 768px), shown by default as expected in a CRM environment ("shown by design").
+  - Added a collapsible toggle affordance: users can hide the sidebar at any time via the sidebar's collapse button or the header hamburger, expanding the workspace to 100% width. State preference is remembered in `localStorage` (`slg_sidebar_open`).
+  - Preserved mobile drawer behavior for compact viewports (< 768px).
+  - Ensured public customer-facing calendar booking pages (`/schedule/[brand]`) bypass the internal navigation chrome completely.
+- **Test Coverage:** Added unit tests in `tests/lib/desktop-tablet-nav.test.ts` verifying `AppLayout` sidebar docking, `AppNavSidebar` collapse controls, and the `registerCommandsRef`/`lastVisibleLeadIdsRef` infinite loop safeguards.
+
+Full gate green: 0 `tsc`/lint errors, 1338/1338 unit tests passing, smoke tests clean, `audit:gds-style` clean.
 
 ### Fix: Remove redundant top navigation strip, fix organization switching navigation, auto-save lead assignments, and harden Kanban rendering
 

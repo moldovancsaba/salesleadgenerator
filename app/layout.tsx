@@ -7,7 +7,7 @@ import "driver.js/dist/driver.css";
 import "./globals.css";
 import { PwaSetup } from "./components/PwaSetup";
 import { Providers } from "./components/Providers";
-import { AppHeader } from "./components/AppHeader";
+import { AppLayout } from "./components/AppLayout";
 import { BackToTopButton } from "./components/BackToTopButton";
 import { APP_CHROME_COLORS } from "@/lib/theme/app-chrome-colors";
 
@@ -55,17 +55,9 @@ export default function RootLayout({
         <Providers>
           <PwaSetup />
           <BackToTopButton />
-          {/* Issue #95: the only persistent, always-reachable nav surface
-              in the app — every other page previously had no link to any
-              other page at all, including Sales Settings. A bare icon with
-              no label read as decorative and was missed entirely in real
-              use; pairing it with the app name makes the whole bar
-              unambiguously a header/nav, not a stray floating icon.
-              Issue #207: extracted into AppHeader, which hides itself
-              entirely on the public /schedule/[brand] booking page — see
-              that component's own doc comment. */}
-          <AppHeader />
-          {children}
+          <AppLayout>
+            {children}
+          </AppLayout>
         </Providers>
       </body>
     </html>

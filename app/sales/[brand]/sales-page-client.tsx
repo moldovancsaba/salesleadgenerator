@@ -101,11 +101,16 @@ export function SalesPageClient({ brand, currency }: Props) {
   const [searchOpen, setSearchOpen] = useState(false)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const searchBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  // Command palette (issue #213) — leads currently loaded into the kanban
-  // board's own in-memory columnStates, lifted via KanbanBoard's
-  // onVisibleLeadsChange. Deliberately not a live /api/search call — GDS's
-  // CommandPalette exposes no query-change hook to back one.
   const [visibleLeads, setVisibleLeads] = useState<Lead[]>([])
+
+  const handleVisibleLeadsChange = useCallback((leads: Lead[]) => {
+    setVisibleLeads((prev) => {
+      if (prev.length === leads.length && prev.every((l, i) => l._id === leads[i]._id)) {
+        return prev
+      }
+      return leads
+    })
+  }, [])
 
   // Load board metadata (header, counts, forecast) from DB
   useEffect(() => {
@@ -307,9 +312,14 @@ export function SalesPageClient({ brand, currency }: Props) {
   const { accessibleBrands, brandLabels } = useAuth()
   const isFinePointer = useIsFinePointer()
 
+  const registerCommandsRef = useRef(registerCommands)
+  useEffect(() => {
+    registerCommandsRef.current = registerCommands
+  })
+
   useEffect(() => {
     if (!isFinePointer) {
-      registerCommands([])
+      registerCommandsRef.current([])
       return
     }
 
@@ -342,9 +352,9 @@ export function SalesPageClient({ brand, currency }: Props) {
       }
     })
 
-    registerCommands(commands)
-    return () => registerCommands([])
-  }, [isFinePointer, registerCommands, accessibleBrands, brandLabels, brand, visibleLeads, router])
+    registerCommandsRef.current(commands)
+    return () => registerCommandsRef.current([])
+  }, [isFinePointer, accessibleBrands, brandLabels, brand, visibleLeads, router])
 
   return (
     <div data-theme="default" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
@@ -504,7 +514,7 @@ export function SalesPageClient({ brand, currency }: Props) {
               filter={leadFilter}
               selectMode={selectMode}
               onAction={handleAction}
-              onVisibleLeadsChange={setVisibleLeads}
+              onVisibleLeadsChange={handleVisibleLeadsChange}
             />
           </ErrorBoundary>
         )}

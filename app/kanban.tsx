@@ -154,6 +154,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // palette's "jump to lead" command. No new network call: this only ever
   // reflects leads already fetched into columnStates by this board's own
   // existing load/loadColumn calls.
+  const lastVisibleLeadIdsRef = useRef<string>('')
   useEffect(() => {
     if (!onVisibleLeadsChange) return
     const byId = new Map<string, Lead>()
@@ -162,7 +163,12 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         for (const lead of col.leads) byId.set(lead._id, lead)
       }
     }
-    onVisibleLeadsChange(Array.from(byId.values()))
+    const leads = Array.from(byId.values())
+    const idsKey = leads.map((l) => l._id).join(',')
+    if (idsKey !== lastVisibleLeadIdsRef.current) {
+      lastVisibleLeadIdsRef.current = idsKey
+      onVisibleLeadsChange(leads)
+    }
   }, [columnStates, onVisibleLeadsChange])
 
   // Real in-place collapse (issue #53) — GDS 3.14.0 added native

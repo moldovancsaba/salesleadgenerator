@@ -3,16 +3,17 @@
 import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Button, Loader, Group } from '@mantine/core';
+import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Loader, Group, Box, Tooltip } from '@mantine/core';
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
   IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconBuildings, IconCompass, IconUsersGroup, IconBolt, IconShoppingCart, IconReportAnalytics, IconKey,
-  IconCalendarTime,
+  IconCalendarTime, IconChevronLeft,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
 import { useTour } from './TourProvider';
+import { useNav } from './NavContext';
 import { TOUR_SELECTOR } from '../lib/tour/selectors';
 
 // Issue #95: this app had no persistent in-app navigation anywhere — every
@@ -55,6 +56,8 @@ function currentBrandFromPath(pathname: string, knownBrands: string[]): Brand | 
   if (templatesMatch && knownBrandSet.has(templatesMatch[1])) return templatesMatch[1] as Brand;
   const cadencesMatch = pathname.match(/^\/outreach\/cadences\/([^/]+)/);
   if (cadencesMatch && knownBrandSet.has(cadencesMatch[1])) return cadencesMatch[1] as Brand;
+  const automationMatch = pathname.match(/^\/automation\/([^/]+)/);
+  if (automationMatch && knownBrandSet.has(automationMatch[1])) return automationMatch[1] as Brand;
   const contactsMatch = pathname.match(/^\/contacts\/([^/]+)/);
   if (contactsMatch && knownBrandSet.has(contactsMatch[1])) return contactsMatch[1] as Brand;
   const accountsMatch = pathname.match(/^\/accounts\/([^/]+)/);
@@ -76,14 +79,89 @@ function currentBrandFromPath(pathname: string, knownBrands: string[]): Brand | 
 // mirrors the trigger button so there's no visible flash while it resolves.
 export function AppNav() {
   return (
-    <Suspense fallback={<ActionIcon variant="filled" color="indigo" size={40} radius="md" aria-label="Open navigation menu"><IconMenu2 size={24} /></ActionIcon>}>
+    <Suspense fallback={<ActionIcon variant="filled" color="indigo" size={40} radius="md" aria-label="Toggle navigation menu"><IconMenu2 size={24} /></ActionIcon>}>
       <AppNavInner />
     </Suspense>
   );
 }
 
 function AppNavInner() {
-  const [opened, setOpened] = useState(false);
+  const { toggleNav, drawerOpen, closeDrawer } = useNav();
+
+  return (
+    <>
+      <Tooltip label="Toggle navigation bar">
+        <ActionIcon
+          variant="filled"
+          color="indigo"
+          size={40}
+          radius="md"
+          aria-label="Open navigation menu"
+          onClick={toggleNav}
+          data-tour={TOUR_SELECTOR.navHamburger}
+        >
+          <IconMenu2 size={24} />
+        </ActionIcon>
+      </Tooltip>
+      <Drawer
+        opened={drawerOpen}
+        onClose={closeDrawer}
+        title={<Text fw={700} size="lg">Sales Lead Generator</Text>}
+        padding="md"
+        size="xs"
+      >
+        <AppNavContent onClose={closeDrawer} />
+      </Drawer>
+    </>
+  );
+}
+
+export function AppNavSidebar() {
+  const { sidebarOpen, setSidebarOpen, isDesktopOrTablet } = useNav();
+
+  if (!sidebarOpen || !isDesktopOrTablet) return null;
+
+  return (
+    <aside
+      style={{
+        width: 250,
+        flexShrink: 0,
+        borderRight: '1px solid var(--mantine-color-gray-2)',
+        backgroundColor: 'var(--mantine-color-body)',
+        height: 'calc(100dvh - 56px)',
+        overflowY: 'auto',
+        position: 'sticky',
+        top: 56,
+        zIndex: 20,
+      }}
+      aria-label="Main Navigation"
+    >
+      <Box p="sm">
+        <Group justify="space-between" align="center" mb="xs" wrap="nowrap">
+          <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+            Navigation
+          </Text>
+          <Tooltip label="Hide navigation bar">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              aria-label="Hide navigation bar"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <IconChevronLeft size={16} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+        <Suspense fallback={<Group justify="center" py="lg"><Loader size="sm" /></Group>}>
+          <AppNavContent />
+        </Suspense>
+      </Box>
+    </aside>
+  );
+}
+
+export function AppNavContent({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, loading, accessibleBrands, brandLabels, isSuperAdmin, login, logout } = useAuth();
@@ -98,7 +176,7 @@ function AppNavInner() {
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   useEffect(() => {
     if (urlBrand && accessibleBrands.includes(urlBrand)) {
-      setSelectedBrand(urlBrand);
+      setSelectedBrand((prev) => (prev === urlBrand ? prev : urlBrand));
     }
   }, [urlBrand, accessibleBrands]);
 
@@ -112,334 +190,314 @@ function AppNavInner() {
   const isSalesBoard = effectiveBrand !== null && pathname === `/sales/${effectiveBrand}`;
   const currentView = searchParams.get('view') || 'kanban';
 
-  const close = () => setOpened(false);
   const router = useRouter();
 
-  const navigateTo = (href: string) => {
-    router.push(href);
-    close();
+  const handleLinkClick = () => {
+    if (onClose) onClose();
   };
 
   return (
-    <>
-      {/* A bare "subtle" icon button (no fill, no border) reads as
-          decorative rather than tappable — confirmed by real user report,
-          it was invisible enough to be missed entirely next to the
-          previously separate view-mode Select. Filled + a real color gives
-          it the same visual weight as every other real button in this
-          app. */}
-      <ActionIcon
-        variant="filled"
-        color="indigo"
-        size={40}
-        radius="md"
-        aria-label="Open navigation menu"
-        onClick={() => setOpened(true)}
-        data-tour={TOUR_SELECTOR.navHamburger}
-      >
-        <IconMenu2 size={24} />
-      </ActionIcon>
-      <Drawer
-        opened={opened}
-        onClose={close}
-        title={<Text fw={700} size="lg">Sales Lead Generator</Text>}
-        padding="md"
-        size="xs"
-      >
-        <Stack gap={4}>
-          {loading ? (
-            <Group justify="center" py="lg"><Loader size="sm" /></Group>
-          ) : !user ? (
+    <Stack gap={4}>
+      {loading ? (
+        <Group justify="center" py="lg"><Loader size="sm" /></Group>
+      ) : !user ? (
+        <>
+          <Text size="sm" c="dimmed" mt={4}>
+            Sign in to see your organizations.
+          </Text>
+          <NavLink
+            label="Sign in"
+            leftSection={<IconLogin size={18} />}
+            onClick={() => {
+              handleLinkClick();
+              login();
+            }}
+          />
+        </>
+      ) : (
+        <>
+          {accessibleBrands.length === 0 && (
+            <Text size="sm" c="dimmed" mt={4}>
+              You&apos;re signed in, but don&apos;t have access to any organization yet. Contact your admin.
+            </Text>
+          )}
+
+          {accessibleBrands.length > 1 && (
             <>
-              <Text size="sm" c="dimmed" mt={4}>
-                Sign in to see your organizations.
+              <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt={4}>
+                Organization
               </Text>
-              <NavLink
-                label="Sign in"
-                leftSection={<IconLogin size={18} />}
-                onClick={() => { close(); login(); }}
+              <Select
+                size="sm"
+                data={accessibleBrands.map((b) => ({ value: b, label: brandLabels[b] ?? b }))}
+                value={effectiveBrand}
+                onChange={(value) => {
+                  if (!value) return;
+                  const nextBrand = value as Brand;
+                  setSelectedBrand(nextBrand);
+                  if (urlBrand && pathname.includes(`/${urlBrand}`)) {
+                    router.push(pathname.replace(`/${urlBrand}`, `/${nextBrand}`));
+                  } else {
+                    router.push(`/sales/${nextBrand}`);
+                  }
+                  handleLinkClick();
+                }}
+                allowDeselect={false}
+                aria-label="Switch organization"
+                data-tour={TOUR_SELECTOR.brandSwitcher}
               />
+              <Divider my="xs" />
             </>
-          ) : (
+          )}
+
+          {effectiveBrand && (
             <>
-              {accessibleBrands.length === 0 && (
-                <Text size="sm" c="dimmed" mt={4}>
-                  You&apos;re signed in, but don&apos;t have access to any organization yet. Contact your admin.
+              {accessibleBrands.length === 1 && (
+                <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt={4}>
+                  {brandLabels[effectiveBrand] ?? effectiveBrand}
                 </Text>
               )}
-
-              {accessibleBrands.length > 1 && (
+              <NavLink
+                component={Link}
+                href={`/today/${effectiveBrand}`}
+                label="Today"
+                leftSection={<IconCalendarTime size={18} />}
+                active={pathname === `/today/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              {/* Issue #126 — positioned immediately before Pipeline,
+                  per the owner's explicit request. Reuses the same
+                  ?view= mechanism the View submenu below already
+                  switches on, rather than a new route. */}
+              <NavLink
+                component={Link}
+                href={`/sales/${effectiveBrand}?view=backlog`}
+                label="Backlog"
+                leftSection={<IconArchive size={18} />}
+                active={currentView === 'backlog'}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/sales/${effectiveBrand}`}
+                label="Pipeline"
+                leftSection={<IconLayoutKanban size={18} />}
+                active={pathname === `/sales/${effectiveBrand}` && currentView !== 'backlog'}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/salessettings/${effectiveBrand}`}
+                label="Sales Settings"
+                leftSection={<IconSettings size={18} />}
+                active={pathname === `/salessettings/${effectiveBrand}`}
+                onClick={handleLinkClick}
+                data-tour={TOUR_SELECTOR.salesSettingsLink}
+              />
+              {isSalesBoard && (
                 <>
-                  <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt={4}>
-                    Organization
+                  <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt="xs">
+                    View
                   </Text>
-                  <Select
-                    size="sm"
-                    data={accessibleBrands.map((b) => ({ value: b, label: brandLabels[b] ?? b }))}
-                    value={effectiveBrand}
-                    onChange={(value) => {
-                      if (!value) return;
-                      const nextBrand = value as Brand;
-                      setSelectedBrand(nextBrand);
-                      if (urlBrand && pathname.includes(`/${urlBrand}`)) {
-                        router.push(pathname.replace(`/${urlBrand}`, `/${nextBrand}`));
-                      } else {
-                        router.push(`/sales/${nextBrand}`);
-                      }
-                      close();
-                    }}
-                    allowDeselect={false}
-                    aria-label="Switch organization"
-                    data-tour={TOUR_SELECTOR.brandSwitcher}
-                  />
-                  <Divider my="xs" />
-                </>
-              )}
-
-              {effectiveBrand && (
-                <>
-                  {accessibleBrands.length === 1 && (
-                    <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt={4}>
-                      {brandLabels[effectiveBrand] ?? effectiveBrand}
-                    </Text>
-                  )}
                   <NavLink
                     component={Link}
-                    href={`/today/${effectiveBrand}`}
-                    label="Today"
-                    leftSection={<IconCalendarTime size={18} />}
-                    active={pathname === `/today/${effectiveBrand}`}
-                    onClick={close}
-                  />
-                  {/* Issue #126 — positioned immediately before Pipeline,
-                      per the owner's explicit request. Reuses the same
-                      ?view= mechanism the View submenu below already
-                      switches on, rather than a new route. */}
-                  <NavLink
-                    component={Link}
-                    href={`/sales/${effectiveBrand}?view=backlog`}
-                    label="Backlog"
-                    leftSection={<IconArchive size={18} />}
-                    active={currentView === 'backlog'}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href={`/sales/${effectiveBrand}`}
-                    label="Pipeline"
+                    href={`/sales/${effectiveBrand}?view=kanban`}
+                    label="Kanban"
                     leftSection={<IconLayoutKanban size={18} />}
-                    active={pathname === `/sales/${effectiveBrand}` && currentView !== 'backlog'}
-                    onClick={close}
+                    active={currentView === 'kanban'}
+                    onClick={handleLinkClick}
                   />
                   <NavLink
                     component={Link}
-                    href={`/salessettings/${effectiveBrand}`}
-                    label="Sales Settings"
-                    leftSection={<IconSettings size={18} />}
-                    active={pathname === `/salessettings/${effectiveBrand}`}
-                    onClick={close}
-                    data-tour={TOUR_SELECTOR.salesSettingsLink}
-                  />
-                  {isSalesBoard && (
-                    <>
-                      <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt="xs">
-                        View
-                      </Text>
-                      <NavLink
-                        component={Link}
-                        href={`/sales/${effectiveBrand}?view=kanban`}
-                        label="Kanban"
-                        leftSection={<IconLayoutKanban size={18} />}
-                        active={currentView === 'kanban'}
-                        onClick={close}
-                      />
-                      <NavLink
-                        component={Link}
-                        href={`/sales/${effectiveBrand}?view=table`}
-                        label="Table"
-                        leftSection={<IconTable size={18} />}
-                        active={currentView === 'table'}
-                        onClick={close}
-                      />
-                      <NavLink
-                        component={Link}
-                        href={`/sales/${effectiveBrand}?view=metrics`}
-                        label="Metrics"
-                        leftSection={<IconChartBar size={18} />}
-                        active={currentView === 'metrics'}
-                        onClick={close}
-                      />
-                      <NavLink
-                        component={Link}
-                        href={`/sales/${effectiveBrand}?view=search`}
-                        label="Search Learning"
-                        leftSection={<IconSearch size={18} />}
-                        active={currentView === 'search'}
-                        onClick={close}
-                      />
-                    </>
-                  )}
-                  <Divider my="xs" />
-
-                  {/* Issue #185 — the only discoverable way to replay the
-                      onboarding tour once its automatic first-run has
-                      already fired (or been skipped/dismissed). */}
-                  <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-                    Help
-                  </Text>
-                  <NavLink
-                    label="Take the tour"
-                    leftSection={<IconCompass size={18} />}
-                    onClick={() => { close(); startTour({ brand: effectiveBrand ?? undefined }); }}
-                  />
-
-                  <Divider my="xs" />
-
-                  <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-                    Reporting
-                  </Text>
-                  <NavLink
-                    component={Link}
-                    href={`/forecast/${effectiveBrand}`}
-                    label="Forecast"
-                    leftSection={<IconTrendingUp size={18} />}
-                    active={pathname === `/forecast/${effectiveBrand}`}
-                    onClick={close}
+                    href={`/sales/${effectiveBrand}?view=table`}
+                    label="Table"
+                    leftSection={<IconTable size={18} />}
+                    active={currentView === 'table'}
+                    onClick={handleLinkClick}
                   />
                   <NavLink
                     component={Link}
-                    href={`/battlecards/${effectiveBrand}`}
-                    label="Battlecards"
-                    leftSection={<IconCards size={18} />}
-                    active={pathname === `/battlecards/${effectiveBrand}`}
-                    onClick={close}
+                    href={`/sales/${effectiveBrand}?view=metrics`}
+                    label="Metrics"
+                    leftSection={<IconChartBar size={18} />}
+                    active={currentView === 'metrics'}
+                    onClick={handleLinkClick}
                   />
                   <NavLink
                     component={Link}
-                    href={`/outreach/templates/${effectiveBrand}`}
-                    label="Outreach Templates"
-                    leftSection={<IconMail size={18} />}
-                    active={pathname === `/outreach/templates/${effectiveBrand}`}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href={`/outreach/cadences/${effectiveBrand}`}
-                    label="Cadences"
-                    leftSection={<IconRepeat size={18} />}
-                    active={pathname === `/outreach/cadences/${effectiveBrand}`}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href={`/automation/${effectiveBrand}`}
-                    label="Automation"
-                    leftSection={<IconBolt size={18} />}
-                    active={pathname === `/automation/${effectiveBrand}`}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href={`/contacts/${effectiveBrand}`}
-                    label="Contacts"
-                    leftSection={<IconAddressBook size={18} />}
-                    active={pathname === `/contacts/${effectiveBrand}`}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href={`/accounts/${effectiveBrand}`}
-                    label="Accounts"
-                    leftSection={<IconBuildings size={18} />}
-                    active={pathname === `/accounts/${effectiveBrand}`}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href={`/admin/products/${effectiveBrand}`}
-                    label="Product Catalog"
-                    leftSection={<IconShoppingCart size={18} />}
-                    active={pathname === `/admin/products/${effectiveBrand}`}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href={`/reports/${effectiveBrand}`}
-                    label="Reports"
-                    leftSection={<IconReportAnalytics size={18} />}
-                    active={pathname === `/reports/${effectiveBrand}`}
-                    onClick={close}
+                    href={`/sales/${effectiveBrand}?view=search`}
+                    label="Search Learning"
+                    leftSection={<IconSearch size={18} />}
+                    active={currentView === 'search'}
+                    onClick={handleLinkClick}
                   />
                 </>
               )}
+              <Divider my="xs" />
 
-              {isSuperAdmin && (
-                <>
-                  <Divider my="xs" />
-                  <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-                    Admin
-                  </Text>
-                  <NavLink
-                    component={Link}
-                    href={`/admin/prompts/${effectiveBrand}`}
-                    label="Prompt Editor"
-                    leftSection={<IconEdit size={18} />}
-                    active={pathname.startsWith('/admin/prompts')}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href="/admin/clients"
-                    label="Clients"
-                    leftSection={<IconBuilding size={18} />}
-                    active={pathname === '/admin/clients'}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href="/admin/users"
-                    label="Users & Access"
-                    leftSection={<IconShieldLock size={18} />}
-                    active={pathname === '/admin/users'}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href="/admin/teams"
-                    label="Teams"
-                    leftSection={<IconUsersGroup size={18} />}
-                    active={pathname === '/admin/teams'}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href="/admin/duplicates"
-                    label="Duplicate Review"
-                    leftSection={<IconCopyCheck size={18} />}
-                    active={pathname === '/admin/duplicates'}
-                    onClick={close}
-                  />
-                  <NavLink
-                    component={Link}
-                    href="/admin/api-keys"
-                    label="API Keys"
-                    leftSection={<IconKey size={18} />}
-                    active={pathname === '/admin/api-keys'}
-                    onClick={close}
-                  />
-                </>
-              )}
+              {/* Issue #185 — the only discoverable way to replay the
+                  onboarding tour once its automatic first-run has
+                  already fired (or been skipped/dismissed). */}
+              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                Help
+              </Text>
+              <NavLink
+                label="Take the tour"
+                leftSection={<IconCompass size={18} />}
+                onClick={() => {
+                  handleLinkClick();
+                  startTour({ brand: effectiveBrand ?? undefined });
+                }}
+              />
 
               <Divider my="xs" />
+
+              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                Reporting
+              </Text>
               <NavLink
-                label={`Sign out${user.email ? ` (${user.email})` : ''}`}
-                leftSection={<IconLogout size={18} />}
-                onClick={() => { close(); logout(); }}
+                component={Link}
+                href={`/forecast/${effectiveBrand}`}
+                label="Forecast"
+                leftSection={<IconTrendingUp size={18} />}
+                active={pathname === `/forecast/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/battlecards/${effectiveBrand}`}
+                label="Battlecards"
+                leftSection={<IconCards size={18} />}
+                active={pathname === `/battlecards/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/outreach/templates/${effectiveBrand}`}
+                label="Outreach Templates"
+                leftSection={<IconMail size={18} />}
+                active={pathname === `/outreach/templates/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/outreach/cadences/${effectiveBrand}`}
+                label="Cadences"
+                leftSection={<IconRepeat size={18} />}
+                active={pathname === `/outreach/cadences/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/automation/${effectiveBrand}`}
+                label="Automation"
+                leftSection={<IconBolt size={18} />}
+                active={pathname === `/automation/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/contacts/${effectiveBrand}`}
+                label="Contacts"
+                leftSection={<IconAddressBook size={18} />}
+                active={pathname === `/contacts/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/accounts/${effectiveBrand}`}
+                label="Accounts"
+                leftSection={<IconBuildings size={18} />}
+                active={pathname === `/accounts/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/admin/products/${effectiveBrand}`}
+                label="Product Catalog"
+                leftSection={<IconShoppingCart size={18} />}
+                active={pathname === `/admin/products/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/reports/${effectiveBrand}`}
+                label="Reports"
+                leftSection={<IconReportAnalytics size={18} />}
+                active={pathname === `/reports/${effectiveBrand}`}
+                onClick={handleLinkClick}
               />
             </>
           )}
-        </Stack>
-      </Drawer>
-    </>
+
+          {isSuperAdmin && (
+            <>
+              <Divider my="xs" />
+              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                Admin
+              </Text>
+              <NavLink
+                component={Link}
+                href={`/admin/prompts/${effectiveBrand}`}
+                label="Prompt Editor"
+                leftSection={<IconEdit size={18} />}
+                active={pathname.startsWith('/admin/prompts')}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href="/admin/clients"
+                label="Clients"
+                leftSection={<IconBuilding size={18} />}
+                active={pathname === '/admin/clients'}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href="/admin/users"
+                label="Users & Access"
+                leftSection={<IconShieldLock size={18} />}
+                active={pathname === '/admin/users'}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href="/admin/teams"
+                label="Teams"
+                leftSection={<IconUsersGroup size={18} />}
+                active={pathname === '/admin/teams'}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href="/admin/duplicates"
+                label="Duplicate Review"
+                leftSection={<IconCopyCheck size={18} />}
+                active={pathname === '/admin/duplicates'}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href="/admin/api-keys"
+                label="API Keys"
+                leftSection={<IconKey size={18} />}
+                active={pathname === '/admin/api-keys'}
+                onClick={handleLinkClick}
+              />
+            </>
+          )}
+
+          <Divider my="xs" />
+          <NavLink
+            label={`Sign out${user.email ? ` (${user.email})` : ''}`}
+            leftSection={<IconLogout size={18} />}
+            onClick={() => {
+              handleLinkClick();
+              logout();
+            }}
+          />
+        </>
+      )}
+    </Stack>
   );
 }

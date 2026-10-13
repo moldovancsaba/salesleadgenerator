@@ -76,4 +76,28 @@ describe('desktop and tablet navigation affordances', () => {
     const content = readFileSync(join(root, 'app', 'error.tsx'), 'utf8');
     expect(content).toContain('{error?.message && (');
   });
+
+  it('renders AppLayout with docked AppNavSidebar on desktop/tablet', () => {
+    const layout = readFileSync(join(root, 'app', 'components', 'AppLayout.tsx'), 'utf8');
+    expect(layout).toContain('<AppHeader />');
+    expect(layout).toContain('<AppNavSidebar />');
+    expect(layout).toContain('{children}');
+  });
+
+  it('provides AppNavSidebar with collapsible hide affordance', () => {
+    const nav = readFileSync(join(root, 'app', 'components', 'AppNav.tsx'), 'utf8');
+    expect(nav).toContain('export function AppNavSidebar()');
+    expect(nav).toContain('sidebarOpen');
+    expect(nav).toContain('setSidebarOpen(false)');
+    expect(nav).toContain('<AppNavContent');
+  });
+
+  it('prevents React error 185 infinite loops via registerCommandsRef and lastVisibleLeadIdsRef', () => {
+    const salesClient = readFileSync(join(root, 'app', 'sales', '[brand]', 'sales-page-client.tsx'), 'utf8');
+    expect(salesClient).toContain('const registerCommandsRef = useRef(registerCommands)');
+    expect(salesClient).toContain('handleVisibleLeadsChange');
+
+    const kanban = readFileSync(join(root, 'app', 'kanban.tsx'), 'utf8');
+    expect(kanban).toContain('const lastVisibleLeadIdsRef = useRef<string>');
+  });
 });
