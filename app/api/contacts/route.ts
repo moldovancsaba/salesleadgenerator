@@ -55,11 +55,63 @@ export async function GET(request: NextRequest) {
 
     let contacts = aggregateContactsAcrossLeads(leads);
 
+    const crmStatusFilter = (searchParams.get('crmStatus') || '').trim().toLowerCase();
+    const ownerFilter = (searchParams.get('owner') || '').trim();
+    const buyingRoleFilter = (searchParams.get('buyingRole') || '').trim().toLowerCase();
+    const format = (searchParams.get('format') || '').trim().toLowerCase();
+
     if (q) {
-      // Case-insensitive substring match against name, same convention as
-      // GET /api/leads' `industry` param (app/api/leads/route.ts).
+      // Case-insensitive substring match against name, email, secondaryEmail, title, or company name (issue #241).
       const re = new RegExp(escapeRegExp(q), 'i');
-      contacts = contacts.filter((c) => re.test(c.name));
+      contacts = contacts.filter((c) =>
+        re.test(c.name) ||
+        (c.email && re.test(c.email)) ||
+        (c.secondaryEmail && re.test(c.secondaryEmail)) ||
+        (c.title && re.test(c.title)) ||
+        (c.leads && c.leads.some((l) => re.test(l.entity_name)))
+      );
+    }
+
+    if (crmStatusFilter) {
+      contacts = contacts.filter((c) => (c.crmStatus || 'prospect').toLowerCase() === crmStatusFilter);
+    }
+
+    if (ownerFilter) {
+      contacts = contacts.filter((c) => c.ownerUserId === ownerFilter);
+    }
+
+    if (buyingRoleFilter) {
+      contacts = contacts.filter((c) => (c.buyingRole || '').toLowerCase() === buyingRoleFilter);
+    }
+
+    if (format === 'csv' || request.headers.get('accept')?.includes('text/csv')) {
+      const header = ['Name', 'First Name', 'Last Name', 'Title', 'Primary Email', 'Secondary Email', 'Phone', 'LinkedIn', 'Buying Role', 'Decision Maker', 'CRM Status', 'Owner', 'Companies'];
+      const rows = contacts.map((c) => {
+        const companies = (c.leads || []).map((l: any) => l.entity_name).join('; ');
+        return [
+          c.name || '',
+          c.firstName || '',
+          c.lastName || '',
+          c.title || '',
+          c.email || '',
+          c.secondaryEmail || '',
+          c.phone || '',
+          c.linkedin || '',
+          c.buyingRole || '',
+          c.isDecisionMaker ? 'true' : 'false',
+          c.crmStatus || 'prospect',
+          c.ownerUserId || '',
+          companies,
+        ].map((field) => `"${String(field).replace(/"/g, '""')}"`).join(',');
+      });
+      const csvContent = [header.join(','), ...rows].join('\n');
+      return new Response(csvContent, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="contacts-${brand}.csv"`,
+        },
+      });
     }
 
     return NextResponse.json({

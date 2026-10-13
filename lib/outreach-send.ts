@@ -19,7 +19,8 @@ import type { Db } from 'mongodb';
 import { Resend } from 'resend';
 import { evaluateOutreachRouting, type LeadFieldSnapshot } from '../app/lib/outreach/routing-rules';
 import { interpolate, type OutreachTemplate } from '../app/lib/outreach/default-templates';
-import { getDecisionMakerContact } from './contacts';
+import { getDecisionMakerContact, getContactSendEmail } from './contacts';
+import { buildPersonalizationContext, interpolateTemplate, validatePersonalization } from './template-personalization';
 import { getBrandConfig } from '../app/lib/brand';
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes, truncateBody } from '../app/lib/activity-log-store';
 import { isRecipientSuppressed } from './suppression';
@@ -238,12 +239,34 @@ export async function dispatchOutreachEmail(
     return { sent: false, reason: 'template not found', outreachLogId };
   }
 
-  // Same {contact_name} resolution the compose modal uses (issue #45) —
-  // templates reference the decision-maker's name, never a top-level
-  // decision_maker_name field, which doesn't exist.
-  const interpolationValues = { ...lead, contact_name: getDecisionMakerContact(lead.contacts)?.name || '' };
-  const subject = template.subject ? interpolate(template.subject, interpolationValues) : '';
-  const body = interpolate(template.body, interpolationValues);
+  const dmContact = getDecisionMakerContact(lead.contacts);
+  const to = getContactSendEmail(dmContact) || undefined;
+
+  const personalizationContext = buildPersonalizationContext({ lead, contact: dmContact });
+
+  // CRM Invariant / Predecessor Handoff 10 (issue #241): Validate required fields before send.
+  // Missing required values block the send with PERSONALIZATION_BLOCKED to prevent emailing blank tokens.
+  const personalizationCheck = validatePersonalization(template as any, personalizationContext);
+  if (!personalizationCheck.valid) {
+    const reason = `PERSONALIZATION_BLOCKED: missing required field(s): ${personalizationCheck.missingFields.join(', ')}`;
+    const previewSubject = template.subject ? interpolateTemplate(template.subject, personalizationContext) : '';
+    const previewBody = interpolateTemplate(template.body, personalizationContext);
+    const outreachLogId = await writeOutreachLog(db, context, leadId, {
+      to: to || '',
+      templateId: template.id,
+      subject: previewSubject,
+      body: previewBody,
+      routingAllowed: false,
+      routingReason: reason,
+      sendAttempted: false,
+      sentAutomatically,
+      ...cadenceFields,
+    });
+    return { sent: false, reason, outreachLogId };
+  }
+
+  const subject = template.subject ? interpolateTemplate(template.subject, personalizationContext) : '';
+  const body = interpolateTemplate(template.body, personalizationContext);
 
   const routing = evaluateOutreachRouting('email', lead, body);
   if (!routing.allowed) {
@@ -263,8 +286,7 @@ export async function dispatchOutreachEmail(
   // Guaranteed present by evaluateOutreachRouting's own requireEmail check
   // above — re-checked here anyway rather than asserted with `!`, since a
   // send is the one place in this module a wrong assumption would actually
-  // reach a real external API.
-  const to = getDecisionMakerContact(lead.contacts)?.email;
+  // reach a real external API. Invariant: only primary email is used (never secondary).
   if (!to) {
     const outreachLogId = await writeOutreachLog(db, context, leadId, {
       templateId: template.id,
@@ -272,7 +294,7 @@ export async function dispatchOutreachEmail(
       body,
       routingAllowed: false,
       routingReason: 'Missing decision maker email for email outreach.',
-      sendAttempted: true,
+      sendAttempted: false,
       sentAutomatically,
       ...cadenceFields,
     });

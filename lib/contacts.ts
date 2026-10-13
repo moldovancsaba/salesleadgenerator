@@ -11,6 +11,7 @@ import type { SeniorityTier, Department } from './title-normalization';
 import { decodeHtmlEntities } from './text-sanitize';
 import { normalizeFieldVerifications } from './field-verifications';
 import type { FieldVerification } from './field-verifications';
+import { splitContactName } from './template-personalization';
 
 export type ContactInput = Record<string, any>;
 
@@ -45,15 +46,33 @@ export function deriveIsDecisionMaker(buyingRole: BuyingRole): boolean {
   return buyingRole === 'decision_maker' || buyingRole === 'economic_buyer';
 }
 
+// CRM Status classification (issue #241, predecessor CRM Handoff 03).
+// Closed status vocabulary distinct from pipeline deal stage.
+export type ContactCRMStatus = 'prospect' | 'lead' | 'active' | 'customer' | 'inactive' | 'archived';
+export const CONTACT_CRM_STATUSES: ContactCRMStatus[] = ['prospect', 'lead', 'active', 'customer', 'inactive', 'archived'];
+
+export function isValidContactCRMStatus(value: unknown): value is ContactCRMStatus {
+  return typeof value === 'string' && (CONTACT_CRM_STATUSES as string[]).includes(value);
+}
+
 export type NormalizedContact = {
   name: string;
+  firstName?: string;
+  lastName?: string;
   title: string;
   email: string;
+  // Secondary / alternate email address (issue #241). Invariant: MUST NEVER be used as the
+  // outbound send destination for outreach email or cadence dispatch. Used for inbound reply
+  // attribution, lookup, and contact directory only.
+  secondaryEmail?: string;
   phone: string;
   linkedin: string;
   role: string;
   buyingRole: BuyingRole;
   isDecisionMaker: boolean;
+  crmStatus?: ContactCRMStatus;
+  ownerUserId?: string;
+  customFields?: Record<string, string>;
   // ISO timestamp of the last time this contact's verifiable fields (email,
   // phone, linkedin, title, role) were confirmed accurate — see issue #66.
   // Undefined means never verified, not "verified at record creation."
@@ -153,21 +172,58 @@ export function toNameCase(name: string): string {
 
 export function normalizeContact(c: ContactInput, options?: NormalizeContactOptions): NormalizedContact {
   const rawEmail = typeof c?.email === 'string' ? c.email.trim() : '';
+  const rawSecondary = typeof c?.secondaryEmail === 'string' ? c.secondaryEmail.trim() : '';
   const rawPhone = typeof c?.phone === 'string' ? c.phone.trim() : '';
   const title = typeof c?.title === 'string' ? decodeHtmlEntities(c.title.trim()) : '';
   const verify = options?.verify === true;
   const now = options?.now ?? new Date();
   const { seniorityTier, department } = normalizeTitle(title);
   const buyingRole = resolveBuyingRole(c);
+
+  const fullName = typeof c?.name === 'string' ? toNameCase(decodeHtmlEntities(c.name.trim())) : '';
+  const { firstName: derivedFirst, lastName: derivedLast } = splitContactName(fullName);
+  const rawFirst = typeof c?.firstName === 'string' && c.firstName.trim()
+    ? toNameCase(decodeHtmlEntities(c.firstName.trim()))
+    : derivedFirst;
+  const rawLast = typeof c?.lastName === 'string' && c.lastName.trim()
+    ? toNameCase(decodeHtmlEntities(c.lastName.trim()))
+    : derivedLast;
+
+  const normalizedPrimary = rawEmail ? normalizeEmail(rawEmail) : '';
+  let normalizedSecondary = rawSecondary ? normalizeEmail(rawSecondary) : undefined;
+  if (normalizedSecondary && normalizedSecondary === normalizedPrimary) {
+    normalizedSecondary = undefined;
+  }
+
+  const crmStatus = isValidContactCRMStatus(c?.crmStatus) ? c.crmStatus : 'prospect';
+  const ownerUserId = typeof c?.ownerUserId === 'string' && c.ownerUserId.trim() ? c.ownerUserId.trim() : undefined;
+
+  let customFields: Record<string, string> | undefined;
+  if (c?.customFields && typeof c.customFields === 'object') {
+    customFields = {};
+    for (const [k, v] of Object.entries(c.customFields)) {
+      if (typeof v === 'string') {
+        customFields[k] = v;
+      }
+    }
+    if (Object.keys(customFields).length === 0) customFields = undefined;
+  }
+
   return {
-    name: typeof c?.name === 'string' ? toNameCase(decodeHtmlEntities(c.name.trim())) : '',
+    name: fullName,
+    firstName: rawFirst || undefined,
+    lastName: rawLast || undefined,
     title,
-    email: rawEmail ? normalizeEmail(rawEmail) : '',
+    email: normalizedPrimary,
+    secondaryEmail: normalizedSecondary,
     phone: rawPhone ? normalizePhone(rawPhone) : '',
     linkedin: typeof c?.linkedin === 'string' ? c.linkedin.trim() : '',
     role: typeof c?.role === 'string' ? decodeHtmlEntities(c.role.trim()) : '',
     buyingRole,
     isDecisionMaker: deriveIsDecisionMaker(buyingRole),
+    crmStatus,
+    ownerUserId,
+    customFields,
     seniorityTier,
     department,
     lastVerifiedAt: verify ? now.toISOString() : (typeof c?.lastVerifiedAt === 'string' ? c.lastVerifiedAt : undefined),
@@ -258,34 +314,45 @@ export function dedupeContacts(
     // 'unknown': a later, lower-information duplicate must not silently
     // erase an earlier pass's real classification.
     const mergedBuyingRole = existing.buyingRole === 'unknown' && c.buyingRole !== 'unknown' ? c.buyingRole : existing.buyingRole;
-    if (
-      merged !== existing.lastVerifiedAt
-      || mergedVerifications !== existing.fieldVerifications
-      || mergedBuyingRole !== existing.buyingRole
-    ) {
-      deduped[existingIndex] = {
-        ...existing,
-        lastVerifiedAt: merged,
-        fieldVerifications: mergedVerifications,
-        buyingRole: mergedBuyingRole,
-        isDecisionMaker: deriveIsDecisionMaker(mergedBuyingRole),
-      };
-    }
+    const mergedSecondary = existing.secondaryEmail || c.secondaryEmail;
+    const mergedFirst = existing.firstName || c.firstName;
+    const mergedLast = existing.lastName || c.lastName;
+    const mergedStatus = existing.crmStatus && existing.crmStatus !== 'prospect' ? existing.crmStatus : (c.crmStatus || existing.crmStatus);
+    const mergedOwner = existing.ownerUserId || c.ownerUserId;
+    const mergedCustom = existing.customFields || c.customFields
+      ? { ...(existing.customFields || {}), ...(c.customFields || {}) }
+      : undefined;
+
+    deduped[existingIndex] = {
+      ...existing,
+      firstName: mergedFirst,
+      lastName: mergedLast,
+      secondaryEmail: mergedSecondary,
+      crmStatus: mergedStatus,
+      ownerUserId: mergedOwner,
+      customFields: mergedCustom,
+      lastVerifiedAt: merged,
+      fieldVerifications: mergedVerifications,
+      buyingRole: mergedBuyingRole,
+      isDecisionMaker: deriveIsDecisionMaker(mergedBuyingRole),
+    };
   }
 
   return deduped;
 }
 
-// Issue #142 — the denormalized index that makes "which lead does this
+// Issue #142 & #241 — the denormalized index that makes "which lead does this
 // inbound email address belong to" a direct lookup instead of a full-collection
 // scan. Callers write this alongside contacts[] on every write path (POST,
 // PUT, PATCH MODIFY) so it can never drift from what contacts[] actually
-// contains. Lowercased (matches normalizeEmail()) and deduped; a contact
-// with no email contributes nothing.
+// contains. Lowercased (matches normalizeEmail()) and deduped; includes both
+// primary email and secondary email for inbound matching, while send dispatch
+// strictly isolates to primary email via getContactSendEmail().
 export function deriveContactEmails(contacts: NormalizedContact[]): string[] {
   const emails = new Set<string>();
   for (const c of contacts) {
     if (c.email) emails.add(c.email.toLowerCase());
+    if (c.secondaryEmail) emails.add(c.secondaryEmail.toLowerCase());
   }
   return Array.from(emails);
 }
@@ -317,18 +384,34 @@ export function getDecisionMakerContact(
   return dm ? normalizeContact(dm) : null;
 }
 
+/**
+ * Invariant: outreach email and cadence dispatch MUST ONLY target primary email.
+ * secondaryEmail is strictly for inbound attribution and reference, never outbound sends (issue #241).
+ */
+export function getContactSendEmail(c: NormalizedContact | null | undefined): string | null {
+  if (!c || !c.email) return null;
+  return c.email;
+}
+
 export type ContactDirectoryEntry = {
   key: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   title: string;
   email: string;
+  secondaryEmail?: string;
   phone: string;
+  linkedin: string;
   buyingRole: BuyingRole;
   isDecisionMaker: boolean;
+  crmStatus?: ContactCRMStatus;
+  ownerUserId?: string;
+  customFields?: Record<string, string>;
   leads: Array<{ leadId: string; entity_name: string }>;
 };
 
-// Cross-lead contact directory (issue #139) — contacts[] has never had a
+// Cross-lead contact directory (issue #139, enhanced #241) — contacts[] has never had a
 // concept of identity beyond a single lead's own array (contactKey() below
 // is deliberately scoped to one lead). This groups by that same key across
 // every lead passed in, so the same person listed on two leads collapses
@@ -362,11 +445,18 @@ export function aggregateContactsAcrossLeads(
       byKey.set(key, {
         key,
         name: c.name,
+        firstName: c.firstName,
+        lastName: c.lastName,
         title: c.title,
         email: c.email,
+        secondaryEmail: c.secondaryEmail,
         phone: c.phone,
+        linkedin: c.linkedin,
         buyingRole: c.buyingRole,
         isDecisionMaker: c.isDecisionMaker,
+        crmStatus: c.crmStatus,
+        ownerUserId: c.ownerUserId,
+        customFields: c.customFields,
         leads: [{ leadId, entity_name: entityName }],
       });
     }

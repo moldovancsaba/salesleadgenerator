@@ -53,3 +53,98 @@ describe('resolveOutboundFromAddress (issue 150, updated 195)', () => {
     expect(resolveOutboundFromAddress('cogmap', '')).toBe('cogmap@haho.ai');
   });
 });
+
+describe('dispatchOutreachEmail — Personalization Gating & Send Invariants (issue 241)', () => {
+  function createMockDb() {
+    const insertedLogs: any[] = [];
+    return {
+      insertedLogs,
+      collection: (name: string) => ({
+        insertOne: async (doc: any) => {
+          insertedLogs.push({ ...doc, _id: `mock-id-${insertedLogs.length + 1}` });
+          return { insertedId: `mock-id-${insertedLogs.length}` };
+        },
+        findOne: async () => null,
+      }),
+    };
+  }
+
+  it('blocks send with PERSONALIZATION_BLOCKED when required fields are missing', async () => {
+    const { dispatchOutreachEmail } = await import('../../lib/outreach-send');
+    const mockDb = createMockDb();
+
+    const lead = {
+      _id: 'lead-1',
+      entity_name: 'Acme Academy',
+      contacts: [{ name: '', email: 'contact@acme.org', isDecisionMaker: true }],
+    };
+
+    const template = {
+      id: 'tpl-strict',
+      name: 'Strict Template',
+      channel: 'email' as const,
+      industry: '',
+      subject: 'Hello {first_name}',
+      body: 'Hi {first_name}, how is {company_name}?',
+      variables: ['first_name', 'company_name'],
+      required_fields: ['first_name'],
+    };
+
+    const res = await dispatchOutreachEmail(
+      mockDb as any,
+      lead as any,
+      template,
+      { brand: 'cogmap', tenantId: 'default' },
+      { kind: 'cadence', cadenceId: 'c1', stepIndex: 0 }
+    );
+
+    expect(res.sent).toBe(false);
+    expect(res.reason).toContain('PERSONALIZATION_BLOCKED: missing required field(s): first_name');
+    expect(mockDb.insertedLogs.length).toBe(1);
+    expect(mockDb.insertedLogs[0].sendAttempted).toBe(false);
+    expect(mockDb.insertedLogs[0].routingAllowed).toBe(false);
+  });
+
+  it('only dispatches to primary email and rejects secondaryEmail as destination', async () => {
+    const { dispatchOutreachEmail } = await import('../../lib/outreach-send');
+    const mockDb = createMockDb();
+
+    const lead = {
+      _id: 'lead-2',
+      entity_name: 'Tech Prep',
+      contacts: [
+        {
+          name: 'Ada Lovelace',
+          // Primary email missing
+          email: '',
+          secondaryEmail: 'ada.backup@gmail.com',
+          isDecisionMaker: true,
+        },
+      ],
+    };
+
+    const template = {
+      id: 'tpl-general',
+      name: 'General Intro',
+      channel: 'email' as const,
+      industry: '',
+      subject: 'Hello',
+      body: 'Hi there',
+      variables: [],
+    };
+
+    const res = await dispatchOutreachEmail(
+      mockDb as any,
+      lead as any,
+      template,
+      { brand: 'cogmap', tenantId: 'default' },
+      { kind: 'manual', idempotencyKey: 'idem-1' }
+    );
+
+    expect(res.sent).toBe(false);
+    expect(res.reason).toBe('Missing decision maker email for email outreach.');
+    expect(mockDb.insertedLogs.length).toBe(1);
+    expect(mockDb.insertedLogs[0].sendAttempted).toBe(true);
+    expect(mockDb.insertedLogs[0].routingAllowed).toBe(false);
+  });
+});

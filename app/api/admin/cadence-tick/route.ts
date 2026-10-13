@@ -177,6 +177,18 @@ async function runCadenceTick(): Promise<TickSummary> {
             continue
           }
 
+          // CRM Invariant / Predecessor Handoff 10 (issue #241): Missing required merge variables
+          // block the send (personalization_blocked). The cadence step is held rather than advanced,
+          // so reps can enrich the missing contact data rather than skipping the step.
+          if (result.reason?.startsWith('PERSONALIZATION_BLOCKED')) {
+            await leadsCollection.updateOne(
+              { _id: leadDoc._id },
+              { $set: { 'activeCadence.status': 'blocked_personalization', updatedAt: now } }
+            )
+            summary.failures.push({ leadId, brand, reason: result.reason })
+            continue
+          }
+
           // Non-Goals: no retry-with-backoff within the same tick — a
           // routing/send failure still advances the cadence (logged here,
           // visible in Activity via outreach_logs), never blocks on retry.

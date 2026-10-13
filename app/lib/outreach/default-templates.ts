@@ -6,6 +6,9 @@ export type OutreachTemplate = {
   subject?: string;
   body: string;
   variables: string[];
+  // Required merge fields that must be populated before send (issue #241).
+  requiredFields?: string[];
+  required_fields?: string[];
   // Free-form, multi-valued classification beyond `industry` — persona, deal
   // stage, competitor mention, etc. Same shape as Lead.tags (issue #64).
   tags?: string[];
@@ -80,8 +83,55 @@ Best,`,
 ];
 
 export function interpolate(template: string, lead: Record<string, any>): string {
-  return Object.entries(lead).reduce((text, [key, value]) => {
+  if (!template) return '';
+  // Support both direct lead fields and canonical/alias tokens (issue #241).
+  const context: Record<string, string> = {};
+  for (const [k, v] of Object.entries(lead)) {
+    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+      context[k.toLowerCase()] = String(v);
+      context[k] = String(v);
+    }
+  }
+
+  // Populate standard contact/company tokens if available
+  if (lead.contacts && Array.isArray(lead.contacts)) {
+    const dm = lead.contacts.find((c: any) => c && c.isDecisionMaker === true) || lead.contacts[0];
+    if (dm) {
+      if (!context.contact_name && dm.name) context.contact_name = dm.name;
+      if (!context.first_name && dm.firstName) context.first_name = dm.firstName;
+      if (!context.last_name && dm.lastName) context.last_name = dm.lastName;
+      if (!context.email && dm.email) context.email = dm.email;
+      if (!context.job_title && (dm.title || dm.role)) context.job_title = dm.title || dm.role;
+    }
+  }
+
+  // Derive first/last name from contact_name if still missing
+  if (context.contact_name && (!context.first_name || !context.last_name)) {
+    const parts = context.contact_name.trim().split(/\s+/);
+    if (!context.first_name && parts[0]) context.first_name = parts[0];
+    if (!context.last_name && parts.length > 1) context.last_name = parts.slice(1).join(' ');
+  }
+
+  if (lead.entity_name && !context.company_name) context.company_name = lead.entity_name;
+  if (lead.company && !context.company_name) context.company_name = lead.company;
+
+  // First pass: replace {token}, {{token}}, {{.token}} using canonical rules
+  const tokenRegex = /(?:\{\{\.([a-zA-Z0-9_.-]+)\}\}|\{\{([a-zA-Z0-9_.-]+)\}\}|\{([a-zA-Z0-9_.-]+)\})/g;
+  let text = template.replace(tokenRegex, (match, goToken, dblToken, sglToken) => {
+    const rawToken = goToken || dblToken || sglToken;
+    if (!rawToken) return match;
+    const lower = rawToken.trim().toLowerCase();
+    if (context[lower] !== undefined && context[lower] !== '') return context[lower];
+    if (context[rawToken] !== undefined && context[rawToken] !== '') return context[rawToken];
+    return match;
+  });
+
+  // Second pass: fallback for any remaining exact {key} matches in lead
+  for (const [key, value] of Object.entries(lead)) {
     const safeValue = typeof value === 'string' ? value : String(value ?? '');
-    return text.replace(new RegExp(`\\{${key}\\}`, 'g'), safeValue);
-  }, template);
+    text = text.replace(new RegExp(`\\{${key}\\}`, 'g'), safeValue);
+  }
+
+  return text;
 }
+

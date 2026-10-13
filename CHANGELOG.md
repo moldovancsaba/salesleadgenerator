@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
  
+## 2.4.254
+
+### Feature: Template personalization engine, merge token interpolation with required fields gating, and contact foundation enhancements (fixes #241)
+
+- **Unified Template Personalization Engine (`lib/template-personalization.ts`):** Ingests CRM Handoff 10 (Template Personalization) into Sales Lead Generator. Provides a centralized catalog and resolver for standard contact and organization tokens (`first_name`, `last_name`, `contact_name`, `email`, `secondary_email`, `phone`, `linkedin_url`, `job_title`, `company_name`, `company_website`, `industry`, `custom.<key>`).
+- **Flexible Merge Variable Syntaxes:** Compiles and renders `{token}`, `{{token}}` (Mustache/Handlebars), and `{{.token}}` (Go-template legacy compatibility) formats case-insensitively with automatic alias mapping.
+- **Automatic Name Derivation (`splitContactName`):** Splits contact full names into `first_name` and `last_name` components while honoring explicitly supplied `firstName` / `lastName` fields.
+- **Required Fields Gating (`validatePersonalization`):** Templates can declare `required_fields` / `requiredFields`. Before dispatching, the engine validates that required values are present. Missing variables abort outbound sending with `PERSONALIZATION_BLOCKED: missing required field(s): ...`, preventing emails from firing with embarrassing blank placeholders.
+- **Cadence Tick Resiliency (`app/api/admin/cadence-tick/route.ts`):** When automated cadence steps encounter `PERSONALIZATION_BLOCKED`, the scheduler sets `activeCadence.status = 'blocked_personalization'` and holds the cadence at the current step rather than skipping ahead or cancelling the enrollment. Reps can enrich the missing data in the lead workbench, after which sending resumes automatically.
+- **Contact Model Foundation Enhancements (`lib/contacts.ts`):** Ingests CRM Handoff 03 (Contact Foundation). Extends `NormalizedContact` with `firstName`, `lastName`, `secondaryEmail`, `crmStatus` (`prospect`, `lead`, `active`, `customer`, `inactive`, `archived`), `ownerUserId`, and `customFields`.
+- **Outbound Send Safety Invariant:** Guaranteed that outreach email dispatch (`lib/outreach-send.ts`'s `getContactSendEmail`) strictly targets primary `email`. `secondaryEmail` is permanently forbidden as an outbound destination and reserved exclusively for inbound reply attribution and contact directory search.
+- **Inbound Attribution Indexing (`deriveContactEmails`):** Indexes both primary and secondary emails into `contactEmails[]`, enabling inbound webhooks and reply matching to attribute emails arriving from alternative addresses.
+- **Contact Directory Filtering & CSV Export (`app/api/contacts/route.ts`):** Upgraded `GET /api/contacts` with multi-field search `q` (name, email, secondaryEmail, title, company), filtering by `crmStatus`, `owner`, and `buyingRole`, and standard CSV export stream via `?format=csv` or `Accept: text/csv`.
+- **Test Coverage:** Added `tests/lib/template-personalization.test.ts` (18 unit tests) and `tests/lib/contact-foundation.test.ts` (11 unit tests), plus dispatch personalization gating tests in `tests/lib/outreach-send.test.ts`.
+
+Full gate green: 0 `tsc`/lint errors, 1259/1259 unit tests passing, smoke tests clean, `audit:gds-style` clean.
+
 ## 2.4.253
 
 ### Bug Fix: Lead assignment persistence, desktop nav toggle visibility, and menu routing reliability (fixes #240)
