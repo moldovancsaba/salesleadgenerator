@@ -468,7 +468,22 @@ Go to **Reporting → Automation** for a brand. Simple "when X happens on a lead
 
 ### Contacts
 
-Go to **Reporting → Contacts** for a brand to search every contact across that brand's leads by name. Each row shows a contact's name, title, email, phone, and every lead they're listed on — click a lead chip to open that lead's detail modal directly. This is a read-only view: it's a second lens onto the same `contacts[]` data already visible inside each lead's own detail modal, not a separate contact list — editing a contact still happens only there (add/edit/remove a contact, set their buying role). The same person listed on two different leads shows up as one row with both leads attached; two different people who happen to share only a name (no matching phone or email) show up as two separate rows.
+Go to **Reporting → Contacts** for a brand to view a full-width, high-density directory of every contact across that brand's leads. The layout utilizes the entire screen real estate with a compact application toolbar and 8 sortable columns:
+- **Contact Name**: Contact's full name, with any secondary/alternative email address displayed underneath.
+- **Company / Lead**: Prominent clickable badge for each associated lead or account — clicking opens that lead's detail modal in the pipeline board directly without losing context.
+- **Title**: Job title and seniority.
+- **Buying Role**: Role classification badge (*Economic Buyer*, *Champion*, *Decision Maker*, *Influencer*, *Blocker*), keeping risk signals and key buyers clearly visible.
+- **Email**: Clickable `mailto:` link for immediate outreach.
+- **Phone**: Clickable `tel:` link for direct dialing.
+- **LinkedIn**: 1-click profile launcher opening verified LinkedIn URLs in a new tab.
+- **Status**: CRM lifecycle status badge (*Prospect*, *Lead*, *Active*, *Customer*, *Inactive*).
+
+**Search & Filters**:
+- Use the search bar to filter instantly across contact name, company name, job title, email, and phone number.
+- Filter by **Buying Role** or **CRM Status** using the quick-filter dropdowns in the toolbar.
+- Click any sortable column header (Name, Company, Title, Buying Role, Email, Status) to toggle ascending/descending order.
+- **Export CSV** downloads a filtered or full CSV snapshot matching the active search and filter criteria.
+- On mobile viewports, the view gracefully transforms into high-density contact cards (`renderMobileCard`).
 
 ### Product Catalog
 

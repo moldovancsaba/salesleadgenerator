@@ -1417,7 +1417,18 @@ Ingests CRM Cadence Engine & Sequence Enforcement into Sales Lead Generator:
 - **Deal Association (`dealId`, `dealLabel`):** Both calls and internal notes can be associated with a specific deal on the lead via `dealId` and `dealLabel`. Persisted in `activity_logs` with a MongoDB sparse index on `{ dealId: 1 }`.
 - **Deal Filter in Activity Timeline:** The Lead Detail activity timeline includes a "Filter by deal" dropdown, isolating notes, calls, and outreach for a specific deal while displaying cyan deal badges on associated timeline cards.
 - **Account-Level Activity Rollup (`app/api/accounts/[parentOrgId]/route.ts`):** In the Accounts directory (`/accounts/[brand]`), selecting an account fetches all activities across every child lead sharing that `parentOrgId`. Gives commercial teams a single, unified chronological view of all rep interactions, meetings, calls, notes, and emails across multi-entity sports organizations and holding companies.
-- **Test Coverage:** `tests/lib/activity-log-store.test.ts` (6 unit tests) and `tests/lib/accounts.test.ts` (account activity rollup unit tests).
+### High-Density Application Workspace & Fluid Table Architecture (2.4.263)
+- **Zero-Waste Fluid Layout (`app/contacts/[brand]/contacts-client.tsx`, `app/accounts/[brand]/accounts-client.tsx`):** Retired narrow, fixed-width centered containers (`Container size="md"` capping content to 960px) across CRM directory views. Replaced with 100% fluid, edge-to-edge workspaces (`Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%"`) that span the full available width adjacent to the docked sidebar, reclaiming up to 50% of previously wasted desktop real estate.
+- **High-Density Contacts Directory (8 Explicitly Sized Columns):**
+  1. *Contact Name (`width: 220`)*: Bold contact name with secondary email indicator (`secondaryEmail`) when present.
+  2. *Company / Lead (`width: 260`)*: Prominent clickable badges linking directly to `/sales/[brand]?leadId=...`, preventing truncated single-character badge clipping.
+  3. *Title (`width: 200`)*: Job title / seniority.
+  4. *Buying Role (`width: 150`)*: Dedicated column with full role badges (*Economic Buyer*, *Champion*, *Decision Maker*, *Influencer*, *Blocker*), eliminating previous text collisions with the contact name.
+  5. *Email (`width: 240`)*: Clickable `mailto:` link.
+  6. *Phone (`width: 160`)*: Clickable `tel:` link.
+  7. *LinkedIn (`width: 80`)*: Clickable 1-click icon linking to verified LinkedIn profiles.
+  8. *Status (`width: 110`)*: Lifecycle status badge (*Prospect*, *Lead*, *Active*, *Customer*, *Inactive*).
+- **Search, Filtering, and Client Sorting:** Added search across name, company, title, email, and phone with role filter (`Select`) and CRM status filter (`Select`) in a unified compact toolbar. Implemented sortable column headers (`AdminDataTable`'s `sort` / `onSortChange`) with mobile card fallbacks (`renderMobileCard`).
 
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)

@@ -237,7 +237,7 @@ export function AccountsClient({ brand, label, currency }: Props) {
   ) : null;
 
   return (
-    <Container size="md" py="xl">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
         <Group justify="space-between" align="flex-start" wrap="wrap">
           <div style={{ flex: 1, minWidth: 280 }}>
@@ -285,6 +285,8 @@ export function AccountsClient({ brand, label, currency }: Props) {
                 key: 'name',
                 header: 'Organization',
                 rowHeader: true,
+                sortable: true,
+                width: 260,
                 accessor: (row) => (
                   <UnstyledButton onClick={() => setSelectedParentOrgId(row.parentOrgId)} aria-label={`Open account ${row.parentOrgName || row.parentOrgId}`}>
                     <Text fw={600} c="indigo">{row.parentOrgName || row.parentOrgId}</Text>
@@ -294,6 +296,7 @@ export function AccountsClient({ brand, label, currency }: Props) {
               {
                 key: 'relationship',
                 header: 'Relationship',
+                width: 200,
                 accessor: (row) => (
                   <Group gap={4}>
                     {row.relationshipCodes.length === 0 ? '—' : row.relationshipCodes.map((code) => (
@@ -302,11 +305,12 @@ export function AccountsClient({ brand, label, currency }: Props) {
                   </Group>
                 ),
               },
-              { key: 'leadCount', header: 'Leads', numeric: true, accessor: (row) => row.leadCount },
+              { key: 'leadCount', header: 'Leads', numeric: true, sortable: true, width: 100, accessor: (row) => row.leadCount },
               {
                 key: 'value',
                 header: 'Value',
                 sortable: true,
+                width: 240,
                 accessor: (row) => (
                   <Text size="sm">
                     {formatMoney(row.pipelineValueUsd, currency)} pipeline
@@ -318,6 +322,7 @@ export function AccountsClient({ brand, label, currency }: Props) {
                 key: 'activity',
                 header: 'Last activity',
                 sortable: true,
+                width: 160,
                 accessor: (row) => formatDate(row.mostRecentUpdatedAt),
               },
             ]}
@@ -336,6 +341,6 @@ export function AccountsClient({ brand, label, currency }: Props) {
           {detailBody}
         </AdminDetailDrawer>
       )}
-    </Container>
+    </Box>
   )
 }
