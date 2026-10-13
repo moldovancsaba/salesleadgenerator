@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import {
-  Container, Title, Text, Button, Group, Stack, Textarea,
+  Box, Title, Text, Button, Group, Stack, Textarea,
   Paper, Loader, Divider, Tabs, Alert, TextInput, Switch,
 } from '@mantine/core'
 import { IconCheck } from '@tabler/icons-react'
@@ -101,14 +101,14 @@ export function PromptEditorClient({ brand, label }: { brand: Brand; label: stri
 
   if (loading) {
     return (
-      <Container size="lg" py="xl">
+      <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%">
         <Loader />
-      </Container>
+      </Box>
     )
   }
 
   return (
-    <Container size="lg" py="xl">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
         <Title order={2}>Prompt Editor — {label}</Title>
 
@@ -207,6 +207,6 @@ export function PromptEditorClient({ brand, label }: { brand: Brand; label: stri
           </Tabs.Panel>
         </Tabs>
       </Stack>
-    </Container>
+    </Box>
   )
 }

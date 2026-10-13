@@ -1430,6 +1430,27 @@ Ingests CRM Cadence Engine & Sequence Enforcement into Sales Lead Generator:
   8. *Status (`width: 110`)*: Lifecycle status badge (*Prospect*, *Lead*, *Active*, *Customer*, *Inactive*).
 - **Search, Filtering, and Client Sorting:** Added search across name, company, title, email, and phone with role filter (`Select`) and CRM status filter (`Select`) in a unified compact toolbar. Implemented sortable column headers (`AdminDataTable`'s `sort` / `onSortChange`) with mobile card fallbacks (`renderMobileCard`).
 
+### Global High-Density Fluid Workspace Overhaul (2.4.264)
+- **Elimination of Centered `<Container>` Wrappers:** Retired narrow, fixed-width centered containers (`<Container size="md">`, `<Container size="lg">`, `<Container size="xl">` with default `max-width` and auto-centering margins) across all internal application workspaces in favor of 100% fluid, edge-to-edge layouts:
+  `<Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>`.
+- **Full Viewport Utilization Across 16 Views:**
+  1. `/today/[brand]` (`app/today/[brand]/today-client.tsx`): Today's Work cockpit expands edge-to-edge across wide screens, eliminating 40%+ wasted screen void and providing generous horizontal space for metrics and task cards.
+  2. `/forecast/[brand]` (`app/forecast/[brand]/forecast-client.tsx`): Forecast summary, win-rate calibration, and pipeline projections span full width.
+  3. `/reports/[brand]` (`app/reports/[brand]/reports-client.tsx`): Velocity metrics, cohort conversion, and rep activity charts utilize full display real estate.
+  4. `/battlecards/[brand]` (`app/battlecards/[brand]/battlecards-client.tsx`): Competitor intel, objection handling, and product differentiators span full width.
+  5. `/outreach/cadences/[brand]` (`app/outreach/cadences/[brand]/cadences-client.tsx`): Cadence builder and step editors utilize edge-to-edge space.
+  6. `/outreach/templates/[brand]` (`app/outreach/templates/[brand]/templates-client.tsx`): Multi-channel email and LinkedIn template managers use full width.
+  7. `/automation/[brand]` (`app/automation/[brand]/automation-client.tsx`): Workflow automations and trigger-action matrices span edge-to-edge.
+  8. `/admin/products/[brand]` (`app/admin/products/[brand]/admin-products-client.tsx`): CPQ Product catalog and pricing tier editors expand to full display width.
+  9. `/salessettings/[client]` (`app/salessettings/[client]/sales-settings-client.tsx`): Commercial company setup, target tiers, and pricing models span full width.
+  10. `/salessettings/[client]/integrations` (`app/salessettings/[client]/integrations/integrations-client.tsx`): External calendar, CRM, and OAuth integration managers use full-width tables.
+  11. `/admin/clients` (`app/admin/clients/admin-clients-client.tsx`): Brand registration and tenant onboarding tables expand edge-to-edge.
+  12. `/admin/api-keys` (`app/admin/api-keys/admin-api-keys-client.tsx`): API credentials and outbound webhook management span full display width.
+  13. `/admin/users` (`app/admin/users/admin-users-client.tsx`): SSO user management and multi-tenant access grid expand edge-to-edge.
+  14. `/admin/teams` (`app/admin/teams/admin-teams-client.tsx`): Commercial team hierarchies and managerial visibility configuration span full width.
+  15. `/admin/prompts/[brand]` (`app/admin/prompts/[brand]/prompt-editor-client.tsx`): Discovery and enrichment prompt editors utilize full screen width for code/markdown textareas.
+  16. `/admin/duplicates` (`app/admin/duplicates/admin-duplicates-client.tsx`): Near-duplicate candidate resolution and merge review span full display width.
+
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)
 - Brand-aware field normalization prevents cross-tenant writes

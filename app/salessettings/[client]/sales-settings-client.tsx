@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  Container, Title, Text, Button, Group, Stack, Textarea, TextInput, NumberInput,
+  Box, Title, Text, Button, Group, Stack, Textarea, TextInput, NumberInput,
   Select, Checkbox, Paper, Loader, Divider, Badge,
 } from '@mantine/core'
 import { IconPlus, IconTrash, IconPlug } from '@tabler/icons-react'
@@ -184,16 +184,16 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
 
   if (loading) {
     return (
-      <Container size="md" py="xl">
+      <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%">
         <Group justify="center" py="xl">
           <Loader />
         </Group>
-      </Container>
+      </Box>
     )
   }
 
   return (
-    <Container size="md" py="xl">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="lg">
         <div>
           <Title order={2}>{label} — Company Setup</Title>
@@ -621,6 +621,6 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
           </Button>
         </Group>
       </Stack>
-    </Container>
+    </Box>
   )
 }

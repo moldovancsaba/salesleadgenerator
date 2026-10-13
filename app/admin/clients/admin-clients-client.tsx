@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Container, Title, Text, Button, Group, Stack, Paper, TextInput, Select, MultiSelect,
+  Box, Title, Text, Button, Group, Stack, Paper, TextInput, Select, MultiSelect,
   TagsInput, Pill, Loader, Alert,
 } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
@@ -127,7 +127,7 @@ export function AdminClientsClient() {
   const canSave = /^[a-z][a-z0-9-]{1,31}$/.test(form.slug.trim().toLowerCase()) && form.label.trim().length > 0
 
   return (
-    <Container size="md" py="xl">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
         <div>
           <Title order={2}>Admin — Clients</Title>
@@ -287,6 +287,6 @@ export function AdminClientsClient() {
           />
         )}
       </Stack>
-    </Container>
+    </Box>
   )
 }

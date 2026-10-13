@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Container, Title, Text, Stack, Group, Select, Button, Badge, Paper, SegmentedControl } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Select, Button, Badge, Paper, SegmentedControl } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { showNotification } from '@mantine/notifications'
 import { useAuth } from '@/app/components/AuthProvider'
@@ -124,7 +124,7 @@ export function AdminDuplicatesClient() {
   }, [loadReviews])
 
   return (
-    <Container size="lg" py="xl">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
         <div>
           <Title order={2}>Admin — Near-Duplicate Review</Title>
@@ -250,6 +250,6 @@ export function AdminDuplicatesClient() {
         onClose={() => setMergeReviewId(null)}
         onMerged={loadReviews}
       />
-    </Container>
+    </Box>
   )
 }

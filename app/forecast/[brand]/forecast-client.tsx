@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Container, Title, Text, Paper, SimpleGrid, Group, Badge, TextInput, NumberInput, Loader, Button, Stack } from '@mantine/core';
+import { Box, Title, Text, Paper, SimpleGrid, Group, Badge, TextInput, NumberInput, Loader, Button, Stack } from '@mantine/core';
 import { StatusBadge, InlineAlert, MetricCard, MissingDataPrompt } from '@sovereignsquad/gds-core/client';
 import { AdminSelect, AdminDataTable, AdminResourceEmptyState, AdminFormStatus } from '@sovereignsquad/gds-admin/client';
 import { CALIBRATABLE_STAGES } from '@/lib/win-rate-calibration';
@@ -367,18 +367,18 @@ export function ForecastClient({ brand, label }: Props) {
 
   if (loading) {
     return (
-      <Container py="xl">
+      <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%">
         <Group justify="center"><Loader /></Group>
-      </Container>
+      </Box>
     );
   }
 
   if (error || !data) {
     return (
-      <Container py="xl">
+      <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%">
         <Title order={3}>Forecast unavailable</Title>
         {error ? <Text c="red">Last error: {error}</Text> : <Text c="dimmed">No forecast data available.</Text>}
-      </Container>
+      </Box>
     );
   }
 
@@ -386,7 +386,7 @@ export function ForecastClient({ brand, label }: Props) {
   const pipelineColumns = Object.keys(data.pipeline || {});
 
   return (
-    <Container py="md">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Group justify="space-between" mb="md">
         <Title order={2}>{label + ' Forecast'}</Title>
         <Button
@@ -808,6 +808,6 @@ export function ForecastClient({ brand, label }: Props) {
         )}
         {quotaSaveError && <AdminFormStatus state="error" title="Quota save failed" description={quotaSaveError} />}
       </Paper>
-    </Container>
+    </Box>
   );
 }

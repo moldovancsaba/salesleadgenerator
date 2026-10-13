@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Container,
+  Box,
   Title,
   Text,
   Button,
@@ -190,7 +190,7 @@ export function TodayClient({ brand, label }: Props) {
   };
 
   return (
-    <Container size="xl" py="lg">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="lg">
         {/* Header */}
         <Group justify="space-between" align="flex-start">
@@ -795,6 +795,6 @@ export function TodayClient({ brand, label }: Props) {
           </Group>
         </Stack>
       </Modal>
-    </Container>
+    </Box>
   );
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput, TagsInput, Badge, Pill } from '@mantine/core'
+import { Box, Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput, TagsInput, Badge, Pill } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import type { Brand } from '@/app/lib/brand'
@@ -166,7 +166,7 @@ export function OutreachTemplatesClient({ brand, label }: Props) {
   }
 
   return (
-    <Container size="md" py="xl">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
         <Group justify="space-between">
           <div>
@@ -371,6 +371,6 @@ export function OutreachTemplatesClient({ brand, label }: Props) {
           />
         )}
       </Stack>
-    </Container>
+    </Box>
   )
 }

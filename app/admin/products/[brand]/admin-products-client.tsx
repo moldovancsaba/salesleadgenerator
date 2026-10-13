@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Textarea, Select, Switch, Loader, Badge } from '@mantine/core'
+import { Box, Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Textarea, Select, Switch, Loader, Badge } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminModal } from '@sovereignsquad/gds-admin/client'
 import { IconPlus } from '@tabler/icons-react'
 import { CURRENCY_CODE_OPTIONS, type CurrencyCode } from '@/app/lib/brand-constants'
@@ -160,7 +160,7 @@ export function AdminProductsClient({ brand, label, defaultCurrency }: Props) {
   }
 
   return (
-    <Container size="md" py="xl">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
         <Group justify="space-between" align="flex-start">
           <div>
@@ -259,6 +259,6 @@ export function AdminProductsClient({ brand, label, defaultCurrency }: Props) {
           </Group>
         </Stack>
       </AdminModal>
-    </Container>
+    </Box>
   )
 }

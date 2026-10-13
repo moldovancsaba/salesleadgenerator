@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Container, Title, Text, Stack, Badge, Select } from '@mantine/core'
+import { Box, Title, Text, Stack, Badge, Select } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { useAuth } from '@/app/components/AuthProvider'
 
@@ -82,7 +82,7 @@ export function AdminUsersClient() {
   }, [load])
 
   return (
-    <Container size="lg" py="xl">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
         <div>
           <Title order={2}>Admin — Users &amp; Organization Access</Title>
@@ -142,6 +142,6 @@ export function AdminUsersClient() {
           />
         )}
       </Stack>
-    </Container>
+    </Box>
   )
 }

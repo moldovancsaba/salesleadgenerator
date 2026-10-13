@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Container, Title, Text, Stack, Group, Button, TextInput, MultiSelect, Select, Paper } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Button, TextInput, MultiSelect, Select, Paper } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { useAuth } from '@/app/components/AuthProvider'
@@ -158,7 +158,7 @@ export function AdminTeamsClient() {
   }
 
   return (
-    <Container size="lg" py="xl">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
         <div>
           <Title order={2}>Admin — Teams</Title>
@@ -263,6 +263,6 @@ export function AdminTeamsClient() {
           />
         )}
       </Stack>
-    </Container>
+    </Box>
   )
 }

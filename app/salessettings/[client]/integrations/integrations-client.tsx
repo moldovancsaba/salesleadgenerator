@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Container, Title, Text, Stack, Group, Button, TextInput } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Button, TextInput } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminModal } from '@sovereignsquad/gds-admin/client'
 import { StatusBadge } from '@sovereignsquad/gds-core/client'
 import {
@@ -170,7 +170,7 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
   }))
 
   return (
-    <Container size="md" py="xl">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
         <div>
           <Title order={2}>{label} — Integrations</Title>
@@ -298,6 +298,6 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
           </Group>
         </Stack>
       </AdminModal>
-    </Container>
+    </Box>
   )
 }

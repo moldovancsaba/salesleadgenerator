@@ -68,12 +68,13 @@ Navigation provides fast, persistent access to all CRM surfaces:
 - **Mobile devices**: Tap the hamburger icon (☰) top-left to open the full responsive navigation drawer.
 - **Organization switcher**: Toggles between accessible brands (`CogMap`, `Seyu`, `DVSC`) if your user account has access to multiple organizations.
 - **Core Surfaces**:
-  - **Today** (`/today/[brand]`): Daily execution workbench with your task queue, due follow-ups, cadence tasks, and stale deals.
+  - All core surfaces operate as high-density, full-width application workspaces utilizing 100% of the display width adjacent to the docked navigation, eliminating artificial centered containers and wasted whitespace on desktop displays.
+  - **Today** (`/today/[brand]`): Daily execution workbench with your task queue, due follow-ups, cadence tasks, and stale deals spanning the full screen width.
   - **Pipeline** (`/sales/[brand]`): Kanban board and multi-pipeline management (with an inline Board / Table / Backlog / Metrics view switcher).
   - **Accounts** (`/accounts/[brand]`): Parent organizations directory, lead rollups, and account activity timeline.
-  - **Contacts** (`/contacts/[brand]`): Contact directory with buying committee roles, search, and CSV export.
-  - **Sales Settings**: Company Setup and buyer persona calibration.
-  - **Reporting & Tools**: Forecast, Battlecards, Outreach Templates, Cadences, and Ad-hoc Reports.
+  - **Contacts** (`/contacts/[brand]`): High-density contact directory with 8 explicitly sized columns, buying committee roles, multi-field search, quick filters, and CSV export.
+  - **Sales Settings**: Company Setup, target tiers, and buyer persona calibration.
+  - **Reporting & Tools**: Forecast, Battlecards, Outreach Templates, Cadences, Automation, and Ad-hoc Reports.
   - **Help**: "Take the tour" replays the onboarding spotlight walkthrough.
   - **Admin** (super admins only): Clients, Prompt Editor, Users & Access, Teams, Duplicate Review.
 

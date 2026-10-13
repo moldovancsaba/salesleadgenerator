@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Group, Text, Paper, Loader, Container, Box, TextInput, UnstyledButton, ActionIcon, Tooltip, Select, SegmentedControl } from '@mantine/core';
+import { Group, Text, Paper, Loader, Box, TextInput, UnstyledButton, ActionIcon, Tooltip, Select, SegmentedControl } from '@mantine/core';
 import { IconChecklist, IconX, IconPlus } from '@tabler/icons-react';
 import { useCommandLauncher } from '@sovereignsquad/gds-core/client';
 import type { CommandDef } from '@sovereignsquad/gds-core/client';
@@ -499,9 +499,9 @@ export function SalesPageClient({ brand, currency }: Props) {
         {view === 'kanban' && (
           <ErrorBoundary
             fallback={
-              <Container py="xl">
+              <Box py="xl">
                 <Text c="dimmed" ta="center">Unable to display the pipeline board. Please try reloading.</Text>
-              </Container>
+              </Box>
             }
           >
             <KanbanBoard
@@ -524,9 +524,9 @@ export function SalesPageClient({ brand, currency }: Props) {
           // `forecast` prop passed), same component otherwise.
           <ErrorBoundary
             fallback={
-              <Container py="xl">
+              <Box py="xl">
                 <Text c="dimmed" ta="center">Unable to display the backlog board. Please try reloading.</Text>
-              </Container>
+              </Box>
             }
           >
             <KanbanBoard
@@ -543,7 +543,7 @@ export function SalesPageClient({ brand, currency }: Props) {
 
         {view === 'table' && (
           tableLoading
-            ? <Container py="xl"><Group justify="center"><Loader /></Group></Container>
+            ? <Box py="xl"><Group justify="center"><Loader /></Group></Box>
             : <TableView leads={filteredLeads} onOpenLead={setSelectedLead} />
         )}
 

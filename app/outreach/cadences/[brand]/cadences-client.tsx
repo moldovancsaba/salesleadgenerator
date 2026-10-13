@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Select, Switch, ActionIcon, Paper, Badge } from '@mantine/core'
+import { Box, Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Select, Switch, ActionIcon, Paper, Badge } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { AdminTextInput, AdminDataTable, AdminFormStatus } from '@sovereignsquad/gds-admin/client'
 import type { Brand } from '@/app/lib/brand'
@@ -204,7 +204,7 @@ export function CadencesClient({ brand, label }: Props) {
   }
 
   return (
-    <Container size="md" py="xl">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
         <Group justify="space-between">
           <div>
@@ -370,6 +370,6 @@ export function CadencesClient({ brand, label }: Props) {
           />
         )}
       </Stack>
-    </Container>
+    </Box>
   )
 }

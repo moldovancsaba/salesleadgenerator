@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Container, Title, Text, Button, Group, Stack, Paper, TextInput, Select, MultiSelect, NumberInput, Switch, TagsInput, Loader, Badge, SegmentedControl, ActionIcon } from '@mantine/core'
+import { Box, Title, Text, Button, Group, Stack, Paper, TextInput, Select, MultiSelect, NumberInput, Switch, TagsInput, Loader, Badge, SegmentedControl, ActionIcon } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminModal } from '@sovereignsquad/gds-admin/client'
 import { GdsBarChart, GdsLineChart } from '@sovereignsquad/gds-core/client'
 import { IconPlus, IconTrash, IconPlayerPlay } from '@tabler/icons-react'
@@ -209,7 +209,7 @@ export function ReportsClient({ brand, label }: Props) {
   }
 
   return (
-    <Container size="md" py="xl">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
         <Group justify="space-between" align="flex-start">
           <div>
@@ -401,6 +401,6 @@ export function ReportsClient({ brand, label }: Props) {
           </Group>
         </Stack>
       </AdminModal>
-    </Container>
+    </Box>
   )
 }
