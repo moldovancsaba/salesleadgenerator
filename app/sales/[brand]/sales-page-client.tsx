@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Group, Text, Paper, Loader, Box, TextInput, UnstyledButton, ActionIcon, Tooltip, Select, SegmentedControl } from '@mantine/core';
-import { IconChecklist, IconX, IconPlus } from '@tabler/icons-react';
+import { Group, Text, Paper, Loader, Box, TextInput, UnstyledButton, ActionIcon, Tooltip, Select, SegmentedControl, Title, Badge, Button, Stack } from '@mantine/core';
+import { IconChecklist, IconX, IconPlus, IconSearch } from '@tabler/icons-react';
 import { useCommandLauncher } from '@sovereignsquad/gds-core/client';
 import type { CommandDef } from '@sovereignsquad/gds-core/client';
 import type { Lead } from '@/app/types';
@@ -357,120 +357,126 @@ export function SalesPageClient({ brand, currency }: Props) {
   }, [isFinePointer, accessibleBrands, brandLabels, brand, visibleLeads, router])
 
   return (
-    <div data-theme="default" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      <Paper radius="md" withBorder p="md" style={{ flexShrink: 0 }}>
-        <Group justify="space-between" align="center" wrap="nowrap" gap="xs">
-          <Text fw={700} size="lg" truncate style={{ minWidth: 0 }}>{boardMeta?.label || brand}</Text>
-        </Group>
-        {metaLoading ? (
-          <Loader size="xs" mt={4} />
-        ) : boardMeta ? (
-          <Group justify="space-between" align="center" mt={4} wrap="nowrap" gap="xs">
-            <Text size="sm" c="dimmed" truncate style={{ minWidth: 0 }}>
-              {typeof boardMeta.totalLeads === 'number' ? boardMeta.totalLeads.toLocaleString() : '—'} leads
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
+      <Stack gap="md">
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+          <div>
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
+                {boardMeta?.label || brand}
+              </Title>
+              <Badge variant="light" color="indigo" size="md">
+                {typeof boardMeta?.totalLeads === 'number' ? boardMeta.totalLeads.toLocaleString() : '—'} leads
+              </Badge>
+              {typeof boardMeta?.forecast?.totalWeightedRevenue === 'number' && !isNaN(boardMeta.forecast.totalWeightedRevenue) && (
+                <Badge variant="light" color="teal" size="md">
+                  {boardMeta.forecast.currency === 'EUR' ? '€' : '$'}{Math.round(boardMeta.forecast.totalWeightedRevenue).toLocaleString()}
+                </Badge>
+              )}
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Sales pipeline and deal execution for <Text span fw={600}>{boardMeta?.label || brand}</Text>.
             </Text>
-            {typeof boardMeta?.forecast?.totalWeightedRevenue === 'number' && !isNaN(boardMeta.forecast.totalWeightedRevenue) && (
-              <Text size="sm" c="dimmed" fw={600} style={{ flexShrink: 0 }}>
-                {boardMeta.forecast.currency === 'EUR' ? '€' : '$'}{Math.round(boardMeta.forecast.totalWeightedRevenue).toLocaleString()}
-              </Text>
+          </div>
+          <Group gap="xs">
+            <Button
+              size="xs"
+              variant="default"
+              leftSection={<IconPlus size={14} />}
+              onClick={() => setAddLeadOpen(true)}
+              data-tour={TOUR_SELECTOR.addLeadTrigger}
+            >
+              Add Lead
+            </Button>
+            {(view === 'kanban' || view === 'backlog') && (
+              <Button
+                size="xs"
+                variant={selectMode ? 'filled' : 'default'}
+                color={selectMode ? 'indigo' : undefined}
+                leftSection={selectMode ? <IconX size={14} /> : <IconChecklist size={14} />}
+                onClick={() => setSelectMode((prev) => !prev)}
+              >
+                {selectMode ? 'Cancel Selection' : 'Select'}
+              </Button>
             )}
           </Group>
-        ) : null}
-      </Paper>
+        </Group>
 
-      <Group justify="center" p="sm" style={{ flexShrink: 0 }}>
-        <Box style={{ width: '100%', maxWidth: 480, position: 'relative' }}>
-          <TextInput
-            value={searchQuery}
-            onChange={(event) => {
-              setSearchQuery(event.currentTarget.value)
-              setSearchOpen(true)
-            }}
-            onFocus={() => { if (searchQuery.trim()) setSearchOpen(true) }}
-            onBlur={handleSearchBlur}
-            placeholder="Search leads by name, industry…"
-            aria-label="Search leads"
-          />
-          {searchOpen && searchQuery.trim() && (
-            <Paper
-              withBorder
-              shadow="md"
-              style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, maxHeight: 320, overflowY: 'auto', zIndex: 1000 }}
-            >
-              {searchLoading ? (
-                <Group justify="center" p="sm"><Loader size="xs" /></Group>
-              ) : searchResults.length === 0 ? (
-                <Text size="sm" c="dimmed" p="sm">No matching leads</Text>
-              ) : (
-                searchResults.map((lead) => (
-                  <UnstyledButton
-                    key={lead._id}
-                    onClick={() => handleSearchResultClick(lead)}
-                    style={{ display: 'block', width: '100%', padding: '0.5rem 0.75rem', textAlign: 'left' }}
+        {/* High-Density Unified Toolbar matching Contacts reference */}
+        <Paper withBorder p="xs" radius="md">
+          <Group justify="space-between" align="center" wrap="wrap" gap="xs">
+            <Group gap="xs" style={{ flex: 1, minWidth: 280 }} align="center">
+              <Box style={{ flex: 1, minWidth: 220, position: 'relative' }}>
+                <TextInput
+                  size="xs"
+                  value={searchQuery}
+                  onChange={(event) => {
+                    setSearchQuery(event.currentTarget.value)
+                    setSearchOpen(true)
+                  }}
+                  onFocus={() => { if (searchQuery.trim()) setSearchOpen(true) }}
+                  onBlur={handleSearchBlur}
+                  placeholder="Search leads by name, industry…"
+                  aria-label="Search leads"
+                  leftSection={<IconSearch size={14} />}
+                  rightSection={
+                    searchQuery ? (
+                      <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => setSearchQuery('')} aria-label="Clear search">
+                        <IconX size={12} />
+                      </ActionIcon>
+                    ) : null
+                  }
+                />
+                {searchOpen && searchQuery.trim() && (
+                  <Paper
+                    withBorder
+                    shadow="md"
+                    style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, maxHeight: 320, overflowY: 'auto', zIndex: 1000 }}
                   >
-                    <Text size="sm" fw={500}>{lead.entity_name}</Text>
-                    {(lead.industry || lead.sport_or_sector) && (
-                      <Text size="xs" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
+                    {searchLoading ? (
+                      <Group justify="center" p="sm"><Loader size="xs" /></Group>
+                    ) : searchResults.length === 0 ? (
+                      <Text size="sm" c="dimmed" p="sm">No matching leads</Text>
+                    ) : (
+                      searchResults.map((lead) => (
+                        <UnstyledButton
+                          key={lead._id}
+                          onClick={() => handleSearchResultClick(lead)}
+                          style={{ display: 'block', width: '100%', padding: '0.5rem 0.75rem', textAlign: 'left' }}
+                        >
+                          <Text size="sm" fw={500}>{lead.entity_name}</Text>
+                          {(lead.industry || lead.sport_or_sector) && (
+                            <Text size="xs" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
+                          )}
+                        </UnstyledButton>
+                      ))
                     )}
-                  </UnstyledButton>
-                ))
-              )}
-            </Paper>
-          )}
-        </Box>
-      </Group>
+                  </Paper>
+                )}
+              </Box>
 
-      <div style={{ flex: 1 }}>
-        {(view === 'kanban' || view === 'table' || view === 'backlog' || view === 'metrics') && (
-          <Group justify="space-between" align="center" wrap="wrap" gap="xs" mb="sm">
-            <Group gap="xs" wrap="wrap">
               {(view === 'kanban' || view === 'table' || view === 'backlog') && (
-                <>
-                  <FilterBar brand={brand} value={leadFilter} onChange={setLeadFilter} />
-                  {pipelines.length > 1 && (
-                    <Select
-                      size="xs"
-                      w={180}
-                      aria-label="Select pipeline"
-                      value={activePipeline?.id || ''}
-                      data={pipelines.map((p) => ({ value: p.id, label: p.name }))}
-                      onChange={(val) => {
-                        const url = new URL(window.location.href);
-                        if (val && !isDefaultPipelineId(val, brand)) {
-                          url.searchParams.set('pipeline', val);
-                        } else {
-                          url.searchParams.delete('pipeline');
-                        }
-                        router.replace(`${url.pathname}${url.search}`);
-                      }}
-                    />
-                  )}
-                  {(view === 'kanban' || view === 'backlog') && (
-                    <Tooltip label={selectMode ? 'Cancel select' : 'Select leads for a bulk action'}>
-                      <ActionIcon
-                        variant={selectMode ? 'filled' : 'subtle'}
-                        size="lg"
-                        aria-label={selectMode ? 'Cancel select' : 'Select leads for a bulk action'}
-                        onClick={() => setSelectMode((prev) => !prev)}
-                      >
-                        {selectMode ? <IconX size={18} /> : <IconChecklist size={18} />}
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
-                  {view === 'kanban' && (
-                    <Tooltip label="Add a lead manually">
-                      <ActionIcon
-                        variant="subtle"
-                        size="lg"
-                        aria-label="Add a lead manually"
-                        onClick={() => setAddLeadOpen(true)}
-                        data-tour={TOUR_SELECTOR.addLeadTrigger}
-                      >
-                        <IconPlus size={18} />
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
-                </>
+                <FilterBar brand={brand} value={leadFilter} onChange={setLeadFilter} />
+              )}
+
+              {pipelines.length > 1 && (
+                <Select
+                  size="xs"
+                  w={180}
+                  aria-label="Select pipeline"
+                  value={activePipeline?.id || ''}
+                  data={pipelines.map((p) => ({ value: p.id, label: p.name }))}
+                  onChange={(val) => {
+                    const url = new URL(window.location.href);
+                    if (val && !isDefaultPipelineId(val, brand)) {
+                      url.searchParams.set('pipeline', val);
+                    } else {
+                      url.searchParams.delete('pipeline');
+                    }
+                    router.replace(`${url.pathname}${url.search}`);
+                  }}
+                />
               )}
             </Group>
 
@@ -494,62 +500,64 @@ export function SalesPageClient({ brand, currency }: Props) {
               ]}
             />
           </Group>
-        )}
+        </Paper>
 
-        {view === 'kanban' && (
-          <ErrorBoundary
-            fallback={
-              <Box py="xl">
-                <Text c="dimmed" ta="center">Unable to display the pipeline board. Please try reloading.</Text>
-              </Box>
-            }
-          >
-            <KanbanBoard
-              key={`kanban-${refreshKey}-${activePipeline?.id || 'default'}`}
-              brand={brand}
-              columnDefs={pipelineColumnDefs}
-              onOpenLead={setSelectedLead}
-              forecast={boardMeta?.forecast?.pipeline || null}
-              forecastCurrency={boardMeta?.forecast?.currency === 'EUR' ? 'EUR' : 'USD'}
-              filter={leadFilter}
-              selectMode={selectMode}
-              onAction={handleAction}
-              onVisibleLeadsChange={handleVisibleLeadsChange}
-            />
-          </ErrorBoundary>
-        )}
+        <Box style={{ flex: 1, minWidth: 0 }}>
+          {view === 'kanban' && (
+            <ErrorBoundary
+              fallback={
+                <Box py="xl">
+                  <Text c="dimmed" ta="center">Unable to display the pipeline board. Please try reloading.</Text>
+                </Box>
+              }
+            >
+              <KanbanBoard
+                key={`kanban-${refreshKey}-${activePipeline?.id || 'default'}`}
+                brand={brand}
+                columnDefs={pipelineColumnDefs}
+                onOpenLead={setSelectedLead}
+                forecast={boardMeta?.forecast?.pipeline || null}
+                forecastCurrency={boardMeta?.forecast?.currency === 'EUR' ? 'EUR' : 'USD'}
+                filter={leadFilter}
+                selectMode={selectMode}
+                onAction={handleAction}
+                onVisibleLeadsChange={handleVisibleLeadsChange}
+              />
+            </ErrorBoundary>
+          )}
 
-        {view === 'backlog' && (
-          // Issue #126 — Backlog is excluded entirely from Forecast (no
-          // `forecast` prop passed), same component otherwise.
-          <ErrorBoundary
-            fallback={
-              <Box py="xl">
-                <Text c="dimmed" ta="center">Unable to display the backlog board. Please try reloading.</Text>
-              </Box>
-            }
-          >
-            <KanbanBoard
-              key={`backlog-${refreshKey}`}
-              brand={brand}
-              onOpenLead={setSelectedLead}
-              filter={leadFilter}
-              selectMode={selectMode}
-              columnDefs={BACKLOG_COLUMN_DEF}
-              onAction={handleAction}
-            />
-          </ErrorBoundary>
-        )}
+          {view === 'backlog' && (
+            // Issue #126 — Backlog is excluded entirely from Forecast (no
+            // `forecast` prop passed), same component otherwise.
+            <ErrorBoundary
+              fallback={
+                <Box py="xl">
+                  <Text c="dimmed" ta="center">Unable to display the backlog board. Please try reloading.</Text>
+                </Box>
+              }
+            >
+              <KanbanBoard
+                key={`backlog-${refreshKey}`}
+                brand={brand}
+                onOpenLead={setSelectedLead}
+                filter={leadFilter}
+                selectMode={selectMode}
+                columnDefs={BACKLOG_COLUMN_DEF}
+                onAction={handleAction}
+              />
+            </ErrorBoundary>
+          )}
 
-        {view === 'table' && (
-          tableLoading
-            ? <Box py="xl"><Group justify="center"><Loader /></Group></Box>
-            : <TableView leads={filteredLeads} onOpenLead={setSelectedLead} />
-        )}
+          {view === 'table' && (
+            tableLoading
+              ? <Box py="xl"><Group justify="center"><Loader /></Group></Box>
+              : <TableView leads={filteredLeads} onOpenLead={setSelectedLead} />
+          )}
 
-        {view === 'metrics' && <MetricsPanel brand={brand} tenantId="default" />}
-        {view === 'search' && <SearchLearningPanel />}
-      </div>
+          {view === 'metrics' && <MetricsPanel brand={brand} tenantId="default" />}
+          {view === 'search' && <SearchLearningPanel />}
+        </Box>
+      </Stack>
 
       {selectedLead && (
         <LeadDetailModal
@@ -577,6 +585,6 @@ export function SalesPageClient({ brand, currency }: Props) {
         onClose={() => setAddLeadOpen(false)}
         onCreated={() => setRefreshKey((k) => k + 1)}
       />
-    </div>
+    </Box>
   );
 }

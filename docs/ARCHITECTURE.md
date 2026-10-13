@@ -1462,9 +1462,20 @@ Ingests CRM Cadence Engine & Sequence Enforcement into Sales Lead Generator:
 ### Uniform Kanban Column Geometry & Width Invariant (2.4.266)
 - **Root Cause of Column Width Inconsistencies:** GDS `KanbanColumn` defaults to `minWidth: width, flex: '0 0 auto'` without `width` or `maxWidth`. Columns with extra metadata (such as the WIP limit indicator `{count}/{limit}` in `Discovered` and `Qualified`) or longer titles ballooned up to 420px+, while columns without WIP badges (`Engaged`, `Won`, etc.) remained at 280px. This produced jarring, uneven column widths across the board.
 - **Resolution:**
-  1. *Global Geometry Constraint (`app/globals.css`)*: Enforced `width: 320px !important`, `min-width: 320px !important`, `max-width: 320px !important`, `flex: 0 0 320px !important` on `[data-gds-kanban-column]:not([data-gds-kanban-column-collapsed="true"])`. Collapsed columns cleanly drop to `width: auto !important; flex: 0 0 auto !important`.
+  1. *Global Geometry Constraint (`app/globals.css`)*: Enforced `width: 320px !important`, `min-width: 320px !important`, `max-width: 320px !important`, `flex: 0 0 320px !important` on `[data-gds-kanban-column]:not([data-gds-kanban-column="BACKLOG"]):not([data-gds-kanban-column-collapsed="true"])`. Collapsed columns cleanly drop to `width: auto !important; flex: 0 0 auto !important`.
   2. *GdsKanbanBoard Explicit `columnWidth` (`app/kanban.tsx`)*: Passed `columnWidth={320}` into `<GdsKanbanBoard />` to align GDS internal calculations with the 320px geometry.
   3. *WIP Badge Title Formatting (`app/kanban.tsx`)*: Formatted WIP badge as `size="xs"` with `wrap="wrap"` and `truncate` on the title label to ensure dense header layouts fit within the 320px column boundary without horizontal pressure.
+
+### Contacts-Reference Layout Standardization & Full-Width Data Presentation (2.4.267)
+- **Defects Identified:**
+  1. *Wasted Screen Real Estate on Sales Board*: `sales-page-client.tsx` used a large separate Paper header card, followed by a centered search input floating in empty space, followed by a separate row for filters and view controls, fragmenting viewport space.
+  2. *Table View Column Starvation*: `app/table.tsx` rendered an incomplete 6-column table with no explicit column widths, causing columns to clump together on the left and leave the right 40% of the screen blank. Crucial CRM fields (Deal Value, Primary Contact, Assignee, colored stage badges, direct action button) were absent.
+  3. *Backlog Single-Column Void*: In Backlog view, a single 320px Kanban column was rendered on the far left, leaving 80% of widescreen displays as empty background.
+- **Resolution (modeled on Contacts gold standard reference):**
+  1. *Compact Application Header (`app/sales/[brand]/sales-page-client.tsx`)*: Implemented a compact single-row application header featuring the brand title, lead count badge, forecast revenue badge, and primary action buttons (Add Lead, Select Mode).
+  2. *High-Density Unified Toolbar (`app/sales/[brand]/sales-page-client.tsx`)*: Replaced fragmented multi-row controls with a single bordered `<Paper>` toolbar housing search on the left (`flex: 1`, minWidth: 220), FilterBar popup, pipeline selector, and the view switcher SegmentedControl (`Board | Table | Backlog | Metrics`).
+  3. *Full-Width CRM TableView (`app/table.tsx`)*: Upgraded to a 10-column high-density CRM table with explicit column widths (`width: 240`, `width: 120`, `width: 220`, etc.), sortable headers, deal value estimation, stage badges, primary contact information (with mailto links), assignee badges, quality status indicators, tag chips, and row action triggers.
+  4. *Backlog Full-Width Multi-Column Grid (`app/globals.css`)*: Configured `[data-gds-kanban-column="BACKLOG"]` to expand to 100% width with a responsive multi-column CSS grid (`repeat(auto-fill, minmax(320px, 1fr))`), filling the widescreen display with 3–5 card columns while keeping cards at their optimal 320px width.
 
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)

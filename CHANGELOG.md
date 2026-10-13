@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.267
+
+### Layout: Contacts-reference standardization, full-width TableView, and Backlog multi-column grid
+
+- **Contacts Reference Layout Standardization (`app/sales/[brand]/sales-page-client.tsx`):**
+  - Replaced bulky standalone Paper header and centered floating search box with a compact, high-density layout modeled on Contacts (`contacts-client.tsx`).
+  - Added compact header with brand label, total leads badge, pipeline forecast revenue badge, and primary action buttons (Add Lead, Select Mode).
+  - Integrated search, FilterBar, multi-pipeline switcher, and view switcher SegmentedControl into a single bordered `<Paper>` toolbar.
+- **Full-Width CRM TableView Overhaul (`app/table.tsx`):**
+  - Upgraded TableView to 10 sortable columns with explicit widths spanning 100% of viewport width.
+  - Added deal value estimation, colored pipeline stage badges, primary contact info (with clickable mailto), assignee badges, quality badges, and row action triggers.
+- **Backlog Full-Width Responsive Multi-Column Grid (`app/globals.css`):**
+  - Configured Backlog column to expand to 100% width with a responsive multi-column CSS grid (`repeat(auto-fill, minmax(320px, 1fr))`), filling the widescreen display with 3–5 card columns instead of a single 320px column on the left.
+- **Automated Verification:**
+  - Added test assertions in `tests/lib/desktop-tablet-nav.test.ts`.
+
 ## 2.4.266
 
 ### Kanban: Uniform 320px column width geometry across all uncollapsed columns

@@ -120,14 +120,32 @@ describe('desktop and tablet navigation affordances', () => {
     expect(layout).toContain("alignItems: 'flex-start'");
   });
 
-  it('enforces identical, uniform 320px column width across uncollapsed Kanban columns', () => {
+  it('enforces identical, uniform 320px column width across uncollapsed Kanban columns and full-width backlog grid', () => {
     const globals = readFileSync(join(root, 'app', 'globals.css'), 'utf8');
-    expect(globals).toContain('[data-gds-kanban-column]:not([data-gds-kanban-column-collapsed="true"])');
+    expect(globals).toContain('[data-gds-kanban-column]:not([data-gds-kanban-column="BACKLOG"]):not([data-gds-kanban-column-collapsed="true"])');
     expect(globals).toContain('width: 320px !important;');
     expect(globals).toContain('min-width: 320px !important;');
     expect(globals).toContain('max-width: 320px !important;');
+    expect(globals).toContain('[data-gds-kanban-column="BACKLOG"]');
+    expect(globals).toContain('width: 100% !important;');
+    expect(globals).toContain('grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;');
 
     const kanban = readFileSync(join(root, 'app', 'kanban.tsx'), 'utf8');
     expect(kanban).toContain('columnWidth={320}');
+  });
+
+  it('models TableView and sales page client on Contacts reference layout with full width and rich CRM columns', () => {
+    const table = readFileSync(join(root, 'app', 'table.tsx'), 'utf8');
+    expect(table).toContain('AdminDataTable');
+    expect(table).toContain("header: 'Lead Name'");
+    expect(table).toContain("header: 'Deal Value'");
+    expect(table).toContain("header: 'Stage'");
+    expect(table).toContain("header: 'Primary Contact'");
+    expect(table).toContain("header: 'Assignee'");
+
+    const sales = readFileSync(join(root, 'app', 'sales', '[brand]', 'sales-page-client.tsx'), 'utf8');
+    expect(sales).toContain("px={{ base: 'sm', sm: 'md', md: 'lg' }}");
+    expect(sales).toContain('<Title order={2}');
+    expect(sales).toContain('IconSearch');
   });
 });

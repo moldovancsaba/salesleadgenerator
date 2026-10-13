@@ -59,19 +59,34 @@ textarea {
 
 /*
   Kanban column geometry:
-  Enforces uniform, identical column width across all uncollapsed columns on
-  the Kanban board. GDS KanbanBoard sets `minWidth: width, flex: 0 0 auto` with
-  no maxWidth or width, allowing columns with longer titles or WIP limit badges
-  to balloon wider than other columns, producing jarring width inconsistencies.
-  Fixing width, min-width, and max-width guarantees every uncollapsed column
-  maintains the exact same 320px width, while collapsed columns shrink to auto.
+  1. Multi-column boards (Discovered, Qualified, Engaged, Proposal, Won, Lost):
+     Enforces uniform, identical 320px column width across all uncollapsed columns
+     so columns with WIP limits or longer titles never balloon wider than others.
+  2. Backlog single-column board:
+     Expands to 100% width with cards arranged in a responsive multi-column grid
+     (minmax 320px, 1fr) across the viewport to eliminate empty wasted space.
+  3. Collapsed columns cleanly shrink to width: auto.
 */
-[data-gds-kanban-column]:not([data-gds-kanban-column-collapsed="true"]) {
+[data-gds-kanban-column]:not([data-gds-kanban-column="BACKLOG"]):not([data-gds-kanban-column-collapsed="true"]) {
   width: 320px !important;
   min-width: 320px !important;
   max-width: 320px !important;
   flex: 0 0 320px !important;
   box-sizing: border-box !important;
+}
+
+[data-gds-kanban-column="BACKLOG"] {
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  flex: 1 1 100% !important;
+  box-sizing: border-box !important;
+}
+
+[data-gds-kanban-column="BACKLOG"] [data-gds-kanban-column-body="BACKLOG"] > .mantine-Stack-root {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
+  gap: 12px !important;
 }
 
 [data-gds-kanban-column-collapsed="true"] {
