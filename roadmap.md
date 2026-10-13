@@ -18,7 +18,6 @@ Last synced: 2026-09-27. #232 filed and closed (a real bug found by a proactive 
 |---|---|---|---|
 | [#132](https://github.com/moldovancsaba/salesleadgenerator/issues/132) | Backfill existing leads into the controlled taxonomy schema (rulebook v1.0, Phase 2) | P1 | 318 of 2,874 leads classified as of the last batch (2026-08-08), re-derived live from `GET /api/leads` rather than trusted from any prior branch's own claim (see `docs/LESSONS_LEARNED.md` §3 — an orphaned branch's claimed progress was found not to match production). Picking now weighted toward QUALIFIED/ENGAGED/PROPOSAL-stage leads (sales-team-active), not just backlog — see `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9. Real, ongoing, multi-session effort — not completable in one sitting. |
 
-
 ## Ready (unblocked, unstarted)
 
 | # | Title | Priority | Notes |
@@ -43,6 +42,7 @@ Last synced: 2026-09-27. #232 filed and closed (a real bug found by a proactive 
 
 | # | Title | Resolution |
 |---|---|---|
+| [#236](https://github.com/moldovancsaba/salesleadgenerator/issues/236) | Outreach: Cadence multi-channel steps, completion gating, last-mile safety, and suppression (Vega CRM ingestion Phase 2) | Fixed 2.4.249, pushed to `main`. Ingested Vega CRM Invariants 1–4 into Sales Lead Generator: suppression list (email/domain), last-mile send authorization, reply auto-stop, multi-channel tasks (`general`/`call`/`linkedin`), and completion-gated cadence progression via `POST /api/leads/[id]/cadence/complete-step`. Full unit & integration test coverage. |
 | [#235](https://github.com/moldovancsaba/salesleadgenerator/issues/235) | CRM: Multi-pipeline configuration, stage models, and pipeline-scoped deal validation (Vega CRM ingestion Phase 1) | Fixed 2.4.248, pushed to `main`. Ingested Vega CRM Handoff 02 & Handoff 09 into Sales Lead Generator: multi-pipeline registry, customizable stages, pipeline-scoped deals with transition validation, and URL-addressable pipeline boards (`?pipeline=<id>`). Verified by unit & integration tests. |
 | [#233](https://github.com/moldovancsaba/salesleadgenerator/issues/233) | Bug: stale_no_activity automation tick's per-brand scan cap has no sort, so a backlog beyond the cap may never get evaluated | Fixed 2.4.247, pushed to `main`. Found by a proactive code audit. `runStaleTickForBrand()` now sorts oldest-`updatedAt`-first before its cap, matching `cadence-tick`'s own established convention; a new test reproduces the gap and was confirmed failing against the pre-fix code first. |
 | [#224](https://github.com/moldovancsaba/salesleadgenerator/issues/224) | Outage: every Vercel Cron job returns 401 in production because CRON_SECRET is not set | Closed 2026-09-27. Owner set `CRON_SECRET` in Vercel Production (Sensitive); verified after the next deploy by sending the exact `Authorization: Bearer $CRON_SECRET` header Vercel's own scheduler sends — a real cron-tick route returned 200. A stray duplicate `CRON_SECRET` scoped to Development/Preview (flagged `readable-secret` by Vercel) still needs the owner to delete via the dashboard — no project-env-var delete tool is available to a session. |

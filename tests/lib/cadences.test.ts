@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   sanitizeCadenceStep, sanitizeCadenceSteps, sanitizeCadence, validateCadence,
-  computeStepDueAt, buildInitialActiveCadence, advanceActiveCadence,
+  computeStepDueAt, buildInitialActiveCadence, advanceActiveCadence, completeTaskStep,
 } from '../../lib/cadences';
 
 const NOW = new Date('2026-07-31T00:00:00.000Z');
@@ -17,10 +17,11 @@ describe('sanitizeCadenceStep', () => {
     expect(sanitizeCadenceStep(undefined)).toBeNull();
   });
 
-  it('accepts email, linkedin, and call channels', () => {
+  it('accepts email, linkedin, call, and general channels', () => {
     expect(sanitizeCadenceStep({ channel: 'email' })?.channel).toBe('email');
     expect(sanitizeCadenceStep({ channel: 'linkedin' })?.channel).toBe('linkedin');
     expect(sanitizeCadenceStep({ channel: 'call' })?.channel).toBe('call');
+    expect(sanitizeCadenceStep({ channel: 'general' })?.channel).toBe('general');
   });
 
   it('defaults waitDaysAfterPrevious to 0 for missing/invalid values', () => {
@@ -140,12 +141,13 @@ describe('validateCadence', () => {
     expect(errors).toEqual([]);
   });
 
-  it('does not require a templateId for linkedin/call steps', () => {
+    it('does not require a templateId for linkedin/call/general steps', () => {
     const errors = validateCadence({
       name: 'Cadence',
       steps: [
         { id: '1', channel: 'linkedin', waitDaysAfterPrevious: 0 },
         { id: '2', channel: 'call', waitDaysAfterPrevious: 1 },
+        { id: '3', channel: 'general', waitDaysAfterPrevious: 2 },
       ],
     });
     expect(errors).toEqual([]);
@@ -216,5 +218,52 @@ describe('advanceActiveCadence', () => {
     active = advanceActiveCadence(cadence, active, NOW)!;
     expect(active.currentStepIndex).toBe(2);
     expect(active.enrolledAt).toBe(NOW.toISOString());
+  });
+});
+
+describe('completeTaskStep', () => {
+  const cadence = {
+    id: 'c1',
+    steps: [
+      { id: 's1', channel: 'general' as const, waitDaysAfterPrevious: 0 },
+      { id: 's2', channel: 'email' as const, waitDaysAfterPrevious: 4 },
+      { id: 's3', channel: 'call' as const, waitDaysAfterPrevious: 2 },
+    ],
+  };
+
+  it('advances to next step and computes stepDueAt strictly from actual completedAt', () => {
+    const active = {
+      cadenceId: 'c1',
+      currentStepIndex: 0,
+      stepDueAt: NOW.toISOString(),
+      enrolledAt: NOW.toISOString(),
+      waitingForTask: true,
+      taskStepId: 's1',
+    };
+    // Completed 3 days later
+    const completedAt = new Date(NOW.getTime() + 3 * 86_400_000);
+    const nextActive = completeTaskStep(cadence, active, completedAt);
+
+    expect(nextActive).not.toBeNull();
+    expect(nextActive?.currentStepIndex).toBe(1);
+    expect(nextActive?.waitingForTask).toBe(false);
+    expect(nextActive?.taskCompletedAt).toBe(completedAt.toISOString());
+    expect(nextActive?.status).toBe('active');
+    // next step wait is 4 days after completedAt
+    expect(nextActive?.stepDueAt).toBe(new Date(completedAt.getTime() + 4 * 86_400_000).toISOString());
+    expect(nextActive?.enrolledAt).toBe(NOW.toISOString());
+  });
+
+  it('returns null when the completed step was the final step', () => {
+    const active = {
+      cadenceId: 'c1',
+      currentStepIndex: 2,
+      stepDueAt: NOW.toISOString(),
+      enrolledAt: NOW.toISOString(),
+      waitingForTask: true,
+      taskStepId: 's3',
+    };
+    const nextActive = completeTaskStep(cadence, active, NOW);
+    expect(nextActive).toBeNull();
   });
 });

@@ -173,7 +173,8 @@ describe('GET /api/admin/cadence-tick — linkedin/call reminder step (issue 151
     const lead = await getLead('leads', leadId);
     expect(lead?.nextActionNote).toBe('Send a personalized connection request');
     expect(lead?.nextActionDueAt).toBeTruthy();
-    expect(lead?.activeCadence.currentStepIndex).toBe(1);
+    expect(lead?.activeCadence.waitingForTask).toBe(true);
+    expect(lead?.activeCadence.currentStepIndex).toBe(0);
   });
 
   it('a call step with no custom reminderNote gets the default note', async () => {
@@ -277,8 +278,10 @@ describe('GET /api/admin/cadence-tick — multi-brand (issue 151)', () => {
     expect(body.remindersSet).toBe(2);
     const cogmapLead = await getLead('leads', cogmapLeadId);
     const seyuLead = await getLead('seyu_leads', seyuLeadId);
-    expect(cogmapLead?.activeCadence).toBeNull();
-    expect(seyuLead?.activeCadence).toBeNull();
+    expect(cogmapLead?.activeCadence?.waitingForTask).toBe(true);
+    expect(seyuLead?.activeCadence?.waitingForTask).toBe(true);
+    expect(cogmapLead?.nextActionNote).toBe('Call due (cadence)');
+    expect(seyuLead?.nextActionNote).toBe('Call due (cadence)');
   });
 });
 
@@ -306,11 +309,11 @@ describe('GET /api/admin/cadence-tick — per-tick cap (issue 151)', () => {
 
     const { ObjectId } = await import('mongodb');
     const database = await db();
-    const stillDueCount = await database.collection('leads').countDocuments({
+    const unprocessedCount = await database.collection('leads').countDocuments({
       _id: { $in: leadIds.map((id) => new ObjectId(id)) },
-      'activeCadence.currentStepIndex': 0,
+      'activeCadence.waitingForTask': { $ne: true },
     });
-    expect(stillDueCount).toBe(5);
+    expect(unprocessedCount).toBe(5);
   }, 30000);
 });
 
@@ -355,7 +358,8 @@ describe('GET /api/admin/cadence-tick — email sending not configured', () => {
     await tickGET(req('/api/admin/cadence-tick'));
 
     const lead = await getLead('seyu_leads', leadId);
-    expect(lead?.activeCadence.currentStepIndex).toBe(1);
+    expect(lead?.activeCadence.waitingForTask).toBe(true);
+    expect(lead?.activeCadence.currentStepIndex).toBe(0);
     expect(lead?.nextActionDueAt).toBeTruthy();
   });
 });

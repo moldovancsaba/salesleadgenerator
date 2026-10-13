@@ -22,6 +22,7 @@ import { interpolate, type OutreachTemplate } from '../app/lib/outreach/default-
 import { getDecisionMakerContact } from './contacts';
 import { getBrandConfig } from '../app/lib/brand';
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes, truncateBody } from '../app/lib/activity-log-store';
+import { isRecipientSuppressed } from './suppression';
 
 export type AutomatedSendContext = {
   brand: string;
@@ -108,17 +109,16 @@ async function writeOutreachLog(
   context: { brand: string; tenantId: string },
   leadId: string,
   fields: {
+    to?: string;
     templateId?: string;
     subject?: string;
     body: string;
     routingAllowed: boolean;
     routingReason: string | null;
     // Issue #205 — sendAttempted distinguishes a row this module wrote
-    // (always true here) from a POST /api/outreach-logs record-only row
-    // (which never sets this field at all) — sentAutomatically alone is
-    // ambiguous, since false/absent covers both a Log-outreach row and a
-    // manual real-send row.
-    sendAttempted: true;
+    // from a POST /api/outreach-logs record-only row (which never sets
+    // this field at all). False if suppressed or cancelled prior to send.
+    sendAttempted: boolean;
     resendEmailId?: string;
     sentAutomatically: boolean;
     cadenceId?: string;
@@ -141,6 +141,7 @@ async function writeOutreachLog(
     tenantId: context.tenantId,
     leadId,
     brand: context.brand,
+    to: fields.to,
     templateId: fields.templateId,
     channel: 'email',
     subject: fields.subject,
@@ -278,6 +279,50 @@ export async function dispatchOutreachEmail(
     return { sent: false, reason: 'Missing decision maker email for email outreach.', outreachLogId };
   }
 
+  // Vega CRM Invariant 1 & 4: Suppression registry check.
+  // Never dispatch to an address or domain marked unsubscribed, bounced, complained, or DNC.
+  const suppressionCheck = await isRecipientSuppressed(db, context.brand, context.tenantId, to);
+  if (suppressionCheck.suppressed) {
+    const reason = `SEND_CANCELLED_SUPPRESSED: recipient ${to} is suppressed (${suppressionCheck.reason})`;
+    const outreachLogId = await writeOutreachLog(db, context, leadId, {
+      to,
+      templateId: template.id,
+      subject,
+      body,
+      routingAllowed: false,
+      routingReason: reason,
+      sendAttempted: false,
+      sentAutomatically,
+      ...cadenceFields,
+    });
+    return { sent: false, reason, outreachLogId };
+  }
+
+  // Vega CRM Invariant 2 & 4: Inbound replies cancel automated cadence outreach.
+  // Immediately before provider call, verify the contact hasn't already replied.
+  if (source.kind === 'cadence') {
+    const reply = await db.collection(ACTIVITY_LOG_COLLECTION).findOne({
+      tenantId: context.tenantId,
+      leadId,
+      direction: 'inbound',
+    });
+    if (reply) {
+      const reason = 'SEND_CANCELLED_REPLIED: contact has replied';
+      const outreachLogId = await writeOutreachLog(db, context, leadId, {
+        to,
+        templateId: template.id,
+        subject,
+        body,
+        routingAllowed: false,
+        routingReason: reason,
+        sendAttempted: false,
+        sentAutomatically,
+        ...cadenceFields,
+      });
+      return { sent: false, reason, outreachLogId };
+    }
+  }
+
   // Idempotency-Key, not a duplicate send. Cadence: a retried cron tick
   // (issue #151) for the same lead/step resolves to the same key, so Resend
   // itself dedupes rather than this module needing to track its own
@@ -325,6 +370,7 @@ export async function dispatchOutreachEmail(
   }
 
   const outreachLogId = await writeOutreachLog(db, context, leadId, {
+    to,
     templateId: template.id,
     subject,
     body,

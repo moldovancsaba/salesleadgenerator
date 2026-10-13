@@ -23,9 +23,10 @@ export const dynamic = 'force-dynamic'
 const MAX_CADENCE_SENDS_PER_TICK = 200
 const TENANT_ID = 'default'
 
-const REMINDER_NOTE_DEFAULTS: Record<'linkedin' | 'call', string> = {
+const REMINDER_NOTE_DEFAULTS: Record<'linkedin' | 'call' | 'general', string> = {
   linkedin: 'LinkedIn touch due (cadence)',
   call: 'Call due (cadence)',
+  general: 'Task due (cadence)',
 }
 
 type TickSummary = {
@@ -86,7 +87,11 @@ async function runCadenceTick(): Promise<TickSummary> {
     // (issue #151's own edge case). ISO-8601 strings sort lexicographically
     // in the same order as chronologically, so a plain string sort is correct.
     const dueLeads = await leadsCollection
-      .find({ ...tenantFilter(TENANT_ID), 'activeCadence.stepDueAt': { $lte: nowIso } })
+      .find({
+        ...tenantFilter(TENANT_ID),
+        'activeCadence.stepDueAt': { $lte: nowIso },
+        'activeCadence.waitingForTask': { $ne: true },
+      })
       .sort({ 'activeCadence.stepDueAt': 1 })
       .limit(MAX_CADENCE_SENDS_PER_TICK)
       .toArray()
@@ -95,6 +100,11 @@ async function runCadenceTick(): Promise<TickSummary> {
       summary.processed++
       const leadId = leadDoc._id.toString()
       const active = leadDoc.activeCadence as ActiveCadence
+
+      // Vega CRM Invariant 3: completion gating. If waiting for manual task, skip.
+      if (active.waitingForTask) {
+        continue
+      }
 
       let cadenceObjectId: ObjectId | null = null
       try {
@@ -156,29 +166,55 @@ async function runCadenceTick(): Promise<TickSummary> {
         if (result.sent) {
           summary.emailsSent++
         } else {
+          // Vega CRM Invariant 2 & 4: If send was aborted because recipient replied or is suppressed,
+          // stop the cadence immediately.
+          if (
+            result.reason?.startsWith('SEND_CANCELLED_REPLIED') ||
+            result.reason?.startsWith('SEND_CANCELLED_SUPPRESSED')
+          ) {
+            await leadsCollection.updateOne({ _id: leadDoc._id }, { $set: { activeCadence: null, updatedAt: now } })
+            summary.failures.push({ leadId, brand, reason: result.reason })
+            continue
+          }
+
           // Non-Goals: no retry-with-backoff within the same tick — a
           // routing/send failure still advances the cadence (logged here,
           // visible in Activity via outreach_logs), never blocks on retry.
           summary.failures.push({ leadId, brand, reason: result.reason || 'send failed' })
         }
+
+        const nextActive = advanceActiveCadence(cadenceForAdvance, active, now)
+        if (nextActive) {
+          await leadsCollection.updateOne({ _id: leadDoc._id }, { $set: { activeCadence: nextActive } })
+        } else {
+          await leadsCollection.updateOne({ _id: leadDoc._id }, { $set: { activeCadence: null } })
+          summary.cadencesCompleted++
+        }
       } else {
-        // linkedin/call — never calls Resend (LinkedIn automation is
-        // ToS-infeasible, see lib/cadences.ts's own header comment). Reuses
-        // issue #121's exact due/overdue mechanism rather than a second one.
-        const reminderNote = currentStep.reminderNote || REMINDER_NOTE_DEFAULTS[currentStep.channel]
+        // linkedin/call/general — never calls Resend.
+        // Vega CRM Invariant 3: manual tasks pause the cadence (completion gating).
+        // The cadence scheduler (cadence-tick) MUST NOT advance the step while waiting.
+        // Overdue tasks stay waiting and do not auto-complete.
+        const reminderNote = currentStep.reminderNote || (REMINDER_NOTE_DEFAULTS as Record<string, string>)[currentStep.channel] || 'Task due (cadence)'
+        const waitingCadence: ActiveCadence = {
+          ...active,
+          waitingForTask: true,
+          taskStepId: currentStep.id,
+          taskDueAt: nowIso,
+          status: 'waiting_task',
+        }
         await leadsCollection.updateOne(
           { _id: leadDoc._id },
-          { $set: { nextActionDueAt: nowIso, nextActionNote: reminderNote, updatedAt: now } }
+          {
+            $set: {
+              nextActionDueAt: nowIso,
+              nextActionNote: reminderNote,
+              activeCadence: waitingCadence,
+              updatedAt: now,
+            },
+          }
         )
         summary.remindersSet++
-      }
-
-      const nextActive = advanceActiveCadence(cadenceForAdvance, active, now)
-      if (nextActive) {
-        await leadsCollection.updateOne({ _id: leadDoc._id }, { $set: { activeCadence: nextActive } })
-      } else {
-        await leadsCollection.updateOne({ _id: leadDoc._id }, { $set: { activeCadence: null } })
-        summary.cadencesCompleted++
       }
     }
   }

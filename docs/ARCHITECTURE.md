@@ -1289,6 +1289,16 @@ Ingests Vega CRM Handoff 02 & Handoff 09 into Sales Lead Generator:
 - **UI Integration:** The sales page (`app/sales/[brand]/sales-page-client.tsx`) supports URL-addressable pipeline selection (`?pipeline=<id>`), toolbar pipeline selection when multiple pipelines exist, and dynamic `columnDefs` passed to `KanbanBoard`.
 - **Test Coverage:** `tests/lib/pipelines.test.ts` (19 pure unit tests), `tests/lib/deals.test.ts` (extended unit tests), `tests/integration/pipelines.integration.test.ts` (7 integration tests exercising full CRUD, deal assignment checks, and deletion refusal).
 
+### Outreach Cadences, Completion Gating, and Suppression Registry (2.4.249, issue #236)
+Ingests Vega CRM Outreach Invariants 1–4 into Sales Lead Generator:
+- **Suppression Registry (`lib/suppression.ts`):** `suppressed_recipients` collection keyed by brand, tenantId, kind (`email` | `domain`), and target with reasons (`unsubscribed`, `bounced`, `complained`, `manual`, `do_not_contact`). Evaluated at the final send gateway to guarantee no outreach ever reaches suppressed addresses or domains (Invariant 1).
+- **Completion-Gated Step Progression (`lib/cadences.ts`):** Manual task steps (`call`, `linkedin`, `general`) pause the cadence (`waitingForTask: true`, `status: 'waiting_task'`). The cadence scheduler (`cadence-tick`) does not auto-advance or auto-complete manual tasks even if overdue. The subsequent step delay is calculated from `completed_at` when the rep completes the task, not a precomputed date (Invariant 3).
+- **Reply Cancellation (`app/api/webhooks/inbound-email/route.ts`):** An inbound email reply from a lead contact immediately cancels automated cadence progression (`activeCadence: null`) and clears waiting sequence reminders with `Sequence stopped: contact replied` (Invariant 2).
+- **Last-Mile Send Authorization (`lib/outreach-send.ts`):** Immediately before dispatching via Resend, `dispatchOutreachEmail` verifies recipient suppression and checks `activityLog` for inbound replies. If suppressed or replied, dispatch aborts (`SEND_CANCELLED_SUPPRESSED` / `SEND_CANCELLED_REPLIED`), writes an `outreach_logs` record with `sendAttempted: false` and `routingAllowed: false`, and avoids provider API calls (Invariant 4).
+- **API Surface:** `POST /api/leads/[id]/cadence/complete-step` (rep-triggered manual task completion advancing step and writing `activityLog` audit entry).
+- **UI Surface:** `CadencePanel` displays task required status and provides a "Complete Task" action; `CadencesClient` supports the `general` channel for human task reminders in cadence builders.
+- **Test Coverage:** `tests/lib/suppression.test.ts` (8 unit tests), `tests/lib/cadences.test.ts` (32 unit tests), `tests/integration/cadence-invariants.integration.test.ts` (3 integration tests verifying all 4 invariants end-to-end), plus updated `cadence-tick.integration.test.ts` and `inbound-email-webhook.integration.test.ts`.
+
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)
 - Brand-aware field normalization prevents cross-tenant writes

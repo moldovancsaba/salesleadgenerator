@@ -29,6 +29,7 @@ const CHANNEL_OPTIONS = [
   { value: 'email', label: 'Email (sent automatically)' },
   { value: 'linkedin', label: 'LinkedIn (human reminder)' },
   { value: 'call', label: 'Call (human reminder)' },
+  { value: 'general', label: 'General task (human reminder)' },
 ]
 
 const EMPTY_FORM: Omit<Cadence, 'id' | 'enrolledCount'> = {
@@ -292,7 +293,7 @@ export function CadencesClient({ brand, label }: Props) {
                           clearable
                         />
                       )}
-                      {(step.channel === 'linkedin' || step.channel === 'call') && (
+                      {(step.channel === 'linkedin' || step.channel === 'call' || step.channel === 'general') && (
                         <TextInput
                           label="Reminder note"
                           placeholder="Send a personalized connection request"

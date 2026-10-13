@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
  
+## 2.4.249
+
+### Enhancement: outreach cadences multi-channel steps, completion gating, last-mile safety, and suppression registry (Vega CRM ingestion Phase 2, fixes #236)
+
+Ingests Vega CRM Outreach Invariants 1–4 into Sales Lead Generator:
+- `lib/suppression.ts`: implements brand/tenant suppression registry (`suppressed_recipients` collection), `isRecipientSuppressed()`, `suppressRecipient()`, `unsuppressRecipient()`, and `normalizeSuppressionTarget()` supporting email and domain suppression with optional expiration (Vega CRM Invariant 1).
+- `lib/cadences.ts`: adds `general` channel to `CadenceStepChannel`; enhances `ActiveCadence` with `waitingForTask`, `taskStepId`, `taskDueAt`, `taskCompletedAt`, and `status`; implements `completeTaskStep()` calculating next step delays strictly from actual task completion timestamp (Vega CRM Invariant 3).
+- `lib/outreach-send.ts`: checks recipient email and domain suppression prior to dispatch, aborting with `SEND_CANCELLED_SUPPRESSED`, setting `sendAttempted: false` and `routingAllowed: false`. For cadence sends, checks `activityLog` for prior inbound replies from the contact, aborting with `SEND_CANCELLED_REPLIED` and setting `sendAttempted: false`. Stretches `outreach_logs` rows to record `to` address (Vega CRM Invariants 1 & 4).
+- `app/api/webhooks/inbound-email/route.ts`:
+  - On `email.bounced` or `email.complained` webhook events, automatically records the recipient in the suppression registry (Vega CRM Invariant 1).
+  - On matched inbound email reply from a contact, clears `activeCadence: null` and cancels waiting sequence tasks with `Sequence stopped: contact replied` (Vega CRM Invariant 2).
+- `app/api/admin/cadence-tick/route.ts`:
+  - Enforces completion gating: manual touch steps (`call`, `linkedin`, `general`) enter `waitingForTask: true` and set reminder notes, pausing cadence advancement. Repeated ticks skip waiting tasks without auto-completing.
+  - Aborts cadence immediately (`activeCadence: null`) if email dispatch reports `SEND_CANCELLED_REPLIED` or `SEND_CANCELLED_SUPPRESSED`.
+- `app/api/leads/[id]/cadence/complete-step/route.ts`: brand-authorized endpoint allowing reps to complete a waiting manual cadence task, advancing to the subsequent step and writing an audit entry in `activityLog`.
+- `app/components/CadencePanel.tsx` & `app/outreach/cadences/[brand]/cadences-client.tsx`: UI affordance displaying task required status with a "Complete Task" action button, and supporting the `general` channel for human task reminders in cadence builders.
+- Test coverage: `tests/lib/suppression.test.ts` (8 unit tests), `tests/lib/cadences.test.ts` (32 unit tests), `tests/integration/cadence-invariants.integration.test.ts` (3 integration tests verifying all 4 invariants end-to-end), plus updated `cadence-tick.integration.test.ts` and `inbound-email-webhook.integration.test.ts`.
+
+Full gate green: 0 `tsc`/lint errors, 1201/1201 unit tests passing, 595/595 integration tests passing, smoke tests clean, `audit:gds-style` clean.
+
 ## 2.4.248
 
 ### Enhancement: multi-pipeline configuration, stage models, and pipeline-scoped deal validation (Vega CRM ingestion Phase 1, fixes #235)

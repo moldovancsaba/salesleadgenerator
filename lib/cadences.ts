@@ -13,7 +13,7 @@
 // are auto-sendable; that decision belongs to the scheduler (#151), not the
 // data model.
 
-export type CadenceStepChannel = 'email' | 'linkedin' | 'call';
+export type CadenceStepChannel = 'email' | 'linkedin' | 'call' | 'general';
 
 export type CadenceStep = {
   id: string;
@@ -28,8 +28,8 @@ export type CadenceStep = {
   // for an email/linkedin step. Optional because a `call` step never has a
   // template — it's always just a reminder.
   templateId?: string;
-  // Shown as Lead.nextActionNote when this step is a linkedin/call
-  // reminder (issue #151) — irrelevant for an email step, which sends the
+  // Shown as Lead.nextActionNote when this step is a linkedin/call/general
+  // reminder (issue #151, #236) — irrelevant for an email step, which sends the
   // template's own content instead.
   reminderNote?: string;
 };
@@ -55,14 +55,22 @@ export type Cadence = {
 // Lead.activeCadence), not here. Exported from this module so both
 // app/types.ts and every consumer (enroll API, cadence-tick) reference the
 // same shape rather than each declaring their own copy.
+// Issue #236 (Vega CRM Invariant 3) — tracks whether the current step is a
+// waiting manual task, and timestamps completion so subsequent step delays
+// are calculated strictly from actual completion time.
 export type ActiveCadence = {
   cadenceId: string;
   currentStepIndex: number;
   stepDueAt: string;
   enrolledAt: string;
+  waitingForTask?: boolean;
+  taskStepId?: string;
+  taskDueAt?: string;
+  taskCompletedAt?: string;
+  status?: 'active' | 'waiting_task' | 'replied' | 'completed' | 'cancelled';
 };
 
-const STEP_CHANNELS: CadenceStepChannel[] = ['email', 'linkedin', 'call'];
+const STEP_CHANNELS: CadenceStepChannel[] = ['email', 'linkedin', 'call', 'general'];
 const MAX_STEPS = 20;
 const MAX_WAIT_DAYS = 365;
 const MAX_NAME_LENGTH = 200;
@@ -199,5 +207,32 @@ export function advanceActiveCadence(
     currentStepIndex: nextIndex,
     stepDueAt: computeStepDueAt(nextStep.waitDaysAfterPrevious, nowDate),
     enrolledAt: active.enrolledAt,
+    waitingForTask: false,
+    taskCompletedAt: active.taskCompletedAt,
+    status: 'active',
   };
 }
+
+// Completes a manual task step (call/linkedin/general), stamping completion time
+// and computing the subsequent step's due date strictly from that actual completion
+// timestamp. Implements Vega CRM Invariant 3: completion-gated progression.
+export function completeTaskStep(
+  cadence: Pick<Cadence, 'id' | 'steps'>,
+  active: ActiveCadence,
+  completedAt?: Date
+): ActiveCadence | null {
+  const compDate = completedAt ?? new Date();
+  const nextIndex = active.currentStepIndex + 1;
+  const nextStep = cadence.steps[nextIndex];
+  if (!nextStep) return null;
+  return {
+    cadenceId: active.cadenceId,
+    currentStepIndex: nextIndex,
+    stepDueAt: computeStepDueAt(nextStep.waitDaysAfterPrevious, compDate),
+    enrolledAt: active.enrolledAt,
+    waitingForTask: false,
+    taskCompletedAt: compDate.toISOString(),
+    status: 'active',
+  };
+}
+

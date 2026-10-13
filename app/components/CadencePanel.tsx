@@ -9,13 +9,17 @@ type ActiveCadence = {
   currentStepIndex: number
   stepDueAt: string
   enrolledAt: string
+  waitingForTask?: boolean
+  taskStepId?: string
+  taskDueAt?: string
+  status?: string
 } | null | undefined
 
 type CadenceSummary = {
   id: string
   name: string
   enabled: boolean
-  steps: Array<{ channel: 'email' | 'linkedin' | 'call' }>
+  steps: Array<{ channel: 'email' | 'linkedin' | 'call' | 'general' }>
 }
 
 type Props = {
@@ -24,10 +28,11 @@ type Props = {
   activeCadence: ActiveCadence
 }
 
-const CHANNEL_LABEL: Record<'email' | 'linkedin' | 'call', string> = {
+const CHANNEL_LABEL: Record<'email' | 'linkedin' | 'call' | 'general', string> = {
   email: 'Email',
   linkedin: 'LinkedIn touch',
   call: 'Call',
+  general: 'General task',
 }
 
 // Issue #124/#152 — self-fetching, matching ActivityPanel's own established
@@ -127,6 +132,23 @@ export function CadencePanel({ leadId, brand, activeCadence: initialActiveCadenc
     }
   }
 
+  async function handleCompleteTask() {
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/leads/${encodeURIComponent(leadId)}/cadence/complete-step?brand=${encodeURIComponent(brand)}`, {
+        method: 'POST',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Failed to complete task step')
+      setActiveCadence(data.activeCadence ?? null)
+    } catch (err: any) {
+      setError(err?.message || 'Failed to complete task step')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Same red/orange/dimmed due-vs-overdue logic app/card.tsx already uses
   // for nextActionDueAt — copied inline rather than imported since that
   // logic isn't extracted to a shared lib/ helper anywhere in this codebase.
@@ -158,6 +180,14 @@ export function CadencePanel({ leadId, brand, activeCadence: initialActiveCadenc
             </Text>
           )}
           {dueValid && <Text size="xs" c={dueColor}>{dueLabel}</Text>}
+          {activeCadence.waitingForTask && (
+            <Group gap="xs" mt={4}>
+              <Text size="xs" fw={600} c="orange">Task action required</Text>
+              <Button size="xs" variant="filled" color="blue" onClick={handleCompleteTask} loading={busy}>
+                Complete Task
+              </Button>
+            </Group>
+          )}
           <Group gap="xs" mt={4}>
             <Button size="xs" variant="subtle" color="gray" onClick={handleCancel} loading={busy}>
               Cancel cadence

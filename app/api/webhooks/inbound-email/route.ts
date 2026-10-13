@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { Resend } from 'resend'
+import { ObjectId } from 'mongodb'
 import { isMongoConfigured, getClientPromise } from '../../../../lib/mongodb'
 import { extractResendWebhookHeaders, verifyResendWebhook, isResendConfigured } from '../../../../lib/resend-webhook'
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes } from '../../../lib/activity-log-store'
@@ -12,7 +13,8 @@ import {
 } from '../../../../lib/contact-reply-matching'
 import { contactKey } from '../../../../lib/contacts'
 import type { Brand } from '../../../lib/brand'
-import { getAllBrandConfigs } from '../../../lib/brand'
+import { getAllBrandConfigs, getBrandConfig } from '../../../lib/brand'
+import { suppressRecipient } from '../../../../lib/suppression'
 
 // A generous cap for what should be a small, metadata-only payload
 // (resend.com/docs/dashboard/receiving/introduction confirms the webhook
@@ -94,7 +96,22 @@ async function handleDeliveryEvent(db: import('mongodb').Db, event: any, svixEve
   // Matches zero documents cleanly (e.g. an event for a brand/environment
   // where this feature isn't deployed yet, or a stray event) — not an
   // error, per issue #205's own Edge Cases.
+  const logEntry = await db.collection('outreach_logs').findOne({ resendEmailId: emailId })
   await db.collection('outreach_logs').updateOne({ resendEmailId: emailId }, update)
+
+  // Vega CRM Invariant 1: Bounced or complained emails must be added to suppression registry
+  if (event.type === 'email.bounced' || event.type === 'email.complained') {
+    const reason = event.type === 'email.bounced' ? 'bounced' : 'complained'
+    const recipient = Array.isArray(event.data?.to) ? event.data.to[0] : (event.data?.to || logEntry?.to)
+    if (recipient && logEntry?.brand && logEntry?.tenantId) {
+      await suppressRecipient(db, {
+        brand: logEntry.brand,
+        tenantId: logEntry.tenantId,
+        target: recipient,
+        reason,
+      })
+    }
+  }
 
   return NextResponse.json({ ok: true })
 }
@@ -272,6 +289,31 @@ export async function POST(request: NextRequest) {
     // Inbound only: an outbound capture's signature is the rep's own, never
     // an enrichment signal for the lead's contact (issue #230).
     if (doc.leadId && doc.direction === 'inbound') {
+      // Vega CRM Invariant 2: Inbound email reply cancels automated cadence progression
+      // and clears waiting sequence task.
+      try {
+        const brandConfig = await getBrandConfig(doc.brand as Brand);
+        if (brandConfig) {
+          let leadObjId: ObjectId | null = null;
+          try { leadObjId = new ObjectId(doc.leadId); } catch {}
+          if (leadObjId) {
+            await db.collection(brandConfig.dbCollection).updateOne(
+              { _id: leadObjId, activeCadence: { $ne: null } },
+              {
+                $set: {
+                  activeCadence: null,
+                  nextActionDueAt: null,
+                  nextActionNote: 'Sequence stopped: contact replied',
+                  updatedAt: new Date(),
+                },
+              }
+            );
+          }
+        }
+      } catch (err) {
+        console.error('[inbound-email webhook] cadence cancellation on reply failed', err);
+      }
+
       try {
         await generateContactSuggestion(
           db,

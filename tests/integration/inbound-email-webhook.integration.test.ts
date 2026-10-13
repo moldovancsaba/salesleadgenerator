@@ -493,6 +493,77 @@ describe('POST /api/webhooks/inbound-email — outbound delivery events (issue 2
     expect(log?.openCount).toBe(1);
   });
 
+  it('suppresses recipient on email.bounced event (Vega CRM Invariant 1)', async () => {
+    const emailId = `email-bounce-${Math.random().toString(36).slice(2)}`;
+    const db = await outreachLogsDb();
+    await db.collection('outreach_logs').insertOne({
+      resendEmailId: emailId,
+      brand: 'cogmap',
+      tenantId: 'default',
+      to: 'bounce-target@example.com',
+      createdAt: new Date(),
+      sendAttempted: true,
+      sentAutomatically: true,
+    });
+
+    const req = await buildRequest({
+      type: 'email.bounced',
+      created_at: new Date().toISOString(),
+      data: { email_id: emailId, to: ['bounce-target@example.com'] },
+    });
+    const res = await inboundPOST(req);
+    expect(res.status).toBe(200);
+
+    const suppressed = await db.collection('suppressed_recipients').findOne({
+      brand: 'cogmap',
+      target: 'bounce-target@example.com',
+    });
+    expect(suppressed).not.toBeNull();
+    expect(suppressed?.reason).toBe('bounced');
+  });
+
+  it('cancels activeCadence when an inbound email reply is received (Vega CRM Invariant 2)', async () => {
+    const db = await outreachLogsDb();
+    const contactEmail = 'cadence-reply@example.com';
+    const leadInsert = await db.collection('leads').insertOne({
+      entity_name: 'Cadence Reply Co',
+      brand: 'cogmap',
+      tenantId: 'default',
+      kanbanColumn: 'OUTREACH',
+      contactEmails: [contactEmail],
+      contacts: [{ name: 'Alex Rep', email: contactEmail, isDecisionMaker: true }],
+      activeCadence: {
+        cadenceId: 'cadence-123',
+        currentStepIndex: 1,
+        stepDueAt: new Date().toISOString(),
+        enrolledAt: new Date().toISOString(),
+        waitingForTask: true,
+      },
+    });
+
+    mockReceivingApi({ text: 'I am interested in learning more!' });
+
+    const req = await buildRequest({
+      type: 'email.received',
+      created_at: new Date().toISOString(),
+      data: {
+        email_id: `email-reply-${Math.random().toString(36).slice(2)}`,
+        from: `Alex Rep <${contactEmail}>`,
+        to: ['cogmap@haho.ai'],
+        received_for: ['cogmap@haho.ai'],
+        subject: 'Re: Quick inquiry',
+      },
+    });
+
+    const res = await inboundPOST(req);
+    expect(res.status).toBe(200);
+
+    const lead = await db.collection('leads').findOne({ _id: leadInsert.insertedId });
+    expect(lead?.activeCadence).toBeNull();
+    expect(lead?.nextActionDueAt).toBeNull();
+    expect(lead?.nextActionNote).toBe('Sequence stopped: contact replied');
+  });
+
   it('no-ops cleanly for a delivery event whose email_id matches no outreach_logs row', async () => {
     const req = await buildRequest({ type: 'email.bounced', created_at: new Date().toISOString(), data: { email_id: 'email-with-no-row' } });
     const res = await inboundPOST(req);
