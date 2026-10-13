@@ -32,7 +32,9 @@ const styles = StyleSheet.create({
   tableRow: { flexDirection: 'row', borderBottom: `1 solid ${borderFaint}`, padding: 8 },
   tableHeaderRow: { flexDirection: 'row', backgroundColor: surfaceFaint, padding: 8, fontWeight: 700 },
   colLabel: { flex: 3 },
-  colValue: { flex: 1, textAlign: 'right' },
+  colQty: { flex: 0.8, textAlign: 'center' },
+  colUnitPrice: { flex: 1.2, textAlign: 'right' },
+  colValue: { flex: 1.5, textAlign: 'right' },
   totalRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8, paddingTop: 8, borderTop: `2 solid ${neutralStrong}` },
   totalLabel: { marginRight: 16, fontWeight: 700 },
   totalValue: { fontWeight: 700 },
@@ -84,11 +86,15 @@ export function QuoteDocument({ brandLabel, entityName, quoteId, createdAt, line
         <View style={styles.table}>
           <View style={styles.tableHeaderRow}>
             <Text style={styles.colLabel}>Description</Text>
+            <Text style={styles.colQty}>Qty</Text>
+            <Text style={styles.colUnitPrice}>Unit Price</Text>
             <Text style={styles.colValue}>Amount</Text>
           </View>
           {lineItems.map((item, i) => (
             <View style={styles.tableRow} key={i}>
               <Text style={styles.colLabel}>{item.label}</Text>
+              <Text style={styles.colQty}>{item.quantity ?? 1}</Text>
+              <Text style={styles.colUnitPrice}>{formatMoney(item.unitPrice ?? item.value, item.currency)}</Text>
               <Text style={styles.colValue}>{formatMoney(item.value, item.currency)}</Text>
             </View>
           ))}

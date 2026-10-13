@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { buildLineItemFromDeal, sumLineItems, isValidStatusTransition, toPublicQuote, type Quote } from '../../lib/quotes';
+import {
+  buildLineItemFromDeal,
+  buildLineItemsFromDeal,
+  sumLineItems,
+  isValidStatusTransition,
+  toPublicQuote,
+  type Quote,
+  type CatalogProductLookup,
+} from '../../lib/quotes';
 
 describe('buildLineItemFromDeal (issue 211)', () => {
   it('snapshots the deal value/currency/label exactly', () => {
@@ -29,6 +37,106 @@ describe('buildLineItemFromDeal (issue 211)', () => {
   it('shows the already-clamped value exactly as stored at the ABSOLUTE_CEILING', () => {
     const item = buildLineItemFromDeal({ value: 50_000_000, currency: 'USD', label: 'Enterprise deal' }, 'CogMap');
     expect(item?.value).toBe(50_000_000);
+  });
+});
+
+describe('buildLineItemsFromDeal (CPQ multi-line quotes)', () => {
+  const catalog: CatalogProductLookup = new Map([
+    ['prod-license', { name: 'Annual Software License', unitPrice: 2000, currency: 'USD' }],
+    ['prod-onboarding', { name: 'Implementation & Training', unitPrice: 5000, currency: 'USD' }],
+  ]);
+
+  it('resolves catalog line items with quantity, unitPrice, and calculates total value', () => {
+    const deal = {
+      value: 11000,
+      currency: 'USD' as const,
+      lineItems: [
+        { productId: 'prod-license', quantity: 3 },
+        { productId: 'prod-onboarding', quantity: 1 },
+      ],
+    };
+    const items = buildLineItemsFromDeal(deal, 'CogMap', catalog);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toEqual({
+      label: 'Annual Software License',
+      value: 6000,
+      currency: 'USD',
+      quantity: 3,
+      unitPrice: 2000,
+      productId: 'prod-license',
+    });
+    expect(items[1]).toEqual({
+      label: 'Implementation & Training',
+      value: 5000,
+      currency: 'USD',
+      quantity: 1,
+      unitPrice: 5000,
+      productId: 'prod-onboarding',
+    });
+    expect(sumLineItems(items)).toBe(11000);
+  });
+
+  it('respects unitPriceOverride when specified on the deal line item', () => {
+    const deal = {
+      value: 9000,
+      currency: 'USD' as const,
+      lineItems: [
+        { productId: 'prod-license', quantity: 5, unitPriceOverride: 1800 },
+      ],
+    };
+    const items = buildLineItemsFromDeal(deal, 'CogMap', catalog);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toEqual({
+      label: 'Annual Software License',
+      value: 9000,
+      currency: 'USD',
+      quantity: 5,
+      unitPrice: 1800,
+      productId: 'prod-license',
+    });
+  });
+
+  it('falls back to single line item when deal has no lineItems', () => {
+    const deal = { value: 15000, currency: 'USD' as const, label: 'Custom Consulting' };
+    const items = buildLineItemsFromDeal(deal, 'CogMap', catalog);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toEqual({
+      label: 'Custom Consulting',
+      value: 15000,
+      currency: 'USD',
+    });
+  });
+
+  it('falls back to single line item when productLookup is missing or empty', () => {
+    const deal = {
+      value: 8000,
+      currency: 'USD' as const,
+      lineItems: [{ productId: 'prod-license', quantity: 4 }],
+    };
+    const items = buildLineItemsFromDeal(deal, 'CogMap');
+    expect(items).toHaveLength(1);
+    expect(items[0].value).toBe(8000);
+  });
+
+  it('skips unknown product IDs and resolves valid ones', () => {
+    const deal = {
+      value: 2000,
+      currency: 'USD' as const,
+      lineItems: [
+        { productId: 'non-existent', quantity: 2 },
+        { productId: 'prod-license', quantity: 1 },
+      ],
+    };
+    const items = buildLineItemsFromDeal(deal, 'CogMap', catalog);
+    expect(items).toHaveLength(1);
+    expect(items[0].productId).toBe('prod-license');
+    expect(items[0].value).toBe(2000);
+  });
+
+  it('returns empty array when deal has no usable value and cannot resolve catalog items', () => {
+    const deal = { value: 0, currency: 'USD' as const };
+    const items = buildLineItemsFromDeal(deal, 'CogMap', catalog);
+    expect(items).toEqual([]);
   });
 });
 

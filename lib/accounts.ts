@@ -201,6 +201,34 @@ export function computeAccountDetail(
   return { ...rollup, leads: groupLeads.map(toLeadSummary) };
 }
 
+export function formatAccountsCsv(accounts: AccountRollup[]): string {
+  const header = [
+    'Parent Organization ID',
+    'Organization Name',
+    'Lead Count',
+    'Contact Count',
+    'Won Value',
+    'Pipeline Value',
+    'Relationships',
+    'Most Recent Updated',
+  ];
+  const rows = accounts.map((a) =>
+    [
+      a.parentOrgId,
+      a.parentOrgName || '',
+      a.leadCount,
+      a.contactCount,
+      a.wonValueUsd,
+      a.pipelineValueUsd,
+      a.relationshipCodes.join('; '),
+      a.mostRecentUpdatedAt || '',
+    ]
+      .map((field) => `"${String(field).replace(/"/g, '""')}"`)
+      .join(',')
+  );
+  return [header.join(','), ...rows].join('\n');
+}
+
 // Lazily-ensured, idempotent per collection — same convention as
 // lib/contacts.ts's ensureContactEmailsIndex() (each brand's leads live in
 // its own collection, so each needs its own index call). Issue #209 §16's

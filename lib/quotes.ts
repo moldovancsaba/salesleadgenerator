@@ -5,19 +5,29 @@
 // snapshot of its source Deal at generation time — it never re-reads a Deal
 // that may since have been edited.
 
-import type { DealCurrency } from './deals';
+import type { DealCurrency, DealLineItem } from './deals';
 
 export type QuoteStatus = 'draft' | 'sent' | 'viewed' | 'signed';
 
-// v1 always carries exactly one entry, derived 1:1 from the source Deal.
-// The array shape (not a bare single object) is deliberate — it is what
-// lets a future "Catalog: Product and price book"-style multi-line quote
-// extend this to N line items without a breaking schema change.
+// QuoteLineItem supports both single-line legacy quotes and multi-line CPQ
+// catalog quotes. quantity, unitPrice and productId are optional for single-line
+// quotes derived purely from flat deal value.
 export type QuoteLineItem = {
   label: string;
   value: number;
   currency: DealCurrency;
+  quantity?: number;
+  unitPrice?: number;
+  productId?: string;
 };
+
+export type CatalogProductInfo = {
+  name: string;
+  unitPrice: number;
+  currency: DealCurrency;
+};
+
+export type CatalogProductLookup = Map<string, CatalogProductInfo>;
 
 export type Quote = {
   _id: string;
@@ -70,6 +80,46 @@ export function buildLineItemFromDeal(
     value: deal.value,
     currency: deal.currency,
   };
+}
+
+// Multi-line CPQ quote generation: resolves Deal.lineItems against productLookup.
+// Falls back to single line item from deal value when line items cannot be resolved.
+export function buildLineItemsFromDeal(
+  deal: { value: number; currency: DealCurrency; label?: string; lineItems?: DealLineItem[] },
+  brandLabel: string,
+  productLookup?: CatalogProductLookup
+): QuoteLineItem[] {
+  if (Array.isArray(deal.lineItems) && deal.lineItems.length > 0 && productLookup && productLookup.size > 0) {
+    const items: QuoteLineItem[] = [];
+    for (const item of deal.lineItems) {
+      if (!item || !item.productId || typeof item.quantity !== 'number' || !Number.isFinite(item.quantity) || item.quantity <= 0) {
+        continue;
+      }
+      const product = productLookup.get(item.productId);
+      if (!product) continue;
+      const unitPrice = typeof item.unitPriceOverride === 'number' && Number.isFinite(item.unitPriceOverride) && item.unitPriceOverride >= 0
+        ? item.unitPriceOverride
+        : product.unitPrice;
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) continue;
+      const value = item.quantity * unitPrice;
+      if (!Number.isFinite(value) || value <= 0) continue;
+
+      items.push({
+        label: product.name?.trim() || `${brandLabel} — ${item.productId}`,
+        value,
+        currency: product.currency || deal.currency,
+        quantity: item.quantity,
+        unitPrice,
+        productId: item.productId,
+      });
+    }
+    if (items.length > 0) {
+      return items;
+    }
+  }
+
+  const single = buildLineItemFromDeal(deal, brandLabel);
+  return single ? [single] : [];
 }
 
 export function sumLineItems(lineItems: QuoteLineItem[]): number {

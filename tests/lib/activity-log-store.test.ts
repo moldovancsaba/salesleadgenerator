@@ -151,4 +151,23 @@ describe('mergeActivityTimeline (issue 140)', () => {
     const merged = mergeActivityTimeline([emails, [callEntry]], 10);
     expect(merged.map((e) => e.type)).toEqual(['email-outbound', 'call', 'email-outbound']);
   });
+
+  it('maps and merges internal note entries in timeline', () => {
+    const noteEntry = mapActivityLogDoc({
+      _id: new ObjectId(),
+      leadId: 'lead-1',
+      type: 'note',
+      bodyExcerpt: 'Met with CFO, discussed Q4 sponsorship renewal.',
+      loggedBy: 'sales@example.com',
+      source: 'manual',
+      createdAt: new Date('2026-07-12T00:00:00.000Z'),
+    });
+    expect(noteEntry.type).toBe('note');
+    expect(noteEntry.bodyExcerpt).toBe('Met with CFO, discussed Q4 sponsorship renewal.');
+    expect(noteEntry.loggedBy).toBe('sales@example.com');
+
+    const emails = [entry('a1', '2026-07-15T00:00:00.000Z'), entry('a2', '2026-07-01T00:00:00.000Z')];
+    const merged = mergeActivityTimeline([emails, [noteEntry]], 10);
+    expect(merged.map((e) => e.type)).toEqual(['email-outbound', 'note', 'email-outbound']);
+  });
 });

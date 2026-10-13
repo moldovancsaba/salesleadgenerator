@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Container, Title, Text, Group, Stack, Badge, Loader, SimpleGrid, UnstyledButton } from '@mantine/core'
+import { Container, Title, Text, Group, Stack, Badge, Loader, SimpleGrid, UnstyledButton, Button } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminDetailDrawer, AdminModal, InfoCard, type AdminDataTableSort } from '@sovereignsquad/gds-admin/client'
 import Link from 'next/link'
 import type { Brand } from '@/app/lib/brand'
@@ -185,14 +185,26 @@ export function AccountsClient({ brand, label, currency }: Props) {
   return (
     <Container size="md" py="xl">
       <Stack gap="md">
-        <div>
-          <Title order={2}>Accounts</Title>
-          <Text size="sm" c="dimmed">
-            Every parent organization with at least one <Text span fw={700}>{label}</Text> lead, grouped
-            by <code>parentOrgId</code>, with a rollup of its leads. A lead with no parent organization set
-            never appears here.
-          </Text>
-        </div>
+        <Group justify="space-between" align="flex-start" wrap="wrap">
+          <div style={{ flex: 1, minWidth: 280 }}>
+            <Title order={2}>Accounts</Title>
+            <Text size="sm" c="dimmed">
+              Every parent organization with at least one <Text span fw={700}>{label}</Text> lead, grouped
+              by <code>parentOrgId</code>, with a rollup of its leads. A lead with no parent organization set
+              never appears here.
+            </Text>
+          </div>
+          <Button
+            component="a"
+            href={`/api/accounts?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}&format=csv`}
+            variant="default"
+            size="xs"
+            download
+            disabled={sortedAccounts.length === 0}
+          >
+            Export CSV
+          </Button>
+        </Group>
 
         {error && <AdminFormStatus state="error" title="Couldn't load accounts" description={error} />}
         {truncated && (

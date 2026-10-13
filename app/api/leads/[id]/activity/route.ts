@@ -105,6 +105,69 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({} as any));
+    const isNote = body.type === 'note';
+
+    const config = (await getBrandConfig(brand))!;
+    const tenantId = getTenantId(request);
+    const client = await getClientPromise();
+    const db = client.db();
+
+    const { ObjectId } = await import('mongodb');
+    let lead: any = null;
+    try {
+      lead = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(id), ...tenantFilter(tenantId) });
+    } catch {
+      lead = null;
+    }
+    if (!lead) {
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+    }
+
+    const idToken = request.cookies.get('sso_id_token')?.value;
+    const claims = await resolveSessionFromIdToken(idToken);
+    const loggedBy = claims?.email;
+
+    await ensureActivityLogIndexes(db);
+    const now = new Date();
+
+    if (isNote) {
+      const rawText = typeof body.text === 'string' ? body.text : (typeof body.notes === 'string' ? body.notes : '');
+      const noteText = rawText.trim();
+      if (!noteText) {
+        return NextResponse.json({ error: 'Note text is required' }, { status: 400 });
+      }
+      if (noteText.length > 10000) {
+        return NextResponse.json({ error: 'Note exceeds maximum length of 10,000 characters' }, { status: 400 });
+      }
+
+      const noteDoc: ActivityLogDocument = {
+        leadId: id,
+        tenantId,
+        brand,
+        type: 'note',
+        direction: null,
+        matchedContactKey: null,
+        bodyExcerpt: truncateBody(noteText, 5000),
+        loggedBy,
+        source: 'manual',
+        createdAt: now,
+      };
+      const insertResult = await db.collection(ACTIVITY_LOG_COLLECTION).insertOne(noteDoc);
+
+      try {
+        await db.collection(config.dbCollection).updateOne({ _id: lead._id }, { $set: { updatedAt: now } });
+      } catch (err) {
+        console.error('[activity POST] lead updatedAt touch failed', err);
+      }
+
+      return NextResponse.json({
+        id: insertResult.insertedId.toString(),
+        leadId: id,
+        type: 'note',
+        createdAt: now.toISOString(),
+      }, { status: 201 });
+    }
+
     const contactKeyParam = typeof body.contactKey === 'string' ? body.contactKey : '';
     const disposition = body.disposition;
     const rawDuration = body.durationMinutes;
@@ -124,22 +187,6 @@ export async function POST(
       return NextResponse.json({ error: 'contactKey is required' }, { status: 400 });
     }
 
-    const config = (await getBrandConfig(brand))!;
-    const tenantId = getTenantId(request);
-    const client = await getClientPromise();
-    const db = client.db();
-
-    const { ObjectId } = await import('mongodb');
-    let lead: any = null;
-    try {
-      lead = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(id), ...tenantFilter(tenantId) });
-    } catch {
-      lead = null;
-    }
-    if (!lead) {
-      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
-    }
-
     // Re-derived server-side from the lead's CURRENT contacts[] — never
     // trusted from a stale client-side snapshot (a contact edited/removed
     // between the form opening and submit must be re-validated here).
@@ -149,16 +196,6 @@ export async function POST(
       return NextResponse.json({ error: 'Contact not found on this lead' }, { status: 400 });
     }
 
-    // loggedBy is derived server-side from the verified session claim only
-    // — never accepted as client input (prevents logging a call under
-    // another rep's name) and omitted (not guessed) for the x-api-key path.
-    const idToken = request.cookies.get('sso_id_token')?.value;
-    const claims = await resolveSessionFromIdToken(idToken);
-    const loggedBy = claims?.email;
-
-    await ensureActivityLogIndexes(db);
-
-    const now = new Date();
     const doc: ActivityLogDocument = {
       leadId: id,
       tenantId,

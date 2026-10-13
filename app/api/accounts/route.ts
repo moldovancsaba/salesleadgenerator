@@ -3,7 +3,7 @@ import { isMongoConfigured, getClientPromise } from '../../../lib/mongodb'
 import { getBrandConfig, resolveBrand } from '../../lib/brand'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
-import { computeAccountRollups, ensureAccountsIndex, type AccountSourceLead } from '../../../lib/accounts'
+import { computeAccountRollups, ensureAccountsIndex, formatAccountsCsv, type AccountSourceLead } from '../../../lib/accounts'
 
 // Issue #209, Phase 1 — a read-only, computed view grouping a brand/tenant's
 // own leads by their existing parentOrgId field (see lib/accounts.ts for the
@@ -79,6 +79,18 @@ export async function GET(request: NextRequest) {
     }));
 
     const accounts = computeAccountRollups(leads, config.currency);
+
+    const format = (searchParams.get('format') || '').trim().toLowerCase();
+    if (format === 'csv' || request.headers.get('accept')?.includes('text/csv')) {
+      const csvContent = formatAccountsCsv(accounts);
+      return new Response(csvContent, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="accounts-${brand}.csv"`,
+        },
+      });
+    }
 
     return NextResponse.json({
       accounts,

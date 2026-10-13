@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Container, Title, Text, Group, Stack, TextInput, Badge, Loader } from '@mantine/core'
+import { Container, Title, Text, Group, Stack, TextInput, Badge, Loader, Button } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { IconSearch } from '@tabler/icons-react'
 import Link from 'next/link'
@@ -90,12 +90,24 @@ export function ContactsClient({ brand, label }: Props) {
   return (
     <Container size="md" py="xl">
       <Stack gap="md">
-        <div>
-          <Title order={2}>Contacts</Title>
-          <Text size="sm" c="dimmed">
-            Every contact across <Text span fw={700}>{label}</Text> leads, searchable by name.
-          </Text>
-        </div>
+        <Group justify="space-between" align="flex-start" wrap="wrap">
+          <div>
+            <Title order={2}>Contacts</Title>
+            <Text size="sm" c="dimmed">
+              Every contact across <Text span fw={700}>{label}</Text> leads, searchable by name.
+            </Text>
+          </div>
+          <Button
+            component="a"
+            href={`/api/contacts?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}&format=csv`}
+            variant="default"
+            size="xs"
+            download
+            disabled={contacts.length === 0}
+          >
+            Export CSV
+          </Button>
+        </Group>
 
         <TextInput
           value={query}

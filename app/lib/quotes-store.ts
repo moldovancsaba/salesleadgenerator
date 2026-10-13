@@ -4,8 +4,8 @@ import { getBrandConfig, type Brand } from './brand';
 import { tenantFilter } from '../../lib/tenant';
 import type { Deal } from '../../lib/deals';
 import {
-  type Quote, type QuoteStatus,
-  buildLineItemFromDeal, isValidStatusTransition,
+  type Quote, type QuoteStatus, type CatalogProductLookup,
+  buildLineItemFromDeal, buildLineItemsFromDeal, sumLineItems, isValidStatusTransition,
 } from '../../lib/quotes';
 import { renderQuotePdf } from '../../lib/quote-pdf';
 import { uploadQuotePdf, fetchQuotePdf } from '../../lib/blob-storage';
@@ -76,8 +76,24 @@ export async function createQuote(
   const deal: Deal | undefined = Array.isArray(lead.deals) ? lead.deals.find((d: Deal) => d.id === dealId) : undefined;
   if (!deal) return { ok: false, status: 404, error: 'Deal not found' };
 
-  const lineItem = buildLineItemFromDeal(deal, brandConfig.label);
-  if (!lineItem) return { ok: false, status: 409, error: 'Deal has no usable value to quote' };
+  let productLookup: CatalogProductLookup | undefined;
+  if (Array.isArray(deal.lineItems) && deal.lineItems.length > 0) {
+    const productIds = deal.lineItems.map((li) => li.productId).filter(Boolean);
+    if (productIds.length > 0) {
+      const products = await db.collection('products').find({
+        brand,
+        tenantId,
+        id: { $in: productIds },
+      }).toArray();
+      productLookup = new Map(products.map((p: any) => [p.id, { name: p.name, unitPrice: p.unitPrice, currency: p.currency }]));
+    }
+  }
+
+  const lineItems = buildLineItemsFromDeal(deal, brandConfig.label, productLookup);
+  if (lineItems.length === 0) return { ok: false, status: 409, error: 'Deal has no usable value to quote' };
+
+  const totalValue = sumLineItems(lineItems);
+  const currency = lineItems[0].currency;
 
   const now = new Date();
   // Pre-generated so the PDF's own "Quote reference" can carry the real id
@@ -93,9 +109,9 @@ export async function createQuote(
       entityName: typeof lead.entity_name === 'string' && lead.entity_name ? lead.entity_name : 'Prospect',
       quoteId,
       createdAt: now.toISOString(),
-      lineItems: [lineItem],
-      totalValue: lineItem.value,
-      currency: lineItem.currency,
+      lineItems,
+      totalValue,
+      currency,
     });
   } catch (err) {
     console.error('[app/lib/quotes-store] PDF render failed', err);
@@ -117,9 +133,9 @@ export async function createQuote(
     leadId,
     dealId,
     status: 'draft' as QuoteStatus,
-    lineItems: [lineItem],
-    totalValue: lineItem.value,
-    currency: lineItem.currency,
+    lineItems,
+    totalValue,
+    currency,
     pdfBlobPath: blobPath,
     shareToken: generateShareToken(),
     createdAt: now.toISOString(),

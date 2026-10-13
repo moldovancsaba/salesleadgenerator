@@ -4,6 +4,7 @@ import {
   buildAccountRollup,
   computeAccountRollups,
   computeAccountDetail,
+  formatAccountsCsv,
   type AccountSourceLead,
 } from '../../lib/accounts';
 
@@ -159,5 +160,38 @@ describe('computeAccountDetail', () => {
   it('returns null for a parentOrgId matching zero leads — the caller maps this to a 404', () => {
     const detail = computeAccountDetail('nonexistent', [lead({ _id: 'a', parentOrgId: 'acme' })], 'USD');
     expect(detail).toBeNull();
+  });
+});
+
+describe('formatAccountsCsv', () => {
+  it('formats account rollups into valid CSV with header and escaped rows', () => {
+    const rollups = computeAccountRollups([
+      lead({
+        _id: 'a',
+        parentOrgId: 'acme',
+        parentOrgName: 'Acme "Holdings", Inc.',
+        relationshipToParent: 'owned',
+        contacts: [{}, {}],
+        ticketSizeEstimate: { method: 'tier_band', expected: 50000, currency: 'USD' },
+        updatedAt: '2026-09-15T12:00:00.000Z',
+      }),
+    ], 'USD');
+
+    const csv = formatAccountsCsv(rollups);
+    const lines = csv.split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toBe('Parent Organization ID,Organization Name,Lead Count,Contact Count,Won Value,Pipeline Value,Relationships,Most Recent Updated');
+    expect(lines[1]).toContain('"acme"');
+    expect(lines[1]).toContain('"Acme ""Holdings"", Inc."');
+    expect(lines[1]).toContain('"1"');
+    expect(lines[1]).toContain('"2"');
+    expect(lines[1]).toContain('"50000"');
+    expect(lines[1]).toContain('"owned"');
+    expect(lines[1]).toContain('"2026-09-15T12:00:00.000Z"');
+  });
+
+  it('outputs header only for empty accounts array', () => {
+    const csv = formatAccountsCsv([]);
+    expect(csv).toBe('Parent Organization ID,Organization Name,Lead Count,Contact Count,Won Value,Pipeline Value,Relationships,Most Recent Updated');
   });
 });

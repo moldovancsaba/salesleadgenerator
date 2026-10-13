@@ -141,6 +141,13 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
   const dispositionSelectRef = useRef<HTMLInputElement>(null)
   const durationInputRef = useRef<HTMLInputElement>(null)
 
+  // Internal note logging form state
+  const [noteFormOpen, setNoteFormOpen] = useState(false)
+  const [noteText, setNoteText] = useState('')
+  const [noteError, setNoteError] = useState<string | null>(null)
+  const [loggingNote, setLoggingNote] = useState(false)
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
+
   const contactOptions = contacts
     .map((c) => ({ value: computeContactKey(c), label: c.name || c.email || c.phone || 'Unnamed contact' }))
     .filter((o) => o.value)
@@ -270,6 +277,44 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
       .finally(() => setLoggingCall(false))
   }
 
+  function handleSaveNote() {
+    const trimmed = noteText.trim()
+    if (!trimmed) {
+      setNoteError('Note text is required')
+      noteTextareaRef.current?.focus()
+      return
+    }
+    setNoteError(null)
+    setLoggingNote(true)
+
+    fetch(`/api/leads/${encodeURIComponent(leadId)}/activity?brand=${encodeURIComponent(brand)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'note',
+        text: trimmed,
+      }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || `Failed to save note (${res.status})`)
+        }
+        return res.json()
+      })
+      .then(() => {
+        showNotification({ message: 'Note saved.', color: 'teal' })
+        setNoteFormOpen(false)
+        setNoteText('')
+        setNoteError(null)
+        loadActivity()
+      })
+      .catch((err) => {
+        showNotification({ message: err?.message || 'Failed to save note', color: 'red', autoClose: 5000 })
+      })
+      .finally(() => setLoggingNote(false))
+  }
+
   return (
     <Box>
       {suggestions.length > 0 && (
@@ -298,20 +343,54 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
       )}
       <Group justify="space-between" align="center" mb={4}>
         <Text size="xs" c="dimmed" fw={600}>ACTIVITY</Text>
-        {/* Issue #200 — disabled with a reason (not hidden) when the lead
-            has zero contacts, per CLAUDE.md Rule 7: no live-looking control
-            that would just open a form with an unusable, empty picker. */}
-        <Tooltip label="Add a contact to this lead first" disabled={contactOptions.length > 0}>
+        <Group gap="xs">
           <Button
             size="xs"
             variant="light"
-            disabled={contactOptions.length === 0}
-            onClick={() => setCallFormOpen((v) => !v)}
+            color="yellow"
+            onClick={() => { setNoteFormOpen((v) => !v); setCallFormOpen(false); }}
           >
-            Log a call
+            Add note
           </Button>
-        </Tooltip>
+          {/* Issue #200 — disabled with a reason (not hidden) when the lead
+              has zero contacts, per CLAUDE.md Rule 7: no live-looking control
+              that would just open a form with an unusable, empty picker. */}
+          <Tooltip label="Add a contact to this lead first" disabled={contactOptions.length > 0}>
+            <Button
+              size="xs"
+              variant="light"
+              disabled={contactOptions.length === 0}
+              onClick={() => { setCallFormOpen((v) => !v); setNoteFormOpen(false); }}
+            >
+              Log a call
+            </Button>
+          </Tooltip>
+        </Group>
       </Group>
+
+      {noteFormOpen && (
+        <Box mb="sm" p="xs" style={{ border: '1px solid var(--mantine-color-yellow-4)', borderRadius: 6, background: 'var(--mantine-color-yellow-0)' }}>
+          <Stack gap="xs">
+            <Textarea
+              ref={noteTextareaRef}
+              label="Internal note"
+              placeholder="Record context, meeting recap, or next steps for this lead…"
+              value={noteText}
+              onChange={(e) => { setNoteText(e.currentTarget.value); if (noteError) setNoteError(null); }}
+              error={noteError}
+              aria-label="Lead note content"
+              autosize
+              minRows={2}
+              maxRows={8}
+              required
+            />
+            <Group gap="xs">
+              <Button size="xs" color="yellow" loading={loggingNote} onClick={handleSaveNote}>Save note</Button>
+              <Button size="xs" variant="subtle" color="gray" disabled={loggingNote} onClick={() => { setNoteFormOpen(false); setNoteError(null); }}>Cancel</Button>
+            </Group>
+          </Stack>
+        </Box>
+      )}
 
       {callFormOpen && (
         <Box mb="sm" p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }}>
@@ -377,7 +456,7 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
             <Box key={entry.id} p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }}>
               <Group justify="space-between" gap="xs" wrap="nowrap">
                 <Group gap={4}>
-                  <Badge size="xs" variant="light" color={entry.type === 'call' ? 'grape' : entry.type === 'meeting-scheduled' ? 'indigo' : entry.direction === 'inbound' ? 'teal' : 'blue'}>
+                  <Badge size="xs" variant="light" color={entry.type === 'call' ? 'grape' : entry.type === 'meeting-scheduled' ? 'indigo' : entry.type === 'note' ? 'yellow' : entry.direction === 'inbound' ? 'teal' : 'blue'}>
                     {TYPE_LABEL[entry.type]}
                   </Badge>
                   {entry.source === 'gmail-sync' && (
@@ -405,7 +484,22 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
                 <Text size="xs" c="dimmed">{new Date(entry.createdAt).toLocaleString()}</Text>
               </Group>
               {entry.subject && <Text size="sm" fw={500} mt={2}>{entry.subject}</Text>}
-              {entry.bodyExcerpt && <Text size="xs" c="dimmed" mt={2} lineClamp={2}>{entry.bodyExcerpt}</Text>}
+              {entry.bodyExcerpt && (
+                <Text
+                  size="xs"
+                  c={entry.type === 'note' ? undefined : 'dimmed'}
+                  mt={2}
+                  style={entry.type === 'note' ? { whiteSpace: 'pre-wrap' } : undefined}
+                  lineClamp={entry.type === 'note' ? undefined : 2}
+                >
+                  {entry.bodyExcerpt}
+                </Text>
+              )}
+              {entry.type === 'note' && entry.loggedBy && (
+                <Text size="xs" c="dimmed" mt={2}>
+                  Added by {entry.loggedBy}
+                </Text>
+              )}
               {entry.type === 'call' && (
                 <Text size="xs" c="dimmed" mt={2}>
                   {entry.callDurationMinutes ? `${entry.callDurationMinutes} min` : null}

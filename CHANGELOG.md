@@ -1,6 +1,27 @@
 # Changelog — Sales Lead Generator
- 
-## 2.4.259
+
+## 2.4.260
+
+### CRM & CPQ: Multi-line catalog quotes, activity timeline internal notes, and accounts CSV export
+
+- **Multi-Line CPQ Quotes from Deal Catalog Line Items (`lib/quotes.ts`, `app/lib/quotes-store.ts`, `lib/quote-pdf.tsx`):**
+  - Expanded quote line items from single-item flat deal values to multi-line item generation with catalog resolution (`buildLineItemsFromDeal`).
+  - Added `CatalogProductLookup` resolving `Deal.lineItems` with catalog products (`products` collection), calculating quantity, unit price (honoring `unitPriceOverride`), and line totals.
+  - Enhanced `lib/quote-pdf.tsx` to format structured tables with Description, Qty, Unit Price, and Amount columns.
+  - Preserved backward compatibility for single-line quotes derived from deal values.
+  - Full unit test coverage in `tests/lib/quotes.test.ts` and `tests/lib/quote-pdf.test.ts`.
+- **Activity Timeline Internal Note Logging (`app/api/leads/[id]/activity/route.ts`, `app/components/ActivityPanel.tsx`):**
+  - Added support for `body.type === 'note'` on `POST /api/leads/[id]/activity`, validating note text (max 10,000 characters), attributing `loggedBy` from session claims, inserting into `activityLog`, and touching `lead.updatedAt`.
+  - Added "Add note" button and inline note form in `ActivityPanel.tsx`, allowing reps to quickly log meeting recaps, call notes, or internal context.
+  - Formatted note entries in the unified activity timeline with a dedicated yellow badge, multiline whitespace formatting, and author attribution.
+  - Unit test coverage in `tests/lib/activity-log-store.test.ts`.
+- **Accounts & Company CSV Export (`app/api/accounts/route.ts`, `lib/accounts.ts`, `app/accounts/[brand]/accounts-client.tsx`, `app/contacts/[brand]/contacts-client.tsx`):**
+  - Added `format=csv` support to `GET /api/accounts`, returning CSV export of parent organizations with headers (`Parent Organization ID`, `Organization Name`, `Lead Count`, `Contact Count`, `Won Value`, `Pipeline Value`, `Relationships`, `Most Recent Updated`).
+  - Implemented pure `formatAccountsCsv` utility in `lib/accounts.ts`.
+  - Added one-click "Export CSV" buttons to both Accounts (`/accounts/[brand]`) and Contacts (`/contacts/[brand]`) directory pages.
+  - Unit test coverage in `tests/lib/accounts.test.ts`.
+
+Full gate green: 0 `tsc`/lint errors, 1347/1347 unit tests passing, smoke tests clean, `audit:gds-style` clean.
 
 ### Fix: Resolve React error #185 infinite render loop and provide docked, collapsible sidebar navigation on desktop and tablet
 
