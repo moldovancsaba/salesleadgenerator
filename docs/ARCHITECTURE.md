@@ -1324,12 +1324,15 @@ Ingests 'Today' View Rep Workbench (Handoff 06) into Sales Lead Generator:
 - **Client Lifecycle Controller (`app/components/PwaSetup.tsx`):** Maintains iOS Safari gesture/zoom prevention, registers `/sw.js`, alerts users via Mantine notifications when connection transitions between online/offline, and detects background service worker updates.
 - **Test Coverage:** `tests/lib/pwa-manifest.test.ts` (5 unit tests verifying manifest parsing, shortcut presence, icon file existence, maskable properties, and dynamic route compliance).
 
-### Desktop and Tablet Browser Architecture (2.4.252, issue #239)
+### Desktop and Tablet Browser Architecture (2.4.252–2.4.253, issues #239, #240)
 - **Responsive Top Navigation (`app/components/AppHeader.tsx`):** On viewports `>= 768px` (iPad portrait, iPad landscape, laptop, desktop), mounts a horizontal tab bar providing direct 1-click access to Today, Pipeline, Table, Backlog, Contacts, Reports, Forecast, and Settings. Active tab states dynamically reflect the route and query parameters. Includes a brand switcher and Command Palette search affordance (`launcher.open()`, `⌘K`).
+- **Show/Hide Navigation Toggle (`app/components/AppHeader.tsx`):** Navigation bar is visible by design (default: `true`), with an immediate toggle button (`Hide navigation bar` / `Show Navigation`) to collapse or expand the strip on demand; preference is persisted in browser `localStorage` (`slg_nav_visible`).
+- **Reliable Client Routing (`app/components/AppNav.tsx` & `app/components/AppHeader.tsx`):** Drawer items invoke programmatic `router.push(href)` followed by drawer closure (`navigateTo`) to eliminate click event abortion during unmounting animations; header buttons execute direct `router.push` on click.
+- **Lead Assignment Persistence (`app/sales/[brand]/sales-page-client.tsx`, `app/card.tsx`):** In-place lead actions (`ASSIGN`, `MODIFY`, `SET_FORECAST_CATEGORY`) update `selectedLead` with the updated server record and trigger `refreshKey` increments, keeping the modal and Kanban board in continuous synchronization. Assignee metadata is rendered in card `tier1Metadata`.
 - **Inline Workbench View Switcher (`app/sales/[brand]/sales-page-client.tsx`):** Provides a segmented control in the sales toolbar to switch between Board, Table, Backlog, and Metrics without opening the navigation drawer.
 - **Natural Browser Touch & Trackpad Scaling:** Gated multi-touch gesture locks to mobile standalone PWA mode only, unblocking natural browser pinch-to-zoom, accessibility font scaling, and trackpad two-finger scrolling on laptops and tablets.
 - **Responsive Today Workbench Grid (`app/today/[brand]/today-client.tsx`):** Balanced metric summary cards across `base: 2`, `sm: 3`, and `md: 5` columns for optimal readability on tablet and laptop screens.
-- **Test Coverage:** `tests/lib/desktop-tablet-nav.test.ts` (5 unit tests verifying desktop nav links, command palette trigger, view switcher, and responsive grid).
+- **Test Coverage:** `tests/lib/desktop-tablet-nav.test.ts` (unit tests verifying desktop nav links, command palette trigger, view switcher, show/hide toggle, programmatic navigation, and modal state preservation).
 
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)

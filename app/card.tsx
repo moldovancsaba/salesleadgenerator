@@ -169,6 +169,12 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
   if (shouldShowWinProbability(isTerminalColumn, winProbability)) {
     tier1Metadata.push({ label: 'Win probability', value: `${Math.round(winProbability as number * 100)}%` });
   }
+  if (lead.assignedToEmail || lead.assignedTo) {
+    tier1Metadata.push({
+      label: 'Assignee',
+      value: lead.assignedToEmail ? lead.assignedToEmail.split('@')[0] : lead.assignedTo!,
+    });
+  }
 
   // Tier 1 always has at least ICE/Size/Contact (unconditional fixed
   // fields), so the expand affordance always has something to show —

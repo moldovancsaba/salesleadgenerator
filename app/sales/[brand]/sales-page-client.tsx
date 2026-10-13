@@ -216,7 +216,12 @@ export function SalesPageClient({ brand, currency }: Props) {
 
       const { lead } = await res.json()
       setTableLeads((prev) => prev.map((l) => (l._id === leadId ? { ...l, ...lead } : l)))
-      setSelectedLead(null)
+      if (action === 'ACCEPT' || action === 'DECLINE') {
+        setSelectedLead(null);
+      } else {
+        setSelectedLead((prev) => (prev && prev._id === leadId ? { ...prev, ...lead } : (lead || null)));
+      }
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error('Action error:', err)
       throw err

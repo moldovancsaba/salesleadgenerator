@@ -45,4 +45,33 @@ describe('desktop and tablet navigation affordances', () => {
     const content = readFileSync(join(root, 'app', 'today', '[brand]', 'today-client.tsx'), 'utf8');
     expect(content).toContain('cols={{ base: 2, sm: 3, md: 5 }}');
   });
+
+  it('provides persistent show/hide toggle for top navigation bar in AppHeader', () => {
+    const content = readFileSync(join(root, 'app', 'components', 'AppHeader.tsx'), 'utf8');
+    expect(content).toContain('navVisible');
+    expect(content).toContain('slg_nav_visible');
+    expect(content).toContain('Hide navigation bar');
+    expect(content).toContain('Show Navigation');
+  });
+
+  it('uses programmatic router navigation in AppHeader and AppNav', () => {
+    const header = readFileSync(join(root, 'app', 'components', 'AppHeader.tsx'), 'utf8');
+    expect(header).toContain('router.push(item.href)');
+
+    const nav = readFileSync(join(root, 'app', 'components', 'AppNav.tsx'), 'utf8');
+    expect(nav).toContain('navigateTo');
+    expect(nav).toContain('router.push(href)');
+  });
+
+  it('keeps modal open and refreshes board on in-place actions like ASSIGN in sales-page-client', () => {
+    const content = readFileSync(join(root, 'app', 'sales', '[brand]', 'sales-page-client.tsx'), 'utf8');
+    expect(content).toContain("if (action === 'ACCEPT' || action === 'DECLINE')");
+    expect(content).toContain('setRefreshKey((k) => k + 1)');
+  });
+
+  it('displays Assignee in card tier metadata when lead is assigned', () => {
+    const content = readFileSync(join(root, 'app', 'card.tsx'), 'utf8');
+    expect(content).toContain("label: 'Assignee'");
+    expect(content).toContain('lead.assignedToEmail');
+  });
 });

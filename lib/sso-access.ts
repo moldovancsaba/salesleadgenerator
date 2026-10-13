@@ -76,9 +76,11 @@ export async function markTourSeen(db: Db, ssoUserId: string): Promise<void> {
   await collection.updateOne({ ssoUserId }, { $set: { tourSeenAt: now, updatedAt: now } });
 }
 
-export async function getUserAccess(db: Db, ssoUserId: string): Promise<SsoUserAccessRecord | null> {
+export async function getUserAccess(db: Db, ssoUserIdOrEmail: string): Promise<SsoUserAccessRecord | null> {
   const collection = db.collection<SsoUserAccessRecord>(COLLECTION);
-  return (await collection.findOne({ ssoUserId })) as unknown as SsoUserAccessRecord | null;
+  return (await collection.findOne({
+    $or: [{ ssoUserId: ssoUserIdOrEmail }, { email: ssoUserIdOrEmail }],
+  })) as unknown as SsoUserAccessRecord | null;
 }
 
 export async function listAllUserAccess(db: Db): Promise<SsoUserAccessRecord[]> {

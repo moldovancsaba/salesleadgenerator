@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useMemo } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Group, Text, Button, Select, ActionIcon, Tooltip } from '@mantine/core';
@@ -14,6 +14,8 @@ import {
   IconReportAnalytics,
   IconTrendingUp,
   IconSettings,
+  IconChevronUp,
+  IconChevronDown,
 } from '@tabler/icons-react';
 import { useCommandLauncher } from '@sovereignsquad/gds-core/client';
 import { AppNav } from './AppNav';
@@ -76,6 +78,28 @@ function AppHeaderInner() {
   }, [pathname, brandKeys, accessibleBrands]);
 
   const view = searchParams.get('view') || 'kanban';
+
+  const [navVisible, setNavVisible] = useState(true);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('slg_nav_visible');
+      if (stored === 'false') {
+        setNavVisible(false);
+      }
+    } catch {
+      // Safe fallback if localStorage is disabled/private browsing
+    }
+  }, []);
+
+  const handleToggleNav = (next: boolean) => {
+    setNavVisible(next);
+    try {
+      localStorage.setItem('slg_nav_visible', String(next));
+    } catch {
+      // Safe fallback
+    }
+  };
 
   const navItems = [
     {
@@ -153,35 +177,67 @@ function AppHeaderInner() {
       </Group>
 
       {/* Middle: Horizontal Nav for Tablet & Laptop (visibleFrom="sm", >= 768px) */}
-      <Group
-        gap={4}
-        wrap="nowrap"
-        visibleFrom="sm"
-        style={{
-          flex: 1,
-          overflowX: 'auto',
-          justifyContent: 'center',
-          scrollbarWidth: 'none',
-        }}
-      >
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Button
-              key={item.label}
-              component={Link}
-              href={item.href}
-              size="xs"
-              variant={item.active ? 'filled' : 'subtle'}
-              color={item.active ? 'indigo' : 'gray'}
-              leftSection={<Icon size={14} />}
-              style={{ flexShrink: 0, fontWeight: item.active ? 600 : 500 }}
+      {navVisible ? (
+        <Group
+          gap={4}
+          wrap="nowrap"
+          visibleFrom="sm"
+          style={{
+            flex: 1,
+            overflowX: 'auto',
+            justifyContent: 'center',
+            scrollbarWidth: 'none',
+          }}
+        >
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Button
+                key={item.label}
+                component={Link}
+                href={item.href}
+                size="xs"
+                variant={item.active ? 'filled' : 'subtle'}
+                color={item.active ? 'indigo' : 'gray'}
+                leftSection={<Icon size={14} />}
+                style={{ flexShrink: 0, fontWeight: item.active ? 600 : 500 }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push(item.href);
+                }}
+              >
+                {item.label}
+              </Button>
+            );
+          })}
+          <Tooltip label="Hide navigation bar">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              aria-label="Hide navigation bar"
+              onClick={() => handleToggleNav(false)}
             >
-              {item.label}
+              <IconChevronUp size={16} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      ) : (
+        <Group gap="xs" wrap="nowrap" visibleFrom="sm" style={{ flex: 1, justifyContent: 'center' }}>
+          <Tooltip label="Show navigation bar">
+            <Button
+              variant="subtle"
+              color="gray"
+              size="xs"
+              leftSection={<IconChevronDown size={14} />}
+              onClick={() => handleToggleNav(true)}
+              aria-label="Show navigation bar"
+            >
+              Show Navigation
             </Button>
-          );
-        })}
-      </Group>
+          </Tooltip>
+        </Group>
+      )}
 
       {/* Right: Quick Command Search + Organization switcher */}
       <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>

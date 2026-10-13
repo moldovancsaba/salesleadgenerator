@@ -210,7 +210,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
       if (!targetUser) {
         return { success: false, error: 'Unknown user', requestId }
       }
-      updateData.assignedTo = targetAssignedTo
+      updateData.assignedTo = targetUser.ssoUserId || targetAssignedTo
       updateData.assignedToEmail = targetUser.email
       outcomeValue = `Assigned to ${targetUser.email}`
     }

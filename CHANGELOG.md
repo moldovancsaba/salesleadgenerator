@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
  
+## 2.4.253
+
+### Bug Fix: Lead assignment persistence, desktop nav toggle visibility, and menu routing reliability (fixes #240)
+
+- **Lead Assignment Persistence & Modal State (`app/sales/[brand]/sales-page-client.tsx`):** Fixed `handleAction` abruptly closing `LeadDetailModal` and leaving stale cached data in `KanbanBoard` columns. In-place actions (`ASSIGN`, `MODIFY`, `SET_FORECAST_CATEGORY`) now update `selectedLead` with the server's returned document and increment `refreshKey`, keeping the modal and the Kanban board continuously in sync.
+- **Assignee Visibility on Cards (`app/card.tsx`):** Added the assigned user to `tier1Metadata` so lead assignments are immediately visible on Kanban cards without needing to open the detail modal.
+- **User Resolution Canonicalization (`lib/sso-access.ts` & `app/lib/lead-actions.ts`):** `getUserAccess` matches either `ssoUserId` or `email`, and `executeLeadAction` canonicalizes stored assignments to the user's `ssoUserId`.
+- **Top Navigation Show/Hide Toggle (`app/components/AppHeader.tsx`):** The desktop and tablet navigation bar is shown by design (default) and provides an immediate toggle button (`Hide navigation bar` / `Show Navigation`) to collapse or expand the strip on demand, with the user's preference persisted in `localStorage` (`slg_nav_visible`).
+- **Reliable Menu Navigation Routing (`app/components/AppNav.tsx` & `app/components/AppHeader.tsx`):** Replaced passive link click bubbling with explicit programmatic `router.push(href)` paired with drawer closure (`navigateTo`) in `AppNav`, and direct `router.push` on header buttons in `AppHeader`. Menu items now open their pages immediately and reliably on both touch and mouse click.
+- **Test Coverage (`tests/lib/desktop-tablet-nav.test.ts`):** Added tests covering the show/hide nav toggle, programmatic routing, modal preservation on ASSIGN, and card assignee metadata.
+
+Full gate green: 0 `tsc`/lint errors, 1228/1228 unit tests passing, smoke tests clean, `audit:gds-style` clean.
+
 ## 2.4.252
 
 ### Enhancement: Laptop and tablet browser UX optimizations, desktop navigation, and view switching (fixes #239)
