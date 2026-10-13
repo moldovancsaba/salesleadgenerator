@@ -1451,6 +1451,14 @@ Ingests CRM Cadence Engine & Sequence Enforcement into Sales Lead Generator:
   15. `/admin/prompts/[brand]` (`app/admin/prompts/[brand]/prompt-editor-client.tsx`): Discovery and enrichment prompt editors utilize full screen width for code/markdown textareas.
   16. `/admin/duplicates` (`app/admin/duplicates/admin-duplicates-client.tsx`): Near-duplicate candidate resolution and merge review span full display width.
 
+### Sticky Navigation & Header Viewport Pinned Invariant (2.4.265)
+- **Root Cause of Scrolling Navigation / Header:** In Chromium and WebKit, `overflow-x: hidden` on `html, body` forces `overflow-y` to compute to `auto` per the CSS Overflow Module Level 3 specification. This created an overflow clipping container on `body`, which decoupled the viewport scroll and broke CSS `position: sticky` on both `<AppHeader>` and `<AppNavSidebar>`, causing the header and navigation bar to scroll up off-screen when users scrolled vertically down boards or lists.
+- **Resolution:**
+  1. *`overflow-x: clip` in `app/globals.css`*: Replaced `overflow-x: hidden` with modern `overflow-x: clip`. `clip` prevents unwanted horizontal scrolling without creating a scroll container and without forcing `overflow-y: auto`, restoring native `position: sticky` behavior relative to the viewport.
+  2. *Pinned Navigation Sidebar (`app/components/AppNav.tsx`)*: Configured `<aside>` with `alignSelf: 'flex-start'`, `position: 'sticky'`, `top: 48`, and `height: 'calc(100dvh - 48px)'`, ensuring it slides smoothly without stretching to match the container height.
+  3. *Exact Header Height (`app/components/AppHeader.tsx`)*: Defined explicit `height: '48px'`, `boxSizing: 'border-box'` on `AppHeader` and its `<Suspense>` fallback, guaranteeing seamless alignment with the sidebar at `top: 48`.
+  4. *Flex Alignment (`app/components/AppLayout.tsx`)*: Added `alignItems: 'flex-start'` on the outer layout flex container to enforce independent sticky sliding for the sidebar alongside fluid workspace content.
+
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)
 - Brand-aware field normalization prevents cross-tenant writes

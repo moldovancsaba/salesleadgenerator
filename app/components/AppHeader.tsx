@@ -34,10 +34,12 @@ export function AppHeader() {
             zIndex: 100,
             background: 'var(--mantine-color-body)',
             borderBottom: '1px solid var(--mantine-color-gray-3)',
-            padding: '8px 12px',
+            padding: '6px 14px',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
+            height: '48px',
+            boxSizing: 'border-box',
           }}
         >
           <AppNav />
@@ -76,7 +78,8 @@ function AppHeaderInner() {
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: '12px',
-        minHeight: '48px',
+        height: '48px',
+        boxSizing: 'border-box',
       }}
     >
       {/* Left: AppNav hamburger + title */}

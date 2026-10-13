@@ -128,10 +128,11 @@ export function AppNavSidebar() {
         flexShrink: 0,
         borderRight: '1px solid var(--mantine-color-gray-2)',
         backgroundColor: 'var(--mantine-color-body)',
-        height: 'calc(100dvh - 56px)',
+        height: 'calc(100dvh - 48px)',
         overflowY: 'auto',
         position: 'sticky',
-        top: 56,
+        top: 48,
+        alignSelf: 'flex-start',
         zIndex: 20,
       }}
       aria-label="Main Navigation"

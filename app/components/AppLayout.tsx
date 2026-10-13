@@ -17,7 +17,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <AppHeader />
-      <div style={{ display: 'flex', flex: 1, minHeight: 'calc(100dvh - 56px)', position: 'relative' }}>
+      <div style={{ display: 'flex', flex: 1, minHeight: 'calc(100dvh - 48px)', position: 'relative', alignItems: 'flex-start' }}>
         <AppNavSidebar />
         <main
           style={{

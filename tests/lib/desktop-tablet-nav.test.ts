@@ -100,4 +100,23 @@ describe('desktop and tablet navigation affordances', () => {
     const kanban = readFileSync(join(root, 'app', 'kanban.tsx'), 'utf8');
     expect(kanban).toContain('const lastVisibleLeadIdsRef = useRef<string>');
   });
+
+  it('keeps navigation bar and header sticky without scrolling off screen', () => {
+    const globals = readFileSync(join(root, 'app', 'globals.css'), 'utf8');
+    expect(globals).toContain('overflow-x: clip;');
+    expect(globals).not.toContain('overflow-x: hidden;');
+
+    const nav = readFileSync(join(root, 'app', 'components', 'AppNav.tsx'), 'utf8');
+    expect(nav).toContain("position: 'sticky'");
+    expect(nav).toContain('alignSelf: \'flex-start\'');
+    expect(nav).toContain('top: 48');
+
+    const header = readFileSync(join(root, 'app', 'components', 'AppHeader.tsx'), 'utf8');
+    expect(header).toContain("position: 'sticky'");
+    expect(header).toContain('top: 0');
+    expect(header).toContain("height: '48px'");
+
+    const layout = readFileSync(join(root, 'app', 'components', 'AppLayout.tsx'), 'utf8');
+    expect(layout).toContain("alignItems: 'flex-start'");
+  });
 });
