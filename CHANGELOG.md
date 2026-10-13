@@ -1,5 +1,51 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.266
+
+### Kanban: Uniform 320px column width geometry across all uncollapsed columns
+
+- **Uniform Kanban Column Width Invariant (`app/globals.css`, `app/kanban.tsx`, `docs/ARCHITECTURE.md`):**
+  - Resolved inconsistent column widths where columns with WIP limit badges (`Discovered` and `Qualified`) or longer title strings ballooned to 420px+ while columns without WIP limits remained at 280px.
+  - Enforced `width: 320px !important; min-width: 320px !important; max-width: 320px !important; flex: 0 0 320px !important; box-sizing: border-box !important;` on `[data-gds-kanban-column]:not([data-gds-kanban-column-collapsed="true"])`.
+  - Configured collapsed columns to cleanly shrink to `width: auto !important; flex: 0 0 auto !important`.
+  - Configured `<GdsKanbanBoard columnWidth={320} />` to align GDS internal calculations with the 320px geometric invariant.
+  - Formatted WIP limit badge as `size="xs"` with wrapping and title truncation to prevent label overflow.
+  - Added test assertion in `tests/lib/desktop-tablet-nav.test.ts`.
+
+## 2.4.265
+
+### Layout: Viewport-pinned sticky navigation and header geometry
+
+- **Sticky Navigation & Header Invariant (`app/globals.css`, `app/components/AppLayout.tsx`, `app/components/AppHeader.tsx`, `docs/ARCHITECTURE.md`):**
+  - Fixed issue where the top navigation bar and header scrolled upward out of view when scrolling board content.
+  - Switched `overflow-x: hidden` to `overflow-x: clip` in `app/globals.css` so ancestor clipping does not break `position: sticky`.
+  - Added `alignSelf: 'flex-start'` on `<aside>` and `alignItems: 'flex-start'` on layout outer flex container.
+  - Locked `AppHeader` height to `48px` to guarantee seamless alignment with sidebar top offset.
+
+## 2.4.264
+
+### Layout: Full-width workspace real estate consumption across all application views
+
+- **Elimination of Narrow Centered Containers (`app/components/AppLayout.tsx`, views across all 16 pages):**
+  - Converted narrow fixed-width and centered containers (`<Container size="lg">`, etc.) to full-width high-density `<Box>` containers across all 16 views (Today, Forecast, Reports, Battlecards, Cadences, Templates, Automation, Settings, Admin).
+  - Maximized available screen real estate without wasted margins or empty letterboxing.
+
+## 2.4.263
+
+### CRM: Full-width high-density workspace layout for Contacts and Accounts directories
+
+- **Contacts and Accounts Full-Width Grid (`app/contacts/[brand]/contacts-client.tsx`, `app/accounts/[brand]/accounts-client.tsx`):**
+  - Overhauled Contacts and Accounts tables to use 100% viewport width with 8 sortable, visible columns and role badges.
+  - Prevented horizontal column truncation and preserved visibility of all customer data fields.
+
+## 2.4.262
+
+### Kanban: Desktop Chrome vertical scroll pass-through over Kanban cards
+
+- **Dual-Zone Scroll (`app/kanban.tsx`, `docs/ARCHITECTURE.md`):**
+  - Fixed vertical scroll lock in desktop Chrome where pointer events over Kanban cards intercepted wheel and drag events.
+  - Implemented dual-zone pan zone (`columnPanZone="header"`): header pans horizontally, while card body passes wheel/scroll events to vertical page scroll.
+
 ## 2.4.261
 
 ### CRM & Activity Timeline: Deal-associated activities and account-level activity rollup

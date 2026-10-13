@@ -733,9 +733,9 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     const wipThreshold = resolveWipThreshold(col.key, wipLimits)
     const overWipLimit = isOverWipLimit(colState.count || 0, wipThreshold)
     const title = overWipLimit ? (
-      <Group gap={6} wrap="nowrap">
-        <span>{plainTitle}</span>
-        <Badge color="yellow" variant="light" size="sm" aria-label={`${colState.count || 0} leads, over the configured limit of ${wipThreshold}`}>
+      <Group gap={6} wrap="wrap" style={{ minWidth: 0, flex: 1 }}>
+        <Text component="span" size="sm" fw={600} truncate>{plainTitle}</Text>
+        <Badge color="yellow" variant="light" size="xs" aria-label={`${colState.count || 0} leads, over the configured limit of ${wipThreshold}`}>
           {colState.count || 0}/{wipThreshold}
         </Badge>
       </Group>
@@ -1056,6 +1056,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
             // and board body, this provides a complete dual-zone experience in desktop Chrome:
             // headers pan horizontally; cards/empty space scroll the page vertically.
             columnPanZone="header"
+            columnWidth={320}
           />
         </ErrorBoundary>
       </div>

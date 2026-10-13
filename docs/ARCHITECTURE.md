@@ -1459,6 +1459,13 @@ Ingests CRM Cadence Engine & Sequence Enforcement into Sales Lead Generator:
   3. *Exact Header Height (`app/components/AppHeader.tsx`)*: Defined explicit `height: '48px'`, `boxSizing: 'border-box'` on `AppHeader` and its `<Suspense>` fallback, guaranteeing seamless alignment with the sidebar at `top: 48`.
   4. *Flex Alignment (`app/components/AppLayout.tsx`)*: Added `alignItems: 'flex-start'` on the outer layout flex container to enforce independent sticky sliding for the sidebar alongside fluid workspace content.
 
+### Uniform Kanban Column Geometry & Width Invariant (2.4.266)
+- **Root Cause of Column Width Inconsistencies:** GDS `KanbanColumn` defaults to `minWidth: width, flex: '0 0 auto'` without `width` or `maxWidth`. Columns with extra metadata (such as the WIP limit indicator `{count}/{limit}` in `Discovered` and `Qualified`) or longer titles ballooned up to 420px+, while columns without WIP badges (`Engaged`, `Won`, etc.) remained at 280px. This produced jarring, uneven column widths across the board.
+- **Resolution:**
+  1. *Global Geometry Constraint (`app/globals.css`)*: Enforced `width: 320px !important`, `min-width: 320px !important`, `max-width: 320px !important`, `flex: 0 0 320px !important` on `[data-gds-kanban-column]:not([data-gds-kanban-column-collapsed="true"])`. Collapsed columns cleanly drop to `width: auto !important; flex: 0 0 auto !important`.
+  2. *GdsKanbanBoard Explicit `columnWidth` (`app/kanban.tsx`)*: Passed `columnWidth={320}` into `<GdsKanbanBoard />` to align GDS internal calculations with the 320px geometry.
+  3. *WIP Badge Title Formatting (`app/kanban.tsx`)*: Formatted WIP badge as `size="xs"` with `wrap="wrap"` and `truncate` on the title label to ensure dense header layouts fit within the 320px column boundary without horizontal pressure.
+
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)
 - Brand-aware field normalization prevents cross-tenant writes

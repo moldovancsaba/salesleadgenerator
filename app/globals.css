@@ -56,3 +56,27 @@ select,
 textarea {
   font-size: 16px;
 }
+
+/*
+  Kanban column geometry:
+  Enforces uniform, identical column width across all uncollapsed columns on
+  the Kanban board. GDS KanbanBoard sets `minWidth: width, flex: 0 0 auto` with
+  no maxWidth or width, allowing columns with longer titles or WIP limit badges
+  to balloon wider than other columns, producing jarring width inconsistencies.
+  Fixing width, min-width, and max-width guarantees every uncollapsed column
+  maintains the exact same 320px width, while collapsed columns shrink to auto.
+*/
+[data-gds-kanban-column]:not([data-gds-kanban-column-collapsed="true"]) {
+  width: 320px !important;
+  min-width: 320px !important;
+  max-width: 320px !important;
+  flex: 0 0 320px !important;
+  box-sizing: border-box !important;
+}
+
+[data-gds-kanban-column-collapsed="true"] {
+  width: auto !important;
+  min-width: unset !important;
+  max-width: unset !important;
+  flex: 0 0 auto !important;
+}

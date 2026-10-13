@@ -119,4 +119,15 @@ describe('desktop and tablet navigation affordances', () => {
     const layout = readFileSync(join(root, 'app', 'components', 'AppLayout.tsx'), 'utf8');
     expect(layout).toContain("alignItems: 'flex-start'");
   });
+
+  it('enforces identical, uniform 320px column width across uncollapsed Kanban columns', () => {
+    const globals = readFileSync(join(root, 'app', 'globals.css'), 'utf8');
+    expect(globals).toContain('[data-gds-kanban-column]:not([data-gds-kanban-column-collapsed="true"])');
+    expect(globals).toContain('width: 320px !important;');
+    expect(globals).toContain('min-width: 320px !important;');
+    expect(globals).toContain('max-width: 320px !important;');
+
+    const kanban = readFileSync(join(root, 'app', 'kanban.tsx'), 'utf8');
+    expect(kanban).toContain('columnWidth={320}');
+  });
 });
