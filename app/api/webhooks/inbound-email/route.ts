@@ -15,6 +15,7 @@ import { contactKey } from '../../../../lib/contacts'
 import type { Brand } from '../../../lib/brand'
 import { getAllBrandConfigs, getBrandConfig } from '../../../lib/brand'
 import { suppressRecipient } from '../../../../lib/suppression'
+import { detectReplyClassification } from '../../../../lib/email-engagement'
 
 // A generous cap for what should be a small, metadata-only payload
 // (resend.com/docs/dashboard/receiving/introduction confirms the webhook
@@ -221,6 +222,10 @@ export async function POST(request: NextRequest) {
     const allBrands = Object.keys(await getAllBrandConfigs()) as Brand[]
     const doc = buildActivityLogDoc(receivedEvent, bodyExcerpt, new Date(), allBrands)
 
+    // Vega CRM Phase 6 / Handoff 07 — detect out-of-office / automated replies
+    const replyClassification = detectReplyClassification(receivedEvent.subject)
+    doc.replyClass = replyClassification
+
     // Issue #230 — direction comes from who matches a lead, not from where
     // our address sits in the headers. The header rule misread a routed copy
     // of a lead's reply (our address only in received_for) as outbound, and
@@ -289,29 +294,31 @@ export async function POST(request: NextRequest) {
     // Inbound only: an outbound capture's signature is the rep's own, never
     // an enrichment signal for the lead's contact (issue #230).
     if (doc.leadId && doc.direction === 'inbound') {
-      // CRM Invariant 2: Inbound email reply cancels automated cadence progression
-      // and clears waiting sequence task.
-      try {
-        const brandConfig = await getBrandConfig(doc.brand as Brand);
-        if (brandConfig) {
-          let leadObjId: ObjectId | null = null;
-          try { leadObjId = new ObjectId(doc.leadId); } catch {}
-          if (leadObjId) {
-            await db.collection(brandConfig.dbCollection).updateOne(
-              { _id: leadObjId, activeCadence: { $ne: null } },
-              {
-                $set: {
-                  activeCadence: null,
-                  nextActionDueAt: null,
-                  nextActionNote: 'Sequence stopped: contact replied',
-                  updatedAt: new Date(),
-                },
-              }
-            );
+      // CRM Invariant 2 / Handoff 07: Only human inbound email replies cancel automated cadence
+      // progression. Out-of-office / auto-replies leave cadence intact.
+      if (replyClassification === 'human') {
+        try {
+          const brandConfig = await getBrandConfig(doc.brand as Brand);
+          if (brandConfig) {
+            let leadObjId: ObjectId | null = null;
+            try { leadObjId = new ObjectId(doc.leadId); } catch {}
+            if (leadObjId) {
+              await db.collection(brandConfig.dbCollection).updateOne(
+                { _id: leadObjId, activeCadence: { $ne: null } },
+                {
+                  $set: {
+                    activeCadence: null,
+                    nextActionDueAt: null,
+                    nextActionNote: 'Sequence stopped: contact replied',
+                    updatedAt: new Date(),
+                  },
+                }
+              );
+            }
           }
+        } catch (err) {
+          console.error('[inbound-email webhook] cadence cancellation on reply failed', err);
         }
-      } catch (err) {
-        console.error('[inbound-email webhook] cadence cancellation on reply failed', err);
       }
 
       try {

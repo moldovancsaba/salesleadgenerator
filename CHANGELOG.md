@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
  
+## 2.4.255
+
+### Feature: Outreach email engagement read model, status precedence, unique rates analytics, and tracking caveats disclosure (fixes #242)
+
+- **Email Engagement Domain Engine (`lib/email-engagement.ts`):** Ingests CRM Handoff 07 (Email Engagement Read Model). Establishes canonical display status precedence (`cancelled > bounced > replied > clicked > opened > sent > scheduled`). Later events do not erase earlier ones, ensuring truthful historical logging alongside primary display states.
+- **Human Reply vs Automated OOO Classification (`isHumanReply`, `detectReplyClassification`):** Distinguishes real person replies from automated out-of-office (OOO) and auto-reply responders across subject patterns and email headers (`Auto-Submitted`, `X-Autoreply`, `Precedence`). Automated out-of-office replies do not count towards the human reply metric and stay classified as `sent`.
+- **Inbound Webhook Sequence Preservation (`app/api/webhooks/inbound-email/route.ts`):** Only verified human inbound replies cancel active cadence sequences. Out-of-office auto-replies are recorded in `activityLog` with `replyClass: 'out_of_office'` but leave the lead's `activeCadence` and scheduled tasks completely intact.
+- **Cancel Reason Catalog (`getCancelReasonLabel`):** Maps last-mile cancellation and suppression codes (`SEND_CANCELLED_REPLIED`, `SEND_CANCELLED_SUPPRESSED`, `PERSONALIZATION_BLOCKED`, `campaign_stopped`, `enrollment_stopped`, `invalid_recipient`) to standardized human-readable labels.
+- **Unique Recipient Rates Engine (`computeEngagementRates`):** Calculates unique recipient metrics over successfully sent emails (`totalSentUnique`, `totalOpensUnique`, `totalClicksUnique`, `totalRepliesUnique`, `totalBouncesUnique`, `totalCancelledUnique`). Repeated pixel loads raise raw open counts, not unique open rate. Last-mile cancelled sends are never counted as sent.
+- **Mandatory Tracking Caveats Disclosure:** Discloses standard caveats on email tracking: *"Open tracking is probabilistic and may be affected by Apple Mail Privacy Protection (MPP), image proxies, caching, and blocked remote images. Rates are calculated per unique recipient over successfully sent messages. Display status is 'Opened', never 'Read'."*
+- **Outreach Engagement API Surface (`app/api/outreach/engagement/route.ts`):** New `GET /api/outreach/engagement?brand=<brand>` endpoint returning brand-scoped rates, status distribution, and tracking caveats disclosure under `requireBrandAccessApi` authentication.
+- **Activity Log & UI Integration (`app/lib/activity-log-store.ts`, `app/components/ActivityPanel.tsx`):** Outreach log mappings derive canonical `emailStatus` and `cancelReasonLabel`. Activity timeline renders colored status badges for `Opened`, `Clicked`, `Replied`, `Sent`, `Bounced`, `Cancelled`, and `Scheduled`, with explicit tags for cancellation reasons and out-of-office notes.
+- **Test Coverage:** Added 35 unit tests in `tests/lib/email-engagement.test.ts` and 5 integration unit tests in `tests/lib/outreach-engagement.test.ts`.
+
+Full gate green: 0 `tsc`/lint errors, 1299/1299 unit tests passing, smoke tests clean, `audit:gds-style` clean.
+
 ## 2.4.254
 
 ### Feature: Template personalization engine, merge token interpolation with required fields gating, and contact foundation enhancements (fixes #241)

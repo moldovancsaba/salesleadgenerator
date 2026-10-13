@@ -1,4 +1,5 @@
 import type { Db } from 'mongodb'
+import { deriveEmailStatus, getCancelReasonLabel, isHumanReply } from '@/lib/email-engagement'
 
 export const ACTIVITY_LOG_COLLECTION = 'activityLog'
 
@@ -67,6 +68,12 @@ export type ActivityEntry = {
   meetingProvider?: 'google'
   meetingEventId?: string
   meetingBookedByEmail?: string
+  // Vega CRM Phase 6 / Handoff 07 — canonical email status and cancel label
+  emailStatus?: string
+  cancelReasonLabel?: string
+  replyClass?: string
+  openCount?: number
+  clickCount?: number
 }
 
 // The write-side shape for a new activityLog document (issue #141, this
@@ -123,6 +130,7 @@ export type ActivityLogDocument = {
   meetingProvider?: 'google'
   meetingEventId?: string
   meetingBookedByEmail?: string
+  replyClass?: string
 }
 
 // Lazily ensures the documented indexes exist — same idempotent,
@@ -159,6 +167,17 @@ export function truncateBody(body: string | undefined | null, maxLength = 280): 
 // shape so it can render in one merged timeline alongside future
 // activityLog entries.
 export function mapOutreachLogToActivityEntry(log: any): ActivityEntry {
+  const emailStatus = deriveEmailStatus({
+    sentAt: log.createdAt,
+    cancelledAt: log.cancelledAt,
+    sendAttempted: log.sendAttempted,
+    deliveryStatus: log.deliveryStatus,
+    openCount: log.openCount,
+    clickCount: log.clickCount,
+    sendCancelledReason: log.routingReason,
+  })
+  const cancelReasonLabel = getCancelReasonLabel(log.routingReason) || undefined
+
   return {
     id: log._id.toString(),
     leadId: String(log.leadId || ''),
@@ -169,6 +188,10 @@ export function mapOutreachLogToActivityEntry(log: any): ActivityEntry {
     matchedContactKey: null,
     source: 'outreach-log',
     createdAt: (log.createdAt instanceof Date ? log.createdAt : new Date(log.createdAt)).toISOString(),
+    emailStatus,
+    cancelReasonLabel,
+    openCount: typeof log.openCount === 'number' ? log.openCount : undefined,
+    clickCount: typeof log.clickCount === 'number' ? log.clickCount : undefined,
   }
 }
 
@@ -195,6 +218,10 @@ export function mapActivityLogDoc(doc: any): ActivityEntry {
     meetingProvider: doc.meetingProvider === 'google' ? 'google' : undefined,
     meetingEventId: typeof doc.meetingEventId === 'string' ? doc.meetingEventId : undefined,
     meetingBookedByEmail: typeof doc.meetingBookedByEmail === 'string' ? doc.meetingBookedByEmail : undefined,
+    emailStatus: doc.type === 'email-inbound'
+      ? (isHumanReply(doc.createdAt, doc.replyClass) ? 'replied' : 'sent')
+      : (doc.type === 'email-outbound' ? 'sent' : undefined),
+    replyClass: typeof doc.replyClass === 'string' ? doc.replyClass : undefined,
   }
 }
 

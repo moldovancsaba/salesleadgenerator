@@ -33,6 +33,31 @@ type ActivityEntry = {
   meetingStartAt?: string
   meetingEndAt?: string
   meetingBookedByEmail?: string
+  emailStatus?: string
+  cancelReasonLabel?: string
+  replyClass?: string
+  openCount?: number
+  clickCount?: number
+}
+
+const EMAIL_STATUS_COLOR: Record<string, string> = {
+  cancelled: 'gray',
+  bounced: 'red',
+  replied: 'teal',
+  clicked: 'violet',
+  opened: 'green',
+  sent: 'blue',
+  scheduled: 'orange',
+}
+
+const EMAIL_STATUS_LABEL: Record<string, string> = {
+  cancelled: 'Cancelled',
+  bounced: 'Bounced',
+  replied: 'Replied',
+  clicked: 'Clicked',
+  opened: 'Opened',
+  sent: 'Sent',
+  scheduled: 'Scheduled',
 }
 
 type ActivityContact = { name?: string; email?: string; phone?: string }
@@ -360,6 +385,21 @@ export function ActivityPanel({ leadId, brand, contacts = [] }: Props) {
                   )}
                   {entry.callDisposition && (
                     <Badge size="xs" variant="outline" color="gray">{DISPOSITION_LABEL[entry.callDisposition]}</Badge>
+                  )}
+                  {entry.emailStatus && (
+                    <Badge size="xs" variant="light" color={EMAIL_STATUS_COLOR[entry.emailStatus] || 'gray'}>
+                      {EMAIL_STATUS_LABEL[entry.emailStatus] || entry.emailStatus}
+                    </Badge>
+                  )}
+                  {entry.cancelReasonLabel && (
+                    <Badge size="xs" variant="outline" color="red">
+                      {entry.cancelReasonLabel}
+                    </Badge>
+                  )}
+                  {entry.replyClass === 'out_of_office' && (
+                    <Badge size="xs" variant="outline" color="yellow">
+                      Out of office
+                    </Badge>
                   )}
                 </Group>
                 <Text size="xs" c="dimmed">{new Date(entry.createdAt).toLocaleString()}</Text>
