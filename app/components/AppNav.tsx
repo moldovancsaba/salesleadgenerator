@@ -8,6 +8,7 @@ import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
   IconArchive, IconAddressBook, IconRepeat, IconBuilding, IconBuildings, IconCompass, IconUsersGroup, IconBolt, IconShoppingCart, IconReportAnalytics, IconKey,
+  IconCalendarTime,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -62,6 +63,8 @@ function currentBrandFromPath(pathname: string, knownBrands: string[]): Brand | 
   if (productsMatch && knownBrandSet.has(productsMatch[1])) return productsMatch[1] as Brand;
   const reportsMatch = pathname.match(/^\/reports\/([^/]+)/);
   if (reportsMatch && knownBrandSet.has(reportsMatch[1])) return reportsMatch[1] as Brand;
+  const todayMatch = pathname.match(/^\/today\/([^/]+)/);
+  if (todayMatch && knownBrandSet.has(todayMatch[1])) return todayMatch[1] as Brand;
   return null;
 }
 
@@ -184,6 +187,14 @@ function AppNavInner() {
                       {brandLabels[effectiveBrand] ?? effectiveBrand}
                     </Text>
                   )}
+                  <NavLink
+                    component={Link}
+                    href={`/today/${effectiveBrand}`}
+                    label="Today"
+                    leftSection={<IconCalendarTime size={18} />}
+                    active={pathname === `/today/${effectiveBrand}`}
+                    onClick={close}
+                  />
                   {/* Issue #126 — positioned immediately before Pipeline,
                       per the owner's explicit request. Reuses the same
                       ?view= mechanism the View submenu below already

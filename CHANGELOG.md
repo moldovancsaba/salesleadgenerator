@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
  
+## 2.4.250
+
+### Enhancement: CRM 'Today' rep execution surface and unified daily action queue (Vega CRM ingestion Phase 3, fixes #237)
+
+Ingests Vega CRM Handoff 06 / Today View into Sales Lead Generator:
+- `lib/today.ts`: domain models (`TodayCadenceTask`, `TodayFollowUp`, `TodayDealAttention`, `TodayViewData`), `parseTodayWindow()` for localized calendar day boundaries with UTC fallback, `computeSnoozeDate()` (+1d, +3d, +1w, +2w, or custom ISO), and `computeOverdueDays()` calculating calendar days overdue.
+- `lib/today-query.ts`: server-side MongoDB aggregation querying the 4 daily action queue buckets:
+  1. `cadenceTasks`: manual sequence steps (`activeCadence.waitingForTask: true`) sorted by `taskDueAt`.
+  2. `overdueFollowUps`: rep follow-up commitments past due (`nextActionDueAt < dayStart`), excluding cadence-managed tasks to avoid duplication.
+  3. `dueTodayFollowUps`: scheduled follow-up commitments due in today's calendar window (`dayStart <= nextActionDueAt < dayEnd`).
+  4. `dealsNeedingAttention`: active pipeline deals past `expectedCloseDate` or stale (no activity for 7+ days), excluding won/lost deals.
+  Supports rep ownership scoping (`scope: 'mine'` vs `scope: 'all'`).
+- `app/api/today/[brand]/route.ts`: GET endpoint returning structured `TodayViewData` for the specified brand, scoped to the authenticated rep's session.
+- `app/api/leads/[id]/snooze/route.ts`: POST endpoint allowing reps to quickly postpone a follow-up reminder (+1d, +3d, +1w, etc.), updating `nextActionDueAt` and logging an audit entry to `activityLog`.
+- `app/api/leads/[id]/action-done/route.ts`: POST endpoint clearing `nextActionDueAt` and `nextActionNote` and logging an audit entry to `activityLog`.
+- `app/today/[brand]/page.tsx` & `today-client.tsx`: dedicated daily execution surface with metrics summary strip, urgent visual indicators, category filtering tabs (All, Overdue, Due Today, Cadence Tasks, Stale Deals), and inline execution actions (Complete Step, Mark Done, Snooze, Log Call modal).
+- `app/components/AppNav.tsx`: added "Today" navigation item linking directly to `/today/[brand]`.
+- Test coverage: `tests/lib/today.test.ts` (13 unit tests) and `tests/integration/today.integration.test.ts` (5 integration tests covering aggregation, scoping, snooze, action-done, and API route).
+
+Full gate green: 0 `tsc`/lint errors, 1214/1214 unit tests passing, 600/600 integration tests passing, smoke tests clean, `audit:gds-style` clean.
+
 ## 2.4.249
 
 ### Enhancement: outreach cadences multi-channel steps, completion gating, last-mile safety, and suppression registry (Vega CRM ingestion Phase 2, fixes #236)

@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.249  
+**Version:** 2.4.250  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -11,6 +11,7 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 
 - Next.js 16 app with API routes
 - Mobile-first kanban board, table view, metrics dashboard, and search-learning panel
+- Today rep execution surface and unified daily action queue (`/today/[brand]`) with inline complete/snooze/call-log actions
 - Backlog board (`view=backlog`) for leads parked outside the main kanban flow
 - Add Lead modal for manually creating leads (shares its contact editor with the detail-page edit form)
 - Duplicate-lead review queue and merge UI (`/admin/duplicates`) — fuzzy near-duplicate detection with a conflict-resolution merge flow

@@ -1296,8 +1296,25 @@ Ingests Vega CRM Outreach Invariants 1–4 into Sales Lead Generator:
 - **Reply Cancellation (`app/api/webhooks/inbound-email/route.ts`):** An inbound email reply from a lead contact immediately cancels automated cadence progression (`activeCadence: null`) and clears waiting sequence reminders with `Sequence stopped: contact replied` (Invariant 2).
 - **Last-Mile Send Authorization (`lib/outreach-send.ts`):** Immediately before dispatching via Resend, `dispatchOutreachEmail` verifies recipient suppression and checks `activityLog` for inbound replies. If suppressed or replied, dispatch aborts (`SEND_CANCELLED_SUPPRESSED` / `SEND_CANCELLED_REPLIED`), writes an `outreach_logs` record with `sendAttempted: false` and `routingAllowed: false`, and avoids provider API calls (Invariant 4).
 - **API Surface:** `POST /api/leads/[id]/cadence/complete-step` (rep-triggered manual task completion advancing step and writing `activityLog` audit entry).
-- **UI Surface:** `CadencePanel` displays task required status and provides a "Complete Task" action; `CadencesClient` supports the `general` channel for human task reminders in cadence builders.
 - **Test Coverage:** `tests/lib/suppression.test.ts` (8 unit tests), `tests/lib/cadences.test.ts` (32 unit tests), `tests/integration/cadence-invariants.integration.test.ts` (3 integration tests verifying all 4 invariants end-to-end), plus updated `cadence-tick.integration.test.ts` and `inbound-email-webhook.integration.test.ts`.
+
+### CRM 'Today' Rep Execution Surface and Daily Action Queue (2.4.250, issue #237)
+Ingests Vega CRM Handoff 06 / Today View into Sales Lead Generator:
+- **Architecture & Domain Boundary (`lib/today.ts`, `lib/today-query.ts`):** Unifies fragmented daily sales work into a consolidated, time-sensitive execution workbench (`/today/[brand]`). Computes local calendar day boundaries `[dayStart, dayEnd)` across timezones with safe UTC fallback (`parseTodayWindow`), snooze durations (`computeSnoozeDate`), and calendar days overdue (`computeOverdueDays`).
+- **4 Action Queue Buckets:**
+  1. `cadenceTasks`: manual sequence steps (`activeCadence.waitingForTask: true`) sorted by `taskDueAt`.
+  2. `overdueFollowUps`: rep follow-up commitments past due (`nextActionDueAt < dayStart`), excluding active sequence tasks to prevent duplicate representations.
+  3. `dueTodayFollowUps`: scheduled follow-up commitments due in today's calendar window (`dayStart <= nextActionDueAt < dayEnd`).
+  4. `dealsNeedingAttention`: active pipeline deals past `expectedCloseDate` or stale (no activity for 7+ days), excluding closed won/lost deals.
+- **Scoping & Ownership:** Rep scoping (`scope: 'mine'` vs `scope: 'all'`) isolates assigned items to the authenticated rep (or unassigned shared pool) via verified SSO session claims.
+- **Execution Endpoints:**
+  - `GET /api/today/[brand]`: returns aggregated `TodayViewData` metrics and action items.
+  - `POST /api/leads/[id]/snooze`: postpones follow-up commitments (`1d`, `3d`, `1w`, or custom ISO date) and writes audit log to `activityLog`.
+  - `POST /api/leads/[id]/action-done`: clears `nextActionDueAt`/`nextActionNote` upon completion and writes audit log to `activityLog`.
+  - `POST /api/leads/[id]/cadence/complete-step`: completes cadence manual tasks and advances sequences.
+  - `POST /api/leads/[id]/activity`: logs quick call outcomes with standardized dispositions.
+- **UI Surface (`app/today/[brand]`):** Top metric summary cards with urgent visual cues, tabbed category filters, action item stream with one-click inline execution (Complete Step, Mark Done, Snooze menu, Log Call modal), and unified navigation entry in `AppNav`.
+- **Test Coverage:** `tests/lib/today.test.ts` (13 unit tests for window, snooze, and overdue calculations) and `tests/integration/today.integration.test.ts` (5 integration tests for MongoDB aggregation, ownership scoping, snooze endpoint, action-done endpoint, and GET API route).
 
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)
