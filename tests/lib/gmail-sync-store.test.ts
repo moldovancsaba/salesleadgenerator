@@ -7,7 +7,7 @@ process.env.GOOGLE_OAUTH_CLIENT_ID = 'test-client-id';
 process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'test-client-secret';
 process.env.GOOGLE_OAUTH_REDIRECT_URI = 'https://example.com/callback';
 
-import { pollSingleGmailConnection, pollGmailForBrand } from '../../app/lib/gmail-sync-store';
+import { pollSingleGmailConnection, pollGmailForBrand, pollUserGmail } from '../../app/lib/gmail-sync-store';
 import { encryptCredentials } from '../../lib/integration-crypto';
 import type { IntegrationConnection } from '../../lib/integration-connections';
 
@@ -355,6 +355,36 @@ describe('Gmail Sync Store (Issue #216 & #249)', () => {
       // Cursors should be created for BOTH connections
       expect(cursors.length).toBe(2);
       expect(cursors.some((c) => c.connectionId === 'conn-brand-1')).toBe(true);
+      expect(cursors.some((c) => c.connectionId === 'conn-user-1')).toBe(true);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('pollUserGmail returns failure when user has no active connection', async () => {
+    const result = await pollUserGmail(mockDb, 'non-existent-user', 'cogmap');
+    expect(result.ingested).toBe(0);
+    expect(result.skipped).toBe(0);
+    expect(result.failure).toBe('no_active_connection');
+  });
+
+  it('pollUserGmail polls the specific user Gmail connection across brand leads', async () => {
+    connections.push(sampleConnection);
+
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes('/messages?')) {
+        return new Response(JSON.stringify({ messages: [] }), { status: 200 });
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    });
+
+    try {
+      const result = await pollUserGmail(mockDb, 'user-sso-1', 'cogmap');
+      expect(result.ingested).toBe(0);
+      expect(result.skipped).toBe(0);
+      expect(result.failure).toBeUndefined();
+
       expect(cursors.some((c) => c.connectionId === 'conn-user-1')).toBe(true);
     } finally {
       global.fetch = originalFetch;

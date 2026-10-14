@@ -41,6 +41,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
   const [configured, setConfigured] = useState<{ google: boolean; encryption: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -129,6 +130,30 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
     const relativeUrl = `/api/integrations/gmail/connect?brand=${encodeURIComponent(brand)}&scopeType=user&returnUrl=${encodeURIComponent(returnUrl)}`;
     const fullUrl = new URL(relativeUrl, window.location.origin).toString();
     window.location.assign(fullUrl);
+  }
+
+  async function handleSyncGmail() {
+    setSyncing(true);
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/user/integrations/gmail/sync?brand=${encodeURIComponent(brand)}`, {
+        method: 'POST',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        const msg = data.ingested > 0
+          ? `Synced ${data.ingested} new message${data.ingested === 1 ? '' : 's'} from your inbox!`
+          : `Inbox checked — no new replies from CRM contacts (${data.skipped} messages skipped).`;
+        setFeedback({ type: 'success', message: msg });
+        await loadConnections();
+      } else {
+        setFeedback({ type: 'error', message: data.error || 'Sync could not be completed.' });
+      }
+    } catch {
+      setFeedback({ type: 'error', message: 'Could not reach server to sync messages.' });
+    } finally {
+      setSyncing(false);
+    }
   }
 
   async function handleTestGmail() {
@@ -222,11 +247,22 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
                 <Button
                   size="xs"
                   variant="light"
-                  color="gray"
+                  color="blue"
                   leftSection={<IconRefresh size={14} />}
+                  onClick={handleSyncGmail}
+                  loading={syncing}
+                  disabled={testing || disconnecting}
+                >
+                  Sync Emails Now
+                </Button>
+                <Button
+                  size="xs"
+                  variant="light"
+                  color="gray"
+                  leftSection={<IconCheck size={14} />}
                   onClick={handleTestGmail}
                   loading={testing}
-                  disabled={disconnecting}
+                  disabled={syncing || disconnecting}
                 >
                   Test
                 </Button>
@@ -237,7 +273,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
                   leftSection={<IconUnlink size={14} />}
                   onClick={handleDisconnectGmail}
                   loading={disconnecting}
-                  disabled={testing}
+                  disabled={syncing || testing}
                 >
                   Disconnect
                 </Button>

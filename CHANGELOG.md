@@ -1,6 +1,18 @@
 # Changelog — Sales Lead Generator
 
-## 2.4.272
+## 2.4.273
+
+### Integrations: On-demand rep Gmail sync endpoint and mailbox sync affordance
+
+- **User-Scoped On-Demand Gmail Sync (`POST /api/user/integrations/[provider]/sync`, `app/lib/gmail-sync-store.ts`):**
+  - Implemented `pollUserGmail(db, userId, targetBrand)` in `app/lib/gmail-sync-store.ts` to poll messages exclusively for the logged-in sales rep's connected Google account across CRM brand leads.
+  - Added self-service endpoint `POST /api/user/integrations/[provider]/sync` authenticated via user SSO ID token (`resolveSessionFromIdToken`) allowing sales reps to trigger an immediate check for newly arrived prospect replies without waiting for the hourly cron tick.
+- **Mailbox Sync Button in User Settings (`app/components/UserSettingsModal.tsx`):**
+  - Added "Sync Emails Now" button next to "Test" and "Disconnect" in `UserSettingsModal` for active Gmail connections with live loading spinner and real-time status feedback (*"Synced X new messages from your inbox!"* or *"Inbox checked — no new replies from CRM contacts"*).
+- **Automated Verification:**
+  - Added unit test cases for `pollUserGmail` in `tests/lib/gmail-sync-store.test.ts` (handling active connection polling and non-existent connection rejection).
+  - Added integration test suite `tests/integration/user-integrations-sync.integration.test.ts` covering provider validation, session authentication, success counts, and error propagation.
+
 
 ### Integrations: Fix MongoDB `$set` vs `$setOnInsert` path conflict on `userId`
 

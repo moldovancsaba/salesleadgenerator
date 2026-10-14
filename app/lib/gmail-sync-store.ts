@@ -2,6 +2,7 @@ import { ObjectId, type Db } from 'mongodb';
 import {
   getActiveConnectionByProvider,
   listAllActiveUserConnections,
+  getUserConnection,
   getValidCredential,
   ConnectionRevokedError,
 } from './integration-store';
@@ -14,7 +15,7 @@ import {
 import { matchReplyToLeads, findMatchedContact, generateContactSuggestion } from '../../lib/contact-reply-matching';
 import { contactKey, normalizeEmail } from '../../lib/contacts';
 import { ACTIVITY_LOG_COLLECTION, truncateBody, ensureActivityLogIndexes, type ActivityLogDocument } from './activity-log-store';
-import { getBrandConfig, type Brand } from './brand';
+import { getBrandConfig, getAllBrandConfigs, type Brand } from './brand';
 import { tenantFilter } from '../../lib/tenant';
 import { deleteCalendarTaskReminder } from '../../lib/gcal-sync';
 
@@ -356,6 +357,62 @@ export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string):
   for (const connection of connections) {
     try {
       const res = await pollSingleGmailConnection(db, connection, brand, tenantId, brandConfig, knownEmails);
+      totalIngested += res.ingested;
+      totalSkipped += res.skipped;
+      if (res.failure) failureReasons.push(res.failure);
+    } catch (err: any) {
+      failureReasons.push(err?.message || 'connection_poll_failed');
+    }
+  }
+
+  return {
+    ingested: totalIngested,
+    skipped: totalSkipped,
+    failure: failureReasons.length > 0 ? failureReasons.join('; ') : undefined,
+  };
+}
+
+// Issue #249: Polls Gmail messages for a single user's connected Google account across
+// configured CRM brands (or a specific preferred brand).
+export async function pollUserGmail(
+  db: Db,
+  userId: string,
+  targetBrand?: string
+): Promise<GmailPollResult> {
+  const connection = await getUserConnection(db, userId, 'gmail');
+  if (!connection || connection.status !== 'active') {
+    return { ingested: 0, skipped: 0, failure: 'no_active_connection' };
+  }
+
+  const allBrandConfigs = await getAllBrandConfigs();
+  const brandsToSync = targetBrand && allBrandConfigs[targetBrand]
+    ? [targetBrand]
+    : Object.keys(allBrandConfigs);
+
+  let totalIngested = 0;
+  let totalSkipped = 0;
+  const failureReasons: string[] = [];
+
+  for (const b of brandsToSync) {
+    const brandConfig = allBrandConfigs[b];
+    if (!brandConfig) continue;
+
+    const tenantId = connection.tenantId || 'default';
+    const leadsCollection = db.collection(brandConfig.dbCollection);
+    const knownEmailDocs = await leadsCollection
+      .find(tenantFilter(tenantId) as any, { projection: { contactEmails: 1 } })
+      .toArray()
+      .catch(() => [] as any[]);
+
+    const knownEmails = new Set<string>();
+    for (const doc of knownEmailDocs) {
+      for (const email of doc.contactEmails || []) {
+        knownEmails.add(normalizeEmail(email));
+      }
+    }
+
+    try {
+      const res = await pollSingleGmailConnection(db, connection, b as Brand, tenantId, brandConfig, knownEmails);
       totalIngested += res.ingested;
       totalSkipped += res.skipped;
       if (res.failure) failureReasons.push(res.failure);

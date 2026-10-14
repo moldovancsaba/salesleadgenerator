@@ -99,3 +99,13 @@ export type IntegrationConnection = {
   - Runs `matchReplyToLeads()` to attach to lead timeline.
   - If human reply: cancels cadence sequence (`activeCadence: null`) and removes future Google Calendar task reminders.
   - Deduplication: RFC 2822 `Message-ID` (`gmail:<message-id>`) and fallback hash (`buildFallbackHash()`).
+
+### Deliverable 4: On-Demand User Mailbox Sync & UI Controls
+- **API Route** (`POST /api/user/integrations/[provider]/sync`):
+  - Validates session user claims (`resolveSessionFromIdToken`).
+  - Calls `pollUserGmail(db, userId, targetBrand)`.
+  - Returns immediate sync results (`ingested`, `skipped`, `failure`).
+- **UI Affordances** (`app/components/UserSettingsModal.tsx`):
+  - "Sync Emails Now" button in User Settings Modal alongside Test and Disconnect.
+  - Live feedback banner on messages ingested vs CRM contacts checked.
+
