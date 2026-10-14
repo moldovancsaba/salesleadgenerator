@@ -144,6 +144,8 @@ export async function POST(request: NextRequest) {
       variables: [] as string[],
     }
 
+    const includeSignature = body.includeSignature !== false
+
     const result = await sendManualEmail(db, lead, template, {
       brand,
       tenantId,
@@ -151,6 +153,7 @@ export async function POST(request: NextRequest) {
       senderUserId,
       senderName,
       senderEmail,
+      includeSignature,
     })
 
     return NextResponse.json({

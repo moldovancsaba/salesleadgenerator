@@ -73,7 +73,8 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [battlecards, setBattlecards] = useState<Battlecard[]>([]);
   const [battlecardsLoading, setBattlecardsLoading] = useState(false);
-  const [senderInfo, setSenderInfo] = useState<{ email?: string; provider: 'gmail' | 'resend' }>({ provider: 'resend' });
+  const [senderInfo, setSenderInfo] = useState<{ email?: string; provider: 'gmail' | 'resend'; signatureText?: string }>({ provider: 'resend' });
+  const [includeSignature, setIncludeSignature] = useState(true);
 
   useEffect(() => {
     if (!opened) return;
@@ -87,6 +88,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           setSenderInfo({
             email: gmailConn.userEmail || gmailConn.providerAccountLabel,
             provider: 'gmail',
+            signatureText: gmailConn.signatureText,
           });
         } else {
           setSenderInfo({ provider: 'resend' });
@@ -274,6 +276,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           subject,
           body,
           idempotencyKey,
+          includeSignature: senderInfo.signatureText ? includeSignature : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -416,6 +419,17 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
                   <Badge color="gray" variant="light" size="sm">
                     Sending via: System Email (Resend)
                   </Badge>
+                )}
+                {senderInfo.provider === 'gmail' && senderInfo.signatureText && channel === 'email' && (
+                  <Button
+                    size="compact-xs"
+                    variant={includeSignature ? 'light' : 'subtle'}
+                    color={includeSignature ? 'indigo' : 'gray'}
+                    onClick={() => setIncludeSignature((v) => !v)}
+                    title={includeSignature ? 'Click to exclude Gmail signature' : 'Click to include Gmail signature'}
+                  >
+                    {includeSignature ? 'Signature attached' : 'No signature'}
+                  </Button>
                 )}
               </Group>
               <Group justify="flex-end" gap="sm">

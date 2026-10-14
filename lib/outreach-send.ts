@@ -27,6 +27,7 @@ import { isRecipientSuppressed } from './suppression';
 import { deduplicateDocumentIds, resolveDocumentAttachmentRefs, type DocumentRecord } from './documents';
 import { getUserConnection, getValidCredential } from '../app/lib/integration-store';
 import { buildRfc2822Message, sendGmailMessage } from './gmail-send';
+import { appendSignatureToBody } from './gmail-signature';
 
 export type AutomatedSendContext = {
   brand: string;
@@ -51,6 +52,7 @@ export type ManualSendContext = {
   senderUserId?: string;
   senderName?: string;
   senderEmail?: string;
+  includeSignature?: boolean;
 };
 
 // The one thing that actually differs between a cadence step firing itself
@@ -72,6 +74,7 @@ export type OutreachSendSource =
       senderUserId?: string;
       senderName?: string;
       senderEmail?: string;
+      includeSignature?: boolean;
     }
   | { kind: 'quote'; quoteId: string; idempotencyKey: string; documentIds?: string[] };
 
@@ -443,6 +446,20 @@ export async function dispatchOutreachEmail(
   let usedTransport: 'gmail' | 'resend' = 'resend';
   let fromAddress: string | undefined;
 
+  // Issue #241: If sending manually from a rep's account and includeSignature is enabled,
+  // append their synced signature formatted with standard RFC 3676 delimiter.
+  let deliveredBody = body;
+  if (source.kind === 'manual' && source.senderUserId && source.includeSignature !== false) {
+    try {
+      const userConn = await getUserConnection(db, source.senderUserId, 'gmail');
+      if (userConn?.signatureText) {
+        deliveredBody = appendSignatureToBody(body, userConn.signatureText);
+      }
+    } catch {
+      // Non-fatal, send original body
+    }
+  }
+
   // Issue #248: If this is a manual send and the sales rep has connected their personal
   // Google / Gmail account, route via the Gmail REST API (messages.send).
   if (source.kind === 'manual' && source.senderUserId) {
@@ -457,7 +474,7 @@ export async function dispatchOutreachEmail(
           from: { name: source.senderName, email: repFromEmail },
           to: { name: dmContact?.name, email: to },
           subject,
-          bodyText: body,
+          bodyText: deliveredBody,
         });
         const gmailResult = await sendGmailMessage({
           accessToken,
@@ -486,7 +503,7 @@ export async function dispatchOutreachEmail(
             from: fromAddress,
             to,
             subject,
-            text: body,
+            text: deliveredBody,
           },
           { idempotencyKey }
         );
@@ -512,7 +529,7 @@ export async function dispatchOutreachEmail(
     activityLogWritten = await writeManualSendActivityLog(db, context, leadId, {
       resendEmailId: externalId,
       subject,
-      body,
+      body: deliveredBody,
       source: usedTransport,
     });
   }
@@ -521,7 +538,7 @@ export async function dispatchOutreachEmail(
     to,
     templateId: template.id,
     subject,
-    body,
+    body: deliveredBody,
     routingAllowed: !sendError,
     routingReason: sendError ? `${usedTransport} rejected: ${sendError}` : null,
     sendAttempted: true,
@@ -583,6 +600,7 @@ export async function sendManualEmail(
       senderUserId: context.senderUserId,
       senderName: context.senderName,
       senderEmail: context.senderEmail,
+      includeSignature: context.includeSignature,
     }
   );
 }

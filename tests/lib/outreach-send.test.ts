@@ -204,5 +204,73 @@ describe('dispatchOutreachEmail — Personalization Gating & Send Invariants (is
     expect(mockDb.insertedLogs[0].sendAttempted).toBe(false);
     expect(mockDb.insertedLogs[0].routingAllowed).toBe(false);
   });
+
+  it('appends rep Gmail signature when sending manually with active personal connection (issue #241)', async () => {
+    const { dispatchOutreachEmail } = await import('../../lib/outreach-send');
+    const integrationStore = await import('../../app/lib/integration-store');
+    const gmailSend = await import('../../lib/gmail-send');
+    const { vi } = await import('vitest');
+
+    const insertedLogs: any[] = [];
+    const mockDb = {
+      insertedLogs,
+      collection: (name: string) => ({
+        insertOne: async (doc: any) => {
+          insertedLogs.push({ ...doc, _id: `mock-id-${insertedLogs.length + 1}` });
+          return { insertedId: `mock-id-${insertedLogs.length}` };
+        },
+        findOne: async () => null,
+        createIndex: async () => 'idx',
+      }),
+    };
+
+    vi.spyOn(integrationStore, 'getUserConnection').mockResolvedValue({
+      id: 'conn-1',
+      status: 'active',
+      userEmail: 'rep@company.com',
+      signatureText: 'Best,\nAlex Rep\nVP Sales',
+    } as any);
+    vi.spyOn(integrationStore, 'getValidCredential').mockResolvedValue('mock-token');
+
+    let capturedRawMime = '';
+    vi.spyOn(gmailSend, 'sendGmailMessage').mockImplementation(async (params) => {
+      capturedRawMime = params.rawMime;
+      return { id: 'gmail-msg-123', threadId: 'thread-123' };
+    });
+
+    const lead = {
+      _id: 'lead-rep-1',
+      entity_name: 'Prospect Co',
+      contacts: [{ name: 'Sam Prospect', email: 'sam@prospect.co', isDecisionMaker: true }],
+    };
+
+    const template = {
+      id: 'tpl-1',
+      name: 'Intro',
+      channel: 'email' as const,
+      industry: '',
+      subject: 'Quick question',
+      body: 'Hi Sam,\n\nReaching out about our solution.',
+      variables: [],
+    };
+
+    const res = await dispatchOutreachEmail(
+      mockDb as any,
+      lead as any,
+      template,
+      { brand: 'cogmap', tenantId: 'default' },
+      {
+        kind: 'manual',
+        idempotencyKey: 'idem-123',
+        senderUserId: 'user-rep-1',
+        includeSignature: true,
+      }
+    );
+
+    expect(res.sent).toBe(true);
+    expect(capturedRawMime).toContain('Reaching out about our solution.\r\n\r\n-- \r\nBest,\r\nAlex Rep\r\nVP Sales');
+    expect(mockDb.insertedLogs[0].bodyExcerpt).toContain('Reaching out about our solution.\n\n-- \nBest,\nAlex Rep\nVP Sales');
+    expect(mockDb.insertedLogs[1].body).toContain('Reaching out about our solution.\n\n-- \nBest,\nAlex Rep\nVP Sales');
+  });
 });
 

@@ -15,6 +15,8 @@ type SafeConnection = {
   status: 'active' | 'expired' | 'revoked' | 'error';
   lastVerifiedAt?: string;
   lastSyncError?: string;
+  signatureText?: string;
+  signatureSyncedAt?: string;
 };
 
 type Props = {
@@ -42,6 +44,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [syncingSignature, setSyncingSignature] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -176,6 +179,28 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
     }
   }
 
+  async function handleRefreshSignature() {
+    setSyncingSignature(true);
+    setFeedback(null);
+    try {
+      const res = await fetch('/api/user/integrations/gmail/signature/sync', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        setFeedback({
+          type: 'success',
+          message: data.signatureText ? 'Gmail signature synchronized successfully.' : 'Signature refreshed (no signature configured in Gmail).',
+        });
+        await loadConnections();
+      } else {
+        setFeedback({ type: 'error', message: data.error || 'Failed to sync signature.' });
+      }
+    } catch {
+      setFeedback({ type: 'error', message: 'Could not reach server to sync signature.' });
+    } finally {
+      setSyncingSignature(false);
+    }
+  }
+
   async function handleDisconnectGmail() {
     if (!window.confirm('Disconnect your Gmail account? You will no longer be able to send or receive emails from your personal address.')) {
       return;
@@ -243,6 +268,41 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
 
               <Divider my={4} />
 
+              <Stack gap={6}>
+                <Group justify="space-between" align="center">
+                  <Text size="xs" fw={600} c="dimmed">Gmail Signature</Text>
+                  <Button
+                    size="compact-xs"
+                    variant="subtle"
+                    color="indigo"
+                    leftSection={<IconRefresh size={12} />}
+                    onClick={handleRefreshSignature}
+                    loading={syncingSignature}
+                    disabled={syncing || testing || disconnecting}
+                  >
+                    Refresh Signature
+                  </Button>
+                </Group>
+                {gmailConnection.signatureText ? (
+                  <Paper p="xs" withBorder bg="var(--mantine-color-gray-0)" radius="xs">
+                    <Text size="xs" ff="monospace" style={{ whiteSpace: 'pre-wrap', maxHeight: 80, overflowY: 'auto' }}>
+                      {gmailConnection.signatureText}
+                    </Text>
+                    {gmailConnection.signatureSyncedAt && (
+                      <Text size="10px" c="dimmed" mt={4}>
+                        Synced: {formatRelativeTime(gmailConnection.signatureSyncedAt)}
+                      </Text>
+                    )}
+                  </Paper>
+                ) : (
+                  <Text size="xs" c="dimmed">
+                    No signature found in Gmail. Click Refresh Signature to sync.
+                  </Text>
+                )}
+              </Stack>
+
+              <Divider my={4} />
+
               <Group justify="flex-end" gap="xs">
                 <Button
                   size="xs"
@@ -251,7 +311,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
                   leftSection={<IconRefresh size={14} />}
                   onClick={handleSyncGmail}
                   loading={syncing}
-                  disabled={testing || disconnecting}
+                  disabled={testing || disconnecting || syncingSignature}
                 >
                   Sync Emails Now
                 </Button>

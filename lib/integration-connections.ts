@@ -33,6 +33,10 @@ export type IntegrationConnection = {
   // User-level connection extension (issue #247)
   userId?: string; // ssoUserId of the user who owns this connection (omitted for brand-level)
   userEmail?: string; // authenticated Google account email
+  // Signature synchronization extension (issue #241)
+  signatureHtml?: string;
+  signatureText?: string;
+  signatureSyncedAt?: string;
 };
 
 export const OAUTH_PROVIDERS: IntegrationProvider[] = ['google_calendar', 'gmail', 'google_contacts'];
