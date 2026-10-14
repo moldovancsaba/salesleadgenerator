@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Container, Title, Text, Group, Stack, Badge, Loader, SimpleGrid, UnstyledButton, Button, Box } from '@mantine/core'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Container, Title, Text, Group, Stack, Badge, Loader, SimpleGrid, UnstyledButton, Button, Box, TextInput, ActionIcon, Paper } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminDetailDrawer, AdminModal, InfoCard, type AdminDataTableSort } from '@sovereignsquad/gds-admin/client'
+import { IconSearch, IconX, IconDownload } from '@tabler/icons-react'
 import Link from 'next/link'
 import type { Brand } from '@/app/lib/brand'
 import { CURRENCY_SYMBOLS, type CurrencyCode } from '@/app/lib/brand-constants'
@@ -89,15 +90,36 @@ export function AccountsClient({ brand, label, currency }: Props) {
 
   useEffect(() => { loadAccounts() }, [loadAccounts])
 
-  const sortedAccounts = [...accounts].sort((a, b) => {
-    const dir = sort.direction === 'asc' ? 1 : -1;
-    if (sort.key === 'activity') {
-      const at = a.mostRecentUpdatedAt ? new Date(a.mostRecentUpdatedAt).getTime() : 0;
-      const bt = b.mostRecentUpdatedAt ? new Date(b.mostRecentUpdatedAt).getTime() : 0;
-      return (at - bt) * dir;
+  const [query, setQuery] = useState('')
+
+  const filteredAccounts = useMemo(() => {
+    let list = accounts
+    if (query.trim()) {
+      const q = query.trim().toLowerCase()
+      list = list.filter((a) =>
+        (a.parentOrgName && a.parentOrgName.toLowerCase().includes(q)) ||
+        a.parentOrgId.toLowerCase().includes(q) ||
+        a.relationshipCodes.some((code) => code.toLowerCase().includes(q))
+      )
     }
-    return (rollupRank(a) - rollupRank(b)) * dir;
-  });
+    return [...list].sort((a, b) => {
+      const dir = sort.direction === 'asc' ? 1 : -1;
+      if (sort.key === 'name') {
+        const nameA = a.parentOrgName || a.parentOrgId;
+        const nameB = b.parentOrgName || b.parentOrgId;
+        return nameA.localeCompare(nameB) * dir;
+      }
+      if (sort.key === 'leadCount') {
+        return (a.leadCount - b.leadCount) * dir;
+      }
+      if (sort.key === 'activity') {
+        const at = a.mostRecentUpdatedAt ? new Date(a.mostRecentUpdatedAt).getTime() : 0;
+        const bt = b.mostRecentUpdatedAt ? new Date(b.mostRecentUpdatedAt).getTime() : 0;
+        return (at - bt) * dir;
+      }
+      return (rollupRank(a) - rollupRank(b)) * dir;
+    });
+  }, [accounts, query, sort]);
 
   const [selectedParentOrgId, setSelectedParentOrgId] = useState<string | null>(null)
   const [detail, setDetail] = useState<AccountDetail | null>(null)
@@ -239,26 +261,58 @@ export function AccountsClient({ brand, label, currency }: Props) {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <Group justify="space-between" align="flex-start" wrap="wrap">
-          <div style={{ flex: 1, minWidth: 280 }}>
-            <Title order={2}>Accounts</Title>
-            <Text size="sm" c="dimmed">
-              Every parent organization with at least one <Text span fw={700}>{label}</Text> lead, grouped
-              by <code>parentOrgId</code>, with a rollup of its leads. A lead with no parent organization set
-              never appears here.
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+          <div>
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Accounts</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {filteredAccounts.length} {filteredAccounts.length === 1 ? 'account' : 'accounts'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Every parent organization with at least one <Text span fw={600}>{label}</Text> lead, grouped by <code>parentOrgId</code>.
             </Text>
           </div>
           <Button
             component="a"
-            href={`/api/accounts?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}&format=csv`}
+            href={`/api/accounts?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}&format=csv${query.trim() ? `&q=${encodeURIComponent(query.trim())}` : ''}`}
             variant="default"
             size="xs"
+            leftSection={<IconDownload size={14} />}
             download
-            disabled={sortedAccounts.length === 0}
+            disabled={accounts.length === 0}
           >
             Export CSV
           </Button>
         </Group>
+
+        {/* High-Density Filter Toolbar matching Contacts reference */}
+        <Paper withBorder p="xs" radius="md">
+          <Group gap="xs" wrap="wrap" align="center">
+            <TextInput
+              style={{ flex: 1, minWidth: 260 }}
+              size="xs"
+              value={query}
+              onChange={(e) => setQuery(e.currentTarget.value)}
+              placeholder="Search accounts by organization name or ID…"
+              aria-label="Search accounts"
+              leftSection={<IconSearch size={14} />}
+              rightSection={
+                query ? (
+                  <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => setQuery('')} aria-label="Clear search">
+                    <IconX size={12} />
+                  </ActionIcon>
+                ) : null
+              }
+            />
+            {query && (
+              <Button variant="subtle" color="gray" size="xs" onClick={() => setQuery('')}>
+                Reset
+              </Button>
+            )}
+          </Group>
+        </Paper>
 
         {error && <AdminFormStatus state="error" title="Couldn't load accounts" description={error} />}
         {truncated && (
@@ -269,14 +323,14 @@ export function AccountsClient({ brand, label, currency }: Props) {
 
         {loading ? (
           <Group justify="center" py="lg"><Loader size="sm" /></Group>
-        ) : sortedAccounts.length === 0 ? (
+        ) : filteredAccounts.length === 0 ? (
           <AdminResourceEmptyState
-            title="No leads linked to a parent organization yet"
-            description="Accounts appear here once a lead's parentOrgId is set."
+            title={query ? 'No matching accounts' : 'No leads linked to a parent organization yet'}
+            description={query ? 'Try adjusting your search query.' : "Accounts appear here once a lead's parentOrgId is set."}
           />
         ) : (
           <AdminDataTable<AccountRollup & Record<string, unknown>>
-            rows={sortedAccounts as (AccountRollup & Record<string, unknown>)[]}
+            rows={filteredAccounts as (AccountRollup & Record<string, unknown>)[]}
             caption="Accounts"
             sort={sort}
             onSortChange={setSort}
@@ -324,6 +378,17 @@ export function AccountsClient({ brand, label, currency }: Props) {
                 sortable: true,
                 width: 160,
                 accessor: (row) => formatDate(row.mostRecentUpdatedAt),
+              },
+              {
+                key: 'actions',
+                header: '',
+                width: 80,
+                align: 'end',
+                accessor: (row) => (
+                  <Button size="xs" variant="light" color="indigo" onClick={() => setSelectedParentOrgId(row.parentOrgId)}>
+                    View
+                  </Button>
+                ),
               },
             ]}
             empty={<Text c="dimmed" size="sm">No accounts.</Text>}

@@ -206,14 +206,20 @@ export function CadencesClient({ brand, label }: Props) {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <Group justify="space-between">
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
           <div>
-            <Title order={2}>Sales Cadences</Title>
-            <Text size="sm" c="dimmed">
-              Multi-step, multi-day automated outreach sequences for <Text span fw={700}>{label}</Text>.
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Sales Cadences</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {cadences.length} {cadences.length === 1 ? 'cadence' : 'cadences'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Multi-step, multi-day automated outreach sequences for <Text span fw={600}>{label}</Text>.
             </Text>
           </div>
-          <Button leftSection={<IconPlus size={16} />} onClick={resetForm} variant="light">
+          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={resetForm} variant="light">
             New Cadence
           </Button>
         </Group>
@@ -332,23 +338,26 @@ export function CadencesClient({ brand, label }: Props) {
             rows={cadences}
             caption="Cadences"
             columns={[
-              { key: 'name', header: 'Name', rowHeader: true },
-              { key: 'steps', header: 'Steps', numeric: true, accessor: (row) => row.steps.length },
+              { key: 'name', header: 'Name', rowHeader: true, width: 240 },
+              { key: 'steps', header: 'Steps', numeric: true, width: 100, accessor: (row) => row.steps.length },
               {
                 key: 'enabled',
                 header: 'Status',
+                width: 160,
                 accessor: (row) => (
                   <Badge color={row.enabled ? 'red' : 'gray'} variant="light">
                     {row.enabled ? 'Enabled (sending)' : 'Disabled'}
                   </Badge>
                 ),
               },
-              { key: 'enrolledCount', header: 'Leads enrolled', numeric: true, accessor: (row) => row.enrolledCount ?? 0 },
+              { key: 'enrolledCount', header: 'Leads enrolled', numeric: true, width: 140, accessor: (row) => row.enrolledCount ?? 0 },
               {
                 key: 'actions',
-                header: 'Actions',
+                header: '',
+                width: 160,
+                align: 'end',
                 accessor: (row) => (
-                  <Group gap="xs">
+                  <Group gap="xs" justify="flex-end">
                     <Button size="xs" variant="light" onClick={() => startEdit(row)}>
                       Edit
                     </Button>
@@ -358,6 +367,7 @@ export function CadencesClient({ brand, label }: Props) {
                       variant="light"
                       onClick={() => deleteCadence(row)}
                       loading={deletingId === row.id}
+                      aria-label={`Delete cadence ${row.name}`}
                     >
                       <IconTrash size={14} />
                     </Button>

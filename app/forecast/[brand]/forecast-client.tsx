@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Box, Title, Text, Paper, SimpleGrid, Group, Badge, TextInput, NumberInput, Loader, Button, Stack } from '@mantine/core';
 import { StatusBadge, InlineAlert, MetricCard, MissingDataPrompt } from '@sovereignsquad/gds-core/client';
 import { AdminSelect, AdminDataTable, AdminResourceEmptyState, AdminFormStatus } from '@sovereignsquad/gds-admin/client';
+import { IconDownload } from '@tabler/icons-react';
 import { CALIBRATABLE_STAGES } from '@/lib/win-rate-calibration';
 import type { CurrencyCode } from '@/app/lib/brand';
 import { PERIOD_TYPES, isValidPeriod } from '@/lib/quota';
@@ -387,12 +388,25 @@ export function ForecastClient({ brand, label }: Props) {
 
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
-      <Group justify="space-between" mb="md">
-        <Title order={2}>{label + ' Forecast'}</Title>
+      {/* Compact Application Header matching Contacts reference */}
+      <Group justify="space-between" align="center" wrap="wrap" gap="sm" mb="md">
+        <div>
+          <Group gap="xs" align="center">
+            <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>{label + ' Forecast'}</Title>
+            {data.totalWeightedRevenue !== undefined && (
+              <Badge variant="light" color="indigo" size="md">
+                {Math.round(data.totalWeightedRevenue).toLocaleString()} weighted pipeline
+              </Badge>
+            )}
+          </Group>
+          <Text size="xs" c="dimmed" mt={2}>
+            Weighted pipeline, coverage ratio, quota attainment, and stage calibration.
+          </Text>
+        </div>
         <Button
           size="xs"
-          variant="light"
-          color="gray"
+          variant="default"
+          leftSection={<IconDownload size={14} />}
           onClick={downloadCsv}
         >
           Export CSV
@@ -476,13 +490,14 @@ export function ForecastClient({ brand, label }: Props) {
               }))}
               caption="Static vs. calibrated close probability per stage"
               columns={[
-                { key: 'stage', header: 'Stage', rowHeader: true },
-                { key: 'staticRate', header: 'Static', numeric: true, accessor: (row) => `${Math.round(row.staticRate * 100)}%` },
-                { key: 'calibratedRate', header: 'Calibrated', numeric: true, accessor: (row) => `${Math.round(row.calibrated.rate * 100)}%` },
-                { key: 'sample', header: 'Sample (won/total)', numeric: true, accessor: (row) => `${row.calibrated.wonCount}/${row.calibrated.sampleSize}` },
+                { key: 'stage', header: 'Stage', rowHeader: true, width: 140 },
+                { key: 'staticRate', header: 'Static', numeric: true, width: 100, accessor: (row) => `${Math.round(row.staticRate * 100)}%` },
+                { key: 'calibratedRate', header: 'Calibrated', numeric: true, width: 120, accessor: (row) => `${Math.round(row.calibrated.rate * 100)}%` },
+                { key: 'sample', header: 'Sample (won/total)', numeric: true, width: 160, accessor: (row) => `${row.calibrated.wonCount}/${row.calibrated.sampleSize}` },
                 {
                   key: 'confidence',
                   header: 'Confidence',
+                  width: 160,
                   accessor: (row) => (
                     <StatusBadge
                       status={row.calibrated.confidence === 'ok' ? 'success' : 'warning'}
@@ -496,7 +511,7 @@ export function ForecastClient({ brand, label }: Props) {
                     </StatusBadge>
                   ),
                 },
-                { key: 'source', header: 'Used in forecast', accessor: (row) => (row.source === 'calibrated' ? 'Calibrated' : 'Static') },
+                { key: 'source', header: 'Used in forecast', width: 160, accessor: (row) => (row.source === 'calibrated' ? 'Calibrated' : 'Static') },
               ]}
               getRowKey={(row) => row.stage}
             />
@@ -528,14 +543,15 @@ export function ForecastClient({ brand, label }: Props) {
               rows={ticketSizeCalibration.groups}
               caption="Estimate accuracy by size tier and method"
               columns={[
-                { key: 'tier', header: 'Size Tier', rowHeader: true },
-                { key: 'method', header: 'Method', accessor: (row) => (row.method === 'tier_band' ? 'Company-size tier' : 'Per-participant') },
-                { key: 'sample', header: 'Sample size', numeric: true, accessor: (row) => row.sampleSize },
-                { key: 'meanError', header: 'Mean bias', numeric: true, accessor: (row) => `${row.meanPercentError > 0 ? '+' : ''}${row.meanPercentError}%` },
-                { key: 'medianError', header: 'Median bias', numeric: true, accessor: (row) => `${row.medianPercentError > 0 ? '+' : ''}${row.medianPercentError}%` },
+                { key: 'tier', header: 'Size Tier', rowHeader: true, width: 140 },
+                { key: 'method', header: 'Method', width: 180, accessor: (row) => (row.method === 'tier_band' ? 'Company-size tier' : 'Per-participant') },
+                { key: 'sample', header: 'Sample size', numeric: true, width: 120, accessor: (row) => row.sampleSize },
+                { key: 'meanError', header: 'Mean bias', numeric: true, width: 120, accessor: (row) => `${row.meanPercentError > 0 ? '+' : ''}${row.meanPercentError}%` },
+                { key: 'medianError', header: 'Median bias', numeric: true, width: 120, accessor: (row) => `${row.medianPercentError > 0 ? '+' : ''}${row.medianPercentError}%` },
                 {
                   key: 'confidence',
                   header: 'Confidence',
+                  width: 160,
                   accessor: (row) => (
                     <StatusBadge
                       status={row.confidence === 'ok' ? 'success' : 'warning'}

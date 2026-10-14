@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Box, Title, Text, Stack, Group, Button, Select, Paper, TextInput, CopyButton, ActionIcon, Tooltip, Checkbox, Divider } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Button, Select, Paper, TextInput, CopyButton, ActionIcon, Tooltip, Checkbox, Divider, Badge } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminModal } from '@sovereignsquad/gds-admin/client'
 import { StatusBadge } from '@sovereignsquad/gds-core/client'
 import { IconPlus, IconTrash, IconCopy, IconCheck, IconRefresh } from '@tabler/icons-react'
@@ -233,27 +233,37 @@ export function AdminApiKeysClient() {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <div>
-          <Title order={2}>Admin — API Keys &amp; Webhooks</Title>
-          <Text size="sm" c="dimmed">
-            Per-integration, per-brand, revocable credentials — a replacement for sharing one unscoped key across every machine caller. The raw key is shown exactly once, at creation. Below that: outbound webhook subscriptions, which push signed lead-lifecycle events to an external URL instead of requiring that system to poll.
-          </Text>
-        </div>
-
-        <Select
-          label="Brand"
-          data={brandKeys.map((k) => ({ value: k, label: brandLabels[k] }))}
-          value={brand || null}
-          onChange={(value) => setBrand(value || '')}
-          aria-label="Select brand to manage API keys and webhooks for"
-          style={{ maxWidth: 300 }}
-        />
-
-        <Title order={3}>API Keys</Title>
-
-        <Group justify="flex-end">
-          <Button leftSection={<IconPlus size={16} />} onClick={openCreate} disabled={!brand}>Create key</Button>
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+          <div>
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Admin — API Keys &amp; Webhooks</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {keys.length} {keys.length === 1 ? 'key' : 'keys'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Per-integration, per-brand scoped credentials and outbound webhook subscriptions.
+            </Text>
+          </div>
+          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openCreate} disabled={!brand}>Create key</Button>
         </Group>
+
+        <Paper withBorder p="xs" radius="md">
+          <Group gap="sm" align="center" wrap="wrap">
+            <Select
+              label="Brand"
+              size="xs"
+              data={brandKeys.map((k) => ({ value: k, label: brandLabels[k] }))}
+              value={brand || null}
+              onChange={(value) => setBrand(value || '')}
+              aria-label="Select brand to manage API keys and webhooks for"
+              style={{ width: 220 }}
+            />
+          </Group>
+        </Paper>
+
+        <Title order={3} mt="xs">API Keys</Title>
 
         {error && <AdminFormStatus state="error" title="Something went wrong" description={error} />}
 
@@ -266,24 +276,29 @@ export function AdminApiKeysClient() {
             rows={keys as (ApiKeyRow & Record<string, unknown>)[]}
             caption={`API keys for ${brandLabels[brand] || brand}`}
             columns={[
-              { key: 'name', header: 'Name', rowHeader: true, accessor: (row) => row.name },
-              { key: 'prefix', header: 'Key', accessor: (row) => `${row.keyPrefix}…` },
-              { key: 'scopes', header: 'Scope', accessor: (row) => row.scopes.join(', ') },
-              { key: 'lastUsed', header: 'Last used', accessor: (row) => relativeTime(row.lastUsedAt) },
+              { key: 'name', header: 'Name', rowHeader: true, width: 220, accessor: (row) => row.name },
+              { key: 'prefix', header: 'Key', width: 140, accessor: (row) => `${row.keyPrefix}…` },
+              { key: 'scopes', header: 'Scope', width: 140, accessor: (row) => row.scopes.join(', ') },
+              { key: 'lastUsed', header: 'Last used', width: 160, accessor: (row) => relativeTime(row.lastUsedAt) },
               {
                 key: 'status',
                 header: 'Status',
+                width: 140,
                 accessor: (row) => row.revokedAt
                   ? <StatusBadge status="danger">Revoked</StatusBadge>
                   : <StatusBadge status="success">Active</StatusBadge>,
               },
               {
                 key: 'actions',
-                header: 'Actions',
+                header: '',
+                width: 100,
+                align: 'end',
                 accessor: (row) => !row.revokedAt && (
-                  <ActionIcon size="lg" variant="light" color="red" aria-label={`Revoke ${row.name}`} onClick={() => setRevokeTarget(row)}>
-                    <IconTrash size={16} />
-                  </ActionIcon>
+                  <Group gap="xs" justify="flex-end">
+                    <ActionIcon size="md" variant="subtle" color="red" aria-label={`Revoke ${row.name}`} onClick={() => setRevokeTarget(row)}>
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Group>
                 ),
               },
             ]}
@@ -308,10 +323,10 @@ export function AdminApiKeysClient() {
             rows={legacyUsage as (LegacyUsageRow & Record<string, unknown>)[]}
             caption="Shared key usage by route"
             columns={[
-              { key: 'route', header: 'Route', rowHeader: true, accessor: (row) => `${row.method} ${row.path}` },
-              { key: 'count', header: 'Requests', accessor: (row) => row.count },
-              { key: 'days', header: 'Days used', accessor: (row) => row.days },
-              { key: 'lastSeen', header: 'Last used', accessor: (row) => relativeTime(row.lastSeenAt) },
+              { key: 'route', header: 'Route', rowHeader: true, width: 280, accessor: (row) => `${row.method} ${row.path}` },
+              { key: 'count', header: 'Requests', numeric: true, width: 120, accessor: (row) => row.count },
+              { key: 'days', header: 'Days used', numeric: true, width: 120, accessor: (row) => row.days },
+              { key: 'lastSeen', header: 'Last used', width: 180, accessor: (row) => relativeTime(row.lastSeenAt) },
             ]}
             empty={<Text c="dimmed" size="sm">No usage.</Text>}
             getRowKey={(row) => `${row.method} ${row.path}`}
@@ -320,13 +335,14 @@ export function AdminApiKeysClient() {
 
         <Divider my="sm" />
 
-        <Title order={3}>Webhooks</Title>
-        <Text size="sm" c="dimmed">
-          Registering a webhook grants the URL you enter a feed of lead data, including contact PII — only register endpoints you control. The signing secret is shown exactly once, at creation.
-        </Text>
-
-        <Group justify="flex-end">
-          <Button leftSection={<IconPlus size={16} />} onClick={openCreateWebhook} disabled={!brand}>Add webhook</Button>
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+          <div>
+            <Title order={3}>Webhooks</Title>
+            <Text size="xs" c="dimmed" mt={2}>
+              Outbound signed lead-lifecycle events pushed to an external URL. The signing secret is shown once.
+            </Text>
+          </div>
+          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openCreateWebhook} disabled={!brand}>Add webhook</Button>
         </Group>
 
         {webhooksError && <AdminFormStatus state="error" title="Something went wrong" description={webhooksError} />}
@@ -340,27 +356,30 @@ export function AdminApiKeysClient() {
             rows={webhooks as (WebhookRow & Record<string, unknown>)[]}
             caption={`Webhooks for ${brandLabels[brand] || brand}`}
             columns={[
-              { key: 'url', header: 'URL', rowHeader: true, accessor: (row) => row.url },
-              { key: 'events', header: 'Events', accessor: (row) => row.events.join(', ') },
-              { key: 'failures', header: 'Consecutive failures', accessor: (row) => row.consecutiveFailures },
+              { key: 'url', header: 'URL', rowHeader: true, width: 280, accessor: (row) => row.url },
+              { key: 'events', header: 'Events', width: 220, accessor: (row) => row.events.join(', ') },
+              { key: 'failures', header: 'Failures', numeric: true, width: 120, accessor: (row) => row.consecutiveFailures },
               {
                 key: 'status',
                 header: 'Status',
+                width: 180,
                 accessor: (row) => row.disabledAt
                   ? <StatusBadge status="danger">Disabled — {row.disabledReason || 'disabled'}</StatusBadge>
                   : <StatusBadge status="success">Active</StatusBadge>,
               },
               {
                 key: 'actions',
-                header: 'Actions',
+                header: '',
+                width: 120,
+                align: 'end',
                 accessor: (row) => (
-                  <Group gap="xs" wrap="nowrap">
+                  <Group gap="xs" justify="flex-end" wrap="nowrap">
                     {row.disabledAt && (
-                      <ActionIcon size="lg" variant="light" color="teal" aria-label={`Re-enable webhook for ${row.url}`} onClick={() => reEnableWebhook(row)}>
+                      <ActionIcon size="md" variant="subtle" color="teal" aria-label={`Re-enable webhook for ${row.url}`} onClick={() => reEnableWebhook(row)}>
                         <IconRefresh size={16} />
                       </ActionIcon>
                     )}
-                    <ActionIcon size="lg" variant="light" color="red" aria-label={`Delete webhook for ${row.url}`} onClick={() => setDeleteWebhookTarget(row)}>
+                    <ActionIcon size="md" variant="subtle" color="red" aria-label={`Delete webhook for ${row.url}`} onClick={() => setDeleteWebhookTarget(row)}>
                       <IconTrash size={16} />
                     </ActionIcon>
                   </Group>

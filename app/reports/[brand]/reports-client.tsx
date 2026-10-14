@@ -211,14 +211,20 @@ export function ReportsClient({ brand, label }: Props) {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <Group justify="space-between" align="flex-start">
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
           <div>
-            <Title order={2}>Reports</Title>
-            <Text size="sm" c="dimmed">
-              Build an ad-hoc report for <Text span fw={700}>{label}</Text> — pick a metric, group by, filter, and a date range — and optionally schedule it for recurring email delivery.
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Reports</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {reports.length} {reports.length === 1 ? 'report' : 'reports'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Build an ad-hoc report for <Text span fw={600}>{label}</Text> — pick a metric, group by, filter, and a date range.
             </Text>
           </div>
-          <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>New report</Button>
+          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openCreate}>New report</Button>
         </Group>
 
         {error && <AdminFormStatus state="error" title="Something went wrong" description={error} />}
@@ -237,31 +243,35 @@ export function ReportsClient({ brand, label }: Props) {
                 key: 'name',
                 header: 'Name',
                 rowHeader: true,
+                width: 280,
                 accessor: (row) => (
                   <Group gap={6} wrap="nowrap">
-                    <Text fw={600} c="indigo" style={{ cursor: 'pointer' }} onClick={() => openEdit(row)}>{row.name}</Text>
+                    <Text fw={600} c="indigo" size="sm" style={{ cursor: 'pointer' }} onClick={() => openEdit(row)}>{row.name}</Text>
                     {row.schedule?.enabled && <Badge size="xs" color="teal" variant="light">Scheduled</Badge>}
                   </Group>
                 ),
               },
-              { key: 'metric', header: 'Metric', accessor: (row) => METRIC_OPTIONS.find((o) => o.value === row.metric)?.label ?? row.metric },
+              { key: 'metric', header: 'Metric', width: 180, accessor: (row) => METRIC_OPTIONS.find((o) => o.value === row.metric)?.label ?? row.metric },
               {
                 key: 'lastRun',
                 header: 'Last run',
+                width: 240,
                 accessor: (row) => row.lastRunAt
                   ? `${new Date(row.lastRunAt).toLocaleString()} (${row.lastRunStatus ?? '—'})`
                   : 'Never',
               },
               {
                 key: 'actions',
-                header: 'Actions',
+                header: '',
+                width: 200,
+                align: 'end',
                 accessor: (row) => (
-                  <Group gap="xs">
+                  <Group gap="xs" justify="flex-end">
                     <Button size="xs" variant="light" leftSection={<IconPlayerPlay size={14} />} onClick={() => runReport(row)} loading={runningId === row.id} disabled={runningId !== null && runningId !== row.id}>
                       Run
                     </Button>
                     <Button size="xs" variant="light" onClick={() => openEdit(row)}>Edit</Button>
-                    <ActionIcon size="lg" variant="light" color="red" aria-label={`Delete ${row.name}`} onClick={() => setDeleteTarget(row)}>
+                    <ActionIcon size="md" variant="subtle" color="red" aria-label={`Delete ${row.name}`} onClick={() => setDeleteTarget(row)}>
                       <IconTrash size={16} />
                     </ActionIcon>
                   </Group>
@@ -283,8 +293,8 @@ export function ReportsClient({ brand, label }: Props) {
                 rows={runResult.rows.map((r, i) => ({ key: String(i), label: rowLabel(r), value: r.value === null ? 'Insufficient data' : String(r.value), sampleSize: r.sampleSize !== undefined ? String(r.sampleSize) : '' }))}
                 caption="Report result"
                 columns={[
-                  { key: 'label', header: 'Group', rowHeader: true, accessor: (row) => row.label },
-                  { key: 'value', header: 'Value', numeric: true, accessor: (row) => row.value },
+                  { key: 'label', header: 'Group', rowHeader: true, width: 320, accessor: (row) => row.label },
+                  { key: 'value', header: 'Value', numeric: true, width: 180, accessor: (row) => row.value },
                 ]}
                 empty={<Text c="dimmed" size="sm">No rows.</Text>}
                 getRowKey={(row) => row.key}

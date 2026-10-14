@@ -126,37 +126,45 @@ export function AdminDuplicatesClient() {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <div>
-          <Title order={2}>Admin — Near-Duplicate Review</Title>
-          <Text size="sm" c="dimmed">
-            Candidate duplicate leads flagged by name/domain similarity. Confirm a pair, then merge it — merging
-            combines contacts/tags/deals/checklist automatically and asks you to pick a value for any field that
-            genuinely conflicts. Merging permanently deletes the losing lead; it cannot be undone.
-          </Text>
-        </div>
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+          <div>
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Admin — Near-Duplicate Review</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Candidate duplicate leads flagged by name/domain similarity. Confirm a pair, then merge it.
+            </Text>
+          </div>
+          <Button size="xs" onClick={runScan} loading={scanning}>
+            Scan for duplicates
+          </Button>
+        </Group>
 
-        <Group justify="space-between" align="flex-end" wrap="wrap">
-          <Group align="flex-end">
+        <Paper withBorder p="xs" radius="md">
+          <Group gap="sm" align="center" wrap="wrap">
             <Select
               label="Brand"
+              size="xs"
               data={brandOptions}
               value={brand}
               onChange={(v) => setBrand(v || brandOptions[0]?.value)}
-              style={{ width: 200 }}
+              style={{ width: 180 }}
             />
             <div>
-              <Text size="sm" fw={500} mb={4}>Status</Text>
+              <Text size="xs" fw={500} mb={2}>Status</Text>
               <SegmentedControl
+                size="xs"
                 value={statusFilter}
                 onChange={(v) => setStatusFilter(v as ReviewStatus)}
                 data={STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
               />
             </div>
           </Group>
-          <Button onClick={runScan} loading={scanning}>
-            Scan for duplicates
-          </Button>
-        </Group>
+        </Paper>
 
         {error && <AdminFormStatus state="error" title="Something went wrong" description={error} />}
 
@@ -176,6 +184,7 @@ export function AdminDuplicatesClient() {
                 key: 'pair',
                 header: 'Candidate pair',
                 rowHeader: true,
+                width: 320,
                 accessor: (row) => (
                   <Paper withBorder p="xs" radius="sm">
                     <Stack gap={2}>
@@ -191,19 +200,23 @@ export function AdminDuplicatesClient() {
               {
                 key: 'matchedOn',
                 header: 'Matched on',
+                width: 140,
                 accessor: (row) => <Badge variant="light" color="gray">{row.matchedOn}</Badge>,
               },
               {
                 key: 'score',
                 header: 'Score',
                 numeric: true,
+                width: 100,
                 accessor: (row) => row.score.toFixed(2),
               },
               {
                 key: 'actions',
-                header: 'Actions',
+                header: '',
+                width: 240,
+                align: 'end',
                 accessor: (row) => (
-                  <Group gap="xs">
+                  <Group gap="xs" justify="flex-end">
                     {row.status === 'pending' && (
                       <>
                         <Button

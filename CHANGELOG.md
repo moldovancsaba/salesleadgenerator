@@ -1,5 +1,48 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.268
+
+### Layout: Application-wide Contacts layout reference standardization & high-density tables
+
+- **Accounts Directory (`app/accounts/[brand]/accounts-client.tsx`):**
+  - Standardized header to compact layout with title, account count badge (`filteredAccounts.length`), brand label, and CSV export.
+  - Added high-density `<Paper withBorder p="xs" radius="md">` search filter toolbar with client-side query search.
+  - Added dedicated View action button column on `AdminDataTable`.
+- **Reports Management (`app/reports/[brand]/reports-client.tsx`):**
+  - Standardized header to compact layout with title, report count badge (`reports.length`), and New Report action.
+  - Configured explicit column widths on saved reports table (`name: 280`, `metric: 180`, `lastRun: 240`, `actions: 200, align: 'end'`) and result table (`label: 320`, `value: 180`).
+- **Battlecards Directory (`app/battlecards/[brand]/battlecards-client.tsx`):**
+  - Standardized header with battlecard count badge (`battlecards.length`).
+  - Configured explicit column widths on table (`competitorName: 240`, `tags: 240`, `objections: 120`, `actions: 160, align: 'end'`).
+- **Sales Cadences (`app/outreach/cadences/[brand]/cadences-client.tsx`):**
+  - Standardized header with cadence count badge (`cadences.length`).
+  - Configured explicit column widths on table (`name: 240`, `steps: 100`, `enabled: 160`, `enrolledCount: 140`, `actions: 160, align: 'end'`).
+- **Outreach Templates (`app/outreach/templates/[brand]/templates-client.tsx`):**
+  - Standardized header with template count badge (`templates.length`).
+  - Configured explicit column widths and numeric alignments on analytics table (`name: 240`, `sent: 100`, `won: 100`, `lost: 100`, `conversionRate: 140`, `declineRate: 140`, `lastUsed: 140`).
+- **Automation Rules (`app/automation/[brand]/automation-client.tsx`):**
+  - Standardized header with rule count badge (`rules.length`).
+  - Configured explicit column widths on table (`name: 240`, `trigger: 200`, `action: 200`, `enabled: 140`, `firingCount: 220`, `actions: 160, align: 'end'`).
+- **Product Catalog (`app/admin/products/[brand]/admin-products-client.tsx`):**
+  - Standardized header with product count badge (`products.length`).
+  - Configured explicit column widths on table (`name: 280`, `pricingModel: 200`, `unitPrice: 140`, `status: 140`, `actions: 160, align: 'end'`).
+- **Near-Duplicate Review (`app/admin/duplicates/admin-duplicates-client.tsx`):**
+  - Standardized header with review count badge (`reviews.length`), compact toolbar, and explicit table column widths (`pair: 320`, `matchedOn: 140`, `score: 100`, `actions: 240, align: 'end'`).
+- **Users & Organization Access (`app/admin/users/admin-users-client.tsx`):**
+  - Standardized header with user count badge (`users.length`) and explicit column widths (`user: 280`, `superAdmin: 140`, brand access: `180`).
+- **Teams Management (`app/admin/teams/admin-teams-client.tsx`):**
+  - Standardized header with team count badge (`teams.length`), compact brand toolbar, and explicit column widths (`name: 200`, `members: 280`, `managers: 280`, `actions: 120, align: 'end'`).
+- **API Keys & Webhooks (`app/admin/api-keys/admin-api-keys-client.tsx`):**
+  - Standardized header with key count badge (`keys.length`), compact brand toolbar, and explicit column widths across API keys, shared key usage, and webhooks tables.
+- **Client Configuration (`app/admin/clients/admin-clients-client.tsx`):**
+  - Standardized header with client count badge (`brands.length`) and explicit column widths (`label: 240`, `currency: 120`, `forecastModel: 160`, `dbCollection: 200`, `createdAt: 140`).
+- **Sales Settings & Integrations (`app/salessettings/...`):**
+  - Standardized headers with company/integration badges, compact action links, and explicit table column widths on connections table (`provider: 200`, `account: 240`, `status: 140`, `lastVerified: 160`, `actions: 220, align: 'end'`).
+- **Forecast & Today Queue (`app/forecast/...`, `app/today/...`):**
+  - Standardized headers with compact title, count/metric badges, and explicit column widths on forecast calibration tables.
+- **Automated Verification:**
+  - Extended `tests/lib/desktop-tablet-nav.test.ts` to assert layout and column width compliance across all secondary client views.
+
 ## 2.4.267
 
 ### Layout: Contacts-reference standardization, full-width TableView, and Backlog multi-column grid

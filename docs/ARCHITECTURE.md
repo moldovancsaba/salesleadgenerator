@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.261
+**Version:** 2.4.268
 
 ---
 
@@ -1476,6 +1476,14 @@ Ingests CRM Cadence Engine & Sequence Enforcement into Sales Lead Generator:
   2. *High-Density Unified Toolbar (`app/sales/[brand]/sales-page-client.tsx`)*: Replaced fragmented multi-row controls with a single bordered `<Paper>` toolbar housing search on the left (`flex: 1`, minWidth: 220), FilterBar popup, pipeline selector, and the view switcher SegmentedControl (`Board | Table | Backlog | Metrics`).
   3. *Full-Width CRM TableView (`app/table.tsx`)*: Upgraded to a 10-column high-density CRM table with explicit column widths (`width: 240`, `width: 120`, `width: 220`, etc.), sortable headers, deal value estimation, stage badges, primary contact information (with mailto links), assignee badges, quality status indicators, tag chips, and row action triggers.
   4. *Backlog Full-Width Multi-Column Grid (`app/globals.css`)*: Configured `[data-gds-kanban-column="BACKLOG"]` to expand to 100% width with a responsive multi-column CSS grid (`repeat(auto-fill, minmax(320px, 1fr))`), filling the widescreen display with 3–5 card columns while keeping cards at their optimal 320px width.
+
+### Secondary View Layout & High-Density Table Standardization (2.4.268)
+- **Standardization Across All Application Views:**
+  - *Golden Layout Reference Alignment*: Standardized every secondary client page (`Accounts`, `Reports`, `Battlecards`, `Cadences`, `Templates`, `Automation`, `Products`, `Duplicates`, `Users`, `Teams`, `API Keys`, `Clients`, `Sales Settings`, `Integrations`, `Forecast`, `Today`) on the layout established in `Contacts` (`app/contacts/[brand]/contacts-client.tsx`).
+  - *Compact Application Headers with Count Badges*: Every view employs a compact `<Group justify="space-between" align="center" wrap="wrap" gap="sm">` header featuring an explicit count badge (`<Badge variant="light" color="indigo" size="md">`), concise description subtitle, and right-aligned action buttons (`size="xs"`).
+  - *Unified High-Density Filter Toolbars*: Views requiring filtering (e.g. Accounts, Duplicates, Teams, API Keys) encapsulate search and filter controls in a cohesive bordered `<Paper withBorder p="xs" radius="md">` container, removing fragmented, floating inputs.
+  - *Explicit `AdminDataTable` Column Widths & Alignments*: In compliance with GDS Admin's `'start' | 'center' | 'end'` column alignment invariant and full-viewport width consumption, every data table across all secondary pages defines explicit pixel widths for all columns (`width: 240`, `width: 280`, `width: 140`, etc.) and right-aligns action columns (`align: 'end'`), eliminating horizontal starvation and awkward whitespace gaps.
+  - *Automated Verification*: Regression suite in `tests/lib/desktop-tablet-nav.test.ts` validates that all secondary client files maintain compact count badges, high-density toolbars, and explicit table column widths.
 
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)

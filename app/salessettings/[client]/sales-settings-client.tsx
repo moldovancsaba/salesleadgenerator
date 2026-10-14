@@ -195,24 +195,29 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="lg">
-        <div>
-          <Title order={2}>{label} — Company Setup</Title>
-          <Text size="sm" c="dimmed">
-            Tell us what you sell and how customers buy it, in your own words. The research
-            agent uses this to refine lead scoring and revenue forecasts — no accounting
-            terminology required.
-          </Text>
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+          <div>
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>{label} — Company Setup</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {settings.companyName || label}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Tell us what you sell and how customers buy it. The research agent uses this to refine lead scoring and revenue forecasts.
+            </Text>
+          </div>
           <Button
             component={Link}
             href={`/salessettings/${brand}/integrations`}
             variant="light"
             size="xs"
             leftSection={<IconPlug size={14} />}
-            mt="sm"
           >
-            Manage integrations (Google Calendar, Gmail, Contacts, Calendly)
+            Manage integrations
           </Button>
-        </div>
+        </Group>
 
         {/* 1. Basic Information */}
         <Paper withBorder p="md" radius="md">

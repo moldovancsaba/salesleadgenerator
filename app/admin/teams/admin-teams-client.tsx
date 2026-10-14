@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Box, Title, Text, Stack, Group, Button, TextInput, MultiSelect, Select, Paper } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Button, TextInput, MultiSelect, Select, Paper, Badge } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { useAuth } from '@/app/components/AuthProvider'
@@ -160,23 +160,34 @@ export function AdminTeamsClient() {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <div>
-          <Title order={2}>Admin — Teams</Title>
-          <Text size="sm" c="dimmed">
-            Group users within a brand and designate managers — a manager sees, via the &quot;My Team&quot; pipeline
-            scope, the leads assigned to themselves and to every current member of a team they manage.
-            Team membership is separate from brand access (Users &amp; Access); a team never spans brands.
-          </Text>
-        </div>
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+          <div>
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Admin — Teams</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {teams.length} {teams.length === 1 ? 'team' : 'teams'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Group users within a brand and designate managers for pipeline visibility.
+            </Text>
+          </div>
+        </Group>
 
-        <Select
-          label="Brand"
-          data={brandKeys.map((k) => ({ value: k, label: brandLabels[k] }))}
-          value={brand || null}
-          onChange={(v) => v && setBrand(v)}
-          aria-label="Select brand to manage teams for"
-          style={{ maxWidth: 280 }}
-        />
+        <Paper withBorder p="xs" radius="md">
+          <Group gap="sm" align="center" wrap="wrap">
+            <Select
+              label="Brand"
+              size="xs"
+              data={brandKeys.map((k) => ({ value: k, label: brandLabels[k] }))}
+              value={brand || null}
+              onChange={(v) => v && setBrand(v)}
+              aria-label="Select brand to manage teams for"
+              style={{ width: 220 }}
+            />
+          </Group>
+        </Paper>
 
         {error && <AdminFormStatus state="error" title="Something went wrong" description={error} />}
 
@@ -208,10 +219,11 @@ export function AdminTeamsClient() {
             rows={teams}
             caption={`Teams for ${brandLabels[brand] || brand}`}
             columns={[
-              { key: 'name', header: 'Team', rowHeader: true, accessor: (row) => <Text fw={600} size="sm">{row.name}</Text> },
+              { key: 'name', header: 'Team', rowHeader: true, width: 200, accessor: (row) => <Text fw={600} size="sm">{row.name}</Text> },
               {
                 key: 'members',
                 header: 'Members',
+                width: 280,
                 accessor: (row) => (
                   <MultiSelect
                     size="xs"
@@ -228,6 +240,7 @@ export function AdminTeamsClient() {
               {
                 key: 'managers',
                 header: 'Managers',
+                width: 280,
                 accessor: (row) => (
                   <MultiSelect
                     size="xs"
@@ -244,18 +257,22 @@ export function AdminTeamsClient() {
               {
                 key: 'actions',
                 header: '',
+                width: 120,
+                align: 'end',
                 accessor: (row) => (
-                  <Button
-                    size="xs"
-                    color="red"
-                    variant="light"
-                    leftSection={<IconTrash size={14} />}
-                    onClick={() => deleteTeam(row._id, row.name)}
-                    loading={savingKey === `${row._id}:delete`}
-                    aria-label={`Delete team ${row.name}`}
-                  >
-                    Delete
-                  </Button>
+                  <Group gap="xs" justify="flex-end">
+                    <Button
+                      size="xs"
+                      color="red"
+                      variant="light"
+                      leftSection={<IconTrash size={14} />}
+                      onClick={() => deleteTeam(row._id, row.name)}
+                      loading={savingKey === `${row._id}:delete`}
+                      aria-label={`Delete team ${row.name}`}
+                    >
+                      Delete
+                    </Button>
+                  </Group>
                 ),
               },
             ]}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   Box, Title, Text, Button, Group, Stack, Textarea,
-  Paper, Loader, Divider, Tabs, Alert, TextInput, Switch,
+  Paper, Loader, Divider, Tabs, Alert, TextInput, Switch, Badge,
 } from '@mantine/core'
 import { IconCheck } from '@tabler/icons-react'
 import type { Brand } from '@/app/lib/brand'
@@ -110,15 +110,28 @@ export function PromptEditorClient({ brand, label }: { brand: Brand; label: stri
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <Title order={2}>Prompt Editor — {label}</Title>
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+          <div>
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Prompt Editor — {label}</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {brand}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Customize discovery and enrichment system prompts for {label}.
+            </Text>
+          </div>
+        </Group>
 
-        <Group gap="sm">
-          <Text size="sm" c="dimmed">Tenant ID:</Text>
+        <Group gap="xs" align="center">
+          <Text size="xs" c="dimmed">Tenant ID:</Text>
           <TextInput
-            size="sm"
+            size="xs"
             value={tenantId}
             onChange={(e) => setTenantId(e.currentTarget.value)}
-            style={{ maxWidth: 200 }}
+            style={{ maxWidth: 180 }}
           />
         </Group>
 

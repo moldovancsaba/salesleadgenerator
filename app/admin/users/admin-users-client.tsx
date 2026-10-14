@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Box, Title, Text, Stack, Badge, Select } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Badge, Select } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { useAuth } from '@/app/components/AuthProvider'
 
@@ -84,13 +84,20 @@ export function AdminUsersClient() {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <div>
-          <Title order={2}>Admin — Users &amp; Organization Access</Title>
-          <Text size="sm" c="dimmed">
-            Every person who has signed in via SSO. Super admins (configured via <code>SSO_SUPER_ADMIN_EMAILS</code>) always
-            have full access to every organization and are shown here for visibility only — their access can&apos;t be changed.
-          </Text>
-        </div>
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+          <div>
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Admin — Users &amp; Organization Access</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {users.length} {users.length === 1 ? 'user' : 'users'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Every person who has signed in via SSO and their organization access grants.
+            </Text>
+          </div>
+        </Group>
 
         {error && <AdminFormStatus state="error" title="Something went wrong" description={error} />}
 
@@ -110,6 +117,7 @@ export function AdminUsersClient() {
                 key: 'user',
                 header: 'User',
                 rowHeader: true,
+                width: 280,
                 accessor: (row) => (
                   <Stack gap={0}>
                     <Text fw={600} size="sm">{row.name || row.email}</Text>
@@ -120,11 +128,13 @@ export function AdminUsersClient() {
               {
                 key: 'superAdmin',
                 header: 'Super Admin',
+                width: 140,
                 accessor: (row) => (row.isSuperAdmin ? <Badge color="grape" variant="light">Super Admin</Badge> : '—'),
               },
               ...brandKeys.map((brandKey) => ({
                 key: brandKey,
                 header: brandLabels[brandKey],
+                width: 180,
                 accessor: (row: UserRow) => (
                   <Select
                     size="xs"

@@ -148,4 +148,35 @@ describe('desktop and tablet navigation affordances', () => {
     expect(sales).toContain('<Title order={2}');
     expect(sales).toContain('IconSearch');
   });
+
+  it('standardizes secondary views on Contacts reference layout with count badges and explicit column widths', () => {
+    const accounts = readFileSync(join(root, 'app', 'accounts', '[brand]', 'accounts-client.tsx'), 'utf8');
+    expect(accounts).toContain('Badge variant="light" color="indigo"');
+    expect(accounts).toContain('width: 240');
+    expect(accounts).toContain('IconSearch');
+
+    const reports = readFileSync(join(root, 'app', 'reports', '[brand]', 'reports-client.tsx'), 'utf8');
+    expect(reports).toContain('Badge variant="light" color="indigo"');
+    expect(reports).toContain('width: 280');
+
+    const battlecards = readFileSync(join(root, 'app', 'battlecards', '[brand]', 'battlecards-client.tsx'), 'utf8');
+    expect(battlecards).toContain('Badge variant="light" color="indigo"');
+    expect(battlecards).toContain('width: 240');
+
+    const cadences = readFileSync(join(root, 'app', 'outreach', 'cadences', '[brand]', 'cadences-client.tsx'), 'utf8');
+    expect(cadences).toContain('Badge variant="light" color="indigo"');
+    expect(cadences).toContain('width: 240');
+
+    const templates = readFileSync(join(root, 'app', 'outreach', 'templates', '[brand]', 'templates-client.tsx'), 'utf8');
+    expect(templates).toContain('Badge variant="light" color="indigo"');
+    expect(templates).toContain('width: 240');
+
+    const automation = readFileSync(join(root, 'app', 'automation', '[brand]', 'automation-client.tsx'), 'utf8');
+    expect(automation).toContain('Badge variant="light" color="indigo"');
+    expect(automation).toContain('width: 240');
+
+    const products = readFileSync(join(root, 'app', 'admin', 'products', '[brand]', 'admin-products-client.tsx'), 'utf8');
+    expect(products).toContain('Badge variant="light" color="indigo"');
+    expect(products).toContain('width: 280');
+  });
 });

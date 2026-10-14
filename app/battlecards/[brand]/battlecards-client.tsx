@@ -182,14 +182,20 @@ export function BattlecardsClient({ brand, label }: Props) {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <Group justify="space-between">
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
           <div>
-            <Title order={2}>Battlecards</Title>
-            <Text size="sm" c="dimmed">
-              Competitor positioning and objection responses for <Text span fw={700}>{label}</Text>.
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Battlecards</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {battlecards.length} {battlecards.length === 1 ? 'battlecard' : 'battlecards'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Competitor positioning and objection responses for <Text span fw={600}>{label}</Text>.
             </Text>
           </div>
-          <Button leftSection={<IconPlus size={16} />} onClick={resetForm} variant="light">
+          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={resetForm} variant="light">
             New Battlecard
           </Button>
         </Group>
@@ -340,10 +346,11 @@ export function BattlecardsClient({ brand, label }: Props) {
             rows={battlecards}
             caption="Battlecards"
             columns={[
-              { key: 'competitorName', header: 'Competitor', rowHeader: true },
+              { key: 'competitorName', header: 'Competitor', rowHeader: true, width: 240 },
               {
                 key: 'tags',
                 header: 'Tags',
+                width: 240,
                 accessor: (row) =>
                   row.tags && row.tags.length > 0 ? (
                     <Group gap={4}>
@@ -353,12 +360,14 @@ export function BattlecardsClient({ brand, label }: Props) {
                     </Group>
                   ) : '—',
               },
-              { key: 'objections', header: 'Objections', numeric: true, accessor: (row) => row.objections.length },
+              { key: 'objections', header: 'Objections', numeric: true, width: 120, accessor: (row) => row.objections.length },
               {
                 key: 'actions',
-                header: 'Actions',
+                header: '',
+                width: 160,
+                align: 'end',
                 accessor: (row) => (
-                  <Group gap="xs">
+                  <Group gap="xs" justify="flex-end">
                     <Button size="xs" variant="light" onClick={() => startEdit(row)}>
                       Edit
                     </Button>
@@ -368,6 +377,7 @@ export function BattlecardsClient({ brand, label }: Props) {
                       variant="light"
                       onClick={() => deleteBattlecard(row)}
                       loading={deletingId === row.id}
+                      aria-label={`Delete battlecard for ${row.competitorName}`}
                     >
                       <IconTrash size={14} />
                     </Button>

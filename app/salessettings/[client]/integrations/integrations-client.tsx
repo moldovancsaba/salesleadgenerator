@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Box, Title, Text, Stack, Group, Button, TextInput } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Button, TextInput, Badge } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminModal } from '@sovereignsquad/gds-admin/client'
 import { StatusBadge } from '@sovereignsquad/gds-core/client'
 import {
@@ -172,15 +172,20 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <div>
-          <Title order={2}>{label} — Integrations</Title>
-          <Text size="sm" c="dimmed">
-            Connect this brand to Google Calendar, Gmail, Google Contacts, and Calendly. A connection is
-            entered here at runtime by an admin, encrypted at rest, and never shown again after it&apos;s
-            saved — for Calendly, the pasted token is verified against the provider before it&apos;s ever
-            stored.
-          </Text>
-        </div>
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+          <div>
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>{label} — Integrations</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {connections.filter((c) => c.status === 'active').length} connected
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Connect this brand to Google Calendar, Gmail, Google Contacts, and Calendly.
+            </Text>
+          </div>
+        </Group>
 
         {banner && (
           <AdminFormStatus
@@ -198,10 +203,11 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
             rows={rows}
             caption={`Integrations for ${label}`}
             columns={[
-              { key: 'provider', header: 'Provider', rowHeader: true, accessor: (row) => row.label },
+              { key: 'provider', header: 'Provider', rowHeader: true, width: 200, accessor: (row) => row.label },
               {
                 key: 'account',
                 header: 'Connected as',
+                width: 240,
                 accessor: (row) => row.connection && row.connection.status !== 'revoked'
                   ? (row.connection.providerAccountLabel || '(connected)')
                   : 'Not connected',
@@ -209,6 +215,7 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
               {
                 key: 'status',
                 header: 'Status',
+                width: 140,
                 accessor: (row) => {
                   const connection = row.connection
                   if (!connection) return <Text size="sm" c="dimmed">—</Text>
@@ -220,15 +227,18 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
               {
                 key: 'lastVerified',
                 header: 'Last verified',
+                width: 160,
                 accessor: (row) => relativeTime(row.connection?.lastVerifiedAt),
               },
               {
                 key: 'actions',
-                header: 'Actions',
+                header: '',
+                width: 220,
+                align: 'end',
                 accessor: (row) => {
                   const connection = row.connection
                   return (
-                    <Group gap="xs" wrap="nowrap">
+                    <Group gap="xs" justify="flex-end" wrap="nowrap">
                       <Button size="xs" variant="light" onClick={() => openConnect(row.provider)}>
                         {connection ? 'Reconnect' : 'Connect'}
                       </Button>

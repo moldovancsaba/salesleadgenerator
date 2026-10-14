@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Box, Title, Text, Button, Group, Stack, Paper, TextInput, Select, MultiSelect,
-  TagsInput, Pill, Loader, Alert,
+  TagsInput, Pill, Loader, Alert, Badge,
 } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { IconPlus, IconAlertTriangle } from '@tabler/icons-react'
@@ -129,14 +129,20 @@ export function AdminClientsClient() {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <div>
-          <Title order={2}>Admin — Clients</Title>
-          <Text size="sm" c="dimmed">
-            Add a new client/brand — it appears everywhere in the app (navigation, Sales Settings, Forecast, lead
-            creation, access grants) immediately, with no code deploy. Transcribe a client&apos;s onboarding
-            questionnaire answers directly into the fields below.
-          </Text>
-        </div>
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+          <div>
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Admin — Clients</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {brands.length} {brands.length === 1 ? 'client' : 'clients'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Add and configure client/brand organizations across navigation, sales settings, and forecasting.
+            </Text>
+          </div>
+        </Group>
 
         <Paper withBorder p="md" radius="md">
           <Stack gap="sm">
@@ -267,6 +273,7 @@ export function AdminClientsClient() {
                 key: 'label',
                 header: 'Client',
                 rowHeader: true,
+                width: 240,
                 accessor: (row) => (
                   <Stack gap={0}>
                     <Text fw={600} size="sm">{row.label}</Text>
@@ -274,14 +281,15 @@ export function AdminClientsClient() {
                   </Stack>
                 ),
               },
-              { key: 'currency', header: 'Currency', accessor: (row) => row.currency },
+              { key: 'currency', header: 'Currency', width: 120, accessor: (row) => row.currency },
               {
                 key: 'forecastModel',
                 header: 'Forecast model',
+                width: 160,
                 accessor: (row) => (row.forecastModel === 'dealSizeBand' ? 'Standard' : 'Custom'),
               },
-              { key: 'dbCollection', header: 'Collection', accessor: (row) => row.dbCollection },
-              { key: 'createdAt', header: 'Created', accessor: (row) => new Date(row.createdAt).toLocaleDateString() },
+              { key: 'dbCollection', header: 'Collection', width: 200, accessor: (row) => row.dbCollection },
+              { key: 'createdAt', header: 'Created', width: 140, accessor: (row) => new Date(row.createdAt).toLocaleDateString() },
             ]}
             getRowKey={(row) => row.slug}
           />

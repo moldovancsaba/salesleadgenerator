@@ -168,15 +168,20 @@ export function OutreachTemplatesClient({ brand, label }: Props) {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <Group justify="space-between">
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
           <div>
-            <Title order={2}>Outreach Templates</Title>
-            <Text size="sm" c="dimmed">
-              Manage brand-specific templates for <Text span fw={700}>{label}</Text>.
-              Templates are filtered by county and channel.
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Outreach Templates</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {templates.length} {templates.length === 1 ? 'template' : 'templates'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Manage brand-specific templates for <Text span fw={600}>{label}</Text>, filtered by country and channel.
             </Text>
           </div>
-          <Button leftSection={<IconPlus size={16} />} onClick={resetForm} variant="light">
+          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={resetForm} variant="light">
             New Template
           </Button>
         </Group>
@@ -341,6 +346,7 @@ export function OutreachTemplatesClient({ brand, label }: Props) {
                 key: 'name',
                 header: 'Template',
                 rowHeader: true,
+                width: 240,
                 accessor: (row) => (
                   <Stack gap={0}>
                     <Text fw={600} size="sm">{row.name}</Text>
@@ -348,22 +354,27 @@ export function OutreachTemplatesClient({ brand, label }: Props) {
                   </Stack>
                 ),
               },
-              { key: 'sent', header: 'Sent', accessor: (row) => row.totalLogs },
-              { key: 'won', header: 'Won', accessor: (row) => row.won },
-              { key: 'lost', header: 'Lost', accessor: (row) => row.lost },
+              { key: 'sent', header: 'Sent', numeric: true, width: 100, accessor: (row) => row.totalLogs },
+              { key: 'won', header: 'Won', numeric: true, width: 100, accessor: (row) => row.won },
+              { key: 'lost', header: 'Lost', numeric: true, width: 100, accessor: (row) => row.lost },
               {
                 key: 'conversionRate',
                 header: 'Conversion rate',
+                numeric: true,
+                width: 140,
                 accessor: (row) => `${(row.conversionRate * 100).toFixed(1)}%`,
               },
               {
                 key: 'declineRate',
                 header: 'Decline rate',
+                numeric: true,
+                width: 140,
                 accessor: (row) => `${(row.declineRate * 100).toFixed(1)}%`,
               },
               {
                 key: 'lastUsed',
                 header: 'Last used',
+                width: 140,
                 accessor: (row) => (row.lastUsed ? new Date(row.lastUsed).toLocaleDateString() : '—'),
               },
             ]}

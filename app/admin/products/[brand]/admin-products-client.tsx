@@ -162,14 +162,20 @@ export function AdminProductsClient({ brand, label, defaultCurrency }: Props) {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <Group justify="space-between" align="flex-start">
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
           <div>
-            <Title order={2}>Product Catalog</Title>
-            <Text size="sm" c="dimmed">
-              Priced, reusable line items for <Text span fw={700}>{label}</Text> deals — reps pick from these instead of typing a bare deal value.
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Product Catalog</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {products.length} {products.length === 1 ? 'product' : 'products'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Priced, reusable line items for <Text span fw={600}>{label}</Text> deals.
             </Text>
           </div>
-          <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>Add product</Button>
+          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openCreate}>Add product</Button>
         </Group>
 
         {error && <AdminFormStatus state="error" title="Something went wrong" description={error} />}
@@ -188,27 +194,31 @@ export function AdminProductsClient({ brand, label, defaultCurrency }: Props) {
                 key: 'name',
                 header: 'Product',
                 rowHeader: true,
+                width: 280,
                 accessor: (row) => (
                   <Group gap={6} wrap="nowrap">
-                    <Text fw={600} c="indigo" style={{ cursor: 'pointer' }} onClick={() => openEdit(row)}>{row.name}</Text>
+                    <Text fw={600} c="indigo" size="sm" style={{ cursor: 'pointer' }} onClick={() => openEdit(row)}>{row.name}</Text>
                     {!row.active && <Badge size="xs" color="gray" variant="light">Inactive</Badge>}
                   </Group>
                 ),
               },
-              { key: 'pricingModel', header: 'Pricing model', accessor: (row) => PRICING_MODEL_OPTIONS.find((o) => o.value === row.pricingModel)?.label ?? row.pricingModel },
-              { key: 'unitPrice', header: 'Unit price', numeric: true, accessor: (row) => `${row.currency === 'EUR' ? '€' : '$'}${row.unitPrice.toLocaleString()}` },
+              { key: 'pricingModel', header: 'Pricing model', width: 200, accessor: (row) => PRICING_MODEL_OPTIONS.find((o) => o.value === row.pricingModel)?.label ?? row.pricingModel },
+              { key: 'unitPrice', header: 'Unit price', numeric: true, width: 140, accessor: (row) => `${row.currency === 'EUR' ? '€' : '$'}${row.unitPrice.toLocaleString()}` },
               {
                 key: 'status',
                 header: 'Status',
+                width: 140,
                 accessor: (row) => (
                   <Switch size="xs" checked={row.active} onChange={() => toggleActive(row)} label={row.active ? 'Active' : 'Inactive'} aria-label={`${row.active ? 'Deactivate' : 'Activate'} ${row.name}`} />
                 ),
               },
               {
                 key: 'actions',
-                header: 'Actions',
+                header: '',
+                width: 160,
+                align: 'end',
                 accessor: (row) => (
-                  <Group gap="xs">
+                  <Group gap="xs" justify="flex-end">
                     <Button size="xs" variant="light" onClick={() => openEdit(row)}>Edit</Button>
                     <Button size="xs" variant="light" color="red" onClick={() => deleteProduct(row)}>Delete</Button>
                   </Group>

@@ -192,16 +192,18 @@ export function TodayClient({ brand, label }: Props) {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="lg">
-        {/* Header */}
-        <Group justify="space-between" align="flex-start">
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
           <div>
-            <Text size="xs" fw={700} c="dimmed" tt="uppercase">
-              Today Execution Queue
-            </Text>
-            <Title order={2} fw={700}>
-              {label} Today&apos;s Work
-            </Title>
-            <Text size="sm" c="dimmed">
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
+                {label} Today&apos;s Work
+              </Title>
+              <Badge variant="light" color="indigo" size="md">
+                {counts.total} {counts.total === 1 ? 'action' : 'actions'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
               {data?.date
                 ? new Date(data.date + 'T12:00:00Z').toLocaleDateString(undefined, {
                     weekday: 'long',
@@ -221,16 +223,16 @@ export function TodayClient({ brand, label }: Props) {
                 { label: 'My queue', value: 'mine' },
                 { label: 'All reps', value: 'all' },
               ]}
-              size="sm"
+              size="xs"
             />
             <ActionIcon
               variant="default"
-              size="lg"
+              size="md"
               aria-label="Refresh today queue"
               onClick={fetchTodayData}
               loading={loading}
             >
-              <IconRefresh size={18} />
+              <IconRefresh size={16} />
             </ActionIcon>
           </Group>
         </Group>

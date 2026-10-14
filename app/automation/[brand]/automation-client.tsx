@@ -188,14 +188,20 @@ export function AutomationClient({ brand, label }: Props) {
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
       <Stack gap="md">
-        <Group justify="space-between">
+        {/* Compact Application Header matching Contacts reference */}
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
           <div>
-            <Title order={2}>Automation Rules</Title>
-            <Text size="sm" c="dimmed">
-              Trigger→action rules for <Text span fw={700}>{label}</Text> — when X happens on a lead, do Y.
+            <Group gap="xs" align="center">
+              <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Automation Rules</Title>
+              <Badge variant="light" color="indigo" size="md">
+                {rules.length} {rules.length === 1 ? 'rule' : 'rules'}
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mt={2}>
+              Trigger→action rules for <Text span fw={600}>{label}</Text> — when X happens on a lead, do Y.
             </Text>
           </div>
-          <Button leftSection={<IconPlus size={16} />} onClick={resetForm} variant="light">
+          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={resetForm} variant="light">
             New Rule
           </Button>
         </Group>
@@ -312,12 +318,13 @@ export function AutomationClient({ brand, label }: Props) {
             rows={rules}
             caption="Automation rules"
             columns={[
-              { key: 'name', header: 'Name', rowHeader: true },
-              { key: 'trigger', header: 'Trigger', accessor: (row) => describeTrigger(row.trigger) },
-              { key: 'action', header: 'Action', accessor: (row) => describeAction(row.action) },
+              { key: 'name', header: 'Name', rowHeader: true, width: 240 },
+              { key: 'trigger', header: 'Trigger', width: 200, accessor: (row) => describeTrigger(row.trigger) },
+              { key: 'action', header: 'Action', width: 200, accessor: (row) => describeAction(row.action) },
               {
                 key: 'enabled',
                 header: 'Status',
+                width: 140,
                 accessor: (row) => (
                   <Badge color={row.enabled ? 'red' : 'gray'} variant="light">
                     {row.enabled ? 'Enabled' : 'Disabled'}
@@ -328,13 +335,16 @@ export function AutomationClient({ brand, label }: Props) {
                 key: 'firingCount',
                 header: 'Fired',
                 numeric: true,
+                width: 220,
                 accessor: (row) => `${row.firingCount ?? 0}${row.lastEvaluatedAt ? ` · last checked ${new Date(row.lastEvaluatedAt).toLocaleString()}` : ''}`,
               },
               {
                 key: 'actions',
-                header: 'Actions',
+                header: '',
+                width: 160,
+                align: 'end',
                 accessor: (row) => (
-                  <Group gap="xs">
+                  <Group gap="xs" justify="flex-end">
                     <Button size="xs" variant="light" onClick={() => startEdit(row)}>
                       Edit
                     </Button>
@@ -344,6 +354,7 @@ export function AutomationClient({ brand, label }: Props) {
                       variant="light"
                       onClick={() => deleteRule(row)}
                       loading={deletingId === row.id}
+                      aria-label={`Delete automation rule ${row.name}`}
                     >
                       <IconTrash size={14} />
                     </Button>
