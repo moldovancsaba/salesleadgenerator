@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.270
+
+### Integrations: Graceful Google OAuth pre-flight configuration detection, error redirect, and UI affordances
+
+- **Configuration Readiness Reporting & Graceful Pre-flight (`GET /api/user/integrations`, `UserSettingsModal.tsx`):**
+  - Updated `GET /api/user/integrations` to report `configured: { google: isGoogleOAuthConfigured(), encryption: isIntegrationEncryptionConfigured() }`.
+  - Updated `UserSettingsModal.tsx` to inspect `configured` state: if Google OAuth environment variables (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`) or encryption key (`INTEGRATION_CREDENTIALS_ENCRYPTION_KEY`) are unconfigured, renders an informational setup alert and disables the connect button (satisfying Rule 7: UI affordances must match real capability).
+  - Added URL parameter error inspection on modal mount (`?error=`, `?connect_error=`) to render in-app feedback when returned from unconfigured states.
+- **Graceful Error Redirects (`app/api/integrations/[provider]/connect/route.ts`, `app/api/integrations/oauth/callback/route.ts`):**
+  - Updated `GET /api/integrations/[provider]/connect` to redirect to `returnUrl` (or `/salessettings/[client]/integrations`) with `?connect_error=` and `?error=` parameters when Google OAuth or encryption is unconfigured, preventing raw 503 JSON browser outputs.
+  - Updated `GET /api/integrations/oauth/callback` failure handler to redirect back to `pending.returnUrl` when present.
+- **Dynamic Environment Resolution (`app/lib/integration-store.ts`):**
+  - Updated `isGoogleOAuthConfigured` and `refreshTokenIfNeeded` to inspect `process.env` dynamically, avoiding module load-time evaluation issues.
+- **Automated Verification:**
+  - Added positive and negative test cases to `tests/lib/user-integrations.test.ts`.
+  - Quality gate: `npx tsc --noEmit` (0 errors), `npm run lint` (0 errors, 0 warnings), `npx vitest run` (1,381 tests passing 100%), `npm run test:smoke` (5/5 passing), Next.js production build clean.
+
 ## 2.4.269
 
 ### Integrations: Rep-level Google/Gmail OAuth connection hub, 1:1 outbound REST send, and multi-user 2-way sync

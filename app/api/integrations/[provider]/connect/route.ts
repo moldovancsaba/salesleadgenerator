@@ -36,16 +36,28 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const claimsOrResponse = await requireBrandAccessSession(request, brand);
   if (claimsOrResponse instanceof NextResponse) return claimsOrResponse;
 
+  const scopeType = searchParams.get('scopeType') === 'user' ? 'user' : 'brand';
+  const fallbackReturnUrl = `/salessettings/${encodeURIComponent(brand)}/integrations`;
+  const returnUrl = searchParams.get('returnUrl') || fallbackReturnUrl;
+
   if (!isGoogleOAuthConfigured()) {
-    return NextResponse.json({ error: 'Google integration is not configured' }, { status: 503 });
+    const target = new URL(returnUrl, request.url);
+    target.searchParams.set('connect_error', 'google_not_configured');
+    target.searchParams.set('error', 'google_not_configured');
+    return NextResponse.redirect(target);
   }
   if (!isIntegrationEncryptionConfigured()) {
-    return NextResponse.json({ error: 'Integration credential storage is not configured' }, { status: 503 });
+    const target = new URL(returnUrl, request.url);
+    target.searchParams.set('connect_error', 'encryption_not_configured');
+    target.searchParams.set('error', 'encryption_not_configured');
+    return NextResponse.redirect(target);
   }
-  if (!isMongoConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
-
-  const scopeType = searchParams.get('scopeType') === 'user' ? 'user' : 'brand';
-  const returnUrl = searchParams.get('returnUrl') || undefined;
+  if (!isMongoConfigured()) {
+    const target = new URL(returnUrl, request.url);
+    target.searchParams.set('connect_error', 'database_not_configured');
+    target.searchParams.set('error', 'database_not_configured');
+    return NextResponse.redirect(target);
+  }
 
   const tenantId = getTenantId(request);
   const state = generateState();

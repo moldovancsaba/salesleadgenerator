@@ -152,4 +152,16 @@ describe('User Integrations Store (issue #247)', () => {
     expect(gmailConns).toHaveLength(2);
     expect(gmailConns.map((c) => c.id)).toEqual(['conn_1', 'conn_2']);
   });
+
+  it('isGoogleOAuthConfigured reflects environment presence accurately', async () => {
+    const { isGoogleOAuthConfigured } = await import('../../app/lib/integration-store');
+    expect(isGoogleOAuthConfigured()).toBe(true);
+
+    const origSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+    delete process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+    expect(isGoogleOAuthConfigured()).toBe(false);
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET = origSecret;
+    expect(isGoogleOAuthConfigured()).toBe(true);
+  });
 });
+

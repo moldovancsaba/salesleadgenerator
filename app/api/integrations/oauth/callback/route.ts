@@ -55,8 +55,16 @@ export async function GET(request: NextRequest) {
     clearOauthCookies(response);
     return response;
   }
-  const fail = (reason: string, brand: string = redirectBrand) => {
-    const response = NextResponse.redirect(settingsUrl(request, brand, { connect_error: reason }));
+  const fail = (reason: string, brand: string = redirectBrand, fallbackUrl?: string) => {
+    let target: URL;
+    if (fallbackUrl) {
+      target = new URL(fallbackUrl, request.url);
+      target.searchParams.set('connect_error', reason);
+      target.searchParams.set('error', reason);
+    } else {
+      target = settingsUrl(request, brand, { connect_error: reason, error: reason });
+    }
+    const response = NextResponse.redirect(target);
     clearOauthCookies(response);
     return response;
   };
@@ -81,21 +89,21 @@ export async function GET(request: NextRequest) {
   const pending = await consumePendingOAuthState(db, returnedState);
   if (!pending) return fail('invalid_state');
   const brand = await resolveBrand(pending.brand);
-  if (!brand) return fail('invalid_state');
+  if (!brand) return fail('invalid_state', redirectBrand, pending.returnUrl);
 
   const claimsOrResponse = await requireBrandAccessSession(request, brand);
   if (claimsOrResponse instanceof NextResponse) {
     const reason = claimsOrResponse.status === 401 ? 'session_expired' : claimsOrResponse.status === 403 ? 'forbidden' : 'not_configured';
-    return fail(reason, brand);
+    return fail(reason, brand, pending.returnUrl);
   }
-  if (claimsOrResponse.sub !== pending.ssoUserId) return fail('forbidden', brand);
+  if (claimsOrResponse.sub !== pending.ssoUserId) return fail('forbidden', brand, pending.returnUrl);
 
   if (!isKnownProvider(pending.provider) || !isOAuthProvider(pending.provider)) {
-    return fail('unknown_provider', brand);
+    return fail('unknown_provider', brand, pending.returnUrl);
   }
   const provider = pending.provider as IntegrationProvider;
   const cfg = oauthConfigFor(provider);
-  if (!cfg) return fail('not_configured', brand);
+  if (!cfg) return fail('not_configured', brand, pending.returnUrl);
 
   try {
     // Real Google OAuth2 token endpoint contract: application/x-www-form-
@@ -115,7 +123,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenRes.ok) {
-      return fail('token_exchange_failed', brand);
+      return fail('token_exchange_failed', brand, pending.returnUrl);
     }
 
     const tokens = await tokenRes.json();
@@ -167,7 +175,7 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('[api/integrations/oauth/callback] error:', error);
-    return fail('unexpected_error', brand);
+    return fail('unexpected_error', brand, pending?.returnUrl);
   }
 }
 

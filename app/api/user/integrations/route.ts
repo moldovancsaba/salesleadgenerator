@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveSessionFromIdToken } from '@/lib/session';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
-import { listUserConnections, getUserConnection } from '@/app/lib/integration-store';
-import type { IntegrationProvider } from '@/lib/integration-connections';
+import { listUserConnections, isGoogleOAuthConfigured } from '@/app/lib/integration-store';
+import { isIntegrationEncryptionConfigured } from '@/lib/integration-crypto';
 
 // Issue #247: Self-service endpoint for a logged-in rep to list their own
 // personal integrations (e.g. personal Gmail connection).
@@ -19,7 +19,13 @@ export async function GET(request: NextRequest) {
   const client = await clientPromise;
   const connections = await listUserConnections(client.db(), claims.sub);
 
-  return NextResponse.json({ connections });
+  return NextResponse.json({
+    connections,
+    configured: {
+      google: isGoogleOAuthConfigured(),
+      encryption: isIntegrationEncryptionConfigured(),
+    },
+  });
 }
 
 export const dynamic = 'force-dynamic';

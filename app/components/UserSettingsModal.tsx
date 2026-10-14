@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { Modal, Stack, Group, Title, Text, Button, Paper, Badge, Divider, Loader } from '@mantine/core';
+import { Modal, Stack, Group, Title, Text, Button, Paper, Badge, Divider, Loader, Alert } from '@mantine/core';
 import { IconMail, IconBrandGoogle, IconCheck, IconAlertTriangle, IconRefresh, IconUnlink } from '@tabler/icons-react';
 import { useAuth } from './AuthProvider';
 
@@ -38,6 +38,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
   const { user, isSuperAdmin } = useAuth();
   const pathname = usePathname();
   const [connections, setConnections] = useState<SafeConnection[]>([]);
+  const [configured, setConfigured] = useState<{ google: boolean; encryption: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -51,6 +52,9 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
       if (res.ok) {
         const data = await res.json();
         setConnections(data.connections || []);
+        if (data.configured) {
+          setConfigured(data.configured);
+        }
       }
     } catch {
       // Non-fatal
@@ -62,12 +66,50 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
   useEffect(() => {
     if (opened) {
       loadConnections();
+
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const err = params.get('error') || params.get('connect_error');
+        const conn = params.get('connected');
+        if (conn === 'gmail') {
+          setFeedback({ type: 'success', message: 'Personal Gmail account successfully connected!' });
+        } else if (err === 'google_not_configured') {
+          setFeedback({
+            type: 'error',
+            message: 'Google OAuth integration is not configured on the server. GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET are required.',
+          });
+        } else if (err === 'encryption_not_configured') {
+          setFeedback({
+            type: 'error',
+            message: 'Credential encryption is not configured on the server. INTEGRATION_CREDENTIALS_ENCRYPTION_KEY is required.',
+          });
+        } else if (err) {
+          setFeedback({
+            type: 'error',
+            message: `Connection could not be completed (${err}).`,
+          });
+        }
+      }
     }
   }, [opened, loadConnections]);
 
   const gmailConnection = connections.find((c) => c.provider === 'gmail' && c.status !== 'revoked');
 
   function handleConnectGmail() {
+    if (configured && !configured.google) {
+      setFeedback({
+        type: 'error',
+        message: 'Google OAuth is not configured on the server yet. An administrator must configure GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET.',
+      });
+      return;
+    }
+    if (configured && !configured.encryption) {
+      setFeedback({
+        type: 'error',
+        message: 'Credential encryption is not configured on the server. INTEGRATION_CREDENTIALS_ENCRYPTION_KEY is required.',
+      });
+      return;
+    }
     const returnUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : pathname;
     const relativeUrl = `/api/integrations/gmail/connect?brand=${encodeURIComponent(brand)}&scopeType=user&returnUrl=${encodeURIComponent(returnUrl)}`;
     const fullUrl = new URL(relativeUrl, window.location.origin).toString();
@@ -207,14 +249,51 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
                 </Text>
               )}
 
+              {configured?.google === false && (
+                <Alert icon={<IconAlertTriangle size={16} />} color="yellow" variant="light" title="Google OAuth Setup Required">
+                  <Stack gap={4}>
+                    <Text size="xs">
+                      Google OAuth credentials are not configured in this deployment environment.
+                    </Text>
+                    {isSuperAdmin && (
+                      <Text size="xs" c="dimmed">
+                        Admins: Configure <Text span ff="monospace" size="xs">GOOGLE_OAUTH_CLIENT_ID</Text>,{' '}
+                        <Text span ff="monospace" size="xs">GOOGLE_OAUTH_CLIENT_SECRET</Text>, and{' '}
+                        <Text span ff="monospace" size="xs">GOOGLE_OAUTH_REDIRECT_URI</Text> in your Vercel project environment variables.
+                      </Text>
+                    )}
+                  </Stack>
+                </Alert>
+              )}
+
+              {configured?.google && configured?.encryption === false && (
+                <Alert icon={<IconAlertTriangle size={16} />} color="yellow" variant="light" title="Encryption Key Required">
+                  <Stack gap={4}>
+                    <Text size="xs">
+                      Credential encryption key is missing in this deployment environment.
+                    </Text>
+                    {isSuperAdmin && (
+                      <Text size="xs" c="dimmed">
+                        Admins: Configure <Text span ff="monospace" size="xs">INTEGRATION_CREDENTIALS_ENCRYPTION_KEY</Text> (a 32-byte base64 key) in Vercel.
+                      </Text>
+                    )}
+                  </Stack>
+                </Alert>
+              )}
+
               <Button
                 size="sm"
                 color="indigo"
                 leftSection={<IconBrandGoogle size={16} />}
                 onClick={handleConnectGmail}
                 mt="xs"
+                disabled={configured?.google === false || configured?.encryption === false}
               >
-                Connect with Google
+                {configured?.google === false
+                  ? 'Google OAuth Setup Required'
+                  : configured?.encryption === false
+                  ? 'Encryption Key Setup Required'
+                  : 'Connect with Google'}
               </Button>
             </Stack>
           </Paper>
