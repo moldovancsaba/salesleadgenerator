@@ -115,15 +115,20 @@ export async function GET(request: NextRequest) {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: GOOGLE_OAUTH_REDIRECT_URI,
-        client_id: GOOGLE_OAUTH_CLIENT_ID,
-        client_secret: GOOGLE_OAUTH_CLIENT_SECRET,
+        redirect_uri: process.env.GOOGLE_OAUTH_REDIRECT_URI || GOOGLE_OAUTH_REDIRECT_URI,
+        client_id: process.env.GOOGLE_OAUTH_CLIENT_ID || GOOGLE_OAUTH_CLIENT_ID,
+        client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET || GOOGLE_OAUTH_CLIENT_SECRET,
         code_verifier: verifier,
       }),
     });
 
     if (!tokenRes.ok) {
-      return fail('token_exchange_failed', brand, pending.returnUrl);
+      const errBody = await tokenRes.json().catch(() => ({}));
+      console.error('[api/integrations/oauth/callback] token exchange rejected:', tokenRes.status, errBody);
+      const detail = (errBody.error_description || errBody.error || `status_${tokenRes.status}`)
+        .replace(/[^a-zA-Z0-9_-]/g, '_')
+        .slice(0, 60);
+      return fail(`token_exchange_${detail}`, brand, pending.returnUrl);
     }
 
     const tokens = await tokenRes.json();
@@ -148,6 +153,9 @@ export async function GET(request: NextRequest) {
     }
 
     const isUserScope = pending.scopeType === 'user';
+    const userEmailResolved = userEmail || claimsOrResponse.email;
+    const providerAccountLabelResolved = providerAccountLabel || userEmailResolved;
+
     await upsertOAuthConnection(db, {
       brand,
       tenantId: pending.tenantId || 'default',
@@ -158,8 +166,8 @@ export async function GET(request: NextRequest) {
       scopes: cfg.scopes,
       connectedBy: claimsOrResponse.sub,
       ...(isUserScope ? { userId: claimsOrResponse.sub } : {}),
-      ...(userEmail ? { userEmail } : {}),
-      ...(providerAccountLabel ? { providerAccountLabel } : {}),
+      ...(userEmailResolved ? { userEmail: userEmailResolved } : {}),
+      ...(providerAccountLabelResolved ? { providerAccountLabel: providerAccountLabelResolved } : {}),
     });
 
     let redirectUrl: URL;
@@ -173,9 +181,12 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(redirectUrl);
     clearOauthCookies(response);
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error('[api/integrations/oauth/callback] error:', error);
-    return fail('unexpected_error', brand, pending?.returnUrl);
+    const detail = error?.code === 11000
+      ? 'duplicate_connection'
+      : (error?.message ? `error_${encodeURIComponent(error.message.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60))}` : 'unexpected_error');
+    return fail(detail, brand, pending?.returnUrl);
   }
 }
 

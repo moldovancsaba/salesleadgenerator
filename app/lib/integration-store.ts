@@ -22,16 +22,31 @@ export function isGoogleOAuthConfigured(): boolean {
 export { GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URI };
 
 const indexesEnsured = new Set<string>();
-export async function ensureIntegrationConnectionIndexes(db: Db): Promise<void> {
-  if (indexesEnsured.has('done')) return;
+export async function ensureIntegrationConnectionIndexes(db: Db, force = false): Promise<void> {
+  if (!force && indexesEnsured.has('done')) return;
   try {
+    const col = db.collection(INTEGRATION_CONNECTIONS_COLLECTION);
+    // If legacy unique index on { brand, tenantId, provider } exists from Issue #217,
+    // drop it so user-level connections (which share brand/tenantId) can be saved without collision.
+    if (typeof col.indexes === 'function') {
+      const existing = await col.indexes().catch(() => []);
+      const legacy = existing.find((i: any) => i.name === 'brand_1_tenantId_1_provider_1');
+      if (legacy && typeof col.dropIndex === 'function') {
+        try {
+          await col.dropIndex('brand_1_tenantId_1_provider_1');
+        } catch (dropErr) {
+          console.warn('[integration-store] dropIndex brand_1_tenantId_1_provider_1 warning:', dropErr);
+        }
+      }
+    }
+
     // Sparse index on userId + provider for individual user accounts (issue #247)
-    await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).createIndex(
+    await col.createIndex(
       { userId: 1, provider: 1 },
       { unique: true, sparse: true }
     );
     // Compound index for brand/tenant scoped connections
-    await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).createIndex(
+    await col.createIndex(
       { brand: 1, tenantId: 1, provider: 1, userId: 1 },
       { unique: true }
     );
@@ -130,15 +145,30 @@ export async function upsertOAuthConnection(
   db: Db,
   params: {
     brand: string; tenantId: string; provider: IntegrationProvider;
-    accessToken: string; refreshToken?: string; expiresInSeconds: number;
+    accessToken: string; refreshToken?: string; expiresInSeconds?: number;
     scopes: string[]; connectedBy: string;
     userId?: string; userEmail?: string; providerAccountLabel?: string;
   }
 ): Promise<void> {
   await ensureIntegrationConnectionIndexes(db);
   const now = new Date().toISOString();
-  const blob = encryptCredentials({ accessToken: params.accessToken, refreshToken: params.refreshToken });
-  const accessTokenExpiresAt = new Date(Date.now() + params.expiresInSeconds * 1000).toISOString();
+
+  let refreshToken = params.refreshToken;
+  if (!refreshToken && params.userId) {
+    const existing = await getUserConnection(db, params.userId, params.provider);
+    if (existing?.encryptedCredentials) {
+      try {
+        const oldCreds = decryptCredentials<{ refreshToken?: string }>(existing.encryptedCredentials);
+        if (oldCreds.refreshToken) refreshToken = oldCreds.refreshToken;
+      } catch {
+        // Non-fatal
+      }
+    }
+  }
+
+  const blob = encryptCredentials({ accessToken: params.accessToken, refreshToken });
+  const expiresIn = Number(params.expiresInSeconds) || 3600;
+  const accessTokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
   // If userId is present, key uniquely on userId + provider for individual user accounts (issue #247).
   // Otherwise, key on brand + tenantId + provider for brand-level integrations.

@@ -163,5 +163,61 @@ describe('User Integrations Store (issue #247)', () => {
     process.env.GOOGLE_OAUTH_CLIENT_SECRET = origSecret;
     expect(isGoogleOAuthConfigured()).toBe(true);
   });
+
+  it('upsertOAuthConnection preserves existing refreshToken when params.refreshToken is omitted', async () => {
+    const { decryptCredentials } = await import('../../lib/integration-crypto');
+
+    // First insert with refresh token
+    await upsertOAuthConnection(mockDb, {
+      brand: 'cogmap',
+      tenantId: 'default',
+      provider: 'gmail',
+      accessToken: 'token_1',
+      refreshToken: 'refresh_keep_me',
+      expiresInSeconds: 3600,
+      scopes: ['gmail.send'],
+      connectedBy: 'usr_123',
+      userId: 'usr_123',
+      userEmail: 'rep@example.com',
+    });
+
+    expect(storedDocs).toHaveLength(1);
+
+    // Second upsert without refresh token (e.g. Google reconnect grant where refresh_token is not re-issued)
+    await upsertOAuthConnection(mockDb, {
+      brand: 'cogmap',
+      tenantId: 'default',
+      provider: 'gmail',
+      accessToken: 'token_2',
+      expiresInSeconds: 3600,
+      scopes: ['gmail.send'],
+      connectedBy: 'usr_123',
+      userId: 'usr_123',
+      userEmail: 'rep@example.com',
+    });
+
+    expect(storedDocs).toHaveLength(1);
+    const creds = decryptCredentials<{ accessToken: string; refreshToken?: string }>(storedDocs[0].encryptedCredentials);
+    expect(creds.accessToken).toBe('token_2');
+    expect(creds.refreshToken).toBe('refresh_keep_me');
+  });
+
+  it('ensureIntegrationConnectionIndexes drops legacy index when present', async () => {
+    const { ensureIntegrationConnectionIndexes } = await import('../../app/lib/integration-store');
+    const droppedIndexes: string[] = [];
+    const testDb: any = {
+      collection: () => ({
+        indexes: vi.fn().mockResolvedValue([{ name: 'brand_1_tenantId_1_provider_1' }]),
+        dropIndex: vi.fn().mockImplementation((name: string) => {
+          droppedIndexes.push(name);
+          return Promise.resolve();
+        }),
+        createIndex: vi.fn().mockResolvedValue('ok'),
+      }),
+    };
+
+    await ensureIntegrationConnectionIndexes(testDb, true);
+    expect(droppedIndexes).toContain('brand_1_tenantId_1_provider_1');
+  });
 });
 

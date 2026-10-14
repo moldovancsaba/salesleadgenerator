@@ -83,10 +83,25 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
             type: 'error',
             message: 'Credential encryption is not configured on the server. INTEGRATION_CREDENTIALS_ENCRYPTION_KEY is required.',
           });
+        } else if (err === 'duplicate_connection') {
+          setFeedback({
+            type: 'error',
+            message: 'A Gmail account is already connected to this user. Disconnect the existing connection before connecting again.',
+          });
+        } else if (err && err.startsWith('token_exchange_')) {
+          setFeedback({
+            type: 'error',
+            message: `Google rejected token exchange: ${err.replace('token_exchange_', '').replace(/_/g, ' ')}. Verify Google OAuth Client Secret and Redirect URI.`,
+          });
+        } else if (err && err.startsWith('error_')) {
+          setFeedback({
+            type: 'error',
+            message: `Connection failed: ${decodeURIComponent(err.replace(/^error_/, '')).replace(/_/g, ' ')}.`,
+          });
         } else if (err) {
           setFeedback({
             type: 'error',
-            message: `Connection could not be completed (${err}).`,
+            message: `Connection could not be completed (${decodeURIComponent(err).replace(/_/g, ' ')}).`,
           });
         }
       }

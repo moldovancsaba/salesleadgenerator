@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.271
+
+### Integrations: Legacy index migration, refresh token preservation, and detailed OAuth error diagnostics
+
+- **Legacy MongoDB Index Migration (`app/lib/integration-store.ts`):**
+  - Updated `ensureIntegrationConnectionIndexes` to automatically detect and drop the legacy `{ brand: 1, tenantId: 1, provider: 1 }` index from Issue #217 if present, preventing `E11000 duplicate key error` when multiple reps or brand connections coexist.
+- **Refresh Token Preservation & Safe Expiry (`app/lib/integration-store.ts`):**
+  - Updated `upsertOAuthConnection` to safely parse `expiresInSeconds` (`Number(params.expiresInSeconds) || 3600`) avoiding `RangeError: Invalid time value`.
+  - Preserved existing encrypted `refreshToken` from database if Google omits `refresh_token` on reconnect grant.
+- **Detailed Error Diagnostics & Fallback Resolution (`app/api/integrations/oauth/callback/route.ts`, `UserSettingsModal.tsx`):**
+  - Resolved Google OAuth client credentials dynamically from `process.env`.
+  - Resolved `userEmail` and `providerAccountLabel` from session email if Google profile fetch is omitted.
+  - Replaced generic `unexpected_error` with descriptive error details and decoded feedback in `UserSettingsModal.tsx`.
+- **Automated Verification:**
+  - Added unit tests in `tests/lib/user-integrations.test.ts` for token preservation and legacy index dropping (8/8 passing).
+  - Quality gate passed: `npx tsc --noEmit` (0 errors), `npm run lint` (0 errors, 0 warnings), `npx vitest run` (1,383 tests passing 100%), `npm run test:smoke` (5/5 passing).
+
 ## 2.4.270
 
 ### Integrations: Graceful Google OAuth pre-flight configuration detection, error redirect, and UI affordances
