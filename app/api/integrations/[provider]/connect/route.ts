@@ -44,6 +44,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
   if (!isMongoConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
 
+  const scopeType = searchParams.get('scopeType') === 'user' ? 'user' : 'brand';
+  const returnUrl = searchParams.get('returnUrl') || undefined;
+
   const tenantId = getTenantId(request);
   const state = generateState();
   const verifier = generateCodeVerifier();
@@ -54,6 +57,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const client = await clientPromise;
   await savePendingOAuthState(client.db(), {
     state, provider, brand, tenantId, ssoUserId: claimsOrResponse.sub,
+    scopeType, returnUrl,
     expiresAt: new Date(Date.now() + OAUTH_COOKIE_MAX_AGE * 1000),
   });
 

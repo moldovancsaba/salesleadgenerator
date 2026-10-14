@@ -73,6 +73,32 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [battlecards, setBattlecards] = useState<Battlecard[]>([]);
   const [battlecardsLoading, setBattlecardsLoading] = useState(false);
+  const [senderInfo, setSenderInfo] = useState<{ email?: string; provider: 'gmail' | 'resend' }>({ provider: 'resend' });
+
+  useEffect(() => {
+    if (!opened) return;
+    let cancelled = false;
+    fetch('/api/user/integrations')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        const gmailConn = data?.connections?.find((c: any) => c.provider === 'gmail' && c.status === 'active');
+        if (gmailConn) {
+          setSenderInfo({
+            email: gmailConn.userEmail || gmailConn.providerAccountLabel,
+            provider: 'gmail',
+          });
+        } else {
+          setSenderInfo({ provider: 'resend' });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSenderInfo({ provider: 'resend' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [opened]);
 
   const industry = lead.industry || lead.sport_or_sector || '';
   // Template placeholder {contact_name} resolves from the contact flagged
@@ -219,8 +245,11 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   async function handleSendEmail() {
     if (!canSendEmail) return;
     const decisionMaker = getDecisionMakerContact(lead.contacts);
+    const senderDescription = senderInfo.provider === 'gmail' && senderInfo.email
+      ? `your connected Gmail (${senderInfo.email})`
+      : 'the system default email sender';
     const confirmed = window.confirm(
-      `Send this email to ${decisionMaker?.name || 'the decision-maker'} <${decisionMaker?.email || ''}> now? This sends a real email immediately and cannot be undone.`
+      `Send this email to ${decisionMaker?.name || 'the decision-maker'} <${decisionMaker?.email || ''}> from ${senderDescription} now? This sends a real email immediately and cannot be undone.`
     );
     if (!confirmed) return;
     setSendingEmail(true);
@@ -377,20 +406,33 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
               rows={8}
               description="Variables are pre-filled from the lead."
             />
-            <Group justify="flex-end" gap="sm">
-              <Button variant="light" onClick={onClose} disabled={logging || sendingEmail}>Cancel</Button>
-              {/* Issue #205 — "Log outreach" only ever writes a record (never
-                  sends); its busy label reads "Logging…", distinct from "Send
-                  email"'s own "Sending…" below — CLAUDE.md Rule 7: no label
-                  may imply a different interaction than the one it performs. */}
-              <Button variant="light" onClick={handleSend} disabled={!canSend || logging || sendingEmail}>
-                {logging ? 'Logging…' : 'Log outreach'}
-              </Button>
-              {channel === 'email' && (
-                <Button color="red" onClick={handleSendEmail} disabled={!canSendEmail || logging || sendingEmail} loading={sendingEmail}>
-                  Send email
+            <Group justify="space-between" align="center" wrap="wrap" gap="xs">
+              <Group gap="xs">
+                {senderInfo.provider === 'gmail' ? (
+                  <Badge color="teal" variant="light" size="sm">
+                    Sending from: {senderInfo.email || 'Personal Gmail'}
+                  </Badge>
+                ) : (
+                  <Badge color="gray" variant="light" size="sm">
+                    Sending via: System Email (Resend)
+                  </Badge>
+                )}
+              </Group>
+              <Group justify="flex-end" gap="sm">
+                <Button variant="light" onClick={onClose} disabled={logging || sendingEmail}>Cancel</Button>
+                {/* Issue #205 — "Log outreach" only ever writes a record (never
+                    sends); its busy label reads "Logging…", distinct from "Send
+                    email"'s own "Sending…" below — CLAUDE.md Rule 7: no label
+                    may imply a different interaction than the one it performs. */}
+                <Button variant="light" onClick={handleSend} disabled={!canSend || logging || sendingEmail}>
+                  {logging ? 'Logging…' : 'Log outreach'}
                 </Button>
-              )}
+                {channel === 'email' && (
+                  <Button color="red" onClick={handleSendEmail} disabled={!canSendEmail || logging || sendingEmail} loading={sendingEmail}>
+                    Send email
+                  </Button>
+                )}
+              </Group>
             </Group>
             {channelBlockReason && (
               <Text size="xs" c="red">{channelBlockReason}</Text>

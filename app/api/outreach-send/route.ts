@@ -7,6 +7,8 @@ import type { LeadForSend } from '../../../lib/outreach-send'
 import { evaluateOutreachRouting } from '../../lib/outreach/routing-rules'
 import { getBrandConfig, resolveBrand } from '../../lib/brand'
 import { ObjectId, type Db } from 'mongodb'
+import { resolveSessionFromIdToken } from '../../../lib/session'
+import { getUserConnection } from '../../lib/integration-store'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +44,8 @@ async function findLead(db: Db, collection: string, tenantId: string, rawId: str
 // requireBrandAccessApi (legacy x-api-key, a scoped key for this brand, or
 // an SSO session with access to it), the same brand gate as POST
 // /api/outreach-logs, so the compose modal's own session can send.
+// Issue #248: When a logged-in rep has connected their personal Google account,
+// outreach is sent directly from their mailbox via the Gmail REST API.
 export async function POST(request: NextRequest) {
   try {
     const tenantId = getTenantId(request)
@@ -53,6 +57,11 @@ export async function POST(request: NextRequest) {
     if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
     const authError = await requireBrandAccessApi(request, brand)
     if (authError) return authError
+
+    const claims = await resolveSessionFromIdToken(request.cookies.get('sso_id_token')?.value)
+    const senderUserId = claims?.sub
+    const senderName = claims?.name
+    const senderEmail = claims?.email
 
     const leadId = String(body.leadId || '').trim()
     const subject = String(body.subject || '').trim()
@@ -71,16 +80,21 @@ export async function POST(request: NextRequest) {
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
-    // Sending is never silently downgraded to record-only — the rep sees an
-    // explicit error and can still use "Log outreach" regardless (issue
-    // #205's own Edge Cases: a brand/environment without Resend configured
-    // never loses the ability to record outreach).
-    if (!isResendSendConfigured()) {
-      return NextResponse.json({ error: 'Email sending is not configured for this environment' }, { status: 503 })
-    }
 
     const client = await clientPromise
     const db = client.db()
+
+    // Issue #248: Check if sender has an active personal Gmail connection.
+    // If not, fall back to checking if Resend is configured.
+    let hasActiveGmail = false
+    if (senderUserId) {
+      const userConn = await getUserConnection(db, senderUserId, 'gmail')
+      hasActiveGmail = userConn?.status === 'active'
+    }
+
+    if (!hasActiveGmail && !isResendSendConfigured()) {
+      return NextResponse.json({ error: 'Email sending is not configured for this environment' }, { status: 503 })
+    }
 
     // Issue #227: recipients and interpolation fields come from the stored
     // lead in this brand's own collection, never from the request body — a
@@ -130,9 +144,22 @@ export async function POST(request: NextRequest) {
       variables: [] as string[],
     }
 
-    const result = await sendManualEmail(db, lead, template, { brand, tenantId, idempotencyKey })
+    const result = await sendManualEmail(db, lead, template, {
+      brand,
+      tenantId,
+      idempotencyKey,
+      senderUserId,
+      senderName,
+      senderEmail,
+    })
 
-    return NextResponse.json({ sent: result.sent, reason: result.reason, outreachLogId: result.outreachLogId })
+    return NextResponse.json({
+      sent: result.sent,
+      reason: result.reason,
+      outreachLogId: result.outreachLogId,
+      gmailMessageId: result.gmailMessageId,
+      resendEmailId: result.resendEmailId,
+    })
   } catch (error: any) {
     console.error('[API:outreach-send] POST error:', error)
     return NextResponse.json({ error: 'Failed to send outreach email' }, { status: 500 })

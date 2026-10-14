@@ -119,6 +119,27 @@ export async function GET(request: NextRequest) {
     }
 
     const tokens = await tokenRes.json();
+
+    let providerAccountLabel: string | undefined;
+    let userEmail: string | undefined;
+    if (provider === 'gmail') {
+      try {
+        const profileRes = await fetchWithRetry('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        });
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          if (profile.emailAddress) {
+            providerAccountLabel = profile.emailAddress;
+            userEmail = profile.emailAddress;
+          }
+        }
+      } catch (err) {
+        console.error('[api/integrations/oauth/callback] profile fetch failed', err);
+      }
+    }
+
+    const isUserScope = pending.scopeType === 'user';
     await upsertOAuthConnection(db, {
       brand,
       tenantId: pending.tenantId || 'default',
@@ -128,9 +149,20 @@ export async function GET(request: NextRequest) {
       expiresInSeconds: tokens.expires_in,
       scopes: cfg.scopes,
       connectedBy: claimsOrResponse.sub,
+      ...(isUserScope ? { userId: claimsOrResponse.sub } : {}),
+      ...(userEmail ? { userEmail } : {}),
+      ...(providerAccountLabel ? { providerAccountLabel } : {}),
     });
 
-    const response = NextResponse.redirect(settingsUrl(request, brand, { connected: provider }));
+    let redirectUrl: URL;
+    if (pending.returnUrl) {
+      redirectUrl = new URL(pending.returnUrl, request.url);
+      redirectUrl.searchParams.set('connected', provider);
+    } else {
+      redirectUrl = settingsUrl(request, brand, { connected: provider });
+    }
+
+    const response = NextResponse.redirect(redirectUrl);
     clearOauthCookies(response);
     return response;
   } catch (error) {

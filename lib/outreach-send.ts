@@ -25,6 +25,8 @@ import { getBrandConfig } from '../app/lib/brand';
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes, truncateBody } from '../app/lib/activity-log-store';
 import { isRecipientSuppressed } from './suppression';
 import { deduplicateDocumentIds, resolveDocumentAttachmentRefs, type DocumentRecord } from './documents';
+import { getUserConnection, getValidCredential } from '../app/lib/integration-store';
+import { buildRfc2822Message, sendGmailMessage } from './gmail-send';
 
 export type AutomatedSendContext = {
   brand: string;
@@ -39,17 +41,22 @@ export type AutomatedSendContext = {
 // app/api/outreach-send/route.ts) so a genuine network-level retry of the
 // same click reuses the same key (Resend dedupes it) while two distinct
 // rep-initiated sends always get distinct keys.
+// Issue #248 — optional senderUserId / senderEmail / senderName for routing
+// through the rep's personal Gmail connection via Gmail API when connected.
 export type ManualSendContext = {
   brand: string;
   tenantId: string;
   idempotencyKey: string;
   documentIds?: string[];
+  senderUserId?: string;
+  senderName?: string;
+  senderEmail?: string;
 };
 
 // The one thing that actually differs between a cadence step firing itself
 // and a rep clicking Send: how the idempotency key is built and whether the
 // resulting outreach_logs row is tagged sentAutomatically. Everything else
-// (routing check, interpolation, the Resend call itself, log-writing) is one
+// (routing check, interpolation, the Resend/Gmail call itself, log-writing) is one
 // shared path — see dispatchOutreachEmail() below.
 //
 // 'quote' (issue #211) — a third, one-off rep-initiated kind alongside
@@ -58,19 +65,25 @@ export type ManualSendContext = {
 // specific Quote it sent, never a second/parallel send implementation.
 export type OutreachSendSource =
   | { kind: 'cadence'; cadenceId: string; stepIndex: number; documentIds?: string[] }
-  | { kind: 'manual'; idempotencyKey: string; documentIds?: string[] }
+  | {
+      kind: 'manual';
+      idempotencyKey: string;
+      documentIds?: string[];
+      senderUserId?: string;
+      senderName?: string;
+      senderEmail?: string;
+    }
   | { kind: 'quote'; quoteId: string; idempotencyKey: string; documentIds?: string[] };
 
 export type AutomatedSendResult = {
   sent: boolean;
   // Set whenever sent is false — why the send didn't happen (routing
-  // ineligible, no template, or a Resend-side rejection/failure).
+  // ineligible, no template, or a provider-side rejection/failure).
   reason?: string;
   outreachLogId: string;
-  // Present only when sent === true — Resend's own returned email id,
-  // needed by the caller to correlate a later delivery/open/click webhook
-  // event back to this specific send.
+  // Present only when sent === true — Resend's or Gmail's returned message ID.
   resendEmailId?: string;
+  gmailMessageId?: string;
 };
 
 // Just enough of a Lead to route and interpolate — matches
@@ -124,6 +137,11 @@ async function writeOutreachLog(
     // this field at all). False if suppressed or cancelled prior to send.
     sendAttempted: boolean;
     resendEmailId?: string;
+    gmailMessageId?: string;
+    gmailThreadId?: string;
+    source?: 'resend' | 'gmail';
+    from?: string;
+    senderUserId?: string;
     sentAutomatically: boolean;
     cadenceId?: string;
     stepIndex?: number;
@@ -160,6 +178,11 @@ async function writeOutreachLog(
     // migration.
     sendAttempted: fields.sendAttempted,
     resendEmailId: fields.resendEmailId,
+    gmailMessageId: fields.gmailMessageId,
+    gmailThreadId: fields.gmailThreadId,
+    source: fields.source,
+    from: fields.from,
+    senderUserId: fields.senderUserId,
     sentAutomatically: fields.sentAutomatically,
     cadenceId: fields.cadenceId,
     stepIndex: fields.stepIndex,
@@ -182,7 +205,7 @@ async function writeManualSendActivityLog(
   db: Db,
   context: { brand: string; tenantId: string },
   leadId: string,
-  fields: { resendEmailId: string; subject: string; body: string }
+  fields: { resendEmailId: string; subject: string; body: string; source?: string }
 ): Promise<boolean> {
   try {
     await ensureActivityLogIndexes(db);
@@ -195,7 +218,7 @@ async function writeManualSendActivityLog(
       subject: fields.subject,
       bodyExcerpt: truncateBody(fields.body),
       matchedContactKey: null,
-      source: 'manual',
+      source: fields.source || 'manual',
       externalId: fields.resendEmailId,
       createdAt: new Date(),
     });
@@ -415,35 +438,83 @@ export async function dispatchOutreachEmail(
 
   let sendError: string | undefined;
   let resendEmailId: string | undefined;
-  try {
-    const brandConfig = await getBrandConfig(context.brand);
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    const { data, error } = await resend.emails.send(
-      {
-        from: resolveOutboundFromAddress(context.brand, brandConfig?.fromEmail),
-        to,
-        subject,
-        text: body,
-      },
-      { idempotencyKey }
-    );
-    if (error) {
-      sendError = error.message || error.name;
-    } else {
-      resendEmailId = data?.id;
+  let gmailMessageId: string | undefined;
+  let gmailThreadId: string | undefined;
+  let usedTransport: 'gmail' | 'resend' = 'resend';
+  let fromAddress: string | undefined;
+
+  // Issue #248: If this is a manual send and the sales rep has connected their personal
+  // Google / Gmail account, route via the Gmail REST API (messages.send).
+  if (source.kind === 'manual' && source.senderUserId) {
+    try {
+      const userConn = await getUserConnection(db, source.senderUserId, 'gmail');
+      if (userConn && userConn.status === 'active') {
+        usedTransport = 'gmail';
+        const accessToken = await getValidCredential(db, userConn);
+        const repFromEmail = userConn.userEmail || source.senderEmail || userConn.providerAccountLabel || 'me';
+        fromAddress = repFromEmail;
+        const { messageText } = buildRfc2822Message({
+          from: { name: source.senderName, email: repFromEmail },
+          to: { name: dmContact?.name, email: to },
+          subject,
+          bodyText: body,
+        });
+        const gmailResult = await sendGmailMessage({
+          accessToken,
+          rawMime: messageText,
+        });
+        gmailMessageId = gmailResult.id;
+        gmailThreadId = gmailResult.threadId;
+      }
+    } catch (err: any) {
+      sendError = err?.message || 'Gmail send failed';
     }
-  } catch (err: any) {
-    // Network error, timeout, or any other throw from the SDK itself
-    // (distinct from a well-formed API error response, which resolves
-    // through `error` above without throwing) — caught here so a transient
-    // Resend outage can never abort a cron tick's whole batch, and never
-    // leaves a rep-initiated send hanging with no error surfaced either.
-    sendError = err?.message || 'Resend request failed';
+  }
+
+  // Fallback to Resend for cadence sends, quotes, or manual sends where the user
+  // has not connected their personal Gmail (or if Gmail send wasn't used).
+  if (usedTransport === 'resend' && !sendError) {
+    if (!isResendSendConfigured()) {
+      sendError = 'Email sending is not configured for this environment';
+    } else {
+      try {
+        const brandConfig = await getBrandConfig(context.brand);
+        fromAddress = resolveOutboundFromAddress(context.brand, brandConfig?.fromEmail);
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const { data, error } = await resend.emails.send(
+          {
+            from: fromAddress,
+            to,
+            subject,
+            text: body,
+          },
+          { idempotencyKey }
+        );
+        if (error) {
+          sendError = error.message || error.name;
+        } else {
+          resendEmailId = data?.id;
+        }
+      } catch (err: any) {
+        // Network error, timeout, or any other throw from the SDK itself
+        // (distinct from a well-formed API error response, which resolves
+        // through `error` above without throwing) — caught here so a transient
+        // Resend outage can never abort a cron tick's whole batch, and never
+        // leaves a rep-initiated send hanging with no error surfaced either.
+        sendError = err?.message || 'Resend request failed';
+      }
+    }
   }
 
   let activityLogWritten = false;
-  if (!sendError && (source.kind === 'manual' || source.kind === 'quote') && resendEmailId) {
-    activityLogWritten = await writeManualSendActivityLog(db, context, leadId, { resendEmailId, subject, body });
+  const externalId = gmailMessageId || resendEmailId;
+  if (!sendError && (source.kind === 'manual' || source.kind === 'quote') && externalId) {
+    activityLogWritten = await writeManualSendActivityLog(db, context, leadId, {
+      resendEmailId: externalId,
+      subject,
+      body,
+      source: usedTransport,
+    });
   }
 
   const outreachLogId = await writeOutreachLog(db, context, leadId, {
@@ -452,18 +523,23 @@ export async function dispatchOutreachEmail(
     subject,
     body,
     routingAllowed: !sendError,
-    routingReason: sendError ? `resend rejected: ${sendError}` : null,
+    routingReason: sendError ? `${usedTransport} rejected: ${sendError}` : null,
     sendAttempted: true,
     resendEmailId,
+    gmailMessageId,
+    gmailThreadId,
+    source: usedTransport,
+    from: fromAddress,
+    senderUserId: source.kind === 'manual' ? source.senderUserId : undefined,
     sentAutomatically,
     ...cadenceFields,
     activityLogWritten,
   });
 
   if (sendError) {
-    return { sent: false, reason: `resend rejected: ${sendError}`, outreachLogId };
+    return { sent: false, reason: `${usedTransport} rejected: ${sendError}`, outreachLogId };
   }
-  return { sent: true, outreachLogId, resendEmailId };
+  return { sent: true, outreachLogId, resendEmailId, gmailMessageId };
 }
 
 // Sends one cadence email step to one lead, or explains why it didn't.
@@ -500,7 +576,14 @@ export async function sendManualEmail(
     lead,
     template,
     { brand: context.brand, tenantId: context.tenantId },
-    { kind: 'manual', idempotencyKey: context.idempotencyKey, documentIds: context.documentIds }
+    {
+      kind: 'manual',
+      idempotencyKey: context.idempotencyKey,
+      documentIds: context.documentIds,
+      senderUserId: context.senderUserId,
+      senderName: context.senderName,
+      senderEmail: context.senderEmail,
+    }
   );
 }
 

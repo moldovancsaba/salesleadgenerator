@@ -22,8 +22,14 @@ const indexesEnsured = new Set<string>();
 export async function ensureIntegrationConnectionIndexes(db: Db): Promise<void> {
   if (indexesEnsured.has('done')) return;
   try {
+    // Sparse index on userId + provider for individual user accounts (issue #247)
     await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).createIndex(
-      { brand: 1, tenantId: 1, provider: 1 },
+      { userId: 1, provider: 1 },
+      { unique: true, sparse: true }
+    );
+    // Compound index for brand/tenant scoped connections
+    await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).createIndex(
+      { brand: 1, tenantId: 1, provider: 1, userId: 1 },
       { unique: true }
     );
     indexesEnsured.add('done');
@@ -45,6 +51,8 @@ export type PendingOAuthState = {
   brand: string;
   tenantId: string;
   ssoUserId: string;
+  scopeType?: 'user' | 'brand';
+  returnUrl?: string;
   expiresAt: Date;
 };
 
@@ -121,25 +129,93 @@ export async function upsertOAuthConnection(
     brand: string; tenantId: string; provider: IntegrationProvider;
     accessToken: string; refreshToken?: string; expiresInSeconds: number;
     scopes: string[]; connectedBy: string;
+    userId?: string; userEmail?: string; providerAccountLabel?: string;
   }
 ): Promise<void> {
   await ensureIntegrationConnectionIndexes(db);
   const now = new Date().toISOString();
   const blob = encryptCredentials({ accessToken: params.accessToken, refreshToken: params.refreshToken });
   const accessTokenExpiresAt = new Date(Date.now() + params.expiresInSeconds * 1000).toISOString();
+
+  // If userId is present, key uniquely on userId + provider for individual user accounts (issue #247).
+  // Otherwise, key on brand + tenantId + provider for brand-level integrations.
+  const filter = params.userId
+    ? { userId: params.userId, provider: params.provider }
+    : { brand: params.brand, tenantId: params.tenantId, provider: params.provider, userId: { $in: [null, undefined] } };
+
+  const $set: Record<string, any> = {
+    authMethod: 'oauth2', encryptedCredentials: blob, accessTokenExpiresAt,
+    scopes: params.scopes, connectedBy: params.connectedBy, status: 'active' as IntegrationStatus,
+    connectedAt: now, updatedAt: now, revokedAt: null, lastVerifiedAt: now,
+  };
+  if (params.userId) $set.userId = params.userId;
+  if (params.userEmail) $set.userEmail = params.userEmail;
+  if (params.providerAccountLabel) $set.providerAccountLabel = params.providerAccountLabel;
+
   await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).updateOne(
-    { brand: params.brand, tenantId: params.tenantId, provider: params.provider },
+    filter,
     {
-      $set: {
-        authMethod: 'oauth2', encryptedCredentials: blob, accessTokenExpiresAt,
-        scopes: params.scopes, connectedBy: params.connectedBy, status: 'active' as IntegrationStatus,
-        connectedAt: now, updatedAt: now, revokedAt: null,
+      $set,
+      $setOnInsert: {
+        id: makeId(),
+        brand: params.brand,
+        tenantId: params.tenantId,
+        provider: params.provider,
+        ...(params.userId ? { userId: params.userId } : {}),
       },
-      $setOnInsert: { id: makeId(), brand: params.brand, tenantId: params.tenantId, provider: params.provider },
       $unset: { lastSyncError: '' },
     },
     { upsert: true }
   );
+}
+
+// User-level connection accessors (issue #247)
+export async function getUserConnection(
+  db: Db, userId: string, provider: IntegrationProvider
+): Promise<IntegrationConnection | null> {
+  const doc = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
+    userId, provider, status: { $ne: 'revoked' },
+  });
+  return doc as unknown as IntegrationConnection | null;
+}
+
+export async function listUserConnections(
+  db: Db, userId: string
+): Promise<SafeIntegrationConnection[]> {
+  const docs = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION)
+    .find({ userId })
+    .sort({ provider: 1 })
+    .toArray();
+  return docs.map(toSafe);
+}
+
+export async function listAllActiveUserConnections(
+  db: Db, provider?: IntegrationProvider
+): Promise<IntegrationConnection[]> {
+  const query: Record<string, any> = {
+    status: 'active',
+    userId: { $exists: true, $ne: null },
+  };
+  if (provider) query.provider = provider;
+  const docs = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).find(query).toArray();
+  return docs as unknown as IntegrationConnection[];
+}
+
+export async function listAllActiveGmailConnections(db: Db): Promise<IntegrationConnection[]> {
+  const docs = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).find({
+    provider: 'gmail',
+    status: 'active',
+  }).toArray();
+  return docs as unknown as IntegrationConnection[];
+}
+
+export async function disconnectUserConnection(
+  db: Db, userId: string, provider: IntegrationProvider
+): Promise<boolean> {
+  const connection = await getUserConnection(db, userId, provider);
+  if (!connection) return false;
+  await disconnectConnection(db, connection);
+  return true;
 }
 
 export async function upsertApiKeyConnection(

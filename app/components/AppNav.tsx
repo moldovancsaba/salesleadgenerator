@@ -15,6 +15,7 @@ import { useAuth } from './AuthProvider';
 import { useTour } from './TourProvider';
 import { useNav } from './NavContext';
 import { TOUR_SELECTOR } from '../lib/tour/selectors';
+import { UserSettingsModal } from './UserSettingsModal';
 
 // Issue #95: this app had no persistent in-app navigation anywhere — every
 // page (including Sales Settings) was only reachable by typing its URL
@@ -175,6 +176,7 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
   // whenever it's a valid, accessible one (e.g. following a direct link),
   // so the switcher never silently disagrees with the page you're actually on.
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
+  const [userSettingsOpen, setUserSettingsOpen] = useState(false);
   useEffect(() => {
     if (urlBrand && accessibleBrands.includes(urlBrand)) {
       setSelectedBrand((prev) => (prev === urlBrand ? prev : urlBrand));
@@ -490,12 +492,25 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
 
           <Divider my="xs" />
           <NavLink
+            label="Email & Integrations"
+            leftSection={<IconMail size={18} />}
+            onClick={() => {
+              handleLinkClick();
+              setUserSettingsOpen(true);
+            }}
+          />
+          <NavLink
             label={`Sign out${user.email ? ` (${user.email})` : ''}`}
             leftSection={<IconLogout size={18} />}
             onClick={() => {
               handleLinkClick();
               logout();
             }}
+          />
+          <UserSettingsModal
+            opened={userSettingsOpen}
+            onClose={() => setUserSettingsOpen(false)}
+            brand={effectiveBrand || 'cogmap'}
           />
         </>
       )}

@@ -1,5 +1,11 @@
-import type { Db } from 'mongodb';
-import { getActiveConnectionByProvider, getValidCredential, ConnectionRevokedError } from './integration-store';
+import { ObjectId, type Db } from 'mongodb';
+import {
+  getActiveConnectionByProvider,
+  listAllActiveUserConnections,
+  getValidCredential,
+  ConnectionRevokedError,
+} from './integration-store';
+import type { IntegrationConnection } from '../../lib/integration-connections';
 import { fetchWithRetry } from '../../lib/integration-http';
 import {
   buildGmailExternalId, buildFallbackHash, participantsIntersectKnownEmails,
@@ -10,6 +16,7 @@ import { contactKey, normalizeEmail } from '../../lib/contacts';
 import { ACTIVITY_LOG_COLLECTION, truncateBody, ensureActivityLogIndexes, type ActivityLogDocument } from './activity-log-store';
 import { getBrandConfig, type Brand } from './brand';
 import { tenantFilter } from '../../lib/tenant';
+import { deleteCalendarTaskReminder } from '../../lib/gcal-sync';
 
 export const GMAIL_SYNC_CURSORS_COLLECTION = 'gmailSyncCursors';
 
@@ -130,18 +137,19 @@ async function getMessageBody(token: string, id: string): Promise<string | undef
 
 export type GmailPollResult = { ingested: number; skipped: number; failure?: string };
 
-// Algorithm A (issue #216 §11) — polls a single brand/tenant's Gmail
-// connection once. Never fetches a message body until its headers already
-// matched a known contact address (data-minimization, §17) — a rep's
+// Algorithm A (issue #216 §11, extended in #249 for multi-user sync) — polls a single
+// Gmail connection (brand or user) once. Never fetches a message body until its headers
+// already matched a known contact address (data-minimization, §17) — a rep's
 // unrelated personal correspondence is never even fetched into this
 // process, let alone stored.
-export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string): Promise<GmailPollResult> {
-  const brandConfig = await getBrandConfig(brand);
-  if (!brandConfig) return { ingested: 0, skipped: 0, failure: 'unknown_brand' };
-
-  const connection = await getActiveConnectionByProvider(db, brand, tenantId, 'gmail');
-  if (!connection) return { ingested: 0, skipped: 0 };
-
+export async function pollSingleGmailConnection(
+  db: Db,
+  connection: IntegrationConnection,
+  brand: Brand,
+  tenantId: string,
+  brandConfig: NonNullable<Awaited<ReturnType<typeof getBrandConfig>>>,
+  knownEmails: Set<string>
+): Promise<GmailPollResult> {
   let token: string;
   try {
     token = await getValidCredential(db, connection);
@@ -153,13 +161,13 @@ export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string):
   await ensureGmailSyncCursorIndexes(db);
   await ensureActivityLogIndexes(db);
 
-  const cursorDoc = await db.collection(GMAIL_SYNC_CURSORS_COLLECTION).findOne({ connectionId: connection.id, brand }) as unknown as GmailSyncCursor | null;
+  const cursorDoc = await db.collection(GMAIL_SYNC_CURSORS_COLLECTION).findOne({
+    connectionId: connection.id,
+    brand,
+  }) as unknown as GmailSyncCursor | null;
 
-  // Resolved once, then cached on the cursor — Gmail API's own profile
-  // endpoint needs only gmail.readonly scope (no broader userinfo/email
-  // scope), preserving this hub's least-privilege scope grant (issue #217
-  // §17) while still letting Gmail-sync tell outbound from inbound.
-  let gmailAddress = cursorDoc?.gmailAddress;
+  // Use stored userEmail if available (issue #247/249), or cache from Gmail profile.
+  let gmailAddress = connection.userEmail || cursorDoc?.gmailAddress;
   if (!gmailAddress) {
     const profile = await fetchGmailProfile(token);
     if (!profile?.emailAddress) return { ingested: 0, skipped: 0, failure: 'profile_unavailable' };
@@ -167,13 +175,6 @@ export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string):
   }
 
   const windowStartMs = cursorDoc ? new Date(cursorDoc.lastSyncedAt).getTime() : Date.now() - FIRST_SYNC_WINDOW_MS;
-
-  const leadsCollection = db.collection(brandConfig.dbCollection);
-  const knownEmailDocs = await leadsCollection.find(tenantFilter(tenantId) as any, { projection: { contactEmails: 1 } }).toArray().catch(() => [] as any[]);
-  const knownEmails = new Set<string>();
-  for (const doc of knownEmailDocs) {
-    for (const email of doc.contactEmails || []) knownEmails.add(normalizeEmail(email));
-  }
 
   const messageIds = await listMessageIds(token, windowStartMs);
   let ingested = 0;
@@ -206,10 +207,6 @@ export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string):
     const dateIso = dateHeader ? new Date(dateHeader).toISOString() : new Date().toISOString();
     newestSeenMs = Math.max(newestSeenMs, new Date(dateIso).getTime());
 
-    if (!messageIdHeader) {
-      // Documented, low-probability v1 limitation (issue #216 §15) — no
-      // Message-ID header at all, falls back to the hash-based key alone.
-    }
     const externalId = messageIdHeader ? buildGmailExternalId(messageIdHeader) : `gmail:no-message-id:${messageId}`;
 
     const existingByExternalId = await db.collection(ACTIVITY_LOG_COLLECTION).findOne({ externalId });
@@ -272,11 +269,43 @@ export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string):
     }
     ingested++;
 
-    if (direction === 'inbound' && matchedLeadId && counterpartyEmail) {
+    if (direction === 'inbound' && matchedLeadId) {
+      if (counterpartyEmail) {
+        try {
+          await generateContactSuggestion(db, brand, tenantId, matchedLeadId, counterpartyEmail, bodyText, String(insertedId));
+        } catch (error) {
+          console.error('[gmail-sync-store] contact-suggestion generation failed', error);
+        }
+      }
+      // Issue #249: Inbound prospect reply cancels active cadence sequence and future calendar reminders
       try {
-        await generateContactSuggestion(db, brand, tenantId, matchedLeadId, counterpartyEmail, bodyText, String(insertedId));
-      } catch (error) {
-        console.error('[gmail-sync-store] contact-suggestion generation failed', error);
+        let leadObjId: ObjectId | null = null;
+        try { leadObjId = new ObjectId(matchedLeadId); } catch {}
+        if (leadObjId) {
+          const existingLead = await db.collection(brandConfig.dbCollection).findOne({ _id: leadObjId });
+          if (existingLead?.activeCadence) {
+            if (existingLead.activeCadence.taskStepId) {
+              await deleteCalendarTaskReminder(db, {
+                brand,
+                tenantId,
+                taskId: existingLead.activeCadence.taskStepId,
+              }).catch(() => {});
+            }
+            await db.collection(brandConfig.dbCollection).updateOne(
+              { _id: leadObjId, activeCadence: { $ne: null } },
+              {
+                $set: {
+                  activeCadence: null,
+                  nextActionDueAt: null,
+                  nextActionNote: 'Sequence stopped: contact replied via Gmail',
+                  updatedAt: new Date(),
+                },
+              }
+            );
+          }
+        }
+      } catch (cancelError) {
+        console.error('[gmail-sync-store] cadence auto-stop failed', cancelError);
       }
     }
   }
@@ -292,4 +321,52 @@ export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string):
   );
 
   return { ingested, skipped };
+}
+
+// Issue #216 / #249: Polls all active Gmail connections for a brand (including both
+// brand-level and individual rep accounts).
+export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string): Promise<GmailPollResult> {
+  const brandConfig = await getBrandConfig(brand);
+  if (!brandConfig) return { ingested: 0, skipped: 0, failure: 'unknown_brand' };
+
+  // Issue #249: Retrieve brand connection and all active user connections
+  const brandConn = await getActiveConnectionByProvider(db, brand, tenantId, 'gmail');
+  const userConns = await listAllActiveUserConnections(db, 'gmail');
+
+  const connectionMap = new Map<string, IntegrationConnection>();
+  if (brandConn) connectionMap.set(brandConn.id, brandConn);
+  for (const c of userConns) {
+    connectionMap.set(c.id, c);
+  }
+
+  const connections = Array.from(connectionMap.values());
+  if (connections.length === 0) return { ingested: 0, skipped: 0 };
+
+  const leadsCollection = db.collection(brandConfig.dbCollection);
+  const knownEmailDocs = await leadsCollection.find(tenantFilter(tenantId) as any, { projection: { contactEmails: 1 } }).toArray().catch(() => [] as any[]);
+  const knownEmails = new Set<string>();
+  for (const doc of knownEmailDocs) {
+    for (const email of doc.contactEmails || []) knownEmails.add(normalizeEmail(email));
+  }
+
+  let totalIngested = 0;
+  let totalSkipped = 0;
+  const failureReasons: string[] = [];
+
+  for (const connection of connections) {
+    try {
+      const res = await pollSingleGmailConnection(db, connection, brand, tenantId, brandConfig, knownEmails);
+      totalIngested += res.ingested;
+      totalSkipped += res.skipped;
+      if (res.failure) failureReasons.push(res.failure);
+    } catch (err: any) {
+      failureReasons.push(err?.message || 'connection_poll_failed');
+    }
+  }
+
+  return {
+    ingested: totalIngested,
+    skipped: totalSkipped,
+    failure: failureReasons.length > 0 ? failureReasons.join('; ') : undefined,
+  };
 }

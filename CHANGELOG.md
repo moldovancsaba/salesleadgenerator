@@ -1,5 +1,32 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.269
+
+### Integrations: Rep-level Google/Gmail OAuth connection hub, 1:1 outbound REST send, and multi-user 2-way sync
+
+- **User-Level Google Connection Hub & Settings Modal (`#247`):**
+  - Extended `IntegrationConnection` schema with `userId?: string` (storing `ssoUserId`) and `userEmail?: string` (authenticated Google account email).
+  - Added unique compound index `{ userId: 1, provider: 1 }` and brand/tenant compound index `{ brand: 1, tenantId: 1, provider: 1, userId: 1 }` in `app/lib/integration-store.ts`.
+  - Added self-service endpoints: `GET /api/user/integrations`, `POST /api/user/integrations/[provider]/disconnect`, `POST /api/user/integrations/[provider]/test`.
+  - Created `app/components/UserSettingsModal.tsx` allowing each sales rep to authenticate their Google account via standard OAuth 2.0 PKCE (`S256`), inspect connection status, test credentials, and disconnect.
+  - Linked User Settings Modal into `app/components/AppNav.tsx` drawer footer.
+- **Outbound 1:1 Email Sending via Gmail REST API (`#248`):**
+  - Implemented RFC 2822 MIME builder (`buildRfc2822Message`), base64url encoder (`encodeBase64Url`), and Gmail REST sender (`sendGmailMessage` targeting `POST https://gmail.googleapis.com/gmail/v1/users/me/messages/send`) in `lib/gmail-send.ts`.
+  - Extended `ManualSendContext` and `OutreachSendSource` with `senderUserId`, `senderName`, `senderEmail`.
+  - Updated `dispatchOutreachEmail` in `lib/outreach-send.ts` to inspect user's active Gmail connection: if active, dispatches via user's mailbox, logs `source: 'gmail'`, `from: repEmail`, `gmailMessageId`, and writes outbound `activityLog` entry; if not connected, cleanly falls back to brand Resend address.
+  - Updated `POST /api/outreach-send` to resolve session claims and support personal Gmail transport without requiring system Resend API keys.
+  - Updated `app/outreach/compose-modal.tsx` with an active sender indicator badge and confirmation dialog distinguishing personal Gmail from company email.
+- **Multi-User 2-Way Gmail Sync Engine & Cadence Auto-Stop (`#249`):**
+  - Updated `pollGmailForBrand` in `app/lib/gmail-sync-store.ts` to poll both brand-level connections and all active rep user connections via `listAllActiveUserConnections(db, 'gmail')`.
+  - Maintained independent sync cursors per `{ connectionId, brand }` in `gmailSyncCursors`.
+  - Implemented strict data-minimization gating: headers are inspected first; non-lead personal correspondence is never fetched or stored.
+  - Inbound prospect replies automatically stop active cadence sequences (`activeCadence: null`, `nextActionNote: 'Sequence stopped: contact replied via Gmail'`) and remove pending reminder events via `deleteCalendarTaskReminder`.
+- **Automated Verification:**
+  - Added unit test suite `tests/lib/user-integrations.test.ts` (5 tests passing).
+  - Added unit test suite `tests/lib/gmail-send.test.ts` (12 tests passing).
+  - Added unit test suite `tests/lib/gmail-sync-store.test.ts` (3 tests passing).
+  - Quality gate: `npx tsc --noEmit` (0 errors), `npm run lint` (0 errors, 0 warnings), `npx vitest run` (1,380 tests passing 100%), `npm run test:smoke` (5/5 passing), production build clean.
+
 ## 2.4.268
 
 ### Layout: Application-wide Contacts layout reference standardization & high-density tables
