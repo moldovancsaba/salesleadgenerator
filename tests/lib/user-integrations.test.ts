@@ -57,6 +57,12 @@ describe('User Integrations Store (issue #247)', () => {
           }),
         })),
         updateOne: vi.fn().mockImplementation((filter: any, update: any) => {
+          const setKeys = new Set(Object.keys(update.$set || {}));
+          for (const key of Object.keys(update.$setOnInsert || {})) {
+            if (setKeys.has(key)) {
+              throw new Error(`Updating the path ${key} would create a conflict at ${key}`);
+            }
+          }
           let doc = storedDocs.find((d) => {
             if (filter.userId) return d.userId === filter.userId && d.provider === filter.provider;
             return d.brand === filter.brand && d.tenantId === filter.tenantId && d.provider === filter.provider;

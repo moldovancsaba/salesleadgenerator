@@ -194,7 +194,6 @@ export async function upsertOAuthConnection(
         brand: params.brand,
         tenantId: params.tenantId,
         provider: params.provider,
-        ...(params.userId ? { userId: params.userId } : {}),
       },
       $unset: { lastSyncError: '' },
     },

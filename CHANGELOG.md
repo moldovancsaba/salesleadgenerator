@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.272
+
+### Integrations: Fix MongoDB `$set` vs `$setOnInsert` path conflict on `userId`
+
+- **Resolved Mongo Path Conflict in `upsertOAuthConnection` (`app/lib/integration-store.ts`):**
+  - Removed duplicate `userId` field from `$setOnInsert` in `upsertOAuthConnection`. When upserting with `{ upsert: true }`, MongoDB strictly forbids specifying the same field in both `$set` and `$setOnInsert` (which threw `Updating the path 'userId' would create a conflict at 'userId'`).
+  - `userId` is now exclusively handled in `$set`, ensuring clean inserts and updates without path collisions.
+- **Enhanced Test Suite (`tests/lib/user-integrations.test.ts`):**
+  - Added MongoDB operator path conflict assertions to the mock database implementation to automatically guard against `$set` / `$setOnInsert` key overlap in future changes.
+  - Quality gate passed: `npx tsc --noEmit` (0 errors), `npm run lint` (0 errors, 0 warnings), `npx vitest run` (1,383 tests passing 100%), `npm run test:smoke` (5/5 passing).
+
 ## 2.4.271
 
 ### Integrations: Legacy index migration, refresh token preservation, and detailed OAuth error diagnostics
