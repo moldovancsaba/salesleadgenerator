@@ -109,3 +109,31 @@ export type IntegrationConnection = {
   - "Sync Emails Now" button in User Settings Modal alongside Test and Disconnect.
   - Live feedback banner on messages ingested vs CRM contacts checked.
 
+### Deliverable 5: Gmail SendAs Signature Synchronization (#241)
+- **Signature Ingestion Engine** (`lib/gmail-signature.ts`):
+  - Queries Google Gmail Settings API `GET https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs` using rep OAuth access token.
+  - Selects primary sendAs configuration matching rep email address.
+  - Sanitizes HTML content (`sanitizeSignatureHtml`) stripping scripts, iframes, and inline event handlers while preserving layout.
+  - Generates plain text version (`signatureHtmlToText`) decoding HTML entities and collapsing excess newlines.
+  - Formats appended email text using standard RFC 3676 delimiter (`\n\n-- \n${signatureText}`).
+- **Synchronization Triggers & Storage**:
+  - Automatic initial sync upon OAuth connection callback in `app/api/integrations/oauth/callback/route.ts`.
+  - Self-service refresh API route `POST /api/user/integrations/gmail/signature/sync`.
+  - Cached in `integration_connections` (`signatureHtml`, `signatureText`, `signatureSyncedAt`).
+- **UI Affordances**:
+  - `UserSettingsModal.tsx`: Displays signature preview card and "Refresh Signature" button.
+  - `OutreachComposeModal.tsx`: Interactive toggle button ("Signature attached" / "No signature") defaulting to on for reps with connected Gmail.
+
+### Deliverable 6: Threaded Email Follow-Ups & RFC 2822 Chaining (#243)
+- **Threading Engine** (`lib/gmail-threading.ts`):
+  - `resolveLeadThreadContext(db, leadId, brand, tenantId)`: Resolves previous email communication across `outreach_logs` and `activityLog`.
+  - Normalizes subject line with standard single `Re: ` prefix (`formatReSubject`) preventing duplicate `Re: Re: ` chains.
+  - Normalizes RFC 2822 `Message-ID` (`formatRfcMessageId`) with enclosing `<...>`.
+- **MIME & REST Transport**:
+  - Formats outbound MIME with `In-Reply-To` and `References` headers via `buildRfc2822Message`.
+  - Passes Gmail API `threadId` to `POST https://gmail.googleapis.com/gmail/v1/users/me/messages/send` ensuring conversation grouping in recipient Gmail/Outlook clients.
+  - Fallback subject: blank subject on follow-up steps is treated as "reply in thread", auto-resolving to `Re: <previous subject>`.
+- **UI Affordances**:
+  - `GET /api/leads/[id]/thread-context`: Endpoint providing thread context and availability to client.
+  - `OutreachComposeModal.tsx`: Displays "↩ Reply in thread" / "New thread" toggle button when prior correspondence exists, auto-prefilling subject with `Re: <subject>` and chaining message headers.
+

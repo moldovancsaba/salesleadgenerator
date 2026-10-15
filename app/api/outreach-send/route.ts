@@ -73,8 +73,14 @@ export async function POST(request: NextRequest) {
     const idempotencyKey = String(body.idempotencyKey || '').trim()
     const templateId = body.templateId ? String(body.templateId) : undefined
 
-    if (!leadId || !bodyText || !subject || !idempotencyKey) {
-      return NextResponse.json({ error: 'leadId, subject, body, and idempotencyKey are required' }, { status: 400 })
+    const replyInThread = body.replyInThread !== false
+    const threadId = body.threadId ? String(body.threadId).trim() : undefined
+    const inReplyTo = body.inReplyTo ? String(body.inReplyTo).trim() : undefined
+    const references = body.references ? String(body.references).trim() : undefined
+
+    const isThreadReply = replyInThread && (Boolean(threadId) || Boolean(inReplyTo) || body.replyInThread === true)
+    if (!leadId || !bodyText || (!subject && !isThreadReply) || !idempotencyKey) {
+      return NextResponse.json({ error: 'leadId, body, idempotencyKey, and subject (unless replying in thread) are required' }, { status: 400 })
     }
 
     if (!isMongoConfigured()) {
@@ -154,6 +160,10 @@ export async function POST(request: NextRequest) {
       senderName,
       senderEmail,
       includeSignature,
+      replyInThread,
+      threadId,
+      inReplyTo,
+      references,
     })
 
     return NextResponse.json({

@@ -75,6 +75,14 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   const [battlecardsLoading, setBattlecardsLoading] = useState(false);
   const [senderInfo, setSenderInfo] = useState<{ email?: string; provider: 'gmail' | 'resend'; signatureText?: string }>({ provider: 'resend' });
   const [includeSignature, setIncludeSignature] = useState(true);
+  const [threadContext, setThreadContext] = useState<{
+    threadId?: string;
+    inReplyTo?: string;
+    references?: string;
+    subject?: string;
+    lastMessageAt?: string;
+  } | null>(null);
+  const [replyInThread, setReplyInThread] = useState(true);
 
   useEffect(() => {
     if (!opened) return;
@@ -97,10 +105,30 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
       .catch(() => {
         if (!cancelled) setSenderInfo({ provider: 'resend' });
       });
+
+    fetch(`/api/leads/${lead._id}/thread-context?brand=${encodeURIComponent(brand)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.threadAvailable && data?.threadContext) {
+          setThreadContext(data.threadContext);
+          setReplyInThread(true);
+          if (data.threadContext.subject) {
+            const cleanSub = data.threadContext.subject.replace(/^(\s*(re|fwd|fw)\s*:\s*)+/gi, '').trim();
+            setSubject((prev) => (prev ? prev : `Re: ${cleanSub}`));
+          }
+        } else {
+          setThreadContext(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setThreadContext(null);
+      });
+
     return () => {
       cancelled = true;
     };
-  }, [opened]);
+  }, [opened, lead._id, brand]);
 
   const industry = lead.industry || lead.sport_or_sector || '';
   // Template placeholder {contact_name} resolves from the contact flagged
@@ -115,7 +143,8 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   );
   const routeResult = evaluateOutreachRouting(channel, lead, body);
   const channelBlockReason = routeResult.allowed ? undefined : routeResult.reason;
-  const canSendEmail = channel === 'email' && routeResult.allowed && body.trim().length > 0 && (channel === 'email' ? subject.trim().length > 0 : true);
+  const hasSubjectOrThreadFallback = subject.trim().length > 0 || Boolean(replyInThread && threadContext?.subject);
+  const canSendEmail = channel === 'email' && routeResult.allowed && body.trim().length > 0 && hasSubjectOrThreadFallback;
   const canSendLinkedIn = channel === 'linkedin' && routeResult.allowed && body.trim().length > 0;
   const canSend = channel === 'email' ? canSendEmail : canSendLinkedIn;
 
@@ -277,6 +306,10 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           body,
           idempotencyKey,
           includeSignature: senderInfo.signatureText ? includeSignature : undefined,
+          replyInThread: Boolean(threadContext && replyInThread),
+          threadId: replyInThread ? threadContext?.threadId : undefined,
+          inReplyTo: replyInThread ? threadContext?.inReplyTo : undefined,
+          references: replyInThread ? threadContext?.references : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -429,6 +462,25 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
                     title={includeSignature ? 'Click to exclude Gmail signature' : 'Click to include Gmail signature'}
                   >
                     {includeSignature ? 'Signature attached' : 'No signature'}
+                  </Button>
+                )}
+                {threadContext && channel === 'email' && (
+                  <Button
+                    size="compact-xs"
+                    variant={replyInThread ? 'light' : 'subtle'}
+                    color={replyInThread ? 'blue' : 'gray'}
+                    onClick={() => {
+                      const next = !replyInThread;
+                      setReplyInThread(next);
+                      if (next && threadContext?.subject) {
+                        const cleanSub = threadContext.subject.replace(/^(\s*(re|fwd|fw)\s*:\s*)+/gi, '').trim();
+                        setSubject((prev) => (prev ? prev : `Re: ${cleanSub}`));
+                      }
+                    }}
+                    title={replyInThread ? 'Click to start a new distinct thread' : 'Click to reply in existing thread'}
+                    aria-label="Send as reply in existing thread"
+                  >
+                    {replyInThread ? '↩ Reply in thread' : 'New thread'}
                   </Button>
                 )}
               </Group>

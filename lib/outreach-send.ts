@@ -28,6 +28,7 @@ import { deduplicateDocumentIds, resolveDocumentAttachmentRefs, type DocumentRec
 import { getUserConnection, getValidCredential } from '../app/lib/integration-store';
 import { buildRfc2822Message, sendGmailMessage } from './gmail-send';
 import { appendSignatureToBody } from './gmail-signature';
+import { resolveLeadThreadContext, formatReSubject, type LeadThreadContext } from './gmail-threading';
 
 export type AutomatedSendContext = {
   brand: string;
@@ -53,6 +54,10 @@ export type ManualSendContext = {
   senderName?: string;
   senderEmail?: string;
   includeSignature?: boolean;
+  replyInThread?: boolean;
+  threadId?: string;
+  inReplyTo?: string;
+  references?: string;
 };
 
 // The one thing that actually differs between a cadence step firing itself
@@ -75,6 +80,10 @@ export type OutreachSendSource =
       senderName?: string;
       senderEmail?: string;
       includeSignature?: boolean;
+      replyInThread?: boolean;
+      threadId?: string;
+      inReplyTo?: string;
+      references?: string;
     }
   | { kind: 'quote'; quoteId: string; idempotencyKey: string; documentIds?: string[] };
 
@@ -160,6 +169,9 @@ async function writeOutreachLog(
     // this — it has no activityLog row, so it keeps rendering exactly as it
     // always has.
     activityLogWritten?: boolean;
+    rfcMessageId?: string;
+    inReplyTo?: string;
+    references?: string;
   }
 ): Promise<string> {
   const result = await db.collection('outreach_logs').insertOne({
@@ -183,6 +195,9 @@ async function writeOutreachLog(
     resendEmailId: fields.resendEmailId,
     gmailMessageId: fields.gmailMessageId,
     gmailThreadId: fields.gmailThreadId,
+    rfcMessageId: fields.rfcMessageId,
+    inReplyTo: fields.inReplyTo,
+    references: fields.references,
     source: fields.source,
     from: fields.from,
     senderUserId: fields.senderUserId,
@@ -208,7 +223,7 @@ async function writeManualSendActivityLog(
   db: Db,
   context: { brand: string; tenantId: string },
   leadId: string,
-  fields: { resendEmailId: string; subject: string; body: string; source?: string }
+  fields: { resendEmailId: string; subject: string; body: string; source?: string; rfcMessageId?: string; threadId?: string }
 ): Promise<boolean> {
   try {
     await ensureActivityLogIndexes(db);
@@ -223,6 +238,8 @@ async function writeManualSendActivityLog(
       matchedContactKey: null,
       source: fields.source || 'manual',
       externalId: fields.resendEmailId,
+      ...(fields.rfcMessageId ? { rfcMessageId: fields.rfcMessageId } : {}),
+      ...(fields.threadId ? { threadId: fields.threadId } : {}),
       createdAt: new Date(),
     });
     return true;
@@ -294,8 +311,22 @@ export async function dispatchOutreachEmail(
     return { sent: false, reason, outreachLogId };
   }
 
-  const subject = template.subject ? interpolateTemplate(template.subject, personalizationContext) : '';
+  let subject = template.subject ? interpolateTemplate(template.subject, personalizationContext) : '';
   const body = interpolateTemplate(template.body, personalizationContext);
+
+  // Issue #243: Threaded conversations. If replying in thread and subject is empty,
+  // resolve previous thread context and prefill subject as "Re: <previous subject>".
+  let threadContext: LeadThreadContext | null = null;
+  if (source.kind === 'manual' && source.replyInThread !== false) {
+    try {
+      threadContext = await resolveLeadThreadContext(db, leadId, context.brand, context.tenantId);
+      if ((!subject || !subject.trim()) && threadContext?.subject) {
+        subject = formatReSubject(threadContext.subject);
+      }
+    } catch {
+      // Non-fatal, continue with provided subject
+    }
+  }
 
   const routing = evaluateOutreachRouting('email', lead, body);
   if (!routing.allowed) {
@@ -460,6 +491,19 @@ export async function dispatchOutreachEmail(
     }
   }
 
+  // Issue #243: Determine threading headers and Gmail threadId
+  const threadId = source.kind === 'manual' && source.replyInThread !== false
+    ? (source.threadId || threadContext?.threadId)
+    : undefined;
+  const inReplyTo = source.kind === 'manual' && source.replyInThread !== false
+    ? (source.inReplyTo || threadContext?.inReplyTo)
+    : undefined;
+  const references = source.kind === 'manual' && source.replyInThread !== false
+    ? (source.references || threadContext?.references || inReplyTo)
+    : undefined;
+
+  let rfcMessageId: string | undefined;
+
   // Issue #248: If this is a manual send and the sales rep has connected their personal
   // Google / Gmail account, route via the Gmail REST API (messages.send).
   if (source.kind === 'manual' && source.senderUserId) {
@@ -470,15 +514,19 @@ export async function dispatchOutreachEmail(
         const accessToken = await getValidCredential(db, userConn);
         const repFromEmail = userConn.userEmail || source.senderEmail || userConn.providerAccountLabel || 'me';
         fromAddress = repFromEmail;
-        const { messageText } = buildRfc2822Message({
+        const { messageText, messageId } = buildRfc2822Message({
           from: { name: source.senderName, email: repFromEmail },
           to: { name: dmContact?.name, email: to },
           subject,
           bodyText: deliveredBody,
+          inReplyTo,
+          references,
         });
+        rfcMessageId = messageId;
         const gmailResult = await sendGmailMessage({
           accessToken,
           rawMime: messageText,
+          threadId,
         });
         gmailMessageId = gmailResult.id;
         gmailThreadId = gmailResult.threadId;
@@ -498,12 +546,19 @@ export async function dispatchOutreachEmail(
         const brandConfig = await getBrandConfig(context.brand);
         fromAddress = resolveOutboundFromAddress(context.brand, brandConfig?.fromEmail);
         const resend = new Resend(process.env.RESEND_API_KEY);
+        const resendHeaders: Record<string, string> = {
+          'Idempotency-Key': idempotencyKey,
+        };
+        if (inReplyTo) resendHeaders['In-Reply-To'] = inReplyTo;
+        if (references) resendHeaders['References'] = references;
+
         const { data, error } = await resend.emails.send(
           {
             from: fromAddress,
             to,
             subject,
             text: deliveredBody,
+            headers: resendHeaders,
           },
           { idempotencyKey }
         );
@@ -531,6 +586,8 @@ export async function dispatchOutreachEmail(
       subject,
       body: deliveredBody,
       source: usedTransport,
+      rfcMessageId,
+      threadId: gmailThreadId || threadId,
     });
   }
 
@@ -544,7 +601,10 @@ export async function dispatchOutreachEmail(
     sendAttempted: true,
     resendEmailId,
     gmailMessageId,
-    gmailThreadId,
+    gmailThreadId: gmailThreadId || threadId,
+    rfcMessageId,
+    inReplyTo,
+    references,
     source: usedTransport,
     from: fromAddress,
     senderUserId: source.kind === 'manual' ? source.senderUserId : undefined,
@@ -601,6 +661,10 @@ export async function sendManualEmail(
       senderName: context.senderName,
       senderEmail: context.senderEmail,
       includeSignature: context.includeSignature,
+      replyInThread: context.replyInThread,
+      threadId: context.threadId,
+      inReplyTo: context.inReplyTo,
+      references: context.references,
     }
   );
 }
