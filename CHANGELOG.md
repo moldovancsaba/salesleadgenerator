@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.278
+
+### Taxonomy: Evidence-based full taxonomy classification — Round 5 Batch 2 (issue #132)
+
+- **Evidence-Based Taxonomy Classification (Phase 2, issue #132):**
+  - Researched, validated, applied, and verified full controlled taxonomy fields for 4 distinct, sales-active QUALIFIED leads across CogMap and Seyu:
+    - **World Sailing** (`6a5f7a2fc601a67679704773`, CogMap): `sportCode: 'sailing'`, `orgTypeCode: 'federation'`, `businessUnitCode: 'general'`, `genderCode: 'mixed'`, `competitionLevelCode: 'international'`, `demographicCodes: ['adult', 'youth']`, `cityName: 'London'`, `country: 'GB'`. Corrected missing top-level `country` (`GB`) from stored address in Hammersmith, London, UK.
+    - **Deutscher Eishockey-Bund** (`6a5c4429b0356b5df15cb594`, CogMap): `sportCode: 'ice-hockey'`, `orgTypeCode: 'federation'`, `businessUnitCode: 'performance'`, `genderCode: 'mixed'`, `competitionLevelCode: 'national'`, `demographicCodes: ['adult', 'youth']`, `cityName: 'München'`, `country: 'DE'`. Contact Karl Schwarzenbrunner verified (Bundestrainer Wissenschaft und Ausbildung / Head of Science & Education); corrected missing top-level `country` (`DE`) from Munich address.
+    - **BT Sport** (`6a5f1d1861623359369776ac`, Seyu): `sportCode: 'multi-sport'`, `orgTypeCode: 'broadcaster'`, `businessUnitCode: 'media'`, `genderCode: 'not-applicable'`, `competitionLevelCode: 'not-applicable'`, `demographicCodes: ['not-applicable']`, `cityName: 'London'`, `country: 'GB'`, `parentOrgName: 'Warner Bros. Discovery'`, `relationshipToParent: 'owned'`. Rebranded TNT Sports UK broadcasting entity.
+    - **Telekom Veszprém** (`6a5f1bf16162335936977630`, Seyu): `sportCode: 'handball'`, `orgTypeCode: 'club'`, `businessUnitCode: 'commercial'`, `genderCode: 'men'`, `competitionLevelCode: 'professional'`, `demographicCodes: ['adult']`, `cityName: 'Veszprém'`, `country: 'HU'`, `parentOrgName: 'Veszprém Handball Team Zrt.'`, `relationshipToParent: 'owned'`. Veszprém Aréna fan engagement & sponsor activation.
+  - All 4 updates applied via `PUT /api/leads/[id]` with explicit `kanbanColumn: 'QUALIFIED'` preservation, and re-verified via independent GET API requests. Server automatically computed canonical `mergeKey` and `classificationTags` on each record.
+
 ## 2.4.277
 
 ### Taxonomy: Evidence-based full taxonomy classification — Round 5 Batch 1 (issue #132)

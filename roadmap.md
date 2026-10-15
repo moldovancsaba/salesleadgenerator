@@ -16,7 +16,7 @@ Last synced: 2026-09-27. #232 filed and closed (a real bug found by a proactive 
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
-| [#132](https://github.com/moldovancsaba/salesleadgenerator/issues/132) | Backfill existing leads into the controlled taxonomy schema (rulebook v1.0, Phase 2) | P1 | Mechanical `sportCode` backfill complete (2.4.276): 2,749 of 3,079 leads (89.3%) across all 3 brands now have `sportCode` set, with 0 mechanically resolvable leads remaining. Full taxonomy classification (`orgTypeCode` set) ongoing: 328 leads fully classified across rounds 1–5; remaining ~330 leads without `sportCode` and ~2,400 leads without `orgTypeCode` continue via evidence-based research rounds weighted toward active sales pipeline stages (QUALIFIED/ENGAGED/PROPOSAL) — see `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`. |
+| [#132](https://github.com/moldovancsaba/salesleadgenerator/issues/132) | Backfill existing leads into the controlled taxonomy schema (rulebook v1.0, Phase 2) | P1 | Mechanical `sportCode` backfill complete (2.4.276): 2,749 of 3,079 leads (89.3%) across all 3 brands now have `sportCode` set, with 0 mechanically resolvable leads remaining. Full taxonomy classification (`orgTypeCode` set) ongoing: 332 leads fully classified across rounds 1–5; remaining ~330 leads without `sportCode` and ~2,400 leads without `orgTypeCode` continue via evidence-based research rounds weighted toward active sales pipeline stages (QUALIFIED/ENGAGED/PROPOSAL) — see `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`. |
 
 ## Ready (unblocked, unstarted)
 

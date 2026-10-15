@@ -29,6 +29,15 @@ The owner accepted all four recommendations 2026-09-27. Two are additive vocabul
 
 Applied via the same fresh-`GET` → `PUT` → fresh-`GET` discipline as every other round. `#231` is now closed.
 
+### Progress update — 2026-10-15 — research round 5 batch 2, 4 leads (v2.4.278, issue #132)
+
+Classified 4 clean, distinct, sales-active QUALIFIED leads across CogMap and Seyu with evidence-based web research, schema checklist validation, explicit `kanbanColumn: "QUALIFIED"` preservation, and independent API re-verification:
+- **World Sailing** (`6a5f7a2fc601a67679704773`, CogMap): `sportCode: "sailing"`, `orgTypeCode: "federation"`, `businessUnitCode: "general"`, `genderCode: "mixed"`, `competitionLevelCode: "international"`, `demographicCodes: ["adult", "youth"]`, `cityName: "London"`, `country: "GB"`. Corrected missing top-level country from stored address in Hammersmith, London, UK.
+- **Deutscher Eishockey-Bund** (`6a5c4429b0356b5df15cb594`, CogMap): `sportCode: "ice-hockey"`, `orgTypeCode: "federation"`, `businessUnitCode: "performance"`, `genderCode: "mixed"`, `competitionLevelCode: "national"`, `demographicCodes: ["adult", "youth"]`, `cityName: "München"`, `country: "DE"`. Verified contact Karl Schwarzenbrunner (Bundestrainer Wissenschaft und Ausbildung / Head of Science & Education); corrected missing top-level country from Munich address.
+- **BT Sport** (`6a5f1d1861623359369776ac`, Seyu): `sportCode: "multi-sport"`, `orgTypeCode: "broadcaster"`, `businessUnitCode: "media"`, `genderCode: "not-applicable"`, `competitionLevelCode: "not-applicable"`, `demographicCodes: ["not-applicable"]`, `cityName: "London"`, `country: "GB"`, `parentOrgName: "Warner Bros. Discovery"`, `relationshipToParent: "owned"`. TNT Sports UK broadcasting entity.
+- **Telekom Veszprém** (`6a5f1bf16162335936977630`, Seyu): `sportCode: "handball"`, `orgTypeCode: "club"`, `businessUnitCode: "commercial"`, `genderCode: "men"`, `competitionLevelCode: "professional"`, `demographicCodes: ["adult"]`, `cityName: "Veszprém"`, `country: "HU"`, `parentOrgName: "Veszprém Handball Team Zrt."`, `relationshipToParent: "owned"`. Veszprém Aréna fan engagement & sponsor activation.
+- **Running total:** 332 leads now have full taxonomy (`orgTypeCode` set).
+
 ### Progress update — 2026-10-15 — research round 5 batch 1, 4 leads (v2.4.277, issue #132)
 
 Classified 4 high-value sales-active QUALIFIED leads across CogMap and Seyu with evidence-based web research, schema checklist validation, explicit `kanbanColumn: "QUALIFIED"` preservation, and independent API re-verification:
