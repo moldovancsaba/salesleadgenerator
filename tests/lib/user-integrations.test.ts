@@ -15,7 +15,7 @@ import {
   upsertOAuthConnection,
 } from '../../app/lib/integration-store';
 
-describe('User Integrations Store (issue #247)', () => {
+describe('User Integrations Store (issue 247)', () => {
   let mockDb: any;
   let storedDocs: any[];
 

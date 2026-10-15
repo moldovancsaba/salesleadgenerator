@@ -29,6 +29,21 @@ The owner accepted all four recommendations 2026-09-27. Two are additive vocabul
 
 Applied via the same fresh-`GET` → `PUT` → fresh-`GET` discipline as every other round. `#231` is now closed.
 
+### Progress update — 2026-10-15 — mechanical sportCode backfill completion (v2.4.276, issue #132)
+
+Full mechanical `sportCode` backfill completed across all 3 brands via `scripts/taxonomy-sportcode-backfill.ts`:
+- **Vocabulary expansion:** `SPORT_ALIASES` in `lib/lead-taxonomy.ts` expanded with canonical aliases for `american football` -> `american-football`, `youth soccer` -> `football`, and `mixed martial arts` / `mma` -> `martial-arts`.
+- **Backfill execution:** All 73 resolvable leads applied via `PUT /api/leads/[id]` with 0 failures:
+  - CogMap: 69 leads (65 soccer/football academy & media clubs, 2 American football clubs [Chiefs, Seahawks], 1 MMA [UFC/TKO], 1 cricket [ICC]).
+  - Seyu: 1 lead (UFC -> martial-arts).
+  - DVSC: 3 leads (OTP Bank -> football, HELL Energy -> football, K&H Bank -> handball).
+- **Kanban column preservation:** Enforced explicit `kanbanColumn` preservation in the backfill payload, ensuring sales-active `QUALIFIED` leads are not demoted to `DISCOVERED` during classification writes.
+- **Current Totals:**
+  - Leads scanned across all 3 brands: 3,079 (CogMap: 2,309, Seyu: 704, DVSC: 66).
+  - Total leads with `sportCode` set: **2,749 of 3,079 (89.3%)**.
+  - **Mechanically resolvable remaining: 0**.
+  - Remaining without `sportCode`: 330 leads (193 blank `sport_or_sector`, 30 `sports-club, live-events`, remainder multi-sport/broadcasting) requiring individual evidence-based agent research.
+
 ### Progress update — 2026-09-27 — research round 4 (partial), 14 of 36 leads (issue #132)
 
 This round picked 36 QUALIFIED leads (35 CogMap, 1 Seyu) from CogMap QUALIFIED pages 5–9 and Seyu QUALIFIED pages 6–7.

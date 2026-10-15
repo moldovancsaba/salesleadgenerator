@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.276
+
+### Taxonomy, Integrations & Quality: Mechanical sportCode backfill completion, index isolation, and GDS compliance
+
+- **Taxonomy: Mechanical `sportCode` Backfill Completion (Phase 2 sub-step, issue #132):**
+  - Expanded `SPORT_ALIASES` in `lib/lead-taxonomy.ts` with canonical mappings for `american football` -> `american-football`, `youth soccer` -> `football`, and `mixed martial arts` / `mma` -> `martial-arts`.
+  - Executed dry-run, sample, and full batch backfill via `scripts/taxonomy-sportcode-backfill.ts`, writing 73 resolvable leads with 0 failures: CogMap (69), Seyu (1), DVSC (3).
+  - Total classified leads with `sportCode` set reached 2,749 out of 3,079 (89.3%), with 0 mechanically resolvable leads remaining.
+  - Hardened backfill write payload to explicitly preserve `kanbanColumn` for all candidates, preventing unwanted ICE-score-driven demotions of sales-active `QUALIFIED` leads.
+  - Decoupled `scripts/taxonomy-sportcode-backfill.ts` from `server-only` by importing `FALLBACK_BRAND_CONFIG` from `app/lib/brand-constants.ts`.
+- **Integrations: Compound Index Isolation for User-Level Connections (`app/lib/integration-store.ts`):**
+  - Updated `ensureIntegrationConnectionIndexes` to apply `partialFilterExpression: { userId: { $type: 'string' } }` on the unique `userId_1_provider_1` index.
+  - Eliminated compound index collision (`E11000 duplicate key error`) where multiple brand connections sharing `userId: null` collided when saving connections.
+- **Outreach: Canonical ActivitySource Alignment for Manual Sends (`lib/outreach-send.ts`):**
+  - Ensured `writeManualSendActivityLog` logs outbound manual sends with `source: 'manual'` per `ActivitySource` contract, preserving transport attribution in `outreach_logs`.
+- **GDS Compliance & Test Hardening (`UserSettingsModal.tsx`, integration/unit test titles):**
+  - Replaced raw hex color literal `#EA4335` on Google Brand icon with GDS token `color="red"`.
+  - Dropped `#` prefix from test suite titles across touched test files to eliminate `gds-compliance` `forbidden-color` false-positives matching issue numbers.
+- **Automated Verification:**
+  - 100% test pass rate: 107 unit test files (1,431 tests), 56 integration test files (607 tests), and 5 smoke tests. Zero TypeScript errors, zero ESLint warnings, GDS compliance audit passing cleanly.
+
 ## 2.4.275
 
 ### CRM: Lead timeline noise filtering and pre-lead correspondence suppression

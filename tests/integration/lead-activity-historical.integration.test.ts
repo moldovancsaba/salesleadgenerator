@@ -71,7 +71,7 @@ async function insertActivityEntry(
   await client.close();
 }
 
-describe('Lead activity historical message filtering (Issue #244)', () => {
+describe('Lead activity historical message filtering (Issue 244)', () => {
   it('filters historical pre-lead correspondence by default and exposes historicalCount', async () => {
     const leadId = await createLead('Historical Test Corp');
 

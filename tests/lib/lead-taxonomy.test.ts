@@ -10,6 +10,10 @@ describe('resolveSportAlias', () => {
   it('resolves known free-text aliases to their canonical sport code', () => {
     expect(resolveSportAlias('Soccer')).toBe('football');
     expect(resolveSportAlias('Football (Soccer)')).toBe('football');
+    expect(resolveSportAlias('Youth Soccer')).toBe('football');
+    expect(resolveSportAlias('American Football')).toBe('american-football');
+    expect(resolveSportAlias('Mixed Martial Arts')).toBe('martial-arts');
+    expect(resolveSportAlias('MMA')).toBe('martial-arts');
     expect(resolveSportAlias('  ICE HOCKEY  ')).toBe('ice-hockey');
     expect(resolveSportAlias('Track & Field')).toBe('athletics');
   });

@@ -38,12 +38,24 @@ export async function ensureIntegrationConnectionIndexes(db: Db, force = false):
           console.warn('[integration-store] dropIndex brand_1_tenantId_1_provider_1 warning:', dropErr);
         }
       }
+      const oldUserIndex = existing.find((i: any) => i.name === 'userId_1_provider_1');
+      if (oldUserIndex && !oldUserIndex.partialFilterExpression && typeof col.dropIndex === 'function') {
+        try {
+          await col.dropIndex('userId_1_provider_1');
+        } catch (dropErr) {
+          console.warn('[integration-store] dropIndex userId_1_provider_1 warning:', dropErr);
+        }
+      }
     }
 
-    // Sparse index on userId + provider for individual user accounts (issue #247)
+    // Partial index on userId + provider for individual user accounts (issue #247)
+    // Only indexes documents where userId is a string, preventing collisions on brand connections (userId is null/omitted)
     await col.createIndex(
       { userId: 1, provider: 1 },
-      { unique: true, sparse: true }
+      {
+        unique: true,
+        partialFilterExpression: { userId: { $type: 'string' } },
+      }
     );
     // Compound index for brand/tenant scoped connections
     await col.createIndex(

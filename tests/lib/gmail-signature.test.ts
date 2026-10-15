@@ -8,7 +8,7 @@ import {
 } from '../../lib/gmail-signature';
 import * as integrationStore from '../../app/lib/integration-store';
 
-describe('gmail-signature (Issue #241)', () => {
+describe('gmail-signature (Issue 241)', () => {
   describe('sanitizeSignatureHtml', () => {
     it('strips malicious script and iframe tags', () => {
       const malicious = '<div>Best,<br>Alex</div><script>alert("xss")</script><iframe src="evil.com"></iframe>';

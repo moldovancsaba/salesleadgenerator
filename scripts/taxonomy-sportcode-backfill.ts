@@ -33,7 +33,7 @@
 // re-run after a partial apply skips everything already classified.
 
 import { resolveSportAlias } from '../lib/lead-taxonomy';
-import { getAllBrandConfigs } from '../app/lib/brand';
+import { FALLBACK_BRAND_CONFIG } from '../app/lib/brand-constants';
 
 const API_BASE = process.env.SLG_API_BASE || 'https://salesleadgenerator.vercel.app';
 const API_KEY = process.env.SLG_API_KEY;
@@ -68,11 +68,13 @@ async function fetchAllLeads(brand: string): Promise<LeadSummary[]> {
   return leads;
 }
 
-async function applySportCode(brand: string, leadId: string, sportCode: string): Promise<boolean> {
+async function applySportCode(brand: string, leadId: string, sportCode: string, kanbanColumn?: string): Promise<boolean> {
+  const payload: Record<string, any> = { sportCode };
+  if (kanbanColumn) payload.kanbanColumn = kanbanColumn;
   const res = await fetch(`${API_BASE}/api/leads/${leadId}?brand=${brand}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY! },
-    body: JSON.stringify({ sportCode }),
+    body: JSON.stringify(payload),
   });
   return res.ok;
 }
@@ -94,7 +96,7 @@ async function run() {
 
   // Issue #147 — derived from BRAND_CONFIG's own keys, not a hardcoded
   // 2-brand array, so a future brand is picked up automatically.
-  const ALL_BRANDS = Object.keys(await getAllBrandConfigs());
+  const ALL_BRANDS = Object.keys(FALLBACK_BRAND_CONFIG);
   const BRANDS = brandArg ? [brandArg.split('=')[1]] : [...ALL_BRANDS];
 
   console.log(APPLY ? 'Running in APPLY mode — this will write changes via real PUT requests.' : 'Running in DRY-RUN mode — no changes will be written. Pass --apply to write.');
@@ -113,11 +115,11 @@ async function run() {
     totals.alreadyClassified += leads.length - candidates.length;
     totals.scanned += leads.length;
 
-    const resolvedThisBrand: Array<{ id: string; name: string; sportCode: string }> = [];
+    const resolvedThisBrand: Array<{ id: string; name: string; sportCode: string; kanbanColumn?: string }> = [];
     for (const lead of candidates) {
       const resolved = resolveSportAlias(lead.sport_or_sector);
       if (resolved) {
-        resolvedThisBrand.push({ id: lead._id, name: lead.entity_name, sportCode: resolved });
+        resolvedThisBrand.push({ id: lead._id, name: lead.entity_name, sportCode: resolved, kanbanColumn: lead.kanbanColumn });
       } else {
         totals.unresolved += 1;
         const key = (lead.sport_or_sector || '(blank)').trim() || '(blank)';
@@ -134,7 +136,7 @@ async function run() {
       const targets = SAMPLE_SIZE ? shuffle(resolvedThisBrand).slice(0, SAMPLE_SIZE) : resolvedThisBrand;
       console.log(`Applying sportCode to ${targets.length} leads...`);
       for (const t of targets) {
-        const ok = await applySportCode(brand, t.id, t.sportCode);
+        const ok = await applySportCode(brand, t.id, t.sportCode, t.kanbanColumn);
         if (ok) {
           totals.applied += 1;
         } else {

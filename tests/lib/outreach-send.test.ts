@@ -205,7 +205,7 @@ describe('dispatchOutreachEmail — Personalization Gating & Send Invariants (is
     expect(mockDb.insertedLogs[0].routingAllowed).toBe(false);
   });
 
-  it('appends rep Gmail signature when sending manually with active personal connection (issue #241)', async () => {
+  it('appends rep Gmail signature when sending manually with active personal connection (issue 241)', async () => {
     const { dispatchOutreachEmail } = await import('../../lib/outreach-send');
     const integrationStore = await import('../../app/lib/integration-store');
     const gmailSend = await import('../../lib/gmail-send');

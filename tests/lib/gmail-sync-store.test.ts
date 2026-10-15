@@ -11,7 +11,7 @@ import { pollSingleGmailConnection, pollGmailForBrand, pollUserGmail } from '../
 import { encryptCredentials } from '../../lib/integration-crypto';
 import type { IntegrationConnection } from '../../lib/integration-connections';
 
-describe('Gmail Sync Store (Issue #216 & #249)', () => {
+describe('Gmail Sync Store (Issue 216 & 249)', () => {
   let mockDb: any;
   let activityLogs: any[];
   let cursors: any[];

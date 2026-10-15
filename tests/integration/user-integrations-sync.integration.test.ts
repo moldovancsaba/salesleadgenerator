@@ -21,7 +21,7 @@ import { isMongoConfigured } from '@/lib/mongodb';
 import { pollUserGmail } from '@/app/lib/gmail-sync-store';
 import { POST } from '@/app/api/user/integrations/[provider]/sync/route';
 
-describe('POST /api/user/integrations/[provider]/sync (issue #249)', () => {
+describe('POST /api/user/integrations/[provider]/sync (issue 249)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(isMongoConfigured).mockReturnValue(true);

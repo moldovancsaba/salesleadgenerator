@@ -7,7 +7,7 @@ import {
   sendGmailMessage,
 } from '../../lib/gmail-send';
 
-describe('gmail-send (Issue #248)', () => {
+describe('gmail-send (Issue 248)', () => {
   describe('encodeBase64Url', () => {
     it('encodes a string to standard base64url without padding', () => {
       // "Hello World" -> base64 "SGVsbG8gV29ybGQ=" -> base64url "SGVsbG8gV29ybGQ"

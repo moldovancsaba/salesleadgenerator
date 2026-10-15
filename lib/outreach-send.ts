@@ -585,7 +585,7 @@ export async function dispatchOutreachEmail(
       resendEmailId: externalId,
       subject,
       body: deliveredBody,
-      source: usedTransport,
+      source: 'manual',
       rfcMessageId,
       threadId: gmailThreadId || threadId,
     });

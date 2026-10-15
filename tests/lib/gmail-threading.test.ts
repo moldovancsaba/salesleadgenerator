@@ -8,7 +8,7 @@ import { dispatchOutreachEmail } from '../../lib/outreach-send';
 import * as integrationStore from '../../app/lib/integration-store';
 import * as gmailSend from '../../lib/gmail-send';
 
-describe('gmail-threading (Issue #243)', () => {
+describe('gmail-threading (Issue 243)', () => {
   describe('formatReSubject', () => {
     it('normalizes undefined or empty subject to "Re: "', () => {
       expect(formatReSubject(undefined)).toBe('Re: ');

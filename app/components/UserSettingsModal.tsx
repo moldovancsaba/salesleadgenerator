@@ -253,7 +253,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
             <Stack gap="xs">
               <Group justify="space-between" align="center">
                 <Group gap="xs">
-                  <IconBrandGoogle size={20} color="#EA4335" />
+                  <IconBrandGoogle size={20} color="red" />
                   <div>
                     <Text size="sm" fw={600}>
                       {gmailConnection.providerAccountLabel || gmailConnection.userEmail || user?.email || 'Connected'}
