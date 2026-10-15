@@ -29,6 +29,15 @@ The owner accepted all four recommendations 2026-09-27. Two are additive vocabul
 
 Applied via the same fresh-`GET` → `PUT` → fresh-`GET` discipline as every other round. `#231` is now closed.
 
+### Progress update — 2026-10-15 — research round 5 batch 3, 4 leads (v2.4.279, issue #132)
+
+Classified 4 clean, distinct, sales-active QUALIFIED leads across CogMap and Seyu with evidence-based web research, schema checklist validation, explicit `kanbanColumn: "QUALIFIED"` preservation, and independent API re-verification:
+- **Australian Olympic Committee** (`6a5ddc81377402280fe6caa8`, CogMap): `sportCode: "multi-sport"`, `orgTypeCode: "olympic-committee"`, `businessUnitCode: "general"`, `genderCode: "mixed"`, `competitionLevelCode: "international"`, `demographicCodes: ["adult", "youth"]`, `cityName: "Sydney"`, `country: "AU"`. Verified President Ian Chesterman AM & CEO Mark Arbib; corrected missing top-level country from Sydney, Australia address.
+- **Comité Olímpico de Chile** (`6a5e50f772223df3b69b42e0`, CogMap): `sportCode: "multi-sport"`, `orgTypeCode: "olympic-committee"`, `businessUnitCode: "general"`, `genderCode: "mixed"`, `competitionLevelCode: "international"`, `demographicCodes: ["adult", "youth"]`, `cityName: "Santiago"`, `country: "CL"`. Verified President Miguel Ángel Mujica Brain & Secretary General Jaime Agliati Valenzuela; corrected missing top-level country from Santiago, Chile address.
+- **Paris Saint-Germain Handball** (`6a5f1bef616233593697762a`, Seyu): `sportCode: "handball"`, `orgTypeCode: "club"`, `businessUnitCode: "commercial"`, `genderCode: "men"`, `competitionLevelCode: "professional"`, `demographicCodes: ["adult"]`, `cityName: "Paris"`, `country: "FR"`, `parentOrgName: "Paris Saint-Germain"`, `relationshipToParent: "owned"`. Stade Pierre de Coubertin arena fan engagement.
+- **FC Barcelona Handbol** (`6a5f1bef6162335936977628`, Seyu): `sportCode: "handball"`, `orgTypeCode: "club"`, `businessUnitCode: "commercial"`, `genderCode: "men"`, `competitionLevelCode: "professional"`, `demographicCodes: ["adult"]`, `cityName: "Barcelona"`, `country: "ES"`, `parentOrgName: "FC Barcelona"`, `relationshipToParent: "owned"`. Palau Blaugrana arena fan engagement.
+- **Running total:** 336 leads now have full taxonomy (`orgTypeCode` set).
+
 ### Progress update — 2026-10-15 — research round 5 batch 2, 4 leads (v2.4.278, issue #132)
 
 Classified 4 clean, distinct, sales-active QUALIFIED leads across CogMap and Seyu with evidence-based web research, schema checklist validation, explicit `kanbanColumn: "QUALIFIED"` preservation, and independent API re-verification:

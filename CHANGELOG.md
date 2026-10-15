@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.279
+
+### Taxonomy: Evidence-based full taxonomy classification — Round 5 Batch 3 (issue #132)
+
+- **Evidence-Based Taxonomy Classification (Phase 2, issue #132):**
+  - Researched, validated, applied, and verified full controlled taxonomy fields for 4 distinct, sales-active QUALIFIED leads across CogMap and Seyu:
+    - **Australian Olympic Committee** (`6a5ddc81377402280fe6caa8`, CogMap): `sportCode: 'multi-sport'`, `orgTypeCode: 'olympic-committee'`, `businessUnitCode: 'general'`, `genderCode: 'mixed'`, `competitionLevelCode: 'international'`, `demographicCodes: ['adult', 'youth']`, `cityName: 'Sydney'`, `country: 'AU'`. Leadership verified (President Ian Chesterman AM & CEO Mark Arbib); corrected missing top-level `country` (`AU`) from Sydney address.
+    - **Comité Olímpico de Chile** (`6a5e50f772223df3b69b42e0`, CogMap): `sportCode: 'multi-sport'`, `orgTypeCode: 'olympic-committee'`, `businessUnitCode: 'general'`, `genderCode: 'mixed'`, `competitionLevelCode: 'international'`, `demographicCodes: ['adult', 'youth']`, `cityName: 'Santiago'`, `country: 'CL'`. Leadership verified (President Miguel Ángel Mujica Brain & Secretary General Jaime Agliati Valenzuela); corrected missing top-level `country` (`CL`) from Santiago address.
+    - **Paris Saint-Germain Handball** (`6a5f1bef616233593697762a`, Seyu): `sportCode: 'handball'`, `orgTypeCode: 'club'`, `businessUnitCode: 'commercial'`, `genderCode: 'men'`, `competitionLevelCode: 'professional'`, `demographicCodes: ['adult']`, `cityName: 'Paris'`, `country: 'FR'`, `parentOrgName: 'Paris Saint-Germain'`, `relationshipToParent: 'owned'`. Stade Pierre de Coubertin arena fan engagement.
+    - **FC Barcelona Handbol** (`6a5f1bef6162335936977628`, Seyu): `sportCode: 'handball'`, `orgTypeCode: 'club'`, `businessUnitCode: 'commercial'`, `genderCode: 'men'`, `competitionLevelCode: 'professional'`, `demographicCodes: ['adult']`, `cityName: 'Barcelona'`, `country: 'ES'`, `parentOrgName: 'FC Barcelona'`, `relationshipToParent: 'owned'`. Palau Blaugrana arena fan engagement.
+  - All 4 updates applied via `PUT /api/leads/[id]` with explicit `kanbanColumn: 'QUALIFIED'` preservation, and re-verified via independent GET API requests. Server automatically computed canonical `mergeKey` and `classificationTags` on each record.
+
 ## 2.4.278
 
 ### Taxonomy: Evidence-based full taxonomy classification — Round 5 Batch 2 (issue #132)
