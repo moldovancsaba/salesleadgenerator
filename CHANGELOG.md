@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.277
+
+### Taxonomy: Evidence-based full taxonomy classification — Round 5 Batch 1 (issue #132)
+
+- **Evidence-Based Taxonomy Classification (Phase 2, issue #132):**
+  - Researched, validated, applied, and verified full controlled taxonomy fields for 4 high-value QUALIFIED leads across CogMap and Seyu:
+    - **Al-Ittihad FC** (`6a5776cbb4fa15e25c34da23`, CogMap): `sportCode: 'football'`, `orgTypeCode: 'club'`, `businessUnitCode: 'youth-academy'`, `genderCode: 'men'`, `competitionLevelCode: 'professional'`, `cityName: 'Jeddah'`, `country: 'SA'`, `parentOrgName: 'Al-Ittihad Club'`, `relationshipToParent: 'owned'`. Corrected missing top-level `country` (`SA`) from address.
+    - **Ferencvárosi TC** (`6a5722e9ff00947f4a060091`, CogMap): `sportCode: 'football'`, `orgTypeCode: 'club'`, `businessUnitCode: 'youth-academy'`, `genderCode: 'men'`, `competitionLevelCode: 'elite'`, `cityName: 'Budapest'`, `country: 'HU'`, `parentOrgName: 'Ferencvárosi Torna Club'`, `relationshipToParent: 'owned'`. Corrected missing top-level `country` (`HU`) from address.
+    - **Atlanta United FC** (`6a770e27f2937db36435f4fb`, Seyu): `sportCode: 'football'`, `orgTypeCode: 'club'`, `businessUnitCode: 'commercial'`, `genderCode: 'men'`, `competitionLevelCode: 'professional'`, `cityName: 'Atlanta'`, `country: 'US'`, `parentOrgName: 'AMB Sports and Entertainment'`, `relationshipToParent: 'owned'`.
+    - **beIN Sports** (`6a5f1d1961623359369776ae`, Seyu): `sportCode: 'multi-sport'`, `orgTypeCode: 'broadcaster'`, `businessUnitCode: 'media'`, `genderCode: 'not-applicable'`, `competitionLevelCode: 'not-applicable'`, `cityName: 'Doha'`, `country: 'QA'`, `parentOrgName: 'beIN Media Group'`, `relationshipToParent: 'owned'`.
+  - All 4 updates applied via `PUT /api/leads/[id]` with explicit `kanbanColumn: 'QUALIFIED'` preservation, and re-verified via independent GET API requests. Server automatically computed canonical `mergeKey` and `classificationTags` on each record.
+
 ## 2.4.276
 
 ### Taxonomy, Integrations & Quality: Mechanical sportCode backfill completion, index isolation, and GDS compliance

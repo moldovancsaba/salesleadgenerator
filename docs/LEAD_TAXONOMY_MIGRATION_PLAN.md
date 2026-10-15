@@ -29,6 +29,15 @@ The owner accepted all four recommendations 2026-09-27. Two are additive vocabul
 
 Applied via the same fresh-`GET` → `PUT` → fresh-`GET` discipline as every other round. `#231` is now closed.
 
+### Progress update — 2026-10-15 — research round 5 batch 1, 4 leads (v2.4.277, issue #132)
+
+Classified 4 high-value sales-active QUALIFIED leads across CogMap and Seyu with evidence-based web research, schema checklist validation, explicit `kanbanColumn: "QUALIFIED"` preservation, and independent API re-verification:
+- **Al-Ittihad FC** (`6a5776cbb4fa15e25c34da23`, CogMap): `sportCode: "football"`, `orgTypeCode: "club"`, `businessUnitCode: "youth-academy"`, `genderCode: "men"`, `competitionLevelCode: "professional"`, `cityName: "Jeddah"`, `country: "SA"`, `parentOrgName: "Al-Ittihad Club"`, `relationshipToParent: "owned"`. Corrected top-level country from stored address in Jeddah, Saudi Arabia.
+- **Ferencvárosi TC** (`6a5722e9ff00947f4a060091`, CogMap): `sportCode: "football"`, `orgTypeCode: "club"`, `businessUnitCode: "youth-academy"`, `genderCode: "men"`, `competitionLevelCode: "elite"`, `cityName: "Budapest"`, `country: "HU"`, `parentOrgName: "Ferencvárosi Torna Club"`, `relationshipToParent: "owned"`. Confirmed Norbert Palásthy as Academy Director; corrected top-level country from Budapest address.
+- **Atlanta United FC** (`6a770e27f2937db36435f4fb`, Seyu): `sportCode: "football"`, `orgTypeCode: "club"`, `businessUnitCode: "commercial"`, `genderCode: "men"`, `competitionLevelCode: "professional"`, `cityName: "Atlanta"`, `country: "US"`, `parentOrgName: "AMB Sports and Entertainment"`, `relationshipToParent: "owned"`. Mercedes-Benz Stadium fan selfie activation.
+- **beIN Sports** (`6a5f1d1961623359369776ae`, Seyu): `sportCode: "multi-sport"`, `orgTypeCode: "broadcaster"`, `businessUnitCode: "media"`, `genderCode: "not-applicable"`, `competitionLevelCode: "not-applicable"`, `cityName: "Doha"`, `country: "QA"`, `parentOrgName: "beIN Media Group"`, `relationshipToParent: "owned"`.
+- **Running total:** 328 leads now have full taxonomy (`orgTypeCode` set).
+
 ### Progress update — 2026-10-15 — mechanical sportCode backfill completion (v2.4.276, issue #132)
 
 Full mechanical `sportCode` backfill completed across all 3 brands via `scripts/taxonomy-sportcode-backfill.ts`:
