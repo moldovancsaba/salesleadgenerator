@@ -18,6 +18,7 @@ import { ACTIVITY_LOG_COLLECTION, truncateBody, ensureActivityLogIndexes, type A
 import { getBrandConfig, getAllBrandConfigs, type Brand } from './brand';
 import { tenantFilter } from '../../lib/tenant';
 import { deleteCalendarTaskReminder } from '../../lib/gcal-sync';
+import { isMessageHistorical } from '../../lib/lead-timeline-filter';
 
 export const GMAIL_SYNC_CURSORS_COLLECTION = 'gmailSyncCursors';
 
@@ -250,6 +251,23 @@ export async function pollSingleGmailConnection(
         doc.leadId = match.leadId;
         const contact = await findMatchedContact(db, brand, tenantId, match.leadId, counterpartyEmail);
         if (contact) doc.matchedContactKey = contactKey(contact);
+
+        // Issue #244: Inspect lead creation timestamp to determine if email predates lead
+        try {
+          let leadObjId: ObjectId | null = null;
+          try { leadObjId = new ObjectId(match.leadId); } catch {}
+          if (leadObjId) {
+            const leadDoc = await db.collection(brandConfig.dbCollection).findOne(
+              { _id: leadObjId },
+              { projection: { createdAt: 1 } }
+            );
+            if (leadDoc?.createdAt && isMessageHistorical(dateIso, leadDoc.createdAt)) {
+              doc.isHistorical = true;
+            }
+          }
+        } catch {
+          // Non-fatal, default to non-historical
+        }
       } else if (match.kind === 'multi-match') {
         doc.matchedLeadIds = match.leadIds;
       }
@@ -278,35 +296,38 @@ export async function pollSingleGmailConnection(
           console.error('[gmail-sync-store] contact-suggestion generation failed', error);
         }
       }
-      // Issue #249: Inbound prospect reply cancels active cadence sequence and future calendar reminders
-      try {
-        let leadObjId: ObjectId | null = null;
-        try { leadObjId = new ObjectId(matchedLeadId); } catch {}
-        if (leadObjId) {
-          const existingLead = await db.collection(brandConfig.dbCollection).findOne({ _id: leadObjId });
-          if (existingLead?.activeCadence) {
-            if (existingLead.activeCadence.taskStepId) {
-              await deleteCalendarTaskReminder(db, {
-                brand,
-                tenantId,
-                taskId: existingLead.activeCadence.taskStepId,
-              }).catch(() => {});
-            }
-            await db.collection(brandConfig.dbCollection).updateOne(
-              { _id: leadObjId, activeCadence: { $ne: null } },
-              {
-                $set: {
-                  activeCadence: null,
-                  nextActionDueAt: null,
-                  nextActionNote: 'Sequence stopped: contact replied via Gmail',
-                  updatedAt: new Date(),
-                },
+      // Issue #249 / #244: Inbound prospect reply cancels active cadence sequence and future calendar reminders,
+      // provided the message is NOT historical pre-lead correspondence (Issue #244).
+      if (!doc.isHistorical) {
+        try {
+          let leadObjId: ObjectId | null = null;
+          try { leadObjId = new ObjectId(matchedLeadId); } catch {}
+          if (leadObjId) {
+            const existingLead = await db.collection(brandConfig.dbCollection).findOne({ _id: leadObjId });
+            if (existingLead?.activeCadence) {
+              if (existingLead.activeCadence.taskStepId) {
+                await deleteCalendarTaskReminder(db, {
+                  brand,
+                  tenantId,
+                  taskId: existingLead.activeCadence.taskStepId,
+                }).catch(() => {});
               }
-            );
+              await db.collection(brandConfig.dbCollection).updateOne(
+                { _id: leadObjId, activeCadence: { $ne: null } },
+                {
+                  $set: {
+                    activeCadence: null,
+                    nextActionDueAt: null,
+                    nextActionNote: 'Sequence stopped: contact replied via Gmail',
+                    updatedAt: new Date(),
+                  },
+                }
+              );
+            }
           }
+        } catch (cancelError) {
+          console.error('[gmail-sync-store] cadence auto-stop failed', cancelError);
         }
-      } catch (cancelError) {
-        console.error('[gmail-sync-store] cadence auto-stop failed', cancelError);
       }
     }
   }

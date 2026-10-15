@@ -40,6 +40,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const limit = Math.max(1, Math.min(500, parseInt(searchParams.get('limit') || '100') || 100));
     const dealId = searchParams.get('dealId')?.trim() || null;
+    const includeHistorical = searchParams.get('includeHistorical') === 'true';
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
@@ -49,13 +50,19 @@ export async function GET(
     const db = client.db();
     await ensureActivityLogIndexes(db);
 
-    const activityFilter: Record<string, any> = { leadId: id };
-    if (dealId) activityFilter.dealId = dealId;
+    const baseLeadFilter: Record<string, any> = { leadId: id };
+    if (dealId) baseLeadFilter.dealId = dealId;
+
+    // Issue #244: Filter out historical pre-lead correspondence by default unless requested
+    const activityFilter: Record<string, any> = { ...baseLeadFilter };
+    if (!includeHistorical) {
+      activityFilter.isHistorical = { $ne: true };
+    }
 
     const outreachFilter: Record<string, any> = { leadId: id, tenantId, activityLogWritten: { $ne: true } };
     if (dealId) outreachFilter.dealId = dealId;
 
-    const [activityLogDocs, outreachLogDocs] = await Promise.all([
+    const [activityLogDocs, outreachLogDocs, historicalCount] = await Promise.all([
       db.collection(ACTIVITY_LOG_COLLECTION)
         .find(activityFilter)
         .sort({ createdAt: -1 })
@@ -74,6 +81,10 @@ export async function GET(
         .sort({ createdAt: -1 })
         .limit(limit)
         .toArray(),
+      db.collection(ACTIVITY_LOG_COLLECTION).countDocuments({
+        ...baseLeadFilter,
+        isHistorical: true,
+      }),
     ]);
 
     const activity = mergeActivityTimeline(
@@ -84,7 +95,14 @@ export async function GET(
       limit
     );
 
-    return NextResponse.json({ activity, leadId: id, brand, tenantId, returned: activity.length });
+    return NextResponse.json({
+      activity,
+      leadId: id,
+      brand,
+      tenantId,
+      returned: activity.length,
+      historicalCount,
+    });
   } catch (error: any) {
     console.error('GET /api/leads/[id]/activity Error:', error)
     return NextResponse.json({ error: 'Failed to fetch activity' }, { status: 500 })

@@ -303,6 +303,7 @@ A unified, time-ordered timeline of activity for this lead — internal notes, c
 - **Deal-Associated Activities**: both notes and calls can be tagged to a specific deal via the "Associated deal" dropdown. Entries linked to a deal display a cyan deal badge (`dealLabel` or `Deal <id>`) in the timeline. You can filter the activity timeline by deal using the "Filter by deal" selector.
 - **Email History & Engagement**: outbound emails sent via cadences or one-off compose render with their canonical status badge (**Opened**, **Clicked**, **Replied**, **Sent**, **Bounced**, **Cancelled**). Inbound human replies show as **Inbound reply**.
 - **Gmail & Calendar Sync**: if Google Workspace integration is connected, synced Gmail emails appear with a **Gmail** badge, and booked calendar meetings show as **Meeting scheduled**.
+- **Pre-Lead Historical Correspondence Filtering**: Inbound or synced emails that predate the lead's creation date by more than 48 hours are automatically categorized as historical (`isHistorical: true`). Historical messages are hidden by default from the active timeline to prevent noise from ancient or unrelated conversations, and they never trigger cadence cancellations. When historical correspondence exists, an accessible banner appears displaying the count with a "Show" / "Hide" toggle to review older messages on demand.
 
 ### Suggested contact updates
 

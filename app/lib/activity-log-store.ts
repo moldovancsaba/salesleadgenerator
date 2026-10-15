@@ -77,6 +77,7 @@ export type ActivityEntry = {
   replyClass?: string
   openCount?: number
   clickCount?: number
+  isHistorical?: boolean
 }
 
 // The write-side shape for a new activityLog document (issue #141, this
@@ -136,6 +137,7 @@ export type ActivityLogDocument = {
   meetingEventId?: string
   meetingBookedByEmail?: string
   replyClass?: string
+  isHistorical?: boolean
 }
 
 // Lazily ensures the documented indexes exist — same idempotent,
@@ -230,6 +232,7 @@ export function mapActivityLogDoc(doc: any): ActivityEntry {
       ? (isHumanReply(doc.createdAt, doc.replyClass) ? 'replied' : 'sent')
       : (doc.type === 'email-outbound' ? 'sent' : undefined),
     replyClass: typeof doc.replyClass === 'string' ? doc.replyClass : undefined,
+    isHistorical: doc.isHistorical === true ? true : undefined,
   }
 }
 

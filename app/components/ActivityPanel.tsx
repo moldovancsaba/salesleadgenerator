@@ -40,6 +40,7 @@ type ActivityEntry = {
   replyClass?: string
   openCount?: number
   clickCount?: number
+  isHistorical?: boolean
 }
 
 const EMAIL_STATUS_COLOR: Record<string, string> = {
@@ -134,6 +135,8 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [] }: Prop
   const [error, setError] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<ContactSuggestion[]>([])
   const [resolvingId, setResolvingId] = useState<string | null>(null)
+  const [showHistorical, setShowHistorical] = useState(false)
+  const [historicalCount, setHistoricalCount] = useState(0)
 
   // Deal association state (predecessor CRM roadmap §CRM line 20)
   const [callDealId, setCallDealId] = useState<string | null>(null)
@@ -177,16 +180,17 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [] }: Prop
     })),
   ]
 
-  function loadActivity() {
+  function loadActivity(includeHist = showHistorical) {
     setLoading(true)
     setError(null)
-    return fetch(`/api/leads/${encodeURIComponent(leadId)}/activity?brand=${encodeURIComponent(brand)}`)
+    return fetch(`/api/leads/${encodeURIComponent(leadId)}/activity?brand=${encodeURIComponent(brand)}&includeHistorical=${includeHist}`)
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load activity (${res.status})`)
         return res.json()
       })
       .then((data) => {
         setActivity(data.activity || [])
+        setHistoricalCount(data.historicalCount || 0)
       })
       .catch((err) => {
         setError(err?.message || 'Failed to load activity')
@@ -200,13 +204,16 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [] }: Prop
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetch(`/api/leads/${encodeURIComponent(leadId)}/activity?brand=${encodeURIComponent(brand)}`)
+    fetch(`/api/leads/${encodeURIComponent(leadId)}/activity?brand=${encodeURIComponent(brand)}&includeHistorical=${showHistorical}`)
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load activity (${res.status})`)
         return res.json()
       })
       .then((data) => {
-        if (!cancelled) setActivity(data.activity || [])
+        if (!cancelled) {
+          setActivity(data.activity || [])
+          setHistoricalCount(data.historicalCount || 0)
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err?.message || 'Failed to load activity')
@@ -215,7 +222,7 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [] }: Prop
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [leadId, brand])
+  }, [leadId, brand, showHistorical])
 
   useEffect(() => {
     let cancelled = false
@@ -509,6 +516,36 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [] }: Prop
         </Box>
       )}
 
+      {historicalCount > 0 && (
+        <Box
+          mb="xs"
+          p="xs"
+          style={{
+            border: '1px solid var(--mantine-color-gray-3)',
+            borderRadius: 6,
+            background: 'var(--mantine-color-gray-0)',
+          }}
+        >
+          <Group justify="space-between" align="center" wrap="wrap" gap="xs">
+            <Text size="xs" c="dimmed">
+              {showHistorical
+                ? `Showing ${historicalCount} older message${historicalCount === 1 ? '' : 's'} prior to lead creation`
+                : `${historicalCount} older message${historicalCount === 1 ? '' : 's'} prior to lead creation hidden`}
+            </Text>
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              color="gray"
+              onClick={() => setShowHistorical((v) => !v)}
+              aria-expanded={showHistorical}
+              aria-label={showHistorical ? 'Hide historical pre-lead correspondence' : 'Show historical pre-lead correspondence'}
+            >
+              {showHistorical ? 'Hide' : 'Show'}
+            </Button>
+          </Group>
+        </Box>
+      )}
+
       {loading ? (
         <Group gap="xs"><Loader size="xs" /><Text size="xs" c="dimmed">Loading…</Text></Group>
       ) : error ? (
@@ -526,6 +563,9 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [] }: Prop
                   </Badge>
                   {entry.source === 'gmail-sync' && (
                     <Badge size="xs" variant="outline" color="gray">Gmail</Badge>
+                  )}
+                  {entry.isHistorical && (
+                    <Badge size="xs" variant="outline" color="gray">Historical</Badge>
                   )}
                   {(entry.dealLabel || entry.dealId) && (
                     <Badge size="xs" variant="outline" color="cyan">

@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.275
+
+### CRM: Lead timeline noise filtering and pre-lead correspondence suppression
+
+- **Pre-Lead Correspondence Detection & Cadence Protection (`lib/lead-timeline-filter.ts`, `app/lib/gmail-sync-store.ts`):**
+  - Implemented `isMessageHistorical(messageDate, leadCreatedAt, graceWindowMs)` with a 48-hour default grace window (`PRE_LEAD_GRACE_WINDOW_MS`) to absorb clock skew and delayed lead entry.
+  - Tagged matched correspondence older than `(lead.createdAt - 48h)` as `isHistorical: true` in `activityLog` documents.
+  - Guarded cadence sequence auto-stop logic: historical pre-lead correspondence never halts active sales cadences or purges calendar reminders.
+- **Timeline Filtering & On-Demand Expander (`app/api/leads/[id]/activity/route.ts`, `app/components/ActivityPanel.tsx`):**
+  - Added `includeHistorical` query parameter to `GET /api/leads/[id]/activity` (default: `false`), returning clean active timeline entries and `historicalCount` metadata.
+  - Added accessible GDS historical correspondence banner in `ActivityPanel.tsx` displaying the count of hidden pre-lead messages with an interactive "Show" / "Hide" toggle.
+  - Added `Historical` outline badge to historical timeline entries when expanded.
+- **Automated Verification:**
+  - Added unit test suite `tests/lib/activity-historical-filter.test.ts` (7 tests passing 100%) covering grace window boundaries, Date/timestamp variants, and edge cases.
+  - Added integration test suite `tests/integration/lead-activity-historical.integration.test.ts` (2 tests passing 100%) verifying API response filtering and cadence preservation.
+  - Quality gate passed: 0 TypeScript errors, 0 ESLint warnings, 1,424 vitest unit tests passing 100%, and 5/5 smoke tests passing.
+
 ## 2.4.274
 
 ### Outreach: Personalization merge token inserter for email templates and compose modal
