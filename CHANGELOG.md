@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.274
+
+### Outreach: Personalization merge token inserter for email templates and compose modal
+
+- **Accessible Merge Token Toolbar (`app/outreach/compose-modal.tsx`, `lib/compose-token-insertion.ts`):**
+  - Integrated interactive GDS-compliant merge token inserter row directly between Subject and Message fields.
+  - Added semantic button chips for `{first_name}`, `{last_name}`, `{contact_name}`, `{company}`, `{title}`, `{industry}`, `{value_proposition}`, and `{country}`.
+  - Configured hover preview tooltips resolving each variable against current lead attributes and decision-maker contact context.
+  - Implemented caret and selection tracking across Subject and Message textareas (`selectionStart`/`selectionEnd`), replacing highlighted selections on insertion and advancing cursor position immediately past the token while retaining DOM focus.
+- **Automated Verification:**
+  - Added unit test suite `tests/lib/compose-token-insertion.test.ts` (13 tests passing 100%) covering caret insertion at beginning, middle, end, range replacement, inverted ranges, missing selection fallbacks, and token preview resolution.
+  - Zero TypeScript compilation errors and zero ESLint warnings across all touched files.
+
 ## 2.4.273
 
 ### Integrations: On-demand rep Gmail sync endpoint and mailbox sync affordance

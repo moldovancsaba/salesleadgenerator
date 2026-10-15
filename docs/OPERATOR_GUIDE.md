@@ -408,7 +408,8 @@ Open a lead's detail view and use **Outreach** to compose a message.
 1. Optionally narrow the template list by tag (pre-filled from the lead's own tags).
 2. A **Battlecards** panel shows competitor positioning, proof points, and objection responses relevant to the lead — read-only reference material, never auto-inserted into your message; copy what's useful by hand.
 3. Pick a template — its subject (email) or channel indicator (LinkedIn) and body fill in automatically, with placeholders like the contact's name and the organization's name already substituted using the lead's real data.
-4. Edit the message as needed, then click either **Log outreach** or (email only) **Send email**.
+4. **Insert merge variables at cursor**: A dedicated token toolbar sits between Subject and Message containing accessible chips (`{first_name}`, `{last_name}`, `{contact_name}`, `{company}`, `{title}`, `{industry}`, `{value_proposition}`, `{country}`). Hovering over any token chip shows a tooltip previewing how that variable resolves for the current lead. Clicking or pressing Enter on a token inserts it directly at your current caret position in Subject or Message without losing focus or resetting your typing cursor.
+5. Edit the message as needed, then click either **Log outreach** or (email only) **Send email**.
 
 **Two different buttons, two different things — pick the right one:**
 

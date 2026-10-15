@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title, TagsInput, Pill, Badge } from '@mantine/core';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title, TagsInput, Pill, Badge, Tooltip } from '@mantine/core';
 import { IconX } from '@tabler/icons-react';
 import { SectionPanel } from '@sovereignsquad/gds-core/client';
 import { evaluateOutreachRouting } from '../lib/outreach/routing-rules';
 import { getDecisionMakerContact } from '../../lib/contacts';
+import { buildPersonalizationContext } from '../../lib/template-personalization';
+import { COMPOSE_TOKENS, insertTokenAtCaret, resolveTokenPreview } from '../../lib/compose-token-insertion';
+
 
 type Props = {
   opened: boolean;
@@ -137,10 +140,73 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   // Memoized so its identity is stable across renders where `lead` itself
   // hasn't changed — a fresh object every render would make the effects
   // below that depend on it re-fire every render (setState -> re-render loop).
-  const interpolationValues = useMemo(
-    () => ({ ...lead, contact_name: getDecisionMakerContact(lead.contacts)?.name || '' }),
-    [lead]
-  );
+  const interpolationValues = useMemo(() => {
+    const dm = getDecisionMakerContact(lead.contacts);
+    const personalization = buildPersonalizationContext({ lead, contact: dm });
+    return {
+      ...lead,
+      contact_name: dm?.name || '',
+      ...personalization,
+    };
+  }, [lead]);
+
+  // Caret position & active input tracking for merge token inserter (issue #242)
+  const [activeField, setActiveField] = useState<'subject' | 'body'>('body');
+  const subjectRef = useRef<HTMLTextAreaElement | null>(null);
+  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
+  const caretRef = useRef<{ field: 'subject' | 'body'; start: number; end: number }>({
+    field: 'body',
+    start: 0,
+    end: 0,
+  });
+
+  const updateCaret = (field: 'subject' | 'body', e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = e.currentTarget;
+    setActiveField(field);
+    caretRef.current = {
+      field,
+      start: target.selectionStart ?? 0,
+      end: target.selectionEnd ?? 0,
+    };
+  };
+
+  const handleInsertToken = (token: string) => {
+    const targetField = activeField === 'subject' && channel === 'email' ? 'subject' : 'body';
+    const targetRef = targetField === 'subject' ? subjectRef : bodyRef;
+    const currentVal = targetField === 'subject' ? subject : body;
+
+    let start = currentVal.length;
+    let end = currentVal.length;
+    if (caretRef.current.field === targetField) {
+      start = caretRef.current.start;
+      end = caretRef.current.end;
+    } else if (targetRef.current) {
+      start = targetRef.current.selectionStart ?? currentVal.length;
+      end = targetRef.current.selectionEnd ?? currentVal.length;
+    }
+
+    const result = insertTokenAtCaret(currentVal, token, start, end);
+    if (targetField === 'subject') {
+      setSubject(result.text);
+    } else {
+      setBody(result.text);
+    }
+
+    caretRef.current = {
+      field: targetField,
+      start: result.caretIndex,
+      end: result.caretIndex,
+    };
+
+    if (typeof window !== 'undefined' && window.requestAnimationFrame) {
+      window.requestAnimationFrame(() => {
+        if (targetRef.current) {
+          targetRef.current.focus();
+          targetRef.current.setSelectionRange(result.caretIndex, result.caretIndex);
+        }
+      });
+    }
+  };
   const routeResult = evaluateOutreachRouting(channel, lead, body);
   const channelBlockReason = routeResult.allowed ? undefined : routeResult.reason;
   const hasSubjectOrThreadFallback = subject.trim().length > 0 || Boolean(replyInThread && threadContext?.subject);
@@ -428,17 +494,62 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
               onChange={(value) => setTemplateId(value || null)}
             />
             <Textarea
+              ref={subjectRef}
               label={channel === 'email' ? 'Subject' : 'Channel'}
               value={channel === 'email' ? subject : channel.toUpperCase()}
               onChange={(e) => {
-                if (channel === 'email') setSubject(e.target.value)
+                if (channel === 'email') setSubject(e.target.value);
+                updateCaret('subject', e);
               }}
+              onFocus={(e) => updateCaret('subject', e)}
+              onSelect={(e) => updateCaret('subject', e)}
+              onClick={(e) => updateCaret('subject', e)}
+              onKeyUp={(e) => updateCaret('subject', e)}
               disabled={channel !== 'email'}
             />
+            <Stack gap={4}>
+              <Group justify="space-between" align="center">
+                <Text size="xs" fw={500} c="dimmed">
+                  Insert merge variable {activeField === 'subject' && channel === 'email' ? '(into Subject)' : '(into Message)'}:
+                </Text>
+                <Text size="xs" c="dimmed">
+                  Click to insert at cursor
+                </Text>
+              </Group>
+              <Group gap={6} wrap="wrap" role="toolbar" aria-label="Template merge variables">
+                {COMPOSE_TOKENS.map((item) => {
+                  const preview = resolveTokenPreview(item.key, interpolationValues);
+                  const tooltipText = preview ? `Resolves to: "${preview}"` : `No ${item.label.toLowerCase()} for this lead`;
+                  return (
+                    <Tooltip key={item.token} label={tooltipText} withArrow position="top">
+                      <Button
+                        size="compact-xs"
+                        variant="light"
+                        color="indigo"
+                        role="button"
+                        aria-label={`Insert ${item.token} merge variable`}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleInsertToken(item.token)}
+                      >
+                        {item.token}
+                      </Button>
+                    </Tooltip>
+                  );
+                })}
+              </Group>
+            </Stack>
             <Textarea
+              ref={bodyRef}
               label="Message"
               value={body}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={(e) => {
+                setBody(e.target.value);
+                updateCaret('body', e);
+              }}
+              onFocus={(e) => updateCaret('body', e)}
+              onSelect={(e) => updateCaret('body', e)}
+              onClick={(e) => updateCaret('body', e)}
+              onKeyUp={(e) => updateCaret('body', e)}
               rows={8}
               description="Variables are pre-filled from the lead."
             />
