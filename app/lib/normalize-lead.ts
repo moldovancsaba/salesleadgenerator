@@ -81,7 +81,7 @@ function validateObject(value: any): string[] {
   return warnings;
 }
 
-export function normalizeLead(raw: LeadRaw): NormalizedLead {
+export function normalizeLead(raw: LeadRaw, options?: { allowedColumns?: string[] }): NormalizedLead {
   const warnings: NormalizationWarnings = [];
 
   if (!raw || typeof raw !== 'object') {
@@ -115,6 +115,7 @@ export function normalizeLead(raw: LeadRaw): NormalizedLead {
     'WON',
     'LOST',
     'BACKLOG',
+    ...(options?.allowedColumns || []).map((c) => c.toUpperCase()),
   ]);
 
   const kanbanColumn = typeof raw.kanbanColumn === 'string' ? raw.kanbanColumn.trim().toUpperCase() : '';

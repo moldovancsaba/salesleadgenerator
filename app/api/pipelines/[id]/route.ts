@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import clientPromise, { isMongoConfigured } from '../../../../lib/mongodb';
 import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api';
 import { getTenantId, tenantFilter } from '../../../../lib/tenant';
-import { canDeletePipeline, sanitizePipeline } from '../../../../lib/pipelines';
+import { canDeletePipeline, getDefaultPipeline, isDefaultPipelineId, sanitizePipeline } from '../../../../lib/pipelines';
 import type { Pipeline } from '../../../../lib/pipelines';
 import { getBrandConfig, resolveBrand } from '../../../lib/brand';
 import type { Brand } from '../../../lib/brand';
@@ -45,6 +45,9 @@ export async function GET(
     const tenantId = getTenantId(request);
 
     if (!isMongoConfigured()) {
+      if (isDefaultPipelineId(id, brand)) {
+        return NextResponse.json({ pipeline: getDefaultPipeline(brand, tenantId) });
+      }
       return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
     }
 
@@ -53,6 +56,9 @@ export async function GET(
 
     const doc = await db.collection(COLLECTION).findOne({ id, brand, ...tenantFilter(tenantId) });
     if (!doc) {
+      if (isDefaultPipelineId(id, brand)) {
+        return NextResponse.json({ pipeline: getDefaultPipeline(brand, tenantId) });
+      }
       return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
     }
 
@@ -91,11 +97,11 @@ export async function PATCH(
     const db = client.db();
 
     const existingDoc = await db.collection(COLLECTION).findOne({ id, brand, ...tenantFilter(tenantId) });
-    if (!existingDoc) {
+    if (!existingDoc && !isDefaultPipelineId(id, brand)) {
       return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
     }
 
-    const existing = toResponseShape(existingDoc);
+    const existing = existingDoc ? toResponseShape(existingDoc) : getDefaultPipeline(brand, tenantId);
     const sanitized = sanitizePipeline({ ...existing, ...body, id, brand, tenantId }, existing);
     if (!sanitized) {
       return NextResponse.json({ error: 'Invalid pipeline configuration' }, { status: 400 });
@@ -111,7 +117,8 @@ export async function PATCH(
 
     await db.collection(COLLECTION).updateOne(
       { id, brand, ...tenantFilter(tenantId) },
-      { $set: sanitized }
+      { $set: sanitized },
+      { upsert: true }
     );
 
     return NextResponse.json({ pipeline: sanitized, success: true });

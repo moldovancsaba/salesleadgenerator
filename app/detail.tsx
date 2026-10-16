@@ -71,6 +71,7 @@ type Props = {
   // (app/sales/[brand]/page.tsx) and threaded down as a prop instead of
   // this file importing BRAND_CONFIG directly.
   currency?: CurrencyCode;
+  pipelineStages?: Array<{ key: string; label: string; isWon?: boolean; isLost?: boolean }>;
   opened?: boolean;
   onClose: () => void;
   onAction: (leadId: string, action: string, payload?: any) => void;
@@ -286,7 +287,7 @@ const PIPELINE_MOVE_TARGETS = [
   { value: 'LOST', label: 'Lost' },
 ];
 
-export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false, onClose, onAction, onDelete, onUpdated }: Props) {
+export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages, opened = false, onClose, onAction, onDelete, onUpdated }: Props) {
   const { user, isSuperAdmin } = useAuth();
   const [annotation, setAnnotation] = useState("");
   const [declineReason, setDeclineReason] = useState<DeclineReason>("OTHER");
@@ -298,6 +299,11 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
   const [unbacklogTarget, setUnbacklogTarget] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [outreachOpen, setOutreachOpen] = useState(false);
+  const [outreachRefreshKey, setOutreachRefreshKey] = useState(0);
+  const [movingStage, setMovingStage] = useState(false);
+  const stageOptions = pipelineStages && pipelineStages.length > 0
+    ? pipelineStages.map((s) => ({ value: s.key, label: s.label }))
+    : PIPELINE_MOVE_TARGETS;
   // Below desktop width, render as a full-screen AdminModal instead of the
   // side AdminDetailDrawer — a drawer is too cramped on tablet/mobile
   // viewports. `initialValue: true` preserves this modal's pre-#130
@@ -1062,37 +1068,35 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
     }
   }
 
+  async function handleStageChange(nextColumn: string | null) {
+    if (!lead || !nextColumn || nextColumn === lead.kanbanColumn) return;
+    setMovingStage(true);
+    try {
+      await onAction(lead._id, 'COLUMN_MOVE', { kanbanColumn: nextColumn });
+      const stageLabel = stageOptions.find((s) => s.value === nextColumn)?.label || nextColumn;
+      showNotification({ message: `Moved to ${stageLabel}`, color: 'green', autoClose: 4000 });
+    } catch (err) {
+      showNotification({ message: err instanceof Error ? err.message : 'Stage move failed', color: 'red', autoClose: 5000 });
+    } finally {
+      setMovingStage(false);
+    }
+  }
+
   // `action` must resolve against GDS's ActionBar semantic-action
   // vocabulary at runtime (confirmed by testing — the type-level
   // `namespace:action` escape hatch alone is not enough; the id must
   // actually be registered, either in the built-in GdsVocabulary or a
-  // pack passed via `vocabularyPacks`). Every action here maps to a
-  // built-in vocabulary key except "pin" (LEAD_ACTION_VOCABULARY_PACK,
-  // defined above — GdsVocabulary has no "pin" entry).
+  // pack passed via `vocabularyPacks`).
   const actions = {
     primary: {
-      action: 'confirm' as const,
-      ariaLabel: 'Approve',
-      color: 'green',
+      action: 'edit' as const,
+      ariaLabel: 'Compose outreach',
+      color: 'indigo',
       disabled: busy,
-      onClick: handleAccept,
+      onClick: () => setOutreachOpen(true),
+      id: TOUR_SELECTOR.composeOutreach,
     },
     secondary: [
-      {
-        action: 'cancel' as const,
-        ariaLabel: 'Reject',
-        color: 'red',
-        variant: 'light',
-        disabled: busy,
-        onClick: () => setActionMode("decline"),
-      },
-      {
-        action: 'lead:pin' as const,
-        color: 'blue',
-        variant: 'light',
-        disabled: busy,
-        onClick: handlePin,
-      },
       {
         action: 'refresh' as const,
         ariaLabel: 'Request refresh',
@@ -1103,40 +1107,6 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
       },
     ],
     tertiary: [
-      {
-        action: 'edit' as const,
-        ariaLabel: 'Compose outreach',
-        color: 'dark',
-        variant: 'light',
-        disabled: busy,
-        onClick: () => setOutreachOpen(true),
-        // Issue #185 — GDS's renderSemanticAction spreads unrecognized props
-        // (including `id`) straight onto the real Mantine <Button>, so this
-        // lands on the actual DOM node the onboarding tour spotlights. Only
-        // compiles because `actions` has no explicit ActionBarProps
-        // annotation anywhere in its assignment chain today (confirmed) —
-        // if a future refactor adds one, TypeScript's excess-property check
-        // would start rejecting this and it'd need an `as` cast instead.
-        id: TOUR_SELECTOR.composeOutreach,
-      },
-      // Issue #126 — exactly one of these two is ever shown, derived from
-      // the lead's own current column (never both, never neither).
-      lead.kanbanColumn === 'BACKLOG'
-        ? {
-            action: 'lead:unbacklog' as const,
-            color: 'blue',
-            variant: 'light',
-            disabled: busy,
-            onClick: () => { setUnbacklogTarget(null); setActionMode('unbacklog'); },
-          }
-        : {
-            action: 'lead:backlog' as const,
-            color: 'gray',
-            variant: 'light',
-            disabled: busy,
-            onClick: handleMoveToBacklog,
-          },
-
       {
         action: 'delete' as const,
         ariaLabel: 'Delete',
@@ -1276,6 +1246,48 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
         </Box>
       </SimpleGrid>
 
+      <Box>
+        <Text size="xs" c="dimmed" fw={600} mb={4}>PIPELINE STAGE</Text>
+        <Group gap="xs" align="flex-end" wrap="wrap">
+          <AdminSelect
+            name="kanbanColumn"
+            label="Stage"
+            disabled={movingStage || busy}
+            data={
+              stageOptions.some((o) => o.value === lead.kanbanColumn)
+                ? stageOptions
+                : [{ value: lead.kanbanColumn, label: lead.kanbanColumn }, ...stageOptions]
+            }
+            value={lead.kanbanColumn}
+            onChange={(value: string | null) => handleStageChange(value)}
+          />
+          {lead.kanbanColumn !== 'WON' && (
+            <Button
+              size="xs"
+              variant="light"
+              color="teal"
+              loading={movingStage}
+              disabled={busy}
+              onClick={() => handleStageChange('WON')}
+            >
+              Mark Won
+            </Button>
+          )}
+          {lead.kanbanColumn !== 'LOST' && (
+            <Button
+              size="xs"
+              variant="light"
+              color="red"
+              loading={movingStage}
+              disabled={busy}
+              onClick={() => handleStageChange('LOST')}
+            >
+              Mark Lost
+            </Button>
+          )}
+        </Group>
+      </Box>
+
       {/* Lead ownership (issue: CRM Lead ownership) — self-assign is always
           allowed; assigning to (or clearing) someone else's assignment is
           disabled with a visible reason for a non-admin (CLAUDE.md Rule 7)
@@ -1283,7 +1295,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
           403. GDS's AdminSelect primitive (already imported/used elsewhere
           in this file) per the issue's Design System requirement. */}
       <Box>
-        <Text size="xs" c="dimmed" fw={600} mb={4}>ASSIGNMENT</Text>
+        <Text size="xs" c="dimmed" fw={600} mb={4}>DEAL OWNER (ASSIGNMENT)</Text>
         <Group gap="xs" align="flex-end">
           <AdminSelect
             name="assignTo"
@@ -1900,7 +1912,14 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
         </Button>
       </Group>
 
-      <ActivityPanel leadId={lead._id} brand={brand} contacts={lead.contacts} deals={lead.deals} />
+      <ActivityPanel
+        leadId={lead._id}
+        brand={brand}
+        contacts={lead.contacts}
+        deals={lead.deals}
+        refreshKey={outreachRefreshKey}
+        onOpenCompose={() => setOutreachOpen(true)}
+      />
 
       {((normalizedPro && normalizedPro.length > 0) || (normalizedCon && normalizedCon.length > 0)) && (
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
@@ -1975,7 +1994,13 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, opened = false,
           {content}
         </AdminDetailDrawer>
       )}
-      <OutreachComposeModal opened={outreachOpen} onClose={() => setOutreachOpen(false)} lead={lead} brand={brand} />
+      <OutreachComposeModal
+        opened={outreachOpen}
+        onClose={() => setOutreachOpen(false)}
+        lead={lead}
+        brand={brand}
+        onSent={() => setOutreachRefreshKey((k) => k + 1)}
+      />
       {/* issue #90: Decline Reason used to be an unconditional field buried
           at the bottom of a long scrollable drawer, disconnected from
           Reject — a user could tap Reject (which only set dead state; it

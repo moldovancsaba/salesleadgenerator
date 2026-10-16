@@ -33,13 +33,6 @@ type LeadCardProps = {
   // onboarding tour has a single real, stable element to spotlight — every
   // other rendered LeadCard instance leaves this undefined.
   tourTarget?: boolean;
-  // Inline Accept/Decline (2026-09-02) — undefined (not just omitted) when the
-  // caller has no onAction handler wired up, same optional-callback contract
-  // onOpen already uses, so a card rendered without board-level action support
-  // silently shows no buttons rather than a dead one.
-  onAccept?: () => void;
-  onDecline?: () => void;
-  actionBusy?: boolean;
 };
 
 const CURRENCY_SYMBOL: Record<string, string> = { USD: '$', EUR: '€' };
@@ -113,7 +106,7 @@ function ticketSizeCardCaption(ticketSize: TicketSizeDisplay): string | null {
   return 'Modelled estimate';
 }
 
-export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourTarget, onAccept, onDecline, actionBusy }: LeadCardProps) {
+export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourTarget }: LeadCardProps) {
   const ice = getIceScore(lead);
   const region = lead.region || 'NA';
   const quality = lead.qualityStatus || 'DRAFT';
@@ -149,17 +142,14 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
   // the first contact so the row isn't always '—' before data gets flagged.
   const contactName = getDecisionMakerContact(lead.contacts)?.name || lead.contacts?.[0]?.name || '—';
 
-  // Card-density tiering (issue #213) — Tier 0 is the fixed, always-visible
-  // "is this lead in trouble / worth deals, and what's the headline number"
-  // glance set (§8/§11); everything else is Tier 1, reachable via the
-  // expand affordance below without opening the detail modal. Every row
-  // still always renders ('—' when absent) within its own tier — this
-  // splits which tier a row belongs to, it doesn't change the "same shape
-  // regardless of which fields happen to be populated" rule those rows
-  // already followed.
+  const ownerLabel = lead.assignedToEmail
+    ? lead.assignedToEmail.split('@')[0]
+    : (lead.assignedTo || 'Unassigned');
+
   const tier0Metadata = [
     { label: 'Region', value: region },
     { label: hasDeals ? 'Deal value' : 'Ticket size', value: hasDeals ? formatCompactCurrency(dealsTotal, dealCurrency) : ticketSizeLabel },
+    { label: 'Owner', value: ownerLabel },
   ];
   const tier1Metadata = [
     { label: 'ICE', value: ice },
@@ -168,12 +158,6 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
   ];
   if (shouldShowWinProbability(isTerminalColumn, winProbability)) {
     tier1Metadata.push({ label: 'Win probability', value: `${Math.round(winProbability as number * 100)}%` });
-  }
-  if (lead.assignedToEmail || lead.assignedTo) {
-    tier1Metadata.push({
-      label: 'Assignee',
-      value: lead.assignedToEmail ? lead.assignedToEmail.split('@')[0] : lead.assignedTo!,
-    });
   }
 
   // Tier 1 always has at least ICE/Size/Contact (unconditional fixed
@@ -289,23 +273,11 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
             {createdLabel && `Created ${createdLabel}`}{createdLabel && updatedLabel && ' · '}{updatedLabel && `Updated ${updatedLabel}`}
           </Text>
         )}
-        {(onOpen || onAccept || onDecline) && (
+        {onOpen && (
           <Group gap={4} mt={4}>
-            {onOpen && (
-              <Button variant="light" size="xs" onClick={onOpen} data-tour={tourTarget ? TOUR_SELECTOR.leadDetailOpen : undefined}>
-                Open
-              </Button>
-            )}
-            {onAccept && (
-              <Button variant="light" size="xs" color="green" onClick={onAccept} loading={actionBusy} aria-label={`Accept ${lead.entity_name}`}>
-                Accept
-              </Button>
-            )}
-            {onDecline && (
-              <Button variant="light" size="xs" color="red" onClick={onDecline} loading={actionBusy} aria-label={`Decline ${lead.entity_name}`}>
-                Decline
-              </Button>
-            )}
+            <Button variant="light" size="xs" onClick={onOpen} data-tour={tourTarget ? TOUR_SELECTOR.leadDetailOpen : undefined}>
+              Open
+            </Button>
           </Group>
         )}
       </Stack>

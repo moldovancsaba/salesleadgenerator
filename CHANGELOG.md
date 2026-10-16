@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.280
+
+### CRM & Outreach: Pipeline stage management, drag-and-drop default, Deal Owner card lifecycle, and Gmail outreach integration (issue #245)
+
+- **Multi-Pipeline Creation & Stage Customization (`app/components/PipelineManagerModal.tsx`, `app/sales/[brand]/sales-page-client.tsx`, `app/api/pipelines/[id]/route.ts`, `lib/validate-lead.ts`, `app/lib/lead-actions.ts`, `app/api/leads/columns/route.ts`):**
+  - Added `PipelineManagerModal` accessible via the **Manage Pipelines** toolbar button on `/sales/[brand]`, allowing users to create multiple pipelines, rename/delete pipelines, set the default pipeline, and add, rename, recolor (using GDS Mantine semantic color tokens), reorder, and delete stages.
+  - Enabled customizing the canonical default pipeline (`default_<brand>`) via `PATCH /api/pipelines/[id]` with automatic MongoDB upsert.
+  - Extended `validateLeadPayload`, `validatePatchPayload`, `normalizeLead`, `executeLeadAction` (`COLUMN_MOVE`), and `GET /api/leads/columns` with `allowedColumns` resolved from the brand's configured pipelines so custom stage keys are accepted across board moves and column loads while preserving strict rejection of unconfigured column keys.
+- **Drag-and-Drop Enabled by Default (`app/api/settings/route.ts`, `app/kanban.tsx`):**
+  - Defaulted `dragEnabled` to `true` in `GET /api/settings` (unless explicitly disabled via `enabled: false`) and in `KanbanBoard` initial state so deals can be dragged and dropped between stages out of the box.
+- **Deal Lifecycle Simplification & Deal Owner Prominence (`app/card.tsx`, `app/kanban.tsx`, `app/detail.tsx`, `app/sales/[brand]/sales-page-client.tsx`, `app/components/AppNav.tsx`):**
+  - Removed redundant `Accept`, `Decline`/`Reject`, and `Move to Backlog` buttons from Kanban cards, bulk selection toolbar, and `LeadDetailModal`, and removed the `Backlog` view switcher tab (lost deals live in the `LOST` pipeline stage).
+  - Promoted Deal Owner (`Owner`: `assignedToEmail` username or `Unassigned`) to Tier 0 metadata on `KanbanCard` so deal ownership is always visible without expanding the card.
+  - Added an inline **PIPELINE STAGE** selector and quick **Mark Won** / **Mark Lost** controls directly above **DEAL OWNER (ASSIGNMENT)** inside `LeadDetailModal`.
+- **Gmail Integration in Outreach Compose & Activity Timeline (`app/outreach/compose-modal.tsx`, `app/components/ActivityPanel.tsx`, `app/detail.tsx`):**
+  - Unblocked freeform outreach composition in `OutreachComposeModal` when `templates.length === 0` so Subject, Channel (`Email (Gmail / System)` / `LinkedIn`), merge variable toolbar, Message, `Log outreach`, and `Send via Gmail` are always available.
+  - Added a direct **Connect Gmail** action button in `OutreachComposeModal` when personal Gmail is not yet connected, and added **Compose / Log Outreach** and **Sync Gmail** buttons in `ActivityPanel` with automatic timeline refresh after sending or logging outreach.
+- **Automated Verification:**
+  - Added unit test suite (`tests/lib/crm-pipeline-feedback.test.ts`, 6 tests) and updated `tests/lib/desktop-tablet-nav.test.ts`.
+
 ## 2.4.279
 
 ### Taxonomy: Evidence-based full taxonomy classification — Round 5 Batch 3 (issue #132)

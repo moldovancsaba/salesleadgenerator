@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Group, Text, Paper, Loader, Box, TextInput, UnstyledButton, ActionIcon, Tooltip, Select, SegmentedControl, Title, Badge, Button, Stack } from '@mantine/core';
-import { IconChecklist, IconX, IconPlus, IconSearch } from '@tabler/icons-react';
+import { IconChecklist, IconX, IconPlus, IconSearch, IconSettings } from '@tabler/icons-react';
 import { useCommandLauncher } from '@sovereignsquad/gds-core/client';
 import type { CommandDef } from '@sovereignsquad/gds-core/client';
 import type { Lead } from '@/app/types';
@@ -15,6 +15,7 @@ import { SearchLearningPanel } from '@/app/search-learning';
 import { MetricsPanel } from '@/app/metrics';
 import { FilterBar } from '@/app/components/FilterBar';
 import { AddLeadModal } from '@/app/components/AddLeadModal';
+import { PipelineManagerModal } from '@/app/components/PipelineManagerModal';
 import { BACKLOG_COLUMN_DEF } from '@/app/constants';
 import type { Pipeline } from '@/lib/pipelines';
 import { isDefaultPipelineId } from '@/lib/pipelines';
@@ -95,6 +96,7 @@ export function SalesPageClient({ brand, currency }: Props) {
   // simplest correct way to force a full reload without adding one.
   const [refreshKey, setRefreshKey] = useState(0)
   const [addLeadOpen, setAddLeadOpen] = useState(false)
+  const [pipelineManagerOpen, setPipelineManagerOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Lead[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -149,8 +151,8 @@ export function SalesPageClient({ brand, currency }: Props) {
   }, [pipelines, pipelineParam])
 
   const pipelineColumnDefs = useMemo(() => {
-    if (!activePipeline || activePipeline.isDefault) return undefined
-    return (activePipeline.stages || []).map(st => ({
+    if (!activePipeline || !Array.isArray(activePipeline.stages) || activePipeline.stages.length === 0) return undefined
+    return activePipeline.stages.map(st => ({
       key: st.key as any,
       label: st.label,
       description: st.description || '',
@@ -460,7 +462,7 @@ export function SalesPageClient({ brand, currency }: Props) {
                 <FilterBar brand={brand} value={leadFilter} onChange={setLeadFilter} />
               )}
 
-              {pipelines.length > 1 && (
+              {pipelines.length >= 1 && (
                 <Select
                   size="xs"
                   w={180}
@@ -478,11 +480,22 @@ export function SalesPageClient({ brand, currency }: Props) {
                   }}
                 />
               )}
+
+              <Button
+                size="xs"
+                variant="light"
+                color="indigo"
+                leftSection={<IconSettings size={14} />}
+                onClick={() => setPipelineManagerOpen(true)}
+                aria-label="Manage Pipelines"
+              >
+                Manage Pipelines
+              </Button>
             </Group>
 
             <SegmentedControl
               size="xs"
-              value={view}
+              value={view === 'backlog' ? 'kanban' : view}
               onChange={(val) => {
                 const url = new URL(window.location.href);
                 if (val === 'kanban') {
@@ -495,7 +508,6 @@ export function SalesPageClient({ brand, currency }: Props) {
               data={[
                 { label: 'Board', value: 'kanban' },
                 { label: 'Table', value: 'table' },
-                { label: 'Backlog', value: 'backlog' },
                 { label: 'Metrics', value: 'metrics' },
               ]}
             />
@@ -512,7 +524,7 @@ export function SalesPageClient({ brand, currency }: Props) {
               }
             >
               <KanbanBoard
-                key={`kanban-${refreshKey}-${activePipeline?.id || 'default'}`}
+                key={`kanban-${refreshKey}-${activePipeline?.id || 'default'}-${(activePipeline?.stages || []).map((s) => `${s.key}:${s.label}:${s.color}`).join(',')}`}
                 brand={brand}
                 columnDefs={pipelineColumnDefs}
                 onOpenLead={setSelectedLead}
@@ -564,6 +576,7 @@ export function SalesPageClient({ brand, currency }: Props) {
           lead={selectedLead}
           brand={brand}
           currency={currency}
+          pipelineStages={activePipeline?.stages}
           opened
           onClose={() => {
             setSelectedLead(null);
@@ -584,6 +597,27 @@ export function SalesPageClient({ brand, currency }: Props) {
         opened={addLeadOpen}
         onClose={() => setAddLeadOpen(false)}
         onCreated={() => setRefreshKey((k) => k + 1)}
+      />
+
+      <PipelineManagerModal
+        opened={pipelineManagerOpen}
+        onClose={() => setPipelineManagerOpen(false)}
+        brand={brand}
+        pipelines={pipelines}
+        selectedPipelineId={activePipeline?.id || null}
+        onPipelinesChanged={(updated, nextActiveId) => {
+          setPipelines(updated);
+          if (nextActiveId) {
+            const url = new URL(window.location.href);
+            if (!isDefaultPipelineId(nextActiveId, brand)) {
+              url.searchParams.set('pipeline', nextActiveId);
+            } else {
+              url.searchParams.delete('pipeline');
+            }
+            router.replace(`${url.pathname}${url.search}`);
+          }
+          setRefreshKey((k) => k + 1);
+        }}
       />
     </Box>
   );

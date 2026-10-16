@@ -43,11 +43,10 @@ export async function GET() {
     // Issue #213 — a non-blocking, purely visual kanban column WIP cue;
     // additive, same per-key `settings` document pattern as thresholds above.
     const wipLimits = wipLimitsDoc?.thresholds || DEFAULT_WIP_LIMITS
-    // Issue #208 — real drag-and-drop's kill switch. Fail-closed: an absent
-    // doc or `enabled` anything other than literal `true` means drag stays
-    // off, matching every other fetch-failure-falls-back-to-default
-    // convention on this route.
-    const dragEnabled = dragEnabledDoc?.enabled === true
+    // Issue 245 — drag-and-drop stage movement is enabled by default; an
+    // explicit settings doc `{ key: 'kanban_drag_enabled', enabled: false }`
+    // still acts as a kill switch if an operator disables it.
+    const dragEnabled = dragEnabledDoc ? dragEnabledDoc.enabled !== false : true
     return NextResponse.json({
       weights,
       thresholds,

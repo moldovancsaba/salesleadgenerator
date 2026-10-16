@@ -19,13 +19,15 @@ describe('desktop and tablet navigation affordances', () => {
     expect(content).toContain('⌘K');
   });
 
-  it('includes inline view SegmentedControl switcher in sales page client', () => {
+  it('includes inline view SegmentedControl switcher and Manage Pipelines trigger in sales page client', () => {
     const content = readFileSync(join(root, 'app', 'sales', '[brand]', 'sales-page-client.tsx'), 'utf8');
     expect(content).toContain('SegmentedControl');
     expect(content).toContain("{ label: 'Board', value: 'kanban' }");
     expect(content).toContain("{ label: 'Table', value: 'table' }");
-    expect(content).toContain("{ label: 'Backlog', value: 'backlog' }");
     expect(content).toContain("{ label: 'Metrics', value: 'metrics' }");
+    expect(content).not.toContain("{ label: 'Backlog', value: 'backlog' }");
+    expect(content).toContain('Manage Pipelines');
+    expect(content).toContain('<PipelineManagerModal');
   });
 
   it('gates PwaSetup gesture cancellation to compact mobile standalone only', () => {
@@ -54,9 +56,9 @@ describe('desktop and tablet navigation affordances', () => {
     expect(content).toContain('setRefreshKey((k) => k + 1)');
   });
 
-  it('displays Assignee in card tier metadata when lead is assigned', () => {
+  it('displays Deal Owner in card tier 0 metadata on every card', () => {
     const content = readFileSync(join(root, 'app', 'card.tsx'), 'utf8');
-    expect(content).toContain("label: 'Assignee'");
+    expect(content).toContain("label: 'Owner'");
     expect(content).toContain('lead.assignedToEmail');
   });
 

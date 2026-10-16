@@ -109,6 +109,8 @@ type Props = {
   // the zero-contacts case (disabled) when omitted.
   contacts?: ActivityContact[]
   deals?: ActivityDeal[]
+  refreshKey?: number
+  onOpenCompose?: () => void
 }
 
 const TYPE_LABEL: Record<ActivityEntry['type'], string> = {
@@ -129,7 +131,7 @@ const TYPE_LABEL: Record<ActivityEntry['type'], string> = {
 // unconditionally inside LeadDetailModal's content, which only ever renders
 // while the modal is open (LeadDetailModal returns null when !opened), so
 // this naturally only fetches while the lead detail is actually visible.
-export function ActivityPanel({ leadId, brand, contacts = [], deals = [] }: Props) {
+export function ActivityPanel({ leadId, brand, contacts = [], deals = [], refreshKey = 0, onOpenCompose }: Props) {
   const [activity, setActivity] = useState<ActivityEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -137,6 +139,7 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [] }: Prop
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [showHistorical, setShowHistorical] = useState(false)
   const [historicalCount, setHistoricalCount] = useState(0)
+  const [syncingGmail, setSyncingGmail] = useState(false)
 
   // Deal association state (predecessor CRM roadmap §CRM line 20)
   const [callDealId, setCallDealId] = useState<string | null>(null)
@@ -222,7 +225,7 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [] }: Prop
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [leadId, brand, showHistorical])
+  }, [leadId, brand, showHistorical, refreshKey])
 
   useEffect(() => {
     let cancelled = false
@@ -351,6 +354,29 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [] }: Prop
       .finally(() => setLoggingNote(false))
   }
 
+  async function handleSyncGmail() {
+    setSyncingGmail(true)
+    try {
+      const res = await fetch(`/api/user/integrations/gmail/sync?brand=${encodeURIComponent(brand)}`, {
+        method: 'POST',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.ok) {
+        const msg = data.ingested > 0
+          ? `Synced ${data.ingested} new message${data.ingested === 1 ? '' : 's'} from your Gmail inbox.`
+          : 'Gmail inbox checked — no new correspondence for this lead.'
+        showNotification({ message: msg, color: 'teal' })
+        loadActivity()
+      } else {
+        showNotification({ message: data.error || 'Connect Gmail in Email & Integrations to sync correspondence.', color: 'orange' })
+      }
+    } catch {
+      showNotification({ message: 'Could not reach server to sync Gmail.', color: 'red' })
+    } finally {
+      setSyncingGmail(false)
+    }
+  }
+
   return (
     <Box>
       {suggestions.length > 0 && (
@@ -394,6 +420,25 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [] }: Prop
           )}
         </Group>
         <Group gap="xs">
+          {onOpenCompose && (
+            <Button
+              size="xs"
+              variant="light"
+              color="indigo"
+              onClick={onOpenCompose}
+            >
+              Compose / Log Outreach
+            </Button>
+          )}
+          <Button
+            size="xs"
+            variant="light"
+            color="teal"
+            loading={syncingGmail}
+            onClick={handleSyncGmail}
+          >
+            Sync Gmail
+          </Button>
           <Button
             size="xs"
             variant="light"

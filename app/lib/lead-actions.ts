@@ -67,11 +67,27 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
   const existing = await db.collection(config.dbCollection).findOne({ _id: new ObjectId(leadId), ...tenantFilter })
   if (!existing) return { success: false, error: 'Lead not found', requestId }
 
+  // Issue 245 — allow custom stage keys from pipelines configured for this brand/tenant
+  let allowedColumns: string[] | undefined
+  if (action === 'COLUMN_MOVE' && typeof payload.kanbanColumn === 'string') {
+    const requestedCol = payload.kanbanColumn.trim().toUpperCase()
+    const standardCols = new Set(['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST', 'BACKLOG'])
+    if (requestedCol && !standardCols.has(requestedCol)) {
+      const customPipe = await db.collection('pipelines').findOne(
+        { brand, ...tenantFilter, 'stages.key': requestedCol },
+        { projection: { _id: 1 } }
+      )
+      if (customPipe) {
+        allowedColumns = [requestedCol]
+      }
+    }
+  }
+
   const forbiddenTerms = await getForbiddenTermsFor(brand)
-  const validation = validatePatchPayload({ action, ...payload }, brand, forbiddenTerms)
+  const validation = validatePatchPayload({ action, ...payload }, brand, forbiddenTerms, { allowedColumns })
   if (!validation.valid) return { success: false, error: validation.errors.join('; '), requestId }
 
-  const normalizedBody = normalizeLead({ ...existing, ...payload, action })
+  const normalizedBody = normalizeLead({ ...existing, ...payload, action }, { allowedColumns })
   const updateData: Record<string, any> = { updatedAt: new Date() }
   let outcomeValue: string = action
 

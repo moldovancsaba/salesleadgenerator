@@ -482,145 +482,171 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
             <Group gap="sm"><Loader size="xs" /> <Text size="sm">Loading templates…</Text></Group>
           </Paper>
         ) : templates.length === 0 ? (
-          <Paper p="md" withBorder>
-            <Text size="sm" c="dimmed">No matching templates for {industry || 'this lead'}.</Text>
+          <Paper p="xs" withBorder>
+            <Text size="xs" c="dimmed">
+              No matching templates for {industry || 'this lead'} — compose a freeform outreach message below.
+            </Text>
           </Paper>
         ) : (
-          <>
-            <Select
-              label="Template"
-              data={templates.map((t) => ({ value: t.id, label: t.name }))}
-              value={templateId}
-              onChange={(value) => setTemplateId(value || null)}
-            />
-            <Textarea
-              ref={subjectRef}
-              label={channel === 'email' ? 'Subject' : 'Channel'}
-              value={channel === 'email' ? subject : channel.toUpperCase()}
-              onChange={(e) => {
-                if (channel === 'email') setSubject(e.target.value);
-                updateCaret('subject', e);
-              }}
-              onFocus={(e) => updateCaret('subject', e)}
-              onSelect={(e) => updateCaret('subject', e)}
-              onClick={(e) => updateCaret('subject', e)}
-              onKeyUp={(e) => updateCaret('subject', e)}
-              disabled={channel !== 'email'}
-            />
-            <Stack gap={4}>
-              <Group justify="space-between" align="center">
-                <Text size="xs" fw={500} c="dimmed">
-                  Insert merge variable {activeField === 'subject' && channel === 'email' ? '(into Subject)' : '(into Message)'}:
-                </Text>
-                <Text size="xs" c="dimmed">
-                  Click to insert at cursor
-                </Text>
-              </Group>
-              <Group gap={6} wrap="wrap" role="toolbar" aria-label="Template merge variables">
-                {COMPOSE_TOKENS.map((item) => {
-                  const preview = resolveTokenPreview(item.key, interpolationValues);
-                  const tooltipText = preview ? `Resolves to: "${preview}"` : `No ${item.label.toLowerCase()} for this lead`;
-                  return (
-                    <Tooltip key={item.token} label={tooltipText} withArrow position="top">
-                      <Button
-                        size="compact-xs"
-                        variant="light"
-                        color="indigo"
-                        role="button"
-                        aria-label={`Insert ${item.token} merge variable`}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => handleInsertToken(item.token)}
-                      >
-                        {item.token}
-                      </Button>
-                    </Tooltip>
-                  );
-                })}
-              </Group>
-            </Stack>
-            <Textarea
-              ref={bodyRef}
-              label="Message"
-              value={body}
-              onChange={(e) => {
-                setBody(e.target.value);
-                updateCaret('body', e);
-              }}
-              onFocus={(e) => updateCaret('body', e)}
-              onSelect={(e) => updateCaret('body', e)}
-              onClick={(e) => updateCaret('body', e)}
-              onKeyUp={(e) => updateCaret('body', e)}
-              rows={8}
-              description="Variables are pre-filled from the lead."
-            />
-            <Group justify="space-between" align="center" wrap="wrap" gap="xs">
-              <Group gap="xs">
-                {senderInfo.provider === 'gmail' ? (
-                  <Badge color="teal" variant="light" size="sm">
-                    Sending from: {senderInfo.email || 'Personal Gmail'}
-                  </Badge>
-                ) : (
-                  <Badge color="gray" variant="light" size="sm">
-                    Sending via: System Email (Resend)
-                  </Badge>
-                )}
-                {senderInfo.provider === 'gmail' && senderInfo.signatureText && channel === 'email' && (
+          <Select
+            label="Template (optional)"
+            placeholder="Freeform message (no template)"
+            clearable
+            data={templates.map((t) => ({ value: t.id, label: t.name }))}
+            value={templateId}
+            onChange={(value) => setTemplateId(value || null)}
+          />
+        )}
+
+        <Select
+          label="Outreach Channel"
+          data={[
+            { value: 'email', label: 'Email (Gmail / System)' },
+            { value: 'linkedin', label: 'LinkedIn' },
+          ]}
+          value={channel}
+          onChange={(val) => {
+            if (val === 'email' || val === 'linkedin') setChannel(val);
+          }}
+        />
+
+        <Textarea
+          ref={subjectRef}
+          label={channel === 'email' ? 'Subject' : 'Channel'}
+          value={channel === 'email' ? subject : channel.toUpperCase()}
+          onChange={(e) => {
+            if (channel === 'email') setSubject(e.target.value);
+            updateCaret('subject', e);
+          }}
+          onFocus={(e) => updateCaret('subject', e)}
+          onSelect={(e) => updateCaret('subject', e)}
+          onClick={(e) => updateCaret('subject', e)}
+          onKeyUp={(e) => updateCaret('subject', e)}
+          disabled={channel !== 'email'}
+        />
+        <Stack gap={4}>
+          <Group justify="space-between" align="center">
+            <Text size="xs" fw={500} c="dimmed">
+              Insert merge variable {activeField === 'subject' && channel === 'email' ? '(into Subject)' : '(into Message)'}:
+            </Text>
+            <Text size="xs" c="dimmed">
+              Click to insert at cursor
+            </Text>
+          </Group>
+          <Group gap={6} wrap="wrap" role="toolbar" aria-label="Template merge variables">
+            {COMPOSE_TOKENS.map((item) => {
+              const preview = resolveTokenPreview(item.key, interpolationValues);
+              const tooltipText = preview ? `Resolves to: "${preview}"` : `No ${item.label.toLowerCase()} for this lead`;
+              return (
+                <Tooltip key={item.token} label={tooltipText} withArrow position="top">
                   <Button
                     size="compact-xs"
-                    variant={includeSignature ? 'light' : 'subtle'}
-                    color={includeSignature ? 'indigo' : 'gray'}
-                    onClick={() => setIncludeSignature((v) => !v)}
-                    title={includeSignature ? 'Click to exclude Gmail signature' : 'Click to include Gmail signature'}
+                    variant="light"
+                    color="indigo"
+                    role="button"
+                    aria-label={`Insert ${item.token} merge variable`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleInsertToken(item.token)}
                   >
-                    {includeSignature ? 'Signature attached' : 'No signature'}
+                    {item.token}
                   </Button>
-                )}
-                {threadContext && channel === 'email' && (
-                  <Button
-                    size="compact-xs"
-                    variant={replyInThread ? 'light' : 'subtle'}
-                    color={replyInThread ? 'blue' : 'gray'}
-                    onClick={() => {
-                      const next = !replyInThread;
-                      setReplyInThread(next);
-                      if (next && threadContext?.subject) {
-                        const cleanSub = threadContext.subject.replace(/^(\s*(re|fwd|fw)\s*:\s*)+/gi, '').trim();
-                        setSubject((prev) => (prev ? prev : `Re: ${cleanSub}`));
-                      }
-                    }}
-                    title={replyInThread ? 'Click to start a new distinct thread' : 'Click to reply in existing thread'}
-                    aria-label="Send as reply in existing thread"
-                  >
-                    {replyInThread ? '↩ Reply in thread' : 'New thread'}
-                  </Button>
-                )}
-              </Group>
-              <Group justify="flex-end" gap="sm">
-                <Button variant="light" onClick={onClose} disabled={logging || sendingEmail}>Cancel</Button>
-                {/* Issue #205 — "Log outreach" only ever writes a record (never
-                    sends); its busy label reads "Logging…", distinct from "Send
-                    email"'s own "Sending…" below — CLAUDE.md Rule 7: no label
-                    may imply a different interaction than the one it performs. */}
-                <Button variant="light" onClick={handleSend} disabled={!canSend || logging || sendingEmail}>
-                  {logging ? 'Logging…' : 'Log outreach'}
+                </Tooltip>
+              );
+            })}
+          </Group>
+        </Stack>
+        <Textarea
+          ref={bodyRef}
+          label="Message"
+          value={body}
+          onChange={(e) => {
+            setBody(e.target.value);
+            updateCaret('body', e);
+          }}
+          onFocus={(e) => updateCaret('body', e)}
+          onSelect={(e) => updateCaret('body', e)}
+          onClick={(e) => updateCaret('body', e)}
+          onKeyUp={(e) => updateCaret('body', e)}
+          rows={8}
+          description="Variables are pre-filled from the lead."
+        />
+        <Group justify="space-between" align="center" wrap="wrap" gap="xs">
+          <Group gap="xs">
+            {senderInfo.provider === 'gmail' ? (
+              <Badge color="teal" variant="light" size="sm">
+                Gmail Connected: {senderInfo.email || 'Personal Gmail'}
+              </Badge>
+            ) : (
+              <>
+                <Badge color="gray" variant="light" size="sm">
+                  Sending via: System Email (Resend)
+                </Badge>
+                <Button
+                  size="compact-xs"
+                  variant="light"
+                  color="indigo"
+                  component="a"
+                  href={`/api/integrations/gmail/connect?brand=${encodeURIComponent(brand)}&scopeType=user&returnUrl=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname + window.location.search : `/sales/${brand}`)}`}
+                >
+                  Connect Gmail
                 </Button>
-                {channel === 'email' && (
-                  <Button color="red" onClick={handleSendEmail} disabled={!canSendEmail || logging || sendingEmail} loading={sendingEmail}>
-                    Send email
-                  </Button>
-                )}
-              </Group>
-            </Group>
-            {channelBlockReason && (
-              <Text size="xs" c="red">{channelBlockReason}</Text>
+              </>
             )}
-            {logError && (
-              <Text size="xs" c="red" aria-live="polite">{logError}</Text>
+            {senderInfo.provider === 'gmail' && senderInfo.signatureText && channel === 'email' && (
+              <Button
+                size="compact-xs"
+                variant={includeSignature ? 'light' : 'subtle'}
+                color={includeSignature ? 'indigo' : 'gray'}
+                onClick={() => setIncludeSignature((v) => !v)}
+                title={includeSignature ? 'Click to exclude Gmail signature' : 'Click to include Gmail signature'}
+              >
+                {includeSignature ? 'Signature attached' : 'No signature'}
+              </Button>
             )}
-            {sendError && (
-              <Text size="xs" c="red" aria-live="polite">{sendError}</Text>
+            {threadContext && channel === 'email' && (
+              <Button
+                size="compact-xs"
+                variant={replyInThread ? 'light' : 'subtle'}
+                color={replyInThread ? 'blue' : 'gray'}
+                onClick={() => {
+                  const next = !replyInThread;
+                  setReplyInThread(next);
+                  if (next && threadContext?.subject) {
+                    const cleanSub = threadContext.subject.replace(/^(\s*(re|fwd|fw)\s*:\s*)+/gi, '').trim();
+                    setSubject((prev) => (prev ? prev : `Re: ${cleanSub}`));
+                  }
+                }}
+                title={replyInThread ? 'Click to start a new distinct thread' : 'Click to reply in existing thread'}
+                aria-label="Send as reply in existing thread"
+              >
+                {replyInThread ? '↩ Reply in thread' : 'New thread'}
+              </Button>
             )}
-          </>
+          </Group>
+          <Group justify="flex-end" gap="sm">
+            <Button variant="light" onClick={onClose} disabled={logging || sendingEmail}>Cancel</Button>
+            {/* Issue #205 — "Log outreach" only ever writes a record (never
+                sends); its busy label reads "Logging…", distinct from "Send
+                email"'s own "Sending…" below — CLAUDE.md Rule 7: no label
+                may imply a different interaction than the one it performs. */}
+            <Button variant="light" onClick={handleSend} disabled={!canSend || logging || sendingEmail}>
+              {logging ? 'Logging…' : 'Log outreach'}
+            </Button>
+            {channel === 'email' && (
+              <Button color="red" onClick={handleSendEmail} disabled={!canSendEmail || logging || sendingEmail} loading={sendingEmail}>
+                {senderInfo.provider === 'gmail' ? 'Send via Gmail' : 'Send email'}
+              </Button>
+            )}
+          </Group>
+        </Group>
+        {channelBlockReason && (
+          <Text size="xs" c="red">{channelBlockReason}</Text>
+        )}
+        {logError && (
+          <Text size="xs" c="red" aria-live="polite">{logError}</Text>
+        )}
+        {sendError && (
+          <Text size="xs" c="red" aria-live="polite">{sendError}</Text>
         )}
       </Stack>
     </Modal>

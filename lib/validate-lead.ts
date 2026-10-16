@@ -68,9 +68,12 @@ export function bestContactConfidence(contacts: any[]): number {
   return Math.max(...contacts.map(contactConfidence));
 }
 
-export function validateLeadPayload(body: any, brand: string, forbiddenTerms: string[], options?: { partial?: boolean }): ValidationResult {
+export function validateLeadPayload(body: any, brand: string, forbiddenTerms: string[], options?: { partial?: boolean; allowedColumns?: string[] }): ValidationResult {
   const errors: string[] = [];
   const partial = options?.partial === true;
+  const validColumns = options?.allowedColumns?.length
+    ? new Set([...KANBAN_COLUMNS, ...options.allowedColumns.map((c) => c.toUpperCase())])
+    : KANBAN_COLUMN_SET;
 
   if (!body || typeof body !== 'object') {
     return { valid: false, errors: ['Invalid payload'] };
@@ -107,8 +110,8 @@ export function validateLeadPayload(body: any, brand: string, forbiddenTerms: st
 
   if (!partial || body.kanbanColumn !== undefined) {
     const kanbanColumn = body.kanbanColumn;
-    if (!kanbanColumn || typeof kanbanColumn !== 'string' || !KANBAN_COLUMN_SET.has(kanbanColumn.toUpperCase())) {
-      errors.push('kanbanColumn must be one of: ' + KANBAN_COLUMNS.join(', '));
+    if (!kanbanColumn || typeof kanbanColumn !== 'string' || !validColumns.has(kanbanColumn.toUpperCase())) {
+      errors.push('kanbanColumn must be one of: ' + Array.from(validColumns).join(', '));
     }
   }
 
@@ -223,8 +226,11 @@ export function validateLeadPayload(body: any, brand: string, forbiddenTerms: st
   };
 }
 
-export function validatePatchPayload(body: any, brand: string, forbiddenTerms: string[]): ValidationResult {
+export function validatePatchPayload(body: any, brand: string, forbiddenTerms: string[], options?: { allowedColumns?: string[] }): ValidationResult {
   const errors: string[] = [];
+  const validColumns = options?.allowedColumns?.length
+    ? new Set([...KANBAN_COLUMNS, ...options.allowedColumns.map((c) => c.toUpperCase())])
+    : KANBAN_COLUMN_SET;
 
   if (!body || typeof body !== 'object') {
     return { valid: false, errors: ['Invalid payload'] };
@@ -245,7 +251,7 @@ export function validatePatchPayload(body: any, brand: string, forbiddenTerms: s
     // breaking Edit Lead Details, actual-deal-value capture, and the manual
     // ticket-size-override clear — every one of those payloads 400'd before
     // reaching executeLeadAction's actual field-update logic.
-    const result = validateLeadPayload(body, brand, forbiddenTerms, { partial: true });
+    const result = validateLeadPayload(body, brand, forbiddenTerms, { partial: true, allowedColumns: options?.allowedColumns });
     if (!result.valid) {
       return result;
     }
@@ -253,8 +259,8 @@ export function validatePatchPayload(body: any, brand: string, forbiddenTerms: s
 
   if (action === 'COLUMN_MOVE') {
     const kanbanColumn = body.kanbanColumn;
-    if (!kanbanColumn || typeof kanbanColumn !== 'string' || !KANBAN_COLUMN_SET.has(kanbanColumn.toUpperCase())) {
-      errors.push('kanbanColumn must be one of: ' + KANBAN_COLUMNS.join(', '));
+    if (!kanbanColumn || typeof kanbanColumn !== 'string' || !validColumns.has(kanbanColumn.toUpperCase())) {
+      errors.push('kanbanColumn must be one of: ' + Array.from(validColumns).join(', '));
     }
   }
 

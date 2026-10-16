@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
-import { Box, Group, Loader, Button, Checkbox, Text, Menu, Select, TextInput, Badge } from '@mantine/core';
-import { IconArchive, IconArrowBackUp, IconChevronDown } from '@tabler/icons-react';
+import { Box, Group, Loader, Button, Checkbox, Text, Select, TextInput, Badge } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { KanbanBoard as GdsKanbanBoard } from '@sovereignsquad/gds-core/client';
 import type { KanbanItem as GdsKanbanItem, KanbanColumnData as GdsKanbanColumnData } from '@sovereignsquad/gds-core/client';
@@ -123,7 +122,7 @@ function LoadMoreSentinel({ onLoadMore }: { onLoadMore: () => void }) {
   );
 }
 
-export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false, columnDefs = COLUMNS, onAction, onVisibleLeadsChange }: BoardProps) {
+export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false, columnDefs = COLUMNS, onVisibleLeadsChange }: BoardProps) {
   // Record<string, ...> (not Record<KanbanColumn, ...>) — this component no
   // longer always manages all 6 Pipeline columns; the Backlog board mounts
   // it with a single 'BACKLOG' entry instead (issue #126).
@@ -241,12 +240,10 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // trip rather than adding a second one (§16's own explicit requirement).
   const [wipLimits, setWipLimits] = useState<Record<string, number>>(DEFAULT_WIP_LIMITS)
 
-  // Issue #208 — real drag-and-drop's operator kill switch. Fail-closed
-  // default: the board renders with drag off until this fetch resolves (no
-  // flash of enabled-then-disabled), and stays off on a fetch failure —
-  // same contract as staleThresholds/wipLimits above, extending the same
-  // single settings round trip rather than adding a second one.
-  const [dragEnabled, setDragEnabled] = useState(false)
+  // Issue 245 — drag-and-drop stage movement is enabled by default out of
+  // the box. An explicit `{ dragEnabled: false }` from `/api/settings`
+  // still acts as an operator kill switch if needed.
+  const [dragEnabled, setDragEnabled] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -674,37 +671,6 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     }
   }, [undoInfo, brand, tenantId, loadColumn])
 
-  // Per-card Accept/Decline (2026-09-02), reusing the same `onAction` handler
-  // the detail modal's own Accept/Decline buttons call — never a second
-  // implementation of the action, just a second place to trigger it from.
-  // Tracked per-lead-id so accepting one card's loading spinner never lights
-  // up every other card on the board.
-  const [inlineBusyIds, setInlineBusyIds] = useState<Set<string>>(() => new Set())
-  const runInlineAction = useCallback(async (leadId: string, action: 'ACCEPT' | 'DECLINE') => {
-    if (!onAction) return
-    setInlineBusyIds((prev) => new Set(prev).add(leadId))
-    try {
-      await onAction(leadId, action, action === 'DECLINE' ? { declineReason: 'OTHER' } : undefined)
-      showNotification({
-        message: `Lead ${action === 'ACCEPT' ? 'accepted' : 'declined'}.`,
-        color: action === 'ACCEPT' ? 'teal' : 'gray',
-        autoClose: 3000,
-      })
-    } catch (err) {
-      showNotification({
-        message: err instanceof Error ? err.message : `${action === 'ACCEPT' ? 'Accept' : 'Decline'} failed`,
-        color: 'red',
-        autoClose: 5000,
-      })
-    } finally {
-      setInlineBusyIds((prev) => {
-        const next = new Set(prev)
-        next.delete(leadId)
-        return next
-      })
-    }
-  }, [onAction])
-
   const formatForecast = useCallback((value: number) => {
     const symbol = forecastCurrency === 'EUR' ? '€' : '$'
     return `${symbol}${Math.round(value).toLocaleString()}`
@@ -805,67 +771,14 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           nudge={nudge}
           winProbability={forecast?.[column.id]?.probability ?? null}
           tourTarget={tourTarget}
-          onAccept={onAction ? () => runInlineAction(leadItem.lead._id, 'ACCEPT') : undefined}
-          onDecline={onAction ? () => runInlineAction(leadItem.lead._id, 'DECLINE') : undefined}
-          actionBusy={inlineBusyIds.has(leadItem.lead._id)}
         />
-        {/* Issue #126 — deliberately not GDS's own per-card "Move to
-            column" dropdown: that widget's targets are exactly whatever
-            this board's own `columns` prop contains, so a one-column
-            Backlog board has no other targets to offer there, and adding
-            Backlog to the 6-column Pipeline board's own `columns` would
-            make it a 7th *visible* column, which the whole point of this
-            feature is to avoid. Both directions are separate, explicit
-            actions instead — derived from which column this card is
-            currently rendered in, not a separate mode flag on the board. */}
-        {column.id === 'BACKLOG' ? (
-          <Menu shadow="md" position="bottom-start">
-            <Menu.Target>
-              <Button size="xs" variant="light" mt={4} leftSection={<IconArrowBackUp size={12} />} rightSection={<IconChevronDown size={12} />}>
-                Move to Pipeline
-              </Button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              {COLUMNS.map((col) => (
-                <Menu.Item key={col.key} onClick={() => handleMove(leadItem.lead._id, 'BACKLOG', col.key)}>
-                  {col.label}
-                </Menu.Item>
-              ))}
-            </Menu.Dropdown>
-          </Menu>
-        ) : (
-          <Button
-            size="xs"
-            variant="subtle"
-            color="gray"
-            mt={4}
-            leftSection={<IconArchive size={12} />}
-            onClick={() => handleMove(leadItem.lead._id, column.id as KanbanColumn, 'BACKLOG')}
-          >
-            Move to Backlog
-          </Button>
-        )}
         {isLast && Boolean(colState?.hasMore) && !colState?.loading && (
           <LoadMoreSentinel onLoadMore={() => loadColumn(column.id as KanbanColumn, colState.cursor)} />
         )}
       </>
     )
-  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast, handleMove, firstNonEmptyColumnId, onAction, runInlineAction, inlineBusyIds])
+  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast, firstNonEmptyColumnId])
 
-  // enableDrag is now conditional on the dragEnabled kill switch (issue
-  // #208), fetched above and defaulting to false (fail-closed) until an
-  // operator explicitly turns it on via `PUT /api/settings {dragEnabled:
-  // true}` — see docs/ARCHITECTURE.md's "Kanban Board and Drag-and-Drop"
-  // for the full history of why this was off (a real 2.4.10-2.4.17
-  // production crash) and why re-enabling it now is treated as a fresh
-  // risk, not an assumed-safe retry. The keyboard/tap-accessible "Move to
-  // column" menu (unconditional, not gated by enableDrag) remains the
-  // permanent primary path regardless of the switch's state. The board
-  // mount is wrapped in ErrorBoundary so a render-time exception inside
-  // GDS's own drag machinery is caught and reported instead of
-  // white-screening the whole board — the one failure mode LeadCard's own
-  // per-card boundary (app/card.tsx) can't cover, since it never runs
-  // outside that machinery.
   return (
     <>
       {/* Bulk actions v2 (issue #203) — the NN/g "select-all" leg, always
@@ -907,12 +820,6 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           <Text size="sm" fw={600}>
             {selectedIds.size} selected in {selectedColumn}
           </Text>
-          <Button size="xs" color="green" variant="light" onClick={() => runBulkAction('ACCEPT')} loading={bulkRunning}>
-            Accept selected
-          </Button>
-          <Button size="xs" color="red" variant="light" onClick={() => runBulkAction('DECLINE')} loading={bulkRunning}>
-            Decline selected
-          </Button>
           <Button size="xs" color="teal" variant="light" onClick={() => runBulkAction('PIN')} loading={bulkRunning}>
             Pin selected
           </Button>

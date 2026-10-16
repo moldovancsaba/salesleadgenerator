@@ -33,12 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     const column = searchParams.get('column')
-    // BACKLOG (issue #126) included so the one-column Backlog board can
-    // fetch/paginate through this same route — it's excluded from the
-    // Pipeline board's own column set (app/constants.ts), not from what
-    // this route considers a fetchable column.
-    const allowed = new Set(['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST', 'BACKLOG'])
-    if (!column || !allowed.has(column)) {
+    if (!column) {
       return NextResponse.json({ error: 'column=DISCOVERED|QUALIFIED|ENGAGED|PROPOSAL|WON|LOST|BACKLOG required' }, { status: 400 })
     }
 
@@ -57,6 +52,21 @@ export async function GET(request: NextRequest) {
 
     const client = await clientPromise
     const db = client.db()
+
+    // BACKLOG (issue #126) included so the one-column Backlog board can
+    // fetch/paginate through this same route; custom pipeline stage keys
+    // (issue 245) are checked against the brand's pipelines collection.
+    const allowed = new Set(['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON', 'LOST', 'BACKLOG'])
+    if (!allowed.has(column)) {
+      const customStageDoc = await db.collection('pipelines').findOne(
+        { brand, ...filter, 'stages.key': column },
+        { projection: { _id: 1 } }
+      )
+      if (!customStageDoc) {
+        return NextResponse.json({ error: 'column=DISCOVERED|QUALIFIED|ENGAGED|PROPOSAL|WON|LOST|BACKLOG required' }, { status: 400 })
+      }
+    }
+
     const collection = db.collection(config.dbCollection)
     const baseColFilter: Record<string, any> = { kanbanColumn: column, ...filter }
     if (region) baseColFilter.region = region
