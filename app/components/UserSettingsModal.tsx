@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { Modal, Stack, Group, Title, Text, Button, Paper, Badge, Divider, Loader, Alert } from '@mantine/core';
-import { IconMail, IconBrandGoogle, IconCheck, IconAlertTriangle, IconRefresh, IconUnlink } from '@tabler/icons-react';
+import { Modal, Stack, Group, Title, Text, Button, Paper, Badge, Divider, Loader, Alert, Switch, NumberInput } from '@mantine/core';
+import { IconMail, IconBrandGoogle, IconCheck, IconAlertTriangle, IconRefresh, IconUnlink, IconCalendar, IconInfoCircle } from '@tabler/icons-react';
 import { useAuth } from './AuthProvider';
 
 type SafeConnection = {
@@ -17,6 +17,18 @@ type SafeConnection = {
   lastSyncError?: string;
   signatureText?: string;
   signatureSyncedAt?: string;
+};
+
+type CalendarSyncSettings = {
+  syncEnabled: boolean;
+  defaultDurationMinutes: number;
+  autoSyncCadenceTasks: boolean;
+};
+
+const DEFAULT_CALENDAR_SETTINGS: CalendarSyncSettings = {
+  syncEnabled: true,
+  defaultDurationMinutes: 30,
+  autoSyncCadenceTasks: true,
 };
 
 type Props = {
@@ -46,6 +58,9 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
   const [syncing, setSyncing] = useState(false);
   const [syncingSignature, setSyncingSignature] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [calendarSettings, setCalendarSettings] = useState<CalendarSyncSettings>(DEFAULT_CALENDAR_SETTINGS);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarSaving, setCalendarSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const loadConnections = useCallback(async () => {
@@ -67,9 +82,31 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
     }
   }, []);
 
+  const loadCalendarSettings = useCallback(async () => {
+    setCalendarLoading(true);
+    try {
+      const res = await fetch(`/api/calendar/sync-settings?brand=${encodeURIComponent(brand)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) {
+          setCalendarSettings({
+            syncEnabled: typeof data.settings.syncEnabled === 'boolean' ? data.settings.syncEnabled : true,
+            defaultDurationMinutes: typeof data.settings.defaultDurationMinutes === 'number' ? data.settings.defaultDurationMinutes : 30,
+            autoSyncCadenceTasks: typeof data.settings.autoSyncCadenceTasks === 'boolean' ? data.settings.autoSyncCadenceTasks : true,
+          });
+        }
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setCalendarLoading(false);
+    }
+  }, [brand]);
+
   useEffect(() => {
     if (opened) {
       loadConnections();
+      loadCalendarSettings();
 
       if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search);
@@ -110,7 +147,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
         }
       }
     }
-  }, [opened, loadConnections]);
+  }, [opened, loadConnections, loadCalendarSettings]);
 
   const gmailConnection = connections.find((c) => c.provider === 'gmail' && c.status !== 'revoked');
 
@@ -221,6 +258,35 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
       setDisconnecting(false);
     }
   }
+
+  async function handleUpdateCalendarSettings(patch: Partial<CalendarSyncSettings>) {
+    setCalendarSaving(true);
+    setFeedback(null);
+    const updated = { ...calendarSettings, ...patch };
+    setCalendarSettings(updated);
+    try {
+      const res = await fetch('/api/calendar/sync-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brand,
+          ...updated,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        setFeedback({ type: 'success', message: 'Google Calendar sync settings saved.' });
+      } else {
+        setFeedback({ type: 'error', message: data.error || 'Failed to save calendar settings.' });
+      }
+    } catch {
+      setFeedback({ type: 'error', message: 'Could not reach server to update calendar settings.' });
+    } finally {
+      setCalendarSaving(false);
+    }
+  }
+
+  const isGoogleConnected = Boolean(gmailConnection && gmailConnection.status === 'active');
 
   return (
     <Modal opened={opened} onClose={onClose} title={<Title order={4}>My Account & Integrations</Title>} size="md" centered>
@@ -409,6 +475,92 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
             </Stack>
           </Paper>
         )}
+
+        <Divider my="xs" />
+
+        <div>
+          <Group gap="xs" align="center" mb={4}>
+            <IconCalendar size={18} color="var(--mantine-color-indigo-6)" />
+            <Title order={5}>Google Calendar Task Reminders</Title>
+          </Group>
+          <Text size="xs" c="dimmed">
+            Sync scheduled CRM cadence tasks (phone calls, LinkedIn steps, follow-ups) directly to your Google Calendar.
+          </Text>
+        </div>
+
+        <Paper p="sm" withBorder radius="sm">
+          <Stack gap="sm">
+            <Group justify="space-between" align="center">
+              <div>
+                <Text size="sm" fw={500}>Calendar Sync Active</Text>
+                <Text size="xs" c="dimmed">Create and update reminder events for your assigned tasks</Text>
+              </div>
+              <Switch
+                checked={calendarSettings.syncEnabled}
+                onChange={(e) => handleUpdateCalendarSettings({ syncEnabled: e.currentTarget.checked })}
+                disabled={!isGoogleConnected || calendarSaving || calendarLoading}
+                color="indigo"
+              />
+            </Group>
+
+            <Divider />
+
+            <Group justify="space-between" align="center">
+              <div>
+                <Text size="sm" fw={500}>Auto-sync Cadence Tasks</Text>
+                <Text size="xs" c="dimmed">Automatically generate timed calendar reminders when sequence steps mature</Text>
+              </div>
+              <Switch
+                checked={calendarSettings.autoSyncCadenceTasks}
+                onChange={(e) => handleUpdateCalendarSettings({ autoSyncCadenceTasks: e.currentTarget.checked })}
+                disabled={!isGoogleConnected || !calendarSettings.syncEnabled || calendarSaving || calendarLoading}
+                color="indigo"
+              />
+            </Group>
+
+            <Divider />
+
+            <Group justify="space-between" align="center">
+              <div>
+                <Text size="sm" fw={500}>Default Reminder Duration</Text>
+                <Text size="xs" c="dimmed">Timed events start at the task scheduled due time</Text>
+              </div>
+              <NumberInput
+                value={calendarSettings.defaultDurationMinutes}
+                onChange={(val) => {
+                  const num = typeof val === 'number' ? val : parseInt(val as string, 10);
+                  if (!isNaN(num)) {
+                    handleUpdateCalendarSettings({ defaultDurationMinutes: Math.max(5, Math.min(480, num)) });
+                  }
+                }}
+                min={5}
+                max={480}
+                step={5}
+                disabled={!isGoogleConnected || !calendarSettings.syncEnabled || calendarSaving || calendarLoading}
+                size="xs"
+                w={90}
+                rightSection={<Text size="10px" c="dimmed" pr={4}>min</Text>}
+              />
+            </Group>
+
+            {!isGoogleConnected ? (
+              <Alert icon={<IconAlertTriangle size={16} />} color="yellow" variant="light" p="xs">
+                <Text size="xs">
+                  Connect your Google account above to enable Google Calendar reminder synchronization.
+                </Text>
+              </Alert>
+            ) : (
+              <Paper p="xs" radius="xs" bg="var(--mantine-color-blue-0)">
+                <Group gap="xs" align="flex-start" wrap="nowrap">
+                  <IconInfoCircle size={15} color="var(--mantine-color-blue-7)" style={{ marginTop: 2, flexShrink: 0 }} />
+                  <Text size="xs" c="blue.9">
+                    Google Calendar events serve as personal reminders. Sequence progression and deal movement always depend on completing tasks in the CRM.
+                  </Text>
+                </Group>
+              </Paper>
+            )}
+          </Stack>
+        </Paper>
 
         {feedback && (
           <Paper p="xs" radius="sm" bg={feedback.type === 'success' ? 'green.0' : 'red.0'}>

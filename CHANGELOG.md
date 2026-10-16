@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.284
+
+### Integrations & Outreach: Google Calendar task reminders UI in UserSettingsModal and Cadence email engagement analytics (issue #248 — Predecessor CRM Ingestion Phase 8 UI & Phase 6 UI)
+
+- **Google Calendar Task Reminders UI (`app/components/UserSettingsModal.tsx`):**
+  - Ingested Predecessor CRM Phase 8 UI (Handoff 08): added a dedicated **Google Calendar Task Reminders** section into the user account settings modal.
+  - Added **Calendar Sync Active** switch (`syncEnabled`): toggles creating/updating reminder events on the rep's Google Calendar.
+  - Added **Auto-sync Cadence Tasks** switch (`autoSyncCadenceTasks`): automatically creates timed calendar reminders when automated sequence steps mature into manual tasks.
+  - Added **Default Reminder Duration** number input (`defaultDurationMinutes`): configures event duration in minutes (5 to 480 min, default 30 min) starting at the scheduled due time.
+  - Added connection status alert and invariant safety disclosure: explains that Google Calendar events serve as personal reminders, while sequence progression and deal stage movements remain canonical to CRM task completion.
+  - Wired live roundtrip fetching (`GET /api/calendar/sync-settings`) and update persistence (`PUT /api/calendar/sync-settings`).
+- **Cadence Email Engagement Analytics & Tracking Caveats Disclosure (`app/outreach/cadences/[brand]/cadences-client.tsx`):**
+  - Ingested Predecessor CRM Phase 6 UI (Handoff 07): integrated live email engagement rates from `GET /api/outreach/engagement`.
+  - Added stats strip rendering Unique Opens (%), Unique Clicks (%), Human Replies (%), Bounced (%), and Sent unique recipients with raw event counters.
+  - Added transparent tracking caveats disclosure banner (`TRACKING_CAVEATS_DISCLOSURE`, `AUTO_OPENS_TIP`, `UNIQUE_RATE_TIP`) explaining Apple Mail Privacy Protection (MPP), image caching, probabilistic open tracking, and the architectural invariant that display status is always **Opened**, never **Read**.
+  - Highlighted OOO preservation: out-of-office responses do not cancel sequences, only human replies do.
+- **Automated Verification:**
+  - Created unit test suite `tests/lib/calendar-and-engagement-ui.test.ts` (7 tests, 100% pass) verifying calendar sync duration boundary clamping (5–480 min), deterministic event IDs, event start/end timestamp calculation, and unique recipient rate calculations across open/click/reply/bounce/cancelled events.
+  - Quality gate passed: `npx tsc --noEmit`, `npm run lint`, `npm run audit:gds-style`, and `npm run test:smoke` all pass with zero errors and zero warnings.
+
 ## 2.4.283
 
 ### Outreach & Documents: Document library management UI and attachment picker (issue #247 — Predecessor CRM Ingestion Phase 7 UI)

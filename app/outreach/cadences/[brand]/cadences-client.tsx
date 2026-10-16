@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Box, Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Select, Switch, ActionIcon, Paper, Badge } from '@mantine/core'
-import { IconPlus, IconTrash } from '@tabler/icons-react'
+import { Box, Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Select, Switch, ActionIcon, Paper, Badge, SimpleGrid, Tooltip, Collapse } from '@mantine/core'
+import { IconPlus, IconTrash, IconInfoCircle, IconMailForward, IconEye, IconCursorText, IconArrowBackUp, IconAlertCircle, IconChevronDown, IconChevronUp } from '@tabler/icons-react'
 import { AdminTextInput, AdminDataTable, AdminFormStatus } from '@sovereignsquad/gds-admin/client'
 import type { Brand } from '@/app/lib/brand'
 import type { CadenceStepChannel } from '@/lib/cadences'
@@ -24,6 +24,23 @@ type Cadence = {
 }
 
 type OutreachTemplate = { id: string; name: string; channel: 'email' | 'linkedin' }
+
+type EngagementRates = {
+  totalSentUnique: number;
+  totalOpensUnique: number;
+  totalClicksUnique: number;
+  totalRepliesUnique: number;
+  totalBouncesUnique: number;
+  totalCancelledUnique: number;
+  rawOpenCount: number;
+  rawClickCount: number;
+  uniqueOpenRate: number;
+  uniqueClickRate: number;
+  uniqueReplyRate: number;
+  uniqueBounceRate: number;
+  statusCounts: Record<string, number>;
+  trackingCaveats: string;
+}
 
 const CHANNEL_OPTIONS = [
   { value: 'email', label: 'Email (sent automatically)' },
@@ -71,6 +88,8 @@ export function CadencesClient({ brand, label }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [engagement, setEngagement] = useState<EngagementRates | null>(null)
+  const [showCaveats, setShowCaveats] = useState(false)
 
   const loadCadences = useCallback(async () => {
     setLoading(true)
@@ -104,6 +123,23 @@ export function CadencesClient({ brand, label }: Props) {
       })
       .catch(() => {
         if (!cancelled) setTemplates([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [brand, tenantId])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/outreach/engagement?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data.rates) {
+          setEngagement(data.rates)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setEngagement(null)
       })
     return () => {
       cancelled = true
@@ -223,6 +259,121 @@ export function CadencesClient({ brand, label }: Props) {
             New Cadence
           </Button>
         </Group>
+
+        {/* Email Engagement Analytics & Tracking Caveats (Phase 6 UI / Handoff 07) */}
+        <Paper withBorder p="md" radius="md" bg="var(--mantine-color-gray-0)">
+          <Stack gap="xs">
+            <Group justify="space-between" align="center" wrap="wrap">
+              <Group gap="xs" align="center">
+                <IconMailForward size={18} color="var(--mantine-color-indigo-6)" />
+                <Text size="sm" fw={700}>Email Engagement Analytics</Text>
+                <Badge variant="outline" color="gray" size="xs">
+                  Unique Rates
+                </Badge>
+              </Group>
+              <Button
+                size="compact-xs"
+                variant="subtle"
+                color="gray"
+                leftSection={<IconInfoCircle size={14} />}
+                rightSection={showCaveats ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}
+                onClick={() => setShowCaveats((v) => !v)}
+              >
+                Tracking Caveats (MPP & Probabilistic Opens)
+              </Button>
+            </Group>
+
+            <SimpleGrid cols={{ base: 2, sm: 3, md: 5 }} spacing="sm">
+              <Paper withBorder p="xs" radius="sm" bg="white">
+                <Text size="11px" c="dimmed" fw={600} tt="uppercase">Sent</Text>
+                <Text size="lg" fw={700}>
+                  {engagement ? engagement.totalSentUnique : 0}
+                </Text>
+                <Text size="10px" c="dimmed">
+                  unique recipients ({engagement ? (engagement.totalSentUnique + engagement.totalCancelledUnique) : 0} total)
+                </Text>
+              </Paper>
+
+              <Paper withBorder p="xs" radius="sm" bg="white">
+                <Group justify="space-between" align="center">
+                  <Text size="11px" c="dimmed" fw={600} tt="uppercase">Unique Opens</Text>
+                  <Tooltip label="Auto-opens: pixel fetches from privacy proxies (e.g. Apple Mail) or within seconds of sending. Display status is 'Opened', never 'Read'." withArrow multiline w={260}>
+                    <IconEye size={14} color="var(--mantine-color-blue-6)" style={{ cursor: 'help' }} />
+                  </Tooltip>
+                </Group>
+                <Text size="lg" fw={700} c="blue.7">
+                  {engagement ? `${engagement.uniqueOpenRate}%` : '0%'}
+                </Text>
+                <Text size="10px" c="dimmed">
+                  {engagement ? `${engagement.totalOpensUnique} opened (${engagement.rawOpenCount} raw)` : '0 opened'}
+                </Text>
+              </Paper>
+
+              <Paper withBorder p="xs" radius="sm" bg="white">
+                <Group justify="space-between" align="center">
+                  <Text size="11px" c="dimmed" fw={600} tt="uppercase">Unique Clicks</Text>
+                  <Tooltip label="Links followed by recipients. Security scanner auto-clicks are excluded." withArrow multiline w={260}>
+                    <IconCursorText size={14} color="var(--mantine-color-teal-6)" style={{ cursor: 'help' }} />
+                  </Tooltip>
+                </Group>
+                <Text size="lg" fw={700} c="teal.7">
+                  {engagement ? `${engagement.uniqueClickRate}%` : '0%'}
+                </Text>
+                <Text size="10px" c="dimmed">
+                  {engagement ? `${engagement.totalClicksUnique} clicked (${engagement.rawClickCount} raw)` : '0 clicked'}
+                </Text>
+              </Paper>
+
+              <Paper withBorder p="xs" radius="sm" bg="white">
+                <Group justify="space-between" align="center">
+                  <Text size="11px" c="dimmed" fw={600} tt="uppercase">Human Replies</Text>
+                  <Tooltip label="Genuine replies from contacts. Automated Out-Of-Office (OOO) and autoreplies are excluded." withArrow multiline w={260}>
+                    <IconArrowBackUp size={14} color="var(--mantine-color-green-6)" style={{ cursor: 'help' }} />
+                  </Tooltip>
+                </Group>
+                <Text size="lg" fw={700} c="green.7">
+                  {engagement ? `${engagement.uniqueReplyRate}%` : '0%'}
+                </Text>
+                <Text size="10px" c="dimmed">
+                  {engagement ? `${engagement.totalRepliesUnique} replied` : '0 replied'}
+                </Text>
+              </Paper>
+
+              <Paper withBorder p="xs" radius="sm" bg="white">
+                <Group justify="space-between" align="center">
+                  <Text size="11px" c="dimmed" fw={600} tt="uppercase">Bounced</Text>
+                  <Tooltip label="Emails rejected by destination mail servers." withArrow>
+                    <IconAlertCircle size={14} color="var(--mantine-color-red-6)" style={{ cursor: 'help' }} />
+                  </Tooltip>
+                </Group>
+                <Text size="lg" fw={700} c="red.7">
+                  {engagement ? `${engagement.uniqueBounceRate}%` : '0%'}
+                </Text>
+                <Text size="10px" c="dimmed">
+                  {engagement ? `${engagement.totalBouncesUnique} bounced` : '0 bounced'}
+                </Text>
+              </Paper>
+            </SimpleGrid>
+
+            <Collapse expanded={showCaveats}>
+              <Paper p="xs" radius="sm" bg="var(--mantine-color-blue-0)" mt={4}>
+                <Stack gap={4}>
+                  <Group gap="xs" align="flex-start" wrap="nowrap">
+                    <IconInfoCircle size={16} color="var(--mantine-color-blue-7)" style={{ marginTop: 2, flexShrink: 0 }} />
+                    <Text size="xs" c="blue.9" fw={500}>
+                      {engagement?.trackingCaveats || "Open tracking is probabilistic and may be affected by Apple Mail Privacy Protection (MPP), image proxies, caching, and blocked remote images. Rates are calculated per unique recipient over successfully sent messages. Display status is 'Opened', never 'Read'."}
+                    </Text>
+                  </Group>
+                  <Text size="11px" c="blue.8" pl={24}>
+                    • <strong>Opened ≠ Read:</strong> Open tracking registers pixel requests, which indicates message retrieval but is not proof a human read the message.<br />
+                    • <strong>Auto-opens & MPP:</strong> Privacy proxies (such as Apple Mail MPP) fetch images in advance, inflating open counts.<br />
+                    • <strong>Out-of-office preservation:</strong> OOO and auto-responder replies do not stop cadences; only human replies cancel sequences.
+                  </Text>
+                </Stack>
+              </Paper>
+            </Collapse>
+          </Stack>
+        </Paper>
 
         <Paper withBorder p="md" radius="md">
           <Stack gap="sm">
