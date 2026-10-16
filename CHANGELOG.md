@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.281
+
+### Governance & Operating Rules: Codify developer-only role and permanently retire manual session lead research (`AGENTS.md`, `CLAUDE.md`, `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`, `roadmap.md`)
+
+- **Rule 10 Added to `AGENTS.md` and `CLAUDE.md`:**
+  - Added **Rule 10 (`Developer role only — never manually research or enrich lead content in coding sessions (Owner Directive, 2026-10-16)`)**, explicitly prohibiting coding sessions from acting as a content provider, performing manual web research on leads/contacts/organizations, or sending manual `PUT /api/leads/[id]` enrichment batches.
+- **Retired Manual Lead-Research Handoff Loop (`docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`, `roadmap.md`):**
+  - Marked `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` §9 (`Session handoff`) as **RETIRED** per Owner Directive (`AGENTS.md` Rule 10) and moved Issue #132 out of `In Progress` in `roadmap.md` (lead discovery, enrichment, and taxonomy classification belong exclusively to the automated `researchandenrich` worker runtime).
+
 ## 2.4.280
 
 ### CRM & Outreach: Pipeline stage management, drag-and-drop default, Deal Owner card lifecycle, and Gmail outreach integration (issue #245)

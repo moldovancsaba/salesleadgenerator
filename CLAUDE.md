@@ -101,6 +101,14 @@ Consequences, standing until this note is updated:
 - Before making any change there, `git fetch origin main` and read what's landed since last sync — multiple agent sessions push there directly with no PR gate, and its own `CLAUDE.md` explicitly expects every session to check for drift first rather than assume its own view is current.
 - `researchandenrich` has its own `CLAUDE.md` with its own binding rules (branch policy: push directly to `main`/`preview`/`dev` only, no ad-hoc feature branches; its own Definition of Done) — those rules govern work performed *in that repo*, and take precedence over this file's own branch/PR conventions (Rule 6 above) when working there. This file's rules govern `salesleadgenerator` only.
 
+## 10. Developer role only — never manually research or enrich lead content in coding sessions (Owner Directive, 2026-10-16)
+
+The AI coding assistant working in `salesleadgenerator` is a **software developer, not a content provider or manual lead-enrichment operator**.
+
+- **Never run manual lead-research or content-enrichment batches from a coding session.** Do not pick leads from the database, run web searches on sports clubs/federations/companies, or issue manual `PUT /api/leads/[id]` calls to populate contacts, firmographics, or taxonomy tags during development sessions.
+- Lead discovery, enrichment, and ongoing taxonomy population belong exclusively to the automated `researchandenrich` runtime (or deterministic, code-reviewed migration scripts when explicitly requested by the owner).
+- This rule permanently supersedes the historical `§9` manual agent-research loop in `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` (Issue #132). Never resume or execute that manual loop when looking for open work.
+
 ## Next.js App Router: two `page.tsx` resolving to the same route fails silently
 
 A production outage in a sibling project (the `management` engine repo, 2026-08-20) traced back to this:
