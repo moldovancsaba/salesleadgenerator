@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title, TagsInput, Pill, Badge, Tooltip } from '@mantine/core';
-import { IconX } from '@tabler/icons-react';
+import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title, TagsInput, Pill, Badge, Tooltip, ActionIcon } from '@mantine/core';
+import { IconX, IconPaperclip } from '@tabler/icons-react';
 import { SectionPanel } from '@sovereignsquad/gds-core/client';
 import { evaluateOutreachRouting } from '../lib/outreach/routing-rules';
 import { getDecisionMakerContact } from '../../lib/contacts';
 import { buildPersonalizationContext } from '../../lib/template-personalization';
 import { COMPOSE_TOKENS, insertTokenAtCaret, resolveTokenPreview } from '../../lib/compose-token-insertion';
+import { DocumentLibraryPickerModal, formatFileSize } from '../components/DocumentLibraryPickerModal';
+import type { DocumentRecord } from '../../lib/documents';
 
 
 type Props = {
@@ -86,6 +88,8 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
     lastMessageAt?: string;
   } | null>(null);
   const [replyInThread, setReplyInThread] = useState(true);
+  const [attachedDocs, setAttachedDocs] = useState<DocumentRecord[]>([]);
+  const [pickerOpened, setPickerOpened] = useState(false);
 
   useEffect(() => {
     if (!opened) return;
@@ -314,6 +318,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           url: lead.url,
           industry: lead.industry,
           sport_or_sector: lead.sport_or_sector,
+          documentIds: attachedDocs.length > 0 ? attachedDocs.map((d) => d.id) : undefined,
         }),
       })
       // Issue #227 — a rejected log (401/403/400) stays open with the reason
@@ -376,6 +381,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           threadId: replyInThread ? threadContext?.threadId : undefined,
           inReplyTo: replyInThread ? threadContext?.inReplyTo : undefined,
           references: replyInThread ? threadContext?.references : undefined,
+          documentIds: attachedDocs.length > 0 ? attachedDocs.map((d) => d.id) : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -570,6 +576,52 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           rows={8}
           description="Variables are pre-filled from the lead."
         />
+        {channel === 'email' && (
+          <Stack gap={4}>
+            <Group justify="space-between" align="center">
+              <Text size="xs" fw={500} c="dimmed">
+                Attachments:
+              </Text>
+              <Button
+                size="compact-xs"
+                variant="light"
+                color="indigo"
+                leftSection={<IconPaperclip size={14} />}
+                onClick={() => setPickerOpened(true)}
+              >
+                Attach from Library
+              </Button>
+            </Group>
+            {attachedDocs.length > 0 ? (
+              <Group gap={6} wrap="wrap">
+                {attachedDocs.map((doc) => (
+                  <Badge
+                    key={doc.id}
+                    variant="outline"
+                    color="indigo"
+                    rightSection={
+                      <ActionIcon
+                        size="xs"
+                        color="indigo"
+                        variant="transparent"
+                        onClick={() => setAttachedDocs((prev) => prev.filter((d) => d.id !== doc.id))}
+                        aria-label={`Remove ${doc.displayName}`}
+                      >
+                        <IconX size={10} />
+                      </ActionIcon>
+                    }
+                  >
+                    {doc.displayName} ({formatFileSize(doc.sizeBytes)})
+                  </Badge>
+                ))}
+              </Group>
+            ) : (
+              <Text size="xs" c="dimmed">
+                No library documents attached. Click above to attach collateral.
+              </Text>
+            )}
+          </Stack>
+        )}
         <Group justify="space-between" align="center" wrap="wrap" gap="xs">
           <Group gap="xs">
             {senderInfo.provider === 'gmail' ? (
@@ -648,6 +700,20 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
         {sendError && (
           <Text size="xs" c="red" aria-live="polite">{sendError}</Text>
         )}
+
+        <DocumentLibraryPickerModal
+          opened={pickerOpened}
+          onClose={() => setPickerOpened(false)}
+          brand={brand}
+          selectedDocumentIds={attachedDocs.map((d) => d.id)}
+          onToggleDocument={(doc) => {
+            setAttachedDocs((prev) =>
+              prev.some((d) => d.id === doc.id)
+                ? prev.filter((d) => d.id !== doc.id)
+                : [...prev, doc]
+            );
+          }}
+        />
       </Stack>
     </Modal>
   );

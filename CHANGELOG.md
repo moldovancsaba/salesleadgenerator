@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.283
+
+### Outreach & Documents: Document library management UI and attachment picker (issue #247 — Predecessor CRM Ingestion Phase 7 UI)
+
+- **Dedicated Document Library Management UI (`app/documents/[brand]/page.tsx`, `app/documents/[brand]/documents-client.tsx`):**
+  - Implemented the user-facing Document Library page at `/documents/[brand]` with GDS styling and Mantine components.
+  - Added stat cards summarizing Total Documents and Total Storage Size (formatted in KB/MB).
+  - Search filter enabling live filtering by document display name, filename, and MIME type.
+  - "Upload Document" flow with modal supporting local file selection or manual metadata entry, enforcing allowed MIME types and the 25MB ceiling (`POST /api/documents`).
+  - Interactive documents table with inline display name editing (`PATCH /api/documents/[id]`), original filename, MIME type badge, size, and upload date.
+  - Deletion safety guard (`DELETE /api/documents/[id]`): prompts user confirmation, and if the API returns 409 `document_in_use`, opens a modal detailing all active cadences and templates referencing the collateral.
+- **Outreach Compose Modal Attachment Picker (`app/components/DocumentLibraryPickerModal.tsx`, `app/outreach/compose-modal.tsx`, `app/api/outreach-send/route.ts`):**
+  - Created `DocumentLibraryPickerModal` allowing reps to search and multi-select collateral from the brand's library.
+  - Added **Attach from Library** toolbar control in `OutreachComposeModal` with paperclip icon (`IconPaperclip`).
+  - Rendered attached document pills with display names, formatted sizes, and remove button `×`.
+  - Forwarded `documentIds` to `POST /api/outreach-logs` and `POST /api/outreach-send`, enabling last-mile RFC 2822 MIME attachment resolution in `sendManualEmail()`.
+- **Navigation Integration (`app/components/AppNav.tsx`):**
+  - Added "Documents" navigation link (`IconFiles`) under the Outreach section in the navigation drawer and desktop sidebar.
+- **Automated Verification:**
+  - Added unit test suite `tests/lib/documents-ui.test.ts` (4 tests) covering `formatFileSize` and metadata validation, and verified regression-free desktop/tablet nav suite.
+
 ## 2.4.282
 
 ### Outreach & Scheduler: Offline recovery, heartbeat tracking, and pacing throttles (issue #246 — Predecessor CRM Ingestion Phase 4)

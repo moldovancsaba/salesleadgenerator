@@ -151,11 +151,15 @@ export async function POST(request: NextRequest) {
     }
 
     const includeSignature = body.includeSignature !== false
+    const documentIds = Array.isArray(body.documentIds)
+      ? body.documentIds.filter((d: unknown): d is string => typeof d === 'string' && d.trim().length > 0)
+      : undefined
 
     const result = await sendManualEmail(db, lead, template, {
       brand,
       tenantId,
       idempotencyKey,
+      documentIds,
       senderUserId,
       senderName,
       senderEmail,

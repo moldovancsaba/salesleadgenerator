@@ -8,7 +8,7 @@ import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
   IconAddressBook, IconRepeat, IconBuilding, IconBuildings, IconCompass, IconUsersGroup, IconBolt, IconShoppingCart, IconReportAnalytics, IconKey,
-  IconCalendarTime, IconChevronLeft,
+  IconCalendarTime, IconChevronLeft, IconFiles,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -376,6 +376,14 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
                 label="Cadences"
                 leftSection={<IconRepeat size={18} />}
                 active={pathname === `/outreach/cadences/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/documents/${effectiveBrand}`}
+                label="Documents"
+                leftSection={<IconFiles size={18} />}
+                active={pathname === `/documents/${effectiveBrand}`}
                 onClick={handleLinkClick}
               />
               <NavLink
