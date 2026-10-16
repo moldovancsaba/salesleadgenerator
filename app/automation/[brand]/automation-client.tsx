@@ -42,6 +42,18 @@ const EMPTY_FORM: Omit<AutomationRule, 'id' | 'lastEvaluatedAt' | 'firingCount'>
   enabled: false,
 }
 
+function getEventValue(e: any): string {
+  if (typeof e === 'string') return e
+  if (!e) return ''
+  return e.target?.value ?? e.currentTarget?.value ?? ''
+}
+
+function getEventChecked(e: any): boolean {
+  if (typeof e === 'boolean') return e
+  if (!e) return false
+  return Boolean(e.target?.checked ?? e.currentTarget?.checked)
+}
+
 type Props = {
   brand: Brand;
   label: string;
@@ -266,7 +278,10 @@ export function AutomationClient({ brand, label }: Props) {
                 <TextInput
                   label="Tag"
                   value={form.action.tag || ''}
-                  onChange={(e) => setForm((f) => ({ ...f, action: { ...(f.action as any), tag: e.currentTarget.value } }))}
+                  onChange={(e) => {
+                    const tag = getEventValue(e)
+                    setForm((f) => ({ ...f, action: { ...(f.action as any), tag } }))
+                  }}
                   required
                 />
               )}
@@ -275,14 +290,20 @@ export function AutomationClient({ brand, label }: Props) {
               <TextInput
                 label="Reminder note"
                 value={form.action.note || ''}
-                onChange={(e) => setForm((f) => ({ ...f, action: { ...(f.action as any), note: e.currentTarget.value } }))}
+                onChange={(e) => {
+                  const note = getEventValue(e)
+                  setForm((f) => ({ ...f, action: { ...(f.action as any), note } }))
+                }}
               />
             )}
             {form.action.type === 'log_notification' && (
               <TextInput
                 label="Note to log on the lead"
                 value={form.action.message || ''}
-                onChange={(e) => setForm((f) => ({ ...f, action: { ...(f.action as any), message: e.currentTarget.value } }))}
+                onChange={(e) => {
+                  const message = getEventValue(e)
+                  setForm((f) => ({ ...f, action: { ...(f.action as any), message } }))
+                }}
                 required
               />
             )}
@@ -292,7 +313,10 @@ export function AutomationClient({ brand, label }: Props) {
                 same safety rail as Cadence.enabled (issue #124). */}
             <Switch
               checked={form.enabled}
-              onChange={(e) => setForm((f) => ({ ...f, enabled: e.currentTarget.checked }))}
+              onChange={(e) => {
+                const enabled = getEventChecked(e)
+                setForm((f) => ({ ...f, enabled }))
+              }}
               label={form.enabled ? 'Enabled — will automatically run on matching leads' : 'Disabled — will never run automatically'}
               color="red"
             />

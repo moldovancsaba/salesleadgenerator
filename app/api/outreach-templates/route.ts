@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import clientPromise, { isMongoConfigured } from '../../../lib/mongodb'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { resolveBrand } from '../../lib/brand'
-import { DEFAULT_OUTREACH_TEMPLATES } from '../../lib/outreach/default-templates'
+import { DEFAULT_OUTREACH_TEMPLATES, getDefaultOutreachTemplates } from '../../lib/outreach/default-templates'
 import type { OutreachTemplate } from '../../lib/outreach/default-templates'
 import { buildTaggedContentFilter, normalizeTags } from '../../lib/search/tagged-content-filter'
 import { computeTemplateConversions } from '../../../lib/template-conversion'
@@ -65,7 +65,8 @@ export async function GET(request: NextRequest) {
 
     if (mode === 'search') {
       if (!isMongoConfigured()) {
-        const matched = DEFAULT_OUTREACH_TEMPLATES.filter((t: OutreachTemplate) =>
+        const brandDefaults = getDefaultOutreachTemplates(brand)
+        const matched = brandDefaults.filter((t: OutreachTemplate) =>
           matchesFilters(t, { industry, channel, tags, q })
         )
         return NextResponse.json({
@@ -182,18 +183,19 @@ export async function GET(request: NextRequest) {
     }
 
     const hasAdditionalFilters = Boolean(industry || channel || q || tags.length)
+    const brandDefaults = getDefaultOutreachTemplates(brand)
 
     if (!isMongoConfigured()) {
       if (!hasAdditionalFilters) {
-        return NextResponse.json({ templates: DEFAULT_OUTREACH_TEMPLATES, source: 'default', brand })
+        return NextResponse.json({ templates: brandDefaults, source: 'default', brand })
       }
-      const matched = DEFAULT_OUTREACH_TEMPLATES.filter((t: OutreachTemplate) =>
+      const matched = brandDefaults.filter((t: OutreachTemplate) =>
         matchesFilters(t, { industry, channel, tags, q })
       )
       // Zero-match falls back to the full unfiltered list rather than a
       // blank state — matches the existing industry/channel behavior below,
       // extended to also cover tags/q.
-      return NextResponse.json({ templates: matched.length ? matched : DEFAULT_OUTREACH_TEMPLATES, source: 'default', brand })
+      return NextResponse.json({ templates: matched.length ? matched : brandDefaults, source: 'default', brand })
     }
 
     const client = await clientPromise
@@ -202,9 +204,9 @@ export async function GET(request: NextRequest) {
 
     if (!templates.length) {
       const defaults = hasAdditionalFilters
-        ? DEFAULT_OUTREACH_TEMPLATES.filter((t: OutreachTemplate) => matchesFilters(t, { industry, channel, tags, q }))
-        : DEFAULT_OUTREACH_TEMPLATES
-      return NextResponse.json({ templates: defaults.length ? defaults : DEFAULT_OUTREACH_TEMPLATES, source: 'default', brand })
+        ? brandDefaults.filter((t: OutreachTemplate) => matchesFilters(t, { industry, channel, tags, q }))
+        : brandDefaults
+      return NextResponse.json({ templates: defaults.length ? defaults : brandDefaults, source: 'default', brand })
     }
 
     const mapped = templates.map((t) => ({

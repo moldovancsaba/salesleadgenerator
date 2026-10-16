@@ -859,7 +859,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
                 label="Tag"
                 placeholder="e.g. hot-lead"
                 value={fieldEditTagValue}
-                onChange={(e) => setFieldEditTagValue(e.currentTarget.value)}
+                onChange={(e) => setFieldEditTagValue(e?.target?.value ?? e?.currentTarget?.value ?? '')}
                 aria-label="Tag value"
               />
             </>

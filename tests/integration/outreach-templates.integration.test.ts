@@ -122,4 +122,25 @@ describe('POST /api/outreach-templates', () => {
     expect(searchRes.status).toBe(200);
     expect((await searchRes.json()).templates.map((t: any) => t.name)).toContain('Alias Stored Template');
   });
+
+  it('returns brand-isolated default templates when brand has no templates in DB', async () => {
+    // seyu has no custom templates in DB yet
+    const seyuRes = await templatesGET(buildApiRequest('/api/outreach-templates?brand=seyu&tenantId=default'));
+    expect(seyuRes.status).toBe(200);
+    const seyuBody = await seyuRes.json();
+    expect(seyuBody.source).toBe('default');
+    const seyuNames = seyuBody.templates.map((t: any) => t.name);
+    expect(seyuNames).toContain('Club — Matchday Fan Engagement');
+    expect(seyuNames).not.toContain('Academy — Cognitive Assessment Intro');
+
+    // dvsc has no custom templates in DB
+    const dvscRes = await templatesGET(buildApiRequest('/api/outreach-templates?brand=dvsc&tenantId=default'));
+    expect(dvscRes.status).toBe(200);
+    const dvscBody = await dvscRes.json();
+    expect(dvscBody.source).toBe('default');
+    const dvscNames = dvscBody.templates.map((t: any) => t.name);
+    expect(dvscNames).toContain('Sponsorship — Commercial Partnership Intro');
+    expect(dvscNames).not.toContain('Academy — Cognitive Assessment Intro');
+    expect(dvscNames).not.toContain('Club — Matchday Fan Engagement');
+  });
 });

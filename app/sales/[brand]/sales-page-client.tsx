@@ -414,7 +414,8 @@ export function SalesPageClient({ brand, currency }: Props) {
                   size="xs"
                   value={searchQuery}
                   onChange={(event) => {
-                    setSearchQuery(event.currentTarget.value)
+                    const q = event?.target?.value ?? event?.currentTarget?.value ?? ''
+                    setSearchQuery(q)
                     setSearchOpen(true)
                   }}
                   onFocus={() => { if (searchQuery.trim()) setSearchOpen(true) }}

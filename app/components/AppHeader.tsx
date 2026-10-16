@@ -12,7 +12,7 @@ import type { Brand } from '@/app/lib/brand';
 function extractBrandFromPathname(pathname: string, knownBrands: string[]): Brand | null {
   const brandSet = new Set(knownBrands);
   const match = pathname.match(
-    /^\/(?:sales|today|contacts|salessettings|forecast|reports|accounts|battlecards|outreach\/[a-z]+|admin\/products)\/([^/?#]+)/
+    /^\/(?:sales|today|contacts|salessettings|forecast|reports|accounts|battlecards|outreach\/[a-z]+|admin\/products|automation|documents)\/([^/?#]+)/
   );
   if (match && brandSet.has(match[1])) {
     return match[1] as Brand;

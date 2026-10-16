@@ -772,7 +772,7 @@ export function ForecastClient({ brand, label }: Props) {
             label="Period"
             description={quotaPeriodType === 'monthly' ? 'YYYY-MM' : quotaPeriodType === 'quarterly' ? 'YYYY-QN' : 'YYYY'}
             value={quotaPeriod}
-            onChange={(e) => setQuotaPeriod(e.currentTarget.value)}
+            onChange={(e) => setQuotaPeriod(e?.target?.value ?? e?.currentTarget?.value ?? '')}
             error={!isValidPeriod(quotaPeriod, quotaPeriodType) ? 'Invalid period format' : undefined}
           />
           {callerRole === 'admin' && (

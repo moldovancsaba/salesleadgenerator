@@ -780,7 +780,7 @@ export function TodayClient({ brand, label }: Props) {
             placeholder="Summary of discussion, objections, next steps agreed upon..."
             minRows={3}
             value={callNotes}
-            onChange={(e) => setCallNotes(e.currentTarget.value)}
+            onChange={(e) => setCallNotes(e?.target?.value ?? e?.currentTarget?.value ?? '')}
           />
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={() => setCallModalLead(null)}>

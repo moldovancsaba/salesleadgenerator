@@ -1848,7 +1848,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
             clearable
             style={{ flex: 1 }}
           />
-          <TextInput size="xs" label="Note" value={nextActionNote} onChange={(e) => setNextActionNote(e.currentTarget.value)} style={{ flex: 2 }} />
+          <TextInput size="xs" label="Note" value={nextActionNote} onChange={(e) => setNextActionNote(e?.target?.value ?? e?.currentTarget?.value ?? '')} style={{ flex: 2 }} />
         </Group>
         <Group gap="xs">
           <Button size="xs" variant="light" onClick={handleSaveNextAction} loading={savingNextAction}>Save follow-up</Button>
@@ -1863,11 +1863,11 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
       <Stack gap="xs">
         <Text size="xs" c="dimmed" fw={600}>QUALIFICATION</Text>
         <Text size="xs" c="dimmed">Informational only — not required to move this lead through the pipeline.</Text>
-        <Checkbox label="Budget confirmed" checked={qualBudgetConfirmed} onChange={(e) => setQualBudgetConfirmed(e.currentTarget.checked)} />
-        <TextInput size="xs" label="Budget notes" value={qualBudgetNotes} onChange={(e) => setQualBudgetNotes(e.currentTarget.value)} />
-        <Checkbox label="Buying authority confirmed" checked={qualAuthorityConfirmed} onChange={(e) => setQualAuthorityConfirmed(e.currentTarget.checked)} />
-        <TextInput size="xs" label="Need / pain point" value={qualNeedNotes} onChange={(e) => setQualNeedNotes(e.currentTarget.value)} />
-        <TextInput size="xs" label="Timeline estimate" placeholder="e.g. This quarter" value={qualTimeline} onChange={(e) => setQualTimeline(e.currentTarget.value)} />
+        <Checkbox label="Budget confirmed" checked={qualBudgetConfirmed} onChange={(e) => setQualBudgetConfirmed(Boolean(e?.target?.checked ?? e?.currentTarget?.checked))} />
+        <TextInput size="xs" label="Budget notes" value={qualBudgetNotes} onChange={(e) => setQualBudgetNotes(e?.target?.value ?? e?.currentTarget?.value ?? '')} />
+        <Checkbox label="Buying authority confirmed" checked={qualAuthorityConfirmed} onChange={(e) => setQualAuthorityConfirmed(Boolean(e?.target?.checked ?? e?.currentTarget?.checked))} />
+        <TextInput size="xs" label="Need / pain point" value={qualNeedNotes} onChange={(e) => setQualNeedNotes(e?.target?.value ?? e?.currentTarget?.value ?? '')} />
+        <TextInput size="xs" label="Timeline estimate" placeholder="e.g. This quarter" value={qualTimeline} onChange={(e) => setQualTimeline(e?.target?.value ?? e?.currentTarget?.value ?? '')} />
         <Group gap="xs">
           <Button size="xs" variant="light" onClick={handleSaveQualification} loading={savingQualification}>Save qualification</Button>
         </Group>

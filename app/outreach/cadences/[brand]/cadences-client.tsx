@@ -392,7 +392,7 @@ export function CadencesClient({ brand, label }: Props) {
                 per issue #124's own safety rail. */}
             <Switch
               checked={form.enabled}
-              onChange={(e) => setForm((f) => ({ ...f, enabled: e.currentTarget.checked }))}
+              onChange={(e) => setForm((f) => ({ ...f, enabled: Boolean(e?.target?.checked ?? e?.currentTarget?.checked) }))}
               label={form.enabled ? 'Enabled — sending real, automated messages to enrolled leads' : 'Disabled — no message will ever be sent automatically'}
               description="Email steps are sent with no human involved as soon as they're due. LinkedIn/call steps only ever set a reminder — turning this on never sends a LinkedIn message or makes a call for you."
               color="red"
@@ -455,7 +455,7 @@ export function CadencesClient({ brand, label }: Props) {
                           label="Reminder note"
                           placeholder="Send a personalized connection request"
                           value={step.reminderNote || ''}
-                          onChange={(e) => updateStep(i, 'reminderNote', e.currentTarget.value)}
+                          onChange={(e) => updateStep(i, 'reminderNote', e?.target?.value ?? e?.currentTarget?.value ?? '')}
                           description="Shown as the lead's follow-up note when this step comes due"
                         />
                       )}

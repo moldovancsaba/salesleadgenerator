@@ -59,6 +59,8 @@ function currentBrandFromPath(pathname: string, knownBrands: string[]): Brand | 
   if (cadencesMatch && knownBrandSet.has(cadencesMatch[1])) return cadencesMatch[1] as Brand;
   const automationMatch = pathname.match(/^\/automation\/([^/]+)/);
   if (automationMatch && knownBrandSet.has(automationMatch[1])) return automationMatch[1] as Brand;
+  const documentsMatch = pathname.match(/^\/documents\/([^/]+)/);
+  if (documentsMatch && knownBrandSet.has(documentsMatch[1])) return documentsMatch[1] as Brand;
   const contactsMatch = pathname.match(/^\/contacts\/([^/]+)/);
   if (contactsMatch && knownBrandSet.has(contactsMatch[1])) return contactsMatch[1] as Brand;
   const accountsMatch = pathname.match(/^\/accounts\/([^/]+)/);

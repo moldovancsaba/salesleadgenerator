@@ -1,5 +1,28 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.285
+
+### Bug Fix & UX: Automation event handler hardening, brand template isolation, and compose modal overlay (issue 249)
+
+- **Automation Rules Event Handler Hardening (`app/automation/[brand]/automation-client.tsx`):**
+  - Resolved production crash on `/automation/[brand]` (`null is not an object (evaluating 'e.currentTarget.value')`) triggered in WebKit/Safari when synthetic events bubble or input dispatching clears `currentTarget`.
+  - Added safe accessor helpers `getEventValue(e)` and `getEventChecked(e)` guarding against `null` or `undefined` event targets across Tag, Reminder Note, Notification Note, and Enabled Switch inputs.
+  - Hardened similar event handlers across `app/detail.tsx`, `app/kanban.tsx`, `app/sales/[brand]/sales-page-client.tsx`, `app/today/[brand]/today-client.tsx`, `app/forecast/[brand]/forecast-client.tsx`, and `app/outreach/cadences/[brand]/cadences-client.tsx`.
+- **Brand Path Extraction Expansion (`app/components/AppHeader.tsx`, `app/components/AppNav.tsx`):**
+  - Added `automation` and `documents` path prefixes to `extractBrandFromPathname` in `AppHeader.tsx` and `currentBrandFromPath` in `AppNav.tsx`, ensuring proper active brand resolution when navigating directly to `/automation/[brand]` or `/documents/[brand]`.
+- **Brand-Isolated Outreach Templates (`app/lib/outreach/default-templates.ts`, `app/api/outreach-templates/route.ts`):**
+  - Partitioned `DEFAULT_OUTREACH_TEMPLATES` with dedicated brand tags and exported `getDefaultOutreachTemplates(brand)` to eliminate cross-brand template bleed.
+  - Created brand-native default outreach templates for **Seyu** (Matchday Fan Engagement, Arena Sponsored Fan Moments, LinkedIn Connect) and **DVSC** (Commercial Partnership Intro, VIP Matchday Hospitality, Corporate LinkedIn Connect), while maintaining CogMap cognitive assessment templates isolated to CogMap.
+  - Updated `GET /api/outreach-templates` to filter fallback default templates strictly by the resolved brand, guaranteeing CogMap copy never leaks into Seyu or DVSC outreach.
+- **Outreach Compose Modal UX & Layout Overlap Fix (`app/outreach/compose-modal.tsx`):**
+  - Elevated `OutreachComposeModal` to `size="xl"` and `zIndex={1200}` with centered positioning, ensuring its backdrop cleanly dims and overlays `AdminDetailDrawer` rather than awkwardly colliding with open drawer panels.
+  - Fixed template auto-selection logic: when a lead's tags do not match any available templates, the modal defaults to freeform compose (`templateId: null`, blank subject and body) instead of forcing an unrelated template into the composer.
+  - Updated tag mismatch guidance to clarify that users can compose a freeform message or choose an alternative template from the dropdown.
+- **Automated Verification:**
+  - Added unit test suite `tests/lib/default-templates.test.ts` (6 tests, 100% pass) verifying template definitions, brand isolation across CogMap, Seyu, and DVSC, and interpolation accuracy.
+  - Added brand isolation test to `tests/integration/outreach-templates.integration.test.ts` (11 tests, 100% pass).
+  - Quality gates: `npx tsc --noEmit`, `npm run lint`, `npm run audit:gds-style`, and `npm run test:smoke` all pass with zero errors and zero warnings.
+
 ## 2.4.284
 
 ### Integrations & Outreach: Google Calendar task reminders UI in UserSettingsModal and Cadence email engagement analytics (issue #248 — Predecessor CRM Ingestion Phase 8 UI & Phase 6 UI)

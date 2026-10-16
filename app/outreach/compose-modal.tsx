@@ -241,11 +241,27 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
         const items: Template[] = data.templates || [];
         setTemplates(items);
         if (items.length > 0) {
-          const first = items[0];
-          setTemplateId(first.id)
-          setChannel(first.channel)
-          setSubject(first.subject || '')
-          setBody(interpolate(first.body, interpolationValues))
+          // If the lead has filter tags, only auto-select if a template actually matches the tags.
+          // Otherwise, if no templates match the tags, leave templateId null (freeform compose)
+          // so we never unexpectedly auto-fill an unrelated template into the user's message.
+          const matchingTemplate = filterTags.length > 0
+            ? items.find((t) => (t.tags || []).some((tag) => filterTags.some((ft) => ft.toLowerCase() === tag.toLowerCase())))
+            : items[0];
+
+          if (matchingTemplate) {
+            setTemplateId(matchingTemplate.id);
+            setChannel(matchingTemplate.channel);
+            setSubject(matchingTemplate.subject || '');
+            setBody(interpolate(matchingTemplate.body, interpolationValues));
+          } else {
+            setTemplateId(null);
+            setSubject('');
+            setBody('');
+          }
+        } else {
+          setTemplateId(null);
+          setSubject('');
+          setBody('');
         }
       })
       .catch(() => {
@@ -406,7 +422,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title={<Title order={4}>Outreach</Title>} centered>
+    <Modal opened={opened} onClose={onClose} title={<Title order={4}>Outreach</Title>} size="xl" zIndex={1200} centered>
       <Stack gap="sm">
         {/* No native GDS tag/chip input primitive exists (issue #64) — Mantine
             TagsInput, already a transitive dependency, used directly as the
@@ -434,7 +450,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           {loading ? 'Loading templates…' : `${templates.length} template${templates.length === 1 ? '' : 's'} found`}
         </Text>
         {!loading && filterTags.length > 0 && !hasTagMatch && (
-          <Text size="xs" c="orange">No templates match these tags — showing all templates.</Text>
+          <Text size="xs" c="orange">No templates match these tags — compose a freeform message below or select a template.</Text>
         )}
 
         {/* Reference-only competitor/objection content (issue #65) — never
