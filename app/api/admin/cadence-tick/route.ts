@@ -12,6 +12,19 @@ import type { CadenceStep, ActiveCadence } from '../../../../lib/cadences'
 import { sendAutomatedEmail, isResendSendConfigured } from '../../../../lib/outreach-send'
 import type { LeadForSend } from '../../../../lib/outreach-send'
 import { syncTaskReminderToGoogleCalendar } from '../../../../lib/gcal-sync'
+import {
+  downtimeExceeded,
+  getSchedulerState,
+  recordHeartbeat,
+  recordRecoverySummary,
+  SlotBook,
+  RECOVERY_MAX_SENDS_PER_HOUR,
+  RECOVERY_MIN_GAP_SECONDS,
+  DEFAULT_DAILY_CAP,
+  DEFAULT_MIN_SPACING_SECONDS,
+  type RecoverySummary,
+} from '../../../../lib/scheduler-recovery'
+import { isRecipientSuppressed } from '../../../../lib/suppression'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +49,8 @@ type TickSummary = {
   remindersSet: number
   cadencesCompleted: number
   emailStepsHeld: number
+  recoveryMode?: boolean
+  recoverySummary?: RecoverySummary
   failures: Array<{ leadId: string; brand: string; reason: string }>
 }
 
@@ -74,7 +89,34 @@ async function runCadenceTick(): Promise<TickSummary> {
   const now = new Date()
   const nowIso = now.toISOString()
 
-  const summary: TickSummary = { processed: 0, emailsSent: 0, remindersSet: 0, cadencesCompleted: 0, emailStepsHeld: 0, failures: [] }
+  const schedulerState = await getSchedulerState(db)
+  const isRecovery = downtimeExceeded(schedulerState?.lastHeartbeatAt, now)
+  await recordHeartbeat(db, { mode: isRecovery ? 'recovery' : 'normal' })
+
+  const recoverySummary: RecoverySummary = {
+    startedAt: nowIso,
+    downtimeSeconds: schedulerState?.lastHeartbeatAt
+      ? Math.max(0, Math.round((now.getTime() - new Date(schedulerState.lastHeartbeatAt).getTime()) / 1000))
+      : 0,
+    candidatesFound: 0,
+    cancelledReply: 0,
+    cancelledSuppression: 0,
+    heldPaused: 0,
+    manualTasksMaterialized: 0,
+    automatedRescheduled: 0,
+    sameDayCount: 0,
+    futureDayCount: 0,
+  }
+
+  const summary: TickSummary = {
+    processed: 0,
+    emailsSent: 0,
+    remindersSet: 0,
+    cadencesCompleted: 0,
+    emailStepsHeld: 0,
+    recoveryMode: isRecovery,
+    failures: [],
+  }
 
   // Derived from BRAND_CONFIG, never a hardcoded brand list (issue #147's
   // own fix for the same class of bug) — a future brand needs no change here.
@@ -82,6 +124,28 @@ async function runCadenceTick(): Promise<TickSummary> {
   for (const brand of Object.keys(allBrandConfigs)) {
     const config = allBrandConfigs[brand]
     const leadsCollection = db.collection(config.dbCollection)
+
+    // Pacing & limits: count sends already dispatched today for this brand
+    const startOfDay = new Date(now)
+    startOfDay.setUTCHours(0, 0, 0, 0)
+    const sentToday = await db.collection('outreach_logs').countDocuments({
+      brand,
+      sentAutomatically: true,
+      createdAt: { $gte: startOfDay.toISOString() },
+    })
+    let remainingTodayCap = Math.max(0, DEFAULT_DAILY_CAP - sentToday)
+
+    // Pre-populate slot book with recent automated sends in the last 2 hours
+    const recentCutoff = new Date(now.getTime() - 2 * 60 * 60 * 1000)
+    const recentLogs = await db.collection('outreach_logs')
+      .find({
+        brand,
+        sentAutomatically: true,
+        createdAt: { $gte: recentCutoff.toISOString() },
+      })
+      .project({ createdAt: 1 })
+      .toArray()
+    const slotBook = new SlotBook(recentLogs.map((l: any) => l.createdAt))
 
     // Sorted oldest-due-first so the per-brand cap consistently favors the
     // most-overdue leads at the boundary, not an arbitrary cursor order
@@ -97,6 +161,10 @@ async function runCadenceTick(): Promise<TickSummary> {
       .limit(MAX_CADENCE_SENDS_PER_TICK)
       .toArray()
 
+    if (isRecovery) {
+      recoverySummary.candidatesFound += dueLeads.length
+    }
+
     for (const leadDoc of dueLeads) {
       summary.processed++
       const leadId = leadDoc._id.toString()
@@ -104,6 +172,31 @@ async function runCadenceTick(): Promise<TickSummary> {
 
       // CRM Invariant 3: completion gating. If waiting for manual task, skip.
       if (active.waitingForTask) {
+        continue
+      }
+
+      // CRM Invariant 1 & 2: recheck suppression and human reply before attempting send
+      const primaryContact = Array.isArray(leadDoc.contacts)
+        ? leadDoc.contacts.find((c: any) => c.isDecisionMaker) || leadDoc.contacts[0]
+        : undefined
+      const recipientEmail = primaryContact?.email || leadDoc.email
+
+      let isSuppressed = false
+      if (recipientEmail) {
+        const supResult = await isRecipientSuppressed(db, brand, TENANT_ID, recipientEmail, now)
+        isSuppressed = supResult.suppressed
+      }
+      if (isSuppressed) {
+        await leadsCollection.updateOne({ _id: leadDoc._id }, { $set: { activeCadence: null, updatedAt: now } })
+        summary.failures.push({ leadId, brand, reason: 'cancelled_suppressed' })
+        if (isRecovery) recoverySummary.cancelledSuppression++
+        continue
+      }
+
+      if (leadDoc.status === 'REPLIED' || leadDoc.hasCustomerReplied === true) {
+        await leadsCollection.updateOne({ _id: leadDoc._id }, { $set: { activeCadence: null, updatedAt: now } })
+        summary.failures.push({ leadId, brand, reason: 'cancelled_replied' })
+        if (isRecovery) recoverySummary.cancelledReply++
         continue
       }
 
@@ -132,6 +225,7 @@ async function runCadenceTick(): Promise<TickSummary> {
       if (cadenceDoc.enabled !== true) {
         await leadsCollection.updateOne({ _id: leadDoc._id }, { $set: { activeCadence: null } })
         summary.failures.push({ leadId, brand, reason: 'cadence disabled' })
+        if (isRecovery) recoverySummary.heldPaused++
         continue
       }
 
@@ -146,6 +240,35 @@ async function runCadenceTick(): Promise<TickSummary> {
       const cadenceForAdvance = { id: cadenceDoc._id.toString(), steps }
 
       if (currentStep.channel === 'email') {
+        // Critical Invariants 4 & 5: Check sending pacing, min-spacing, hourly recovery throttle, and daily cap
+        const minGap = isRecovery ? RECOVERY_MIN_GAP_SECONDS : DEFAULT_MIN_SPACING_SECONDS
+        const maxPerHour = isRecovery ? RECOVERY_MAX_SENDS_PER_HOUR : 60
+        const policy = {
+          now,
+          minGapSeconds: minGap,
+          maxPerHour,
+          todayCap: remainingTodayCap,
+          futureDayCap: DEFAULT_DAILY_CAP,
+        }
+
+        if (!slotBook.fits(now, policy)) {
+          // Does not fit right now — redistribute to conservative future slot!
+          const placement = slotBook.place(now, policy)
+          if (placement.placed) {
+            await leadsCollection.updateOne(
+              { _id: leadDoc._id },
+              { $set: { 'activeCadence.stepDueAt': placement.slot.toISOString(), 'activeCadence.status': 'active', updatedAt: now } }
+            )
+            if (isRecovery) {
+              recoverySummary.automatedRescheduled++
+              const isSameDay = placement.slot.getUTCDate() === now.getUTCDate()
+              if (isSameDay) recoverySummary.sameDayCount++
+              else recoverySummary.futureDayCount++
+            }
+          }
+          continue
+        }
+
         // Issue #224: with no RESEND_API_KEY every send is guaranteed to fail,
         // and the advance-on-failure rule below would silently walk every
         // enrolled lead through its email steps without sending anything.
@@ -167,6 +290,8 @@ async function runCadenceTick(): Promise<TickSummary> {
         })
         if (result.sent) {
           summary.emailsSent++
+          slotBook.occupy(now)
+          remainingTodayCap = Math.max(0, remainingTodayCap - 1)
         } else {
           // CRM Invariant 2 & 4: If send was aborted because recipient replied or is suppressed,
           // stop the cadence immediately.
@@ -241,12 +366,12 @@ async function runCadenceTick(): Promise<TickSummary> {
           }
         )
         summary.remindersSet++
+        if (isRecovery) {
+          recoverySummary.manualTasksMaterialized++
+        }
 
         // Predecessor Handoff 08 (issue #244): Google Calendar Task Reminders Sync
         // Asynchronously sync task reminder to Google Calendar (non-blocking, fail-safe).
-        const primaryContact = Array.isArray(leadDoc.contacts)
-          ? leadDoc.contacts.find((c: any) => c.isDecisionMaker) || leadDoc.contacts[0]
-          : undefined
         await syncTaskReminderToGoogleCalendar(db, {
           brand,
           tenantId: TENANT_ID,
@@ -263,6 +388,13 @@ async function runCadenceTick(): Promise<TickSummary> {
       }
     }
   }
+
+  if (isRecovery) {
+    recoverySummary.completedAt = new Date().toISOString()
+    await recordRecoverySummary(db, recoverySummary)
+    summary.recoverySummary = recoverySummary
+  }
+  await recordHeartbeat(db, { status: 'idle', lastSummary: summary })
 
   return summary
 }

@@ -1,5 +1,31 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.282
+
+### Outreach & Scheduler: Offline recovery, heartbeat tracking, and pacing throttles (issue #246 — Predecessor CRM Ingestion Phase 4)
+
+- **Scheduler Recovery Engine (`lib/scheduler-recovery.ts`):**
+  - Implemented `lib/scheduler-recovery.ts` capturing Critical Invariants 4 & 5 from Predecessor CRM Handoff 06:
+    - Downtime detection (`downtimeExceeded` > 15-minute heartbeat threshold, fresh install safety).
+    - Recovery-mode spacing floor (`stricterGap` enforcing at least 600s / 10-minute gap).
+    - Schedule window snapping (`nextScheduleSlot`) respecting weekdays (Mon-Fri) and working hours (8:00–18:00).
+    - Timeline slot booking (`SlotBook`) enforcing min-spacing (>= 600s), clock-hour rate limits (<= 6 sends/hour under recovery), and daily caps (`todayCap` and `futureDayCap` defaulting to 50/day).
+    - MongoDB state helpers (`getSchedulerState`, `recordHeartbeat`, `recordRecoverySummary`) tracking `scheduler_state` collection.
+- **Cadence Tick Heartbeat, Recovery Redistribution & Pacing Integration (`app/api/admin/cadence-tick/route.ts`):**
+  - Integrated `getSchedulerState` and `recordHeartbeat` into `runCadenceTick()`, updating heartbeat on every execution.
+  - Added automatic recovery mode trigger when downtime > 15m is detected:
+    - Revalidates due leads: checks suppression (`isRecipientSuppressed`) and human replies (`status === 'REPLIED' || hasCustomerReplied`), cancelling suppressed/replied leads immediately.
+    - Holds paused/disabled cadences.
+    - Materializes manual reminder tasks (`waiting_task`).
+    - Redistributes overdue email sends across conservative slots using `SlotBook.place()` (max 6/hour, min 10m spacing) instead of unsafe burst sending.
+    - Persists recovery metrics (`downtimeSeconds`, `automatedRescheduled`, `sameDayCount`, `futureDayCount`, `cancelledReply`, `cancelledSuppression`) to `scheduler_state.lastRecoverySummary`.
+  - Enforced daily sending cap (`DEFAULT_DAILY_CAP = 50`) and minimum spacing (`DEFAULT_MIN_SPACING_SECONDS = 600`) per brand in normal ticks.
+- **Scheduler Recovery Admin API (`app/api/admin/scheduler-recovery/route.ts`, `app/api/admin/cron-status/route.ts`):**
+  - Created `GET /api/admin/scheduler-recovery` returning heartbeat timestamp, downtime flag, pacing policy, and last recovery summary.
+  - Surfaced `scheduler` status block in `GET /api/admin/cron-status`.
+- **Automated Verification:**
+  - Added unit test suite `tests/lib/scheduler-recovery.test.ts` (17 tests) covering downtime detection, spacing floors, window snapping, SlotBook placement, hourly and daily cap enforcement, and MongoDB state operations. Verified 100% green alongside smoke tests.
+
 ## 2.4.281
 
 ### Governance & Operating Rules: Codify developer-only role and permanently retire manual session lead research (`AGENTS.md`, `CLAUDE.md`, `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`, `roadmap.md`)

@@ -3,6 +3,7 @@ import clientPromise from '../../../../lib/mongodb'
 import { requireApiKey } from '../../../../lib/api-auth'
 import { getTenantId } from '../../../../lib/tenant'
 import { getAllBrandConfigs } from '../../../lib/brand'
+import { getSchedulerState, downtimeExceeded } from '../../../../lib/scheduler-recovery'
 
 const COLLECTION = 'outcomelogs'
 
@@ -116,11 +117,20 @@ export async function GET(request: Request) {
         ? 'degraded'
         : 'unknown'
 
+    const schedulerState = await getSchedulerState(db)
+    const isDowntime = downtimeExceeded(schedulerState?.lastHeartbeatAt, new Date())
+
     return NextResponse.json({
       status: overallStatus,
       checkedAt: new Date().toISOString(),
       window: '24h',
       tenantId,
+      scheduler: {
+        status: isDowntime ? 'downtime_detected' : 'healthy',
+        lastHeartbeatAt: schedulerState?.lastHeartbeatAt || null,
+        lastRecoveryAt: schedulerState?.lastRecoveryAt || null,
+        lastRecoverySummary: schedulerState?.lastRecoverySummary || null,
+      },
       brands: statuses,
     })
   } catch (error: any) {
