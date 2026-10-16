@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.286
+
+### Bug Fix & UX: Re-wire LeadDetailDrawer primary 'Edit' action to lead editor (issue 250)
+
+- **Drawer Primary Action Alignment (`app/detail.tsx`):**
+  - Resolved UI affordance mismatch (Rule 7) where clicking the primary button labeled **Edit** with a pencil icon in the bottom action bar of `AdminDetailDrawer` was unexpectedly opening the `OutreachComposeModal` (`onClick: () => setOutreachOpen(true)`).
+  - Re-wired `actions.primary` (`action: 'edit'`) to `openEditFields()`, which opens the Lead Details edit form, triggers smooth scrolling directly to the section (`#lead-details-edit-section`), and autofocuses the Entity Name input (`#edit-form-entity-name`).
+  - Added dedicated `outreach` action to `LEAD_ACTION_VOCABULARY_PACK` with `GdsIcons.Mail` and exposed it in `actions.secondary` as `action: 'lead:outreach'`, providing an unambiguous **Outreach** button alongside the **Compose / Log Outreach** button in the Activity tab.
+  - Hardened all Lead Details `editForm` input event handlers (`entity_name`, `url`, `country`, `address`, `general_contact`, `industry`, `sport_or_sector`, `level_league`, `tags`, `manualTicketSizeReason`) with safe event target accessors against null `currentTarget` in WebKit/Safari.
+- **Automated Verification:**
+  - Quality gates: `npx tsc --noEmit`, `npm run lint`, `npm run audit:gds-style`, and `npm run test:smoke` all pass with zero errors and zero warnings.
+  - Test suites: 112 test files with 1,471 unit tests green (100%).
+
 ## 2.4.285
 
 ### Bug Fix & UX: Automation event handler hardening, brand template isolation, and compose modal overlay (issue 249)

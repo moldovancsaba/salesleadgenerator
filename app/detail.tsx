@@ -272,6 +272,7 @@ const LEAD_ACTION_VOCABULARY_PACK = createGdsVocabularyPack('lead', {
   // from lead.kanbanColumn, not a separate board-mode flag).
   backlog: { defaultMessage: 'Move to Backlog', icon: GdsIcons.Archive, ariaLabel: 'Move to Backlog' },
   unbacklog: { defaultMessage: 'Move to Pipeline', icon: GdsIcons.Restore, ariaLabel: 'Move to a pipeline column' },
+  outreach: { defaultMessage: 'Outreach', icon: GdsIcons.Mail, ariaLabel: 'Compose outreach' },
 });
 
 // The 6 real pipeline columns a Backlog lead can move back into — same set
@@ -831,6 +832,14 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
       manualTicketSizeReason: '',
     });
     setEditingFields(true);
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        const el = document.getElementById('lead-details-edit-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const input = document.getElementById('edit-form-entity-name');
+        if (input) input.focus();
+      }, 50);
+    }
   }
 
   // Reads from editForm (the real, user-editable state), not lead.X — see
@@ -1090,13 +1099,22 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
   const actions = {
     primary: {
       action: 'edit' as const,
-      ariaLabel: 'Compose outreach',
+      ariaLabel: 'Edit lead details',
       color: 'indigo',
       disabled: busy,
-      onClick: () => setOutreachOpen(true),
-      id: TOUR_SELECTOR.composeOutreach,
+      onClick: openEditFields,
+      id: 'lead-detail-action-edit',
     },
     secondary: [
+      {
+        action: 'lead:outreach' as const,
+        ariaLabel: 'Compose outreach',
+        color: 'indigo',
+        variant: 'light',
+        disabled: busy,
+        onClick: () => setOutreachOpen(true),
+        id: TOUR_SELECTOR.composeOutreach,
+      },
       {
         action: 'refresh' as const,
         ariaLabel: 'Request refresh',
@@ -1383,7 +1401,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
         )}
       </Box>
 
-      <Box>
+      <Box id="lead-details-edit-section">
         <Group justify="space-between" align="center">
           <Text fw={600}>Lead Details</Text>
           {!editingFields && (
@@ -1392,18 +1410,18 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
         </Group>
         {editingFields && (
           <Stack gap="xs" mt="xs">
-            <TextInput label="Entity name" value={editForm.entity_name} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, entity_name: v })); }} />
-            <TextInput label="URL" value={editForm.url} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, url: v })); }} />
+            <TextInput id="edit-form-entity-name" label="Entity name" value={editForm.entity_name} onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, entity_name: v })); }} />
+            <TextInput label="URL" value={editForm.url} onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, url: v })); }} />
             <TextInput
               label="Country"
               description="2-letter ISO code, e.g. US, GB, DE"
               placeholder="US"
               maxLength={2}
               value={editForm.country}
-              onChange={(e) => { const v = e.currentTarget.value.toUpperCase(); setEditForm((f) => ({ ...f, country: v })); }}
+              onChange={(e) => { const v = (e?.target?.value ?? e?.currentTarget?.value ?? '').toUpperCase(); setEditForm((f) => ({ ...f, country: v })); }}
             />
-            <TextInput label="Address" value={editForm.address} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, address: v })); }} />
-            <TextInput label="General contact" value={editForm.general_contact} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, general_contact: v })); }} />
+            <TextInput label="Address" value={editForm.address} onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, address: v })); }} />
+            <TextInput label="General contact" value={editForm.general_contact} onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, general_contact: v })); }} />
             <Select
               label="Size"
               value={editForm.size || null}
@@ -1411,9 +1429,9 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
               data={SIZE_FIELD_OPTIONS}
               clearable
             />
-            <TextInput label="Industry" value={editForm.industry} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, industry: v })); }} />
-            <TextInput label="Sport / Sector" value={editForm.sport_or_sector} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, sport_or_sector: v })); }} />
-            <TextInput label="Level / League" value={editForm.level_league} onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, level_league: v })); }} />
+            <TextInput label="Industry" value={editForm.industry} onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, industry: v })); }} />
+            <TextInput label="Sport / Sector" value={editForm.sport_or_sector} onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, sport_or_sector: v })); }} />
+            <TextInput label="Level / League" value={editForm.level_league} onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, level_league: v })); }} />
             <AdminTextarea
               name="value_proposition"
               label="Value proposition"
@@ -1431,7 +1449,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
             <TextInput
               label="Tags (comma-separated)"
               value={editForm.tags}
-              onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, tags: v })); }}
+              onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, tags: v })); }}
             />
             <Box>
               <Text size="sm" fw={600}>Manual Ticket-Size Override</Text>
@@ -1451,7 +1469,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
               <TextInput
                 label="Reason (required to save an override)"
                 value={editForm.manualTicketSizeReason}
-                onChange={(e) => { const v = e.currentTarget.value; setEditForm((f) => ({ ...f, manualTicketSizeReason: v })); }}
+                onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, manualTicketSizeReason: v })); }}
                 mt="xs"
               />
               {lead.ticketSizeEstimate?.method === 'manual_override' && (
