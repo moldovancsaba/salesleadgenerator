@@ -1,5 +1,32 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.290
+
+### CRM & Leads: Multi-CRM Lead Import and Export for HubSpot, Salesforce, Pipedrive, and Google Sheets (issue 254)
+
+- **Multi-CRM Lead Exchange Engine (`lib/crm-lead-exchange.ts`):**
+  - Built pure schema exchange module supporting 4 major CRM sales systems and universal formats:
+    - **Google Sheets / Universal CSV**: Formatted for instant copy-paste into Google Sheets or downloading UTF-8 BOM CSV for Excel/Numbers.
+    - **HubSpot CRM**: Pre-configured with HubSpot Contacts & Companies import schema (`Company Name`, `Website URL`, `First Name`, `Last Name`, `Job Title`, `Email`, `Phone Number`, `Lifecycle Stage`, `Lead Status`, `Annual Revenue`, `Industry`, `City`, `Country/Region`, `Description`, `HubSpot Owner`).
+    - **Salesforce Sales Cloud**: Pre-configured with Salesforce Lead object import schema (`Company`, `FirstName`, `LastName`, `Title`, `Email`, `Phone`, `Website`, `Status`, `Rating`, `Industry`, `Country`, `City`, `Street`, `AnnualRevenue`, `Description`).
+    - **Pipedrive CRM**: Pre-configured with Pipedrive Organizations, Persons, and Deals schema (`Organization Name`, `Person - Name`, `Person - Email`, `Person - Phone`, `Person - Job Title`, `Lead Title`, `Lead Value`, `Stage`, `Organization Address`, `Notes`, `Labels`).
+  - Implemented bidirectional stage/status mapping across CRM workflows and SLG Kanban columns (`DISCOVERED`, `QUALIFIED`, `ENGAGED`, `PROPOSAL`, `WON`, `LOST`, `BACKLOG`).
+  - Added robust country normalization mapping common international country names in English and native languages to ISO 3166-1 alpha-2 codes, with fallback extraction from composite address strings.
+  - Built RFC 4180 CSV parser and delimiter auto-detector supporting quotes, commas, tabs, semicolons, and multi-line strings.
+  - Built TSV clipboard generator (`exportLeadsToGoogleSheetsTsv`) for 1-click clipboard paste directly into Google Sheets.
+- **REST Endpoints for Export and Batch Import (`app/api/leads/export/route.ts`, `app/api/leads/import/route.ts`):**
+  - `GET /api/leads/export` and `POST /api/leads/export`: Generates CRM-specific CSV attachments or TSV tables with UTF-8 BOM encoding across all leads, filtered views, or selected subsets.
+  - `POST /api/leads/import`: Dual SSO/API-key authenticated batch import with fingerprint deduplication, ease/ICE scoring, ticket size estimation, and configurable conflict resolution policy (`skip`, `update`, `create_all`).
+- **Workspace-Level Export and Import Modals (`app/components/LeadExportModal.tsx`, `app/components/LeadImportModal.tsx`):**
+  - Mounted **Import** and **Export** actions directly in the main sales board header on `/sales/[brand]`.
+  - `LeadExportModal`: Offers preset selection, scope configuration (all leads, currently filtered, or selected items), 1-click CSV download, and 1-click "Copy for Google Sheets" clipboard action.
+  - `LeadImportModal`: Supports drag-and-drop CSV/TSV upload or direct clipboard paste, auto-detection of CRM presets, live preview table of parsed leads, deduplication policy selector, and target stage assignment with auto-refresh on completion.
+- **Single Lead CRM Export in Lead Details Drawer (`app/detail.tsx`):**
+  - Integrated "Export Lead" menu in `LeadDetailModal` / drawer metadata with 1-click actions: "Copy for Google Sheets", "Download Google Sheets CSV", "Download HubSpot CSV", "Download Salesforce CSV", and "Download Pipedrive CSV".
+- **Automated Verification:**
+  - Added test suite in `tests/lib/crm-lead-exchange.test.ts` verifying country normalization, CRM stage mapping, RFC 4180 parsing, auto-detection, and export generation across all 4 CRMs.
+  - Quality gates: `npx tsc --noEmit`, `npm run lint`, `npm run audit:gds-style`, `npm run test:smoke`, and `npx vitest run` (114 test files, 1,490 unit tests) passing 100%.
+
 ## 2.4.289
 
 ### Reporting & Analytics: Chart null-safety hardening, starter report templates, and interactive template gallery (issue 253)

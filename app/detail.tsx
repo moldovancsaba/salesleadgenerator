@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Lead } from './types';
 import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@sovereignsquad/gds-admin/client';
 import { createGdsVocabularyPack, GdsIcons, StatusBadge } from '@sovereignsquad/gds-core/client';
-import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, NumberInput, TextInput, Select, Modal, Checkbox, ActionIcon, Divider } from '@mantine/core';
+import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, NumberInput, TextInput, Select, Modal, Checkbox, ActionIcon, Divider, Menu } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
@@ -33,12 +33,17 @@ import {
   IconMail,
   IconPlus,
   IconFileText,
+  IconDownload,
+  IconBrandGoogle,
+  IconCopy,
+  IconCheck,
 } from '@tabler/icons-react';
 import { OutreachComposeModal } from './outreach/compose-modal';
 import { TABLET_LANDSCAPE_MAX } from './constants';
 import { useIsCompactViewport } from './lib/use-is-compact-viewport';
 import { TOUR_SELECTOR } from './lib/tour/selectors';
 import { useAuth } from './components/AuthProvider';
+import { exportLeadsToCsv, exportLeadsToGoogleSheetsTsv, type CrmPreset } from '@/lib/crm-lead-exchange';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -1137,9 +1142,99 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
     vocabularyPacks: [LEAD_ACTION_VOCABULARY_PACK],
   };
 
+  async function handleCopyLeadForGoogleSheets() {
+    try {
+      const tsv = exportLeadsToGoogleSheetsTsv([lead]);
+      await navigator.clipboard.writeText(tsv);
+      showNotification({
+        title: 'Copied for Google Sheets!',
+        message: `${lead.entity_name} copied to clipboard. Paste into Google Sheets with Cmd+V.`,
+        color: 'teal',
+        icon: <IconCheck size={16} />,
+      });
+    } catch (err: any) {
+      showNotification({
+        title: 'Copy failed',
+        message: err?.message || 'Failed to copy to clipboard',
+        color: 'red',
+      });
+    }
+  }
+
+  function handleDownloadSingleLead(targetPreset: CrmPreset) {
+    try {
+      const csv = exportLeadsToCsv([lead], targetPreset, brand);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${lead.entity_name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${targetPreset}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showNotification({
+        title: 'Exported',
+        message: `Exported ${lead.entity_name} in ${targetPreset} format.`,
+        color: 'teal',
+        icon: <IconCheck size={16} />,
+      });
+    } catch (err: any) {
+      showNotification({
+        title: 'Download failed',
+        message: err?.message || 'Failed to generate CSV',
+        color: 'red',
+      });
+    }
+  }
+
   const metadata = (
     <Stack gap="xs">
-      <Title order={3}>{lead.entity_name}</Title>
+      <Group justify="space-between" align="center" wrap="wrap">
+        <Title order={3}>{lead.entity_name}</Title>
+
+        <Menu shadow="md" width={240} position="bottom-end">
+          <Menu.Target>
+            <Button size="xs" variant="default" leftSection={<IconDownload size={14} />}>
+              Export Lead
+            </Button>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Label>Major CRM Systems</Menu.Label>
+            <Menu.Item
+              leftSection={<IconBrandGoogle size={14} color="var(--mantine-color-green-6)" />}
+              onClick={handleCopyLeadForGoogleSheets}
+            >
+              Copy for Google Sheets
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconDownload size={14} />}
+              onClick={() => handleDownloadSingleLead('google_sheets')}
+            >
+              Download Google Sheets CSV
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconDownload size={14} color="var(--mantine-color-orange-6)" />}
+              onClick={() => handleDownloadSingleLead('hubspot')}
+            >
+              Download HubSpot CSV
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconDownload size={14} color="var(--mantine-color-blue-6)" />}
+              onClick={() => handleDownloadSingleLead('salesforce')}
+            >
+              Download Salesforce CSV
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconDownload size={14} color="var(--mantine-color-teal-6)" />}
+              onClick={() => handleDownloadSingleLead('pipedrive')}
+            >
+              Download Pipedrive CSV
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+      </Group>
+
       <Group gap="xs">
         <Badge variant="light" color="gray">{lead.country || '—'}</Badge>
         <Badge variant="light" color={regionToneValue}>{lead.region || '—'}</Badge>

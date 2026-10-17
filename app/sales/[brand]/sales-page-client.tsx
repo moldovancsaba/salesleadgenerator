@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Group, Text, Paper, Loader, Box, TextInput, UnstyledButton, ActionIcon, Tooltip, Select, SegmentedControl, Title, Badge, Button, Stack } from '@mantine/core';
-import { IconChecklist, IconX, IconPlus, IconSearch, IconSettings } from '@tabler/icons-react';
+import { IconChecklist, IconX, IconPlus, IconSearch, IconSettings, IconDownload, IconUpload } from '@tabler/icons-react';
 import { useCommandLauncher } from '@sovereignsquad/gds-core/client';
 import type { CommandDef } from '@sovereignsquad/gds-core/client';
 import type { Lead } from '@/app/types';
@@ -16,6 +16,8 @@ import { MetricsPanel } from '@/app/metrics';
 import { FilterBar } from '@/app/components/FilterBar';
 import { AddLeadModal } from '@/app/components/AddLeadModal';
 import { PipelineManagerModal } from '@/app/components/PipelineManagerModal';
+import { LeadExportModal } from '@/app/components/LeadExportModal';
+import { LeadImportModal } from '@/app/components/LeadImportModal';
 import { BACKLOG_COLUMN_DEF } from '@/app/constants';
 import type { Pipeline } from '@/lib/pipelines';
 import { isDefaultPipelineId } from '@/lib/pipelines';
@@ -97,6 +99,8 @@ export function SalesPageClient({ brand, currency }: Props) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [addLeadOpen, setAddLeadOpen] = useState(false)
   const [pipelineManagerOpen, setPipelineManagerOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Lead[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -385,6 +389,22 @@ export function SalesPageClient({ brand, currency }: Props) {
             <Button
               size="xs"
               variant="default"
+              leftSection={<IconUpload size={14} />}
+              onClick={() => setImportOpen(true)}
+            >
+              Import
+            </Button>
+            <Button
+              size="xs"
+              variant="default"
+              leftSection={<IconDownload size={14} />}
+              onClick={() => setExportOpen(true)}
+            >
+              Export
+            </Button>
+            <Button
+              size="xs"
+              variant="default"
               leftSection={<IconPlus size={14} />}
               onClick={() => setAddLeadOpen(true)}
               data-tour={TOUR_SELECTOR.addLeadTrigger}
@@ -619,6 +639,21 @@ export function SalesPageClient({ brand, currency }: Props) {
           }
           setRefreshKey((k) => k + 1);
         }}
+      />
+
+      <LeadExportModal
+        opened={exportOpen}
+        onClose={() => setExportOpen(false)}
+        brand={brand}
+        totalPipelineLeads={boardMeta?.totalLeads}
+        filteredLeads={view === 'table' ? tableLeads : visibleLeads}
+      />
+
+      <LeadImportModal
+        opened={importOpen}
+        onClose={() => setImportOpen(false)}
+        brand={brand}
+        onImportCompleted={() => setRefreshKey((k) => k + 1)}
       />
     </Box>
   );
