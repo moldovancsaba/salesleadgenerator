@@ -61,7 +61,8 @@ export async function POST(request: NextRequest) {
     const claims = await resolveSessionFromIdToken(request.cookies.get('sso_id_token')?.value)
     const senderUserId = claims?.sub
     const senderName = claims?.name
-    const senderEmail = claims?.email
+    const requestedSenderEmail = typeof body.senderEmail === 'string' && body.senderEmail.trim() ? body.senderEmail.trim() : undefined
+    const senderEmail = requestedSenderEmail || claims?.email
 
     const leadId = String(body.leadId || '').trim()
     const subject = String(body.subject || '').trim()
@@ -90,11 +91,11 @@ export async function POST(request: NextRequest) {
     const client = await clientPromise
     const db = client.db()
 
-    // Issue #248: Check if sender has an active personal Gmail connection.
+    // Issue #248 / #252: Check if sender has an active personal Gmail connection for the chosen account.
     // If not, fall back to checking if Resend is configured.
     let hasActiveGmail = false
     if (senderUserId) {
-      const userConn = await getUserConnection(db, senderUserId, 'gmail')
+      const userConn = await getUserConnection(db, senderUserId, 'gmail', senderEmail)
       hasActiveGmail = userConn?.status === 'active'
     }
 

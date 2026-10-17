@@ -2,6 +2,7 @@ import { ObjectId, type Db } from 'mongodb';
 import {
   getActiveConnectionByProvider,
   listAllActiveUserConnections,
+  listActiveUserConnections,
   getUserConnection,
   getValidCredential,
   ConnectionRevokedError,
@@ -394,14 +395,19 @@ export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string):
 }
 
 // Issue #249: Polls Gmail messages for a single user's connected Google account across
-// configured CRM brands (or a specific preferred brand).
+// Issue #249 / #252: Polls Gmail messages for all of a user's connected Google accounts
+// across configured CRM brands (or a specific preferred brand/connection).
 export async function pollUserGmail(
   db: Db,
   userId: string,
-  targetBrand?: string
+  targetBrand?: string,
+  targetConnectionId?: string
 ): Promise<GmailPollResult> {
-  const connection = await getUserConnection(db, userId, 'gmail');
-  if (!connection || connection.status !== 'active') {
+  const connections = targetConnectionId
+    ? [await getUserConnection(db, userId, 'gmail', targetConnectionId)].filter((c): c is IntegrationConnection => Boolean(c && c.status === 'active'))
+    : await listActiveUserConnections(db, userId, 'gmail');
+
+  if (connections.length === 0) {
     return { ingested: 0, skipped: 0, failure: 'no_active_connection' };
   }
 
@@ -414,31 +420,33 @@ export async function pollUserGmail(
   let totalSkipped = 0;
   const failureReasons: string[] = [];
 
-  for (const b of brandsToSync) {
-    const brandConfig = allBrandConfigs[b];
-    if (!brandConfig) continue;
+  for (const connection of connections) {
+    for (const b of brandsToSync) {
+      const brandConfig = allBrandConfigs[b];
+      if (!brandConfig) continue;
 
-    const tenantId = connection.tenantId || 'default';
-    const leadsCollection = db.collection(brandConfig.dbCollection);
-    const knownEmailDocs = await leadsCollection
-      .find(tenantFilter(tenantId) as any, { projection: { contactEmails: 1 } })
-      .toArray()
-      .catch(() => [] as any[]);
+      const tenantId = connection.tenantId || 'default';
+      const leadsCollection = db.collection(brandConfig.dbCollection);
+      const knownEmailDocs = await leadsCollection
+        .find(tenantFilter(tenantId) as any, { projection: { contactEmails: 1 } })
+        .toArray()
+        .catch(() => [] as any[]);
 
-    const knownEmails = new Set<string>();
-    for (const doc of knownEmailDocs) {
-      for (const email of doc.contactEmails || []) {
-        knownEmails.add(normalizeEmail(email));
+      const knownEmails = new Set<string>();
+      for (const doc of knownEmailDocs) {
+        for (const email of doc.contactEmails || []) {
+          knownEmails.add(normalizeEmail(email));
+        }
       }
-    }
 
-    try {
-      const res = await pollSingleGmailConnection(db, connection, b as Brand, tenantId, brandConfig, knownEmails);
-      totalIngested += res.ingested;
-      totalSkipped += res.skipped;
-      if (res.failure) failureReasons.push(res.failure);
-    } catch (err: any) {
-      failureReasons.push(err?.message || 'connection_poll_failed');
+      try {
+        const res = await pollSingleGmailConnection(db, connection, b as Brand, tenantId, brandConfig, knownEmails);
+        totalIngested += res.ingested;
+        totalSkipped += res.skipped;
+        if (res.failure) failureReasons.push(res.failure);
+      } catch (err: any) {
+        failureReasons.push(err?.message || 'connection_poll_failed');
+      }
     }
   }
 

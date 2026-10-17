@@ -30,11 +30,12 @@ export async function POST(
 
   const url = new URL(request.url);
   const brand = url.searchParams.get('brand') || undefined;
+  const connectionId = url.searchParams.get('id') || undefined;
 
   const client = await clientPromise;
   const db = client.db();
 
-  const result = await pollUserGmail(db, claims.sub, brand);
+  const result = await pollUserGmail(db, claims.sub, brand, connectionId);
 
   if (result.failure && result.ingested === 0 && result.skipped === 0) {
     return NextResponse.json({ ok: false, error: result.failure }, { status: 400 });

@@ -33,6 +33,7 @@ export type IntegrationConnection = {
   // User-level connection extension (issue #247)
   userId?: string; // ssoUserId of the user who owns this connection (omitted for brand-level)
   userEmail?: string; // authenticated Google account email
+  isDefault?: boolean; // primary/default connection for this provider (issue 252)
   // Signature synchronization extension (issue #241)
   signatureHtml?: string;
   signatureText?: string;
@@ -89,21 +90,21 @@ export const OAUTH_PROVIDER_CONFIG: Record<'google_calendar' | 'gmail' | 'google
     tokenUrl: GOOGLE_TOKEN_URL,
     revokeUrl: GOOGLE_REVOKE_URL,
     tokenInfoUrl: GOOGLE_TOKENINFO_URL,
-    scopes: ['https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/calendar.freebusy'],
+    scopes: ['https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/calendar.freebusy', 'https://www.googleapis.com/auth/userinfo.email'],
   },
   gmail: {
     authorizeUrl: GOOGLE_AUTHORIZE_URL,
     tokenUrl: GOOGLE_TOKEN_URL,
     revokeUrl: GOOGLE_REVOKE_URL,
     tokenInfoUrl: GOOGLE_TOKENINFO_URL,
-    scopes: ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send'],
+    scopes: ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/userinfo.email'],
   },
   google_contacts: {
     authorizeUrl: GOOGLE_AUTHORIZE_URL,
     tokenUrl: GOOGLE_TOKEN_URL,
     revokeUrl: GOOGLE_REVOKE_URL,
     tokenInfoUrl: GOOGLE_TOKENINFO_URL,
-    scopes: ['https://www.googleapis.com/auth/contacts.readonly'],
+    scopes: ['https://www.googleapis.com/auth/contacts.readonly', 'https://www.googleapis.com/auth/userinfo.email'],
   },
 };
 
@@ -146,12 +147,11 @@ export function buildGoogleAuthorizeUrl(params: {
   url.searchParams.set('state', params.state);
   url.searchParams.set('code_challenge', params.codeChallenge);
   url.searchParams.set('code_challenge_method', 'S256');
-  // access_type=offline + prompt=consent guarantees a refresh_token on
-  // every connect/reconnect — without prompt=consent, Google only issues a
-  // refresh_token on a user's very first-ever grant to this client, which
-  // would silently break Reconnect for anyone who already granted once.
+  // access_type=offline + prompt=select_account consent guarantees:
+  // 1. Google renders the account chooser so reps can connect multiple accounts (issue 252)
+  // 2. A refresh_token is returned on every connect/reconnect flow
   url.searchParams.set('access_type', 'offline');
-  url.searchParams.set('prompt', 'consent');
+  url.searchParams.set('prompt', 'select_account consent');
   return url.toString();
 }
 

@@ -153,6 +153,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (!userEmail) {
+      try {
+        const userinfoRes = await fetchWithRetry('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        });
+        if (userinfoRes.ok) {
+          const userinfo = await userinfoRes.json();
+          if (userinfo.email) {
+            userEmail = userinfo.email;
+            providerAccountLabel = userinfo.email;
+          }
+        }
+      } catch (err) {
+        // Non-fatal
+      }
+    }
+
     const isUserScope = pending.scopeType === 'user';
     const userEmailResolved = userEmail || claimsOrResponse.email;
     const providerAccountLabelResolved = providerAccountLabel || userEmailResolved;
@@ -173,7 +190,7 @@ export async function GET(request: NextRequest) {
 
     if (provider === 'gmail' && isUserScope) {
       try {
-        await syncUserGmailSignature(db, claimsOrResponse.sub);
+        await syncUserGmailSignature(db, claimsOrResponse.sub, userEmailResolved);
       } catch (sigErr) {
         console.error('[api/integrations/oauth/callback] auto signature sync failed:', sigErr);
       }

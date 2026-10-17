@@ -69,9 +69,10 @@ export async function fetchGmailSignatureFromGoogle(
 
 export async function syncUserGmailSignature(
   db: Db,
-  userId: string
+  userId: string,
+  connectionIdOrEmail?: string
 ): Promise<{ ok: boolean; signatureText?: string; signatureSyncedAt?: string; error?: string }> {
-  const connection = await getUserConnection(db, userId, 'gmail');
+  const connection = await getUserConnection(db, userId, 'gmail', connectionIdOrEmail);
   if (!connection || connection.status !== 'active') {
     return { ok: false, error: 'no_active_connection' };
   }

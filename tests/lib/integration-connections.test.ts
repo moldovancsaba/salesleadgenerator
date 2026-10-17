@@ -49,11 +49,12 @@ describe('oauthConfigFor / apiKeyConfigFor (issue 217)', () => {
     expect(apiKeyConfigFor('google_calendar')).toBeNull();
   });
 
-  it('google_calendar requests only calendar.events and calendar.freebusy — least privilege, not a broad scope', () => {
+  it('google_calendar requests calendar.events, calendar.freebusy, and userinfo.email', () => {
     const cfg = oauthConfigFor('google_calendar')!;
     expect(cfg.scopes).toEqual([
       'https://www.googleapis.com/auth/calendar.events',
       'https://www.googleapis.com/auth/calendar.freebusy',
+      'https://www.googleapis.com/auth/userinfo.email',
     ]);
   });
 
@@ -71,8 +72,8 @@ describe('oauthConfigFor / apiKeyConfigFor (issue 217)', () => {
   });
 });
 
-describe('buildGoogleAuthorizeUrl (issue 217)', () => {
-  it('builds a real Google authorize URL with PKCE S256, offline access, and forced consent', () => {
+describe('buildGoogleAuthorizeUrl (issue 217 & 252)', () => {
+  it('builds a real Google authorize URL with PKCE S256, offline access, and select_account consent', () => {
     const url = buildGoogleAuthorizeUrl({
       provider: 'google_calendar',
       clientId: 'client-123',
@@ -89,7 +90,7 @@ describe('buildGoogleAuthorizeUrl (issue 217)', () => {
     expect(parsed.searchParams.get('code_challenge')).toBe('challenge-xyz');
     expect(parsed.searchParams.get('code_challenge_method')).toBe('S256');
     expect(parsed.searchParams.get('access_type')).toBe('offline');
-    expect(parsed.searchParams.get('prompt')).toBe('consent');
+    expect(parsed.searchParams.get('prompt')).toBe('select_account consent');
   });
 
   it('encodes the provider-specific scope list as a space-joined string', () => {
@@ -101,6 +102,6 @@ describe('buildGoogleAuthorizeUrl (issue 217)', () => {
       codeChallenge: 'cc',
     });
     const scope = new URL(url).searchParams.get('scope');
-    expect(scope).toBe('https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send');
+    expect(scope).toBe('https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email');
   });
 });

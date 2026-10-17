@@ -1,5 +1,39 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.288
+
+### Integrations & Accounts: Multi-Google Account support for User Profiles, Gmail Outreach, and Contacts (issue 252)
+
+- **Multi-Google Account Architecture & Database Migration (`app/lib/integration-store.ts`, `lib/integration-connections.ts`):**
+  - Updated index migration in `ensureIntegrationConnectionIndexes`: migrated legacy unique index `{ userId: 1, provider: 1 }` to a compound unique partial index on `{ userId: 1, provider: 1, userEmail: 1 }` with `partialFilterExpression: { userId: { $type: 'string' }, userEmail: { $type: 'string' } }`.
+  - Sales reps can now connect and maintain multiple distinct Google accounts (e.g. personal Gmail, work/corporate mailbox, brand accounts) simultaneously without database collisions or key errors.
+  - Added `isDefault` flag tracking: the first connected active account automatically becomes the default sender; if the default account is disconnected, another active account is automatically promoted to default.
+  - Added `setUserDefaultConnection(db, userId, provider, connectionId)` to permit explicit default selection.
+  - Added `listActiveUserConnections(db, userId, provider?)` returning all active connections sorted by `{ isDefault: -1, updatedAt: -1 }`.
+  - Updated `getUserConnection(db, userId, provider, connectionIdOrEmail?)` to retrieve a specific connection by ID or email, or smoothly fall back to the default account.
+- **OAuth Authorization & User Email Resolution (`lib/integration-connections.ts`, `app/api/integrations/oauth/callback/route.ts`):**
+  - Enhanced `buildGoogleAuthorizeUrl` with `prompt=select_account consent` so Google consistently renders the account chooser rather than silently reusing an existing active browser session.
+  - Added `https://www.googleapis.com/auth/userinfo.email` to `google_calendar`, `gmail`, and `google_contacts` OAuth scopes.
+  - Added userinfo email fallback in OAuth callback handler to guarantee user email capture even when ID token claims are absent.
+- **User Settings Modal Multi-Account Management (`app/components/UserSettingsModal.tsx`):**
+  - Revamped personal mailbox settings from a single-account view into a multi-account management center displaying all connected accounts.
+  - Each account card features verified timestamp, synced Gmail signature with preview, and per-account actions (Sync, Test, Refresh Signature, Disconnect).
+  - Prominent **Default Sender** badge and 1-click **Set as Default** button for switching default dispatch.
+  - Added prominent **+ Connect another Google Account** button directing through the account-chooser OAuth flow.
+- **Multi-Account Sender Selection in Outreach Composer (`app/outreach/compose-modal.tsx`, `app/api/outreach-send/route.ts`):**
+  - Loaded all active Gmail accounts into `OutreachComposeModal`.
+  - When more than one Gmail account is connected, surfaces an inline **Send from** dropdown selector allowing reps to choose which mailbox to send from.
+  - Updated `POST /api/outreach-send` to support `senderEmail` payload and authenticate that the sender owns an active connection for that mailbox before dispatch.
+- **Multi-Mailbox Inbound Polling (`app/lib/gmail-sync-store.ts`, `app/api/user/integrations/[provider]/sync/route.ts`):**
+  - Updated `pollUserGmail(db, userId, brand?, targetConnectionId?)` to iterate and poll all active user Gmail connections across configured brands.
+- **New Default Account Endpoint (`app/api/user/integrations/[provider]/default/route.ts`):**
+  - Added `POST /api/user/integrations/[provider]/default` with `{ id }` payload guarded by SSO authentication.
+- **Automated Verification:**
+  - Added multi-account unit test in `tests/lib/user-integrations.test.ts` covering multi-account insertion, default auto-assignment, targeted lookup, and default promotion.
+  - Updated `tests/lib/integration-connections.test.ts` for updated scopes and `select_account consent` prompt.
+  - Quality gates: `npx tsc --noEmit`, `npm run lint`, `npm run audit:gds-style`, and `npm run test:smoke` all pass with zero errors and zero warnings.
+  - 112 test files with 1,472 unit tests green (100%).
+
 ## 2.4.287
 
 ### Integrations & Contacts: Google Contacts connection management and workspace-level import on /contacts/[brand] (issue 251)

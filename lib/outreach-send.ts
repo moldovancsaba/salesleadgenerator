@@ -482,7 +482,7 @@ export async function dispatchOutreachEmail(
   let deliveredBody = body;
   if (source.kind === 'manual' && source.senderUserId && source.includeSignature !== false) {
     try {
-      const userConn = await getUserConnection(db, source.senderUserId, 'gmail');
+      const userConn = await getUserConnection(db, source.senderUserId, 'gmail', source.senderEmail);
       if (userConn?.signatureText) {
         deliveredBody = appendSignatureToBody(body, userConn.signatureText);
       }
@@ -504,11 +504,11 @@ export async function dispatchOutreachEmail(
 
   let rfcMessageId: string | undefined;
 
-  // Issue #248: If this is a manual send and the sales rep has connected their personal
-  // Google / Gmail account, route via the Gmail REST API (messages.send).
+  // Issue #248 / #252: If this is a manual send and the sales rep has connected personal
+  // Google / Gmail account(s), route via the chosen account's Gmail REST API (messages.send).
   if (source.kind === 'manual' && source.senderUserId) {
     try {
-      const userConn = await getUserConnection(db, source.senderUserId, 'gmail');
+      const userConn = await getUserConnection(db, source.senderUserId, 'gmail', source.senderEmail);
       if (userConn && userConn.status === 'active') {
         usedTransport = 'gmail';
         const accessToken = await getValidCredential(db, userConn);

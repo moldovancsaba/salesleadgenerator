@@ -24,8 +24,17 @@ export async function POST(
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
   }
 
+  const url = new URL(request.url);
+  const body = await request.json().catch(() => ({}));
+  const connectionId = url.searchParams.get('id') || body.id || undefined;
+
   const client = await clientPromise;
-  const disconnected = await disconnectUserConnection(client.db(), claims.sub, providerParam as IntegrationProvider);
+  const disconnected = await disconnectUserConnection(
+    client.db(),
+    claims.sub,
+    providerParam as IntegrationProvider,
+    connectionId
+  );
 
   if (!disconnected) {
     return NextResponse.json({ error: 'No active connection found for this provider' }, { status: 404 });

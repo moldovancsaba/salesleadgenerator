@@ -39,7 +39,7 @@ export async function ensureIntegrationConnectionIndexes(db: Db, force = false):
         }
       }
       const oldUserIndex = existing.find((i: any) => i.name === 'userId_1_provider_1');
-      if (oldUserIndex && !oldUserIndex.partialFilterExpression && typeof col.dropIndex === 'function') {
+      if (oldUserIndex && typeof col.dropIndex === 'function') {
         try {
           await col.dropIndex('userId_1_provider_1');
         } catch (dropErr) {
@@ -48,13 +48,13 @@ export async function ensureIntegrationConnectionIndexes(db: Db, force = false):
       }
     }
 
-    // Partial index on userId + provider for individual user accounts (issue #247)
-    // Only indexes documents where userId is a string, preventing collisions on brand connections (userId is null/omitted)
+    // Partial compound index on userId + provider + userEmail for individual user accounts (issue 247, 252)
+    // Allows a user to connect multiple distinct Google accounts for the same provider without collisions.
     await col.createIndex(
-      { userId: 1, provider: 1 },
+      { userId: 1, provider: 1, userEmail: 1 },
       {
         unique: true,
-        partialFilterExpression: { userId: { $type: 'string' } },
+        partialFilterExpression: { userId: { $type: 'string' }, userEmail: { $type: 'string' } },
       }
     );
     // Compound index for brand/tenant scoped connections
@@ -167,7 +167,7 @@ export async function upsertOAuthConnection(
 
   let refreshToken = params.refreshToken;
   if (!refreshToken && params.userId) {
-    const existing = await getUserConnection(db, params.userId, params.provider);
+    const existing = await getUserConnection(db, params.userId, params.provider, params.userEmail);
     if (existing?.encryptedCredentials) {
       try {
         const oldCreds = decryptCredentials<{ refreshToken?: string }>(existing.encryptedCredentials);
@@ -182,11 +182,29 @@ export async function upsertOAuthConnection(
   const expiresIn = Number(params.expiresInSeconds) || 3600;
   const accessTokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-  // If userId is present, key uniquely on userId + provider for individual user accounts (issue #247).
-  // Otherwise, key on brand + tenantId + provider for brand-level integrations.
-  const filter = params.userId
-    ? { userId: params.userId, provider: params.provider }
-    : { brand: params.brand, tenantId: params.tenantId, provider: params.provider, userId: { $in: [null, undefined] } };
+  // If userId is present, key uniquely on userId + provider + userEmail (issue 252)
+  // so users can connect multiple Google accounts.
+  let filter: Record<string, any>;
+  if (params.userId) {
+    if (params.userEmail) {
+      filter = { userId: params.userId, provider: params.provider, userEmail: params.userEmail };
+    } else {
+      filter = { userId: params.userId, provider: params.provider };
+    }
+  } else {
+    filter = { brand: params.brand, tenantId: params.tenantId, provider: params.provider, userId: { $in: [null, undefined] } };
+  }
+
+  // Check if user already has an active connection for this provider; if none, set as default
+  let isDefault = false;
+  if (params.userId) {
+    const existingActive = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
+      userId: params.userId,
+      provider: params.provider,
+      status: 'active',
+    });
+    isDefault = !existingActive;
+  }
 
   const $set: Record<string, any> = {
     authMethod: 'oauth2', encryptedCredentials: blob, accessTokenExpiresAt,
@@ -206,6 +224,7 @@ export async function upsertOAuthConnection(
         brand: params.brand,
         tenantId: params.tenantId,
         provider: params.provider,
+        ...(params.userId ? { isDefault } : {}),
       },
       $unset: { lastSyncError: '' },
     },
@@ -213,24 +232,59 @@ export async function upsertOAuthConnection(
   );
 }
 
-// User-level connection accessors (issue #247)
+// User-level connection accessors (issue #247, enhanced for multi-account in issue #252)
 export async function getUserConnection(
-  db: Db, userId: string, provider: IntegrationProvider
+  db: Db, userId: string, provider: IntegrationProvider, connectionIdOrEmail?: string
 ): Promise<IntegrationConnection | null> {
-  const doc = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
+  const query: Record<string, any> = {
     userId, provider, status: { $ne: 'revoked' },
+  };
+  if (connectionIdOrEmail) {
+    const byId = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
+      ...query, id: connectionIdOrEmail,
+    });
+    if (byId) return byId as unknown as IntegrationConnection;
+    const byEmail = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
+      ...query, userEmail: connectionIdOrEmail,
+    });
+    if (byEmail) return byEmail as unknown as IntegrationConnection;
+    return null;
+  }
+  // Try finding explicit default first, otherwise fall back to any active connection
+  const defaultDoc = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
+    ...query,
+    isDefault: true,
   });
+  if (defaultDoc) return defaultDoc as unknown as IntegrationConnection;
+
+  const doc = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne(query);
   return doc as unknown as IntegrationConnection | null;
 }
 
 export async function listUserConnections(
-  db: Db, userId: string
+  db: Db, userId: string, provider?: IntegrationProvider
 ): Promise<SafeIntegrationConnection[]> {
-  const docs = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION)
-    .find({ userId })
-    .sort({ provider: 1 })
-    .toArray();
+  const query: Record<string, any> = { userId };
+  if (provider) query.provider = provider;
+  const cursor = db.collection(INTEGRATION_CONNECTIONS_COLLECTION).find(query);
+  const docs = typeof cursor.sort === 'function'
+    ? await cursor.sort({ provider: 1, isDefault: -1, updatedAt: -1 }).toArray()
+    : await cursor.toArray();
   return docs.map(toSafe);
+}
+
+export async function listActiveUserConnections(
+  db: Db, userId: string, provider?: IntegrationProvider
+): Promise<IntegrationConnection[]> {
+  const query: Record<string, any> = {
+    userId, status: 'active',
+  };
+  if (provider) query.provider = provider;
+  const cursor = db.collection(INTEGRATION_CONNECTIONS_COLLECTION).find(query);
+  const docs = typeof cursor.sort === 'function'
+    ? await cursor.sort({ isDefault: -1, updatedAt: -1 }).toArray()
+    : await cursor.toArray();
+  return docs as unknown as IntegrationConnection[];
 }
 
 export async function listAllActiveUserConnections(
@@ -254,11 +308,49 @@ export async function listAllActiveGmailConnections(db: Db): Promise<Integration
 }
 
 export async function disconnectUserConnection(
-  db: Db, userId: string, provider: IntegrationProvider
+  db: Db, userId: string, provider: IntegrationProvider, connectionId?: string
 ): Promise<boolean> {
-  const connection = await getUserConnection(db, userId, provider);
+  const connection = connectionId
+    ? await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({ id: connectionId, userId, provider, status: { $ne: 'revoked' } })
+    : await getUserConnection(db, userId, provider);
   if (!connection) return false;
-  await disconnectConnection(db, connection);
+  await disconnectConnection(db, connection as unknown as IntegrationConnection);
+
+  // If the disconnected connection was default, promote another active connection to default
+  if ((connection as any).isDefault) {
+    const nextActive = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION)
+      .find({ userId, provider, status: 'active', id: { $ne: connection.id } })
+      .sort({ updatedAt: -1 })
+      .limit(1)
+      .next();
+    if (nextActive) {
+      await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).updateOne(
+        { id: nextActive.id },
+        { $set: { isDefault: true, updatedAt: new Date().toISOString() } }
+      );
+    }
+  }
+
+  return true;
+}
+
+export async function setUserDefaultConnection(
+  db: Db, userId: string, provider: IntegrationProvider, connectionId: string
+): Promise<boolean> {
+  const target = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
+    id: connectionId, userId, provider, status: 'active',
+  });
+  if (!target) return false;
+
+  const now = new Date().toISOString();
+  await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).updateMany(
+    { userId, provider },
+    { $set: { isDefault: false, updatedAt: now } }
+  );
+  await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).updateOne(
+    { id: connectionId },
+    { $set: { isDefault: true, updatedAt: now } }
+  );
   return true;
 }
 

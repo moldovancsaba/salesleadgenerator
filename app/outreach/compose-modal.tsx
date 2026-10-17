@@ -90,6 +90,8 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   const [replyInThread, setReplyInThread] = useState(true);
   const [attachedDocs, setAttachedDocs] = useState<DocumentRecord[]>([]);
   const [pickerOpened, setPickerOpened] = useState(false);
+  const [gmailAccounts, setGmailAccounts] = useState<Array<{ id: string; email: string; signatureText?: string; isDefault?: boolean }>>([]);
+  const [selectedGmailAccount, setSelectedGmailAccount] = useState<string | null>(null);
 
   useEffect(() => {
     if (!opened) return;
@@ -98,19 +100,33 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled) return;
-        const gmailConn = data?.connections?.find((c: any) => c.provider === 'gmail' && c.status === 'active');
-        if (gmailConn) {
+        const activeConns = (data?.connections || []).filter((c: any) => c.provider === 'gmail' && c.status === 'active');
+        const accounts = activeConns.map((c: any) => ({
+          id: c.id,
+          email: c.userEmail || c.providerAccountLabel || '',
+          signatureText: c.signatureText,
+          isDefault: Boolean(c.isDefault),
+        }));
+        setGmailAccounts(accounts);
+        if (accounts.length > 0) {
+          const defaultAcc = accounts.find((a: any) => a.isDefault) || accounts[0];
+          setSelectedGmailAccount(defaultAcc.email);
           setSenderInfo({
-            email: gmailConn.userEmail || gmailConn.providerAccountLabel,
+            email: defaultAcc.email,
             provider: 'gmail',
-            signatureText: gmailConn.signatureText,
+            signatureText: defaultAcc.signatureText,
           });
         } else {
+          setSelectedGmailAccount(null);
           setSenderInfo({ provider: 'resend' });
         }
       })
       .catch(() => {
-        if (!cancelled) setSenderInfo({ provider: 'resend' });
+        if (!cancelled) {
+          setGmailAccounts([]);
+          setSelectedGmailAccount(null);
+          setSenderInfo({ provider: 'resend' });
+        }
       });
 
     fetch(`/api/leads/${lead._id}/thread-context?brand=${encodeURIComponent(brand)}`)
@@ -363,8 +379,9 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   async function handleSendEmail() {
     if (!canSendEmail) return;
     const decisionMaker = getDecisionMakerContact(lead.contacts);
-    const senderDescription = senderInfo.provider === 'gmail' && senderInfo.email
-      ? `your connected Gmail (${senderInfo.email})`
+    const activeEmail = selectedGmailAccount || senderInfo.email;
+    const senderDescription = senderInfo.provider === 'gmail' && activeEmail
+      ? `your connected Gmail (${activeEmail})`
       : 'the system default email sender';
     const confirmed = window.confirm(
       `Send this email to ${decisionMaker?.name || 'the decision-maker'} <${decisionMaker?.email || ''}> from ${senderDescription} now? This sends a real email immediately and cannot be undone.`
@@ -392,6 +409,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           subject,
           body,
           idempotencyKey,
+          senderEmail: activeEmail,
           includeSignature: senderInfo.signatureText ? includeSignature : undefined,
           replyInThread: Boolean(threadContext && replyInThread),
           threadId: replyInThread ? threadContext?.threadId : undefined,
@@ -641,9 +659,35 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
         <Group justify="space-between" align="center" wrap="wrap" gap="xs">
           <Group gap="xs">
             {senderInfo.provider === 'gmail' ? (
-              <Badge color="teal" variant="light" size="sm">
-                Gmail Connected: {senderInfo.email || 'Personal Gmail'}
-              </Badge>
+              gmailAccounts.length > 1 ? (
+                <Select
+                  size="xs"
+                  aria-label="Select sender Gmail account"
+                  data={gmailAccounts.map((a) => ({
+                    value: a.email,
+                    label: `${a.email}${a.isDefault ? ' (Default)' : ''}`,
+                  }))}
+                  value={selectedGmailAccount}
+                  onChange={(val) => {
+                    if (!val) return;
+                    setSelectedGmailAccount(val);
+                    const chosen = gmailAccounts.find((a) => a.email === val);
+                    if (chosen) {
+                      setSenderInfo({
+                        email: chosen.email,
+                        provider: 'gmail',
+                        signatureText: chosen.signatureText,
+                      });
+                    }
+                  }}
+                  comboboxProps={{ withinPortal: true }}
+                  w={230}
+                />
+              ) : (
+                <Badge color="teal" variant="light" size="sm">
+                  Gmail Connected: {senderInfo.email || 'Personal Gmail'}
+                </Badge>
+              )
             ) : (
               <>
                 <Badge color="gray" variant="light" size="sm">

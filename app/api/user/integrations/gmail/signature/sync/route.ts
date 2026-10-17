@@ -15,10 +15,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
   }
 
+  const url = new URL(request.url);
+  const body = await request.json().catch(() => ({}));
+  const connectionId = url.searchParams.get('id') || body.id || undefined;
+
   const client = await clientPromise;
   const db = client.db();
 
-  const result = await syncUserGmailSignature(db, claims.sub);
+  const result = await syncUserGmailSignature(db, claims.sub, connectionId);
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error || 'Failed to sync signature' }, { status: 400 });
   }

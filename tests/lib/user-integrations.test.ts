@@ -13,9 +13,10 @@ import {
   listAllActiveUserConnections,
   listAllActiveGmailConnections,
   upsertOAuthConnection,
+  setUserDefaultConnection,
 } from '../../app/lib/integration-store';
 
-describe('User Integrations Store (issue 247)', () => {
+describe('User Integrations Store (issue 247 & 252)', () => {
   let mockDb: any;
   let storedDocs: any[];
 
@@ -64,7 +65,13 @@ describe('User Integrations Store (issue 247)', () => {
             }
           }
           let doc = storedDocs.find((d) => {
-            if (filter.userId) return d.userId === filter.userId && d.provider === filter.provider;
+            if (filter.id) return d.id === filter.id;
+            if (filter.userId) {
+              if (filter.userEmail) {
+                return d.userId === filter.userId && d.provider === filter.provider && d.userEmail === filter.userEmail;
+              }
+              return d.userId === filter.userId && d.provider === filter.provider;
+            }
             return d.brand === filter.brand && d.tenantId === filter.tenantId && d.provider === filter.provider;
           });
           if (!doc) {
@@ -72,6 +79,18 @@ describe('User Integrations Store (issue 247)', () => {
             storedDocs.push(doc);
           } else {
             Object.assign(doc, update.$set || {});
+          }
+          return Promise.resolve({ acknowledged: true });
+        }),
+        updateMany: vi.fn().mockImplementation((filter: any, update: any) => {
+          for (const doc of storedDocs) {
+            let match = true;
+            for (const [key, val] of Object.entries(filter)) {
+              if (doc[key] !== val) { match = false; break; }
+            }
+            if (match) {
+              Object.assign(doc, update.$set || {});
+            }
           }
           return Promise.resolve({ acknowledged: true });
         }),
@@ -224,6 +243,59 @@ describe('User Integrations Store (issue 247)', () => {
 
     await ensureIntegrationConnectionIndexes(testDb, true);
     expect(droppedIndexes).toContain('brand_1_tenantId_1_provider_1');
+  });
+
+  it('supports multiple Google accounts for the same user with distinct emails (issue 252)', async () => {
+    // First account connected becomes default automatically
+    await upsertOAuthConnection(mockDb, {
+      brand: 'cogmap',
+      tenantId: 'default',
+      provider: 'gmail',
+      accessToken: 'token_personal',
+      refreshToken: 'refresh_personal',
+      scopes: ['gmail.send'],
+      connectedBy: 'usr_sso_1',
+      userId: 'usr_sso_1',
+      userEmail: 'personal@gmail.com',
+    });
+
+    expect(storedDocs).toHaveLength(1);
+    expect(storedDocs[0].userEmail).toBe('personal@gmail.com');
+    expect(storedDocs[0].isDefault).toBe(true);
+
+    // Second account connected for the same user is not default
+    await upsertOAuthConnection(mockDb, {
+      brand: 'cogmap',
+      tenantId: 'default',
+      provider: 'gmail',
+      accessToken: 'token_work',
+      refreshToken: 'refresh_work',
+      scopes: ['gmail.send'],
+      connectedBy: 'usr_sso_1',
+      userId: 'usr_sso_1',
+      userEmail: 'work@company.com',
+    });
+
+    expect(storedDocs).toHaveLength(2);
+    expect(storedDocs[1].userEmail).toBe('work@company.com');
+    expect(storedDocs[1].isDefault).toBe(false);
+
+    // Default connection lookup returns personal@gmail.com
+    const defaultConn = await getUserConnection(mockDb, 'usr_sso_1', 'gmail');
+    expect(defaultConn?.userEmail).toBe('personal@gmail.com');
+
+    // Targeted connection lookup returns work@company.com
+    const targetedConn = await getUserConnection(mockDb, 'usr_sso_1', 'gmail', 'work@company.com');
+    expect(targetedConn?.userEmail).toBe('work@company.com');
+
+    // Switching default to work account
+    const switched = await setUserDefaultConnection(mockDb, 'usr_sso_1', 'gmail', storedDocs[1].id);
+    expect(switched).toBe(true);
+    expect(storedDocs[0].isDefault).toBe(false);
+    expect(storedDocs[1].isDefault).toBe(true);
+
+    const newDefaultConn = await getUserConnection(mockDb, 'usr_sso_1', 'gmail');
+    expect(newDefaultConn?.userEmail).toBe('work@company.com');
   });
 });
 

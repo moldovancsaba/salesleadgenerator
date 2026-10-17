@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { Modal, Stack, Group, Title, Text, Button, Paper, Badge, Divider, Loader, Alert, Switch, NumberInput } from '@mantine/core';
-import { IconMail, IconBrandGoogle, IconCheck, IconAlertTriangle, IconRefresh, IconUnlink, IconCalendar, IconInfoCircle } from '@tabler/icons-react';
+import { IconMail, IconBrandGoogle, IconCheck, IconAlertTriangle, IconRefresh, IconUnlink, IconCalendar, IconInfoCircle, IconPlus } from '@tabler/icons-react';
 import { useAuth } from './AuthProvider';
 
 type SafeConnection = {
@@ -12,6 +12,7 @@ type SafeConnection = {
   authMethod: string;
   providerAccountLabel?: string;
   userEmail?: string;
+  isDefault?: boolean;
   status: 'active' | 'expired' | 'revoked' | 'error';
   lastVerifiedAt?: string;
   lastSyncError?: string;
@@ -54,10 +55,11 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
   const [connections, setConnections] = useState<SafeConnection[]>([]);
   const [configured, setConfigured] = useState<{ google: boolean; encryption: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncingSignature, setSyncingSignature] = useState(false);
-  const [disconnecting, setDisconnecting] = useState(false);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [syncingSignatureId, setSyncingSignatureId] = useState<string | null>(null);
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
   const [calendarSettings, setCalendarSettings] = useState<CalendarSyncSettings>(DEFAULT_CALENDAR_SETTINGS);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarSaving, setCalendarSaving] = useState(false);
@@ -113,7 +115,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
         const err = params.get('error') || params.get('connect_error');
         const conn = params.get('connected');
         if (conn === 'gmail') {
-          setFeedback({ type: 'success', message: 'Personal Gmail account successfully connected!' });
+          setFeedback({ type: 'success', message: 'Google account successfully connected!' });
         } else if (err === 'google_not_configured') {
           setFeedback({
             type: 'error',
@@ -127,7 +129,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
         } else if (err === 'duplicate_connection') {
           setFeedback({
             type: 'error',
-            message: 'A Gmail account is already connected to this user. Disconnect the existing connection before connecting again.',
+            message: 'This Google account is already connected to your profile.',
           });
         } else if (err && err.startsWith('token_exchange_')) {
           setFeedback({
@@ -149,7 +151,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
     }
   }, [opened, loadConnections, loadCalendarSettings]);
 
-  const gmailConnection = connections.find((c) => c.provider === 'gmail' && c.status !== 'revoked');
+  const gmailConnections = connections.filter((c) => c.provider === 'gmail' && c.status !== 'revoked');
 
   function handleConnectGmail() {
     if (configured && !configured.google) {
@@ -172,11 +174,35 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
     window.location.assign(fullUrl);
   }
 
-  async function handleSyncGmail() {
-    setSyncing(true);
+  async function handleSetDefaultGmail(id: string) {
+    setSettingDefaultId(id);
     setFeedback(null);
     try {
-      const res = await fetch(`/api/user/integrations/gmail/sync?brand=${encodeURIComponent(brand)}`, {
+      const res = await fetch('/api/user/integrations/gmail/default', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        setFeedback({ type: 'success', message: 'Default Gmail sender account updated.' });
+        await loadConnections();
+      } else {
+        setFeedback({ type: 'error', message: data.error || 'Failed to set default account.' });
+      }
+    } catch {
+      setFeedback({ type: 'error', message: 'Could not reach server to set default account.' });
+    } finally {
+      setSettingDefaultId(null);
+    }
+  }
+
+  async function handleSyncGmail(id?: string) {
+    setSyncingId(id || 'all');
+    setFeedback(null);
+    try {
+      const url = `/api/user/integrations/gmail/sync?brand=${encodeURIComponent(brand)}${id ? `&id=${encodeURIComponent(id)}` : ''}`;
+      const res = await fetch(url, {
         method: 'POST',
       });
       const data = await res.json().catch(() => ({}));
@@ -192,15 +218,19 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
     } catch {
       setFeedback({ type: 'error', message: 'Could not reach server to sync messages.' });
     } finally {
-      setSyncing(false);
+      setSyncingId(null);
     }
   }
 
-  async function handleTestGmail() {
-    setTesting(true);
+  async function handleTestGmail(id: string) {
+    setTestingId(id);
     setFeedback(null);
     try {
-      const res = await fetch('/api/user/integrations/gmail/test', { method: 'POST' });
+      const res = await fetch('/api/user/integrations/gmail/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
         setFeedback({ type: 'success', message: 'Gmail connection verified and active.' });
@@ -212,15 +242,19 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
     } catch {
       setFeedback({ type: 'error', message: 'Could not reach server to test connection.' });
     } finally {
-      setTesting(false);
+      setTestingId(null);
     }
   }
 
-  async function handleRefreshSignature() {
-    setSyncingSignature(true);
+  async function handleRefreshSignature(id: string) {
+    setSyncingSignatureId(id);
     setFeedback(null);
     try {
-      const res = await fetch('/api/user/integrations/gmail/signature/sync', { method: 'POST' });
+      const res = await fetch('/api/user/integrations/gmail/signature/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
         setFeedback({
@@ -234,20 +268,25 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
     } catch {
       setFeedback({ type: 'error', message: 'Could not reach server to sync signature.' });
     } finally {
-      setSyncingSignature(false);
+      setSyncingSignatureId(null);
     }
   }
 
-  async function handleDisconnectGmail() {
-    if (!window.confirm('Disconnect your Gmail account? You will no longer be able to send or receive emails from your personal address.')) {
+  async function handleDisconnectGmail(id: string, label?: string) {
+    const accountDesc = label ? ` (${label})` : '';
+    if (!window.confirm(`Disconnect your Google account${accountDesc}? You will no longer be able to send or receive emails from this address.`)) {
       return;
     }
-    setDisconnecting(true);
+    setDisconnectingId(id);
     setFeedback(null);
     try {
-      const res = await fetch('/api/user/integrations/gmail/disconnect', { method: 'POST' });
+      const res = await fetch('/api/user/integrations/gmail/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
       if (res.ok) {
-        setFeedback({ type: 'success', message: 'Gmail account disconnected.' });
+        setFeedback({ type: 'success', message: 'Google account disconnected.' });
         await loadConnections();
       } else {
         setFeedback({ type: 'error', message: 'Failed to disconnect account.' });
@@ -255,7 +294,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
     } catch {
       setFeedback({ type: 'error', message: 'Network error while disconnecting.' });
     } finally {
-      setDisconnecting(false);
+      setDisconnectingId(null);
     }
   }
 
@@ -286,7 +325,8 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
     }
   }
 
-  const isGoogleConnected = Boolean(gmailConnection && gmailConnection.status === 'active');
+  const isGoogleConnected = gmailConnections.some((c) => c.status === 'active');
+  const isAnyBusy = Boolean(testingId || syncingId || syncingSignatureId || disconnectingId || settingDefaultId);
 
   return (
     <Modal opened={opened} onClose={onClose} title={<Title order={4}>My Account & Integrations</Title>} size="md" centered>
@@ -304,9 +344,9 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
         </Paper>
 
         <div>
-          <Title order={5} mb={4}>Personal Mailbox (Gmail)</Title>
+          <Title order={5} mb={4}>Personal Mailboxes (Google / Gmail)</Title>
           <Text size="xs" c="dimmed">
-            Connect your Google account to send 1:1 outreach emails from your own address and automatically sync lead replies.
+            Connect one or more Google accounts to send outreach emails directly from your personal or brand mailboxes and automatically sync lead replies.
           </Text>
         </div>
 
@@ -314,98 +354,161 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
           <Group justify="center" py="md">
             <Loader size="sm" />
           </Group>
-        ) : gmailConnection && gmailConnection.status === 'active' ? (
-          <Paper p="sm" withBorder radius="sm" style={{ borderColor: 'var(--mantine-color-green-6)' }}>
-            <Stack gap="xs">
-              <Group justify="space-between" align="center">
-                <Group gap="xs">
-                  <IconBrandGoogle size={20} color="red" />
-                  <div>
-                    <Text size="sm" fw={600}>
-                      {gmailConnection.providerAccountLabel || gmailConnection.userEmail || user?.email || 'Connected'}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      Verified: {formatRelativeTime(gmailConnection.lastVerifiedAt)}
-                    </Text>
-                  </div>
-                </Group>
-                <Badge color="green" variant="light">Connected</Badge>
-              </Group>
+        ) : gmailConnections.length > 0 ? (
+          <Stack gap="sm">
+            {gmailConnections.map((conn) => {
+              const isConnActive = conn.status === 'active';
+              const isTestingThis = testingId === conn.id;
+              const isSyncingThis = syncingId === conn.id;
+              const isSyncingSigThis = syncingSignatureId === conn.id;
+              const isDisconnectingThis = disconnectingId === conn.id;
+              const isSettingDefaultThis = settingDefaultId === conn.id;
 
-              <Divider my={4} />
+              return (
+                <Paper
+                  key={conn.id}
+                  p="sm"
+                  withBorder
+                  radius="sm"
+                  style={{
+                    borderColor: isConnActive
+                      ? (conn.isDefault ? 'var(--mantine-color-blue-6)' : 'var(--mantine-color-green-6)')
+                      : 'var(--mantine-color-red-6)',
+                  }}
+                >
+                  <Stack gap="xs">
+                    <Group justify="space-between" align="center">
+                      <Group gap="xs">
+                        <IconBrandGoogle size={20} color={isConnActive ? 'red' : 'gray'} />
+                        <div>
+                          <Group gap={6} align="center">
+                            <Text size="sm" fw={600}>
+                              {conn.userEmail || conn.providerAccountLabel || user?.email || 'Connected Account'}
+                            </Text>
+                            {conn.isDefault && (
+                              <Badge color="blue" variant="filled" size="xs">
+                                Default Sender
+                              </Badge>
+                            )}
+                          </Group>
+                          <Text size="xs" c="dimmed">
+                            Verified: {formatRelativeTime(conn.lastVerifiedAt)}
+                          </Text>
+                        </div>
+                      </Group>
+                      <Group gap="xs">
+                        {!conn.isDefault && isConnActive && (
+                          <Button
+                            size="compact-xs"
+                            variant="subtle"
+                            color="blue"
+                            onClick={() => handleSetDefaultGmail(conn.id)}
+                            loading={isSettingDefaultThis}
+                            disabled={isAnyBusy}
+                          >
+                            Set as Default
+                          </Button>
+                        )}
+                        <Badge color={isConnActive ? 'green' : 'red'} variant="light">
+                          {isConnActive ? 'Connected' : conn.status}
+                        </Badge>
+                      </Group>
+                    </Group>
 
-              <Stack gap={6}>
-                <Group justify="space-between" align="center">
-                  <Text size="xs" fw={600} c="dimmed">Gmail Signature</Text>
-                  <Button
-                    size="compact-xs"
-                    variant="subtle"
-                    color="indigo"
-                    leftSection={<IconRefresh size={12} />}
-                    onClick={handleRefreshSignature}
-                    loading={syncingSignature}
-                    disabled={syncing || testing || disconnecting}
-                  >
-                    Refresh Signature
-                  </Button>
-                </Group>
-                {gmailConnection.signatureText ? (
-                  <Paper p="xs" withBorder bg="var(--mantine-color-gray-0)" radius="xs">
-                    <Text size="xs" ff="monospace" style={{ whiteSpace: 'pre-wrap', maxHeight: 80, overflowY: 'auto' }}>
-                      {gmailConnection.signatureText}
-                    </Text>
-                    {gmailConnection.signatureSyncedAt && (
-                      <Text size="10px" c="dimmed" mt={4}>
-                        Synced: {formatRelativeTime(gmailConnection.signatureSyncedAt)}
+                    {conn.lastSyncError && (
+                      <Text size="xs" c="red">
+                        Error: {conn.lastSyncError}
                       </Text>
                     )}
-                  </Paper>
-                ) : (
-                  <Text size="xs" c="dimmed">
-                    No signature found in Gmail. Click Refresh Signature to sync.
-                  </Text>
-                )}
-              </Stack>
 
-              <Divider my={4} />
+                    <Divider my={4} />
 
-              <Group justify="flex-end" gap="xs">
-                <Button
-                  size="xs"
-                  variant="light"
-                  color="blue"
-                  leftSection={<IconRefresh size={14} />}
-                  onClick={handleSyncGmail}
-                  loading={syncing}
-                  disabled={testing || disconnecting || syncingSignature}
-                >
-                  Sync Emails Now
-                </Button>
-                <Button
-                  size="xs"
-                  variant="light"
-                  color="gray"
-                  leftSection={<IconCheck size={14} />}
-                  onClick={handleTestGmail}
-                  loading={testing}
-                  disabled={syncing || disconnecting}
-                >
-                  Test
-                </Button>
-                <Button
-                  size="xs"
-                  variant="subtle"
-                  color="red"
-                  leftSection={<IconUnlink size={14} />}
-                  onClick={handleDisconnectGmail}
-                  loading={disconnecting}
-                  disabled={syncing || testing}
-                >
-                  Disconnect
-                </Button>
-              </Group>
-            </Stack>
-          </Paper>
+                    <Stack gap={6}>
+                      <Group justify="space-between" align="center">
+                        <Text size="xs" fw={600} c="dimmed">Gmail Signature</Text>
+                        <Button
+                          size="compact-xs"
+                          variant="subtle"
+                          color="indigo"
+                          leftSection={<IconRefresh size={12} />}
+                          onClick={() => handleRefreshSignature(conn.id)}
+                          loading={isSyncingSigThis}
+                          disabled={isAnyBusy}
+                        >
+                          Refresh Signature
+                        </Button>
+                      </Group>
+                      {conn.signatureText ? (
+                        <Paper p="xs" withBorder bg="var(--mantine-color-gray-0)" radius="xs">
+                          <Text size="xs" ff="monospace" style={{ whiteSpace: 'pre-wrap', maxHeight: 80, overflowY: 'auto' }}>
+                            {conn.signatureText}
+                          </Text>
+                          {conn.signatureSyncedAt && (
+                            <Text size="10px" c="dimmed" mt={4}>
+                              Synced: {formatRelativeTime(conn.signatureSyncedAt)}
+                            </Text>
+                          )}
+                        </Paper>
+                      ) : (
+                        <Text size="xs" c="dimmed">
+                          No signature found in Gmail. Click Refresh Signature to sync.
+                        </Text>
+                      )}
+                    </Stack>
+
+                    <Divider my={4} />
+
+                    <Group justify="flex-end" gap="xs">
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="blue"
+                        leftSection={<IconRefresh size={14} />}
+                        onClick={() => handleSyncGmail(conn.id)}
+                        loading={isSyncingThis}
+                        disabled={isAnyBusy}
+                      >
+                        Sync Emails Now
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="gray"
+                        leftSection={<IconCheck size={14} />}
+                        onClick={() => handleTestGmail(conn.id)}
+                        loading={isTestingThis}
+                        disabled={isAnyBusy}
+                      >
+                        Test
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        color="red"
+                        leftSection={<IconUnlink size={14} />}
+                        onClick={() => handleDisconnectGmail(conn.id, conn.userEmail || conn.providerAccountLabel)}
+                        loading={isDisconnectingThis}
+                        disabled={isAnyBusy}
+                      >
+                        Disconnect
+                      </Button>
+                    </Group>
+                  </Stack>
+                </Paper>
+              );
+            })}
+
+            <Button
+              size="xs"
+              variant="light"
+              color="indigo"
+              leftSection={<IconPlus size={14} />}
+              onClick={handleConnectGmail}
+              disabled={configured?.google === false || configured?.encryption === false || isAnyBusy}
+            >
+              + Connect another Google Account
+            </Button>
+          </Stack>
         ) : (
           <Paper p="sm" withBorder radius="sm">
             <Stack gap="xs">
@@ -419,12 +522,6 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
                 </Group>
                 <Badge color="gray" variant="light">Not Connected</Badge>
               </Group>
-
-              {gmailConnection?.lastSyncError && (
-                <Text size="xs" c="red">
-                  Error: {gmailConnection.lastSyncError}
-                </Text>
-              )}
 
               {configured?.google === false && (
                 <Alert icon={<IconAlertTriangle size={16} />} color="yellow" variant="light" title="Google OAuth Setup Required">
