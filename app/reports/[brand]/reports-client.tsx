@@ -1,14 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Box, Title, Text, Button, Group, Stack, Paper, TextInput, Select, MultiSelect, NumberInput, Switch, TagsInput, Loader, Badge, SegmentedControl, ActionIcon } from '@mantine/core'
+import { Box, Title, Text, Button, Group, Stack, Paper, TextInput, Select, MultiSelect, NumberInput, Switch, TagsInput, Loader, Badge, SegmentedControl, ActionIcon, Alert } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminModal } from '@sovereignsquad/gds-admin/client'
 import { GdsBarChart, GdsLineChart } from '@sovereignsquad/gds-core/client'
-import { IconPlus, IconTrash, IconPlayerPlay } from '@tabler/icons-react'
+import { IconPlus, IconTrash, IconPlayerPlay, IconSparkles, IconAlertTriangle } from '@tabler/icons-react'
 import type { Brand } from '@/app/lib/brand'
 import { METRIC_OPTIONS, GROUP_BY_OPTIONS, FILTER_FIELD_OPTIONS } from '@/lib/report-pipeline'
 import type { ReportMetric, ReportGroupByField, ReportFilterField, ReportFilterOp, ReportDateRange } from '@/lib/report-pipeline'
 import type { ReportDefinition, ReportChartType } from '@/lib/report-definitions'
+import { ReportTemplateModal } from '@/app/components/ReportTemplateModal'
+import type { ReportTemplate } from '@/lib/report-templates'
 
 type Props = { brand: Brand; label: string }
 
@@ -109,9 +111,12 @@ export function ReportsClient({ brand, label }: Props) {
 
   const [runningId, setRunningId] = useState<string | null>(null)
   const [runResult, setRunResult] = useState<{ reportId: string; reportName: string; chartType: ReportChartType; rows: ResultRow[] } | null>(null)
+  const [resultChartType, setResultChartType] = useState<ReportChartType | null>(null)
   const [runError, setRunError] = useState<string | null>(null)
 
   const [deleteTarget, setDeleteTarget] = useState<ReportDefinition | null>(null)
+  const [templateModalOpen, setTemplateModalOpen] = useState(false)
+  const [seeding, setSeeding] = useState(false)
 
   const loadReports = useCallback(async () => {
     setLoading(true)
@@ -143,6 +148,50 @@ export function ReportsClient({ brand, label }: Props) {
     setForm(formFromDefinition(r))
     setSaveError(null)
     setFormOpen(true)
+  }
+
+  function handleSelectTemplate(tmpl: ReportTemplate) {
+    setForm({
+      id: null,
+      name: tmpl.name,
+      metric: tmpl.metric,
+      groupBy: [...tmpl.groupBy],
+      filters: tmpl.filters.map((f) => ({
+        field: f.field,
+        op: f.op,
+        value: Array.isArray(f.value) ? f.value.join(', ') : f.value,
+      })),
+      dateRangeMode: tmpl.dateRange.mode,
+      relativeDays: tmpl.dateRange.mode === 'relative' ? tmpl.dateRange.days : 30,
+      fixedFrom: tmpl.dateRange.mode === 'fixed' ? tmpl.dateRange.from : '',
+      fixedTo: tmpl.dateRange.mode === 'fixed' ? tmpl.dateRange.to : '',
+      chartType: tmpl.chartType,
+      scheduleEnabled: false,
+      scheduleFrequency: 'weekly',
+      scheduleHourUtc: 9,
+      scheduleDayOfWeek: 1,
+      scheduleDayOfMonth: 1,
+      scheduleRecipients: [],
+    })
+    setSaveError(null)
+    setFormOpen(true)
+  }
+
+  async function handleSeedStarterPack() {
+    setSeeding(true)
+    try {
+      const url = new URL('/api/reports/seed', window.location.origin)
+      url.searchParams.set('brand', brand)
+      url.searchParams.set('tenantId', tenantId)
+      const res = await fetch(url.toString(), { method: 'POST' })
+      if (!res.ok) throw new Error('Failed to seed starter templates')
+      await loadReports()
+      setTemplateModalOpen(false)
+    } catch (err: any) {
+      setError(err?.message || 'Failed to seed starter templates')
+    } finally {
+      setSeeding(false)
+    }
   }
 
   const canSave = form.name.trim().length > 0
@@ -184,6 +233,7 @@ export function ReportsClient({ brand, label }: Props) {
       if (!res.ok) throw new Error(`Failed to run report (${res.status})`)
       const data = await res.json()
       setRunResult({ reportId: r.id, reportName: r.name, chartType: r.chartType, rows: data.rows || [] })
+      setResultChartType(r.chartType)
       await loadReports()
     } catch (err: any) {
       setRunError(err?.message || 'Failed to run report')
@@ -224,7 +274,20 @@ export function ReportsClient({ brand, label }: Props) {
               Build an ad-hoc report for <Text span fw={600}>{label}</Text> — pick a metric, group by, filter, and a date range.
             </Text>
           </div>
-          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openCreate}>New report</Button>
+          <Group gap="xs">
+            <Button
+              size="xs"
+              variant="light"
+              color="indigo"
+              leftSection={<IconSparkles size={14} />}
+              onClick={() => setTemplateModalOpen(true)}
+            >
+              Templates
+            </Button>
+            <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openCreate}>
+              New report
+            </Button>
+          </Group>
         </Group>
 
         {error && <AdminFormStatus state="error" title="Something went wrong" description={error} />}
@@ -233,7 +296,33 @@ export function ReportsClient({ brand, label }: Props) {
         {loading ? (
           <Group justify="center" py="xl"><Loader /></Group>
         ) : reports.length === 0 ? (
-          <AdminResourceEmptyState title="No reports yet" description="Build the first one above." />
+          <Paper p="xl" withBorder radius="md">
+            <Stack align="center" gap="md" py="lg">
+              <AdminResourceEmptyState
+                title="No reports in this workspace"
+                description="Explore pre-built starter templates to quickly analyze your pipeline, conversion, and priority accounts, or build your own from scratch."
+              />
+              <Group gap="sm">
+                <Button
+                  size="xs"
+                  variant="filled"
+                  color="indigo"
+                  leftSection={<IconSparkles size={14} />}
+                  onClick={() => setTemplateModalOpen(true)}
+                >
+                  Browse Report Templates
+                </Button>
+                <Button
+                  size="xs"
+                  variant="light"
+                  leftSection={<IconPlus size={14} />}
+                  onClick={openCreate}
+                >
+                  Create Custom Report
+                </Button>
+              </Group>
+            </Stack>
+          </Paper>
         ) : (
           <AdminDataTable<ReportDefinition & Record<string, unknown>>
             rows={reports as (ReportDefinition & Record<string, unknown>)[]}
@@ -285,12 +374,38 @@ export function ReportsClient({ brand, label }: Props) {
 
         {runResult && (
           <Paper withBorder p="md" radius="md">
-            <Title order={4} mb="sm">{runResult.reportName} — result</Title>
+            <Group justify="space-between" align="center" mb="sm" wrap="wrap" gap="xs">
+              <Title order={4} style={{ margin: 0 }}>{runResult.reportName} — result</Title>
+              <SegmentedControl
+                size="xs"
+                value={resultChartType || runResult.chartType}
+                onChange={(val) => setResultChartType(val as ReportChartType)}
+                data={[
+                  { value: 'bar', label: 'Bar chart' },
+                  { value: 'line', label: 'Line chart' },
+                  { value: 'table', label: 'Table' },
+                ]}
+              />
+            </Group>
             {runResult.rows.length === 0 ? (
               <AdminResourceEmptyState title="No data" description="No leads matched this report's filters and date range." />
-            ) : runResult.chartType === 'table' ? (
+            ) : (resultChartType || runResult.chartType) === 'table' ? (
               <AdminDataTable<{ key: string; label: string; value: string; sampleSize: string } & Record<string, unknown>>
-                rows={runResult.rows.map((r, i) => ({ key: String(i), label: rowLabel(r), value: r.value === null ? 'Insufficient data' : String(r.value), sampleSize: r.sampleSize !== undefined ? String(r.sampleSize) : '' }))}
+                rows={runResult.rows.map((r, i) => {
+                  const metric = reports.find((x) => x.id === runResult.reportId)?.metric;
+                  let formattedVal = 'Insufficient data';
+                  if (typeof r.value === 'number') {
+                    formattedVal = metric === 'win_rate'
+                      ? `${(r.value * 100).toFixed(1)}%`
+                      : String(Math.round(r.value * 100) / 100);
+                  }
+                  return {
+                    key: String(i),
+                    label: rowLabel(r),
+                    value: formattedVal,
+                    sampleSize: r.sampleSize !== undefined ? String(r.sampleSize) : '',
+                  };
+                })}
                 caption="Report result"
                 columns={[
                   { key: 'label', header: 'Group', rowHeader: true, width: 320, accessor: (row) => row.label },
@@ -301,14 +416,48 @@ export function ReportsClient({ brand, label }: Props) {
               />
             ) : (
               (() => {
-                const Chart = runResult.chartType === 'line' ? GdsLineChart : GdsBarChart
+                const currentType = resultChartType || runResult.chartType;
+                const metric = reports.find((x) => x.id === runResult.reportId)?.metric;
+                const metricLabel = METRIC_OPTIONS.find((o) => o.value === metric)?.label ?? 'this metric';
+
+                // Defensively filter out null and non-finite values so GdsBarChart / GdsLineChart never crashes
+                const validPoints = runResult.rows
+                  .filter((r): r is ResultRow & { value: number } => typeof r.value === 'number' && Number.isFinite(r.value))
+                  .map((r) => {
+                    const val = metric === 'win_rate'
+                      ? Math.round(r.value * 1000) / 10
+                      : Math.round(r.value * 100) / 100;
+                    return { label: rowLabel(r), value: val };
+                  });
+
+                if (validPoints.length === 0) {
+                  return (
+                    <Stack gap="xs">
+                      <Paper p="sm" withBorder bg="var(--mantine-color-yellow-0)" radius="sm">
+                        <Group gap="xs" align="flex-start" wrap="nowrap">
+                          <IconAlertTriangle size={16} color="var(--mantine-color-yellow-8)" style={{ marginTop: 2, flexShrink: 0 }} />
+                          <div>
+                            <Text size="sm" fw={600} c="yellow.9">
+                              No numeric chart data
+                            </Text>
+                            <Text size="xs" c="yellow.8">
+                              The groups in this report currently do not have enough numeric data to plot on a chart. Switch to the Table view above to see detailed rows.
+                            </Text>
+                          </div>
+                        </Group>
+                      </Paper>
+                    </Stack>
+                  );
+                }
+
+                const Chart = currentType === 'line' ? GdsLineChart : GdsBarChart;
                 return (
                   <Chart
                     title={runResult.reportName}
-                    summary={`${runResult.rows.length} group${runResult.rows.length === 1 ? '' : 's'} for ${METRIC_OPTIONS.find((o) => o.value === reports.find((r) => r.id === runResult.reportId)?.metric)?.label ?? 'this metric'}`}
-                    data={runResult.rows.map((r) => ({ label: rowLabel(r), value: r.value }))}
+                    summary={`${validPoints.length} group${validPoints.length === 1 ? '' : 's'} with data for ${metricLabel}`}
+                    data={validPoints}
                   />
-                )
+                );
               })()
             )}
           </Paper>
@@ -411,6 +560,15 @@ export function ReportsClient({ brand, label }: Props) {
           </Group>
         </Stack>
       </AdminModal>
+
+      <ReportTemplateModal
+        opened={templateModalOpen}
+        onClose={() => setTemplateModalOpen(false)}
+        onSelectTemplate={handleSelectTemplate}
+        onSeedStarterPack={handleSeedStarterPack}
+        seeding={seeding}
+      />
     </Box>
   )
 }
+

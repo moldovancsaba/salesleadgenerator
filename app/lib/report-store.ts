@@ -7,9 +7,12 @@ import type { Db } from 'mongodb';
 import { tenantFilter } from '../../lib/tenant';
 import { buildReportPipeline, shapeReportRows, type ReportResultRow } from '../../lib/report-pipeline';
 import type { ReportDefinition } from '../../lib/report-definitions';
+import { getStarterReportDefinitions, getReportTemplateById, instantiateReportTemplate } from '../../lib/report-templates';
 
 export const REPORT_DEFINITIONS_COLLECTION = 'report_definitions';
-const MIN_SAMPLE_SIZE = 10;
+// Issue #253: In user-facing ad-hoc reports, groups with at least 1 record compute
+// their real average or win rate, rather than being silenced to null.
+const MIN_SAMPLE_SIZE = 1;
 
 const reportIndexesEnsured = new Set<string>();
 export async function ensureReportIndexes(db: Db): Promise<void> {
@@ -21,6 +24,34 @@ export async function ensureReportIndexes(db: Db): Promise<void> {
   } catch (error) {
     console.error('[report-store] report_definitions index creation failed', error);
   }
+}
+
+export async function seedStarterReportsIfEmpty(
+  db: Db, brand: string, tenantId: string, createdBy = 'system'
+): Promise<ReportDefinition[]> {
+  await ensureReportIndexes(db);
+  const existing = await db.collection(REPORT_DEFINITIONS_COLLECTION).findOne({ brand, tenantId });
+  if (existing) return [];
+  const starters = getStarterReportDefinitions(brand, tenantId, createdBy);
+  if (starters.length > 0) {
+    await db.collection(REPORT_DEFINITIONS_COLLECTION).insertMany(starters);
+  }
+  return starters;
+}
+
+export async function seedStarterReports(
+  db: Db, brand: string, tenantId: string, createdBy = 'system'
+): Promise<ReportDefinition[]> {
+  await ensureReportIndexes(db);
+  const existingDocs = await db.collection(REPORT_DEFINITIONS_COLLECTION).find({ brand, tenantId }).toArray();
+  const existingNames = new Set(existingDocs.map((d: any) => d.name.toLowerCase().trim()));
+  const starters = getStarterReportDefinitions(brand, tenantId, createdBy).filter(
+    (s) => !existingNames.has(s.name.toLowerCase().trim())
+  );
+  if (starters.length > 0) {
+    await db.collection(REPORT_DEFINITIONS_COLLECTION).insertMany(starters);
+  }
+  return starters;
 }
 
 // Per-brand leads collection indexes (issue #212 §16) — this repo had no

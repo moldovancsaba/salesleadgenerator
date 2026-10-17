@@ -5,7 +5,7 @@ import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { getTenantId } from '../../../lib/tenant'
 import { resolveSessionFromIdToken } from '../../../lib/session'
 import { validateReportDefinitionInput, buildReportDefinition } from '../../../lib/report-definitions'
-import { ensureReportIndexes, REPORT_DEFINITIONS_COLLECTION, reportDocToDefinition } from '../../lib/report-store'
+import { ensureReportIndexes, REPORT_DEFINITIONS_COLLECTION, reportDocToDefinition, seedStarterReportsIfEmpty } from '../../lib/report-store'
 
 // Issue #212 — ad-hoc report definitions CRUD, brand/tenant scoped exactly
 // like GET /api/metrics.
@@ -35,10 +35,20 @@ export async function GET(request: NextRequest) {
 
     const client = await getClientPromise()
     const db = client.db()
-    const docs = await db.collection(REPORT_DEFINITIONS_COLLECTION)
+    let docs = await db.collection(REPORT_DEFINITIONS_COLLECTION)
       .find({ brand, tenantId })
       .sort({ updatedAt: -1 })
       .toArray()
+
+    // Issue #253: If brand has no reports, seed the curated starter report templates
+    if (docs.length === 0) {
+      const createdBy = await resolveCreatedBy(request)
+      await seedStarterReportsIfEmpty(db, brand, tenantId, createdBy)
+      docs = await db.collection(REPORT_DEFINITIONS_COLLECTION)
+        .find({ brand, tenantId })
+        .sort({ updatedAt: -1 })
+        .toArray()
+    }
 
     return NextResponse.json({ reports: docs.map(reportDocToDefinition), brand, tenantId })
   } catch (error: any) {

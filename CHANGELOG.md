@@ -1,5 +1,39 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.289
+
+### Reporting & Analytics: Chart null-safety hardening, starter report templates, and interactive template gallery (issue 253)
+
+- **Chart Runtime Null-Safety & View Switcher (`app/reports/[brand]/reports-client.tsx`):**
+  - Resolved `GdsBarChart` and `GdsLineChart` crash on `/reports/[brand]` (`Point X has an invalid numeric value...`) caused by non-numeric/null values returned by pipeline calculations.
+  - Defensively filtered and sanitized chart data points prior to passing to GDS chart components (`Number.isFinite(p.value)`).
+  - Added an informative, accessible fallback alert when no non-zero or numeric points exist for a metric.
+  - Added interactive `SegmentedControl` on the report execution result card allowing sales reps to switch between Bar chart, Line chart, and Data Table views on the fly.
+  - Added metric-aware value formatting: renders percentage for win rate (`win_rate`) and rounded 1-decimal numbers for average ICE scores (`avg_ice_score`).
+- **Minimum Sample Size Adjustment for Ad-hoc Reports (`app/lib/report-store.ts`):**
+  - Lowered `MIN_SAMPLE_SIZE` from 10 to 1 in `runAdhocReport`, allowing brands with segmented lead pools or smaller cohorts (e.g. Seyu sports categories) to compute real averages rather than returning null.
+- **Curated Starter Report Templates Catalog (`lib/report-templates.ts`):**
+  - Created pure module `lib/report-templates.ts` with 6 industry-standard CRM templates:
+    1. Pipeline Funnel by Stage (`lead_count` by `kanbanColumn`, bar chart)
+    2. Leads by Sport & Sector (`lead_count` by `sport_or_sector`, bar chart)
+    3. Win Rate by Sport & Sector (`win_rate` by `sport_or_sector`, table)
+    4. Lost & Decline Reasons Breakdown (`decline_count` by `declineReason`, bar chart)
+    5. Average ICE Score by Pipeline Stage (`avg_ice_score` by `kanbanColumn`, bar chart)
+    6. Lead Volume by Geographic Region (`lead_count` by `region`, bar chart)
+  - Implemented `getReportTemplateById`, `instantiateReportTemplate`, and `getStarterReportDefinitions` helper functions.
+- **Interactive Report Template Gallery Modal (`app/components/ReportTemplateModal.tsx`):**
+  - Created `ReportTemplateModal` organized by business reporting categories (`Pipeline & Funnel`, `Conversion & Win Rate`, `Prioritization & ICE`, `Market & Loss Analysis`).
+  - Added "+ From Template" button (`IconSparkles`) in the reports header and within the empty state card to help users discover and learn how to build reports.
+  - "Use Template" loads full template configuration directly into the report editor for customization before saving.
+  - "Add All 6 Starter Reports" action seeds all 6 standard reports directly into the database as editable, deletable MongoDB definitions.
+- **Automated Seeding and REST Endpoints (`app/api/reports/route.ts`, `app/api/reports/templates/route.ts`, `app/api/reports/seed/route.ts`):**
+  - `GET /api/reports` automatically seeds starter reports if a brand has 0 reports defined.
+  - `GET /api/reports/templates` exposes the template catalog.
+  - `POST /api/reports/seed?brand=[brand]` enables idempotent seeding of the starter pack.
+- **Automated Verification:**
+  - Added comprehensive test suite in `tests/lib/report-templates.test.ts` verifying all 6 templates, schema validation via `validateReportDefinitionInput`, and cloning semantics.
+  - Zero TypeScript errors (`npx tsc --noEmit`), zero lint errors/warnings (`npm run lint`), passing GDS compliance audit (`npm run audit:gds-style`), passing smoke tests (`npm run test:smoke`), and 113 test files with 1,478 unit tests passing (100%).
+
 ## 2.4.288
 
 ### Integrations & Accounts: Multi-Google Account support for User Profiles, Gmail Outreach, and Contacts (issue 252)
