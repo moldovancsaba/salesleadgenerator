@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
   if (authResponse) return authResponse;
 
   const query = (searchParams.get('q') || '').trim();
-  if (!query) return NextResponse.json({ results: [] });
 
   if (!isMongoConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
 

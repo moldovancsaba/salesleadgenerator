@@ -44,24 +44,34 @@ async function resolveContactsAccess(db: Db, brand: Brand, tenantId: string): Pr
   }
 }
 
-// Issue #216 §10 — bounded to 25 results, read-only against Google, never
-// writes anything. Real, documented endpoint: People API's
-// people:searchContacts (searches the user's own saved contacts, not the
-// whole directory).
-export async function searchGoogleContacts(db: Db, brand: Brand, tenantId: string, query: string): Promise<ContactsAccessResult & { results?: GoogleContactResult[] }> {
+// Issue 216 §10, enhanced in Issue 251:
+// - When query is non-empty: uses People API's people:searchContacts
+// - When query is empty/omitted: uses People API's people/me/connections
+//   (sorted by LAST_MODIFIED_DESCENDING) to display recent contacts.
+export async function searchGoogleContacts(db: Db, brand: Brand, tenantId: string, query?: string): Promise<ContactsAccessResult & { results?: GoogleContactResult[] }> {
   const access = await resolveContactsAccess(db, brand, tenantId);
   if (!access.ok) return access;
 
-  const url = new URL(`${PEOPLE_API_BASE}/people:searchContacts`);
-  url.searchParams.set('query', query);
-  url.searchParams.set('readMask', READ_MASK);
-  url.searchParams.set('pageSize', String(SEARCH_PAGE_SIZE));
+  const trimmedQuery = (query || '').trim();
+  let url: URL;
+  if (!trimmedQuery) {
+    url = new URL(`${PEOPLE_API_BASE}/people/me/connections`);
+    url.searchParams.set('personFields', READ_MASK);
+    url.searchParams.set('pageSize', String(SEARCH_PAGE_SIZE));
+    url.searchParams.set('sortOrder', 'LAST_MODIFIED_DESCENDING');
+  } else {
+    url = new URL(`${PEOPLE_API_BASE}/people:searchContacts`);
+    url.searchParams.set('query', trimmedQuery);
+    url.searchParams.set('readMask', READ_MASK);
+    url.searchParams.set('pageSize', String(SEARCH_PAGE_SIZE));
+  }
 
   const res = await fetchWithRetry(url.toString(), { headers: { Authorization: `Bearer ${access.token}` } });
   if (!res.ok) return { ok: false, status: 503, error: 'Could not reach Google Contacts' };
   const body = await res.json();
-  const results = (body.results || [])
-    .map((r: any) => mapPerson(r.person))
+  const rawList = trimmedQuery ? (body.results || []).map((r: any) => r.person) : (body.connections || []);
+  const results = rawList
+    .map((p: any) => mapPerson(p))
     .filter((c: GoogleContactResult | null): c is GoogleContactResult => c !== null);
   return { ok: true, token: access.token, results };
 }

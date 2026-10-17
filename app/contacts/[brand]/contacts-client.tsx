@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Title, Text, Group, Stack, TextInput, Badge, Loader, Button, Select, ActionIcon, Paper } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
-import { IconSearch, IconBrandLinkedin, IconDownload, IconX } from '@tabler/icons-react'
+import { IconSearch, IconBrandLinkedin, IconDownload, IconX, IconBrandGoogle, IconCheck } from '@tabler/icons-react'
+import { showNotification } from '@mantine/notifications'
 import Link from 'next/link'
 import type { Brand } from '@/app/lib/brand'
+import { GoogleContactsWorkspaceModal } from '@/app/components/GoogleContactsWorkspaceModal'
 
 type BuyingRole = 'economic_buyer' | 'champion' | 'influencer' | 'blocker' | 'decision_maker' | 'unknown'
 
@@ -79,7 +81,50 @@ export function ContactsClient({ brand, label }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sort, setSort] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' })
+  const [isGoogleConnected, setIsGoogleConnected] = useState<boolean | undefined>(undefined)
+  const [connectedBanner, setConnectedBanner] = useState(false)
+  const [importModalOpen, setImportModalOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  const checkConnectionStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/integrations/connections?brand=${encodeURIComponent(brand)}`)
+      if (res.ok) {
+        const data = await res.json()
+        const active = (data.connections || []).some(
+          (c: any) => c.provider === 'google_contacts' && c.status === 'active'
+        )
+        setIsGoogleConnected(active)
+      } else {
+        setIsGoogleConnected(false)
+      }
+    } catch {
+      setIsGoogleConnected(false)
+    }
+  }, [brand])
+
+  useEffect(() => {
+    void checkConnectionStatus()
+  }, [checkConnectionStatus])
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('connected') === 'google_contacts') {
+        setConnectedBanner(true)
+        setIsGoogleConnected(true)
+        showNotification({
+          title: 'Google Contacts Connected',
+          message: 'Your Google Contacts account is now connected. You can import contacts into leads.',
+          color: 'teal',
+          autoClose: 5000,
+        })
+        const newUrl = new URL(window.location.href)
+        newUrl.searchParams.delete('connected')
+        window.history.replaceState({}, '', newUrl.toString())
+      }
+    } catch {}
+  }, [])
 
   const loadContacts = useCallback(async (q: string, role: string, status: string) => {
     setLoading(true)
@@ -147,23 +192,73 @@ export function ContactsClient({ brand, label }: Props) {
               <Badge variant="light" color="indigo" size="md">
                 {contacts.length} {contacts.length === 1 ? 'contact' : 'contacts'}
               </Badge>
+              {isGoogleConnected && (
+                <Badge variant="dot" color="teal" size="sm">
+                  Google Contacts Active
+                </Badge>
+              )}
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Every contact across <Text span fw={600}>{label}</Text> leads, searchable by name, company, title, and email.
             </Text>
           </div>
-          <Button
-            component="a"
-            href={`/api/contacts?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}&format=csv${query.trim() ? `&q=${encodeURIComponent(query.trim())}` : ''}${roleFilter !== 'all' ? `&buyingRole=${encodeURIComponent(roleFilter)}` : ''}${crmStatusFilter !== 'all' ? `&crmStatus=${encodeURIComponent(crmStatusFilter)}` : ''}`}
-            variant="default"
-            size="xs"
-            leftSection={<IconDownload size={14} />}
-            download
-            disabled={contacts.length === 0}
-          >
-            Export CSV
-          </Button>
+          <Group gap="xs" wrap="wrap">
+            {isGoogleConnected ? (
+              <Button
+                variant="light"
+                color="indigo"
+                size="xs"
+                leftSection={<IconBrandGoogle size={14} />}
+                onClick={() => setImportModalOpen(true)}
+              >
+                Import from Google Contacts
+              </Button>
+            ) : isGoogleConnected === false ? (
+              <Button
+                component="a"
+                href={`/api/integrations/google_contacts/connect?brand=${encodeURIComponent(brand)}&returnUrl=/contacts/${encodeURIComponent(brand)}`}
+                variant="light"
+                color="blue"
+                size="xs"
+                leftSection={<IconBrandGoogle size={14} />}
+              >
+                Connect Google Contacts
+              </Button>
+            ) : null}
+            <Button
+              component="a"
+              href={`/api/contacts?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}&format=csv${query.trim() ? `&q=${encodeURIComponent(query.trim())}` : ''}${roleFilter !== 'all' ? `&buyingRole=${encodeURIComponent(roleFilter)}` : ''}${crmStatusFilter !== 'all' ? `&crmStatus=${encodeURIComponent(crmStatusFilter)}` : ''}`}
+              variant="default"
+              size="xs"
+              leftSection={<IconDownload size={14} />}
+              download
+              disabled={contacts.length === 0}
+            >
+              Export CSV
+            </Button>
+          </Group>
         </Group>
+
+        {connectedBanner && (
+          <Paper withBorder p="xs" radius="md" style={{ backgroundColor: 'var(--mantine-color-teal-0)', borderColor: 'var(--mantine-color-teal-3)' }}>
+            <Group justify="space-between" align="center" wrap="wrap" gap="xs">
+              <Group gap="xs">
+                <IconCheck size={16} color="var(--mantine-color-teal-7)" />
+                <Text size="xs" fw={500} c="teal.9">
+                  Google Contacts connected successfully! You can now import contacts directly into your leads.
+                </Text>
+              </Group>
+              <Group gap="xs">
+                <Button size="xs" variant="filled" color="teal" onClick={() => setImportModalOpen(true)}>
+                  Import Contacts
+                </Button>
+                <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => setConnectedBanner(false)} aria-label="Dismiss notice">
+                  <IconX size={12} />
+                </ActionIcon>
+              </Group>
+            </Group>
+          </Paper>
+        )}
 
         {/* High-Density Filter Toolbar */}
         <Paper withBorder p="xs" radius="md">
@@ -445,6 +540,14 @@ export function ContactsClient({ brand, label }: Props) {
           />
         )}
       </Stack>
+
+      <GoogleContactsWorkspaceModal
+        opened={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        brand={brand}
+        tenantId={tenantId}
+        onImported={() => void loadContacts(query, roleFilter, crmStatusFilter)}
+      />
     </Box>
   )
 }

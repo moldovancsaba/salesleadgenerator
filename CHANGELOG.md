@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.287
+
+### Integrations & Contacts: Google Contacts connection management and workspace-level import on /contacts/[brand] (issue 251)
+
+- **Contacts Page Connection Management (`app/contacts/[brand]/contacts-client.tsx`):**
+  - Reps on `/contacts/[brand]` (e.g. `/contacts/seyu`) now see active Google Contacts connection status in the header toolbar.
+  - If not connected, displays a 1-click **Connect Google Contacts** button directing to `/api/integrations/google_contacts/connect?brand=[brand]&returnUrl=/contacts/[brand]`.
+  - When returning from successful OAuth connection, automatically recognizes `?connected=google_contacts`, displays a confirmation banner, cleanly removes the query parameter, and surfaces the **Import from Google Contacts** button and active status badge.
+- **Google Contacts Store & Search Enhancement (`app/lib/google-contacts-store.ts`, `app/api/integrations/google-contacts/search/route.ts`):**
+  - Enhanced `searchGoogleContacts` to support empty/omitted search queries by calling People API `people/me/connections?personFields=names,emailAddresses,phoneNumbers,organizations&pageSize=25&sortOrder=LAST_MODIFIED_DESCENDING`.
+  - When opening the import modal, recently modified Google contacts appear immediately without requiring the user to type a query first.
+  - Non-empty search queries continue using People API `people:searchContacts` for precise live lookup.
+- **Workspace-Level Google Contacts Import API (`app/api/contacts/import-google/route.ts`):**
+  - Created dedicated `POST /api/contacts/import-google` endpoint guarded by `requireBrandAccessApi`.
+  - Supports targeted lead import (`leadId` parameter), automatic company/organization matching, or new lead creation in the `DISCOVERED` kanban stage with proper firmographics, fingerprinting, and audit logging.
+  - Returns idempotent results (`added`, `created`, `already-exists`) with lead metadata.
+- **Workspace Google Contacts Import Modal (`app/components/GoogleContactsWorkspaceModal.tsx`):**
+  - Created full-featured workspace modal with live debounced search, organization auto-matching to existing leads, destination lead picker, and one-click import.
+  - Updates contact table upon import completion and provides real-time notifications.
+- **Automated Verification:**
+  - Added 4 integration test cases to `tests/integration/gmail-sync.integration.test.ts` verifying empty-query recent contacts listing, targeted workspace import, organization matching, and new lead creation in `DISCOVERED`.
+  - Quality gates: `npx tsc --noEmit`, `npm run lint`, `npm run audit:gds-style`, and `npm run test:smoke` all pass with zero errors and zero warnings.
+  - 112 test files with 1,471 unit tests green (100%).
+
 ## 2.4.286
 
 ### Bug Fix & UX: Re-wire LeadDetailDrawer primary 'Edit' action to lead editor (issue 250)

@@ -18,6 +18,7 @@ let mongod: MongoMemoryServer;
 let gmailSyncGET: typeof import('../../app/api/integrations/gmail/sync/route').GET;
 let contactsSearchGET: typeof import('../../app/api/integrations/google-contacts/search/route').GET;
 let importGooglePOST: typeof import('../../app/api/leads/[id]/contacts/import-google/route').POST;
+let workspaceImportGooglePOST: typeof import('../../app/api/contacts/import-google/route').POST;
 let leadsPOST: typeof import('../../app/api/leads/route').POST;
 let activityGET: typeof import('../../app/api/leads/[id]/activity/route').GET;
 
@@ -26,6 +27,7 @@ beforeAll(async () => {
   gmailSyncGET = (await import('../../app/api/integrations/gmail/sync/route')).GET;
   contactsSearchGET = (await import('../../app/api/integrations/google-contacts/search/route')).GET;
   importGooglePOST = (await import('../../app/api/leads/[id]/contacts/import-google/route')).POST;
+  workspaceImportGooglePOST = (await import('../../app/api/contacts/import-google/route')).POST;
   const leadsMod = await import('../../app/api/leads/route');
   leadsPOST = leadsMod.POST;
   activityGET = (await import('../../app/api/leads/[id]/activity/route')).GET;
@@ -146,6 +148,9 @@ function mockGmailAndPeople(options: {
     }
     if (url.startsWith('https://people.googleapis.com/v1/people:searchContacts')) {
       return new Response(JSON.stringify({ results: (options.contactsSearchResults || []).map((p) => ({ person: p })) }), { status: 200 });
+    }
+    if (url.startsWith('https://people.googleapis.com/v1/people/me/connections')) {
+      return new Response(JSON.stringify({ connections: options.contactsSearchResults || [] }), { status: 200 });
     }
     if (url.startsWith('https://people.googleapis.com/v1/')) {
       return new Response(JSON.stringify(options.contactsGet || {}), { status: 200 });
@@ -309,5 +314,98 @@ describe('Google Contacts search and import (issue 216)', () => {
 
     const leadDoc = await (await db()).collection('leads').findOne({ _id: (await import('mongodb')).ObjectId.createFromHexString(leadId) });
     expect(leadDoc!.contacts.filter((c: any) => c.email === 'dup@example.com')).toHaveLength(1);
+  });
+
+  it('empty query search returns recent connections (Issue 251)', async () => {
+    await createGoogleContactsConnection('cogmap');
+    mockGmailAndPeople({
+      contactsSearchResults: [
+        { resourceName: 'people/recent-1', names: [{ displayName: 'Recent Person' }], emailAddresses: [{ value: 'recent@example.com' }] },
+      ],
+    });
+
+    const res = await contactsSearchGET(req('/api/integrations/google-contacts/search?brand=cogmap'));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.results).toHaveLength(1);
+    expect(body.results[0]).toMatchObject({ resourceName: 'people/recent-1', name: 'Recent Person', email: 'recent@example.com' });
+  });
+
+  it('workspace import attaches to specified leadId (Issue 251)', async () => {
+    const leadId = await createLeadWithContactEmail('target-lead@example.com');
+    await createGoogleContactsConnection('cogmap');
+    mockGmailAndPeople({
+      contactsGet: { resourceName: 'people/ws-1', names: [{ displayName: 'Workspace User' }], emailAddresses: [{ value: 'ws@example.com' }] },
+    });
+
+    const res = await workspaceImportGooglePOST(req('/api/contacts/import-google?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resourceName: 'people/ws-1', leadId }),
+    }));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('added');
+    expect(body.leadId).toBe(leadId);
+  });
+
+  it('workspace import matches existing lead by organization name (Issue 251)', async () => {
+    const orgLeadId = await createLeadWithContactEmail('org-member@example.com');
+    const existingOrgLead = await (await db()).collection('leads').findOne({
+      _id: (await import('mongodb')).ObjectId.createFromHexString(orgLeadId),
+    });
+    const companyName = existingOrgLead!.entity_name;
+
+    await createGoogleContactsConnection('cogmap');
+    mockGmailAndPeople({
+      contactsGet: {
+        resourceName: 'people/ws-2',
+        names: [{ displayName: 'Org Colleague' }],
+        emailAddresses: [{ value: 'colleague@example.com' }],
+        organizations: [{ name: companyName }],
+      },
+    });
+
+    const res = await workspaceImportGooglePOST(req('/api/contacts/import-google?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resourceName: 'people/ws-2' }),
+    }));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('added');
+    expect(body.leadId).toBe(orgLeadId);
+    expect(body.matched).toBe(true);
+  });
+
+  it('workspace import creates new DISCOVERED lead when no lead matches (Issue 251)', async () => {
+    await createGoogleContactsConnection('cogmap');
+    const uniqueOrgName = `Brand New Venture ${Date.now()}`;
+    mockGmailAndPeople({
+      contactsGet: {
+        resourceName: 'people/ws-3',
+        names: [{ displayName: 'Founder Person' }],
+        emailAddresses: [{ value: 'founder@brandnew.example.com' }],
+        organizations: [{ name: uniqueOrgName }],
+      },
+    });
+
+    const res = await workspaceImportGooglePOST(req('/api/contacts/import-google?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resourceName: 'people/ws-3' }),
+    }));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('created');
+    expect(body.leadName).toBe(uniqueOrgName);
+
+    const createdLead = await (await db()).collection('leads').findOne({
+      _id: (await import('mongodb')).ObjectId.createFromHexString(body.leadId),
+    });
+    expect(createdLead).toBeTruthy();
+    expect(createdLead!.kanbanColumn).toBe('DISCOVERED');
+    expect(createdLead!.source).toBe('google-contacts');
+    expect(createdLead!.contacts[0].email).toBe('founder@brandnew.example.com');
   });
 });
