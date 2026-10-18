@@ -10,9 +10,9 @@ export const dynamic = 'force-dynamic'
 
 // One-time (or ad hoc re-run) backfill trigger for issue #81 — x-api-key
 // guarded, same pattern as POST /api/win-rates/recalculate. Exists because
-// the repo owner has no terminal/CLI access (mobile-only, per CLAUDE.md) and
+// the repo owner has no terminal/CLI access (mobile-only, per AGENTS.md) and
 // so cannot run scripts/backfill-ticket-size.ts directly; this is the path
-// they can actually trigger, e.g. via a Claude Code session issuing the
+// they can actually trigger, e.g. via an authorized coding session issuing the
 // request with the configured SLG_API_KEY.
 //
 // Body: { brand?: 'cogmap'|'seyu', tenantId?: string, apply?: boolean }

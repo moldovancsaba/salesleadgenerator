@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.268
+**Version:** 2.4.291
 
 ---
 
@@ -1484,6 +1484,63 @@ Ingests CRM Cadence Engine & Sequence Enforcement into Sales Lead Generator:
   - *Unified High-Density Filter Toolbars*: Views requiring filtering (e.g. Accounts, Duplicates, Teams, API Keys) encapsulate search and filter controls in a cohesive bordered `<Paper withBorder p="xs" radius="md">` container, removing fragmented, floating inputs.
   - *Explicit `AdminDataTable` Column Widths & Alignments*: In compliance with GDS Admin's `'start' | 'center' | 'end'` column alignment invariant and full-viewport width consumption, every data table across all secondary pages defines explicit pixel widths for all columns (`width: 240`, `width: 280`, `width: 140`, etc.) and right-aligns action columns (`align: 'end'`), eliminating horizontal starvation and awkward whitespace gaps.
   - *Automated Verification*: Regression suite in `tests/lib/desktop-tablet-nav.test.ts` validates that all secondary client files maintain compact count badges, high-density toolbars, and explicit table column widths.
+
+### Document Library & Campaign Asset Management (2.4.279, issue #243)
+- **Workspace Catalog (`app/api/documents/route.ts`, `lib/documents.ts`):** Provides a brand-scoped document management layer for sales collateral, whitepapers, and rate cards.
+- **Fail-Closed Deletion Protection:** Document deletion checks `canDeleteDocument` against running outreach cadences and pending proposals; if referenced by an active sequence, deletion fails closed to prevent broken email attachments.
+- **25MB Size Ceiling:** Enforces hard 25MB attachment limit per document to comply with Resend and standard SMTP payload limits.
+
+### Safe Kanban Drag-and-Drop Restoration (2.4.280, issue #245)
+- **Safe Re-enablement:** Restored `enableDrag: true` as the board default after establishing comprehensive error boundaries (`ErrorBoundary.tsx`), fractional indexing neighbor resolution (`lib/kanban-reorder.ts`), and non-blocking toast rollbacks.
+- **Dual-Zone Desktop Scroll:** Implemented header horizontal panning (`columnPanZone="header"`) with card body vertical mouse-wheel passthrough, eliminating scroll trapping on large boards.
+- **Server Kill Switch:** Maintained backward-compatible `{ dragEnabled: false }` flag in `/api/settings` for instant operator override.
+
+### Email Threading RFC 2822 Context (2.4.282, issue #246)
+- **Header Chaining (`lib/gmail-threading.ts`, `/api/leads/[id]/thread-context`):** Captures message IDs on outbound sends and resolves `In-Reply-To` and `References` headers when replying to leads, preventing conversation fragmentation in prospect inboxes.
+- **Thread Context Pre-flight:** The compose modal pre-fetches the latest message context for a given lead, guaranteeing replies append to the existing email thread.
+
+### Offline Scheduler Recovery & Slot Claims Redistribution (2.4.283, issue #247)
+- **Downtime Detection (`lib/scheduler-recovery.ts`, `/api/admin/scheduler-recovery`):** Monitors scheduler heartbeats and tracks Google Calendar API sync interruptions.
+- **Claim Redistribution:** Automatically expires orphaned slot reservation locks older than 30 seconds, returning availability to the public pool without rep intervention.
+
+### Lead Timeline Activity Filtering (2.4.284, issue #248)
+- **Noise Suppression (`lib/lead-timeline-filter.ts`):** Filters out historical customer correspondence occurring prior to lead creation, while preserving a 48-hour pre-lead grace window for relevant inbound inquiry emails.
+- **Staleness Preservation:** Ensures suppressed pre-lead correspondence does not distort lead staleness calculations or activity velocity metrics.
+
+### Workspace Google Contacts Ingestion & Sync (2.4.285, issue #249)
+- **Bulk Directory Search (`app/lib/google-contacts-store.ts`, `/api/contacts/import-google`):** Extends single-lead contact import to the whole workspace, allowing reps to search Google People API directory contacts and batch-import them directly into the brand's contacts table.
+- **Deduplication:** Automatic matching on normalized email addresses preventing redundant records.
+
+### Multi-Account Google Integration & Compound Partial Index (2.4.286, issue #250)
+- **Multi-Account OAuth Architecture (`lib/integration-connections.ts`, `app/lib/integration-store.ts`):**
+  - Upgraded `integration_connections` from single-account per provider to support multiple connected Google Workspace accounts per brand/rep.
+  - Replaced the old simple index with a compound partial unique index on `{ brand: 1, provider: 1, accountEmail: 1 }` where `accountEmail` is defined, permitting multiple active Google accounts while preventing duplicate connections for the same email address.
+- **Rep Default Account & Signature Sync:**
+  - Added `/api/user/integrations/[provider]/default` to designate a rep's primary sending identity.
+  - Added `/api/user/integrations/gmail/signature/sync` to pull configured HTML signatures directly from Google Workspace Settings API into SLG composer preferences.
+
+### Automated Starter Report Templates & Seeding (2.4.289, issue #251)
+- **Template Gallery (`lib/report-templates.ts`, `/api/reports/templates`, `/api/reports/seed`):**
+  - Shipped 6 production-grade starter CRM report templates: Pipeline Velocity, Lead Generation by Source, Win/Loss Rate by Industry, Rep Quota Attainment, Sales Cycle Duration, and Stale Deals Breakdown.
+  - Pre-validates aggregation pipelines with strict field allowlists preventing arbitrary Mongo query injection.
+  - Supports 1-click seeding to bootstrap newly onboarded client brands with instant analytics.
+
+### Multi-CRM Lead Exchange Engine (2.4.290, issue #252)
+- **Universal Schema Exchange (`lib/crm-lead-exchange.ts`, `/api/leads/export`, `/api/leads/import`):**
+  - Built bidirectional export and import adapters for HubSpot CRM, Salesforce Sales Cloud, Pipedrive CRM, and Google Sheets / CSV.
+  - Implemented RFC 4180 parsing with delimiter auto-detection and UTF-8 BOM encoding for seamless Microsoft Excel and Numbers interoperability.
+  - Bidirectional stage and country normalization ensuring third-party CRM status fields map deterministically to SLG Kanban stages.
+  - Batch import engine with SHA-256 fingerprint deduplication, ease recalculation, and ticket size estimation.
+
+### 5-Tab Sales Settings & Central Product Catalog Synchronization (2.4.291, issue #253, #255)
+- **Modern Tabbed Layout (`app/salessettings/[client]/page.tsx`, `app/lib/sales-settings.ts`):**
+  - Restructured legacy monolithic 12-section form into 5 purpose-built tabs:
+    1. *Company & Team*: Core brand details, verified team members from SSO (`/api/leads/assignable-users`), and default deal owner designation.
+    2. *Products & Pricing*: 1-click synchronization (`syncFromCatalog`) with the authoritative `/admin/products/[brand]` catalog, bridging legacy `company_settings` and modern catalog models.
+    3. *Deal Sizing & Regions*: 4-tier deal sizing bands (Small, Medium, Large, Enterprise, Largest Won) and geographic region multipliers.
+    4. *Sales Process*: Sales cycle duration, decision authorities, purchase frequency, upsell paths, and customer reference cases.
+    5. *Targets & Seasonality*: Revenue targets, period type, seasonality quarters, and commercial negotiation notes.
+  - Clean separation of UI state, dirty-checking ("Unsaved changes" indicator), keyboard shortcuts (`Cmd+S`), and strict schema sanitation.
 
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)

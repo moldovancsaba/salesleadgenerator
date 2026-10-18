@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Version:** 2.4.261
+**Version:** 2.4.291
 
 ---
 
@@ -23,7 +23,7 @@
 ## Supporting Documentation
 
 - `AGENTS.md` / `CLAUDE.md` — mandatory operating rules for any AI coding assistant working in this repo (`AGENTS.md` is canonical, `CLAUDE.md` an identical copy)
-- `HANDOVER.md` — current handover for the next agent (state, commands, open work, traps), dated 2026-10-05
+- `HANDOVER.md` — current handover for the next agent (state, commands, open work, traps), dated 2026-10-18
 - `CHANGELOG.md` — version history, feature baselines, and (since 2026-07-27) documented root causes for real bugs found post-release
 - `docs/LESSONS_LEARNED.md` — recurring mistake patterns, sandbox/verification limitations, and architectural rationale ("why do we do what we do")
 - `docs/LEAD_ENRICHMENT_GUIDE.md` — enrichable lead-field catalog and the ready-to-use AI enrichment-agent prompt

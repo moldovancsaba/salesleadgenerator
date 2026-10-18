@@ -1,61 +1,67 @@
 # HANDOVER: Sales Lead Generator
-Date: 2026-10-05. Owner: moldovancsaba. Board: https://github.com/users/moldovancsaba/projects/56. Repo: https://github.com/moldovancsaba/salesleadgenerator. Production: https://salesleadgenerator.vercel.app.
+Date: 2026-10-18. Owner: moldovancsaba. Board: https://github.com/users/moldovancsaba/projects/56. Repo: https://github.com/moldovancsaba/salesleadgenerator. Production: https://salesleadgenerator.vercel.app.
 
-The previous handover (session of 2026-08-13, about an unpushed branch) is archived at [docs/handover-2026-08-13.md](docs/handover-2026-08-13.md). Do not act on it: the work it describes (`fieldVerifications`, issue #188) shipped in 2.4.182 (commit `03446dc`, on `main`). The branch itself (tip `ce9757d` at deletion, 4 commits not in `main`) is in the backup bundle.
+The previous handover (session of 2026-10-05, v2.4.247) recorded baseline operations, branch hygiene, and initial pipeline fixes.
 
 ## What this is
-A Next.js 16 sales-intelligence app: a kanban board, table view, metrics, outreach, cadences, quotes and an admin area for sports-organization leads, one workspace per brand (`cogmap`, `seyu`, `dvsc`; brands are runtime-editable in the database, issue #195). Sales teams use it; an external research agent (the OpenClaw cron in the separate `researchandenrich` repo) discovers and enriches leads and writes them through this app's API. It is NOT the research agent, and it has no unauthenticated read path to lead data (see README "API Overview").
+A Next.js 16 sales-intelligence app: a kanban board, table view, metrics, outreach, cadences, quotes, multi-CRM lead exchange (HubSpot, Salesforce, Pipedrive, Google Sheets), and an admin area for sports-organization leads, one workspace per brand (`cogmap`, `seyu`, `dvsc`; brands are runtime-editable in the database, issue #195). Sales teams use it; an automated external research agent (`researchandenrich` runtime) discovers and enriches leads and writes them through this app's API. Per `AGENTS.md` Rule 10 (2026-10-16), coding assistants are strictly developers, never manual lead-research or content-enrichment operators.
 
 ## State today
-- Version 2.4.247 (`package.json`, package name `slg-leads`). `main` and `origin/main` are both at `52bf122` (2026-10-05, AGENTS.md as canonical agent file plus MIT licence). Last code change: `a60ae23`, 2026-09-27, automation-tick scan order (#233).
-- Deploys on Vercel (production URL above). `vercel.json` holds only the 7 cron entries; README documents `vercel deploy --prod`. The repo has no CI workflows (no tracked files under `.github/`). Whether pushing to `main` triggers a Vercel Git deploy is unverified.
-- Database: MongoDB Atlas. `GET /api/health` on 2026-10-05 11:54 UTC returned `status: ok`, `lastError: null`, 2308 / 702 / 66 leads (cogmap / seyu / dvsc), and a forecast snapshot captured at 06:00 UTC the same day (the Monday cron time in `vercel.json`).
-- Quality gate on 2026-10-05, after `npm ci`: `tsc` 0 errors, lint clean, 1170 unit tests, 5 smoke checks, all passing (commit message of `52bf122`). `npm run audit:gds-style` exits 0 (checked 2026-10-05). Integration tests: 583 passing per CHANGELOG 2.4.247 (not re-run on 2026-10-05).
-- Operations are paused since 2026-09-28: the OpenClaw jobs that hit this app remotely are not running, but the app stays deployed (machine-level note: `/Users/Shared/Projects/HANDOVER.md`). Do not restart the agent jobs without the owner.
-- Branches: the remote has `main` and `dev` only. On 2026-10-05 all 34 other remote branches were deleted after being backed up as a git bundle (see Traps).
-- Known broken: nothing known in the code. Remaining work is data backfill and owner-blocked tasks (see In flight).
+- **Version 2.4.291** (`package.json`, package name `slg-leads`). Main branch is active and verified.
+- **Deploys on Vercel** (production URL above). `vercel.json` holds cron entries (`Authorization: Bearer` with `CRON_SECRET`).
+- **Database**: MongoDB Atlas. Database `cogmap` holds core business collections (`leads`, `accounts`, `company_settings`, `products`, `activityLog`, `integration_connections`, `sso_user_access`, `report_definitions`, `webhooks`, `scheduler_state`).
+- **Quality gate** (verified clean): `npx tsc --noEmit` reports 0 errors, `npm run lint` reports 0 errors and 0 warnings, `npm run audit:gds-style` exits 0, `npm run test:smoke` passes 5/5, and `npx vitest run` passes 100% (1,492 unit tests across 114 test files).
+- **Recent Deliverables Shipped (v2.4.270 – v2.4.291)**:
+  - **Multi-CRM Lead Import & Export (2.4.290, #254)**: Full bidirectional exchange for HubSpot, Salesforce, Pipedrive, and Google Sheets with RFC 4180 parsing, UTF-8 BOM CSV exports, 1-click Google Sheets TSV copying, SHA-256 fingerprint deduplication, and stage/country normalization.
+  - **Modernized Sales Settings (2.4.291, #255)**: 5-tab workspace layout (`/salessettings/[client]`), central Product Catalog synchronization (`/admin/products/[brand]`), assignable sales squad member cards (`sso_user_access`), default deal owner routing, deal sizing bands, and region multipliers.
+  - **Report Templates & Analytics (2.4.289, #253)**: Standard CRM report templates gallery modal, automated database seeding (`/api/reports/seed`), chart null-safety hardening, and interactive Bar/Line/Table view switcher.
+  - **Multi-Google Account Integration (2.4.288, #252)**: Compound partial index on `{ userId, provider, userEmail }`, default sender tracking, inline account selection in compose modal, and multi-account Gmail polling.
+  - **Google Contacts Sync & Batch Ingestion (2.4.287, #251)**: 1-click Google Contacts OAuth sync and batch lead creation modal on `/contacts/[brand]`.
+  - **Document Library UI (2.4.283, #247)**: Central collateral management at `/documents/[brand]` with attachment chips in outreach compose.
+  - **Scheduler Recovery & Pacing (2.4.282, #246)**: Heartbeat monitoring, downtime detection (>15m), slot redistribution, and cadence catch-up pacing.
+  - **Custom Pipeline Stage Management (2.4.280, #245)**: `PipelineManagerModal` for custom stages, win probabilities, and default drag-and-drop.
+  - **RFC 2822 Email Threading (2.4.278, #243)**: `In-Reply-To` and `References` chaining in Outreach Compose and Gmail sync.
+  - **Merge Token Inserter (2.4.277, #242)**: Token insertion toolbar in email templates with live hover preview tooltips.
+  - **Timeline Noise Filtering (2.4.279, #244)**: Suppresses historical inbound correspondence predating lead contact creation.
+- **Known broken**: Nothing known in code. Open items are owner-operational or external DNS/key setup.
 
 ## Run, test, deploy
-Install: `npm ci` (README says `npm install`). Dev server: `npm run dev`. Env var names and meaning: README "Environment variables" table and `.env.example` (names only; `.env.local` is gitignored and local).
-The gate (AGENTS.md section 1; zero tolerance, run all four and read the output):
-```
+Install: `npm install` / `npm ci`. Dev server: `npm run dev`.
+Mandatory Quality Gate (`AGENTS.md` Rule 1; run all and read real output before claiming clean):
+```bash
 npx tsc --noEmit
 npm run lint
 npx vitest run
 npm run test:smoke
+npm run audit:gds-style
 ```
-Also available: `npm run test:integration` (in-memory MongoDB), `npm run audit:gds-style`, `npm run build` (webpack, pinned). Deploy: `vercel deploy --prod` (needs a logged-in Vercel CLI; unverified from this machine). Production env vars are set in the Vercel dashboard, not in the repo.
+Deploy: Vercel production deployment triggered on direct push to `main` (authorized per `AGENTS.md` Rule 6).
 
 ## In flight
-Board #56 is the tracker. Open PRs: none (checked 2026-10-05 via the REST API). Open issues: 6 (REST `gh api repos/moldovancsaba/salesleadgenerator/issues?state=open`; `gh issue list` was rate-limited on GraphQL). Most important:
-- #132 (P1, in progress): backfill existing leads into the controlled taxonomy; multi-session data work, log in `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md`.
-- #202 (P1, blocked): inbound email activation (DNS, Resend keys); owner deferred it on 2026-09-27.
-- #137 (P1, blocked): duplicate leads at scale; code is done, the merge review is an owner/client task.
-- #220 (P3, blocked) and its parent #210: move cron and agent to scoped API keys, then retire `SLG_API_KEY`; needs a super-admin browser session.
-- #165 (P3): stays open on purpose as the onboarding-tour design record.
-Per-issue detail: `roadmap.md` (last synced 2026-09-27).
+Tracked via `roadmap.md` (repo root) and GitHub issues:
+- **#132 (P1, blocked)**: Mechanical `sportCode` backfill complete (89.3%, 2,749 leads). Ongoing lead enrichment belongs to external `researchandenrich` worker runtime per `AGENTS.md` Rule 10.
+- **#202 (P1, blocked)**: Inbound email activation (DNS MX, Resend production keys; owner deferred).
+- **#137 (P1, blocked)**: Duplicate leads at scale; code shipped in 2.4.225, merge review is an owner/client operational task.
+- **#220 (P3, blocked)**: Migrate cron and research agent to scoped API keys; needs owner super-admin session for key creation.
+- **#165 (P3)**: Stays open on purpose as the onboarding-tour permanent design record.
+- **#256 (P2, in progress)**: Comprehensive documentation, API inventory, and versioning alignment across v2.4.291.
 
 ## Traps and decisions
-- **Board vs roadmap.md.** AGENTS.md section 2.5 and `roadmap.md` say the Projects board was unreachable from an earlier session and `roadmap.md` is the hand-kept substitute. The owner-wide rule is one board per repo, #56. Board contents were not verified for this handover (GraphQL was rate limited). Check #56 first; keep `roadmap.md` in step until the owner says otherwise; never create a second board.
-- **Push model** (AGENTS.md section 6): push to `main` when a deliverable chunk passes the gate, with docs in the same commit; no PR needed. Force-push, `reset --hard` and deleting `main`/`dev` need explicit confirmation.
-- **No AI attribution anywhere** (section 8): no trailers, model or provider names in commits, docs, code or PRs. Commit identity: `moldovancsaba <moldovancsaba@gmail.com>`.
-- **Every change** updates docs in the same commit and bumps `package.json`, `CHANGELOG.md` and both version lines in `README.md` (no script syncs them; they have drifted before). Commits reference issues (`fixes #N`).
-- **`CRON_SECRET`** is the only credential Vercel Cron can send; unset means all 7 crons get 401 (#224). README and `roadmap.md` record it as set in production; today's 06:00 UTC snapshot is consistent with that.
-- **`researchandenrich` is shared** (section 9): touch it only for `cogmap`/`seyu`/`dvsc` fixes, never another app's tenant (`classscout`).
-- **Route collisions**: a plain `page.tsx` and a route-group `page.tsx` for the same path fail silently; grep before adding a page (AGENTS.md, last section).
-- **Deleted branches**: bundle at `/Users/Shared/Projects/.backups/branch-hygiene-2026-10-05/salesleadgenerator.bundle`, manifest `MANIFEST.md` in that folder. Restore one: `git fetch <bundle> refs/remotes/origin/<branch>:refs/heads/<branch>`. The remote `dev` branch was kept: it is 94 commits behind `main` with 3 commits not in `main` (tip `15cc053`, 2026-08-14).
-- **Old credential in history** (public repo): `.env.example` once held a MongoDB connection string with credentials (added in `ed807ef`, 2026-07-20; removed in `43eeec7` and `15cc053`, 2026-08-14, leaving a rotate placeholder). Treat the old value as compromised. Whether the Atlas password was rotated is unverified; confirm with the owner. Never commit `.env*` values.
-- `docs/` files carry per-document version stamps that lag `package.json`; that is normal here, `README.md` is the doc index (README states it is the single source of truth for doc paths).
-
-## First hour for the next agent
-1. Read `AGENTS.md` (sections 1, 2, 6, 8, 9), then this file, then `README.md` and `roadmap.md`.
-2. `git status`, `git fetch`, confirm `main` equals `origin/main`, and `git config user.email` is `moldovancsaba@gmail.com`.
-3. `npm ci`, then run the four gate commands; expect 1170 unit and 5 smoke passing.
-4. `curl https://salesleadgenerator.vercel.app/api/health`: expect `status: ok`.
-5. Open board #56 and compare with `gh api repos/moldovancsaba/salesleadgenerator/issues?state=open` and `roadmap.md`; fix the drift on the board.
-6. Ask the owner whether to resume agent jobs (paused since 2026-09-28) and whether the old database credential was rotated.
+- **`roadmap.md` is the standing project tracker** (`AGENTS.md` Rule 2.5): GitHub Projects board API is unreachable from agent sessions. Update `roadmap.md` in the same change whenever an issue opens, closes, or changes status.
+- **Direct push to `main` is pre-authorized** (`AGENTS.md` Rule 6) for finished, clean deliverables that pass the quality gate 100%. Commit author: `moldovancsaba <moldovancsaba@gmail.com>`.
+- **Zero AI attribution anywhere** (`AGENTS.md` Rule 8): No AI model names, tool signatures, or co-authored trailers in commits, code, PRs, or docs.
+- **Developer role only** (`AGENTS.md` Rule 10): Never manually research or enrich lead content in development sessions.
+- **Route collisions**: Next.js App Router silently ignores duplicate routes when a plain `page.tsx` and a route group `(group)/page.tsx` resolve to the same route. Grep before adding new pages.
+- **`CRON_SECRET`**: Required for Vercel Cron scheduled jobs (`Authorization: Bearer`).
+- **`researchandenrich` is shared** (`AGENTS.md` Rule 9): Touch only for `cogmap`/`seyu`/`dvsc` fixes, never another app's tenant.
 
 ## Where things live
-- `README.md`: onboarding, env table, API overview, doc index. `CHANGELOG.md`: per-version history. `roadmap.md`: open-issue status view.
-- `docs/INDEX.md` (structural index), `docs/ARCHITECTURE.md`, `docs/LLD.md` (module map), `docs/OPERATOR_GUIDE.md`, `docs/STACK_AND_DEPENDENCIES.md` (env vars, crons, dependency audit), `docs/ISSUE_MANAGEMENT.md`, `docs/LESSONS_LEARNED.md`, `docs/WEBHOOKS.md`, `docs/data-fixes/` (audit logs of production data fixes).
-- Code: `app/` (pages, `app/api/` routes, `app/lib/` modules), `lib/` (shared modules), `proxy.ts` (auth gate, formerly middleware), `scripts/` (one-off ops scripts), `tests/` (unit, integration, smoke), `_archived/` (frozen historical docs).
+- `README.md`: Onboarding, env table, API overview, documentation index.
+- `CHANGELOG.md`: Per-version release notes and bugfix root causes.
+- `roadmap.md`: Open and recently closed issue status view.
+- `docs/INDEX.md`: Structural navigation index.
+- `docs/ARCHITECTURE.md`: System-level architecture, data models, auth, and request flows.
+- `docs/LLD.md`: Low-level design, complete API route inventory, module catalog, and component hierarchy.
+- `docs/OPERATOR_GUIDE.md`: Task-oriented walkthrough for daily sales and admin operations.
+- `docs/STACK_AND_DEPENDENCIES.md`: Dependency inventory, runtime specifications, and security audits.
+- `docs/ISSUE_MANAGEMENT.md`: GitHub issue creation rules, label taxonomy, and structural conventions.

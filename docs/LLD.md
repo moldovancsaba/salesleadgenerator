@@ -1,8 +1,8 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.261
+**Version:** 2.4.291
 
-**Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212) after a routine `docs/DOC_LINT.md` audit found this doc had gone stale across ~15 features shipped in between (teams, lead ownership, buying-committee roles, call logging, the workflow/automation engine, ad-hoc reporting, forecast quota, bulk actions v2, accounts rollup, kanban real drag-and-drop and card-density/command-palette, the third-party integration hub, Gmail/Contacts sync, the meeting scheduler, the product catalog, scoped API keys, quote generation, and outbound webhooks) — every one of those is now covered below, verified against the real source, not extrapolated from issue numbers. This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
+**Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212); comprehensive alignment audit completed 2026-10-18 (2.4.291, issue #256) bringing the complete API surface, domain modules, and component tree up to date across all features through v2.4.291 (Multi-CRM lead exchange, Google Contacts sync, multi-account Google integration, modern 5-tab Sales Settings, Document Library, pipeline stage manager, email threading context, scheduler recovery, merge token inserter, and timeline noise filter). This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 
 Compiled directly from the real source (export lists, import graphs, route handlers) — every claim below was verified against a real file, not inferred. If this doc and the source ever disagree, the source is correct; treat the disagreement as a doc bug to fix, not a spec violation to reconcile the code toward. See `docs/DOC_LINT.md` before editing.
 
@@ -34,6 +34,8 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/leads/columns/route.ts` | GET | `requireBrandAccessApi` | Paginated (50/chunk) per-column lead fetch for `app/kanban.tsx`'s column-by-column loading model |
 | `app/api/leads/[id]/activity/route.ts` | GET, POST | `requireBrandAccessApi` | GET merges `activityLog` + `outreach_logs` into one timeline via `mergeActivityTimeline`; POST logs a manual `type: 'call'` entry (closed `CallDisposition` enum, `loggedBy` from the verified session, issue #200) — also touches `Lead.updatedAt` so it counts toward staleness |
 | `app/api/leads/[id]/cadence/route.ts` | POST, DELETE | `requireBrandAccessApi` | Enroll/cancel a lead's `activeCadence` via `buildInitialActiveCadence` |
+| `app/api/leads/export/route.ts` | GET, POST | `requireBrandAccessApi` | Multi-CRM CSV and Google Sheets TSV export with field mapping presets for HubSpot, Pipedrive, Salesforce, and Google Sheets (`lib/crm-lead-exchange.ts`, issue #252) |
+| `app/api/leads/import/route.ts` | POST | `requireBrandAccessApi` | Multi-CRM batch lead ingestion with RFC 4180 parsing, SHA-256 fingerprint deduplication, and stage/country normalization (`lib/crm-lead-exchange.ts`, issue #252) |
 
 ### Saved filters (issue #214)
 
@@ -63,12 +65,14 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
 | `app/api/contacts/route.ts` | GET | `requireBrandAccessApi` | Cross-lead contact directory search via `aggregateContactsAcrossLeads` |
+| `app/api/contacts/import-google/route.ts` | POST | `requireBrandAccessApi` | Bulk / workspace-level lead and contact import from connected Google Contacts accounts (`app/lib/google-contacts-store.ts`, issue #249) |
 | `app/api/contact-suggestions/route.ts` | GET | `requireBrandAccessApi` | List pending inbound-reply contact-match suggestions |
 | `app/api/contact-suggestions/[id]/route.ts` | PATCH | `requireBrandAccessApi` | Approve/reject a contact suggestion; merges into `lead.contacts` via `dedupeContacts` |
 | `app/api/duplicate-reviews/route.ts` | GET, PATCH | `requireSuperAdminSession` | List/act on the duplicate-review queue (issue #73) |
 | `app/api/duplicate-reviews/merge/route.ts` | GET, POST | `requireSuperAdminSession` | Executes a confirmed merge via `lib/lead-merge.ts`'s `diffLeads`/`buildMergedLead`/`suggestPrimaryId` |
 | `app/api/admin/duplicate-scan/route.ts` | POST | `requireSuperAdminSession` | Runs `findCandidatePairs` (`lib/near-duplicate.ts`), capped-count O(n²) scan |
 | `app/api/webhooks/inbound-email/route.ts` | POST | Resend webhook signature (`verifyResendWebhook`) | Inbound email ingestion: writes `ActivityLogDocument`, runs `matchReplyToLeads`/`generateContactSuggestion` |
+| `app/api/leads/[id]/thread-context/route.ts` | GET | `requireBrandAccessApi` | Resolves email thread header context (`In-Reply-To`, `References`, subject) for continuous conversation threading (`lib/gmail-threading.ts`, issue #246) |
 
 ### Outreach / cadences / battlecards
 
@@ -83,6 +87,8 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/reports/route.ts` | GET, POST | `requireBrandAccessApi` | List/create ad-hoc report definitions (`lib/report-definitions.ts`, issue #212) |
 | `app/api/reports/[id]/route.ts` | GET, PATCH, DELETE | `requireBrandAccessApi` | Single report definition CRUD |
 | `app/api/reports/[id]/run/route.ts` | POST | `requireBrandAccessApi` | Executes a definition's pipeline now (`app/lib/report-store.ts`'s `runReportDefinition`) |
+| `app/api/reports/templates/route.ts` | GET | `requireBrandAccessApi` | Starter CRM report template catalog gallery (`lib/report-templates.ts`, issue #251) |
+| `app/api/reports/seed/route.ts` | POST | `requireBrandAccessApi` | Automated report template seeding into brand definitions (`lib/report-templates.ts`, issue #251) |
 | `app/api/admin/reports-tick/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Cron worker: sends due scheduled report emails via `lib/report-delivery.ts` |
 | `app/api/outreach-logs/route.ts` | GET, POST | GET `requireApiKey` (since 2.4.226, issue #226); POST `requireBrandAccessApi` (since 2.4.227, issue #227) | Record-only outreach log, never sends; POST runs `evaluateOutreachRouting` |
 | `app/api/outreach-send/route.ts` | POST | `requireBrandAccessApi` (since 2.4.227, issue #227) | Real, one-off rep-initiated email send via Resend (`lib/outreach-send.ts`'s `sendManualEmail`, issue #205); recipients come from the stored lead in that brand's collection, never the request body |
@@ -125,6 +131,7 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/admin/forecast-snapshot/history/route.ts` | GET | `requireApiKey` | Historical snapshot series for a future trend chart |
 | `app/api/admin/ticket-size-backfill/route.ts` | POST | `requireApiKey` | One-time backfill trigger, `backfillTicketSizeCollection` |
 | `app/api/admin/ticket-size-recalc/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Recurring recompute across every configured brand |
+| `app/api/admin/scheduler-recovery/route.ts` | GET | `requireBrandAccessApi` | Scheduler recovery metrics, heartbeat tracking, and offline downtime detection (`lib/scheduler-recovery.ts`, issue #247) |
 
 ### Misc
 
@@ -198,6 +205,8 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/integrations/gmail/sync/route.ts` | GET, POST | `requireCronOrApiKey` / `requireApiKey` | Hourly cron: polls Gmail for known-contact correspondence (`app/lib/gmail-sync-store.ts`'s `pollGmailForBrand`), ingests into `activityLog` |
 | `app/api/integrations/google-contacts/search/route.ts` | GET | `requireBrandAccessApi` | Search-as-you-type against Google Contacts (`app/lib/google-contacts-store.ts`) |
 | `app/api/leads/[id]/contacts/import-google/route.ts` | POST | `requireBrandAccessApi` | Rep-initiated "Import from Google Contacts" onto one lead |
+| `app/api/user/integrations/[provider]/default/route.ts` | POST | `requireBrandAccessApi` | Set preferred default sender Google account for multi-account support (`app/lib/integration-store.ts`, issue #250) |
+| `app/api/user/integrations/gmail/signature/sync/route.ts` | POST | `requireBrandAccessApi` | Sync rep's Google Workspace Gmail signature into user preferences (`app/lib/integration-store.ts`, issue #250) |
 
 ### Catalog: products (issue #215)
 
@@ -220,7 +229,7 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
 | `app/api/pipelines/route.ts` | GET, POST | `requireBrandAccessApi` | List/create custom deal pipelines (`lib/pipelines.ts`'s `listPipelines`/`createPipeline`) |
-| `app/api/pipelines/[id]/route.ts` | GET, PUT, DELETE | `requireBrandAccessApi` | Single pipeline CRUD, stage configuration, and win probability weights |
+| `app/api/pipelines/[id]/route.ts` | GET, PUT, PATCH, DELETE | `requireBrandAccessApi` | Single pipeline CRUD, stage configuration, default pipeline selection, and win probability weights |
 
 ### Document library (issue #243)
 
@@ -301,6 +310,8 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 - `lib/forecast-category.ts` — `ForecastCategory`, `resolveDefaultCategory`, `effectiveForecastCategory`, `computeCategoryForecast`, `getForecastCategoryWeights` (issue #204)
 - `lib/quota.ts` — `PeriodType`, `isValidPeriod`, `periodToDateRange`, `dealValueForLead`, `computeAttainmentFromWonLeads`, `getQuotaTarget`, `setQuotaTarget` (issue #204); `app/lib/quota-store.ts` — `getQuotaAttainment` (the WON-lead/outcomelogs Mongo join)
 - `lib/report-pipeline.ts` — `validateReportInput`, `buildReportPipeline`, `shapeReportRows`, `resolveDateRange` (issue #212, pure allowlist-validated Mongo pipeline builder); `lib/report-definitions.ts` — `ReportDefinition`, `ReportSchedule`, `validateReportDefinitionInput`, `buildReportDefinition`, `validateAndBuildSchedule`, `computeNextRunAt`; `lib/report-delivery.ts` — `sendReportEmail`, `renderReportEmailHtml`, `isReportDeliveryConfigured`; `app/lib/report-store.ts` — `runReportDefinition`, `ensureReportIndexes`, `ensureLeadReportIndexes` (the Mongo-aware layer)
+- `lib/report-templates.ts` — issue #251: `StarterReportTemplate`, `DEFAULT_STARTER_REPORT_TEMPLATES`, `seedReportTemplatesForBrand`, `getStarterReportTemplates` (starter CRM report template gallery and seed definitions)
+- `lib/scheduler-recovery.ts` — issue #247: `SchedulerRecoveryMetrics`, `detectSchedulerDowntime`, `redistributeSlotClaims`, `trackSchedulerHeartbeat`, `computeRecoveryMetrics` (downtime detection, slot claims redistribution, and scheduler resilience)
 - `lib/pipelines.ts` — `PipelineDefinition`, `PipelineStage`, `DEFAULT_PIPELINES`, `listPipelines`, `createPipeline`, `updatePipeline`, `deletePipeline` (issue #235)
 
 **Cadences / outreach**
@@ -315,12 +326,16 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 - `lib/outreach-send.ts` — `isResendSendConfigured`, `resolveOutboundFromAddress`, `dispatchOutreachEmail` (shared core), `sendAutomatedEmail` (cadence wrapper), `sendManualEmail` (rep-initiated wrapper, issue #205)
 - `lib/resend-webhook.ts` — `extractResendWebhookHeaders`, `verifyResendWebhook`, `isResendConfigured`
 - `lib/gmail-sync.ts` — issue #216, pure: `buildGmailExternalId`, `buildFallbackHash`, `floorToMinuteIso`, `participantsIntersectKnownEmails` (headers-only-then-body-on-match gate), `resolveGmailDirection`, `resolveCounterpartyEmail`
+- `lib/gmail-threading.ts` — issue #246, pure: `resolveThreadContext`, `chainThreadHeaders`, `buildInReplyToHeader`, `buildReferencesHeader` (RFC 2822 header chaining and continuous email thread linking)
+- `lib/lead-timeline-filter.ts` — issue #248, pure: `filterTimelineActivities`, `isPreLeadNoise`, `applyGraceWindow` (suppresses pre-creation correspondence noise outside 48h grace window)
+- `lib/compose-token-insertion.ts` — issue #254, pure: `TokenCategory`, `PersonalizationTokenDescriptor`, `AVAILABLE_COMPOSE_TOKENS`, `insertMergeTokenAtCursor`, `previewTokenInterpolation` (merge token modal and live hover resolver)
 - `lib/template-conversion.ts` — `computeTemplateConversions`
 
-**Dedup / merge**
+**Dedup / merge / CRM exchange**
 - `lib/near-duplicate.ts` — `normalizeForMatch`, `similarity`, `findCandidatePairs`
 - `lib/lead-merge.ts` — `FieldClassification`, `suggestPrimaryId`, `diffLeads`, `buildMergedLead`
 - `lib/fingerprint.ts` — `buildFingerprint`
+- `lib/crm-lead-exchange.ts` — issue #252, pure: `CrmPreset`, `CRM_PRESETS`, `exportLeadsToCsv`, `exportLeadsToGoogleSheetsTsv`, `parseCrmImportFile`, `normalizeCountryToCode`, `mapStageToKanbanColumn`, `detectCrmPreset` (RFC 4180 parsing, UTF-8 BOM CSV, Google Sheets TSV builder, CRM presets for HubSpot, Salesforce, Pipedrive, and Google Sheets, stage and country normalization)
 
 **Validation / kanban / stage logic**
 - `lib/validate-lead.ts` — `ValidationResult`, `EMAIL_RE`, `FORBIDDEN_BRAND_TERMS`, `findForbiddenBrandTerms`, `bestContactConfidence`, `validateLeadPayload`, `validatePatchPayload`
@@ -430,6 +445,15 @@ The concrete pattern that distinguishes the two layers: `lib/cadences.ts` has th
 - `AppHeader.tsx` — issue #207: `AppHeader()` — extracted from `app/layout.tsx` (was rendered unconditionally there) so the public `/schedule/*` booking page can render zero SSO-gated app chrome; `usePathname()`-based synchronous check (resolves on first render, no remount-and-lose-state risk, unlike `use-is-fine-pointer.ts`'s `matchMedia`-based hook)
 - `TourProvider.tsx` — issue #185: `TourProvider({children})`, `useTour()` — `driver.js`-backed onboarding tour context, mounted in `app/layout.tsx`
 - `GoogleContactsImport.tsx` — issue #216: `GoogleContactsImport({leadId, brand, connected, onImported})` — self-fetches `/api/integrations/google-contacts/search`, posts `/api/leads/{id}/contacts/import-google`; embedded in `LeadDetailModal`, only rendered once the brand's `google_contacts` connection is active
+- `GoogleContactsWorkspaceModal.tsx` — issue #249: `GoogleContactsWorkspaceModal({brand, opened, onClose, onImported})` — workspace-level Google Contacts bulk search and import dialog, mounted in `/contacts/[brand]`
+- `LeadExportModal.tsx` — issue #252: `LeadExportModal({brand, leads, selectedIds, opened, onClose})` — multi-CRM lead export dialog supporting HubSpot, Salesforce, Pipedrive, and Google Sheets CSV/TSV
+- `LeadImportModal.tsx` — issue #252: `LeadImportModal({brand, opened, onClose, onImportComplete})` — drag-and-drop multi-CRM lead ingestion dialog with CSV auto-detection, preview table, and deduplication policy
+- `PipelineManagerModal.tsx` — issue #235: `PipelineManagerModal({brand, opened, onClose, onSaved})` — custom deal pipeline and stage configuration editor
+- `ReportTemplateModal.tsx` — issue #251: `ReportTemplateModal({brand, opened, onClose, onSelectTemplate})` — starter CRM report template gallery dialog with 1-click template selection
+- `DocumentLibraryPickerModal.tsx` — issue #243: `DocumentLibraryPickerModal({brand, opened, onClose, onSelect})` — workspace document attachment library selector with size limit validation
+- `UserSettingsModal.tsx` — issue #250: `UserSettingsModal({opened, onClose})` — rep user preferences, default sending Google account selection, and signature sync
+- `AppLayout.tsx` — unified layout wrapper with fluid sidebar docking and sticky viewport alignment
+- `NavContext.tsx` — navigation state and drawer toggle context
 - `Providers.tsx` — `Providers({children})` — Mantine/theme/query provider wrapper
 - `ErrorBoundary.tsx` — class component `ErrorBoundary`
 - `BackToTopButton.tsx`, `PwaSetup.tsx` — small standalone UI utilities
@@ -448,16 +472,17 @@ Every page below is an async Server Component that calls `await requireBrandAcce
 | Page | Client component | API routes it/its children call |
 |---|---|---|
 | `app/today/[brand]/page.tsx` | `TodayPageClient` | `/api/today/{brand}`, `/api/today/{brand}/complete-step`, `/api/today/{brand}/snooze` (issue #237) |
-| `app/sales/[brand]/page.tsx` | `SalesPageClient` | `/api/leads/{id}` (direct), `/api/boards/{brand}`; mounts `KanbanBoard` → `/api/leads/columns`, `/api/leads`; mounts `AddLeadModal` → `/api/leads` POST; mounts `FilterBar` (no fetch) |
-| `app/contacts/[brand]/page.tsx` | `ContactsClient` | `/api/contacts` (debounced search) |
+| `app/sales/[brand]/page.tsx` | `SalesPageClient` | `/api/leads/{id}` (direct), `/api/boards/{brand}`, `/api/leads/export`, `/api/leads/import`; mounts `KanbanBoard` → `/api/leads/columns`, `/api/leads`; mounts `AddLeadModal` → `/api/leads` POST; mounts `LeadExportModal`, `LeadImportModal`, `FilterBar` |
+| `app/contacts/[brand]/page.tsx` | `ContactsClient` | `/api/contacts` (debounced search), `/api/contacts/import-google`; mounts `GoogleContactsWorkspaceModal` (issues #216, #249) |
 | `app/forecast/[brand]/page.tsx` | `ForecastClient` | `/api/boards/{brand}`, `/api/win-rates`, `/api/ticket-size-calibration` |
 | `app/outreach/cadences/[brand]/page.tsx` | `CadencesClient` | `/api/cadences`, `/api/outreach-templates`, `/api/cadences/{id}` |
 | `app/outreach/templates/[brand]/page.tsx` | `OutreachTemplatesClient` | `/api/outreach-templates` (GET list + POST create/update) |
-| `app/salessettings/[client]/page.tsx` | `SalesSettingsClient` | `/api/sales-settings/{brand}` (GET + PUT) |
+| `app/salessettings/[client]/page.tsx` | `SalesSettingsClient` | `/api/sales-settings/{brand}` (GET + PUT), `/api/products/{brand}` (GET catalog sync), `/api/leads/assignable-users` (GET verified team members) — structured into 5 tabs: Company & Team, Products & Pricing, Deal Sizing & Regions, Sales Process, Targets & Seasonality (issues #253, #255) |
 | `app/battlecards/[brand]/page.tsx` | `BattlecardsClient` | `/api/battlecards`, `/api/battlecards/{id}` |
 | `app/accounts/[brand]/page.tsx` | `AccountsClient` | `/api/accounts`, `/api/accounts/{parentOrgId}` (issue #209) |
 | `app/automation/[brand]/page.tsx` | `AutomationClient` | `/api/automation-rules`, `/api/automation-rules/{id}` (issue #201) |
-| `app/reports/[brand]/page.tsx` | `ReportsClient` | `/api/reports`, `/api/reports/{id}`, `/api/reports/{id}/run` (issue #212) |
+| `app/reports/[brand]/page.tsx` | `ReportsClient` | `/api/reports`, `/api/reports/{id}`, `/api/reports/{id}/run`, `/api/reports/templates`, `/api/reports/seed`; mounts `ReportTemplateModal` (issues #212, #251) |
+| `app/documents/[brand]/page.tsx` | `DocumentsClient` | `/api/documents`, `/api/documents/{id}`; mounts document library upload and delete management (issue #243) |
 | `app/salessettings/[client]/integrations/page.tsx` | `IntegrationsClient` | `/api/integrations/connections`, `/api/integrations/{provider}/connect`, `/api/integrations/connections/{id}/disconnect`, `/api/integrations/connections/{id}/test` (issue #217) |
 | `app/admin/products/[brand]/page.tsx` | `AdminProductsClient` | `/api/products/{brand}`, `/api/products/{brand}/{productId}` (issue #215) |
 

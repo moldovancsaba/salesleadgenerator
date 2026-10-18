@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.261  
+**Version:** 2.4.291  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -9,25 +9,31 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 
 ## What This Repo Contains
 
-- Next.js 16 app with API routes
+- Next.js 16 app with App Router and API routes
 - Desktop and tablet browser experience: docked collapsible sidebar navigation (`>= 768px`) with show/hide toggle, inline Board/Table/Backlog/Metrics view switcher, command palette shortcut affordances (`⌘K`), and unblocked multi-touch zoom
 - Progressive Web App (PWA) with self-hosted offline shell fallback (`/offline`), app-shell caching, standalone manifest, and shortcuts
 - Mobile-first kanban board, table view, metrics dashboard, and search-learning panel
+- Multi-CRM Lead Import and Export (`/api/leads/export`, `/api/leads/import`, `LeadExportModal`, `LeadImportModal`) for **HubSpot**, **Salesforce**, **Pipedrive**, and **Google Sheets** with RFC 4180 parsing, UTF-8 BOM CSV downloads, and 1-click TSV clipboard copying
+- Modernized 5-Tab Sales Settings (`/salessettings/[client]`) with live central Product Catalog synchronization (`/admin/products/[brand]`), assignable brand sales team squad, default deal owner routing, deal sizing bands, and region multipliers
+- Multi-Google Account support for User Profiles, Gmail Outreach, and Contacts with per-account sync, test, disconnect, and default sender management (`/api/user/integrations`)
+- Google Contacts 1-click OAuth integration and batch lead import workspace modal (`/contacts/[brand]`, `/api/contacts/import-google`)
+- Interactive Report Templates Gallery and View Switcher (`/reports/[brand]`, `/api/reports/templates`, `/api/reports/seed`) with Bar, Line, and Data Table visualizations
+- Document Library Management UI (`/documents/[brand]`) with workspace-wide collateral uploads, rename, deletion conflict protection, and inline attachment picker in outreach compose
+- Automated Scheduler Offline Recovery & Pacing Throttles (`lib/scheduler-recovery.ts`, `/api/admin/scheduler-recovery`) with downtime detection, slot redistribution, and cadence catch-up pacing
+- Pipeline Stage Management Modal (`PipelineManagerModal`, `/api/pipelines`) for creating custom pipelines, stages, win probabilities, and default pipeline customization
 - Today rep execution surface and unified daily action queue (`/today/[brand]`) with inline complete/snooze/call-log actions
-- Multi-pipeline deal management with custom stages, win probabilities, and pipeline coverage metrics
 - Product catalog and CPQ quote generation (`/admin/products/[brand]`, `/api/quotes`) with multi-line PDF quotes and e-signature tracking
 - Sequences and outreach cadences with manual task completion gating (`call`, `linkedin`, `general`), stop-on-reply, and last-mile suppression
+- RFC 2822 Threaded Email Follow-Ups with `In-Reply-To` and `References` chaining in Outreach Compose and Gmail sync
+- Interactive Merge Token Inserter toolbar in Outreach Compose with live variable hover preview tooltips
+- Lead timeline noise filtering with 48h grace window to suppress historical correspondence predating contact creation
 - Unified activity timeline supporting manual call logging, internal notes, deal-associated activities, and Gmail sync
 - Accounts directory (`/accounts/[brand]`) with company rollups, child lead breakdown, account activity timeline, and CSV export
 - Contacts directory (`/contacts/[brand]`) with buying committee roles, search, and CSV export
-- Document library (`/api/documents`) for workspace-global email attachments with SMTP size validation
 - Google Calendar one-way sync for CRM task reminders and public booking links (`/schedule/[brand]`)
 - Backlog board (`view=backlog`) for leads parked outside the main kanban flow
 - Add Lead modal for manually creating leads (shares its contact editor with the detail-page edit form)
 - Duplicate-lead review queue and merge UI (`/admin/duplicates`) — fuzzy near-duplicate detection with a conflict-resolution merge flow
-- Lead detail actions and outreach compose flow with merge-field personalization engine
-- Outreach template management UI
-- Company Setup / Sales Settings page (`/salessettings/[client]`) — a plain-language questionnaire on what a brand sells, who buys it, and how, so the research agent can refine forecasts
 - Research agent integration via OpenClaw cron
 - MongoDB Atlas persistence with brand-aware collections
 
@@ -95,7 +101,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.261**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25) and needs updating on every version-stamp sync pass, not just when someone notices.
+Current app version is **2.4.291**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25; updated to 2.4.291) and needs updating on every version-stamp sync pass, not just when someone notices.
 
 Single source of truth: `package.json`
 
@@ -160,10 +166,16 @@ Key endpoints:
 - `POST /api/leads?brand=<brand>` — create lead
 - `PUT /api/leads/[id]?brand=<brand>` — update lead fields (enrichment; shared or scoped `x-api-key`, never a session)
 - `PATCH /api/leads?brand=<brand>&id=<id>` — action lead
+- `GET /api/leads/export?brand=<brand>&preset=<crm>` — multi-CRM lead exports (HubSpot, Salesforce, Pipedrive, Google Sheets / CSV / TSV)
+- `POST /api/leads/import` — batch lead import with SHA-256 fingerprint deduplication and stage normalization
+- `POST /api/contacts/import-google` — Google Contacts 1-click import and lead creation
+- `GET /api/leads/[id]/thread-context` — email conversation thread context resolution
 - `GET /api/search?q=<query>&brand=<brand>` — predictive lead search (`brand` required unless the caller is a super-admin session)
 - `GET /api/health` — service health (no auth required)
 - `GET /api/lead-taxonomy` — controlled sports-industry taxonomy vocabularies (no auth required)
 - `GET /api/admin/cron-status` — cron observability
+- `GET /api/admin/scheduler-recovery` — scheduler recovery state and downtime pacing metrics
+- `GET /api/reports/templates` & `POST /api/reports/seed` — report template catalog and seeding
 - `GET /api/outreach-templates?brand=<brand>&mode=analytics` — outreach analytics
 
 See `docs/OPERATOR_GUIDE.md` for workflow guidance and API examples.

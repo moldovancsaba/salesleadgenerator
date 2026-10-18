@@ -1,6 +1,6 @@
 // Company Setup / Sales Settings — a plain-language questionnaire capturing
-// what a brand sells, who buys it, and how it's priced, so the OpenClaw/
-// KiloClaw research agent (a separate app; its own runtime config no longer
+// what a brand sells, who buys it, and how it's priced, so the automated
+// research and enrichment runtime (a separate app; its own runtime config no longer
 // lives in this repo, see issue #99) can refine lead scoring and
 // forecasts. Deliberately avoids financial/accounting terms (ACV, ARR, MRR)
 // in favor of the way a founder or small commercial team already thinks

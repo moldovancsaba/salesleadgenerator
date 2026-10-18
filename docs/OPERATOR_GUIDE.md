@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.261
+**Version:** 2.4.291
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -13,6 +13,7 @@
 - [Onboarding Tour](#onboarding-tour)
 - [Today View](#today-view)
 - [Daily Workflow — Kanban Board](#daily-workflow--kanban-board)
+- [CRM Lead Export & Import](#crm-lead-export--import)
 - [Accounts](#accounts)
 - [Contacts](#contacts)
 - [Backlog](#backlog)
@@ -28,9 +29,11 @@
 - [Ticket Size](#ticket-size)
 - [Sales Settings (Company Setup)](#sales-settings-company-setup)
 - [Meeting Scheduler](#meeting-scheduler)
+- [Document Library](#document-library)
 - [Outreach](#outreach)
 - [Forecast](#forecast)
 - [Metrics Dashboard](#metrics-dashboard)
+- [Reports & Template Gallery](#reports--template-gallery)
 - [Search Learning](#search-learning)
 - [Admin Tools (Super Admin Only)](#admin-tools-super-admin-only)
 - [Mobile / PWA](#mobile--pwa)
@@ -114,7 +117,7 @@ Use the **My Work / All** toggle at the top of the page to focus strictly on lea
 
 DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted purely by its ICE score (QUALIFIED at 500+, otherwise DISCOVERED; always high to low). Moving a card out to ENGAGED/PROPOSAL/WON/LOST via the "⋮" menu (or an Accept/Decline/Pin action) hands that lead to manual, user-controlled placement permanently — it's never auto-moved again even if its score later changes. A new card entering a manually-controlled column always lands at the top by default.
 
-**Drag-and-drop** is real, but off by default behind an operator-controlled switch (no in-app toggle yet — an admin enables it via a `PUT /api/settings {"dragEnabled": true}` API call). When it's off (the default), the "⋮" menu is the only way to move a card, on every device, exactly as before. When an operator turns it on: you can physically drag a card to another column (identical to using the menu — same validation, same audit trail), or drag it up/down within ENGAGED/PROPOSAL/WON/LOST/BACKLOG to set your own priority order within that column — this now actually persists (previously there was no way to reorder within a column at all). Dragging within DISCOVERED/QUALIFIED is rejected with a visible message, since those two columns are always sorted by score, not by hand. The "⋮" menu keeps working exactly the same whether drag is on or off — it's the permanent fallback, never replaced.
+**Drag-and-drop** is enabled by default on desktop and tablet browsers (issue #245, 2.4.280). You can physically drag a card to another stage column (with real-time stage-gate validation and non-blocking toast notifications on completion), or drag it up/down within ENGAGED/PROPOSAL/WON/LOST/BACKLOG to reorder priority within that column using fractional indexing. Dragging cards inside DISCOVERED/QUALIFIED is intentionally disallowed with a visible explanation, because those two stages are strictly auto-managed by calculated ICE score. The card "⋮" move menu remains fully functional as a permanent, accessible keyboard and mobile fallback. On wide screens, hovering over column headers pans the board horizontally, while mouse-wheel scrolling over cards scrolls the page vertically.
 
 1. Open `/sales/<brand>` on mobile or desktop.
 2. Review new cards in DISCOVERED.
@@ -126,7 +129,32 @@ DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted p
    - **Refresh** → request updated research
    - **Modify / Edit Lead Details** → edit lead fields directly (see [Lead Detail](#lead-detail))
    - **Delete** → remove lead
-5. Use each card's "⋮" menu to move it when the pipeline changes, on every device — or, if your organization has turned on drag-and-drop (see above), drag the card directly.
+5. Use each card's "⋮" menu or drag the card directly to transition stages as deals progress.
+
+### CRM Lead Export & Import
+
+Reps can exchange leads between Sales Lead Generator and major CRM platforms (HubSpot, Salesforce, Pipedrive, and Google Sheets) directly from the `/sales/[brand]` toolbar or individual lead cards (issue #252, 2.4.290):
+
+- **Exporting Leads**:
+  - Tap **Export** in the top board header to open `LeadExportModal`.
+  - **Scope**: Choose between "All leads", "Currently filtered view", or "Selected leads only" (when Select Mode is active).
+  - **CRM Presets**: Select your destination format:
+    - *Google Sheets / Universal CSV*: Optimized with UTF-8 BOM encoding for Microsoft Excel, Numbers, and Google Sheets. Includes a 1-click **Copy for Google Sheets** button that copies clean TSV to your clipboard for instant `Cmd+V` paste into any spreadsheet.
+    - *HubSpot CRM*: Formatted to match HubSpot's native Contacts & Companies bulk import schema.
+    - *Salesforce*: Matches the Salesforce Lead object standard import layout.
+    - *Pipedrive*: Matches Pipedrive Organizations, Persons, and Deals schema.
+  - Click **Download CSV** or **Copy to Clipboard**. Single leads can also be exported with one click from the "Export Lead" button inside the lead detail drawer.
+
+- **Importing Leads**:
+  - Tap **Import** in the top board header to open `LeadImportModal`.
+  - **Upload or Paste**: Drag and drop any `.csv` or `.tsv` file, browse from disk, or paste raw tabular text directly into the input area.
+  - **Auto-Detection**: The importer automatically inspects headers and selects the matching preset (HubSpot, Salesforce, Pipedrive, or Google Sheets).
+  - **Preview & Validation**: Review parsed leads in an interactive data table with mapped company names, contact people, emails, phones, deal values, and target stages.
+  - **Conflict Resolution**: Choose how to handle duplicates:
+    - *Skip Existing*: Ignores leads whose fingerprint or email already exists in the workspace.
+    - *Update Existing*: Merges new contact details and properties into existing records.
+    - *Create All*: Ingests all rows as distinct records regardless of existing matches.
+  - Click **Start Import**. Leads are automatically assigned ICE scores, calibrated ticket sizes, and placed in their corresponding pipeline stages.
 
 ### Add Lead
 
@@ -187,6 +215,11 @@ The Contacts view (`/contacts/[brand]`, reachable from the sidebar navigation un
   - **Decision Maker** (`indigo` badge): authority to sign and approve agreements.
 - **Associated Leads**: Shows which lead(s) the contact is associated with, with one-click navigation directly to the lead detail card.
 - **Real-Time Search**: Filter contacts instantly by name, email, title, or phone number.
+- **Google Contacts Workspace Sync (issue #249)**:
+  - Tap **Sync Google Contacts** in the top toolbar to open `GoogleContactsWorkspaceModal`.
+  - Search across connected Google Workspace directories and contacts in real time.
+  - Select any number of contacts and choose whether to import them as new leads or add them to an existing organization.
+  - Email addresses are deduplicated against existing database records to prevent duplicates.
 - **Export**: Tap **Export CSV** to download the complete contact list with buying roles and associated lead names.
 
 ---
@@ -340,67 +373,77 @@ Once a lead has at least one entry under [Deals](#deals), the Forecast page uses
 
 ---
 
-## Sales Settings (Company Setup)
+### Sales Settings (Company Setup)
 
-A one-time (then occasionally revisited) questionnaire per brand, reached via the hamburger menu. This is what teaches the system how the brand actually sells — it directly drives Ticket Size estimates and the Forecast page, so it's worth filling in completely, not just enough to make the form disappear.
+Sales Settings (`/salessettings/[client]`, reached via the navigation menu) captures what a brand sells, who buys it, and how it is priced. It directly informs Ticket Size estimation algorithms, the Forecast page, and automated lead scoring.
 
-- **Basic Information**: company name, contact person, website, main industry, checkboxes for the main customer types you sell to (with a free-text "other"). The checkbox list is brand-specific (issue #146) — it only shows customer types that fit what this brand actually sells, not one universal list shared by every brand.
-- **What do you sell?**: a repeatable list of products/services. For each: name, description, "why they buy it," typical buyer roles, typical customer size, pricing model(s) (one-time / monthly / annual subscription / framework agreement / per-campaign / per-user / per-product / per-event / custom quote) with the matching price field(s), and a revenue-predictability rating. Buyer-role options are also brand-specific (issue #146) — e.g. Coach/Athlete only appear on brands whose real buyers include those roles, not on every brand's form.
-- **Typical Deal Size**: expected contract value for Small/Medium/Large/Enterprise customers, plus the largest deal ever won. **This is the single biggest lever for Ticket Size accuracy** — see the [Ticket Size](#ticket-size) section above. Keep the "largest deal ever won" figure current: every estimate for every lead is capped at 2× this number, so a stale, too-low figure here silently suppresses every larger, legitimate estimate.
-- **Region Multipliers**: optional per-region adjustment (e.g. `CEE` → `0.7`) applied to the Ticket Size estimate before the cap above. A region with no entry here is simply unadjusted (×1), never an error.
-- **How often does a customer buy?**: purchase-frequency checkboxes plus a comments box.
-- **Upsell**: what customers commonly buy afterward, and its typical added value.
-- **Sales Process**: expected sales-cycle length and who typically approves the purchase.
-- **Typical Customer Example**: a real reference customer — name, products purchased, contract length, total contract value.
-- **Seasonality**: busiest quarters, plus optional specific months.
-- **Revenue Target**: target amount, currency, and period. The currency here is also this brand/tenant's actual Ticket Size and Deal currency (issue #169, fixed in 2.4.171) — not just this brand's fixed default — so changing it here changes what every lead's Ticket Size estimate (and new manually-added deals) is computed in going forward. Drives the Pipeline Coverage indicator on Forecast — leave the amount blank to hide that indicator rather than show a misleading number.
-- **Notes**: free text for pricing exceptions, discounts, renewal terms, or anything else worth recording.
+In v2.4.291 (issues #253, #255), Sales Settings was completely refactored into a high-density 5-tab interface:
 
-**DVSC-specific**: DVSC's customer-type/buyer-role checkboxes show only the universal set (Sponsors/Brands/Government/Other; CEO/Marketing/Commercial/Brand/Other) — DVSC sells sponsorship to companies, not to sports organizations, so the sport-specific options CogMap's form shows (Coach, Federation, Club, etc.) don't appear here. See `docs/ARCHITECTURE.md`'s "DVSC's recommended starting product-line catalogue" for a real, sourced list of sponsorship inventory categories (shirt/kit, stadium naming, hospitality, digital, official-supplier, section-specific) to use as a starting point when filling in "What do you sell?" — real HUF/EUR deal-size figures still need to come from DVSC directly; nothing is pre-filled.
+### Tab 1: Company & Team
+- **Company Identity**: Company name, primary contact person, website, and primary industry.
+- **Customer Types**: Checkboxes for the customer types you sell to (brand-specific list, e.g. Sports Clubs, Federations, Sponsors, Brands).
+- **Assigned Sales Team & Deal Ownership**:
+  - Live roster of verified sales representatives from SSO (`/api/leads/assignable-users`).
+  - Toggle team members to assign them to this brand's active selling team.
+  - **Default Deal Owner**: Dropdown selector to choose the primary representative who automatically owns new inbound leads.
 
-Click **Save** at the bottom. Saving also triggers a recalculation of Ticket Size across every existing lead for that brand in the background — if you don't see updated numbers within a minute or two, they'll catch up on the next scheduled recalculation regardless.
+### Tab 2: Products & Pricing
+- **Product Catalog Synchronization**:
+  - Displays the active status of the brand's centralized Product Catalog (`/admin/products/[brand]`).
+  - Shows count of priced catalog items, active price chips, and billing models.
+  - **1-Click "Sync from Product Catalog"**: Automatically imports priced catalog products into the sales settings questionnaire without manual double-entry.
+  - Direct navigation button to edit or add new items in the central Product Catalog.
+- **Product Lines**: Repeatable product definitions including name, description, "why they buy," buyer roles, customer sizing, pricing models, and revenue predictability ratings.
+
+### Tab 3: Deal Sizing & Regions
+- **Typical Deal Size Bands**: Expected contract value across 4 sizing tiers (Small, Medium, Large, Enterprise) plus the largest deal ever won.
+  - *Note*: Every ticket size estimate is capped at 2× the largest deal ever won, so keep this number current.
+- **Region Multipliers**: Optional geographic multipliers (e.g. `CEE` → `0.7`, `NA` → `1.2`) to adjust valuations by territory before capping.
+
+### Tab 4: Sales Process
+- **Sales Cycle Duration**: Typical time from first touch to close (e.g. 1–3 months, 3–6 months).
+- **Approval Authority**: Key stakeholder or role required to approve purchase.
+- **Purchase Frequency**: How often customers reorder (once, annually, per season, etc.).
+- **Upsell Paths & Reference Cases**: Common add-ons and typical customer reference examples (contract value, duration, products purchased).
+
+### Tab 5: Targets & Seasonality
+- **Pipeline Revenue Target**: Target quota amount, currency, and period (Monthly, Quarterly, Annual). The currency set here governs all lead estimates and manually entered deals.
+- **Seasonality**: Busiest business quarters (Q1–Q4) and peak calendar months.
+- **Commercial Notes**: Free-text negotiation rules, pricing exceptions, and commercial guidelines.
+
+Use `Cmd+S` / `Ctrl+S` or tap the primary **Save** button in the header. An "Unsaved changes" badge appears whenever any field is modified.
 
 ### Integrations
 
-A "Manage integrations" button at the top of Sales Settings opens this brand's connections to Google Calendar, Gmail, Google Contacts, and Calendly — any admin who can reach this brand's Sales Settings can manage its integrations, not only a super admin. Each provider shows as a row: **Connect** (or **Reconnect**, once connected), **Test**, and **Disconnect**.
+The **Integrations** tab or page (`/salessettings/[client]/integrations`) manages connections to Google Workspace (Gmail, Google Calendar, Google Contacts) and Calendly:
 
-- **Google Calendar / Gmail / Google Contacts**: Connect sends you to Google's own consent screen. Approving it sends you back here, connected — nothing further to enter. Google always asks for consent again on every (re)connect, so a stale grant never silently carries over.
-- **Calendly**: Connect opens a form asking for a personal access token. Generate one in Calendly under **Integrations → API & Webhooks → Generate new token**, then paste it in. It's checked against your real Calendly account immediately — an invalid or expired token is rejected on the spot, before anything is saved. **Calendly does not show or store this token again after you generate it** — if you lose it, generate a new one; there's no way to recover the old one. This token also carries the full permission of your whole Calendly account (not a narrower, scoped grant the way the Google connections are), so treat it like a password.
-- **Test** re-checks a connection against the real provider right now and shows whether it's still valid — use it if something that depends on a connection stops working, before assuming the connection itself is fine.
-- **Disconnect** is immediate and asks for confirmation first. Anything relying on that connection stops working until it's reconnected.
-- A connection showing **Error** or **Expired** needs to be reconnected — this happens if access was revoked directly at the provider (e.g. removing this app's access in your Google Account, or regenerating a Calendly token), not something this app can fix on its own.
-
-Gmail, Google Contacts, and Google Calendar are the providers a feature actually reads from — see below and [Meeting Scheduler](#meeting-scheduler). Calendly booking sync is not built yet; connecting it here only stores the credential for a future feature to use. See `docs/ARCHITECTURE.md` for what's built and what's still planned.
-
-**Only one connection per provider per brand.** Connecting Gmail, Google Contacts, or Google Calendar links one Google account to the whole brand, not one per person — if a second admin connects the same provider again, it replaces the first admin's connection rather than adding a second one alongside it. If your brand needs more than one rep's inbox or calendar surfaced this way, that isn't supported yet; talk to whoever manages this app's roadmap.
-
-Once Google Calendar is connected, a **Booking availability** section appears further down this same page — set your time zone, which days and hours you're bookable, how long each meeting slot is, and a buffer before/after existing events. This drives what a prospect sees on your scheduling page (below).
-
-#### Gmail activity sync
-
-Once Gmail is connected for a brand, this app checks that inbox roughly once an hour for messages to or from someone already listed as a contact on one of that brand's leads. A matching message shows up automatically in that lead's Activity tab, tagged with a **Gmail** badge — no action needed once connected. Unrelated mail in that inbox is never touched or stored. If the same email would also arrive through this app's own dedicated inbound address, it's only logged once, not twice.
-
-#### Import from Google Contacts
-
-On a lead's detail view, in the Contacts section, an **Import from Google Contacts** button appears once Google Contacts is connected for that brand (it stays visible but disabled, with an explanation, if it isn't connected yet). Click it, search by name or email, and click **Add** next to the right person to attach them to this lead as a new contact — the same way you'd add one manually. If that person is already a contact on this lead, it tells you so instead of adding a duplicate. This only pulls a contact into this app; it never writes anything back to your Google Contacts.
+- **Multi-Account Google Connections (issue #250, 2.4.286)**:
+  - Reps can connect multiple Google Workspace accounts across the brand or individually.
+  - Each connected account displays its authorized email address, connection status, and granted scopes.
+  - **Default Sender Designation**: Reps can designate which connected Google account acts as their default sending identity for outbound outreach and automated cadence steps.
+  - **Signature Sync**: Tap **Sync Signature** next to any connected Gmail account to automatically pull your formatted HTML email signature directly from Google Workspace Settings into SLG composer preferences.
+- **Google Calendar & Free/Busy Sync**: Authorizes Google Calendar API v3 for meeting availability checks and automatic booking events.
+- **Google Contacts Sync**: Connects Google People API for real-time contact search, single-lead import, and workspace-level bulk contact ingestion.
+- **Calendly**: API key connection for external meeting links.
 
 ## Meeting Scheduler
 
-Once Google Calendar is connected for a brand (and its [Booking availability](#integrations) window is set), every lead's detail view shows a **Copy scheduling link** button, just above the Activity tab. Click it to copy a link you can paste into an email or message — it opens a simple public page (no sign-in, works on any device) where the recipient picks an open time from your real calendar and enters their name and email. Booking:
+Once Google Calendar is connected for a brand (and its booking availability window is set in Sales Settings), every lead's detail view shows a **Copy scheduling link** button, just above the Activity tab. Click it to copy a link you can paste into an email or message — it opens a simple public page (no sign-in, works on any device) where the recipient picks an open time from your real calendar and enters their name and email.
 
+Booking:
 - Creates a real event on your connected Google Calendar, with them as an attendee.
 - Logs a **Meeting scheduled** entry in that lead's Activity tab, with the time and who booked it.
 - Sets that lead's "next action due" to the meeting time — the same field a manually-set follow-up reminder uses.
+- Each lead's link contains a private, cryptographically random token so prospects cannot access other records.
+- Concurrency-safe: Slot claims are protected by temporary claim locks. If two prospects attempt to select the same slot, the race is safely resolved without double-booking.
 
-Each lead's link contains a private code, not the lead's id, so a recipient can't use it to reach other leads. Copying it again gives the same link. A link copied before 2.4.238 still books a meeting, but it no longer adds anything to the lead.
+## Document Library
 
-Only times that are actually open on your calendar (and inside your configured availability window) are ever offered — a busy block is never shown as bookable. If two people try to book the exact same moment, only the first one goes through; the second sees an updated list of times instead.
+The Document Library (`/documents/[brand]`, reached from the sidebar) provides centralized asset management for sales collateral, slide decks, product briefs, and contract templates (issue #243):
 
-There's no in-app calendar view — meetings live on your real Google Calendar, and this app only records that one got booked. If you move or delete a meeting directly in Google Calendar afterward, this app has no way to know — its own record of it doesn't update to match. If your Google Calendar connection is disconnected or needs reconnecting, the booking link shows a plain "not available right now" message instead of failing broken.
-
-Today, all of this shares one calendar per brand, not one per person — see the note under [Integrations](#integrations) above.
-
----
+- **Upload & Management**: Upload files up to 25MB (PDF, DOCX, XLSX, PPTX, images).
+- **Outreach Attachment Picker**: When composing outbound emails in `OutreachComposeModal`, tap **Attach from Library** (`DocumentLibraryPickerModal`) to attach approved collateral directly to outbound emails without local file searching.
+- **Fail-Closed Protection**: Deleting a document validates that it is not actively referenced by any running outreach cadence, preventing missing attachments in scheduled sequences.
 
 ## Outreach
 
@@ -535,10 +578,27 @@ Switch to Metrics via the hamburger menu's View section (or `?view=metrics`), fo
 
 ---
 
-## Reports (ad-hoc report builder)
+## Reports & Template Gallery
 
-Go to **Reporting → Reports** for a brand when Metrics' fixed set of views doesn't answer your question — e.g. "leads by industry, WON only, last quarter." Click **New report**, then:
+Go to **Reporting → Reports** for a brand when Metrics' fixed set of views doesn't answer your question — e.g. "leads by industry, WON only, last quarter."
 
+### Starter Report Templates & Gallery (issue #251, 2.4.289)
+
+Instead of building complex aggregation pipelines from scratch, operators can bootstrap analytics using the **Report Template Gallery**:
+- Tap **Template Gallery** in the Reports header to open `ReportTemplateModal`.
+- Browse 6 pre-configured, tested CRM report templates:
+  1. *Pipeline Velocity*: Average days in stage grouped by stage transitions.
+  2. *Lead Generation by Source*: Inbound lead volume and conversion rates grouped by acquisition channel.
+  3. *Win/Loss Rate by Industry*: Won and lost counts across industry verticals.
+  4. *Rep Quota Attainment*: Target attainment rates grouped by sales representative.
+  5. *Sales Cycle Duration*: Days from discovery to closed-won deals by company size tier.
+  6. *Stale Deals Breakdown*: Active deals exceeding 30+ days without correspondence.
+- Tap **Use Template** on any card to pre-fill the report builder form with validated metrics, group-by dimensions, filters, and chart configurations.
+- Tap **Seed All Recommended Reports** to instantly populate your brand workspace with all 6 starter reports.
+
+### Custom Ad-Hoc Reports
+
+Click **New report**, then:
 1. Pick a **metric**: lead count, average ICE score, win rate, or decline count.
 2. Optionally **group by** up to 2 dimensions (industry, sport/sector, region, source, pipeline stage, decline reason, quality status).
 3. Optionally add up to 5 **filters** (a dimension equals a value, or is one of several values).

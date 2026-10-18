@@ -2,6 +2,17 @@
 
 ## 2.4.291
 
+### Documentation & Architecture: Comprehensive alignment of documentation, API inventories, handover, and versioning across v2.4.291 (issue 256)
+
+- **Comprehensive Documentation Refresh Across Repository:**
+  - Synchronized documentation versioning to v2.4.291 across all guides and manifests (`README.md`, `HANDOVER.md`, `docs/INDEX.md`, `docs/LLD.md`, `docs/ARCHITECTURE.md`, `docs/OPERATOR_GUIDE.md`, `docs/STACK_AND_DEPENDENCIES.md`).
+  - Cataloged 13 missing API routes and endpoints in `docs/LLD.md` §2 across Leads core (`/api/leads/export`, `/api/leads/import`), Contacts (`/api/contacts/import-google`, `/api/leads/[id]/thread-context`), Reports (`/api/reports/templates`, `/api/reports/seed`), Integrations (`/api/user/integrations/[provider]/default`, `/api/user/integrations/gmail/signature/sync`), Admin recovery (`/api/admin/scheduler-recovery`), Document Library (`/api/documents`), and Multi-Pipelines (`/api/pipelines`, `/api/pipelines/[id]`).
+  - Added modern domain modules to `docs/LLD.md` §3–4 (`lib/crm-lead-exchange.ts`, `lib/scheduler-recovery.ts`, `lib/lead-timeline-filter.ts`, `lib/gmail-threading.ts`, `lib/compose-token-insertion.ts`, `lib/report-templates.ts`).
+  - Updated UI Component inventory in `docs/LLD.md` §5 with modern workspace modals (`LeadExportModal`, `LeadImportModal`, `GoogleContactsWorkspaceModal`, `PipelineManagerModal`, `ReportTemplateModal`, `DocumentLibraryPickerModal`, `UserSettingsModal`).
+  - Documented modern 5-tab Sales Settings layout, central Product Catalog sync, Multi-CRM lead exchange, and Google Contacts workspace ingestion across `docs/ARCHITECTURE.md` and `docs/OPERATOR_GUIDE.md`.
+  - Corrected historical `enableDrag` code and dependency comments to document that drag-and-drop was safely re-enabled by default in v2.4.280 (issue 245).
+  - Sanitized historical code comments in `app/lib/sales-settings.ts` and `app/api/admin/ticket-size-backfill/route.ts` to adhere strictly to AGENTS.md Rule 8 neutral wording.
+
 ### Settings & CRM: Modernize Sales Settings (/salessettings/[brand]) with Product Catalog sync, assigned team contacts, and modern tabbed UI (issue 255)
 
 - **Product Catalog Synchronization (`app/salessettings/[client]/sales-settings-client.tsx`, `app/lib/sales-settings.ts`):**
