@@ -1,5 +1,32 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.291
+
+### Settings & CRM: Modernize Sales Settings (/salessettings/[brand]) with Product Catalog sync, assigned team contacts, and modern tabbed UI (issue 255)
+
+- **Product Catalog Synchronization (`app/salessettings/[client]/sales-settings-client.tsx`, `app/lib/sales-settings.ts`):**
+  - Resolved discrepancy between the centralized Product Catalog (`/admin/products/[brand]`, storing active products like `Seyu Lite`) and obsolete legacy product lines in `company_settings.products`.
+  - Added parallel catalog loading from `GET /api/products/[brand]`, rendering an interactive catalog status bar with active product counts, price chips, and billing models.
+  - Implemented 1-click **"Sync from Product Catalog"** (`syncFromCatalog`) and helper `catalogProductToProductLine` to reconcile catalog offerings with sales settings and ticket-size estimation models without manual double-entry.
+  - Added direct navigation button linking to `/admin/products/[brand]` for central catalog management.
+- **Assigned Sales Team Contacts & Deal Ownership:**
+  - Replaced legacy unlinked free-text `"contactPerson"` input with a first-class **Assigned Sales Team & Deal Ownership** management section.
+  - Fetched all verified brand users via `/api/leads/assignable-users?brand=[brand]` (`sso_user_access`).
+  - Implemented team member cards with live assignment toggles, user name, email, role badge, and active status.
+  - Added a **Default Deal Owner** selector (`defaultDealOwnerEmail`) so new incoming leads automatically route to the designated sales representative.
+  - Extended `SalesSettings` interface and `sanitizeSalesSettings` in `app/lib/sales-settings.ts` to type, validate, and persist `assignedUserIds` (array of user IDs) and `defaultDealOwnerEmail` while maintaining backwards compatibility with `contactPerson`.
+- **Modern Tabbed Layout & Design System Alignment:**
+  - Fully refactored the legacy 12-section vertical scrolling layout into 5 structured, accessible tabs:
+    - **Company & Team**: Organization identity, website, industry, customer types, assigned sales representatives, and default deal owner.
+    - **Products & Pricing**: Central Product Catalog synchronization, sales offerings, buyer roles, customer sizing, and dynamic pricing models.
+    - **Deal Sizing & Regions**: Deal size calibration bands (Small, Medium, Large, Enterprise, Largest Won) and geographic region multipliers.
+    - **Sales Process**: Sales cycle duration, key approval authority, purchase frequency, upsell paths, and customer reference cases.
+    - **Targets & Seasonality**: Pipeline revenue target (with currency and period), seasonality quarters, and commercial negotiation notes.
+  - Added modern header with brand badge, dirty-state detection ("Unsaved changes" badge), keyboard shortcut support (`Cmd+S` / `Ctrl+S`), and toast notifications via `@mantine/notifications`.
+- **Automated Verification:**
+  - Added unit test cases in `tests/lib/sales-settings.test.ts` for `assignedUserIds`, `defaultDealOwnerEmail`, and `catalogProductToProductLine`.
+  - Full test suite passing 100% (1,492 unit tests across 114 test files, smoke tests, zero TypeScript errors, zero lint warnings).
+
 ## 2.4.290
 
 ### CRM & Leads: Multi-CRM Lead Import and Export for HubSpot, Salesforce, Pipedrive, and Google Sheets (issue 254)

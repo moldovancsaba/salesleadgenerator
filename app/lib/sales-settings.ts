@@ -154,6 +154,8 @@ export interface SalesSettings {
   tenantId: string;
   companyName: string;
   contactPerson: string;
+  assignedUserIds?: string[];
+  defaultDealOwnerEmail?: string;
   website: string;
   mainIndustry: string;
   customerTypes: CustomerType[];
@@ -188,6 +190,64 @@ export function emptyProductLine(id: string): ProductLine {
   };
 }
 
+// Converts a first-class catalog Product (from /api/products/[brand]) into a
+// SalesSettings ProductLine so catalog offerings and sales estimation lines
+// stay unified without manual double-entry.
+export function catalogProductToProductLine(product: {
+  id: string;
+  name: string;
+  description?: string;
+  unitPrice: number;
+  currency?: string;
+  pricingModel: PricingModel;
+  active?: boolean;
+}): ProductLine {
+  const pricing: ProductPricing = {};
+  switch (product.pricingModel) {
+    case 'one_time':
+      pricing.oneTimePrice = product.unitPrice;
+      break;
+    case 'monthly_subscription':
+      pricing.monthlyPrice = product.unitPrice;
+      break;
+    case 'annual_subscription':
+      pricing.annualPrice = product.unitPrice;
+      break;
+    case 'framework_agreement':
+      pricing.frameworkAnnualValue = product.unitPrice;
+      break;
+    case 'campaign_based':
+      pricing.campaignPrice = product.unitPrice;
+      break;
+    case 'per_user':
+      pricing.perUserPrice = product.unitPrice;
+      pricing.perUserTypical = product.unitPrice;
+      break;
+    case 'per_product':
+      pricing.perProductPrice = product.unitPrice;
+      break;
+    case 'per_event':
+      pricing.perEventPrice = product.unitPrice;
+      break;
+    case 'custom_quotation':
+      pricing.customQuotationTypicalValue = product.unitPrice;
+      break;
+  }
+
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description || '',
+    whyTheyBuy: '',
+    typicalBuyer: [],
+    typicalBuyerOther: '',
+    customerSize: ['small', 'medium', 'large'],
+    pricingModels: [product.pricingModel],
+    pricing,
+    revenuePredictability: 'medium',
+  };
+}
+
 // Issue #195 — no longer looks brand config up itself (that requires an
 // async Mongo read this function's own callers can't always afford — see
 // the module header): the caller resolves the brand's real currency (via
@@ -205,6 +265,8 @@ export function emptySalesSettings(brand: string, tenantId = 'default', currency
     tenantId,
     companyName: '',
     contactPerson: '',
+    assignedUserIds: [],
+    defaultDealOwnerEmail: '',
     website: '',
     mainIndustry: '',
     customerTypes: [],
@@ -432,6 +494,13 @@ export function sanitizeSalesSettings(
     tenantId,
     companyName: sanitizeString(raw.companyName, 200),
     contactPerson: sanitizeString(raw.contactPerson, 200),
+    assignedUserIds: Array.isArray(raw.assignedUserIds)
+      ? raw.assignedUserIds
+          .filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
+          .map((id: string) => sanitizeString(id, 100))
+          .slice(0, 50)
+      : [],
+    defaultDealOwnerEmail: sanitizeString(raw.defaultDealOwnerEmail, 200).toLowerCase(),
     website: sanitizeString(raw.website, 300),
     mainIndustry: sanitizeString(raw.mainIndustry, 200),
     customerTypes: sanitizeEnumArray(raw.customerTypes, getAllowedCustomerTypes(salesVocabulary)),

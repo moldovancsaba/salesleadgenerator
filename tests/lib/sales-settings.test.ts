@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   sanitizeSalesSettings, emptySalesSettings, emptyProductLine, defaultRevenueTargetCurrency,
   getAllowedCustomerTypes, getAllowedBuyerRoles, getCustomerTypeOptions, getBuyerRoleOptions,
+  catalogProductToProductLine,
 } from '../../app/lib/sales-settings';
 
 // Issue #195 — these functions no longer look a brand up themselves (a
@@ -282,5 +283,32 @@ describe('sanitizeSalesSettings', () => {
   it('defaults revenueTarget when entirely absent from the body', () => {
     const result = sanitizeSalesSettings({}, 'cogmap', 'default', 'USD', COGMAP_VOCAB);
     expect(result.revenueTarget).toEqual({ currency: 'USD', period: 'annual' });
+  });
+
+  it('sanitizes assignedUserIds and defaultDealOwnerEmail', () => {
+    const result = sanitizeSalesSettings({
+      assignedUserIds: ['user-1', '  user-2  ', '', null, 123, 'user-3'],
+      defaultDealOwnerEmail: '  Sales.Rep@SeyuSelfies.com  ',
+    }, 'seyu', 'default', 'EUR', SEYU_VOCAB);
+
+    expect(result.assignedUserIds).toEqual(['user-1', 'user-2', 'user-3']);
+    expect(result.defaultDealOwnerEmail).toBe('sales.rep@seyuselfies.com');
+  });
+
+  it('converts a catalog Product into a ProductLine cleanly', () => {
+    const productLine = catalogProductToProductLine({
+      id: 'prod_seyu_lite',
+      name: 'Seyu Lite',
+      description: 'Automated event branding and fan selfie displays',
+      unitPrice: 999,
+      pricingModel: 'monthly_subscription',
+      active: true,
+    });
+
+    expect(productLine.id).toBe('prod_seyu_lite');
+    expect(productLine.name).toBe('Seyu Lite');
+    expect(productLine.pricingModels).toEqual(['monthly_subscription']);
+    expect(productLine.pricing.monthlyPrice).toBe(999);
+    expect(productLine.customerSize).toEqual(['small', 'medium', 'large']);
   });
 });
