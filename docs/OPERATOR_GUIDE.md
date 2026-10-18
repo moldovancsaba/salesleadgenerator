@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.291
+**Version:** 2.4.292
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -12,6 +12,7 @@
 - [Navigation](#navigation)
 - [Onboarding Tour](#onboarding-tour)
 - [Today View](#today-view)
+- [Communication Center (Unified Inbox)](#communication-center-unified-inbox)
 - [Daily Workflow — Kanban Board](#daily-workflow--kanban-board)
 - [CRM Lead Export & Import](#crm-lead-export--import)
 - [Accounts](#accounts)
@@ -110,6 +111,45 @@ Each item in the Today queue provides one-click inline actions:
 - **Log Call**: Opens the call disposition modal directly to record a call outcome.
 
 Use the **My Work / All** toggle at the top of the page to focus strictly on leads assigned to you or view the whole team's action items.
+
+---
+
+## Communication Center (Unified Inbox)
+
+The **Inbox** (`/inbox/[brand]`, issue #257) is the centralized communication hub that brings together both external client interactions and internal team/system collaboration into a single, high-density 3-pane console:
+
+### 1. Stream Navigation (Left Pane)
+- **Inbox**: Inbound prospect responses and replies captured from Gmail synchronization and Resend inbound webhooks. Features a blue dynamic badge for unread messages.
+- **Needs Reply**: Urgent queue of conversation threads where the prospect delivered the most recent message and awaits your reply.
+- **Sent Outreach**: Outbound rep messages, single sends, and automated multi-step cadence dispatches.
+- **Internal Notes**: Team-internal discussions, observations, and handoffs marked private to your organization.
+- **Call Logs**: Logged phone calls with disposition badges (`connected`, `voicemail`, `busy`, `no-answer`) and durations.
+- **System & Events**: Automated system alerts, Google Calendar booked appointments, and cadence triggers.
+- **All Threads**: Comprehensive unfiltered view across all channels.
+- **Filters**: Quickly toggle **Starred Only**, **Unread Only**, or browse the **Archived** folder.
+
+### 2. Conversation Feed (Middle Pane)
+- Search across lead entity names, contact names, email addresses, subjects, and message previews with instant filtering.
+- Visual status indicators: Unread blue indicator dot, kanban stage badge (`Negotiating`, `Contacted`, `Discovered`), urgent `Reply Needed` orange badge, and message counter badge for multi-message threads.
+- One-click Star/Unstar toggle on each conversation card.
+
+### 3. Conversation Reader & Composer (Right Pane)
+- **Context Header**: Displays lead title, link to open the lead directly in the pipeline board, kanban stage, deal value, and contact email. Provides quick actions to toggle Star, Mark Unread, or Archive.
+- **Message Timeline**: Chronological message bubble history with clear visual separation:
+  - *Inbound Emails*: Highlighted with prospect avatars, RFC 2822 timestamps, and formatted text bodies.
+  - *Outbound Emails*: Stamped with sender rep identity and live delivery status (`sent`, `opened`, `clicked`, `replied`).
+  - *Internal Notes*: Highlighted in amber with "Private Note" banners, visible only to logged-in team members.
+  - *Calls & Meetings*: Compact event cards with call dispositions or scheduled calendar slots.
+- **In-Thread Quick Composer**:
+  - Switch easily between **Reply via Email** and **Internal Note**.
+  - When replying via email:
+    - Pre-populates RFC 2822 threading headers (`In-Reply-To`, `References`, `Re: <subject>`) to maintain conversation grouping in Gmail/Outlook.
+    - Select from saved Outreach Templates to insert pre-approved messaging and token interpolation.
+    - Attach PDF and sales collateral directly from your brand's Document Library.
+    - Toggle automatic inclusion of your synced Google signature.
+    - Dispatches through your connected personal Gmail account (via Gmail REST API) or brand default transport.
+  - When writing an internal note:
+    - Saves immediately to the lead's unified activity log and updates the lead's `updatedAt` timestamp.
 
 ---
 

@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.291
+**Version:** 2.4.292
 
 ---
 
@@ -34,13 +34,13 @@ maintaining the code, not a user of the app.
 ```
 ┌───────────────────────────────────────────────────────┐
 │                       Frontend                         │
-│   /sales/[brand]   /outreach/templates/[brand]   modal │
+│   /sales/[brand]   /inbox/[brand]   /outreach/*       │
 └─────────────────────────┬───────────────────────────────┘
                           │ HTTPS
                           ▼
 ┌───────────────────────────────────────────────────────┐
 │                     API Routes                         │
-│   /api/leads   /api/health   /api/admin/*   outreach*   │
+│   /api/leads   /api/inbox/*   /api/admin/*  outreach* │
 └─────────────────────────┬───────────────────────────────┘
                           │
             ┌─────────────┼─────────────┐
@@ -56,6 +56,7 @@ maintaining the code, not a user of the app.
 
 ## Frontend
 
+- `/inbox/[brand]` (2.4.292, issue #257) — Unified Communication Center: a native 3-pane omnichannel inbox managing external prospect emails, outbound cadences, internal team notes, logged phone calls, and system meeting events. Left pane provides quick stream navigation (`Inbox`, `Needs Reply`, `Sent`, `Internal Notes`, `Calls`, `System`, `All`) with dynamic unread badges; middle pane renders high-density conversation thread cards with search and stage badges; right pane features chronological message history and an in-thread composer for email replies (supporting merge tokens, Gmail account routing, and document attachments) or private internal notes.
 - `/sales/[brand]` — pipeline page with kanban and table view. Implemented as a thin `async` Server Component (`app/sales/[brand]/page.tsx`) that awaits the `params` Promise (required by every Next.js version since 15's async request-API migration, unchanged by the 2.4.26 bump to Next 16) and resolves `brand`, rendering a Client Component (`app/sales/[brand]/sales-page-client.tsx`) that holds all interactive state and data fetching. This split originated specifically because the generated `PageProps` type requires `params: Promise<{...}>` on the page's exported component regardless of client/server boundary, and — at the time this was built — this repo's then-pinned React 18.3 had no `use()` hook to unwrap a Promise inside a Client Component. **Note:** React was bumped to 19.2.8 in 2.4.25, which does provide `use()` — the split above was not revisited as part of that bump (out of scope for a dependency-version migration) and remains the current, working implementation; `use()` becoming available is a fact worth knowing if this page is ever refactored, not something that's already been acted on. As of 2.4.19, `page.tsx` also exports `generateMetadata()` returning the brand's display label (from `BRAND_CONFIG`/`resolveBrand()` in `app/lib/brand.ts`); the root layout's `metadata.title` is a `{ template: "%s · Sales Lead Generator", default: "Sales Lead Generator" }` object, so the browser tab reads `CogMap · Sales Lead Generator` / `Seyu · Sales Lead Generator` — brand name first, for scanning between tabs.
 - `/outreach/templates/[brand]` (2.4.68, issue #100 — was bare `/outreach/templates`) — template management UI, one brand at a time. Same Server/Client split as `/sales/[brand]`: `page.tsx` resolves `brand` via `resolveBrand()`; `templates-client.tsx` holds all form state.
 - `/salessettings/[client]` (2.4.20) — Company Setup / Sales Settings: a plain-language questionnaire (what a brand sells, who buys it, how it's priced, deal size, purchase frequency, upsell, sales cycle, an example customer, seasonality, notes) that a brand's own team fills in so the OpenClaw/KiloClaw research agent can refine lead scoring and revenue forecasts without requiring the respondent to know financial/accounting terminology (ACV/ARR/MRR etc. — see GitHub issue #24). Same Server Component/Client Component split as `/sales/[brand]` (`page.tsx` resolves `client` via `resolveBrand()` and exports `generateMetadata()` returning `"<Brand> Settings"`; `sales-settings-client.tsx` holds all form state). Deliberately built with plain Mantine primitives (`Checkbox.Group`, `NumberInput`, `Select`, repeatable product rows), not GDS Admin form wrappers — GDS has no equivalent for repeatable rows/checkbox groups this form needs, and this avoids further GDS integration surface area after 3.11.x's type-contract issues.

@@ -3,12 +3,12 @@
 import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Loader, Group, Box, Tooltip } from '@mantine/core';
+import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Loader, Group, Box, Tooltip, Badge } from '@mantine/core';
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
   IconAddressBook, IconRepeat, IconBuilding, IconBuildings, IconCompass, IconUsersGroup, IconBolt, IconShoppingCart, IconReportAnalytics, IconKey,
-  IconCalendarTime, IconChevronLeft, IconFiles,
+  IconCalendarTime, IconChevronLeft, IconFiles, IconInbox,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -71,6 +71,8 @@ function currentBrandFromPath(pathname: string, knownBrands: string[]): Brand | 
   if (reportsMatch && knownBrandSet.has(reportsMatch[1])) return reportsMatch[1] as Brand;
   const todayMatch = pathname.match(/^\/today\/([^/]+)/);
   if (todayMatch && knownBrandSet.has(todayMatch[1])) return todayMatch[1] as Brand;
+  const inboxMatch = pathname.match(/^\/inbox\/([^/]+)/);
+  if (inboxMatch && knownBrandSet.has(inboxMatch[1])) return inboxMatch[1] as Brand;
   return null;
 }
 
@@ -179,6 +181,7 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
   // so the switcher never silently disagrees with the page you're actually on.
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [userSettingsOpen, setUserSettingsOpen] = useState(false);
+  const [unreadInboxCount, setUnreadInboxCount] = useState<number>(0);
   useEffect(() => {
     if (urlBrand && accessibleBrands.includes(urlBrand)) {
       setSelectedBrand((prev) => (prev === urlBrand ? prev : urlBrand));
@@ -191,6 +194,22 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
       : selectedBrand && accessibleBrands.includes(selectedBrand)
         ? selectedBrand
         : accessibleBrands[0] ?? null;
+
+  useEffect(() => {
+    if (!effectiveBrand) return;
+    let isMounted = true;
+    fetch(`/api/inbox/${effectiveBrand}?limit=1`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (isMounted && data?.counts?.unread !== undefined) {
+          setUnreadInboxCount(data.counts.unread);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [effectiveBrand, pathname]);
 
   const isSalesBoard = effectiveBrand !== null && pathname === `/sales/${effectiveBrand}`;
   const currentView = searchParams.get('view') || 'kanban';
@@ -268,6 +287,21 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
                 label="Today"
                 leftSection={<IconCalendarTime size={18} />}
                 active={pathname === `/today/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/inbox/${effectiveBrand}`}
+                label="Inbox"
+                leftSection={<IconInbox size={18} />}
+                rightSection={
+                  unreadInboxCount > 0 ? (
+                    <Badge size="xs" color="indigo" variant="filled">
+                      {unreadInboxCount}
+                    </Badge>
+                  ) : null
+                }
+                active={pathname === `/inbox/${effectiveBrand}`}
                 onClick={handleLinkClick}
               />
               <NavLink

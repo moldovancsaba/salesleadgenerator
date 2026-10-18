@@ -1,6 +1,6 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.291
+**Version:** 2.4.292
 
 **Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212); comprehensive alignment audit completed 2026-10-18 (2.4.291, issue #256) bringing the complete API surface, domain modules, and component tree up to date across all features through v2.4.291 (Multi-CRM lead exchange, Google Contacts sync, multi-account Google integration, modern 5-tab Sales Settings, Document Library, pipeline stage manager, email threading context, scheduler recovery, merge token inserter, and timeline noise filter). This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 
@@ -36,6 +36,13 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/leads/[id]/cadence/route.ts` | POST, DELETE | `requireBrandAccessApi` | Enroll/cancel a lead's `activeCadence` via `buildInitialActiveCadence` |
 | `app/api/leads/export/route.ts` | GET, POST | `requireBrandAccessApi` | Multi-CRM CSV and Google Sheets TSV export with field mapping presets for HubSpot, Pipedrive, Salesforce, and Google Sheets (`lib/crm-lead-exchange.ts`, issue #252) |
 | `app/api/leads/import/route.ts` | POST | `requireBrandAccessApi` | Multi-CRM batch lead ingestion with RFC 4180 parsing, SHA-256 fingerprint deduplication, and stage/country normalization (`lib/crm-lead-exchange.ts`, issue #252) |
+
+### Inbox & Communication Center (issue #257)
+
+| Route | Methods | Auth | Purpose |
+|---|---|---|---|
+| `app/api/inbox/[brand]/route.ts` | GET, PATCH | `requireBrandAccessApi` | GET lists aggregated conversation threads and stream metrics (`all`, `inbox`, `sent`, `needs_reply`, `internal`, `calls`, `system`, `unread`); PATCH handles bulk status updates (`isRead`, `isArchived`, `isStarred`) |
+| `app/api/inbox/[brand]/threads/[id]/route.ts` | GET, PATCH, POST | `requireBrandAccessApi` | GET returns chronological thread messages and lead context (auto-marks read); PATCH updates thread state flags; POST dispatches in-thread email reply or adds internal team note |
 
 ### Saved filters (issue #214)
 
@@ -381,6 +388,7 @@ The concrete pattern that distinguishes the two layers: `lib/cadences.ts` has th
 - **`app/lib/brand-constants.ts`** — the actual home of `Brand` (`type Brand = string`), `PRO_FIELD`/`CON_FIELD`, `CurrencyCode`/`CURRENCY_CODE_OPTIONS`/`CURRENCY_CODES`/`CURRENCY_SYMBOLS`, `ForecastModel`, `BrandSalesVocabulary`, `BrandConfig`/`BrandRecord`, `FALLBACK_BRAND_CONFIG` — pure types/constants, no Mongo import, predating this doc's original 2.4.177 write-up (a real prior gap, not a new split) and already load-bearing for `lib/` modules that need brand constants without pulling in `app/lib/brand.ts`'s Mongo-aware accessors — issue #211's `lib/quote-pdf.tsx` imports `CURRENCY_SYMBOLS` from here directly, for exactly that reason
 - **`app/lib/brand.ts`** — Mongo-backed as of issue #195, re-exports everything from `brand-constants.ts` plus the live accessors: `getBrandConfig`/`getAllBrandConfigs`/`getForbiddenTermsFor` (async, read the `brands` collection), `resolveBrand` (async), `createBrand` (issue #196, `/admin/clients`'s own write path) (63 files import from it as of this backfill, up from 51 at the #195 migration — see §8.1)
 - `app/lib/activity-log-store.ts` — `ACTIVITY_LOG_COLLECTION`, `ActivityEntry` (note/call/email, dealId, dealLabel), `ActivityLogDocument`, `ensureActivityLogIndexes` (sparse `{ dealId: 1 }`), `mapOutreachLogToActivityEntry`, `mapActivityLogDoc`, `mergeActivityTimeline`
+- `app/lib/inbox-store.ts` — `INBOX_THREAD_STATES_COLLECTION`, `listInboxThreads`, `getInboxThreadDetail`, `setThreadStatus`, `postInboxReply`, `InboxStream`, `InboxThread`, `InboxMessage`, `InboxCounts`, `ensureInboxIndexes` (issue #257)
 - `app/lib/today-store.ts` — `TodayQueueResponse`, `getTodayQueue`, `completeManualCadenceStep`, `snoozeFollowUpReminder` (issue #237)
 - `app/lib/forecast.ts` — `ForecastComputation`, `computeForecast(db, brand, tenantId)`
 - `app/lib/forecast-snapshot.ts` — `FORECAST_SNAPSHOT_COLLECTION`, `discoverTenantIds`, `writeForecastSnapshot`
@@ -472,6 +480,7 @@ Every page below is an async Server Component that calls `await requireBrandAcce
 | Page | Client component | API routes it/its children call |
 |---|---|---|
 | `app/today/[brand]/page.tsx` | `TodayPageClient` | `/api/today/{brand}`, `/api/today/{brand}/complete-step`, `/api/today/{brand}/snooze` (issue #237) |
+| `app/inbox/[brand]/page.tsx` | `InboxClient` | `/api/inbox/{brand}`, `/api/inbox/{brand}/threads/{id}`, `/api/outreach-templates`, `/api/documents`; 3-pane native Communication Center (issue #257) |
 | `app/sales/[brand]/page.tsx` | `SalesPageClient` | `/api/leads/{id}` (direct), `/api/boards/{brand}`, `/api/leads/export`, `/api/leads/import`; mounts `KanbanBoard` → `/api/leads/columns`, `/api/leads`; mounts `AddLeadModal` → `/api/leads` POST; mounts `LeadExportModal`, `LeadImportModal`, `FilterBar` |
 | `app/contacts/[brand]/page.tsx` | `ContactsClient` | `/api/contacts` (debounced search), `/api/contacts/import-google`; mounts `GoogleContactsWorkspaceModal` (issues #216, #249) |
 | `app/forecast/[brand]/page.tsx` | `ForecastClient` | `/api/boards/{brand}`, `/api/win-rates`, `/api/ticket-size-calibration` |
@@ -527,6 +536,7 @@ See `docs/ARCHITECTURE.md` for the *meaning* of each taxonomy/scoring field — 
 | Collection | Document type | Defined in | Written by |
 |---|---|---|---|
 | `activityLog` | `ActivityLogDocument` (`ActivityEntryType`: `'email-outbound'\|'email-inbound'\|'note'\|'system'\|'call'\|'meeting-scheduled'`; `ActivitySource`: `'inbound-webhook'\|'manual'\|'outreach-log'\|'gmail-sync'\|'calendar-sync'` — `'call'`/`'meeting-scheduled'`/`'gmail-sync'`/`'calendar-sync'` added by issues #200/#207/#216) | `app/lib/activity-log-store.ts` | Inbound webhook + outreach-log merge; manual call logging (`POST /api/leads/[id]/activity`, issue #200); Gmail sync / meeting booking write-back |
+| `inbox_thread_states` | `InboxThreadState` (`{brand, tenantId, threadId, userId?, isRead?, isStarred?, isArchived?, updatedAt}`) | `app/lib/inbox-store.ts` | Thread state overrides / status toggles (`setThreadStatus`, issue #257) |
 | `contactSuggestions` | `ContactSuggestionDocument` | `lib/contact-reply-matching.ts` | `generateContactSuggestion()` off inbound webhook events |
 | `cadences` | `Cadence` (`{id, name, steps: CadenceStep[]}`, `CadenceStep = {channel: 'email'\|'linkedin'\|'call', waitDaysAfterPrevious, ...}`) | `lib/cadences.ts` | `/api/cadences` CRUD |
 | `outreach_logs` | inline shape `{id, leadId, brand, templateId, channel, subject, body, createdAt, tenantId, routingAllowed, routingReason}`, plus (issue #205, additive) `sendAttempted`, `resendEmailId`, `sentAutomatically`, `cadenceId`/`stepIndex`, `activityLogWritten`, and (webhook-written) `deliveryStatus`/`deliveryStatusUpdatedAt`/`openCount`/`clickCount` | `app/api/outreach-logs/route.ts` (record-only) / `lib/outreach-send.ts` (real sends) | `/api/outreach-logs` POST, `/api/outreach-send` POST, `/api/webhooks/inbound-email` POST (status enrichment only) |

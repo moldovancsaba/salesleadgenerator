@@ -1,5 +1,43 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.292
+
+### Inbox & Communication: Unified Communication Center for external client interactions, internal team notes, and omnichannel messaging (issue #257)
+
+- **Native 3-Pane Communication Center (`app/inbox/[brand]/page.tsx`, `app/inbox/[brand]/inbox-client.tsx`):**
+  - Built GDS Admin and Mantine 9 compliant 3-pane omnichannel inbox console accessible at `/inbox/[brand]`:
+    - **Stream Navigation (Pane 1)**: Interactive sidebar with stream pills: `Inbox` (inbound prospect replies with dynamic blue unread count pill), `Needs Reply` (urgent queue where prospect sent the latest message), `Sent Outreach` (rep emails and automated cadence dispatches), `Internal Notes` (team-private discussions), `Call Logs` (phone calls with disposition badges and durations), `System & Events` (automated notices, booked meetings, cadence triggers), and `All Threads`. Includes filter toggles for `Starred Only`, `Unread Only`, and `Archived`.
+    - **Conversation Feed (Pane 2)**: High-density conversation thread cards featuring real-time search across lead names, subjects, snippets, contact names, and email addresses. Includes unread indicator dots, stage badges, relative timestamps, multi-message count badges, and star toggles.
+    - **Conversation Reader & In-Thread Composer (Pane 3)**: Chronological message history with distinct card styling for Inbound Emails, Outbound Sends, Internal Notes (private yellow cards), Logged Calls (purple cards with call dispositions), and Calendar Events.
+- **Aggregated Conversation Query Engine & State Persistence (`app/lib/inbox-store.ts`):**
+  - Aggregates conversation events across `activityLog` (inbound webhook events, Gmail synced correspondence, manual rep calls, calendar sync events, and internal notes) and `outreach_logs` (outbound rep emails and automated cadence steps).
+  - Implemented thread grouping by RFC 2822 / Gmail `threadId` with fallback to `lead:${leadId}` and synthetic message clustering.
+  - Implemented `inbox_thread_states` MongoDB collection (`{ brand: 1, tenantId: 1, threadId: 1 }` index) to store user/brand thread overrides (`isRead`, `isStarred`, `isArchived`) without mutating immutable activity logs.
+  - Automatic unread status calculation: inbound messages default to unread unless marked read, while outbound and internal notes default to read.
+  - Added stream counter and unread counter computation.
+- **In-Thread Quick Composer & Quick Actions (`postInboxReply`):**
+  - Dual-mode composer supporting **Reply via Email** and **Internal Note**.
+  - **Email Reply**:
+    - Pre-populates RFC 2822 headers (`In-Reply-To`, `References`, and normalized `Re: <subject>`) using `resolveLeadThreadContext` to maintain strict conversation grouping in prospect mail clients.
+    - Integrates with saved Outreach Templates (`/api/outreach-templates`) for instant pre-approved text and token interpolation.
+    - Integrates with brand Document Library (`/api/documents`) for attaching PDF sales collateral.
+    - Synced Gmail signature insertion toggle.
+    - Dispatches through connected personal rep Google account (via Gmail REST API `messages.send`) or brand default transport via `sendManualEmail`.
+  - **Internal Note**:
+    - Saves team-internal notes directly to `activityLog` with author attribution and touches `lead.updatedAt` for pipeline freshness.
+- **REST API Endpoints:**
+  - `GET /api/inbox/[brand]`: Returns paginated thread list, search filtering, and stream counts.
+  - `PATCH /api/inbox/[brand]`: Handles bulk thread status updates (`isRead`, `isArchived`, `isStarred`).
+  - `GET /api/inbox/[brand]/threads/[id]`: Returns chronological message list, thread detail, and lead context (auto-marks thread as read).
+  - `PATCH /api/inbox/[brand]/threads/[id]`: Toggles individual thread state flags (`isRead`, `isStarred`, `isArchived`).
+  - `POST /api/inbox/[brand]/threads/[id]`: Dispatches in-thread email reply or adds internal team note.
+- **Persistent App Navigation Integration (`app/components/AppNav.tsx`):**
+  - Added **Inbox** navigation link with `IconInbox` and real-time unread count badge in primary navigation.
+  - Added URL matching for `/inbox/[brand]` in `currentBrandFromPath`.
+- **Automated Verification:**
+  - Built unit test suite in `tests/lib/inbox-store.test.ts` covering empty states, thread clustering across multiple collections, stream classification, unread derivation, thread state persistence, internal note writes, and in-thread email replies.
+  - Zero TypeScript errors (`npx tsc --noEmit`), zero lint warnings (`npm run lint`), 100% GDS compliance (`npm run audit:gds-style`), 100% smoke tests, and 1,498 vitest tests passing.
+
 ## 2.4.291
 
 ### Documentation & Architecture: Comprehensive alignment of documentation, API inventories, handover, and versioning across v2.4.291 (issue 256)

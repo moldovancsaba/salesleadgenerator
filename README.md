@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.291  
+**Version:** 2.4.292  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -10,6 +10,7 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 ## What This Repo Contains
 
 - Next.js 16 app with App Router and API routes
+- Native 3-Pane Communication Center (`/inbox/[brand]`) managing external prospect communications, outbound cadences, internal team notes, phone call logs, and system events with in-thread Gmail quick-reply composer, merge tokens, and document attachments
 - Desktop and tablet browser experience: docked collapsible sidebar navigation (`>= 768px`) with show/hide toggle, inline Board/Table/Backlog/Metrics view switcher, command palette shortcut affordances (`⌘K`), and unblocked multi-touch zoom
 - Progressive Web App (PWA) with self-hosted offline shell fallback (`/offline`), app-shell caching, standalone manifest, and shortcuts
 - Mobile-first kanban board, table view, metrics dashboard, and search-learning panel
@@ -101,7 +102,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.291**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25; updated to 2.4.291) and needs updating on every version-stamp sync pass, not just when someone notices.
+Current app version is **2.4.292**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25; updated to 2.4.292) and needs updating on every version-stamp sync pass, not just when someone notices.
 
 Single source of truth: `package.json`
 
