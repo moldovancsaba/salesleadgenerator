@@ -82,4 +82,34 @@ describe('LeadCard Layout & Hierarchy Redesign (Issue 259)', () => {
       expect(cardSource).toContain('IconArrowUpRight');
     });
   });
+
+  describe('High-Affordance Card Architecture & Semantic GDS Actions (Issue 266)', () => {
+    it('provides 1-click Quick Outreach email action for contacts with email', () => {
+      expect(cardSource).toContain('IconMail');
+      expect(cardSource).toContain('primaryContact?.email');
+      expect(cardSource).toContain('onQuickEmail(lead)');
+    });
+
+    it('renders semantic stage-aware decisions with Accept and Decline actions', () => {
+      expect(cardSource).toContain('isReviewColumn && onAction');
+      expect(cardSource).toContain('color="teal"');
+      expect(cardSource).toContain('IconCheck');
+      expect(cardSource).toContain("onAction(lead._id, 'ACCEPT')");
+      expect(cardSource).toContain('color="red"');
+      expect(cardSource).toContain('IconX');
+      expect(cardSource).toContain("onAction(lead._id, 'DECLINE')");
+    });
+
+    it('renders urgency alert status badges with icon for overdue and due today items', () => {
+      expect(cardSource).toContain("dueDays < 0 ? 'danger' : 'warning'");
+      expect(cardSource).toContain('withIcon');
+      expect(cardSource).toContain('d overdue');
+      expect(cardSource).toContain('Due today');
+    });
+
+    it('tokenizes card border and text styling to GDS standard variables', () => {
+      expect(cardSource).toContain('var(--gds-border-card)');
+      expect(cardSource).toContain('var(--gds-text-primary)');
+    });
+  });
 });

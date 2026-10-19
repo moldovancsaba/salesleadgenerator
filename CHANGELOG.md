@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.303
+
+### High-Affordance Card Visual Architecture & Semantic GDS Actions (issue #266)
+
+- **Primary Contact Strip with 1-Click Quick Outreach:**
+  - Added dedicated `IconUser` contact label and `IconMail` action button on the card face, enabling instant email initiation directly to the key decision maker or primary contact without opening the drawer.
+- **Stage-Aware Semantic Decision Actions:**
+  - Added 1-click semantic action buttons on the card face for review and inbound columns (`DISCOVERED`, `QUALIFIED`):
+    - Positive decision button (`color="teal"`, `variant="light"`, `IconCheck`) directly triggering `onAction(lead._id, 'ACCEPT')`.
+    - Negative decision button (`color="red"`, `variant="subtle"`, `IconX`) directly triggering `onAction(lead._id, 'DECLINE')`.
+  - In active pipeline stages, surfaces a direct Quick Email button (`color="indigo"`, `variant="light"`, `IconMail`).
+  - Retained quiet, subtle Open button (`variant="subtle"`, `IconArrowUpRight`) preserving onboarding tour hooks.
+- **Board Action Wiring:**
+  - Destructured and wired `onAction` in `app/kanban.tsx` through `renderItem` into `<LeadCard />`, seamlessly connecting card-face triage decisions to `sales-page-client.tsx`'s handler.
+- **Urgency & Follow-Up Visual Cues:**
+  - Prominently displays GDS `StatusBadge status="danger" withIcon` for overdue follow-ups (`{N}d overdue`) and `StatusBadge status="warning" withIcon` for actions due today.
+- **Complete GDS Tokenization across Board and Cards:**
+  - Replaced hardcoded Mantine color variables with canonical GDS design tokens (`--gds-border-card`, `--gds-bg-card`, `--gds-text-primary`) across `app/card.tsx` and `app/kanban.tsx` (bulk selection bar, field edit bar, reassign bar, undo notification, and load-more sentinel).
+- **Automated Verification:**
+  - Added comprehensive unit tests in `tests/lib/card-layout.test.ts` covering 1-click Quick Outreach, semantic decision buttons, urgency alerts, and tokenized styling.
+
 ## 2.4.302
 
 ### Multi-Company Email Contact Conversion & Selective Harvesting Control (issue #265)

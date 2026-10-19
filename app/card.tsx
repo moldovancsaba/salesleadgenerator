@@ -3,7 +3,16 @@
 import { useState } from 'react';
 import { ActionIcon, Avatar, Box, Button, Group, Stack, Text } from '@mantine/core';
 import { StatusBadge, LabelTag, CountBadge } from '@sovereignsquad/gds-core/client';
-import { IconChevronDown, IconChevronUp, IconUser, IconArrowUpRight } from '@tabler/icons-react';
+import {
+  IconChevronDown,
+  IconChevronUp,
+  IconUser,
+  IconArrowUpRight,
+  IconCheck,
+  IconX,
+  IconMail,
+  IconPhone,
+} from '@tabler/icons-react';
 import type { Lead } from './types';
 import type { CurrencyCode } from './lib/brand';
 import { getIceScore, getTicketSize } from './constants';
@@ -34,6 +43,8 @@ type LeadCardProps = {
   // onboarding tour has a single real, stable element to spotlight — every
   // other rendered LeadCard instance leaves this undefined.
   tourTarget?: boolean;
+  onAction?: (leadId: string, action: string, payload?: Record<string, unknown>) => Promise<void>;
+  onQuickEmail?: (lead: Lead) => void;
 };
 
 const CURRENCY_SYMBOL: Record<string, string> = { USD: '$', EUR: '€' };
@@ -121,7 +132,17 @@ function formatSectorLabel(raw: string | undefined): string | null {
     .join(' · ');
 }
 
-export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourTarget }: LeadCardProps) {
+export function LeadCard({
+  lead,
+  onOpen,
+  staleness,
+  nudge,
+  winProbability,
+  tourTarget,
+  onAction,
+  onQuickEmail,
+}: LeadCardProps) {
+  const [actionRunning, setActionRunning] = useState(false);
   const ice = getIceScore(lead);
   const region = lead.region || 'NA';
   const quality = lead.qualityStatus || 'DRAFT';
@@ -149,6 +170,7 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
   const updatedLabel = formatRelativeDays(lead.updatedAt, now);
 
   const isTerminalColumn = lead.kanbanColumn === 'WON' || lead.kanbanColumn === 'LOST';
+  const isReviewColumn = lead.kanbanColumn === 'DISCOVERED' || lead.kanbanColumn === 'QUALIFIED';
   const dueAt = lead.nextActionDueAt ? new Date(lead.nextActionDueAt) : null;
   const dueValid = dueAt && !Number.isNaN(dueAt.getTime());
   const dueDays = dueValid ? Math.floor((dueAt!.getTime() - now.getTime()) / 86_400_000) : null;
@@ -221,7 +243,7 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
-              color: 'var(--mantine-color-text)',
+              color: 'var(--gds-text-primary)',
             }}
           >
             {lead.entity_name}
@@ -233,22 +255,54 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
           )}
         </Box>
 
-        {/* Primary Contact: Prominently identifies the human counterparty */}
-        <Group gap={4} wrap="nowrap" style={{ minWidth: 0, marginTop: 1 }}>
-          <IconUser size={13} style={{ flexShrink: 0, opacity: 0.6 }} />
-          {contactName !== '—' ? (
-            <Text size="xs" fw={500} truncate title={contactTitle ? `${contactName} (${contactTitle})` : contactName}>
-              {contactName}
-              {contactTitle && (
-                <Text component="span" size="xs" c="dimmed" fw={400}>
-                  {` · ${contactTitle}`}
-                </Text>
-              )}
-            </Text>
+        {/* Primary Contact: Prominently identifies the human counterparty with quick actions */}
+        <Group justify="space-between" align="center" wrap="nowrap" style={{ minWidth: 0, marginTop: 1 }}>
+          <Group gap={4} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+            <IconUser size={13} style={{ flexShrink: 0, opacity: 0.6 }} />
+            {contactName !== '—' ? (
+              <Text size="xs" fw={500} truncate title={contactTitle ? `${contactName} (${contactTitle})` : contactName}>
+                {contactName}
+                {contactTitle && (
+                  <Text component="span" size="xs" c="dimmed" fw={400}>
+                    {` · ${contactTitle}`}
+                  </Text>
+                )}
+              </Text>
+            ) : (
+              <Text size="xs" c="dimmed" fs="italic">
+                No contact assigned
+              </Text>
+            )}
+          </Group>
+          {primaryContact?.email ? (
+            <ActionIcon
+              size="xs"
+              variant="subtle"
+              color="indigo"
+              aria-label={`Email ${contactName}`}
+              title={`Email ${contactName} (${primaryContact.email})`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onQuickEmail) onQuickEmail(lead);
+                else window.location.href = `mailto:${primaryContact.email}`;
+              }}
+            >
+              <IconMail size={12} />
+            </ActionIcon>
           ) : (
-            <Text size="xs" c="dimmed" fs="italic">
-              No contact assigned
-            </Text>
+            contactName === '—' && (
+              <Button
+                size="compact-xs"
+                variant="subtle"
+                color="gray"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpen?.();
+                }}
+              >
+                + Contact
+              </Button>
+            )
           )}
         </Group>
 
@@ -282,6 +336,18 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
               {quality}
             </StatusBadge>
           )}
+
+          {/* Urgency Alert & Follow-up Indicator */}
+          {dueValid && dueDays !== null && dueDays <= 0 ? (
+            <StatusBadge
+              status={dueDays < 0 ? 'danger' : 'warning'}
+              withIcon
+              size="xs"
+              aria-label={dueDays < 0 ? `${Math.abs(dueDays)} days overdue` : 'Action due today'}
+            >
+              {dueDays < 0 ? `${Math.abs(dueDays)}d overdue` : 'Due today'}
+            </StatusBadge>
+          ) : null}
 
           {/* Stale / Urgency Indicator — de-duplicated so days are never displayed twice */}
           {staleness ? (
@@ -338,29 +404,90 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
           </Text>
         </Group>
 
-        {/* Action Bar: Progressive Disclosure Toggle & Quiet Direct Open */}
-        <Group justify="space-between" align="center" wrap="nowrap" pt={2}>
-          <Group
-            gap={4}
-            wrap="nowrap"
-            style={{ cursor: 'pointer', userSelect: 'none' }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded((v) => !v);
-            }}
-          >
-            <ActionIcon
-              size="xs"
-              variant="subtle"
-              color="gray"
-              aria-label={expanded ? 'Show less' : 'Show more'}
-              aria-expanded={expanded}
+        {/* Action Bar: Progressive Disclosure Toggle, Semantic Decisions & Direct Open */}
+        <Group justify="space-between" align="center" wrap="nowrap" pt={2} style={{ borderTop: '1px solid var(--gds-border-card)' }}>
+          <Group gap={4} wrap="nowrap">
+            {isReviewColumn && onAction ? (
+              <Group gap={4} wrap="nowrap">
+                <Button
+                  size="compact-xs"
+                  color="teal"
+                  variant="light"
+                  leftSection={<IconCheck size={12} />}
+                  loading={actionRunning}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      setActionRunning(true);
+                      await onAction(lead._id, 'ACCEPT');
+                    } catch {
+                      // notification handled upstream
+                    } finally {
+                      setActionRunning(false);
+                    }
+                  }}
+                >
+                  Accept
+                </Button>
+                <Button
+                  size="compact-xs"
+                  color="red"
+                  variant="subtle"
+                  leftSection={<IconX size={12} />}
+                  loading={actionRunning}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      setActionRunning(true);
+                      await onAction(lead._id, 'DECLINE');
+                    } catch {
+                      // notification handled upstream
+                    } finally {
+                      setActionRunning(false);
+                    }
+                  }}
+                >
+                  Decline
+                </Button>
+              </Group>
+            ) : !isTerminalColumn && primaryContact?.email ? (
+              <Button
+                size="compact-xs"
+                color="indigo"
+                variant="light"
+                leftSection={<IconMail size={12} />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onQuickEmail) onQuickEmail(lead);
+                  else window.location.href = `mailto:${primaryContact.email}`;
+                }}
+              >
+                Email
+              </Button>
+            ) : null}
+
+            <Group
+              gap={4}
+              wrap="nowrap"
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded((v) => !v);
+              }}
             >
-              {expanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
-            </ActionIcon>
-            <Text size="xs" c="dimmed">
-              {expanded ? 'Show less' : 'Show more'}
-            </Text>
+              <ActionIcon
+                size="xs"
+                variant="subtle"
+                color="gray"
+                aria-label={expanded ? 'Show less' : 'Show more'}
+                aria-expanded={expanded}
+              >
+                {expanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+              </ActionIcon>
+              <Text size="xs" c="dimmed">
+                {expanded ? 'Show less' : 'Show more'}
+              </Text>
+            </Group>
           </Group>
 
           {onOpen && (
@@ -382,7 +509,7 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
 
         {/* Progressive Disclosure (Tier 1 Metadata) */}
         {expanded && (
-          <Stack gap={4} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-gray-2)' }}>
+          <Stack gap={4} pt={4} style={{ borderTop: '1px dashed var(--gds-border-card)' }}>
             <Stack gap={2}>
               {tier1Metadata.map((m) => (
                 <Group key={m.label} justify="space-between" gap="xs" wrap="nowrap">

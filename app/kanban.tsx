@@ -114,7 +114,7 @@ function LoadMoreSentinel({ onLoadMore }: { onLoadMore: () => void }) {
   }, [onLoadMore]);
 
   return (
-    <Box ref={ref} pt="xs" mt="xs" style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>
+    <Box ref={ref} pt="xs" mt="xs" style={{ borderTop: '1px solid var(--gds-border-card)' }}>
       <Group justify="center" py="xs">
         <Loader size="xs" />
       </Group>
@@ -122,7 +122,7 @@ function LoadMoreSentinel({ onLoadMore }: { onLoadMore: () => void }) {
   );
 }
 
-export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false, columnDefs = COLUMNS, onVisibleLeadsChange }: BoardProps) {
+export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false, columnDefs = COLUMNS, onVisibleLeadsChange, onAction }: BoardProps) {
   // Record<string, ...> (not Record<KanbanColumn, ...>) — this component no
   // longer always manages all 6 Pipeline columns; the Backlog board mounts
   // it with a single 'BACKLOG' entry instead (issue #126).
@@ -776,13 +776,14 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           nudge={nudge}
           winProbability={forecast?.[column.id]?.probability ?? null}
           tourTarget={tourTarget}
+          onAction={onAction}
         />
         {isLast && Boolean(colState?.hasMore) && !colState?.loading && (
           <LoadMoreSentinel onLoadMore={() => loadColumn(column.id as KanbanColumn, colState.cursor)} />
         )}
       </>
     )
-  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast, firstNonEmptyColumnId])
+  }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast, firstNonEmptyColumnId, onAction])
 
   return (
     <>
@@ -791,7 +792,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           size, so a rep can start a batch from zero without hand-ticking
           every card first. */}
       {selectMode && (
-        <Group gap="sm" mb="sm" p="xs" style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 6 }} role="region" aria-label="Bulk selection">
+        <Group gap="sm" mb="sm" p="xs" style={{ border: '1px solid var(--gds-border-card)', backgroundColor: 'var(--gds-bg-card)', borderRadius: 6 }} role="region" aria-label="Bulk selection">
           <Text size="xs" c="dimmed">Select all in:</Text>
           <Select
             size="xs"
@@ -818,7 +819,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           gap="sm"
           mb="sm"
           p="xs"
-          style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 6 }}
+          style={{ border: '1px solid var(--gds-border-card)', backgroundColor: 'var(--gds-bg-card)', borderRadius: 6 }}
           role="region"
           aria-label="Bulk actions"
         >
@@ -838,7 +839,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       )}
 
       {selectMode && selectedIds.size > 0 && fieldEditOpen && (
-        <Group gap="xs" mb="sm" p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }} role="region" aria-label="Bulk field edit">
+        <Group gap="xs" mb="sm" p="xs" style={{ border: '1px solid var(--gds-border-card)', backgroundColor: 'var(--gds-bg-card)', borderRadius: 6 }} role="region" aria-label="Bulk field edit">
           <Select
             size="xs"
             label="Field"
@@ -894,7 +895,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       )}
 
       {selectMode && selectedIds.size > 0 && assignOpen && (
-        <Group gap="xs" mb="sm" p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }} role="region" aria-label="Bulk reassign">
+        <Group gap="xs" mb="sm" p="xs" style={{ border: '1px solid var(--gds-border-card)', backgroundColor: 'var(--gds-bg-card)', borderRadius: 6 }} role="region" aria-label="Bulk reassign">
           <Select
             size="xs"
             label="Assign to"
@@ -923,7 +924,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
           aria-live="polite" so a screen-reader user hears the window and
           its expiry, not just sees it. */}
       {undoInfo && (
-        <Group gap="sm" mb="sm" p="xs" style={{ border: '1px solid var(--mantine-color-blue-4)', borderRadius: 6 }} role="status" aria-live="polite">
+        <Group gap="sm" mb="sm" p="xs" style={{ border: '1px solid var(--gds-border-card)', backgroundColor: 'var(--gds-bg-card)', borderRadius: 6 }} role="status" aria-live="polite">
           <Text size="sm">
             {undoSecondsLeft > 0
               ? `You can undo this — expires in ${undoSecondsLeft}s.`
