@@ -1,6 +1,6 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.292
+**Version:** 2.4.293
 
 **Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212); comprehensive alignment audit completed 2026-10-18 (2.4.291, issue #256) bringing the complete API surface, domain modules, and component tree up to date across all features through v2.4.291 (Multi-CRM lead exchange, Google Contacts sync, multi-account Google integration, modern 5-tab Sales Settings, Document Library, pipeline stage manager, email threading context, scheduler recovery, merge token inserter, and timeline noise filter). This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 

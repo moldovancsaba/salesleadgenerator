@@ -442,7 +442,8 @@ export async function listInboxThreads(
         t.snippet.toLowerCase().includes(q) ||
         t.leadName.toLowerCase().includes(q) ||
         (t.contactName && t.contactName.toLowerCase().includes(q)) ||
-        (t.contactEmail && t.contactEmail.toLowerCase().includes(q))
+        (t.contactEmail && t.contactEmail.toLowerCase().includes(q)) ||
+        (t.leadId && t.leadId.toLowerCase().includes(q))
       );
     });
   }

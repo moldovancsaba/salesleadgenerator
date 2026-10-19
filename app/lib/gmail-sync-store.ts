@@ -121,7 +121,7 @@ async function listMessageIds(token: string, sinceMs: number): Promise<string[]>
 async function getMessageHeaders(token: string, id: string): Promise<any> {
   const url = new URL(`${GMAIL_API_BASE}/messages/${id}`);
   url.searchParams.set('format', 'metadata');
-  for (const header of ['From', 'To', 'Cc', 'Subject', 'Date', 'Message-ID']) {
+  for (const header of ['From', 'To', 'Cc', 'Subject', 'Date', 'Message-ID', 'In-Reply-To', 'References']) {
     url.searchParams.append('metadataHeaders', header);
   }
   const res = await fetchWithRetry(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
@@ -195,6 +195,8 @@ export async function pollSingleGmailConnection(
     const subject = getHeader(headers, 'Subject') || '';
     const dateHeader = getHeader(headers, 'Date');
     const messageIdHeader = getHeader(headers, 'Message-ID');
+    const inReplyToHeader = getHeader(headers, 'In-Reply-To');
+    const referencesHeader = getHeader(headers, 'References');
 
     const fromEmails = parseAddressList(fromRaw);
     const toEmails = parseAddressList(toRaw);
@@ -242,6 +244,10 @@ export async function pollSingleGmailConnection(
       externalId,
       fallbackHash,
       createdAt: new Date(dateIso),
+      ...(meta.threadId ? { threadId: meta.threadId } : {}),
+      ...(messageIdHeader ? { rfcMessageId: messageIdHeader } : {}),
+      ...(inReplyToHeader ? { inReplyTo: inReplyToHeader } : {}),
+      ...(referencesHeader ? { references: referencesHeader } : {}),
     };
 
     let matchedLeadId: string | null = null;

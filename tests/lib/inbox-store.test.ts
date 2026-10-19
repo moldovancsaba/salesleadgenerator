@@ -316,6 +316,11 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       const searchRes = await listInboxThreads(db, 'cogmap', 't_default', { search: 'voicemail' });
       expect(searchRes.total).toBe(1);
       expect(searchRes.threads[0].id).toBe('thread_beta');
+
+      // Search query by leadId
+      const leadIdSearchRes = await listInboxThreads(db, 'cogmap', 't_default', { search: 'lead_1' });
+      expect(leadIdSearchRes.total).toBe(1);
+      expect(leadIdSearchRes.threads[0].id).toBe('thread_alpha');
     });
   });
 

@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { Box, Text, Stack, Badge, Loader, Group, Button, Select, NumberInput, Textarea, Tooltip } from '@mantine/core'
 import { showNotification } from '@mantine/notifications'
+import { IconInbox } from '@tabler/icons-react'
 
 // Issue #200 — closed set, mirrors app/lib/activity-log-store.ts's own
 // CallDisposition (not imported directly — this file already keeps its own
@@ -430,6 +432,16 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [], refres
               Compose / Log Outreach
             </Button>
           )}
+          <Button
+            size="xs"
+            variant="light"
+            color="indigo"
+            component={Link}
+            href={`/inbox/${encodeURIComponent(brand)}?search=${encodeURIComponent(leadId)}`}
+            leftSection={<IconInbox size={14} />}
+          >
+            Open in Inbox
+          </Button>
           <Button
             size="xs"
             variant="light"

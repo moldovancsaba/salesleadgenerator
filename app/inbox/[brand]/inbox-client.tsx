@@ -57,6 +57,9 @@ import type {
 type Props = {
   brand: Brand;
   label: string;
+  initialStream?: string;
+  initialSearch?: string;
+  initialThreadId?: string;
 };
 
 function formatRelativeTime(dateStr: string): string {
@@ -86,9 +89,13 @@ function formatFullTime(dateStr: string): string {
   });
 }
 
-export function InboxClient({ brand, label }: Props) {
-  const [stream, setStream] = useState<InboxStream>('inbox');
-  const [search, setSearch] = useState('');
+export function InboxClient({ brand, label, initialStream, initialSearch, initialThreadId }: Props) {
+  const [stream, setStream] = useState<InboxStream>(
+    initialStream && ['inbox', 'sent', 'needs_reply', 'internal', 'calls', 'system', 'all'].includes(initialStream)
+      ? (initialStream as InboxStream)
+      : 'inbox'
+  );
+  const [search, setSearch] = useState(initialSearch || '');
   const [starredOnly, setStarredOnly] = useState(false);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [archivedOnly, setArchivedOnly] = useState(false);
@@ -105,9 +112,11 @@ export function InboxClient({ brand, label }: Props) {
     unread: 0,
   });
   const [loadingThreads, setLoadingThreads] = useState(true);
+  const [syncingGmail, setSyncingGmail] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
   // Selected thread state
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(initialThreadId || null);
   const [selectedThread, setSelectedThread] = useState<InboxThread | null>(null);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [lead, setLead] = useState<any | null>(null);
@@ -184,6 +193,30 @@ export function InboxClient({ brand, label }: Props) {
   useEffect(() => {
     loadThreads();
   }, [loadThreads]);
+
+  const handleSyncGmail = async () => {
+    setSyncingGmail(true);
+    setSyncNotice(null);
+    try {
+      const res = await fetch(`/api/user/integrations/gmail/sync?brand=${encodeURIComponent(brand)}`, {
+        method: 'POST',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        const msg = data.ingested > 0
+          ? `Synced ${data.ingested} new message${data.ingested === 1 ? '' : 's'} from your Gmail inbox.`
+          : 'Gmail inbox checked — no new correspondence found.';
+        setSyncNotice(msg);
+        loadThreads();
+      } else {
+        setSyncNotice(data.error || 'Connect Gmail in Email & Integrations to sync correspondence.');
+      }
+    } catch {
+      setSyncNotice('Could not reach server to sync Gmail.');
+    } finally {
+      setSyncingGmail(false);
+    }
+  };
 
   // Auto-select first thread if none selected or if previously selected is gone
   useEffect(() => {
@@ -407,18 +440,46 @@ export function InboxClient({ brand, label }: Props) {
           <Text fw={700} size="sm" c="gray.8">
             {label} Inbox
           </Text>
-          <Tooltip label="Refresh messages">
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              size="sm"
-              onClick={() => loadThreads()}
-              loading={loadingThreads}
-            >
-              <IconRefresh size={16} />
-            </ActionIcon>
-          </Tooltip>
+          <Group gap={4}>
+            <Tooltip label="Sync with Gmail">
+              <ActionIcon
+                variant="light"
+                color="teal"
+                size="sm"
+                onClick={handleSyncGmail}
+                loading={syncingGmail}
+                aria-label="Sync with Gmail"
+              >
+                <IconMail size={16} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Refresh messages">
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                onClick={() => loadThreads()}
+                loading={loadingThreads}
+                aria-label="Refresh messages"
+              >
+                <IconRefresh size={16} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
         </Group>
+
+        {syncNotice && (
+          <Alert
+            color="teal"
+            variant="light"
+            withCloseButton
+            onClose={() => setSyncNotice(null)}
+            mb="xs"
+            p="xs"
+          >
+            <Text size="xs">{syncNotice}</Text>
+          </Alert>
+        )}
 
         <Divider mb="sm" />
 

@@ -138,6 +138,10 @@ export type ActivityLogDocument = {
   meetingBookedByEmail?: string
   replyClass?: string
   isHistorical?: boolean
+  threadId?: string
+  rfcMessageId?: string
+  inReplyTo?: string
+  references?: string
 }
 
 // Lazily ensures the documented indexes exist — same idempotent,

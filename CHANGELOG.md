@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.293
+
+### Inbox & Communication: End-to-end integration with self-service Gmail sync, deep-linking, ActivityPanel navigation, and RFC 2822 header preservation (issue #257)
+
+- **Self-Service Gmail Inbox Sync (`app/inbox/[brand]/inbox-client.tsx`):**
+  - Added direct "Sync with Gmail" action button in the left sidebar header next to "Refresh", with loading spinner and feedback alert.
+  - Calls `POST /api/user/integrations/gmail/sync?brand=${brand}` to immediately poll connected Gmail accounts and ingest new messages without waiting for the hourly cron tick.
+- **Deep-Linking & URL Query Parameter Support (`app/inbox/[brand]/page.tsx`, `app/inbox/[brand]/inbox-client.tsx`):**
+  - Enhanced server-component `page.tsx` to accept `searchParams` (`stream`, `search`, `lead`, `thread`) and pass `initialStream`, `initialSearch`, and `initialThreadId` into `<InboxClient />`.
+  - Enables deep links from external views, notifications, and URLs directly to specific streams or focused threads.
+- **Lead Profile Integration (`app/components/ActivityPanel.tsx`):**
+  - Added "Open in Inbox" button (`/inbox/${brand}?search=${leadId}`) with `IconInbox` in the primary ActivityPanel toolbar.
+  - Allows reps to seamlessly transition from inspecting an individual lead profile into the full 3-pane Communication Center.
+- **RFC 2822 & Gmail Thread ID Preservation (`app/lib/gmail-sync-store.ts`, `app/lib/activity-log-store.ts`):**
+  - Updated Gmail sync metadata requests to fetch `In-Reply-To` and `References` headers.
+  - Ingested messages now persist `threadId` (from Gmail API `meta.threadId`), `rfcMessageId`, `inReplyTo`, and `references` onto `activityLog`.
+  - Guarantees seamless conversation clustering and RFC 2822 header chaining for both inbound prospect replies and rep outbound emails.
+- **Lead ID Search Indexing (`app/lib/inbox-store.ts`):**
+  - Extended search query evaluation in `listInboxThreads` to check `t.leadId` in addition to names, subjects, snippets, and email addresses.
+- **Automated Verification:**
+  - Added unit test coverage for `leadId` search filtering in `tests/lib/inbox-store.test.ts`.
+  - Added assertions for `threadId` and `rfcMessageId` storage in `tests/lib/gmail-sync-store.test.ts`.
+  - Full quality gate passed: 0 type errors, 0 lint warnings, 100% GDS compliance, 5/5 smoke tests, 1,498 unit tests passing across 115 test files, and production build succeeded.
+
 ## 2.4.292
 
 ### Inbox & Communication: Unified Communication Center for external client interactions, internal team notes, and omnichannel messaging (issue #257)

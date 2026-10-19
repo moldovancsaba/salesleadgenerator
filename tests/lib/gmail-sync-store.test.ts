@@ -168,6 +168,7 @@ describe('Gmail Sync Store (Issue 216 & 249)', () => {
         return new Response(
           JSON.stringify({
             id: 'msg-101',
+            threadId: 'th-101',
             payload: {
               headers: [
                 { name: 'From', value: 'lead.decision@prospect.com' },
@@ -234,6 +235,8 @@ describe('Gmail Sync Store (Issue 216 & 249)', () => {
       // Verify activityLog was written
       expect(activityLogs.length).toBe(1);
       expect(activityLogs[0].externalId).toBe('gmail:<msg-101@prospect.com>');
+      expect(activityLogs[0].threadId).toBe('th-101');
+      expect(activityLogs[0].rfcMessageId).toBe('<msg-101@prospect.com>');
       expect(activityLogs[0].direction).toBe('inbound');
       expect(activityLogs[0].subject).toBe('Interested in demo');
       expect(activityLogs[0].bodyExcerpt).toContain('Sounds great');
