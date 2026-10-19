@@ -1,8 +1,8 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.296
+**Version:** 2.4.303
 
-**Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212); comprehensive alignment audit completed 2026-10-18 (2.4.291, issue #256) bringing the complete API surface, domain modules, and component tree up to date across all features through v2.4.291 (Multi-CRM lead exchange, Google Contacts sync, multi-account Google integration, modern 5-tab Sales Settings, Document Library, pipeline stage manager, email threading context, scheduler recovery, merge token inserter, and timeline noise filter). This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
+**Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212); comprehensive alignment audit completed 2026-10-18 (2.4.291, issue #256) bringing the complete API surface, domain modules, and component tree up to date across all features through v2.4.303 (Multi-company contact conversion, selective harvesting control, GDS Phases 1-3 design system migration, high-affordance card visual architecture, and stage-aware semantic actions). This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 
 Compiled directly from the real source (export lists, import graphs, route handlers) — every claim below was verified against a real file, not inferred. If this doc and the source ever disagree, the source is correct; treat the disagreement as a doc bug to fix, not a spec violation to reconcile the code toward. See `docs/DOC_LINT.md` before editing.
 
@@ -37,13 +37,13 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/leads/export/route.ts` | GET, POST | `requireBrandAccessApi` | Multi-CRM CSV and Google Sheets TSV export with field mapping presets for HubSpot, Pipedrive, Salesforce, and Google Sheets (`lib/crm-lead-exchange.ts`, issue #252) |
 | `app/api/leads/import/route.ts` | POST | `requireBrandAccessApi` | Multi-CRM batch lead ingestion with RFC 4180 parsing, SHA-256 fingerprint deduplication, and stage/country normalization (`lib/crm-lead-exchange.ts`, issue #252) |
 
-### Inbox & Communication Center (issues #257, #258)
+### Inbox & Communication Center (issues #257, #258, #260, #265)
 
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
 | `app/api/inbox/[brand]/route.ts` | GET, PATCH | `requireBrandAccessApi` | GET lists aggregated conversation threads and stream metrics (`all`, `inbox`, `sent`, `needs_reply`, `internal`, `calls`, `system`, `unread`); PATCH handles bulk status updates (`isRead`, `isArchived`, `isStarred`) |
 | `app/api/inbox/[brand]/threads/[id]/route.ts` | GET, PATCH, POST | `requireBrandAccessApi` | GET returns chronological thread messages and lead context (auto-marks read); PATCH updates thread state flags; POST dispatches in-thread email reply or adds internal team note |
-| `app/api/inbox/[brand]/convert/route.ts` | POST | `requireBrandAccessApi` | Issue #258: Converts thread contacts into a new Lead (`create_lead`), creates a Deal on an existing Lead (`add_deal`), or attaches the thread to an existing Lead (`attach_lead`); auto-harvests thread participants, sanitizes deals, and re-links activityLog and outreach_logs entries |
+| `app/api/inbox/[brand]/convert/route.ts` | POST | `requireBrandAccessApi` | Issues #258, #260, #265: Converts thread contacts into a new Lead (`create_lead`), creates a Deal on an existing Lead (`add_deal`), attaches the thread to an existing Lead (`attach_lead`), or appends contacts (`add_contact`); supports `relinkThread`, multi-company domain inference, and selective contact harvesting |
 
 ### Saved filters (issue #214)
 

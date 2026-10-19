@@ -158,6 +158,7 @@
 - **Automated Test Coverage:**
   - Added test suite `tests/lib/inbox-thread-presentation.test.ts` (5 tests verifying CSS stripping, HTML entity decoding, sender name resolution without fallback to System Communications, availability flag computation, and full To/Cc recipient preservation).
 
+## 2.4.296
 
 ### Kanban & CRM: Redesign Kanban Card Layout for High Readability, Information Hierarchy, and Interactivity (issue #259)
 

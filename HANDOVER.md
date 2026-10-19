@@ -1,5 +1,5 @@
 # HANDOVER: Sales Lead Generator
-Date: 2026-10-18. Owner: moldovancsaba. Board: https://github.com/users/moldovancsaba/projects/56. Repo: https://github.com/moldovancsaba/salesleadgenerator. Production: https://salesleadgenerator.vercel.app.
+Date: 2026-10-19. Owner: moldovancsaba. Board: https://github.com/users/moldovancsaba/projects/56. Repo: https://github.com/moldovancsaba/salesleadgenerator. Production: https://salesleadgenerator.vercel.app.
 
 The previous handover (session of 2026-10-05, v2.4.247) recorded baseline operations, branch hygiene, and initial pipeline fixes.
 
@@ -7,11 +7,16 @@ The previous handover (session of 2026-10-05, v2.4.247) recorded baseline operat
 A Next.js 16 sales-intelligence app: a kanban board, table view, metrics, outreach, cadences, quotes, multi-CRM lead exchange (HubSpot, Salesforce, Pipedrive, Google Sheets), and an admin area for sports-organization leads, one workspace per brand (`cogmap`, `seyu`, `dvsc`; brands are runtime-editable in the database, issue #195). Sales teams use it; an automated external research agent (`researchandenrich` runtime) discovers and enriches leads and writes them through this app's API. Per `AGENTS.md` Rule 10 (2026-10-16), coding assistants are strictly developers, never manual lead-research or content-enrichment operators.
 
 ## State today
-- **Version 2.4.298** (`package.json`, package name `slg-leads`). Main branch is active and verified.
+- **Version 2.4.303** (`package.json`, package name `slg-leads`). Main branch is active and verified.
 - **Deploys on Vercel** (production URL above). `vercel.json` holds cron entries (`Authorization: Bearer` with `CRON_SECRET`).
 - **Database**: MongoDB Atlas. Database `cogmap` holds core business collections (`leads`, `accounts`, `company_settings`, `products`, `activityLog`, `inbox_thread_states`, `integration_connections`, `sso_user_access`, `report_definitions`, `webhooks`, `scheduler_state`).
-- **Quality gate** (verified clean): `npx tsc --noEmit` reports 0 errors, `npm run lint` reports 0 errors and 0 warnings, `npm run audit:gds-style` exits 0, `npm run test:smoke` passes 5/5, and `npx vitest run` passes 100% (1,534 unit tests across 118 test files).
-- **Recent Deliverables Shipped (v2.4.270 – v2.4.298)**:
+- **Quality gate** (verified clean): `npx tsc --noEmit` reports 0 errors, `npm run lint` reports 0 errors and 0 warnings, `npm run audit:gds-style` exits 0, `npm run test:smoke` passes 5/5, and `npx vitest run` passes 100% (1,544 unit tests across 118 test files).
+- **Recent Deliverables Shipped (v2.4.270 – v2.4.303)**:
+  - **High-Affordance Card Visual Architecture & Semantic GDS Actions (2.4.303, #266)**: Surfaced 1-click Quick Outreach button (`IconMail`) on card face directly emailing primary contact without opening drawer; stage-aware semantic decisions (`Accept`, `Decline`, `Quick Email`) directly calling `onAction`; high-visibility GDS `StatusBadge` urgency alerts (`danger` for overdue follow-ups, `warning` for due today); complete GDS tokenization (`--gds-border-card`, `--gds-bg-card`, `--gds-text-primary`) across card face, bulk actions bar, and undo notification.
+  - **Multi-Company Email Contact Conversion & Selective Harvesting Control (2.4.302, #265)**: Inferred company domain detection (`frh.ro` -> "FRH", acronym uppercase casing, expanded ccTLD country resolution); interactive selective harvesting selector in `<ConvertModal />` classifying all participants with domain badges (`Primary Contact`, `Same Org`, `Different Org`, `Personal Webmail`); multi-company conversion destination switcher (`SegmentedControl`) for existing leads ("Add to Current Lead" vs "Create Separate Lead for [Company]"); participant strip branching with `relinkThread: false`; and background domain isolation in `app/lib/inbox-store.ts`.
+  - **Phase 3 Systemic GDS Component Adoption (2.4.301, #264)**: Achieved 100% elimination of legacy Mantine badges across entire codebase; migrated Sales Settings, Modals, Accounts, Table, and Admin to canonical GDS `CountBadge`, `LabelTag`, and `StatusBadge`; standardized surfaces on `--gds-border-card` and `--gds-bg-card`.
+  - **Phase 2 Systemic GDS Component Adoption (2.4.300, #263)**: Migrated Today workbench, ActivityPanel, Lead Detail drawer, and Contacts client to canonical GDS semantic badges and tokens.
+  - **Systemic GDS Semantic Component Adoption & CSS Sanitization (2.4.299, #262)**: Deep design system and styling audit; CSS `<style>` blocks and entity stripping in email snippet extractor; Unified Inbox GDS badges and alerts.
   - **Kanban Card Legibility & Presentation Enhancements (2.4.298, #261)**: Surfaced primary key decision-maker contact directly on the card face beneath entity title and sector (`👤 Paolo Maldini · Technical Director` or `👤 No contact assigned`); added `formatSectorLabel` converting raw database kebab-case taxonomy slugs into formatted Title Case (`Sports Club · Media Broadcaster`); replaced cramped `Owner: Una...` / `Owner: david....` text with an 18px initials avatar chip and full un-truncated name; suppressed redundant zero-day rotten badges (`• 0D`) duplicating footer timestamps when deals are fresh; and replaced heavy primary purple `Open` button with a subtle, quiet action link (`Open ↗`) preserving tour automation.
   - **Unified Communication Sender Resolution, Clean Snippets, To/Cc Display, and Availability Icons (2.4.297, #260)**: Fixed Vercel build break by isolating MongoDB lead updates into `lib/email-contact-merge.ts`, making `lib/email-contact-extractor.ts` 100% client-safe; eliminated `'System Communications'` fallback in thread cards to display real sender/prospect names and emails; built `cleanHtmlBody` and `cleanMessageSnippet` stripping raw CSS `<style>` blocks and HTML tags; rendered Lead/Contact/Deal availability status badges on thread cards and message headers; added 1-click conversion buttons (`+ Create Lead`, `+ Add Contact`, `+ Add Deal`) with modal support for adding contacts to existing leads; and prominently displayed all `To:` and `Cc:` recipient addresses in message headers.
   - **Kanban Card Layout Redesign (2.4.296, #259)**: Redesigned Kanban cards on `/sales/[brand]` (`app/card.tsx`, `app/globals.css`): eliminated horizontal badge competition in the card header, giving organization titles full-width wrapping readability (`WebkitLineClamp: 2`, `wordBreak: 'break-word'`); added clean industry/sport context subtitle; integrated unified commercial metric pill (active deal value or estimated ticket size) and compact region/quality chips; de-duplicated staleness and touch indicators; streamlined owner & relative activity metadata footer; enabled full card-surface clickability to open lead details with subtle hover elevation; and ensured child interactive controls stop propagation.
@@ -45,12 +50,12 @@ Deploy: Vercel production deployment triggered on direct push to `main` (authori
 
 ## In flight
 Tracked via `roadmap.md` (repo root) and GitHub issues:
+- **#267 (P1, in progress)**: Full documentation deep audit, technical doc realignment, canonical user guide creation, release note fix, and code comment hygiene.
 - **#132 (P1, blocked)**: Mechanical `sportCode` backfill complete (89.3%, 2,749 leads). Ongoing lead enrichment belongs to external `researchandenrich` worker runtime per `AGENTS.md` Rule 10.
 - **#202 (P1, blocked)**: Inbound email activation (DNS MX, Resend production keys; owner deferred).
 - **#137 (P1, blocked)**: Duplicate leads at scale; code shipped in 2.4.225, merge review is an owner/client operational task.
 - **#220 (P3, blocked)**: Migrate cron and research agent to scoped API keys; needs owner super-admin session for key creation.
 - **#165 (P3)**: Stays open on purpose as the onboarding-tour permanent design record.
-- **#256 (P2, in progress)**: Comprehensive documentation, API inventory, and versioning alignment across v2.4.291.
 
 ## Traps and decisions
 - **`roadmap.md` is the standing project tracker** (`AGENTS.md` Rule 2.5): GitHub Projects board API is unreachable from agent sessions. Update `roadmap.md` in the same change whenever an issue opens, closes, or changes status.

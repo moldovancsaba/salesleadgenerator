@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Version:** 2.4.296
+**Version:** 2.4.303
 
 ---
 
@@ -12,10 +12,13 @@
 
 ## Detailed Documentation
 
+- `docs/USER_GUIDE.md` — canonical end-user user guide for sales reps and account executives across all CRM surfaces
 - `docs/ARCHITECTURE.md` — system context, request flows, data model, module map, auth, deployment
 - `docs/LLD.md` — low-level design, route inventory, module catalog, component hierarchy
 - `docs/OPERATOR_GUIDE.md` — daily workflow, outreach, filters, API examples, known issues
 - `docs/STACK_AND_DEPENDENCIES.md` — runtime, framework, UI, DB, hosting, agent/runtime stack
+- `docs/WEBHOOKS.md` — outbound webhook system, event set, payload shape, retry/dead-letter behavior
+- `docs/USER_EMAIL_INTEGRATION_SPEC.md` — technical specification for Google/Gmail OAuth integration and encryption
 - `docs/DOC_LINT.md` — doc lint checklist for maintaining documentation quality
 
 ---
@@ -23,7 +26,7 @@
 ## Supporting Documentation
 
 - `AGENTS.md` / `CLAUDE.md` — mandatory operating rules for any AI coding assistant working in this repo (`AGENTS.md` is canonical, `CLAUDE.md` an identical copy)
-- `HANDOVER.md` — current handover for the next agent (state, commands, open work, traps), dated 2026-10-18
+- `HANDOVER.md` — current handover for the next agent (state, commands, open work, traps), dated 2026-10-19
 - `CHANGELOG.md` — version history, feature baselines, and (since 2026-07-27) documented root causes for real bugs found post-release
 - `docs/LESSONS_LEARNED.md` — recurring mistake patterns, sandbox/verification limitations, and architectural rationale ("why do we do what we do")
 - `docs/LEAD_ENRICHMENT_GUIDE.md` — enrichable lead-field catalog and the ready-to-use AI enrichment-agent prompt

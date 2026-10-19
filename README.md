@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.298  
+**Version:** 2.4.303  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -10,9 +10,9 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 ## What This Repo Contains
 
 - Next.js 16 app with App Router and API routes
-- Redesigned Modern Kanban Cards (`app/card.tsx`) with full-width wrapping organization titles, human-readable Title Case taxonomy formatting, prominent key decision-maker contact row (`👤 Name · Title`), untruncated owner avatar initials, commercial badges, de-duplicated staleness indicators, and quiet subtle action affordances (`Open ↗`)
+- Redesigned Modern Kanban Cards (`app/card.tsx`) with full-width wrapping organization titles, human-readable Title Case taxonomy formatting, prominent key decision-maker contact row with 1-click Quick Outreach (`IconMail`), stage-aware semantic decision buttons (Accept, Decline, Quick Email), high-visibility follow-up urgency status badges, untruncated owner avatar initials, commercial badges, de-duplicated staleness indicators, and quiet subtle action affordances (`Open ↗`)
 - Native 3-Pane Communication Center (`/inbox/[brand]`) with dynamic sender resolution, clean 2-line textual snippets (stripped of CSS `<style>` blocks and HTML tags), Lead/Contact/Deal availability status badges, 1-click conversion affordances, and full `To:` / `Cc:` recipient visibility
-- Email Contact to Lead & Deal Conversion (`POST /api/inbox/[brand]/convert`, `ConvertModal`) with automatic email participant harvesting and enrichment (`lib/email-contact-extractor.ts`, `lib/email-contact-merge.ts`), company domain inference, and live thread conversation contacts strip
+- Email Contact to Lead & Deal Conversion (`POST /api/inbox/[brand]/convert`, `ConvertModal`) with automatic email participant harvesting and enrichment (`lib/email-contact-extractor.ts`, `lib/email-contact-merge.ts`), multi-company domain inference, selective harvesting participant selector with domain badges, conversion destination switching ("Add to Current Lead" vs "Separate Lead"), and live thread conversation contacts strip
 - Desktop and tablet browser experience: docked collapsible sidebar navigation (`>= 768px`) with show/hide toggle, inline Board/Table/Backlog/Metrics view switcher, command palette shortcut affordances (`⌘K`), and unblocked multi-touch zoom
 - Progressive Web App (PWA) with self-hosted offline shell fallback (`/offline`), app-shell caching, standalone manifest, and shortcuts
 - Mobile-first kanban board, table view, metrics dashboard, and search-learning panel
@@ -104,7 +104,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.294**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25; updated to 2.4.294) and needs updating on every version-stamp sync pass, not just when someone notices.
+Current app version is **2.4.303**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25; updated to 2.4.303) and needs updating on every version-stamp sync pass, not just when someone notices.
 
 Single source of truth: `package.json`
 
@@ -121,6 +121,7 @@ This README is the single source of truth for documentation paths and descriptio
 | Path | Description |
 |------|-------------|
 | `README.md` | Onboarding, quick start, and documentation index |
+| `docs/USER_GUIDE.md` | Canonical end-user user guide for sales reps and account executives across all CRM surfaces |
 | `AGENTS.md` / `CLAUDE.md` | Mandatory operating rules for any AI coding assistant working in this repo (quality gate, issue-driven workflow, DoD, branch/push authorization). `AGENTS.md` is canonical; `CLAUDE.md` is an identical copy |
 | `HANDOVER.md` | Current handover for the next agent: state, commands, open work, traps, first-hour checklist (dated) |
 | `CHANGELOG.md` | Version history, shipped features, and known limitations |
@@ -140,6 +141,7 @@ This README is the single source of truth for documentation paths and descriptio
 | `docs/OPERATOR_GUIDE.md` | Daily workflow, filters, outreach, known issues, and admin usage |
 | `docs/STACK_AND_DEPENDENCIES.md` | Runtime, framework, UI, DB, hosting, agent/runtime stack |
 | `docs/WEBHOOKS.md` | Integrator guide for the outbound webhook system — event set, request shape, signature verification recipe, retry/dead-letter behavior |
+| `docs/USER_EMAIL_INTEGRATION_SPEC.md` | Technical specification for multi-account Google/Gmail OAuth integration, AES-256-GCM credential encryption, and synchronization |
 | `docs/INDEX.md` | Documentation index |
 | `docs/DOC_LINT.md` | Doc lint checklist for maintaining documentation quality |
 
@@ -151,7 +153,7 @@ This README is the single source of truth for documentation paths and descriptio
 | `_archived/BUILD_STATUS.md` | Historical build status (superseded by `docs/STACK_AND_DEPENDENCIES.md`) |
 | `_archived/STACK_DECISION.md` | Historical stack decision (superseded by `docs/STACK_AND_DEPENDENCIES.md`) |
 | `_archived/architecture.md` | Historical architecture doc (superseded by `docs/ARCHITECTURE.md`) |
-| `_archived/user-guide.md` | Historical user guide (superseded by `docs/OPERATOR_GUIDE.md`) |
+| `_archived/user-guide.md` | Historical user guide (superseded by `docs/USER_GUIDE.md` and `docs/OPERATOR_GUIDE.md`) |
 | `_archived/PIPELINE_ARCHITECTURE.md` | Historical pipeline architecture doc (superseded by `docs/ARCHITECTURE.md`) |
 | `_archived/PROPOSAL.md` | Historical improvement proposal (superseded by `CHANGELOG.md`) |
 | `_archived/roadmap.md` | Historical feature-status roadmap, frozen at v2.4.61 (superseded by `CHANGELOG.md`) — **not the same file** as the live, currently-maintained `roadmap.md` at the repo root (a GitHub-issue-status view, unrelated purpose, same basename by coincidence) |
@@ -171,6 +173,9 @@ Key endpoints:
 - `PATCH /api/leads?brand=<brand>&id=<id>` — action lead
 - `GET /api/leads/export?brand=<brand>&preset=<crm>` — multi-CRM lead exports (HubSpot, Salesforce, Pipedrive, Google Sheets / CSV / TSV)
 - `POST /api/leads/import` — batch lead import with SHA-256 fingerprint deduplication and stage normalization
+- `GET /api/inbox/[brand]` — list aggregated conversation threads and stream metrics
+- `GET /api/inbox/[brand]/threads/[id]` — get thread message timeline and dispatch in-thread email replies or internal notes
+- `POST /api/inbox/[brand]/convert` — convert thread participants to Lead/Deal/Contact with multi-company destination control
 - `POST /api/contacts/import-google` — Google Contacts 1-click import and lead creation
 - `GET /api/leads/[id]/thread-context` — email conversation thread context resolution
 - `GET /api/search?q=<query>&brand=<brand>` — predictive lead search (`brand` required unless the caller is a super-admin session)

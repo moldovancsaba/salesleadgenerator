@@ -83,7 +83,7 @@ const ROTTEN_COLOR: Record<'green' | 'yellow' | 'red', string> = { green: 'green
 // "box within a box" around every kanban card.
 // Space-constrained card display: an abbreviated "~$180K"-style value, never
 // a full-precision figure — the card has no room for a low-high range, and
-// a bare crisp number is exactly the CLAUDE.md Rule 7 violation issue #80
+// a bare crisp number is exactly the AGENTS.md Rule 7 violation issue #80
 // exists to fix (an unvalidated $8,000,000,000 estimate reading as fact).
 // The full range/method/confidence lives in the detail drawer instead.
 function formatCompactTicketSize(value: number, currency: CurrencyCode): string {
@@ -107,7 +107,7 @@ function ticketSizeCardCaption(ticketSize: TicketSizeDisplay): string | null {
   if (!ticketSize || ticketSize.kind === 'unconfigured') return null;
   if (ticketSize.kind === 'legacy') return 'Unverified estimate';
   // A human override (issue #86) is a different kind of trust than the
-  // firmographic model's own output — CLAUDE.md Rule 7 requires the caption
+  // firmographic model's own output — AGENTS.md Rule 7 requires the caption
   // say so, never call it "modelled" once a rep has directly overridden it.
   if (ticketSize.method === 'manual_override') return 'Manually overridden';
   // sizeAssumed (issue #112): the smallest configured deal-size band, used
