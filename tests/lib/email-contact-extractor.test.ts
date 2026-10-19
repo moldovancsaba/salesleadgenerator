@@ -243,13 +243,15 @@ VP of Commercial Partnerships
       expect(cleaned).toContain('We would love to partner with you.');
     });
 
-    it('creates a clean 2-line snippet stripped of CSS rules and HTML entities', () => {
-      const html = '<style>body { color: red; }</style><p>Hi there &amp; welcome to the club!&nbsp;Let us know if you are interested in a sponsorship.</p>';
-      const snippet = cleanMessageSnippet(html, 60);
-      expect(snippet).not.toContain('body { color');
-      expect(snippet).not.toContain('&amp;');
-      expect(snippet).toContain('Hi there & welcome');
-      expect(snippet.endsWith('…')).toBe(true);
+    it('strips raw un-tagged CSS declarations, media queries, and template variables', () => {
+      const html = '{{emailTitle}} #outlook a { padding:0; } body,table,td,p,a,li,blockquote { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; } @media only screen and (max-width: 480px) { .mobile-hide { display: none !important; } } <p>Good morning David, following up on our meeting yesterday.</p>';
+      const snippet = cleanMessageSnippet(html, 100);
+      expect(snippet).not.toContain('emailTitle');
+      expect(snippet).not.toContain('#outlook');
+      expect(snippet).not.toContain('padding:0');
+      expect(snippet).not.toContain('text-size-adjust');
+      expect(snippet).not.toContain('mobile-hide');
+      expect(snippet).toContain('Good morning David, following up on our meeting yesterday.');
     });
   });
 });

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ActionIcon, Avatar, Badge, Box, Button, Group, Stack, Text } from '@mantine/core';
+import { StatusBadge, LabelTag } from '@sovereignsquad/gds-core/client';
 import { IconChevronDown, IconChevronUp, IconUser, IconArrowUpRight } from '@tabler/icons-react';
 import type { Lead } from './types';
 import type { CurrencyCode } from './lib/brand';
@@ -276,41 +277,37 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
           )}
 
           {region && region !== 'NA' && (
-            <Badge variant="outline" color="gray" size="sm" fw={500}>
-              {region}
-            </Badge>
+            <LabelTag tone="neutral" size="sm" label={region} />
           )}
 
           {showQualityBadge && (
-            <Badge
-              variant="dot"
-              color={quality === 'VERIFIED' ? 'teal' : quality === 'CHECKED' ? 'blue' : 'gray'}
-              size="sm"
+            <StatusBadge
+              status={quality === 'VERIFIED' ? 'success' : quality === 'CHECKED' ? 'info' : 'neutral'}
+              size="xs"
             >
               {quality}
-            </Badge>
+            </StatusBadge>
           )}
 
           {/* Stale / Urgency Indicator — de-duplicated so days are never displayed twice */}
           {staleness ? (
-            <Badge
-              variant="light"
-              color={staleness.severity === 'critical' ? 'red' : 'yellow'}
-              size="sm"
+            <StatusBadge
+              status={staleness.severity === 'critical' ? 'danger' : 'warning'}
+              withIcon
+              size="xs"
               aria-label={`Stale for ${staleness.daysSince} days, threshold ${staleness.thresholdDays} days`}
             >
-              {`⚠ ${staleness.severity === 'critical' ? 'Critical' : 'Stale'} · ${staleness.daysSince}d`}
-            </Badge>
+              {`${staleness.severity === 'critical' ? 'Critical' : 'Stale'} · ${staleness.daysSince}d`}
+            </StatusBadge>
           ) : rotten ? (
             rotten.level === 'green' ? null : (
-              <Badge
-                variant="dot"
-                color={ROTTEN_COLOR[rotten.level]}
-                size="sm"
+              <StatusBadge
+                status={rotten.level === 'red' ? 'danger' : 'warning'}
+                size="xs"
                 aria-label={`Last touched ${rotten.daysSince} days ago`}
               >
                 {`${rotten.daysSince}d`}
-              </Badge>
+              </StatusBadge>
             )
           ) : null}
         </Group>
@@ -321,7 +318,7 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
           align="center"
           wrap="nowrap"
           pt={4}
-          style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}
+          style={{ borderTop: '1px solid var(--gds-border-card)' }}
         >
           <Group gap={6} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
             <Avatar

@@ -26,6 +26,12 @@ import {
   Alert,
 } from '@mantine/core';
 import {
+  StatusBadge,
+  LabelTag,
+  CountBadge,
+  InlineAlert,
+} from '@sovereignsquad/gds-core/client';
+import {
   IconInbox,
   IconMail,
   IconSend,
@@ -749,8 +755,12 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                     onClick={() => setSelectedThreadId(t.id)}
                     style={{
                       cursor: 'pointer',
-                      borderBottom: '1px solid var(--mantine-color-gray-2)',
-                      backgroundColor: isSelected ? 'var(--mantine-color-indigo-0)' : t.isRead ? 'white' : 'var(--mantine-color-gray-0)',
+                      borderBottom: '1px solid var(--gds-border-card, var(--mantine-color-gray-2))',
+                      backgroundColor: isSelected
+                        ? 'color-mix(in srgb, var(--gds-vibe-primary, var(--mantine-color-indigo-6)) 8%, var(--gds-bg-card, var(--mantine-color-white)))'
+                        : t.isRead
+                        ? 'var(--gds-bg-card, var(--mantine-color-white))'
+                        : 'var(--gds-bg-surface, var(--mantine-color-gray-0))',
                       transition: 'background-color 150ms ease',
                     }}
                   >
@@ -762,7 +772,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                             w={8}
                             h={8}
                             style={{
-                              backgroundColor: 'var(--mantine-color-blue-6)',
+                              backgroundColor: 'var(--gds-vibe-primary, var(--mantine-color-indigo-6))',
                               borderRadius: '50%',
                               flexShrink: 0,
                             }}
@@ -772,9 +782,12 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                           {t.senderDisplayName || t.contactName || (t.hasLead ? t.leadName : (t.senderEmail || t.contactEmail || t.leadName))}
                         </Text>
                         {t.hasLead && t.leadName && t.senderDisplayName && t.leadName !== t.senderDisplayName && (
-                          <Badge size="xs" variant="subtle" color="gray" style={{ textTransform: 'none', maxWidth: 120 }}>
-                            {t.leadName}
-                          </Badge>
+                          <LabelTag
+                            tone="neutral"
+                            size="xs"
+                            label={t.leadName}
+                            style={{ maxWidth: 120 }}
+                          />
                         )}
                       </Group>
                       <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
@@ -797,64 +810,67 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                       <Group gap={4} wrap="wrap">
                         {/* Lead Availability Indicator */}
                         <Tooltip label={t.hasLead ? `Lead: ${t.leadName}` : 'No lead linked'}>
-                          <Badge
-                            size="xs"
-                            variant={t.hasLead ? 'light' : 'outline'}
-                            color={t.hasLead ? 'teal' : 'gray'}
-                            leftSection={<IconBuilding size={11} />}
-                            style={{
-                              textTransform: 'none',
-                              borderStyle: t.hasLead ? undefined : 'dashed',
-                              opacity: t.hasLead ? 1 : 0.65,
-                            }}
-                          >
-                            {t.hasLead ? 'Lead' : 'No Lead'}
-                          </Badge>
+                          <Box component="span">
+                            {t.hasLead ? (
+                              <StatusBadge status="success" size="xs">
+                                Lead
+                              </StatusBadge>
+                            ) : (
+                              <LabelTag
+                                tone="neutral"
+                                size="xs"
+                                label="No Lead"
+                                style={{ borderStyle: 'dashed', opacity: 0.65 }}
+                              />
+                            )}
+                          </Box>
                         </Tooltip>
 
                         {/* Contact Availability Indicator */}
                         <Tooltip label={t.hasContact ? `Contact: ${t.contactName || t.contactEmail || 'Available'}` : 'No contact identified'}>
-                          <Badge
-                            size="xs"
-                            variant={t.hasContact ? 'light' : 'outline'}
-                            color={t.hasContact ? 'blue' : 'gray'}
-                            leftSection={<IconUser size={11} />}
-                            style={{
-                              textTransform: 'none',
-                              borderStyle: t.hasContact ? undefined : 'dashed',
-                              opacity: t.hasContact ? 1 : 0.65,
-                            }}
-                          >
-                            {t.hasContact ? 'Contact' : 'No Contact'}
-                          </Badge>
+                          <Box component="span">
+                            {t.hasContact ? (
+                              <StatusBadge status="info" size="xs">
+                                Contact
+                              </StatusBadge>
+                            ) : (
+                              <LabelTag
+                                tone="neutral"
+                                size="xs"
+                                label="No Contact"
+                                style={{ borderStyle: 'dashed', opacity: 0.65 }}
+                              />
+                            )}
+                          </Box>
                         </Tooltip>
 
                         {/* Deal Availability Indicator */}
                         <Tooltip label={t.hasDeal ? `Deal: ${t.dealValue ? `$${t.dealValue.toLocaleString()}` : 'In Pipeline'}` : 'No deal in pipeline'}>
-                          <Badge
-                            size="xs"
-                            variant={t.hasDeal ? 'light' : 'outline'}
-                            color={t.hasDeal ? 'grape' : 'gray'}
-                            leftSection={<IconCurrencyDollar size={11} />}
-                            style={{
-                              textTransform: 'none',
-                              borderStyle: t.hasDeal ? undefined : 'dashed',
-                              opacity: t.hasDeal ? 1 : 0.65,
-                            }}
-                          >
-                            {t.hasDeal ? (t.dealValue ? `$${t.dealValue.toLocaleString()}` : 'Deal') : 'No Deal'}
-                          </Badge>
+                          <Box component="span">
+                            {t.hasDeal ? (
+                              <LabelTag
+                                tone="success"
+                                size="xs"
+                                label={t.dealValue ? `$${t.dealValue.toLocaleString()}` : 'Deal'}
+                              />
+                            ) : (
+                              <LabelTag
+                                tone="neutral"
+                                size="xs"
+                                label="No Deal"
+                                style={{ borderStyle: 'dashed', opacity: 0.65 }}
+                              />
+                            )}
+                          </Box>
                         </Tooltip>
 
                         {t.needsReply && (
-                          <Badge size="xs" variant="filled" color="orange">
+                          <StatusBadge status="warning" withIcon size="xs">
                             Reply Needed
-                          </Badge>
+                          </StatusBadge>
                         )}
                         {t.messageCount > 1 && (
-                          <Badge size="xs" variant="subtle" color="indigo">
-                            {t.messageCount}
-                          </Badge>
+                          <CountBadge value={t.messageCount} size="xs" srLabel="Message count" />
                         )}
                       </Group>
 
@@ -905,9 +921,9 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                     {/* Lead Status & Action */}
                     {selectedThread.hasLead ? (
                       <Group gap={4} wrap="nowrap">
-                        <Badge size="sm" variant="light" color="teal" leftSection={<IconBuilding size={14} />} style={{ textTransform: 'none' }}>
+                        <StatusBadge status="success" size="sm">
                           Lead: {selectedThread.leadName}
-                        </Badge>
+                        </StatusBadge>
                         <Tooltip label="Open Lead in Pipeline">
                           <ActionIcon
                             component={Link}
@@ -938,9 +954,9 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
 
                     {/* Contact Status & Action */}
                     {selectedThread.hasContact ? (
-                      <Badge size="sm" variant="light" color="blue" leftSection={<IconUser size={14} />} style={{ textTransform: 'none' }}>
+                      <StatusBadge status="info" size="sm">
                         Contact: {selectedThread.contactName || selectedThread.contactEmail || 'Identified'}
-                      </Badge>
+                      </StatusBadge>
                     ) : (
                       <Button
                         size="compact-xs"
@@ -959,9 +975,11 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
 
                     {/* Deal Status & Action */}
                     {selectedThread.hasDeal ? (
-                      <Badge size="sm" variant="light" color="grape" leftSection={<IconCurrencyDollar size={14} />} style={{ textTransform: 'none' }}>
-                        Deal: {selectedThread.dealValue ? `$${selectedThread.dealValue.toLocaleString()}` : 'In Pipeline'}
-                      </Badge>
+                      <LabelTag
+                        tone="success"
+                        size="sm"
+                        label={`Deal: ${selectedThread.dealValue ? `$${selectedThread.dealValue.toLocaleString()}` : 'In Pipeline'}`}
+                      />
                     ) : (
                       <Button
                         size="compact-xs"
@@ -979,9 +997,11 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                     )}
 
                     {selectedThread.leadStage && (
-                      <Badge size="sm" variant="outline" color="gray">
-                        {selectedThread.leadStage}
-                      </Badge>
+                      <LabelTag
+                        tone="neutral"
+                        size="sm"
+                        label={selectedThread.leadStage}
+                      />
                     )}
                   </Group>
 
@@ -1042,9 +1062,9 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                                   </Text>
                                 </Box>
                                 {isOnLead ? (
-                                  <Badge size="xs" color="teal" variant="light">
+                                  <StatusBadge status="success" size="xs">
                                     Saved
-                                  </Badge>
+                                  </StatusBadge>
                                 ) : (
                                   <Button
                                     size="compact-xs"
@@ -1258,14 +1278,32 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
             {/* Quick Composer */}
             <Paper p="sm" radius={0} style={{ borderTop: '1px solid var(--mantine-color-gray-3)', backgroundColor: 'white' }}>
               {replyError && (
-                <Alert color="red" icon={<IconAlertCircle size={16} />} withCloseButton onClose={() => setReplyError(null)} mb="xs">
-                  {replyError}
-                </Alert>
+                <Box mb="xs">
+                  <InlineAlert
+                    severity="error"
+                    title="Dispatch Error"
+                    message={replyError}
+                    action={
+                      <Button size="compact-xs" variant="subtle" color="red" onClick={() => setReplyError(null)}>
+                        Dismiss
+                      </Button>
+                    }
+                  />
+                </Box>
               )}
               {successNotice && (
-                <Alert color="teal" icon={<IconCheck size={16} />} withCloseButton onClose={() => setSuccessNotice(null)} mb="xs">
-                  {successNotice}
-                </Alert>
+                <Box mb="xs">
+                  <InlineAlert
+                    severity="success"
+                    title="Success"
+                    message={successNotice}
+                    action={
+                      <Button size="compact-xs" variant="subtle" color="teal" onClick={() => setSuccessNotice(null)}>
+                        Dismiss
+                      </Button>
+                    }
+                  />
+                </Box>
               )}
 
               <Group justify="space-between" mb="xs">

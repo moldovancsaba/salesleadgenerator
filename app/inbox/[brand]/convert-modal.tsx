@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   Modal,
+  Box,
   Stack,
   Group,
   TextInput,
@@ -16,6 +17,7 @@ import {
   Divider,
   Alert,
 } from '@mantine/core';
+import { InlineAlert } from '@sovereignsquad/gds-core/client';
 import {
   IconUserPlus,
   IconCurrencyDollar,
@@ -245,9 +247,16 @@ export function ConvertModal({
     >
       <Stack gap="md">
         {errorMsg && (
-          <Alert color="red" icon={<IconAlertCircle size={16} />} withCloseButton onClose={() => setErrorMsg(null)}>
-            {errorMsg}
-          </Alert>
+          <InlineAlert
+            severity="error"
+            title="Conversion Error"
+            message={errorMsg}
+            action={
+              <Button size="compact-xs" variant="subtle" color="red" onClick={() => setErrorMsg(null)}>
+                Dismiss
+              </Button>
+            }
+          />
         )}
 
         {mode === 'convert' && (
@@ -346,11 +355,13 @@ export function ConvertModal({
             </Stack>
 
             {threadParticipants.length > 1 && (
-              <Alert color="blue" variant="light" icon={<IconUsers size={16} />} mt="sm">
-                <Text size="xs">
-                  <strong>{threadParticipants.length} contacts</strong> detected in this email thread will be automatically saved to this lead.
-                </Text>
-              </Alert>
+              <Box mt="sm">
+                <InlineAlert
+                  severity="info"
+                  title="Automated Contact Harvesting"
+                  message={`${threadParticipants.length} contacts detected in this email thread will be automatically saved to this lead.`}
+                />
+              </Box>
             )}
           </Paper>
         )}
