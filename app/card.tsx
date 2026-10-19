@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ActionIcon, Badge, Button, Group, Stack, Text } from '@mantine/core';
+import { ActionIcon, Badge, Box, Button, Group, Stack, Text } from '@mantine/core';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import type { Lead } from './types';
 import type { CurrencyCode } from './lib/brand';
@@ -165,31 +165,91 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
   // no presence check needed here.
   const [expanded, setExpanded] = useState(false);
 
+  const handleCardClick = () => {
+    if (onOpen) onOpen();
+  };
+
   return (
     <ErrorBoundary>
-      <Stack gap={4} data-tour={tourTarget ? TOUR_SELECTOR.leadCard : undefined}>
-        <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
-          <Text fw={700} size="sm" truncate style={{ minWidth: 0 }}>{lead.entity_name}</Text>
-          <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
-            {rotten && (
-              <Badge
-                variant="dot"
-                color={ROTTEN_COLOR[rotten.level]}
-                size="sm"
-                aria-label={`Last touched ${rotten.daysSince} days ago`}
-              >
-                {`${rotten.daysSince}d`}
-              </Badge>
-            )}
-            {showQualityBadge && <Badge variant="light" size="sm">{quality}</Badge>}
-            {/* Additive, not a replacement for the quality badge above
-                (owner-confirmed via AskUserQuestion, issue #115) — a lead
-                can show both DRAFT and DEAL at once. */}
-            {hasDeals && <Badge variant="filled" color="grape" size="sm">DEAL</Badge>}
-          </Group>
-        </Group>
-        {staleness && (
-          <Group gap={4} wrap="nowrap">
+      <Stack
+        gap={6}
+        data-tour={tourTarget ? TOUR_SELECTOR.leadCard : undefined}
+        onClick={handleCardClick}
+        style={{ cursor: onOpen ? 'pointer' : 'default', width: '100%' }}
+      >
+        {/* Primary Identifier: Full-width unconstrained lead entity name */}
+        <Box style={{ minWidth: 0, width: '100%' }}>
+          <Text
+            fw={700}
+            size="sm"
+            title={lead.entity_name}
+            style={{
+              lineHeight: 1.35,
+              wordBreak: 'break-word',
+              overflow: 'hidden',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              color: 'var(--mantine-color-text)',
+            }}
+          >
+            {lead.entity_name}
+          </Text>
+          {(lead.industry || lead.sport_or_sector) && (
+            <Text size="xs" c="dimmed" truncate style={{ marginTop: 2 }}>
+              {lead.industry || lead.sport_or_sector}
+            </Text>
+          )}
+        </Box>
+
+        {/* Commercial Metric & Context Attribute Badges */}
+        <Group gap={5} wrap="wrap" align="center">
+          {hasDeals ? (
+            <Badge
+              variant="light"
+              color="grape"
+              size="sm"
+              fw={700}
+              aria-label={`Deal value: ${formatCompactCurrency(dealsTotal, dealCurrency)}`}
+            >
+              {formatCompactCurrency(dealsTotal, dealCurrency)}
+            </Badge>
+          ) : ticketSizeLabel !== '—' && (
+            <Badge
+              variant="light"
+              color="teal"
+              size="sm"
+              fw={600}
+              aria-label={`Ticket size estimate: ${ticketSizeLabel}`}
+            >
+              {ticketSizeLabel}
+            </Badge>
+          )}
+
+          {region && region !== 'NA' && (
+            <Badge variant="outline" color="gray" size="sm" fw={500}>
+              {region}
+            </Badge>
+          )}
+
+          {showQualityBadge && (
+            <Badge
+              variant="dot"
+              color={quality === 'VERIFIED' ? 'teal' : quality === 'CHECKED' ? 'blue' : 'gray'}
+              size="sm"
+            >
+              {quality}
+            </Badge>
+          )}
+
+          {hasDeals && (
+            <Badge variant="filled" color="grape" size="xs">
+              DEAL
+            </Badge>
+          )}
+
+          {/* Stale / Urgency Indicator — de-duplicated so days are never displayed twice */}
+          {staleness ? (
             <Badge
               variant="light"
               color={staleness.severity === 'critical' ? 'red' : 'yellow'}
@@ -198,87 +258,128 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
             >
               {`⚠ ${staleness.severity === 'critical' ? 'Critical' : 'Stale'} · ${staleness.daysSince}d`}
             </Badge>
+          ) : rotten ? (
+            <Badge
+              variant="dot"
+              color={ROTTEN_COLOR[rotten.level]}
+              size="sm"
+              aria-label={`Last touched ${rotten.daysSince} days ago`}
+            >
+              {`${rotten.daysSince}d`}
+            </Badge>
+          ) : null}
+        </Group>
+
+        {/* Owner & Follow-up/Activity Meta */}
+        <Group
+          justify="space-between"
+          align="center"
+          wrap="nowrap"
+          pt={4}
+          style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}
+        >
+          <Group gap={4} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+            <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>Owner:</Text>
+            <Text size="xs" fw={500} truncate title={ownerLabel}>
+              {ownerLabel}
+            </Text>
           </Group>
-        )}
-        <Stack gap={2}>
-          {tier0Metadata.map((m) => (
-            <Group key={m.label} justify="space-between" gap="xs" wrap="nowrap">
-              <Text size="xs" c="dimmed">{m.label}</Text>
-              <Text size="xs" fw={500} truncate style={{ minWidth: 0 }}>{m.value}</Text>
-            </Group>
-          ))}
-        </Stack>
-        <Group gap={2} wrap="nowrap">
-          <ActionIcon
+          <Text
             size="xs"
-            variant="subtle"
-            color="gray"
-            aria-label={expanded ? 'Show less' : 'Show more'}
-            aria-expanded={expanded}
-            onClick={() => setExpanded((v) => !v)}
+            c={dueDays !== null && dueDays <= 0 ? (dueDays < 0 ? 'red' : 'orange') : 'dimmed'}
+            style={{ flexShrink: 0 }}
           >
-            {expanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
-          </ActionIcon>
-          <Text size="xs" c="dimmed" style={{ cursor: 'pointer' }} onClick={() => setExpanded((v) => !v)}>
-            {expanded ? 'Show less' : 'Show more'}
+            {dueValid && dueDays !== null
+              ? (dueDays < 0 ? `${Math.abs(dueDays)}d overdue` : dueDays === 0 ? 'Due today' : `Due in ${dueDays}d`)
+              : (updatedLabel ? `Updated ${updatedLabel}` : createdLabel ? `Created ${createdLabel}` : '')}
           </Text>
         </Group>
-        {expanded && (lead.industry || lead.sport_or_sector) && (
-          <Text size="xs" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
-        )}
-        {expanded && (lead.tags?.length ?? 0) > 0 && (
-          <Group gap={4} wrap="wrap" role="list" aria-label="Tags">
-            {lead.tags!.slice(0, 3).map((tag) => (
-              <Badge key={tag} variant="outline" color="gray" size="xs" role="listitem">{tag}</Badge>
-            ))}
-            {lead.tags!.length > 3 && (
-              <Badge variant="outline" color="gray" size="xs">{`+${lead.tags!.length - 3}`}</Badge>
-            )}
+
+        {/* Action Bar: Progressive Disclosure Toggle & Direct Open */}
+        <Group justify="space-between" align="center" wrap="nowrap" pt={2}>
+          <Group
+            gap={4}
+            wrap="nowrap"
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
+          >
+            <ActionIcon
+              size="xs"
+              variant="subtle"
+              color="gray"
+              aria-label={expanded ? 'Show less' : 'Show more'}
+              aria-expanded={expanded}
+            >
+              {expanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+            </ActionIcon>
+            <Text size="xs" c="dimmed">
+              {expanded ? 'Show less' : 'Show more'}
+            </Text>
           </Group>
-        )}
-        {expanded && (
-          <Stack gap={2}>
-            {tier1Metadata.map((m) => (
-              <Group key={m.label} justify="space-between" gap="xs" wrap="nowrap">
-                <Text size="xs" c="dimmed">{m.label}</Text>
-                <Text size="xs" fw={500} truncate style={{ minWidth: 0 }}>{m.value}</Text>
-              </Group>
-            ))}
-          </Stack>
-        )}
-        {expanded && ticketSizeCaption && !hasDeals && (
-          <Text size="xs" c="dimmed" fs="italic">{ticketSizeCaption}</Text>
-        )}
-        {expanded && checklist.total > 0 && (
-          <Text size="xs" c={checklist.done === checklist.total ? 'teal' : 'dimmed'}>
-            {`Checklist ${checklist.done}/${checklist.total}`}
-          </Text>
-        )}
-        {expanded && dueValid && (
-          <Text size="xs" c={dueDays !== null && dueDays < 0 ? 'red' : dueDays === 0 ? 'orange' : 'dimmed'}>
-            {dueDays !== null && dueDays < 0
-              ? `Follow-up ${Math.abs(dueDays)}d overdue`
-              : dueDays === 0
-                ? 'Follow-up due today'
-                : `Follow-up in ${dueDays}d`}
-          </Text>
-        )}
-        {expanded && nudge && (
-          <Text size="xs" c={nudge.severity === 'warn' ? 'orange' : 'dimmed'}>
-            {nudge.message}
-          </Text>
-        )}
-        {expanded && (createdLabel || updatedLabel) && (
-          <Text size="xs" c="dimmed" title={`Created ${lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '—'} · Updated ${lead.updatedAt ? new Date(lead.updatedAt).toLocaleString() : '—'}`}>
-            {createdLabel && `Created ${createdLabel}`}{createdLabel && updatedLabel && ' · '}{updatedLabel && `Updated ${updatedLabel}`}
-          </Text>
-        )}
-        {onOpen && (
-          <Group gap={4} mt={4}>
-            <Button variant="light" size="xs" onClick={onOpen} data-tour={tourTarget ? TOUR_SELECTOR.leadDetailOpen : undefined}>
+
+          {onOpen && (
+            <Button
+              variant="light"
+              size="xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpen();
+              }}
+              data-tour={tourTarget ? TOUR_SELECTOR.leadDetailOpen : undefined}
+            >
               Open
             </Button>
-          </Group>
+          )}
+        </Group>
+
+        {/* Progressive Disclosure (Tier 1 Metadata) */}
+        {expanded && (
+          <Stack gap={4} pt={4} style={{ borderTop: '1px dashed var(--mantine-color-gray-2)' }}>
+            <Stack gap={2}>
+              {tier1Metadata.map((m) => (
+                <Group key={m.label} justify="space-between" gap="xs" wrap="nowrap">
+                  <Text size="xs" c="dimmed">{m.label}</Text>
+                  <Text size="xs" fw={500} truncate style={{ minWidth: 0 }}>{m.value}</Text>
+                </Group>
+              ))}
+            </Stack>
+
+            {(lead.tags?.length ?? 0) > 0 && (
+              <Group gap={4} wrap="wrap" role="list" aria-label="Tags" mt={2}>
+                {lead.tags!.slice(0, 3).map((tag) => (
+                  <Badge key={tag} variant="outline" color="gray" size="xs" role="listitem">{tag}</Badge>
+                ))}
+                {lead.tags!.length > 3 && (
+                  <Badge variant="outline" color="gray" size="xs">{`+${lead.tags!.length - 3}`}</Badge>
+                )}
+              </Group>
+            )}
+
+            {ticketSizeCaption && !hasDeals && (
+              <Text size="xs" c="dimmed" fs="italic">{ticketSizeCaption}</Text>
+            )}
+
+            {checklist.total > 0 && (
+              <Text size="xs" c={checklist.done === checklist.total ? 'teal' : 'dimmed'}>
+                {`Checklist ${checklist.done}/${checklist.total}`}
+              </Text>
+            )}
+
+            {nudge && (
+              <Text size="xs" c={nudge.severity === 'warn' ? 'orange' : 'dimmed'}>
+                {nudge.message}
+              </Text>
+            )}
+
+            {(createdLabel || updatedLabel) && (
+              <Text size="xs" c="dimmed" title={`Created ${lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '—'} · Updated ${lead.updatedAt ? new Date(lead.updatedAt).toLocaleString() : '—'}`}>
+                {createdLabel && `Created ${createdLabel}`}{createdLabel && updatedLabel && ' · '}{updatedLabel && `Updated ${updatedLabel}`}
+              </Text>
+            )}
+          </Stack>
         )}
       </Stack>
     </ErrorBoundary>

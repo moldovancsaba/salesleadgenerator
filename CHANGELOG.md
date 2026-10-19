@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.296
+
+### Kanban & CRM: Redesign Kanban Card Layout for High Readability, Information Hierarchy, and Interactivity (issue #259)
+
+- **Unconstrained Lead Title & Multi-Line Wrapping (`app/card.tsx`):**
+  - Eliminated horizontal badge competition in the card header that previously forced `lead.entity_name` to truncate down to 6–8 characters (e.g. `Atlant...`, `Manches...`, `Sportin...`, `D.C. Un...`).
+  - Allocated 100% card width to the primary organization title with `WebkitLineClamp: 2`, `wordBreak: 'break-word'`, `lineHeight: 1.35`, and native hover `title` tooltip so full names are 100% visible and readable at a glance.
+  - Added clean context subtitle directly below the title displaying `lead.industry` or `lead.sport_or_sector` in muted 12px text.
+- **Modern Commercial Metric & Attribute Badge Bar (`app/card.tsx`):**
+  - Highlights active Deal values (e.g. `€150,000` or `€65K`) in a prominent `variant="light"` grape badge, or estimated ticket size (`~€150K`) in teal.
+  - Displays compact country/region chips (e.g. `US`, `GB`, `DE`) and quality status (`CHECKED`, `VERIFIED`, `DRAFT`).
+  - De-duplicated staleness and touch indicators: displays staleness alerts (`⚠️ Stale 27d` / `⚠️ Critical 28d`) when stale, or touch age (`• 4d`) when fresh, eliminating redundant duplicate day counters on the same card face.
+- **Streamlined Owner & Follow-Up Context (`app/card.tsx`):**
+  - Replaced 3 stacked full-width rows with a compact, high-density metadata footer displaying assigned deal owner and relative activity timestamp or urgent follow-up cue (`Due today`, `3d overdue`).
+- **Direct Card-Surface Clickability & Elevation (`app/card.tsx`, `app/globals.css`):**
+  - Made the entire card surface clickable with `cursor: pointer` to directly open the Lead Detail Drawer (`onOpen`), eliminating reliance on searching for a small bottom button.
+  - Added smooth CSS hover transitions (`border-color` and elevation `box-shadow`) to interactive cards.
+  - Added `e.stopPropagation()` on interactive child elements (expand toggle, open button, bulk selection checkbox in `app/kanban.tsx`) to prevent accidental modal triggers.
+  - Retained explicit "Open" button preserving `data-tour={TOUR_SELECTOR.leadDetailOpen}` for onboarding tour continuity.
+- **Automated Test Coverage:**
+  - Added unit test suite `tests/lib/card-layout.test.ts` (7 tests verifying unconstrained title wrap, subtitle context, commercial badge rendering, staleness de-duplication, card clickability, tour targets, and event stopPropagation).
+
 ## 2.4.295
 
 ### Inbox & CRM: Convert Email Contacts to Leads & Deals and Automated Contact Harvesting from Emails (issue #258)

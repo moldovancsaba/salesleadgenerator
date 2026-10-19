@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.295
+**Version:** 2.4.296
 
 ---
 
@@ -1561,6 +1561,14 @@ Ingests CRM Cadence Engine & Sequence Enforcement into Sales Lead Generator:
   - Reps can convert unlinked threads into a new Lead (`create_lead`), attach threads to an existing Lead (`attach_lead`), or add commercial Deals (`add_deal`) directly from the thread view.
   - Automatically re-links all associated messages across `activityLog` and `outreach_logs` to the target `leadId`.
   - Enforces deal sanitization (`sanitizeDeal`), pipeline stage progression, and auto-generates classification tags.
+
+### Modern Kanban Card Layout & Information Architecture (2.4.296, issue #259)
+- **Hierarchy & Readability (`app/card.tsx`):**
+  - Card titles occupy their own unconstrained full-width flex container with 2-line graceful wrap (`WebkitLineClamp: 2`, `wordBreak: 'break-word'`), resolving severe horizontal space starvation caused by inline badge stacking.
+  - Subtitle context immediately exposes `lead.industry` or `lead.sport_or_sector` in subtle 12px text.
+  - Primary financial metrics (Deal total or estimated ticket size) are promoted to prominent high-contrast badges alongside region tags.
+  - Staleness and touch age indicators are strictly de-duplicated so that active stale deals display alert severity without redundant duplicate day counts.
+  - The entire card surface responds to clicks (`onOpen`), with smooth border-color and elevation transitions on hover (`[data-gds-kanban-card]`).
 
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)

@@ -95,3 +95,18 @@ textarea {
   max-width: unset !important;
   flex: 0 0 auto !important;
 }
+
+/* Kanban Card Interactivity & Elevation */
+[data-gds-kanban-card] {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+[data-gds-kanban-card]:hover {
+  border-color: var(--mantine-color-blue-4) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+[data-gds-kanban-card]:active {
+  transform: translateY(1px);
+}

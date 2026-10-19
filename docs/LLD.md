@@ -1,6 +1,6 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.295
+**Version:** 2.4.296
 
 **Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212); comprehensive alignment audit completed 2026-10-18 (2.4.291, issue #256) bringing the complete API surface, domain modules, and component tree up to date across all features through v2.4.291 (Multi-CRM lead exchange, Google Contacts sync, multi-account Google integration, modern 5-tab Sales Settings, Document Library, pipeline stage manager, email threading context, scheduler recovery, merge token inserter, and timeline noise filter). This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 
@@ -431,7 +431,7 @@ The concrete pattern that distinguishes the two layers: `lib/cadences.ts` has th
 ### 5.1 `app/*.tsx` (root-level)
 
 - `app/kanban.tsx` — `KanbanBoard` — owns per-column paginated fetch from `/api/leads/columns` and drag-move via `/api/leads`; renders `LeadCard` per lead
-- `app/card.tsx` — `LeadCard` — pure presentational; receives `lead`, `staleness`, `nudge`, `winProbability` as props from `KanbanBoard`, does **not** fetch
+- `app/card.tsx` — `LeadCard` — redesigned modern CRM card layout (issue #259); renders unconstrained wrapping entity name (`lineClamp: 2`), industry/sport context subtitle, commercial metrics pill (deal value / ticket size estimate), region and quality chips, de-duplicated staleness/touch indicators, deal owner & relative activity meta, full card-surface clickability to open lead details (`onOpen`), and progressive disclosure for deeper attributes (ICE, size, contact, checklist)
 - `app/detail.tsx` — `LeadDetailModal` — full lead editor; opened via `onOpenLead`; renders `ActivityPanel` and `CadencePanel` as children (each self-fetches) plus `ContactsEditor` inline
 - `app/table.tsx` — `TableView` — alternate flat-list rendering, also driven by `onOpenLead` into `LeadDetailModal`
 - `app/metrics.tsx` — `MetricsPanel` — self-fetches `/api/metrics`, `/api/metrics/by-source`, `/api/metrics/decline-reasons`

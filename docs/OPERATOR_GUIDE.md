@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.295
+**Version:** 2.4.296
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -164,6 +164,8 @@ The **Inbox** (`/inbox/[brand]`, issue #257) is the centralized communication hu
 ## Daily Workflow — Kanban Board
 
 DISCOVERED and QUALIFIED are auto-managed columns: a lead is placed and sorted purely by its ICE score (QUALIFIED at 500+, otherwise DISCOVERED; always high to low). Moving a card out to ENGAGED/PROPOSAL/WON/LOST via the "⋮" menu (or an Accept/Decline/Pin action) hands that lead to manual, user-controlled placement permanently — it's never auto-moved again even if its score later changes. A new card entering a manually-controlled column always lands at the top by default.
+
+**Card Layout & Information Architecture** (issue #259, 2.4.296): Each Kanban card displays the full organization name across up to two lines with clean word wrapping (`WebkitLineClamp: 2`), eliminating premature truncation. Beneath the title, cards display the organization's sport or industry sector, followed by a scannable commercial badge bar featuring the active Deal value (or estimated ticket size in teal), geographic region tag, quality status chip (`CHECKED`, `VERIFIED`, `DRAFT`), and de-duplicated staleness/activity alerts. The footer indicates the assigned Deal Owner alongside recent touch activity. Clicking anywhere on the card surface opens the comprehensive Lead Detail Drawer, while **Show more** expands secondary attributes (ICE score, size tier, decision-maker contact, checklist progress, tags).
 
 **Drag-and-drop** is enabled by default on desktop and tablet browsers (issue #245, 2.4.280). You can physically drag a card to another stage column (with real-time stage-gate validation and non-blocking toast notifications on completion), or drag it up/down within ENGAGED/PROPOSAL/WON/LOST/BACKLOG to reorder priority within that column using fractional indexing. Dragging cards inside DISCOVERED/QUALIFIED is intentionally disallowed with a visible explanation, because those two stages are strictly auto-managed by calculated ICE score. The card "⋮" move menu remains fully functional as a permanent, accessible keyboard and mobile fallback. On wide screens, hovering over column headers pans the board horizontally, while mouse-wheel scrolling over cards scrolls the page vertically.
 

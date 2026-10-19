@@ -761,6 +761,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
             aria-label={`Select ${leadItem.lead.entity_name} for bulk action`}
             checked={selectedIds.has(leadItem.lead._id)}
             onChange={() => toggleSelected(leadItem.lead._id, column.id as KanbanColumn)}
+            onClick={(e) => e.stopPropagation()}
             disabled={Boolean(selectedColumn) && selectedColumn !== (column.id as KanbanColumn) && !selectedIds.has(leadItem.lead._id)}
           />
         )}
