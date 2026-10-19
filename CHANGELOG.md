@@ -1,5 +1,46 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.300
+
+### GDS & CRM: Phase 2 Systemic GDS Component Adoption Across Today Workbench, ActivityPanel, LeadDetail, and Contacts Client (issue #263)
+
+- **Today Workbench (`app/today/[brand]/today-client.tsx`):**
+  - Replaced total actions counter with GDS `CountBadge`.
+  - Replaced metric strip urgency badges with canonical GDS `StatusBadge` (`danger` withIcon for overdue items, `warning` for due today, `info` for sequences, `warning` withIcon for attention deals).
+  - Replaced error paper fallback with GDS `InlineAlert`.
+  - Replaced raw badges in cadence tasks with GDS `LabelTag` (`tone="info"` for channel, `tone="neutral"` for steps).
+  - Replaced overdue, due-today, and stale-deal badges with GDS `StatusBadge` (`status="danger" withIcon` for overdue days and past close date, `status="warning"` for due today and stale inactivity).
+- **Activity Panel (`app/components/ActivityPanel.tsx`):**
+  - Implemented `getEmailStatusVariant` helper mapping email statuses to GDS semantic statuses.
+  - Replaced 8 raw badges with GDS `LabelTag` (direction, Gmail source, historical indicator, deal reference, and call disposition) and `StatusBadge` (email delivery statuses, cancellation reasons, and out-of-office alerts).
+  - Replaced hardcoded gray border with `--gds-border-card` token.
+- **Lead Detail Drawer (`app/detail.tsx`):**
+  - Replaced country and region badges with GDS `LabelTag tone="neutral"`.
+  - Replaced quality badge with GDS `StatusBadge` (`success` for VERIFIED, `info` for CHECKED, `neutral` for UNCHECKED).
+  - Replaced tech signal badges with GDS `LabelTag tone="info"`.
+  - Replaced contact buying roles with GDS `LabelTag tone="info"` and stale contact warning with GDS `StatusBadge status="warning" withIcon`.
+- **Contacts Client (`app/contacts/[brand]/contacts-client.tsx`):**
+  - Replaced contact count badge with GDS `CountBadge` and Google Contacts Active with GDS `StatusBadge status="success"`.
+  - Replaced raw lead badges in table and mobile card with GDS `LabelTag tone="info"`.
+  - Replaced buying roles with GDS `LabelTag` (economic buyer, champion, influencer, decision maker) and `StatusBadge status="danger"` for blocker.
+  - Replaced CRM status with GDS `StatusBadge` (success for active/customer, info for lead/prospect, neutral for inactive/archived).
+  - Replaced custom colored connection banner with GDS `InlineAlert severity="success"`.
+
+## 2.4.299
+
+### GDS & CRM: Systemic GDS Component Adoption: StatusBadges, LabelTags, CountBadges, InlineAlerts, and CSS Snippet Stripping (issue #262)
+
+- **Snippet CSS Sanitization (`lib/email-contact-extractor.ts`):**
+  - Enhanced `cleanHtmlBody` and `cleanMessageSnippet` to strip un-tagged CSS declarations (`[#.a-zA-Z0-9_\-,\s]+{[^}]*}`), `@media` blocks, and `{{...}}` template variables, preventing raw stylesheets from contaminating message snippets.
+- **Unified Inbox Thread Cards & Header (`app/inbox/[brand]/inbox-client.tsx`):**
+  - Replaced flat unsemantic thread badges with GDS `StatusBadge` (`warning` withIcon for `Reply Needed`, `success` for `Lead`, `info` for `Contact`), `LabelTag` (neutral dashed tags for unlinked entities, success for deal values), and `CountBadge` for thread message count.
+  - Standardized reader header badges with GDS `StatusBadge` and `LabelTag`.
+  - Replaced composer Mantine `<Alert>` and conversion modal alerts (`app/inbox/[brand]/convert-modal.tsx`) with GDS `InlineAlert`.
+  - Tokenized card borders and background colors to `--gds-border-card`, `--gds-bg-card`, `--gds-bg-surface`, and `--gds-vibe-primary`.
+- **Kanban Cards (`app/card.tsx`):**
+  - Replaced staleness urgency and rotten badges with GDS `StatusBadge` (`danger`/`warning` with canonical icons), quality with `StatusBadge`, and regions with `LabelTag tone="neutral"`.
+  - Tokenized card footer borders to `--gds-border-card`.
+
 ## 2.4.298
 
 ### Kanban & CRM: Redesign Kanban Card Presentation: Visible Key Contact, Formatted Taxonomy, Untruncated Owner Avatar, and Quiet Actions (issue #261)

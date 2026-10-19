@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Lead } from './types';
 import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@sovereignsquad/gds-admin/client';
-import { createGdsVocabularyPack, GdsIcons, StatusBadge } from '@sovereignsquad/gds-core/client';
-import { Stack, Group, Text, Badge, Progress, Button, Box, Title, SimpleGrid, NumberInput, TextInput, Select, Modal, Checkbox, ActionIcon, Divider, Menu } from '@mantine/core';
+import { createGdsVocabularyPack, GdsIcons, StatusBadge, LabelTag, CountBadge } from '@sovereignsquad/gds-core/client';
+import { Stack, Group, Text, Progress, Button, Box, Title, SimpleGrid, NumberInput, TextInput, Select, Modal, Checkbox, ActionIcon, Divider, Menu } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
@@ -146,9 +146,14 @@ function techSignalsSection(lead: Lead) {
     return (
       <Group gap="xs" role="list" aria-label="Detected tech signals">
         {lead.techSignals!.map((signal) => (
-          <Badge key={signal} variant="light" color="teal" role="listitem" aria-label={TECH_SIGNAL_LABELS[signal] || signal}>
-            {TECH_SIGNAL_LABELS[signal] || signal}
-          </Badge>
+          <Box key={signal} component="span" role="listitem">
+            <LabelTag
+              tone="info"
+              size="xs"
+              aria-label={TECH_SIGNAL_LABELS[signal] || signal}
+              label={TECH_SIGNAL_LABELS[signal] || signal}
+            />
+          </Box>
         ))}
       </Group>
     );
@@ -1236,10 +1241,14 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
       </Group>
 
       <Group gap="xs">
-        <Badge variant="light" color="gray">{lead.country || '—'}</Badge>
-        <Badge variant="light" color={regionToneValue}>{lead.region || '—'}</Badge>
+        <LabelTag tone="neutral" label={lead.country || '—'} />
+        <LabelTag tone="neutral" label={lead.region || '—'} />
         <Text size="sm" c="dimmed">{lead.industry || lead.sport_or_sector}</Text>
-        <Badge variant="light" color={qualityToneValue}>{qualityStatus}</Badge>
+        <StatusBadge
+          status={qualityStatus === 'VERIFIED' ? 'success' : qualityStatus === 'CHECKED' ? 'info' : 'neutral'}
+        >
+          {qualityStatus}
+        </StatusBadge>
       </Group>
       {techSignalsSection(lead)}
     </Stack>
@@ -1617,22 +1626,26 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
                 <Group gap="xs">
                   <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
                   {BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE] && (
-                    <Badge variant="light" size="xs" color={BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE]!.color}>
-                      {BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE]!.label}
-                    </Badge>
+                    <LabelTag
+                      tone="info"
+                      size="xs"
+                      label={BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE]!.label}
+                    />
                   )}
                   {isContactStale(contact, DEFAULT_STALENESS_THRESHOLD_DAYS) && (
-                    <Badge variant="light" size="xs" color="orange">Needs re-verification</Badge>
+                    <StatusBadge status="warning" withIcon size="xs">
+                      Needs re-verification
+                    </StatusBadge>
                   )}
                 </Group>
                 {contact.title && (
                   <Group gap={4} wrap="nowrap">
                     <Text size="sm" c="dimmed">{contact.title}</Text>
                     {contact.seniorityTier && contact.seniorityTier !== 'Unknown' && (
-                      <Badge variant="light" size="xs" color="grape">{contact.seniorityTier}</Badge>
+                      <LabelTag tone="neutral" size="xs" label={contact.seniorityTier} />
                     )}
                     {contact.department && contact.department !== 'Unknown' && (
-                      <Badge variant="outline" size="xs" color="gray">{contact.department}</Badge>
+                      <LabelTag tone="neutral" size="xs" label={contact.department} />
                     )}
                   </Group>
                 )}

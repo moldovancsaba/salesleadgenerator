@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Title, Text, Group, Stack, TextInput, Badge, Loader, Button, Select, ActionIcon, Paper } from '@mantine/core'
+import { Box, Title, Text, Group, Stack, TextInput, Loader, Button, Select, ActionIcon, Paper } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
+import { StatusBadge, LabelTag, CountBadge, InlineAlert } from '@sovereignsquad/gds-core/client'
 import { IconSearch, IconBrandLinkedin, IconDownload, IconX, IconBrandGoogle, IconCheck } from '@tabler/icons-react'
 import { showNotification } from '@mantine/notifications'
 import Link from 'next/link'
@@ -26,29 +27,29 @@ type ContactRow = {
 }
 
 // Issue #206 — role-specific badge, replacing the single "Decision maker"
-// badge. 'blocker' is red/orange (a real risk signal to flag, not
+// badge. 'blocker' is danger (a real risk signal to flag, not
 // decorative); 'unknown' renders no badge, same as the old
 // isDecisionMaker: false "no badge" state.
-const BUYING_ROLE_BADGE: Partial<Record<BuyingRole, { label: string; color: string }>> = {
-  economic_buyer: { label: 'Economic Buyer', color: 'indigo' },
-  champion: { label: 'Champion', color: 'teal' },
-  influencer: { label: 'Influencer', color: 'grape' },
-  blocker: { label: 'Blocker', color: 'red' },
-  decision_maker: { label: 'Decision Maker', color: 'blue' },
+const BUYING_ROLE_BADGE: Partial<Record<BuyingRole, { label: string; tone: 'neutral' | 'info' | 'success' | 'warning'; isDanger?: boolean }>> = {
+  economic_buyer: { label: 'Economic Buyer', tone: 'info' },
+  champion: { label: 'Champion', tone: 'success' },
+  influencer: { label: 'Influencer', tone: 'info' },
+  blocker: { label: 'Blocker', tone: 'warning', isDanger: true },
+  decision_maker: { label: 'Decision Maker', tone: 'info' },
 }
 
-function getCrmStatusColor(status?: string): string {
+function getCrmStatusVariant(status?: string): 'neutral' | 'info' | 'success' | 'warning' | 'danger' {
   switch (status?.toLowerCase()) {
     case 'active':
     case 'customer':
-      return 'teal'
+      return 'success'
     case 'lead':
-      return 'blue'
+      return 'info'
     case 'inactive':
     case 'archived':
-      return 'gray'
+      return 'neutral'
     default:
-      return 'indigo'
+      return 'info'
   }
 }
 
@@ -189,13 +190,11 @@ export function ContactsClient({ brand, label }: Props) {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Contacts</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {contacts.length} {contacts.length === 1 ? 'contact' : 'contacts'}
-              </Badge>
+              <CountBadge value={contacts.length} size="md" srLabel="Total contacts" />
               {isGoogleConnected && (
-                <Badge variant="dot" color="teal" size="sm">
+                <StatusBadge status="success" size="xs">
                   Google Contacts Active
-                </Badge>
+                </StatusBadge>
               )}
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
@@ -240,15 +239,12 @@ export function ContactsClient({ brand, label }: Props) {
         </Group>
 
         {connectedBanner && (
-          <Paper withBorder p="xs" radius="md" style={{ backgroundColor: 'var(--mantine-color-teal-0)', borderColor: 'var(--mantine-color-teal-3)' }}>
-            <Group justify="space-between" align="center" wrap="wrap" gap="xs">
-              <Group gap="xs">
-                <IconCheck size={16} color="var(--mantine-color-teal-7)" />
-                <Text size="xs" fw={500} c="teal.9">
-                  Google Contacts connected successfully! You can now import contacts directly into your leads.
-                </Text>
-              </Group>
-              <Group gap="xs">
+          <InlineAlert
+            severity="success"
+            title="Google Contacts Connected"
+            message="Google Contacts connected successfully! You can now import contacts directly into your leads."
+            action={
+              <Group gap="xs" mt="xs">
                 <Button size="xs" variant="filled" color="teal" onClick={() => setImportModalOpen(true)}>
                   Import Contacts
                 </Button>
@@ -256,8 +252,8 @@ export function ContactsClient({ brand, label }: Props) {
                   <IconX size={12} />
                 </ActionIcon>
               </Group>
-            </Group>
-          </Paper>
+            }
+          />
         )}
 
         {/* High-Density Filter Toolbar */}
@@ -378,21 +374,15 @@ export function ContactsClient({ brand, label }: Props) {
                           style={{ textDecoration: 'none' }}
                           title={`Open ${lead.entity_name || 'lead'}`}
                         >
-                          <Badge
-                            variant="light"
-                            color="indigo"
-                            size="sm"
+                          <LabelTag
+                            tone="info"
+                            size="xs"
+                            label={lead.entity_name || 'Untitled lead'}
                             style={{
                               cursor: 'pointer',
                               maxWidth: 240,
-                              whiteSpace: 'nowrap',
-                              textOverflow: 'ellipsis',
-                              overflow: 'hidden',
-                              fontWeight: 500,
                             }}
-                          >
-                            {lead.entity_name || 'Untitled lead'}
-                          </Badge>
+                          />
                         </Link>
                       ))}
                     </Group>
@@ -418,10 +408,15 @@ export function ContactsClient({ brand, label }: Props) {
                 accessor: (row) => {
                   const badge = BUYING_ROLE_BADGE[row.buyingRole]
                   if (!badge) return <Text size="xs" c="dimmed">—</Text>
+                  if (badge.isDanger) {
+                    return (
+                      <StatusBadge size="xs" status="danger">
+                        {badge.label}
+                      </StatusBadge>
+                    )
+                  }
                   return (
-                    <Badge size="xs" color={badge.color} variant="light">
-                      {badge.label}
-                    </Badge>
+                    <LabelTag size="xs" tone={badge.tone} label={badge.label} />
                   )
                 },
               },
@@ -496,9 +491,9 @@ export function ContactsClient({ brand, label }: Props) {
                 accessor: (row) => {
                   const status = row.crmStatus || 'prospect'
                   return (
-                    <Badge size="xs" color={getCrmStatusColor(status)} variant="outline" tt="capitalize">
+                    <StatusBadge size="xs" status={getCrmStatusVariant(status)}>
                       {status}
-                    </Badge>
+                    </StatusBadge>
                   )
                 },
               },
@@ -511,16 +506,24 @@ export function ContactsClient({ brand, label }: Props) {
                     {row.title && <Text size="xs" c="dimmed">{row.title}</Text>}
                   </div>
                   {BUYING_ROLE_BADGE[row.buyingRole] && (
-                    <Badge size="xs" color={BUYING_ROLE_BADGE[row.buyingRole]!.color} variant="light">
-                      {BUYING_ROLE_BADGE[row.buyingRole]!.label}
-                    </Badge>
+                    BUYING_ROLE_BADGE[row.buyingRole]!.isDanger ? (
+                      <StatusBadge size="xs" status="danger">
+                        {BUYING_ROLE_BADGE[row.buyingRole]!.label}
+                      </StatusBadge>
+                    ) : (
+                      <LabelTag
+                        size="xs"
+                        tone={BUYING_ROLE_BADGE[row.buyingRole]!.tone}
+                        label={BUYING_ROLE_BADGE[row.buyingRole]!.label}
+                      />
+                    )
                   )}
                 </Group>
                 {row.leads?.length > 0 && (
                   <Group gap={4} mb="xs">
                     {row.leads.map((l) => (
-                      <Link key={l.leadId} href={`/sales/${brand}?leadId=${encodeURIComponent(l.leadId)}`}>
-                        <Badge size="xs" color="indigo" variant="light">{l.entity_name}</Badge>
+                      <Link key={l.leadId} href={`/sales/${brand}?leadId=${encodeURIComponent(l.leadId)}`} style={{ textDecoration: 'none' }}>
+                        <LabelTag tone="info" size="xs" label={l.entity_name} />
                       </Link>
                     ))}
                   </Group>

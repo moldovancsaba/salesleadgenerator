@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Box, Text, Stack, Badge, Loader, Group, Button, Select, NumberInput, Textarea, Tooltip } from '@mantine/core'
+import { Box, Text, Stack, Loader, Group, Button, Select, NumberInput, Textarea, Tooltip } from '@mantine/core'
+import { StatusBadge, LabelTag } from '@sovereignsquad/gds-core/client'
 import { showNotification } from '@mantine/notifications'
 import { IconInbox } from '@tabler/icons-react'
 
@@ -45,14 +46,21 @@ type ActivityEntry = {
   isHistorical?: boolean
 }
 
-const EMAIL_STATUS_COLOR: Record<string, string> = {
-  cancelled: 'gray',
-  bounced: 'red',
-  replied: 'teal',
-  clicked: 'violet',
-  opened: 'green',
-  sent: 'blue',
-  scheduled: 'orange',
+function getEmailStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
+  switch (status) {
+    case 'bounced':
+      return 'danger';
+    case 'replied':
+    case 'opened':
+      return 'success';
+    case 'scheduled':
+      return 'warning';
+    case 'clicked':
+    case 'sent':
+      return 'info';
+    default:
+      return 'neutral';
+  }
 }
 
 const EMAIL_STATUS_LABEL: Record<string, string> = {
@@ -612,40 +620,40 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [], refres
       ) : (
         <Stack gap="xs">
           {(selectedDealFilter ? activity.filter((a) => a.dealId === selectedDealFilter) : activity).map((entry) => (
-            <Box key={entry.id} p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }}>
+            <Box key={entry.id} p="xs" style={{ border: '1px solid var(--gds-border-card, var(--mantine-color-gray-3))', borderRadius: 6 }}>
               <Group justify="space-between" gap="xs" wrap="nowrap">
                 <Group gap={4}>
-                  <Badge size="xs" variant="light" color={entry.type === 'call' ? 'grape' : entry.type === 'meeting-scheduled' ? 'indigo' : entry.type === 'note' ? 'yellow' : entry.direction === 'inbound' ? 'teal' : 'blue'}>
-                    {TYPE_LABEL[entry.type]}
-                  </Badge>
+                  <LabelTag
+                    tone={entry.direction === 'inbound' ? 'success' : entry.type === 'call' ? 'warning' : 'info'}
+                    size="xs"
+                    label={TYPE_LABEL[entry.type]}
+                  />
                   {entry.source === 'gmail-sync' && (
-                    <Badge size="xs" variant="outline" color="gray">Gmail</Badge>
+                    <LabelTag tone="neutral" size="xs" label="Gmail" />
                   )}
                   {entry.isHistorical && (
-                    <Badge size="xs" variant="outline" color="gray">Historical</Badge>
+                    <LabelTag tone="neutral" size="xs" label="Historical" />
                   )}
                   {(entry.dealLabel || entry.dealId) && (
-                    <Badge size="xs" variant="outline" color="cyan">
-                      {entry.dealLabel || `Deal ${entry.dealId?.slice(0, 8)}`}
-                    </Badge>
+                    <LabelTag tone="info" size="xs" label={entry.dealLabel || `Deal ${entry.dealId?.slice(0, 8)}`} />
                   )}
                   {entry.callDisposition && (
-                    <Badge size="xs" variant="outline" color="gray">{DISPOSITION_LABEL[entry.callDisposition]}</Badge>
+                    <LabelTag tone="neutral" size="xs" label={DISPOSITION_LABEL[entry.callDisposition]} />
                   )}
                   {entry.emailStatus && (
-                    <Badge size="xs" variant="light" color={EMAIL_STATUS_COLOR[entry.emailStatus] || 'gray'}>
+                    <StatusBadge size="xs" status={getEmailStatusVariant(entry.emailStatus)}>
                       {EMAIL_STATUS_LABEL[entry.emailStatus] || entry.emailStatus}
-                    </Badge>
+                    </StatusBadge>
                   )}
                   {entry.cancelReasonLabel && (
-                    <Badge size="xs" variant="outline" color="red">
+                    <StatusBadge size="xs" status="danger">
                       {entry.cancelReasonLabel}
-                    </Badge>
+                    </StatusBadge>
                   )}
                   {entry.replyClass === 'out_of_office' && (
-                    <Badge size="xs" variant="outline" color="yellow">
+                    <StatusBadge size="xs" status="warning" withIcon>
                       Out of office
-                    </Badge>
+                    </StatusBadge>
                   )}
                 </Group>
                 <Text size="xs" c="dimmed">{new Date(entry.createdAt).toLocaleString()}</Text>

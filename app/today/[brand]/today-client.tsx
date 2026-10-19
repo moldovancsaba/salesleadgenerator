@@ -9,7 +9,6 @@ import {
   Button,
   Group,
   Stack,
-  Badge,
   Paper,
   ActionIcon,
   Modal,
@@ -22,6 +21,12 @@ import {
   SimpleGrid,
   Card,
 } from '@mantine/core';
+import {
+  StatusBadge,
+  LabelTag,
+  CountBadge,
+  InlineAlert,
+} from '@sovereignsquad/gds-core/client';
 import {
   IconCheck,
   IconClock,
@@ -199,9 +204,7 @@ export function TodayClient({ brand, label }: Props) {
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
                 {label} Today&apos;s Work
               </Title>
-              <Badge variant="light" color="indigo" size="md">
-                {counts.total} {counts.total === 1 ? 'action' : 'actions'}
-              </Badge>
+              <CountBadge value={counts.total} size="md" srLabel="Actions pending" />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               {data?.date
@@ -255,7 +258,11 @@ export function TodayClient({ brand, label }: Props) {
               <Text size="xs" c={counts.overdueFollowUps > 0 ? 'red' : 'dimmed'} fw={600} tt="uppercase">
                 Overdue
               </Text>
-              {counts.overdueFollowUps > 0 && <Badge color="red" size="sm">Urgent</Badge>}
+              {counts.overdueFollowUps > 0 && (
+                <StatusBadge status="danger" withIcon size="xs">
+                  Urgent
+                </StatusBadge>
+              )}
             </Group>
             <Title order={3} mt={4} c={counts.overdueFollowUps > 0 ? 'red' : undefined}>
               {counts.overdueFollowUps}
@@ -269,7 +276,11 @@ export function TodayClient({ brand, label }: Props) {
               <Text size="xs" c="dimmed" fw={600} tt="uppercase">
                 Due Today
               </Text>
-              {counts.dueTodayFollowUps > 0 && <Badge color="orange" size="sm">Today</Badge>}
+              {counts.dueTodayFollowUps > 0 && (
+                <StatusBadge status="warning" size="xs">
+                  Today
+                </StatusBadge>
+              )}
             </Group>
             <Title order={3} mt={4}>
               {counts.dueTodayFollowUps}
@@ -283,7 +294,11 @@ export function TodayClient({ brand, label }: Props) {
               <Text size="xs" c="dimmed" fw={600} tt="uppercase">
                 Cadence Steps
               </Text>
-              {counts.cadenceTasks > 0 && <Badge color="blue" size="sm">Sequences</Badge>}
+              {counts.cadenceTasks > 0 && (
+                <StatusBadge status="info" size="xs">
+                  Sequences
+                </StatusBadge>
+              )}
             </Group>
             <Title order={3} mt={4}>
               {counts.cadenceTasks}
@@ -297,7 +312,11 @@ export function TodayClient({ brand, label }: Props) {
               <Text size="xs" c="dimmed" fw={600} tt="uppercase">
                 Stale Deals
               </Text>
-              {counts.dealsNeedingAttention > 0 && <Badge color="grape" size="sm">Attention</Badge>}
+              {counts.dealsNeedingAttention > 0 && (
+                <StatusBadge status="warning" withIcon size="xs">
+                  Attention
+                </StatusBadge>
+              )}
             </Group>
             <Title order={3} mt={4}>
               {counts.dealsNeedingAttention}
@@ -331,14 +350,7 @@ export function TodayClient({ brand, label }: Props) {
             </Text>
           </Group>
         ) : error ? (
-          <Paper p="md" withBorder>
-            <Group>
-              <Text c="red" size="sm">
-                <IconAlertTriangle size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
-                {error}
-              </Text>
-            </Group>
-          </Paper>
+          <InlineAlert severity="error" title="Queue Error" message={error} />
         ) : counts.total === 0 ? (
           <Paper p="xl" withBorder style={{ textAlign: 'center' }}>
             <ActionIcon color="green" variant="light" size={48} radius="xl" style={{ margin: '0 auto 12px' }}>
@@ -387,14 +399,13 @@ export function TodayClient({ brand, label }: Props) {
                                 {task.entityName}
                               </Text>
                             </Link>
-                            <Badge size="xs" variant="outline" color="blue">
-                              {task.channel.toUpperCase()}
-                            </Badge>
+                            <LabelTag tone="info" size="xs" label={task.channel.toUpperCase()} />
                             {task.cadenceName && (
-                              <Badge size="xs" variant="light" color="gray">
-                                {task.cadenceName} · Step {task.stepIndex}
-                                {task.totalSteps ? ` of ${task.totalSteps}` : ''}
-                              </Badge>
+                              <LabelTag
+                                tone="neutral"
+                                size="xs"
+                                label={`${task.cadenceName} · Step ${task.stepIndex}${task.totalSteps ? ` of ${task.totalSteps}` : ''}`}
+                              />
                             )}
                           </Group>
                           <Group gap="xs" mt={2}>
@@ -481,9 +492,9 @@ export function TodayClient({ brand, label }: Props) {
                                 {item.entityName}
                               </Text>
                             </Link>
-                            <Badge size="xs" color="red">
-                              {item.overdueDays}d overdue
-                            </Badge>
+                            <StatusBadge status="danger" withIcon size="xs">
+                              {`${item.overdueDays}d overdue`}
+                            </StatusBadge>
                           </Group>
                           <Group gap="xs" mt={2}>
                             {item.contactName && (
@@ -585,9 +596,9 @@ export function TodayClient({ brand, label }: Props) {
                                 {item.entityName}
                               </Text>
                             </Link>
-                            <Badge size="xs" color="orange">
+                            <StatusBadge status="warning" size="xs">
                               Due Today
-                            </Badge>
+                            </StatusBadge>
                           </Group>
                           <Group gap="xs" mt={2}>
                             {item.contactName && (
@@ -690,13 +701,13 @@ export function TodayClient({ brand, label }: Props) {
                               </Text>
                             </Link>
                             {deal.reason === 'past_close_date' ? (
-                              <Badge size="xs" color="red">
-                                Past close date ({deal.daysOverdueOrInactive}d ago)
-                              </Badge>
+                              <StatusBadge status="danger" withIcon size="xs">
+                                {`Past close date (${deal.daysOverdueOrInactive}d ago)`}
+                              </StatusBadge>
                             ) : (
-                              <Badge size="xs" color="yellow">
-                                Stale ({deal.daysOverdueOrInactive}d inactive)
-                              </Badge>
+                              <StatusBadge status="warning" withIcon size="xs">
+                                {`Stale (${deal.daysOverdueOrInactive}d inactive)`}
+                              </StatusBadge>
                             )}
                           </Group>
                           <Group gap="xs" mt={2}>
