@@ -325,8 +325,10 @@ export async function listInboxThreads(
     const leadName = lead?.entity_name || lead?.name || (threadLeadId ? `Lead #${threadLeadId.slice(-6)}` : 'System Communications');
     const leadStage = lead?.kanbanColumn || lead?.status || undefined;
     const contact = lead?.contacts?.[0];
-    const contactName = contact?.name || undefined;
-    const contactEmail = contact?.email || undefined;
+    const lastInbound = msgs.slice().reverse().find((m) => m.direction === 'inbound' && m.from);
+    const lastOutbound = msgs.slice().reverse().find((m) => m.direction === 'outbound' && m.to && m.to[0]);
+    const contactName = contact?.name || (lastInbound?.from ? lastInbound.from.split('@')[0] : undefined);
+    const contactEmail = contact?.email || (lastInbound?.from ? lastInbound.from : (lastOutbound?.to ? lastOutbound.to[0] : undefined));
     const dealValue = lead?.deals?.[0]?.amount || lead?.estimated_annual_revenue_usd || lead?.ticketSizeEstimate?.estimatedValue || undefined;
 
     const subject = lastMessage.subject || msgs.slice().reverse().find((m) => m.subject)?.subject || 'No Subject';
@@ -542,8 +544,10 @@ export async function getInboxThreadDetail(
   const leadName = lead?.entity_name || lead?.name || (leadId ? `Lead #${leadId.slice(-6)}` : 'System Communications');
   const leadStage = lead?.kanbanColumn || lead?.status || undefined;
   const contact = lead?.contacts?.[0];
-  const contactName = contact?.name || undefined;
-  const contactEmail = contact?.email || undefined;
+  const lastInbound = messages.slice().reverse().find((m) => m.direction === 'inbound' && m.from);
+  const lastOutbound = messages.slice().reverse().find((m) => m.direction === 'outbound' && m.to && m.to[0]);
+  const contactName = contact?.name || (lastInbound?.from ? lastInbound.from.split('@')[0] : undefined);
+  const contactEmail = contact?.email || (lastInbound?.from ? lastInbound.from : (lastOutbound?.to ? lastOutbound.to[0] : undefined));
   const dealValue = lead?.deals?.[0]?.amount || lead?.estimated_annual_revenue_usd || lead?.ticketSizeEstimate?.estimatedValue || undefined;
 
   const subject = lastMessage.subject || messages.slice().reverse().find((m) => m.subject)?.subject || 'No Subject';

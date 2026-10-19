@@ -223,7 +223,16 @@ async function writeManualSendActivityLog(
   db: Db,
   context: { brand: string; tenantId: string },
   leadId: string,
-  fields: { resendEmailId: string; subject: string; body: string; source?: string; rfcMessageId?: string; threadId?: string }
+  fields: {
+    resendEmailId: string;
+    subject: string;
+    body: string;
+    source?: string;
+    rfcMessageId?: string;
+    threadId?: string;
+    fromAddress?: string;
+    toAddresses?: string[];
+  }
 ): Promise<boolean> {
   try {
     await ensureActivityLogIndexes(db);
@@ -233,6 +242,8 @@ async function writeManualSendActivityLog(
       brand: context.brand,
       type: 'email-outbound',
       direction: 'outbound',
+      fromAddress: fields.fromAddress,
+      toAddresses: fields.toAddresses,
       subject: fields.subject,
       bodyExcerpt: truncateBody(fields.body),
       matchedContactKey: null,
@@ -588,6 +599,8 @@ export async function dispatchOutreachEmail(
       source: 'manual',
       rfcMessageId,
       threadId: gmailThreadId || threadId,
+      fromAddress,
+      toAddresses: to ? [to] : undefined,
     });
   }
 

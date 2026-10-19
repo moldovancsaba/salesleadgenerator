@@ -192,6 +192,10 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
 
   useEffect(() => {
     loadThreads();
+    const interval = setInterval(() => {
+      loadThreads();
+    }, 60_000);
+    return () => clearInterval(interval);
   }, [loadThreads]);
 
   const handleSyncGmail = async () => {
@@ -218,12 +222,14 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
     }
   };
 
-  // Auto-select first thread if none selected or if previously selected is gone
+  // Auto-select initialThreadId if provided and present, else first thread
   useEffect(() => {
-    if (threads.length > 0 && !selectedThreadId) {
+    if (initialThreadId && threads.some((t) => t.id === initialThreadId)) {
+      setSelectedThreadId(initialThreadId);
+    } else if (threads.length > 0 && !selectedThreadId) {
       setSelectedThreadId(threads[0].id);
     }
-  }, [threads, selectedThreadId]);
+  }, [threads, initialThreadId, selectedThreadId]);
 
   // Load selected thread detail
   useEffect(() => {

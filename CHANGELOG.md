@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.294
+
+### Inbox & Communication: Metadata population, RFC 2822 webhook parity, participant resolution, and live background polling (issue #257)
+
+- **Manual Outreach Activity Metadata (`lib/outreach-send.ts`):**
+  - Updated `writeManualSendActivityLog` to persist `fromAddress` and `toAddresses` on `activityLog` entries for manual and quote sends.
+  - Ensures full recipient and sender visibility in the Communication Center timeline and message card headers.
+- **Inbound Webhook RFC 2822 Message-ID Parity (`app/lib/inbound-email.ts`):**
+  - Attached `rfcMessageId: event.messageId` in `buildActivityLogDoc` on inbound email webhook events.
+  - Standardizes RFC 2822 `In-Reply-To` and `References` chaining for replies to webhook-ingested emails.
+- **Lead Participant Email Fallback (`app/lib/inbox-store.ts`):**
+  - Enhanced `listInboxThreads` and `getInboxThreadDetail` so `contactEmail` and `contactName` fall back to the most recent inbound or outbound message participant when `lead.contacts` is unpopulated.
+  - Guarantees immediate quick-reply capability even for newly discovered or legacy leads lacking explicit contact cards.
+- **Immediate Gmail Ingestion on OAuth Connect (`app/api/integrations/oauth/callback/route.ts`):**
+  - Integrated `pollUserGmail(db, claimsOrResponse.sub, brand)` into the Google OAuth callback handler immediately following signature synchronization.
+  - Ensures a newly connected Google account has its existing prospect conversations ingested without waiting for the hourly cron tick or manual sync click.
+- **Automated Live Background Polling (`app/inbox/[brand]/inbox-client.tsx`):**
+  - Added a 60-second periodic background refresh interval in `<InboxClient />` with clean teardown on unmount.
+  - Automatically surfaces inbound prospect replies and cadence dispatch events while the tab remains open.
+
 ## 2.4.293
 
 ### Inbox & Communication: End-to-end integration with self-service Gmail sync, deep-linking, ActivityPanel navigation, and RFC 2822 header preservation (issue #257)

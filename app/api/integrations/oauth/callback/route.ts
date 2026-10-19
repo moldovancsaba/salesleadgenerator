@@ -7,6 +7,7 @@ import { fetchWithRetry } from '../../../../../lib/integration-http';
 import { requireBrandAccessSession } from '../../../../../lib/require-brand-session';
 import { resolveBrand } from '../../../../lib/brand';
 import { syncUserGmailSignature } from '../../../../../lib/gmail-signature';
+import { pollUserGmail } from '../../../../lib/gmail-sync-store';
 
 const OAUTH_STATE_COOKIE = 'integ_oauth_state';
 const OAUTH_VERIFIER_COOKIE = 'integ_oauth_verifier';
@@ -191,8 +192,9 @@ export async function GET(request: NextRequest) {
     if (provider === 'gmail' && isUserScope) {
       try {
         await syncUserGmailSignature(db, claimsOrResponse.sub, userEmailResolved);
+        await pollUserGmail(db, claimsOrResponse.sub, brand).catch(() => {});
       } catch (sigErr) {
-        console.error('[api/integrations/oauth/callback] auto signature sync failed:', sigErr);
+        console.error('[api/integrations/oauth/callback] auto signature/gmail sync failed:', sigErr);
       }
     }
 

@@ -110,6 +110,7 @@ describe('buildActivityLogDoc (issue 141)', () => {
     expect(doc.bodyExcerpt).toBe('Thanks for reaching out!');
     expect(doc.source).toBe('inbound-webhook');
     expect(doc.externalId).toBe('email-123');
+    expect(doc.rfcMessageId).toBe('<111@example.com>');
     expect(doc.matchedContactKey).toBeNull();
     expect(doc.createdAt).toBe(now);
   });

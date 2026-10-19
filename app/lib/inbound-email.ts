@@ -125,6 +125,7 @@ export function buildActivityLogDoc(
     matchedContactKey: null,
     source: 'inbound-webhook',
     externalId: event.emailId,
+    rfcMessageId: event.messageId,
     // Issue #216's own Gmail-sync cross-source dedup guard needs a
     // content-derived fallback hash on THIS path's writes too, or it has
     // nothing to match against — a small, additive extension to this
