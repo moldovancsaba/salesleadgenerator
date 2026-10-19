@@ -1,5 +1,28 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.301
+
+### GDS & CRM: Phase 3 Systemic GDS Component Adoption Across Settings, Modals, Accounts, Table, and Admin (issue #264)
+
+- **Complete Elimination of Legacy Mantine Badges (100% across codebase):**
+  - Migrated remaining cards & inbox badges: Kanban card commercial metrics, deals, and tag lists (`app/card.tsx`), inbox unread/needs-reply counts and message metadata badges (`app/inbox/[brand]/inbox-client.tsx`).
+  - Migrated Kanban WIP limit indicators (`app/kanban.tsx`) to canonical GDS `StatusBadge status="warning"`.
+  - Migrated Sales & Forecast headers (`app/sales/[brand]/sales-page-client.tsx`, `app/forecast/[brand]/forecast-client.tsx`) to GDS `CountBadge` and `LabelTag`.
+  - Migrated Battlecards (`app/battlecards/[brand]/battlecards-client.tsx`) header counter and competitor tags to `CountBadge` and `LabelTag`.
+  - Migrated Search Learning (`app/search-learning.tsx`) top terms to GDS `LabelTag` and error container to GDS `InlineAlert severity="error"`.
+  - Migrated Offline Shell (`app/offline/page.tsx`) to GDS `StatusBadge status="warning" withIcon`.
+  - Migrated entire Admin module (`app/admin/*`): Clients, Products, API Keys, Users, Teams, Prompts, Duplicates to canonical GDS `CountBadge`, `LabelTag`, and `StatusBadge`.
+- **Sales Settings & Integrations (`app/salessettings/*`):**
+  - Replaced header and tab badges with GDS `LabelTag`, `StatusBadge`, and `CountBadge`.
+  - Replaced raw alerts with GDS `InlineAlert`.
+  - Tokenized card and paper borders to `--gds-border-card` and surfaces to `--gds-bg-card` / `--gds-bg-surface`.
+- **Modals & Overlays:**
+  - Standardized `UserSettingsModal`, `LeadExportModal`, `LeadImportModal`, `GoogleContactsWorkspaceModal`, `DocumentLibraryPickerModal`, `MergeConflictModal`, `PipelineManagerModal`, and `ReportTemplateModal` on GDS `LabelTag`, `CountBadge`, `StatusBadge`, and `InlineAlert`.
+- **Accounts, Table, Outreach, Documents, and Reports:**
+  - Standardized accounts client, table view, cadences, templates, documents, and reports on canonical GDS primitives with strict tokenization.
+- **Nav & Chrome (`app/components/AppNav.tsx`):**
+  - Replaced unread inbox indicator with GDS `CountBadge`.
+
 ## 2.4.300
 
 ### GDS & CRM: Phase 2 Systemic GDS Component Adoption Across Today Workbench, ActivityPanel, LeadDetail, and Contacts Client (issue #263)

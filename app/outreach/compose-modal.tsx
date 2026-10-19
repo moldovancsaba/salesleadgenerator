@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title, TagsInput, Pill, Badge, Tooltip, ActionIcon } from '@mantine/core';
+import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title, TagsInput, Pill, Tooltip, ActionIcon } from '@mantine/core';
 import { IconX, IconPaperclip } from '@tabler/icons-react';
-import { SectionPanel } from '@sovereignsquad/gds-core/client';
+import { SectionPanel, StatusBadge, LabelTag } from '@sovereignsquad/gds-core/client';
 import { evaluateOutreachRouting } from '../lib/outreach/routing-rules';
 import { getDecisionMakerContact } from '../../lib/contacts';
 import { buildPersonalizationContext } from '../../lib/template-personalization';
@@ -488,7 +488,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
                     {bc.tags && bc.tags.length > 0 && (
                       <Group gap={4}>
                         {bc.tags.map((tag) => (
-                          <Badge key={tag} variant="light" size="xs" color="gray">{tag}</Badge>
+                          <LabelTag key={tag} tone="neutral" size="xs" label={tag} />
                         ))}
                       </Group>
                     )}
@@ -629,24 +629,18 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
             {attachedDocs.length > 0 ? (
               <Group gap={6} wrap="wrap">
                 {attachedDocs.map((doc) => (
-                  <Badge
-                    key={doc.id}
-                    variant="outline"
-                    color="indigo"
-                    rightSection={
-                      <ActionIcon
-                        size="xs"
-                        color="indigo"
-                        variant="transparent"
-                        onClick={() => setAttachedDocs((prev) => prev.filter((d) => d.id !== doc.id))}
-                        aria-label={`Remove ${doc.displayName}`}
-                      >
-                        <IconX size={10} />
-                      </ActionIcon>
-                    }
-                  >
-                    {doc.displayName} ({formatFileSize(doc.sizeBytes)})
-                  </Badge>
+                  <Group key={doc.id} gap={4} wrap="nowrap" style={{ border: '1px solid var(--gds-border-card, var(--mantine-color-gray-3))', borderRadius: 4, padding: '2px 6px' }}>
+                    <LabelTag tone="info" size="xs" label={`${doc.displayName} (${formatFileSize(doc.sizeBytes)})`} />
+                    <ActionIcon
+                      size="xs"
+                      color="gray"
+                      variant="subtle"
+                      onClick={() => setAttachedDocs((prev) => prev.filter((d) => d.id !== doc.id))}
+                      aria-label={`Remove ${doc.displayName}`}
+                    >
+                      <IconX size={10} />
+                    </ActionIcon>
+                  </Group>
                 ))}
               </Group>
             ) : (
@@ -684,15 +678,15 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
                   w={230}
                 />
               ) : (
-                <Badge color="teal" variant="light" size="sm">
+                <StatusBadge status="success" size="xs">
                   Gmail Connected: {senderInfo.email || 'Personal Gmail'}
-                </Badge>
+                </StatusBadge>
               )
             ) : (
               <>
-                <Badge color="gray" variant="light" size="sm">
+                <StatusBadge status="neutral" size="xs">
                   Sending via: System Email (Resend)
-                </Badge>
+                </StatusBadge>
                 <Button
                   size="compact-xs"
                   variant="light"

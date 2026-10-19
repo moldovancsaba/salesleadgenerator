@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ActionIcon, Avatar, Badge, Box, Button, Group, Stack, Text } from '@mantine/core';
-import { StatusBadge, LabelTag } from '@sovereignsquad/gds-core/client';
+import { ActionIcon, Avatar, Box, Button, Group, Stack, Text } from '@mantine/core';
+import { StatusBadge, LabelTag, CountBadge } from '@sovereignsquad/gds-core/client';
 import { IconChevronDown, IconChevronUp, IconUser, IconArrowUpRight } from '@tabler/icons-react';
 import type { Lead } from './types';
 import type { CurrencyCode } from './lib/brand';
@@ -255,25 +255,19 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
         {/* Commercial Metric & Context Attribute Badges */}
         <Group gap={5} wrap="wrap" align="center">
           {hasDeals ? (
-            <Badge
-              variant="filled"
-              color="grape"
+            <LabelTag
+              tone="info"
               size="sm"
-              fw={700}
+              label={formatCompactCurrency(dealsTotal, dealCurrency)}
               aria-label={`Deal value: ${formatCompactCurrency(dealsTotal, dealCurrency)}`}
-            >
-              {formatCompactCurrency(dealsTotal, dealCurrency)}
-            </Badge>
+            />
           ) : ticketSizeLabel !== '—' && (
-            <Badge
-              variant="light"
-              color="teal"
+            <LabelTag
+              tone="info"
               size="sm"
-              fw={600}
+              label={ticketSizeLabel}
               aria-label={`Ticket size estimate: ${ticketSizeLabel}`}
-            >
-              {ticketSizeLabel}
-            </Badge>
+            />
           )}
 
           {region && region !== 'NA' && (
@@ -401,10 +395,12 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
             {(lead.tags?.length ?? 0) > 0 && (
               <Group gap={4} wrap="wrap" role="list" aria-label="Tags" mt={2}>
                 {lead.tags!.slice(0, 3).map((tag) => (
-                  <Badge key={tag} variant="outline" color="gray" size="xs" role="listitem">{tag}</Badge>
+                  <Box component="span" role="listitem" key={tag}>
+                    <LabelTag tone="neutral" size="xs" label={tag} />
+                  </Box>
                 ))}
                 {lead.tags!.length > 3 && (
-                  <Badge variant="outline" color="gray" size="xs">{`+${lead.tags!.length - 3}`}</Badge>
+                  <LabelTag tone="neutral" size="xs" label={`+${lead.tags!.length - 3}`} />
                 )}
               </Group>
             )}

@@ -1,9 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Box, Title, Text, Stack, Group, Button, Select, Paper, TextInput, CopyButton, ActionIcon, Tooltip, Checkbox, Divider, Badge } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Button, Select, Paper, TextInput, CopyButton, ActionIcon, Tooltip, Checkbox, Divider } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminModal } from '@sovereignsquad/gds-admin/client'
-import { StatusBadge } from '@sovereignsquad/gds-core/client'
+import { StatusBadge, CountBadge } from '@sovereignsquad/gds-core/client'
 import { IconPlus, IconTrash, IconCopy, IconCheck, IconRefresh } from '@tabler/icons-react'
 import { useAuth } from '@/app/components/AuthProvider'
 import type { ApiKeyScope } from '@/lib/scoped-api-keys'
@@ -238,9 +238,7 @@ export function AdminApiKeysClient() {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Admin — API Keys &amp; Webhooks</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {keys.length} {keys.length === 1 ? 'key' : 'keys'}
-              </Badge>
+              <CountBadge value={keys.length} size="md" srLabel="Active API keys" />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Per-integration, per-brand scoped credentials and outbound webhook subscriptions.

@@ -4,9 +4,10 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import {
   Box, Title, Text, Button, Group, Stack, Textarea, TextInput, NumberInput,
-  Select, Checkbox, Paper, Loader, Divider, Badge, Tabs, Card, SimpleGrid,
-  Alert, Tooltip, ActionIcon, Switch, ThemeIcon,
+  Select, Checkbox, Paper, Loader, Divider, Tabs, Card, SimpleGrid,
+  Tooltip, ActionIcon, Switch, ThemeIcon,
 } from '@mantine/core'
+import { StatusBadge, LabelTag, CountBadge, InlineAlert } from '@sovereignsquad/gds-core/client'
 import {
   IconPlus, IconTrash, IconPlug, IconBuilding, IconUsers, IconShoppingCart,
   IconPackage, IconCoins, IconTimeline, IconTarget,
@@ -354,13 +355,11 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
                 {label} — Sales & Company Settings
               </Title>
-              <Badge variant="light" color="indigo" size="md">
-                {settings.companyName || label}
-              </Badge>
+              <LabelTag tone="info" size="xs" label={settings.companyName || label} />
               {isDirty && (
-                <Badge variant="filled" color="orange" size="sm">
+                <StatusBadge status="warning" size="xs">
                   Unsaved changes
-                </Badge>
+                </StatusBadge>
               )}
             </Group>
             <Text size="xs" c="dimmed" mt={3}>
@@ -402,9 +401,7 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
         </Group>
 
         {error && (
-          <Alert color="red" title="Error" icon={<IconInfoCircle size={16} />} withCloseButton onClose={() => setError(null)}>
-            {error}
-          </Alert>
+          <InlineAlert severity="error" title="Settings Error" message={error} />
         )}
 
         {/* Modern Tabs Navigation */}
@@ -412,11 +409,11 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
           <Tabs.List mb="md">
             <Tabs.Tab value="overview" leftSection={<IconBuilding size={16} />}>
               Company & Team
-              {assignedCount > 0 && <Badge size="xs" variant="light" color="blue" ml={6}>{assignedCount}</Badge>}
+              {assignedCount > 0 && <CountBadge value={assignedCount} size="xs" ml={6} />}
             </Tabs.Tab>
             <Tabs.Tab value="products" leftSection={<IconPackage size={16} />}>
               Products & Pricing
-              {productCount > 0 && <Badge size="xs" variant="light" color="teal" ml={6}>{productCount}</Badge>}
+              {productCount > 0 && <CountBadge value={productCount} size="xs" ml={6} />}
             </Tabs.Tab>
             <Tabs.Tab value="deals" leftSection={<IconCoins size={16} />}>
               Deal Sizing & Regions
@@ -576,7 +573,7 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
                                       {user.name || 'Unnamed User'}
                                     </Text>
                                     {isDefaultOwner && (
-                                      <Badge size="xs" color="teal" variant="filled">Default Owner</Badge>
+                                      <StatusBadge status="success" size="xs">Default Owner</StatusBadge>
                                     )}
                                   </Group>
                                   <Text size="xs" c="dimmed" truncate>
@@ -604,14 +601,16 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
           <Tabs.Panel value="products">
             <Stack gap="md">
               {/* Product Catalog Status Banner */}
-              <Paper withBorder p="md" radius="md" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
+              <Paper withBorder p="md" radius="md" style={{ backgroundColor: 'var(--gds-bg-surface, var(--mantine-color-gray-0))' }}>
                 <Group justify="space-between" align="center" wrap="wrap" gap="sm">
                   <div>
                     <Group gap="xs" align="center">
                       <Title order={4}>Product Catalog Synchronization</Title>
-                      <Badge variant="light" color="indigo">
-                        {catalogProducts.length} active catalog {catalogProducts.length === 1 ? 'product' : 'products'}
-                      </Badge>
+                      <CountBadge
+                        value={catalogProducts.length}
+                        size="md"
+                        srLabel="Active catalog products"
+                      />
                     </Group>
                     <Text size="xs" c="dimmed" mt={2}>
                       Sync real offerings from the centralized Product Catalog into this brand&apos;s estimation models to keep sales pitches and ticket sizing aligned.
@@ -644,9 +643,12 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
                 {catalogProducts.length > 0 && (
                   <Group gap="xs" mt="sm">
                     {catalogProducts.map((cp) => (
-                      <Badge key={cp.id} variant="outline" color="blue" size="sm">
-                        {cp.name} ({cp.unitPrice} {cp.currency} / {cp.pricingModel.replace('_', ' ')})
-                      </Badge>
+                      <LabelTag
+                        key={cp.id}
+                        tone="info"
+                        size="xs"
+                        label={`${cp.name} (${cp.unitPrice} ${cp.currency} / ${cp.pricingModel.replace('_', ' ')})`}
+                      />
                     ))}
                   </Group>
                 )}
@@ -681,11 +683,11 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
                           <Stack gap="sm">
                             <Group justify="space-between">
                               <Group gap="xs">
-                                <Badge variant="light" color="indigo">Offering {idx + 1}</Badge>
+                                <LabelTag tone="neutral" size="xs" label={`Offering ${idx + 1}`} />
                                 {matchesCatalog ? (
-                                  <Badge variant="light" color="teal">In Catalog</Badge>
+                                  <StatusBadge status="success" size="xs">In Catalog</StatusBadge>
                                 ) : (
-                                  <Badge variant="subtle" color="gray">Custom</Badge>
+                                  <LabelTag tone="neutral" size="xs" label="Custom" />
                                 )}
                               </Group>
                               <ActionIcon color="red" variant="subtle" size="sm" onClick={() => removeProduct(product.id)} aria-label="Remove offering">

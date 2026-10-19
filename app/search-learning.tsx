@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Stack, Text, Title, Loader, Alert, Badge, SimpleGrid, Group } from "@mantine/core";
-import { IconAlertCircle } from "@tabler/icons-react";
+import { Stack, Text, Title, Loader, SimpleGrid, Group } from "@mantine/core";
+import { LabelTag, InlineAlert } from "@sovereignsquad/gds-core/client";
 import { AdminResourceCard, InfoCard } from "@sovereignsquad/gds-admin/client";
 
 interface TopQuery {
@@ -73,13 +73,11 @@ export function SearchLearningPanel() {
 
   if (error) {
     return (
-      <Alert
-        icon={<IconAlertCircle size="1rem" />}
+      <InlineAlert
+        severity="error"
         title="Error Loading Search Learning Data"
-        color="red"
-      >
-        {error}
-      </Alert>
+        message={error}
+      />
     );
   }
 
@@ -141,15 +139,23 @@ export function SearchLearningPanel() {
           <Title order={3}>Top Terms</Title>
           <Group gap="xs" wrap="wrap">
             {data.topTerms.slice(0, 20).map((term, index) => {
-              const color = term.score >= 0.7 ? 'green' : term.score >= 0.4 ? 'orange' : 'gray';
+              const tone: 'success' | 'warning' | 'neutral' =
+                term.score >= 0.7 ? 'success' : term.score >= 0.4 ? 'warning' : 'neutral';
 
               return (
-                <Badge key={index} color={color} variant="light" size="md">
-                  {term.key}
-                  <Text component="span" size="xs" ml={4} opacity={0.75}>
-                    ({Math.round(term.score * 100)})
-                  </Text>
-                </Badge>
+                <LabelTag
+                  key={index}
+                  tone={tone}
+                  size="md"
+                  label={
+                    <>
+                      {term.key}{' '}
+                      <Text component="span" size="xs" opacity={0.75}>
+                        ({Math.round(term.score * 100)})
+                      </Text>
+                    </>
+                  }
+                />
               );
             })}
           </Group>

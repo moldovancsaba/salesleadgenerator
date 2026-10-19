@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Box, Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Select, Switch, Paper, Badge } from '@mantine/core'
+import { Box, Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Select, Switch, Paper } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { AdminTextInput, AdminDataTable, AdminFormStatus } from '@sovereignsquad/gds-admin/client'
+import { StatusBadge, CountBadge } from '@sovereignsquad/gds-core/client'
 import type { Brand } from '@/app/lib/brand'
 import type { AutomationTriggerType, AutomationActionType } from '@/lib/automation-rules'
 
@@ -205,9 +206,11 @@ export function AutomationClient({ brand, label }: Props) {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Automation Rules</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {rules.length} {rules.length === 1 ? 'rule' : 'rules'}
-              </Badge>
+              <CountBadge
+                value={rules.length}
+                size="md"
+                srLabel="Total automation rules"
+              />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Trigger→action rules for <Text span fw={600}>{label}</Text> — when X happens on a lead, do Y.
@@ -350,9 +353,9 @@ export function AutomationClient({ brand, label }: Props) {
                 header: 'Status',
                 width: 140,
                 accessor: (row) => (
-                  <Badge color={row.enabled ? 'red' : 'gray'} variant="light">
+                  <StatusBadge status={row.enabled ? 'success' : 'neutral'} size="xs">
                     {row.enabled ? 'Enabled' : 'Disabled'}
-                  </Badge>
+                  </StatusBadge>
                 ),
               },
               {

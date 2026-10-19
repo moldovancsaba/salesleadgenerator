@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import {
   Box, Title, Text, Button, Group, Stack, Textarea,
-  Paper, Loader, Divider, Tabs, Alert, TextInput, Switch, Badge,
+  Paper, Loader, Divider, Tabs, Alert, TextInput, Switch,
 } from '@mantine/core'
+import { LabelTag } from '@sovereignsquad/gds-core/client'
 import { IconCheck } from '@tabler/icons-react'
 import type { Brand } from '@/app/lib/brand'
 
@@ -115,9 +116,7 @@ export function PromptEditorClient({ brand, label }: { brand: Brand; label: stri
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Prompt Editor — {label}</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {brand}
-              </Badge>
+              <LabelTag tone="info" size="md" label={brand} />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Customize discovery and enrichment system prompts for {label}.

@@ -10,9 +10,9 @@ import {
   Button,
   Radio,
   Paper,
-  Badge,
   Divider,
 } from '@mantine/core';
+import { LabelTag } from '@sovereignsquad/gds-core/client';
 import {
   IconDownload,
   IconCopy,
@@ -188,9 +188,7 @@ export function LeadExportModal({
               >
                 <Group justify="space-between" align="center">
                   <Radio value="google_sheets" label="Google Sheets / Universal CSV" />
-                  <Badge color="green" variant="light" size="sm">
-                    Recommended for Spreadsheets
-                  </Badge>
+                  <LabelTag tone="success" size="xs" label="Recommended for Spreadsheets" />
                 </Group>
                 <Text size="xs" c="dimmed" mt={4} pl={28}>
                   {CRM_PRESETS.google_sheets.description}
@@ -209,9 +207,7 @@ export function LeadExportModal({
               >
                 <Group justify="space-between" align="center">
                   <Radio value="hubspot" label="HubSpot CRM" />
-                  <Badge color="orange" variant="light" size="sm">
-                    HubSpot Schema
-                  </Badge>
+                  <LabelTag tone="warning" size="xs" label="HubSpot Schema" />
                 </Group>
                 <Text size="xs" c="dimmed" mt={4} pl={28}>
                   {CRM_PRESETS.hubspot.description}
@@ -230,9 +226,7 @@ export function LeadExportModal({
               >
                 <Group justify="space-between" align="center">
                   <Radio value="salesforce" label="Salesforce Sales Cloud" />
-                  <Badge color="blue" variant="light" size="sm">
-                    Salesforce Lead Schema
-                  </Badge>
+                  <LabelTag tone="info" size="xs" label="Salesforce Lead Schema" />
                 </Group>
                 <Text size="xs" c="dimmed" mt={4} pl={28}>
                   {CRM_PRESETS.salesforce.description}
@@ -251,9 +245,7 @@ export function LeadExportModal({
               >
                 <Group justify="space-between" align="center">
                   <Radio value="pipedrive" label="Pipedrive CRM" />
-                  <Badge color="teal" variant="light" size="sm">
-                    Pipedrive Deals Schema
-                  </Badge>
+                  <LabelTag tone="info" size="xs" label="Pipedrive Deals Schema" />
                 </Group>
                 <Text size="xs" c="dimmed" mt={4} pl={28}>
                   {CRM_PRESETS.pipedrive.description}

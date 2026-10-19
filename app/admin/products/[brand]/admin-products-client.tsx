@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Box, Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Textarea, Select, Switch, Loader, Badge } from '@mantine/core'
+import { Box, Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Textarea, Select, Switch, Loader } from '@mantine/core'
+import { CountBadge, StatusBadge } from '@sovereignsquad/gds-core/client'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminModal } from '@sovereignsquad/gds-admin/client'
 import { IconPlus } from '@tabler/icons-react'
 import { CURRENCY_CODE_OPTIONS, type CurrencyCode } from '@/app/lib/brand-constants'
@@ -167,9 +168,7 @@ export function AdminProductsClient({ brand, label, defaultCurrency }: Props) {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Product Catalog</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {products.length} {products.length === 1 ? 'product' : 'products'}
-              </Badge>
+              <CountBadge value={products.length} size="md" srLabel="Product count" />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Priced, reusable line items for <Text span fw={600}>{label}</Text> deals.
@@ -198,7 +197,7 @@ export function AdminProductsClient({ brand, label, defaultCurrency }: Props) {
                 accessor: (row) => (
                   <Group gap={6} wrap="nowrap">
                     <Text fw={600} c="indigo" size="sm" style={{ cursor: 'pointer' }} onClick={() => openEdit(row)}>{row.name}</Text>
-                    {!row.active && <Badge size="xs" color="gray" variant="light">Inactive</Badge>}
+                    {!row.active && <StatusBadge status="neutral" size="xs">Inactive</StatusBadge>}
                   </Group>
                 ),
               },

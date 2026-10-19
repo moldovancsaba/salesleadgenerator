@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Box, Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput, TagsInput, Badge, Pill } from '@mantine/core'
+import { useState, useEffect, useCallback } from 'react'
+import { Box, Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput, TagsInput, Pill } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
+import { CountBadge, LabelTag } from '@sovereignsquad/gds-core/client'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import type { Brand } from '@/app/lib/brand'
 
@@ -173,9 +174,11 @@ export function OutreachTemplatesClient({ brand, label }: Props) {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Outreach Templates</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {templates.length} {templates.length === 1 ? 'template' : 'templates'}
-              </Badge>
+              <CountBadge
+                value={templates.length}
+                size="md"
+                srLabel="Total outreach templates"
+              />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Manage brand-specific templates for <Text span fw={600}>{label}</Text>, filtered by country and channel.
@@ -293,7 +296,7 @@ export function OutreachTemplatesClient({ brand, label }: Props) {
                     {template.tags && template.tags.length > 0 && (
                       <Group gap={4}>
                         {template.tags.map((tag) => (
-                          <Badge key={tag} variant="light" size="xs" color="gray">{tag}</Badge>
+                          <LabelTag key={tag} tone="neutral" size="xs" label={tag} />
                         ))}
                       </Group>
                     )}

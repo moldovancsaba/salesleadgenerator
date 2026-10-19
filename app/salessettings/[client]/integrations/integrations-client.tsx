@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Box, Title, Text, Stack, Group, Button, TextInput, Badge } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Button, TextInput } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminModal } from '@sovereignsquad/gds-admin/client'
-import { StatusBadge } from '@sovereignsquad/gds-core/client'
+import { StatusBadge, CountBadge } from '@sovereignsquad/gds-core/client'
 import {
   ALL_PROVIDERS, isOAuthProvider, PROVIDER_LABELS, type IntegrationProvider,
 } from '@/lib/integration-connections'
@@ -177,9 +177,11 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>{label} — Integrations</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {connections.filter((c) => c.status === 'active').length} connected
-              </Badge>
+              <CountBadge
+                value={connections.filter((c) => c.status === 'active').length}
+                size="md"
+                srLabel="Connected integrations"
+              />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Connect this brand to Google Calendar, Gmail, Google Contacts, and Calendly.

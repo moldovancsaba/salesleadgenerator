@@ -8,12 +8,12 @@ import {
   Text,
   TextInput,
   Button,
-  Badge,
   Paper,
   Loader,
   ActionIcon,
   Tooltip,
 } from '@mantine/core';
+import { LabelTag } from '@sovereignsquad/gds-core/client';
 import {
   IconSearch,
   IconFile,
@@ -150,9 +150,7 @@ export function DocumentLibraryPickerModal({
                       <Group gap={6} mt={2}>
                         <Text size="xs" c="dimmed">{formatFileSize(doc.sizeBytes)}</Text>
                         <Text size="xs" c="dimmed">·</Text>
-                        <Badge size="xs" variant="light" color="gray">
-                          {doc.mimeType.split('/')[1] || doc.mimeType}
-                        </Badge>
+                        <LabelTag tone="neutral" size="xs" label={doc.mimeType.split('/')[1] || doc.mimeType} />
                       </Group>
                     </div>
                   </Group>

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
-import { Box, Group, Loader, Button, Checkbox, Text, Select, TextInput, Badge } from '@mantine/core';
+import { Box, Group, Loader, Button, Checkbox, Text, Select, TextInput } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
-import { KanbanBoard as GdsKanbanBoard } from '@sovereignsquad/gds-core/client';
+import { KanbanBoard as GdsKanbanBoard, StatusBadge } from '@sovereignsquad/gds-core/client';
 import type { KanbanItem as GdsKanbanItem, KanbanColumnData as GdsKanbanColumnData } from '@sovereignsquad/gds-core/client';
 import type { Lead, KanbanColumn } from './types';
 import type { CurrencyCode } from './lib/brand';
@@ -701,9 +701,13 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     const title = overWipLimit ? (
       <Group gap={6} wrap="wrap" style={{ minWidth: 0, flex: 1 }}>
         <Text component="span" size="sm" fw={600} truncate>{plainTitle}</Text>
-        <Badge color="yellow" variant="light" size="xs" aria-label={`${colState.count || 0} leads, over the configured limit of ${wipThreshold}`}>
+        <StatusBadge
+          status="warning"
+          size="xs"
+          aria-label={`${colState.count || 0} leads, over the configured limit of ${wipThreshold}`}
+        >
           {colState.count || 0}/{wipThreshold}
-        </Badge>
+        </StatusBadge>
       </Group>
     ) : plainTitle
 

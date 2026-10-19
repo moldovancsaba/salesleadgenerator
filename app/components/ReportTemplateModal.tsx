@@ -1,6 +1,7 @@
 'use client';
 
-import { Modal, Stack, Group, Title, Text, Button, Paper, Badge, Divider, SimpleGrid } from '@mantine/core';
+import { Modal, Stack, Group, Title, Text, Button, Paper, Divider, SimpleGrid } from '@mantine/core';
+import { LabelTag } from '@sovereignsquad/gds-core/client';
 import { IconSparkles, IconChartBar, IconTable, IconArrowRight, IconLayersLinked } from '@tabler/icons-react';
 import { REPORT_TEMPLATES, type ReportTemplate } from '@/lib/report-templates';
 import { METRIC_OPTIONS, GROUP_BY_OPTIONS } from '@/lib/report-pipeline';
@@ -77,9 +78,11 @@ export function ReportTemplateModal({ opened, onClose, onSelectTemplate, onSeedS
                           <Text size="sm" fw={600}>
                             {tmpl.name}
                           </Text>
-                          <Badge size="xs" variant="light" color={tmpl.chartType === 'table' ? 'gray' : 'blue'}>
-                            {tmpl.chartType === 'table' ? 'Table' : tmpl.chartType === 'line' ? 'Line' : 'Bar'}
-                          </Badge>
+                          <LabelTag
+                            size="xs"
+                            tone={tmpl.chartType === 'table' ? 'neutral' : 'info'}
+                            label={tmpl.chartType === 'table' ? 'Table' : tmpl.chartType === 'line' ? 'Line' : 'Bar'}
+                          />
                         </Group>
 
                         <Text size="xs" c="dimmed" style={{ minHeight: 40 }}>
@@ -87,17 +90,23 @@ export function ReportTemplateModal({ opened, onClose, onSelectTemplate, onSeedS
                         </Text>
 
                         <Group gap={6} wrap="wrap">
-                          <Badge size="xs" variant="outline" color="indigo">
-                            Metric: {getMetricLabel(tmpl.metric)}
-                          </Badge>
+                          <LabelTag
+                            size="xs"
+                            tone="info"
+                            label={`Metric: ${getMetricLabel(tmpl.metric)}`}
+                          />
                           {tmpl.groupBy.length > 0 ? (
-                            <Badge size="xs" variant="outline" color="teal">
-                              By: {tmpl.groupBy.map(getGroupByLabel).join(' + ')}
-                            </Badge>
+                            <LabelTag
+                              size="xs"
+                              tone="success"
+                              label={`By: ${tmpl.groupBy.map(getGroupByLabel).join(' + ')}`}
+                            />
                           ) : (
-                            <Badge size="xs" variant="outline" color="gray">
-                              Total aggregate
-                            </Badge>
+                            <LabelTag
+                              size="xs"
+                              tone="neutral"
+                              label="Total aggregate"
+                            />
                           )}
                         </Group>
                       </Stack>

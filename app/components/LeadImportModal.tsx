@@ -12,12 +12,11 @@ import {
   Textarea,
   FileInput,
   Paper,
-  Badge,
   Table,
   Divider,
-  Alert,
   Loader,
 } from '@mantine/core';
+import { LabelTag, CountBadge, InlineAlert } from '@sovereignsquad/gds-core/client';
 import {
   IconUpload,
   IconCheck,
@@ -229,12 +228,16 @@ export function LeadImportModal({
                 <Text size="sm" fw={600}>
                   Parsed Data Preview
                 </Text>
-                <Badge color="indigo" variant="light">
-                  Source: {CRM_PRESETS[importResult.preset]?.label || importResult.preset}
-                </Badge>
-                <Badge color="teal" variant="light">
-                  {importResult.validLeads.length} valid lead{importResult.validLeads.length === 1 ? '' : 's'}
-                </Badge>
+                <LabelTag
+                  tone="info"
+                  size="xs"
+                  label={`Source: ${CRM_PRESETS[importResult.preset]?.label || importResult.preset}`}
+                />
+                <CountBadge
+                  value={importResult.validLeads.length}
+                  size="md"
+                  srLabel="Valid leads"
+                />
               </Group>
 
               <Select
@@ -252,9 +255,7 @@ export function LeadImportModal({
             </Group>
 
             {importResult.warnings.length > 0 && (
-              <Alert icon={<IconAlertCircle size={16} />} color="yellow" variant="light" p="xs">
-                {importResult.warnings.join(' ')}
-              </Alert>
+              <InlineAlert severity="warning" title="Import Warnings" message={importResult.warnings.join(' ')} />
             )}
 
             <Paper withBorder radius="sm" style={{ maxHeight: 240, overflowY: 'auto' }}>
@@ -287,9 +288,7 @@ export function LeadImportModal({
                         )}
                       </Table.Td>
                       <Table.Td>
-                        <Badge size="xs" color="gray" variant="light">
-                          {row.mapped.kanbanColumn}
-                        </Badge>
+                        <LabelTag tone="neutral" size="xs" label={row.mapped.kanbanColumn} />
                       </Table.Td>
                     </Table.Tr>
                   ))}

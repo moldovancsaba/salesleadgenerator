@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Box, Title, Text, Stack, Group, Button, TextInput, MultiSelect, Select, Paper, Badge } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Button, TextInput, MultiSelect, Select, Paper } from '@mantine/core'
+import { CountBadge } from '@sovereignsquad/gds-core/client'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { useAuth } from '@/app/components/AuthProvider'
@@ -165,9 +166,7 @@ export function AdminTeamsClient() {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Admin — Teams</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {teams.length} {teams.length === 1 ? 'team' : 'teams'}
-              </Badge>
+              <CountBadge value={teams.length} size="md" srLabel="Teams count" />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Group users within a brand and designate managers for pipeline visibility.

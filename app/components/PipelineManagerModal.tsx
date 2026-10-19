@@ -10,12 +10,12 @@ import {
   Button,
   TextInput,
   Select,
-  Badge,
   Paper,
   Divider,
   Tooltip,
   ActionIcon,
 } from '@mantine/core';
+import { CountBadge, LabelTag } from '@sovereignsquad/gds-core/client';
 import { showNotification } from '@mantine/notifications';
 import {
   IconPlus,
@@ -432,9 +432,7 @@ export function PipelineManagerModal({
               {createStages.map((stage, idx) => (
                 <Paper key={idx} withBorder p="xs" radius="sm">
                   <Group gap="xs" wrap="nowrap" align="center">
-                    <Badge size="sm" variant="light" color={stage.color}>
-                      {idx + 1}
-                    </Badge>
+                    <CountBadge size="sm" value={idx + 1} />
                     <TextInput
                       size="xs"
                       style={{ flex: 1 }}
@@ -607,9 +605,7 @@ export function PipelineManagerModal({
               {editStages.map((stage, idx) => (
                 <Paper key={stage.id || stage.key} withBorder p="xs" radius="sm">
                   <Group gap="xs" wrap="nowrap" align="center">
-                    <Badge size="sm" variant="light" color={stage.color || 'gray'}>
-                      {idx + 1}
-                    </Badge>
+                    <CountBadge size="sm" value={idx + 1} />
                     <TextInput
                       size="xs"
                       value={stage.label}
@@ -617,9 +613,7 @@ export function PipelineManagerModal({
                       style={{ flex: 1 }}
                       aria-label={`Stage ${idx + 1} label`}
                     />
-                    <Badge size="xs" variant="outline" color="gray">
-                      {stage.key}
-                    </Badge>
+                    <LabelTag size="xs" tone="neutral" label={stage.key} />
                     <Select
                       size="xs"
                       data={STAGE_COLOR_OPTIONS}

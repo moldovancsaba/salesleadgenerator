@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Box, Title, Text, Stack, Group, Badge, Select } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Select } from '@mantine/core'
+import { CountBadge, LabelTag } from '@sovereignsquad/gds-core/client'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { useAuth } from '@/app/components/AuthProvider'
 
@@ -89,9 +90,7 @@ export function AdminUsersClient() {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Admin — Users &amp; Organization Access</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {users.length} {users.length === 1 ? 'user' : 'users'}
-              </Badge>
+              <CountBadge value={users.length} size="md" srLabel="User accounts count" />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Every person who has signed in via SSO and their organization access grants.
@@ -129,7 +128,7 @@ export function AdminUsersClient() {
                 key: 'superAdmin',
                 header: 'Super Admin',
                 width: 140,
-                accessor: (row) => (row.isSuperAdmin ? <Badge color="grape" variant="light">Super Admin</Badge> : '—'),
+                accessor: (row) => (row.isSuperAdmin ? <LabelTag tone="info" size="xs" label="Super Admin" /> : '—'),
               },
               ...brandKeys.map((brandKey) => ({
                 key: brandKey,

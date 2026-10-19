@@ -11,7 +11,6 @@ import {
   Progress,
   Loader,
   Alert,
-  Badge,
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { InfoCard, StatsStrip, AdminAnalyticsTable, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client';

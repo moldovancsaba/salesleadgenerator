@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Container, Title, Text, Group, Stack, Badge, Loader, SimpleGrid, UnstyledButton, Button, Box, TextInput, ActionIcon, Paper } from '@mantine/core'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { Container, Title, Text, Group, Stack, Loader, SimpleGrid, UnstyledButton, Button, Box, TextInput, ActionIcon, Paper } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminDetailDrawer, AdminModal, InfoCard, type AdminDataTableSort } from '@sovereignsquad/gds-admin/client'
+import { StatusBadge, LabelTag, CountBadge } from '@sovereignsquad/gds-core/client'
 import { IconSearch, IconX, IconDownload } from '@tabler/icons-react'
 import Link from 'next/link'
 import type { Brand } from '@/app/lib/brand'
@@ -163,7 +164,7 @@ export function AccountsClient({ brand, label, currency }: Props) {
       {detail.relationshipCodes.length > 0 && (
         <Group gap={6}>
           {detail.relationshipCodes.map((code) => (
-            <Badge key={code} color={RELATIONSHIP_BADGE_COLOR[code] ?? 'gray'} variant="light">{code}</Badge>
+            <LabelTag key={code} tone="info" size="xs" label={code} />
           ))}
         </Group>
       )}
@@ -204,36 +205,36 @@ export function AccountsClient({ brand, label, currency }: Props) {
       <Box mt="xs">
         <Group justify="space-between" align="center" mb="xs">
           <Text size="xs" fw={700} c="dimmed" tt="uppercase">Account Activity Timeline</Text>
-          <Badge size="xs" variant="light" color="indigo">{detail.activities?.length || 0} events</Badge>
+          <CountBadge value={detail.activities?.length || 0} size="xs" srLabel="Activity events" />
         </Group>
         {!detail.activities || detail.activities.length === 0 ? (
           <Text size="xs" c="dimmed">No activity recorded across this account&apos;s leads yet.</Text>
         ) : (
           <Stack gap="xs">
             {detail.activities.map((act) => (
-              <Box key={act.id} p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 6 }}>
+              <Box key={act.id} p="xs" style={{ border: '1px solid var(--gds-border-card, var(--mantine-color-gray-3))', borderRadius: 6 }}>
                 <Group justify="space-between" gap="xs" wrap="nowrap">
                   <Group gap={4} wrap="wrap">
                     {act.leadName && (
                       <Link href={`/sales/${brand}?leadId=${encodeURIComponent(act.leadId)}`} style={{ textDecoration: 'none' }}>
-                        <Badge size="xs" variant="filled" color="dark">
-                          {act.leadName}
-                        </Badge>
+                        <LabelTag tone="neutral" size="xs" label={act.leadName} />
                       </Link>
                     )}
-                    <Badge size="xs" variant="light" color={act.type === 'call' ? 'grape' : act.type === 'meeting-scheduled' ? 'indigo' : act.type === 'note' ? 'yellow' : act.direction === 'inbound' ? 'teal' : 'blue'}>
-                      {act.type === 'call' ? 'Call' : act.type === 'meeting-scheduled' ? 'Meeting' : act.type === 'note' ? 'Note' : act.direction === 'inbound' ? 'Inbound reply' : 'Outbound email'}
-                    </Badge>
+                    <LabelTag
+                      tone={act.direction === 'inbound' ? 'success' : act.type === 'call' ? 'warning' : 'info'}
+                      size="xs"
+                      label={act.type === 'call' ? 'Call' : act.type === 'meeting-scheduled' ? 'Meeting' : act.type === 'note' ? 'Note' : act.direction === 'inbound' ? 'Inbound reply' : 'Outbound email'}
+                    />
                     {(act.dealLabel || act.dealId) && (
-                      <Badge size="xs" variant="outline" color="cyan">{act.dealLabel || `Deal ${act.dealId?.slice(0, 8)}`}</Badge>
+                      <LabelTag tone="info" size="xs" label={act.dealLabel || `Deal ${act.dealId?.slice(0, 8)}`} />
                     )}
                     {act.callDisposition && (
-                      <Badge size="xs" variant="outline" color="gray">{act.callDisposition}</Badge>
+                      <LabelTag tone="neutral" size="xs" label={act.callDisposition} />
                     )}
                     {act.emailStatus && (
-                      <Badge size="xs" variant="light" color={act.emailStatus === 'replied' ? 'teal' : act.emailStatus === 'opened' ? 'green' : 'blue'}>
+                      <StatusBadge size="xs" status={act.emailStatus === 'replied' ? 'success' : act.emailStatus === 'opened' ? 'info' : 'neutral'}>
                         {act.emailStatus}
-                      </Badge>
+                      </StatusBadge>
                     )}
                   </Group>
                   <Text size="xs" c="dimmed">{new Date(act.createdAt).toLocaleString()}</Text>
@@ -266,9 +267,11 @@ export function AccountsClient({ brand, label, currency }: Props) {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Accounts</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {filteredAccounts.length} {filteredAccounts.length === 1 ? 'account' : 'accounts'}
-              </Badge>
+              <CountBadge
+                value={filteredAccounts.length}
+                size="md"
+                srLabel="Total accounts"
+              />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Every parent organization with at least one <Text span fw={600}>{label}</Text> lead, grouped by <code>parentOrgId</code>.
@@ -354,7 +357,7 @@ export function AccountsClient({ brand, label, currency }: Props) {
                 accessor: (row) => (
                   <Group gap={4}>
                     {row.relationshipCodes.length === 0 ? '—' : row.relationshipCodes.map((code) => (
-                      <Badge key={code} size="xs" color={RELATIONSHIP_BADGE_COLOR[code] ?? 'gray'} variant="light">{code}</Badge>
+                      <LabelTag key={code} size="xs" tone="info" label={code} />
                     ))}
                   </Group>
                 ),

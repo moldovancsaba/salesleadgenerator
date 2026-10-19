@@ -8,7 +8,6 @@ import {
   Text,
   TextInput,
   Button,
-  Badge,
   Paper,
   Loader,
   Select,
@@ -17,6 +16,7 @@ import {
   Box,
   Divider,
 } from '@mantine/core';
+import { StatusBadge, LabelTag, InlineAlert } from '@sovereignsquad/gds-core/client';
 import {
   IconSearch,
   IconUserPlus,
@@ -243,7 +243,7 @@ export function GoogleContactsWorkspaceModal({
       title={
         <Group gap="xs">
           <Text fw={600} size="md">Import from Google Contacts</Text>
-          <Badge variant="light" color="indigo" size="sm">Workspace Sync</Badge>
+          <LabelTag tone="info" size="xs" label="Workspace Sync" />
         </Group>
       }
       size="lg"
@@ -284,9 +284,7 @@ export function GoogleContactsWorkspaceModal({
         </Group>
 
         {error && (
-          <Paper withBorder p="xs" radius="sm" style={{ borderColor: 'var(--mantine-color-red-6)' }}>
-            <Text size="xs" c="red">{error}</Text>
-          </Paper>
+          <InlineAlert severity="error" title="Workspace Sync Error" message={error} />
         )}
 
         {loading ? (
@@ -315,9 +313,7 @@ export function GoogleContactsWorkspaceModal({
                       <Group gap={6} align="center">
                         <Text fw={600} size="sm" truncate>{contact.name}</Text>
                         {contact.organization && (
-                          <Badge variant="outline" color="gray" size="xs" leftSection={<IconBuilding size={10} />}>
-                            {contact.organization}
-                          </Badge>
+                          <LabelTag tone="neutral" size="xs" label={contact.organization} />
                         )}
                       </Group>
                       <Group gap="xs" mt={2} wrap="wrap">
@@ -338,18 +334,16 @@ export function GoogleContactsWorkspaceModal({
 
                     <Group gap="xs" align="center" wrap="nowrap">
                       {state?.status ? (
-                        <Badge
-                          variant="light"
-                          color={state.status === 'already-exists' ? 'gray' : 'green'}
-                          size="sm"
-                          leftSection={<IconCheck size={12} />}
+                        <StatusBadge
+                          status={state.status === 'already-exists' ? 'neutral' : 'success'}
+                          size="xs"
                         >
                           {state.status === 'created'
                             ? 'Lead Created'
                             : state.status === 'already-exists'
                             ? 'Already on Lead'
                             : 'Imported'}
-                        </Badge>
+                        </StatusBadge>
                       ) : (
                         <>
                           <Select

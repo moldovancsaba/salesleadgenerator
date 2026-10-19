@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Box, Title, Text, Button, Group, Stack, Paper, TextInput, Select, MultiSelect, NumberInput, Switch, TagsInput, Loader, Badge, SegmentedControl, ActionIcon, Alert } from '@mantine/core'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Box, Title, Text, Button, Group, Stack, Paper, TextInput, Select, MultiSelect, NumberInput, Switch, TagsInput, Loader, SegmentedControl, ActionIcon } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminModal } from '@sovereignsquad/gds-admin/client'
-import { GdsBarChart, GdsLineChart } from '@sovereignsquad/gds-core/client'
+import { GdsBarChart, GdsLineChart, StatusBadge, CountBadge } from '@sovereignsquad/gds-core/client'
 import { IconPlus, IconTrash, IconPlayerPlay, IconSparkles, IconAlertTriangle } from '@tabler/icons-react'
 import type { Brand } from '@/app/lib/brand'
 import { METRIC_OPTIONS, GROUP_BY_OPTIONS, FILTER_FIELD_OPTIONS } from '@/lib/report-pipeline'
@@ -266,9 +266,11 @@ export function ReportsClient({ brand, label }: Props) {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Reports</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {reports.length} {reports.length === 1 ? 'report' : 'reports'}
-              </Badge>
+              <CountBadge
+                value={reports.length}
+                size="md"
+                srLabel="Total reports"
+              />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Build an ad-hoc report for <Text span fw={600}>{label}</Text> — pick a metric, group by, filter, and a date range.
@@ -336,7 +338,7 @@ export function ReportsClient({ brand, label }: Props) {
                 accessor: (row) => (
                   <Group gap={6} wrap="nowrap">
                     <Text fw={600} c="indigo" size="sm" style={{ cursor: 'pointer' }} onClick={() => openEdit(row)}>{row.name}</Text>
-                    {row.schedule?.enabled && <Badge size="xs" color="teal" variant="light">Scheduled</Badge>}
+                    {row.schedule?.enabled && <StatusBadge size="xs" status="success">Scheduled</StatusBadge>}
                   </Group>
                 ),
               },

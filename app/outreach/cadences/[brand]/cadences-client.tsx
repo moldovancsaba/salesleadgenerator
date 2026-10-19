@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Box, Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Select, Switch, ActionIcon, Paper, Badge, SimpleGrid, Tooltip, Collapse } from '@mantine/core'
+import { useState, useEffect, useCallback } from 'react'
+import { Box, Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Select, Switch, ActionIcon, Paper, SimpleGrid, Tooltip, Collapse } from '@mantine/core'
 import { IconPlus, IconTrash, IconInfoCircle, IconMailForward, IconEye, IconCursorText, IconArrowBackUp, IconAlertCircle, IconChevronDown, IconChevronUp } from '@tabler/icons-react'
 import { AdminTextInput, AdminDataTable, AdminFormStatus } from '@sovereignsquad/gds-admin/client'
+import { StatusBadge, LabelTag, CountBadge } from '@sovereignsquad/gds-core/client'
 import type { Brand } from '@/app/lib/brand'
 import type { CadenceStepChannel } from '@/lib/cadences'
 
@@ -247,9 +248,11 @@ export function CadencesClient({ brand, label }: Props) {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Sales Cadences</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {cadences.length} {cadences.length === 1 ? 'cadence' : 'cadences'}
-              </Badge>
+              <CountBadge
+                value={cadences.length}
+                size="md"
+                srLabel="Total cadences"
+              />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Multi-step, multi-day automated outreach sequences for <Text span fw={600}>{label}</Text>.
@@ -261,15 +264,13 @@ export function CadencesClient({ brand, label }: Props) {
         </Group>
 
         {/* Email Engagement Analytics & Tracking Caveats (Phase 6 UI / Handoff 07) */}
-        <Paper withBorder p="md" radius="md" bg="var(--mantine-color-gray-0)">
+        <Paper withBorder p="md" radius="md" style={{ backgroundColor: 'var(--gds-bg-surface, var(--mantine-color-gray-0))' }}>
           <Stack gap="xs">
             <Group justify="space-between" align="center" wrap="wrap">
               <Group gap="xs" align="center">
                 <IconMailForward size={18} color="var(--mantine-color-indigo-6)" />
                 <Text size="sm" fw={700}>Email Engagement Analytics</Text>
-                <Badge variant="outline" color="gray" size="xs">
-                  Unique Rates
-                </Badge>
+                <LabelTag tone="neutral" size="xs" label="Unique Rates" />
               </Group>
               <Button
                 size="compact-xs"
@@ -496,9 +497,9 @@ export function CadencesClient({ brand, label }: Props) {
                 header: 'Status',
                 width: 160,
                 accessor: (row) => (
-                  <Badge color={row.enabled ? 'red' : 'gray'} variant="light">
+                  <StatusBadge status={row.enabled ? 'success' : 'neutral'} size="xs">
                     {row.enabled ? 'Enabled (sending)' : 'Disabled'}
-                  </Badge>
+                  </StatusBadge>
                 ),
               },
               { key: 'enrolledCount', header: 'Leads enrolled', numeric: true, width: 140, accessor: (row) => row.enrolledCount ?? 0 },

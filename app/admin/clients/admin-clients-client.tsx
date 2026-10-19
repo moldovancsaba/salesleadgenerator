@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Box, Title, Text, Button, Group, Stack, Paper, TextInput, Select, MultiSelect,
-  TagsInput, Pill, Loader, Alert, Badge,
+  TagsInput, Pill, Loader, Alert,
 } from '@mantine/core'
+import { CountBadge } from '@sovereignsquad/gds-core/client'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { IconPlus, IconAlertTriangle } from '@tabler/icons-react'
 import { CURRENCY_CODE_OPTIONS } from '@/app/lib/brand-constants'
@@ -134,9 +135,7 @@ export function AdminClientsClient() {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Admin — Clients</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {brands.length} {brands.length === 1 ? 'client' : 'clients'}
-              </Badge>
+              <CountBadge value={brands.length} size="md" srLabel="Total clients" />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Add and configure client/brand organizations across navigation, sales settings, and forecasting.

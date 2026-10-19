@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Box, Container, Title, Text, Button, Group, Stack, TextInput, TagsInput, Badge, Pill, ActionIcon, Paper } from '@mantine/core'
+import { Box, Container, Title, Text, Button, Group, Stack, TextInput, TagsInput, Pill, ActionIcon, Paper } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
+import { CountBadge, LabelTag } from '@sovereignsquad/gds-core/client'
 import { AdminTextInput, AdminTextarea, AdminDataTable, AdminFormStatus } from '@sovereignsquad/gds-admin/client'
 import type { Brand } from '@/app/lib/brand'
 
@@ -187,9 +188,7 @@ export function BattlecardsClient({ brand, label }: Props) {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Battlecards</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {battlecards.length} {battlecards.length === 1 ? 'battlecard' : 'battlecards'}
-              </Badge>
+              <CountBadge value={battlecards.length} size="md" srLabel="Battlecard count" />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Competitor positioning and objection responses for <Text span fw={600}>{label}</Text>.
@@ -355,7 +354,7 @@ export function BattlecardsClient({ brand, label }: Props) {
                   row.tags && row.tags.length > 0 ? (
                     <Group gap={4}>
                       {row.tags.map((tag) => (
-                        <Badge key={tag} variant="light" size="xs" color="gray">{tag}</Badge>
+                        <LabelTag key={tag} tone="neutral" size="xs" label={tag} />
                       ))}
                     </Group>
                   ) : '—',

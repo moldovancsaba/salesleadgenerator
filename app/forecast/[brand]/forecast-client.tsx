@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Box, Title, Text, Paper, SimpleGrid, Group, Badge, TextInput, NumberInput, Loader, Button, Stack } from '@mantine/core';
-import { StatusBadge, InlineAlert, MetricCard, MissingDataPrompt } from '@sovereignsquad/gds-core/client';
+import { Box, Title, Text, Paper, SimpleGrid, Group, TextInput, NumberInput, Loader, Button, Stack } from '@mantine/core';
+import { StatusBadge, LabelTag, InlineAlert, MetricCard, MissingDataPrompt } from '@sovereignsquad/gds-core/client';
 import { AdminSelect, AdminDataTable, AdminResourceEmptyState, AdminFormStatus } from '@sovereignsquad/gds-admin/client';
 import { IconDownload } from '@tabler/icons-react';
 import { CALIBRATABLE_STAGES } from '@/lib/win-rate-calibration';
@@ -394,9 +394,11 @@ export function ForecastClient({ brand, label }: Props) {
           <Group gap="xs" align="center">
             <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>{label + ' Forecast'}</Title>
             {data.totalWeightedRevenue !== undefined && (
-              <Badge variant="light" color="indigo" size="md">
-                {Math.round(data.totalWeightedRevenue).toLocaleString()} weighted pipeline
-              </Badge>
+              <LabelTag
+                tone="info"
+                size="md"
+                label={`${Math.round(data.totalWeightedRevenue).toLocaleString()} weighted pipeline`}
+              />
             )}
           </Group>
           <Text size="xs" c="dimmed" mt={2}>
@@ -594,7 +596,7 @@ export function ForecastClient({ brand, label }: Props) {
                 <Paper key={row.company} withBorder p="sm" radius="sm">
                   <Group justify="space-between">
                     <Text fw={600}>{row.company}</Text>
-                    <Badge variant="light">{row.currency}</Badge>
+                    <LabelTag tone="neutral" size="xs" label={row.currency} />
                   </Group>
                   <Text size="xs" c="dimmed">{row.leads} leads</Text>
                   <SimpleGrid cols={{ base: 2 }} spacing="xs" mt="xs">

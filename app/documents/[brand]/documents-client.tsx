@@ -10,14 +10,13 @@ import {
   Button,
   TextInput,
   Paper,
-  Badge,
   Table,
   ActionIcon,
   Modal,
-  Alert,
   Loader,
   Tooltip,
 } from '@mantine/core';
+import { LabelTag, InlineAlert } from '@sovereignsquad/gds-core/client';
 import {
   IconSearch,
   IconPlus,
@@ -268,9 +267,7 @@ export function DocumentsClient({ brand, label }: Props) {
             <Text size="sm" c="dimmed">Loading document library...</Text>
           </Group>
         ) : error ? (
-          <Alert color="red" title="Error loading library">
-            {error}
-          </Alert>
+          <InlineAlert severity="error" title="Error loading library" message={error} />
         ) : filteredDocs.length === 0 ? (
           <Paper p="xl" withBorder style={{ textAlign: 'center' }}>
             <IconFolderOpen size={48} color="var(--mantine-color-gray-4)" style={{ margin: '0 auto 12px' }} />
@@ -348,9 +345,7 @@ export function DocumentsClient({ brand, label }: Props) {
                         </Text>
                       </Table.Td>
                       <Table.Td>
-                        <Badge size="xs" variant="light" color="gray">
-                          {doc.mimeType.split('/')[1] || doc.mimeType}
-                        </Badge>
+                        <LabelTag size="xs" tone="neutral" label={doc.mimeType.split('/')[1] || doc.mimeType} />
                       </Table.Td>
                       <Table.Td>
                         <Text size="xs">{formatFileSize(doc.sizeBytes)}</Text>
@@ -432,9 +427,7 @@ export function DocumentsClient({ brand, label }: Props) {
             </Group>
 
             {uploadError && (
-              <Alert color="red" title="Upload failed">
-                {uploadError}
-              </Alert>
+              <InlineAlert severity="error" title="Upload failed" message={uploadError} />
             )}
 
             <Group justify="flex-end" mt="md">
@@ -470,9 +463,7 @@ export function DocumentsClient({ brand, label }: Props) {
                 {inUseModal.consumers.map((c, i) => (
                   <Group key={i} justify="space-between">
                     <Text size="xs" fw={500}>{c.name}</Text>
-                    <Badge size="xs" variant="light" color={c.kind === 'cadence' ? 'blue' : 'teal'}>
-                      {c.kind}
-                    </Badge>
+                    <LabelTag size="xs" tone={c.kind === 'cadence' ? 'info' : 'success'} label={c.kind} />
                   </Group>
                 ))}
               </Stack>

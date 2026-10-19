@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Loader, Group, Box, Tooltip, Badge } from '@mantine/core';
+import { ActionIcon, Drawer, NavLink, Select, Stack, Divider, Text, Loader, Group, Box, Tooltip } from '@mantine/core';
+import { CountBadge } from '@sovereignsquad/gds-core/client';
 import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
@@ -296,9 +297,7 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
                 leftSection={<IconInbox size={18} />}
                 rightSection={
                   unreadInboxCount > 0 ? (
-                    <Badge size="xs" color="indigo" variant="filled">
-                      {unreadInboxCount}
-                    </Badge>
+                    <CountBadge size="xs" value={unreadInboxCount} srLabel="Unread inbox messages" />
                   ) : null
                 }
                 active={pathname === `/inbox/${effectiveBrand}`}

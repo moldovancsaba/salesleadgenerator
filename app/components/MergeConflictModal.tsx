@@ -1,7 +1,8 @@
 'use client';
-
-import { useEffect, useState, type ReactNode } from 'react';
-import { Modal, Stack, Group, Text, Button, Paper, Badge, Divider, Loader } from '@mantine/core';
+ 
+import { useState, useEffect, type ReactNode } from 'react';
+import { Modal, Stack, Group, Text, Button, Paper, Divider, Loader } from '@mantine/core';
+import { LabelTag } from '@sovereignsquad/gds-core/client';
 import { showNotification } from '@mantine/notifications';
 import { useIsCompactViewport } from '../lib/use-is-compact-viewport';
 
@@ -158,7 +159,7 @@ export function MergeConflictModal({ reviewId, opened, onClose, onMerged }: Prop
             <Stack gap={2}>
               <Group gap={4} wrap="nowrap">
                 <Text size="sm" fw={600} lineClamp={1}>{lead.entity_name}</Text>
-                {lead.id === preview.suggestedPrimaryId && <Badge size="xs" variant="light" color="blue">Suggested</Badge>}
+                {lead.id === preview.suggestedPrimaryId && <LabelTag tone="info" size="xs" label="Suggested" />}
               </Group>
               <Text size="xs" c="dimmed">{lead.kanbanColumn}</Text>
             </Stack>

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { Modal, Stack, Group, Title, Text, Button, Paper, Badge, Divider, Loader, Alert, Switch, NumberInput } from '@mantine/core';
+import { Modal, Stack, Group, Title, Text, Button, Paper, Divider, Loader, Switch, NumberInput } from '@mantine/core';
+import { StatusBadge, LabelTag, InlineAlert } from '@sovereignsquad/gds-core/client';
 import { IconMail, IconBrandGoogle, IconCheck, IconAlertTriangle, IconRefresh, IconUnlink, IconCalendar, IconInfoCircle, IconPlus } from '@tabler/icons-react';
 import { useAuth } from './AuthProvider';
 
@@ -337,9 +338,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
               <Text size="sm" fw={600}>{user?.name || user?.email || 'User'}</Text>
               <Text size="xs" c="dimmed">{user?.email || 'No email associated'}</Text>
             </div>
-            <Badge color="indigo" variant="light" size="sm">
-              {isSuperAdmin ? 'Super Admin' : 'Sales Rep'}
-            </Badge>
+            <LabelTag tone="info" size="xs" label={isSuperAdmin ? 'Super Admin' : 'Sales Rep'} />
           </Group>
         </Paper>
 
@@ -371,9 +370,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
                   withBorder
                   radius="sm"
                   style={{
-                    borderColor: isConnActive
-                      ? (conn.isDefault ? 'var(--mantine-color-blue-6)' : 'var(--mantine-color-green-6)')
-                      : 'var(--mantine-color-red-6)',
+                    borderColor: 'var(--gds-border-card, var(--mantine-color-gray-3))',
                   }}
                 >
                   <Stack gap="xs">
@@ -386,9 +383,7 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
                               {conn.userEmail || conn.providerAccountLabel || user?.email || 'Connected Account'}
                             </Text>
                             {conn.isDefault && (
-                              <Badge color="blue" variant="filled" size="xs">
-                                Default Sender
-                              </Badge>
+                              <LabelTag tone="info" size="xs" label="Default Sender" />
                             )}
                           </Group>
                           <Text size="xs" c="dimmed">
@@ -409,9 +404,9 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
                             Set as Default
                           </Button>
                         )}
-                        <Badge color={isConnActive ? 'green' : 'red'} variant="light">
+                        <StatusBadge status={isConnActive ? 'success' : 'danger'} size="xs">
                           {isConnActive ? 'Connected' : conn.status}
-                        </Badge>
+                        </StatusBadge>
                       </Group>
                     </Group>
 
@@ -520,39 +515,23 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
                     <Text size="xs" c="dimmed">Not connected</Text>
                   </div>
                 </Group>
-                <Badge color="gray" variant="light">Not Connected</Badge>
+                <StatusBadge status="neutral" size="xs">Not Connected</StatusBadge>
               </Group>
 
               {configured?.google === false && (
-                <Alert icon={<IconAlertTriangle size={16} />} color="yellow" variant="light" title="Google OAuth Setup Required">
-                  <Stack gap={4}>
-                    <Text size="xs">
-                      Google OAuth credentials are not configured in this deployment environment.
-                    </Text>
-                    {isSuperAdmin && (
-                      <Text size="xs" c="dimmed">
-                        Admins: Configure <Text span ff="monospace" size="xs">GOOGLE_OAUTH_CLIENT_ID</Text>,{' '}
-                        <Text span ff="monospace" size="xs">GOOGLE_OAUTH_CLIENT_SECRET</Text>, and{' '}
-                        <Text span ff="monospace" size="xs">GOOGLE_OAUTH_REDIRECT_URI</Text> in your Vercel project environment variables.
-                      </Text>
-                    )}
-                  </Stack>
-                </Alert>
+                <InlineAlert
+                  severity="warning"
+                  title="Google OAuth Setup Required"
+                  message="Google OAuth credentials are not configured in this deployment environment."
+                />
               )}
 
               {configured?.google && configured?.encryption === false && (
-                <Alert icon={<IconAlertTriangle size={16} />} color="yellow" variant="light" title="Encryption Key Required">
-                  <Stack gap={4}>
-                    <Text size="xs">
-                      Credential encryption key is missing in this deployment environment.
-                    </Text>
-                    {isSuperAdmin && (
-                      <Text size="xs" c="dimmed">
-                        Admins: Configure <Text span ff="monospace" size="xs">INTEGRATION_CREDENTIALS_ENCRYPTION_KEY</Text> (a 32-byte base64 key) in Vercel.
-                      </Text>
-                    )}
-                  </Stack>
-                </Alert>
+                <InlineAlert
+                  severity="warning"
+                  title="Encryption Key Required"
+                  message="Credential encryption key is missing in this deployment environment."
+                />
               )}
 
               <Button
@@ -641,20 +620,17 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
             </Group>
 
             {!isGoogleConnected ? (
-              <Alert icon={<IconAlertTriangle size={16} />} color="yellow" variant="light" p="xs">
-                <Text size="xs">
-                  Connect your Google account above to enable Google Calendar reminder synchronization.
-                </Text>
-              </Alert>
+              <InlineAlert
+                severity="warning"
+                title="Google Account Required"
+                message="Connect your Google account above to enable Google Calendar reminder synchronization."
+              />
             ) : (
-              <Paper p="xs" radius="xs" bg="var(--mantine-color-blue-0)">
-                <Group gap="xs" align="flex-start" wrap="nowrap">
-                  <IconInfoCircle size={15} color="var(--mantine-color-blue-7)" style={{ marginTop: 2, flexShrink: 0 }} />
-                  <Text size="xs" c="blue.9">
-                    Google Calendar events serve as personal reminders. Sequence progression and deal movement always depend on completing tasks in the CRM.
-                  </Text>
-                </Group>
-              </Paper>
+              <InlineAlert
+                severity="info"
+                title="Calendar Reminders"
+                message="Google Calendar events serve as personal reminders. Sequence progression and deal movement always depend on completing tasks in the CRM."
+              />
             )}
           </Stack>
         </Paper>

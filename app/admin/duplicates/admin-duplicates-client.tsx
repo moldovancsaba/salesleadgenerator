@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Box, Title, Text, Stack, Group, Select, Button, Badge, Paper, SegmentedControl } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Select, Button, Paper, SegmentedControl } from '@mantine/core'
+import { CountBadge, LabelTag } from '@sovereignsquad/gds-core/client'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { showNotification } from '@mantine/notifications'
 import { useAuth } from '@/app/components/AuthProvider'
@@ -131,9 +132,7 @@ export function AdminDuplicatesClient() {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Admin — Near-Duplicate Review</Title>
-              <Badge variant="light" color="indigo" size="md">
-                {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}
-              </Badge>
+              <CountBadge value={reviews.length} size="md" srLabel="Duplicate reviews count" />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
               Candidate duplicate leads flagged by name/domain similarity. Confirm a pair, then merge it.
@@ -201,7 +200,7 @@ export function AdminDuplicatesClient() {
                 key: 'matchedOn',
                 header: 'Matched on',
                 width: 140,
-                accessor: (row) => <Badge variant="light" color="gray">{row.matchedOn}</Badge>,
+                accessor: (row) => <LabelTag tone="neutral" size="xs" label={row.matchedOn} />,
               },
               {
                 key: 'score',

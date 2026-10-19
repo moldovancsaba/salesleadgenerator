@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Container, Paper, Stack, Group, Title, Text, Button, Badge, ThemeIcon } from '@mantine/core';
+import { Container, Paper, Stack, Group, Title, Text, Button, ThemeIcon } from '@mantine/core';
+import { StatusBadge } from '@sovereignsquad/gds-core/client';
 import { IconAlertCircle, IconRefresh, IconArrowLeft } from '@tabler/icons-react';
 
 export default function OfflinePage() {
@@ -20,9 +21,9 @@ export default function OfflinePage() {
           </ThemeIcon>
 
           <Stack gap="xs" align="center">
-            <Badge color="orange" variant="light" size="lg">
+            <StatusBadge status="warning" size="lg" withIcon>
               Offline Shell
-            </Badge>
+            </StatusBadge>
             <Title order={2}>You are currently offline</Title>
             <Text c="dimmed" size="sm" maw={420}>
               Sales Lead Generator requires an active internet connection to load live CRM pipelines,

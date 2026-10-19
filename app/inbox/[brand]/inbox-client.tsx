@@ -8,7 +8,6 @@ import {
   Stack,
   Group,
   Text,
-  Badge,
   Button,
   ActionIcon,
   TextInput,
@@ -521,9 +520,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
             leftSection={<IconInbox size={18} />}
             rightSection={
               counts.unread > 0 ? (
-                <Badge size="xs" color="indigo" variant="filled">
-                  {counts.unread}
-                </Badge>
+                <CountBadge size="xs" value={counts.unread} srLabel="Unread messages count" />
               ) : counts.inbox > 0 ? (
                 <Text size="xs" c="dimmed">
                   {counts.inbox}
@@ -546,9 +543,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
             leftSection={<IconFlame size={18} />}
             rightSection={
               counts.needs_reply > 0 ? (
-                <Badge size="xs" color="orange" variant="filled">
-                  {counts.needs_reply}
-                </Badge>
+                <CountBadge size="xs" value={counts.needs_reply} srLabel="Needs reply count" />
               ) : null
             }
             onClick={() => {
@@ -1226,24 +1221,18 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
 
                           <Group gap="xs">
                             {isNote && (
-                              <Badge size="xs" color="yellow" variant="filled">
-                                Private Note
-                              </Badge>
+                              <LabelTag size="xs" tone="warning" label="Private Note" />
                             )}
                             {isInbound && (
-                              <Badge size="xs" color="teal" variant="light">
+                              <StatusBadge status="success" size="xs">
                                 Inbound Email
-                              </Badge>
+                              </StatusBadge>
                             )}
                             {isOutbound && (
-                              <Badge size="xs" color="indigo" variant="light">
-                                Outbound Email
-                              </Badge>
+                              <LabelTag size="xs" tone="info" label="Outbound Email" />
                             )}
                             {isCall && m.callDisposition && (
-                              <Badge size="xs" color="grape" variant="filled">
-                                {m.callDisposition}
-                              </Badge>
+                              <LabelTag size="xs" tone="neutral" label={m.callDisposition} />
                             )}
                             <Text size="xs" c="dimmed">
                               {formatFullTime(m.createdAt)}

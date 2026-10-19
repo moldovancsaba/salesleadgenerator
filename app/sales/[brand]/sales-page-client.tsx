@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Group, Text, Paper, Loader, Box, TextInput, UnstyledButton, ActionIcon, Tooltip, Select, SegmentedControl, Title, Badge, Button, Stack } from '@mantine/core';
+import { Group, Text, Paper, Loader, Box, TextInput, UnstyledButton, ActionIcon, Tooltip, Select, SegmentedControl, Title, Button, Stack } from '@mantine/core';
 import { IconChecklist, IconX, IconPlus, IconSearch, IconSettings, IconDownload, IconUpload } from '@tabler/icons-react';
-import { useCommandLauncher } from '@sovereignsquad/gds-core/client';
+import { useCommandLauncher, CountBadge, LabelTag } from '@sovereignsquad/gds-core/client';
 import type { CommandDef } from '@sovereignsquad/gds-core/client';
 import type { Lead } from '@/app/types';
 import type { CurrencyCode } from '@/app/lib/brand';
@@ -372,13 +372,15 @@ export function SalesPageClient({ brand, currency }: Props) {
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
                 {boardMeta?.label || brand}
               </Title>
-              <Badge variant="light" color="indigo" size="md">
-                {typeof boardMeta?.totalLeads === 'number' ? boardMeta.totalLeads.toLocaleString() : '—'} leads
-              </Badge>
+              {typeof boardMeta?.totalLeads === 'number' && (
+                <CountBadge value={boardMeta.totalLeads} size="md" srLabel="Total leads" />
+              )}
               {typeof boardMeta?.forecast?.totalWeightedRevenue === 'number' && !isNaN(boardMeta.forecast.totalWeightedRevenue) && (
-                <Badge variant="light" color="teal" size="md">
-                  {boardMeta.forecast.currency === 'EUR' ? '€' : '$'}{Math.round(boardMeta.forecast.totalWeightedRevenue).toLocaleString()}
-                </Badge>
+                <LabelTag
+                  tone="info"
+                  size="md"
+                  label={`${boardMeta.forecast.currency === 'EUR' ? '€' : '$'}${Math.round(boardMeta.forecast.totalWeightedRevenue).toLocaleString()}`}
+                />
               )}
             </Group>
             <Text size="xs" c="dimmed" mt={2}>

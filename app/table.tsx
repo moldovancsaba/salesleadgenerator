@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Badge, Box, Button, Group, Text, UnstyledButton } from '@mantine/core';
+import { Box, Button, Group, Text, UnstyledButton } from '@mantine/core';
 import { AdminDataTable, type AdminDataTableSort } from '@sovereignsquad/gds-admin/client';
+import { StatusBadge, LabelTag, CountBadge } from '@sovereignsquad/gds-core/client';
 import type { Lead } from './types';
 import { getIceScore, getTicketSize, type TicketSizeDisplay } from './constants';
 import type { CurrencyCode } from './lib/brand';
@@ -155,13 +156,12 @@ export function TableView({ leads, onOpenLead }: TableViewProps) {
             sortable: true,
             width: 120,
             accessor: (row: TableRow) => (
-              <Badge
+              <StatusBadge
                 size="xs"
-                color={STAGE_COLORS[row.kanbanColumn] || 'gray'}
-                variant="light"
+                status={row.kanbanColumn === 'WON' ? 'success' : row.kanbanColumn === 'LOST' ? 'danger' : 'neutral'}
               >
                 {row.kanbanColumn || 'DISCOVERED'}
-              </Badge>
+              </StatusBadge>
             ),
           },
           {
@@ -170,13 +170,11 @@ export function TableView({ leads, onOpenLead }: TableViewProps) {
             sortable: true,
             width: 95,
             accessor: (row: TableRow) => (
-              <Badge
+              <CountBadge
                 size="xs"
-                variant="outline"
-                color={row.score >= 500 ? 'indigo' : 'gray'}
-              >
-                {row.score}
-              </Badge>
+                value={row.score}
+                srLabel="ICE Score"
+              />
             ),
           },
           {
@@ -218,9 +216,7 @@ export function TableView({ leads, onOpenLead }: TableViewProps) {
             width: 130,
             accessor: (row: TableRow) => (
               row.assignedTo ? (
-                <Badge size="xs" variant="light" color="cyan">
-                  {row.assignedTo}
-                </Badge>
+                <LabelTag size="xs" tone="info" label={row.assignedTo} />
               ) : (
                 <Text size="xs" c="dimmed">—</Text>
               )
@@ -232,9 +228,7 @@ export function TableView({ leads, onOpenLead }: TableViewProps) {
             sortable: true,
             width: 90,
             accessor: (row: TableRow) => (
-              <Badge size="xs" variant="default">
-                {row.region || 'NA'}
-              </Badge>
+              <LabelTag size="xs" tone="neutral" label={row.region || 'NA'} />
             ),
           },
           {
@@ -243,13 +237,12 @@ export function TableView({ leads, onOpenLead }: TableViewProps) {
             sortable: true,
             width: 100,
             accessor: (row: TableRow) => (
-              <Badge
+              <StatusBadge
                 size="xs"
-                color={getQualityBadgeColor(row.qualityStatus)}
-                variant="light"
+                status={row.qualityStatus === 'VERIFIED' ? 'success' : row.qualityStatus === 'CHECKED' ? 'info' : 'neutral'}
               >
                 {row.qualityStatus || 'DRAFT'}
-              </Badge>
+              </StatusBadge>
             ),
           },
           {
@@ -262,14 +255,10 @@ export function TableView({ leads, onOpenLead }: TableViewProps) {
               return (
                 <Group gap={4} wrap="wrap">
                   {tags.slice(0, 2).map((t) => (
-                    <Badge key={t} size="xs" variant="outline" color="gray">
-                      {t}
-                    </Badge>
+                    <LabelTag key={t} size="xs" tone="neutral" label={t} />
                   ))}
                   {tags.length > 2 && (
-                    <Badge size="xs" variant="subtle" color="gray">
-                      +{tags.length - 2}
-                    </Badge>
+                    <LabelTag size="xs" tone="neutral" label={`+${tags.length - 2}`} />
                   )}
                 </Group>
               );
@@ -303,9 +292,12 @@ export function TableView({ leads, onOpenLead }: TableViewProps) {
                 <Text fw={600} size="sm">{row.entity_name}</Text>
                 <Text size="xs" c="dimmed">{row.region} • {row.qualityStatus || 'DRAFT'}</Text>
               </div>
-              <Badge size="xs" color={STAGE_COLORS[row.kanbanColumn] || 'gray'} variant="light">
+              <StatusBadge
+                size="xs"
+                status={row.kanbanColumn === 'WON' ? 'success' : row.kanbanColumn === 'LOST' ? 'danger' : 'neutral'}
+              >
                 {row.kanbanColumn}
-              </Badge>
+              </StatusBadge>
             </Group>
             {row.valueNumeric > 0 && (
               <Text size="xs" fw={600} mt={4}>
