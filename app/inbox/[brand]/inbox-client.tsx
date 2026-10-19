@@ -48,8 +48,9 @@ import {
   IconUserPlus,
   IconCurrencyDollar,
   IconUsers,
+  IconBuilding,
 } from '@tabler/icons-react';
-import type { Brand } from '@/app/lib/brand';
+import type { Brand } from '@/app/lib/brand-constants';
 import type {
   InboxStream,
   InboxThread,
@@ -142,7 +143,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
 
   // Conversion / Deal modal state
   const [convertModalOpened, setConvertModalOpened] = useState(false);
-  const [convertModalMode, setConvertModalMode] = useState<'convert' | 'add_deal'>('convert');
+  const [convertModalMode, setConvertModalMode] = useState<'convert' | 'add_deal' | 'add_contact'>('convert');
   const [targetContact, setTargetContact] = useState<
     { name?: string; email: string; title?: string; phone?: string } | undefined
   >(undefined);
@@ -753,6 +754,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                       transition: 'background-color 150ms ease',
                     }}
                   >
+                    {/* Header Row: Sender / Title + Timestamp */}
                     <Group justify="space-between" align="flex-start" wrap="nowrap" mb={2}>
                       <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
                         {!t.isRead && (
@@ -767,36 +769,90 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                           />
                         )}
                         <Text fw={t.isRead ? 600 : 700} size="sm" truncate>
-                          {t.leadName}
+                          {t.senderDisplayName || t.contactName || (t.hasLead ? t.leadName : (t.senderEmail || t.contactEmail || t.leadName))}
                         </Text>
+                        {t.hasLead && t.leadName && t.senderDisplayName && t.leadName !== t.senderDisplayName && (
+                          <Badge size="xs" variant="subtle" color="gray" style={{ textTransform: 'none', maxWidth: 120 }}>
+                            {t.leadName}
+                          </Badge>
+                        )}
                       </Group>
                       <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
                         {formatRelativeTime(t.lastMessageAt)}
                       </Text>
                     </Group>
 
-                    <Text fw={t.isRead ? 400 : 600} size="xs" c={t.isRead ? 'gray.7' : 'dark'} truncate mb={2}>
+                    {/* Subject Line */}
+                    <Text fw={t.isRead ? 500 : 700} size="xs" c={t.isRead ? 'dark.4' : 'dark'} truncate mb={2}>
                       {t.subject}
                     </Text>
 
-                    <Text size="xs" c="dimmed" lineClamp={2} mb={4}>
-                      {t.snippet}
+                    {/* First 2 Lines Snippet */}
+                    <Text size="xs" c="dimmed" lineClamp={2} mb={6} style={{ lineHeight: 1.4 }}>
+                      {t.snippet || 'No preview text'}
                     </Text>
 
-                    <Group justify="space-between" align="center" mt={4}>
-                      <Group gap={4}>
-                        {t.leadStage && (
-                          <Badge size="xs" variant="outline" color="gray">
-                            {t.leadStage}
+                    {/* Availability Indicators & Actions Row */}
+                    <Group justify="space-between" align="center" mt={2} wrap="nowrap">
+                      <Group gap={4} wrap="wrap">
+                        {/* Lead Availability Indicator */}
+                        <Tooltip label={t.hasLead ? `Lead: ${t.leadName}` : 'No lead linked'}>
+                          <Badge
+                            size="xs"
+                            variant={t.hasLead ? 'light' : 'outline'}
+                            color={t.hasLead ? 'teal' : 'gray'}
+                            leftSection={<IconBuilding size={11} />}
+                            style={{
+                              textTransform: 'none',
+                              borderStyle: t.hasLead ? undefined : 'dashed',
+                              opacity: t.hasLead ? 1 : 0.65,
+                            }}
+                          >
+                            {t.hasLead ? 'Lead' : 'No Lead'}
                           </Badge>
-                        )}
+                        </Tooltip>
+
+                        {/* Contact Availability Indicator */}
+                        <Tooltip label={t.hasContact ? `Contact: ${t.contactName || t.contactEmail || 'Available'}` : 'No contact identified'}>
+                          <Badge
+                            size="xs"
+                            variant={t.hasContact ? 'light' : 'outline'}
+                            color={t.hasContact ? 'blue' : 'gray'}
+                            leftSection={<IconUser size={11} />}
+                            style={{
+                              textTransform: 'none',
+                              borderStyle: t.hasContact ? undefined : 'dashed',
+                              opacity: t.hasContact ? 1 : 0.65,
+                            }}
+                          >
+                            {t.hasContact ? 'Contact' : 'No Contact'}
+                          </Badge>
+                        </Tooltip>
+
+                        {/* Deal Availability Indicator */}
+                        <Tooltip label={t.hasDeal ? `Deal: ${t.dealValue ? `$${t.dealValue.toLocaleString()}` : 'In Pipeline'}` : 'No deal in pipeline'}>
+                          <Badge
+                            size="xs"
+                            variant={t.hasDeal ? 'light' : 'outline'}
+                            color={t.hasDeal ? 'grape' : 'gray'}
+                            leftSection={<IconCurrencyDollar size={11} />}
+                            style={{
+                              textTransform: 'none',
+                              borderStyle: t.hasDeal ? undefined : 'dashed',
+                              opacity: t.hasDeal ? 1 : 0.65,
+                            }}
+                          >
+                            {t.hasDeal ? (t.dealValue ? `$${t.dealValue.toLocaleString()}` : 'Deal') : 'No Deal'}
+                          </Badge>
+                        </Tooltip>
+
                         {t.needsReply && (
                           <Badge size="xs" variant="filled" color="orange">
                             Reply Needed
                           </Badge>
                         )}
                         {t.messageCount > 1 && (
-                          <Badge size="xs" variant="light" color="indigo">
+                          <Badge size="xs" variant="subtle" color="indigo">
                             {t.messageCount}
                           </Badge>
                         )}
@@ -838,78 +894,111 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
             {/* Thread Header */}
             <Paper p="md" radius={0} style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
               <Group justify="space-between" align="flex-start">
-                <Box>
-                  <Group gap="xs" align="center" wrap="wrap">
-                    <Text fw={700} size="md">
-                      {selectedThread.leadName}
-                    </Text>
-                    {selectedThread.leadStage && (
-                      <Badge size="sm" variant="light" color="indigo">
-                        {selectedThread.leadStage}
-                      </Badge>
-                    )}
-                    {selectedThread.dealValue && (
-                      <Badge size="sm" variant="outline" color="teal">
-                        ${selectedThread.dealValue.toLocaleString()}
-                      </Badge>
-                    )}
-                    {selectedThread.leadId ? (
-                      <>
+                <Box style={{ flex: 1, minWidth: 0 }}>
+                  {/* Row 1: Subject / Title */}
+                  <Text fw={700} size="md" truncate mb={4}>
+                    {selectedThread.subject || 'No Subject'}
+                  </Text>
+
+                  {/* Row 2: 3 Availability Status Badges with 1-Click Conversion Affordances */}
+                  <Group gap="xs" align="center" wrap="wrap" mb={6}>
+                    {/* Lead Status & Action */}
+                    {selectedThread.hasLead ? (
+                      <Group gap={4} wrap="nowrap">
+                        <Badge size="sm" variant="light" color="teal" leftSection={<IconBuilding size={14} />} style={{ textTransform: 'none' }}>
+                          Lead: {selectedThread.leadName}
+                        </Badge>
                         <Tooltip label="Open Lead in Pipeline">
                           <ActionIcon
                             component={Link}
                             href={`/sales/${brand}?leadId=${selectedThread.leadId}`}
                             variant="subtle"
                             size="sm"
-                            color="indigo"
+                            color="teal"
                           >
-                            <IconExternalLink size={16} />
+                            <IconExternalLink size={14} />
                           </ActionIcon>
                         </Tooltip>
-                        <Button
-                          size="compact-xs"
-                          variant="light"
-                          color="teal"
-                          leftSection={<IconCurrencyDollar size={13} />}
-                          onClick={() => {
-                            setConvertModalMode('add_deal');
-                            setTargetContact(undefined);
-                            setConvertModalOpened(true);
-                          }}
-                        >
-                          Add Deal
-                        </Button>
-                      </>
+                      </Group>
                     ) : (
                       <Button
                         size="compact-xs"
                         variant="filled"
                         color="indigo"
-                        leftSection={<IconUserPlus size={13} />}
+                        leftSection={<IconBuilding size={13} />}
                         onClick={() => {
                           setConvertModalMode('convert');
                           setTargetContact(undefined);
                           setConvertModalOpened(true);
                         }}
                       >
-                        Convert to Lead & Deal
+                        + Create Lead
                       </Button>
+                    )}
+
+                    {/* Contact Status & Action */}
+                    {selectedThread.hasContact ? (
+                      <Badge size="sm" variant="light" color="blue" leftSection={<IconUser size={14} />} style={{ textTransform: 'none' }}>
+                        Contact: {selectedThread.contactName || selectedThread.contactEmail || 'Identified'}
+                      </Badge>
+                    ) : (
+                      <Button
+                        size="compact-xs"
+                        variant="light"
+                        color="blue"
+                        leftSection={<IconUserPlus size={13} />}
+                        onClick={() => {
+                          setConvertModalMode(selectedThread.hasLead ? 'add_contact' : 'convert');
+                          setTargetContact(undefined);
+                          setConvertModalOpened(true);
+                        }}
+                      >
+                        + Add Contact
+                      </Button>
+                    )}
+
+                    {/* Deal Status & Action */}
+                    {selectedThread.hasDeal ? (
+                      <Badge size="sm" variant="light" color="grape" leftSection={<IconCurrencyDollar size={14} />} style={{ textTransform: 'none' }}>
+                        Deal: {selectedThread.dealValue ? `$${selectedThread.dealValue.toLocaleString()}` : 'In Pipeline'}
+                      </Badge>
+                    ) : (
+                      <Button
+                        size="compact-xs"
+                        variant="light"
+                        color="grape"
+                        leftSection={<IconCurrencyDollar size={13} />}
+                        onClick={() => {
+                          setConvertModalMode(selectedThread.hasLead ? 'add_deal' : 'convert');
+                          setTargetContact(undefined);
+                          setConvertModalOpened(true);
+                        }}
+                      >
+                        + Add Deal
+                      </Button>
+                    )}
+
+                    {selectedThread.leadStage && (
+                      <Badge size="sm" variant="outline" color="gray">
+                        {selectedThread.leadStage}
+                      </Badge>
                     )}
                   </Group>
 
-                  <Group gap="sm" mt={4}>
-                    <Text size="xs" c="dimmed">
-                      {selectedThread.contactName || 'No designated contact'}
+                  {/* Row 3: Counterparty Context */}
+                  <Group gap="xs" mt={2} align="center">
+                    <Text size="xs" fw={600} c="gray.8">
+                      Counterparty:
                     </Text>
-                    {selectedThread.contactEmail && (
+                    <Text size="xs" c="dark.3">
+                      {selectedThread.senderDisplayName || selectedThread.contactName || 'External Prospect'}
+                    </Text>
+                    {(selectedThread.contactEmail || selectedThread.senderEmail) && (
                       <Text size="xs" c="indigo.7">
-                        &lt;{selectedThread.contactEmail}&gt;
+                        &lt;{selectedThread.contactEmail || selectedThread.senderEmail}&gt;
                       </Text>
                     )}
                   </Group>
-                  <Text fw={600} size="sm" mt={6}>
-                    {selectedThread.subject}
-                  </Text>
 
                   {/* Thread Participants Strip (Contacts from emails) */}
                   {selectedThread.participants && selectedThread.participants.length > 0 && (
@@ -968,11 +1057,11 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                                         title: p.title,
                                         phone: p.phone,
                                       });
-                                      setConvertModalMode(selectedThread.leadId ? 'add_deal' : 'convert');
+                                      setConvertModalMode(selectedThread.hasLead ? 'add_contact' : 'convert');
                                       setConvertModalOpened(true);
                                     }}
                                   >
-                                    {selectedThread.leadId ? 'Add Deal' : 'Convert'}
+                                    {selectedThread.hasLead ? '+ Contact' : 'Convert'}
                                   </Button>
                                 )}
                               </Group>
@@ -1073,18 +1162,44 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                                 <IconUser size={14} />
                               )}
                             </Avatar>
-                            <Box>
-                              <Text size="xs" fw={700}>
-                                {isNote
-                                  ? `Internal Team Note (${m.loggedBy || 'Sales Rep'})`
-                                  : isCall
-                                  ? `Call Logged by ${m.loggedBy || 'Rep'}`
-                                  : m.from || (isOutbound ? 'Outreach Dispatch' : 'Prospect')}
-                              </Text>
-                              {m.to && m.to.length > 0 && (
-                                <Text size="xs" c="dimmed">
-                                  To: {m.to.join(', ')}
+                            <Box style={{ minWidth: 0, flex: 1 }}>
+                              <Group gap="xs" wrap="wrap" align="center">
+                                <Text size="xs" fw={700}>
+                                  {isNote
+                                    ? `Internal Team Note (${m.loggedBy || 'Sales Rep'})`
+                                    : isCall
+                                    ? `Call Logged by ${m.loggedBy || 'Rep'}`
+                                    : m.from || (isOutbound ? 'Outreach Dispatch' : 'Prospect')}
                                 </Text>
+                                {!isNote && !isCall && m.from && (
+                                  <Text size="11px" c="dimmed">
+                                    &lt;{m.from}&gt;
+                                  </Text>
+                                )}
+                              </Group>
+
+                              {/* Prominently render TO recipient addresses */}
+                              {m.to && m.to.length > 0 && (
+                                <Group gap={4} wrap="wrap" align="baseline" mt={2}>
+                                  <Text size="11px" fw={700} c="gray.7">
+                                    To:
+                                  </Text>
+                                  <Text size="11px" c="dark.3" style={{ wordBreak: 'break-all' }}>
+                                    {m.to.join(', ')}
+                                  </Text>
+                                </Group>
+                              )}
+
+                              {/* Prominently render CC recipient addresses */}
+                              {m.cc && m.cc.length > 0 && (
+                                <Group gap={4} wrap="wrap" align="baseline" mt={1}>
+                                  <Text size="11px" fw={700} c="gray.7">
+                                    Cc:
+                                  </Text>
+                                  <Text size="11px" c="dark.3" style={{ wordBreak: 'break-all' }}>
+                                    {m.cc.join(', ')}
+                                  </Text>
+                                </Group>
                               )}
                             </Box>
                           </Group>

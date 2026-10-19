@@ -296,7 +296,8 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 - `lib/email-verification.ts` — `isRoleAccount`, `isFreeProvider`, `extractDomain`, `lookupMx`, `checkDomain`, `statusFromMxResult`, `verifyEmail`
 - `lib/contact-reply-matching.ts` — `CONTACT_SUGGESTIONS_COLLECTION`, `ContactSuggestionDocument`, `matchReplyToLeads`, `findMatchedContact`, `generateContactSuggestion`, `ensureContactSuggestionsIndexes`
 - `lib/signature-parser.ts` — `parseSignatureBlock`
-- `lib/email-contact-extractor.ts` — issue #258: RFC 5322 header and signature contact harvesting (`parseEmailParticipant`, `parseEmailAddressList`, `inferCompanyFromEmail`, `inferCountryFromDomain`, `isInternalOrSystemEmail`, `extractContactsFromEmailMessage`, `mergeContactsIntoLead`)
+- `lib/email-contact-extractor.ts` — issue #258/#260: isomorphic client-safe RFC 5322 header and signature contact harvesting (`parseEmailParticipant`, `parseEmailAddressList`, `inferCompanyFromEmail`, `inferCountryFromDomain`, `isInternalOrSystemEmail`, `extractContactsFromEmailMessage`, `cleanHtmlBody`, `cleanMessageSnippet`)
+- `lib/email-contact-merge.ts` — issue #258/#260: server-only MongoDB lead updating (`mergeContactsIntoLead`)
 - `lib/migrate-decision-maker.ts` — one-time migration: `looksLikeEmail/Phone`, `migrateDecisionMakerCollection`
 
 **Ticket size / deals / forecast math**

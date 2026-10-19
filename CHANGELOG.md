@@ -1,6 +1,36 @@
 # Changelog — Sales Lead Generator
 
-## 2.4.296
+## 2.4.297
+
+### Inbox & CRM: Sender Resolution, HTML Snippet Stripping, Full To/Cc Recipient Display, and Lead/Deal/Contact Status Icons with 1-Click Conversion (issue #260)
+
+- **Vercel Build Error Fix & Module Decoupling (`lib/email-contact-merge.ts`, `lib/email-contact-extractor.ts`):**
+  - Resolved production build failure (`import 'server-only'` into client component) by isolating MongoDB lead update logic into server-dedicated module `lib/email-contact-merge.ts`.
+  - Converted `lib/email-contact-extractor.ts` into a 100% isomorphic, client-safe parsing module with zero database or server-only dependencies.
+  - Added HTML and CSS sanitizers `cleanHtmlBody` and `cleanMessageSnippet` to strip `<style>` blocks, `<script>` tags, comments, and entities.
+- **Human-Friendly Sender Resolution in Thread Cards (`app/lib/inbox-store.ts`, `app/inbox/[brand]/inbox-client.tsx`):**
+  - Eliminated the fallback to `'System Communications'` for prospect email threads without a pre-existing lead link.
+  - Resolved primary thread title dynamically: `lead.entity_name || senderDisplayName || contactName || senderEmail || subject`.
+  - Added company context chip when a lead is linked alongside sender display name.
+  - Fixed thread preview snippet using `cleanMessageSnippet` to prevent raw CSS leaks (e.g. `* { margin: 0; padding: 0... }`).
+- **Lead / Deal / Contact Availability Status Badges (`app/lib/inbox-store.ts`, `app/inbox/[brand]/inbox-client.tsx`):**
+  - Added `hasLead`, `hasContact`, `hasDeal`, `dealsCount`, and `contactsCount` flags to `InboxThread` and `InboxThreadDetail`.
+  - Rendered 3 distinct status indicator badges on middle pane thread cards:
+    - **Lead**: Teal badge with `IconBuilding` if linked, dashed gray badge with tooltip if unlinked.
+    - **Contact**: Blue badge with `IconUser` if identified, dashed gray badge with tooltip if missing.
+    - **Deal**: Grape badge with `IconCurrencyDollar` and formatted deal value if present, dashed gray badge if missing.
+- **Conversation Reader Header & 1-Click Conversion Affordances (`app/inbox/[brand]/inbox-client.tsx`, `app/inbox/[brand]/convert-modal.tsx`):**
+  - Replaced ambiguous thread header with subject line as primary title, accompanied by 3 status badges with 1-click actions:
+    - `+ Create Lead` (opens `ConvertModal` in `'convert'` mode)
+    - `+ Add Contact` (opens `ConvertModal` in `'add_contact'` mode)
+    - `+ Add Deal` (opens `ConvertModal` in `'add_deal'` mode)
+  - Enhanced `ConvertModal` to support `'add_contact'` mode alongside `'convert'` and `'add_deal'`, updating existing leads and merging contact details directly into MongoDB.
+- **Prominent To and Cc Recipient Address Display (`app/lib/inbox-store.ts`, `app/inbox/[brand]/inbox-client.tsx`):**
+  - Expanded message headers in conversation timeline to prominently display full sender email `<from>`, all `To:` recipients, and all `Cc:` recipients.
+  - Formatted addresses with comma separation and word-break wrapping, ensuring reps and counterparties are completely visible.
+- **Automated Test Coverage:**
+  - Added test suite `tests/lib/inbox-thread-presentation.test.ts` (5 tests verifying CSS stripping, HTML entity decoding, sender name resolution without fallback to System Communications, availability flag computation, and full To/Cc recipient preservation).
+
 
 ### Kanban & CRM: Redesign Kanban Card Layout for High Readability, Information Hierarchy, and Interactivity (issue #259)
 

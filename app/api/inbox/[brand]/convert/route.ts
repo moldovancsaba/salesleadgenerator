@@ -21,9 +21,9 @@ import {
   extractContactsFromEmailMessage,
   inferCompanyFromEmail,
   inferCountryFromDomain,
-  mergeContactsIntoLead,
   formatLocalPartAsName,
 } from '../../../../../lib/email-contact-extractor';
+import { mergeContactsIntoLead } from '../../../../../lib/email-contact-merge';
 
 export const dynamic = 'force-dynamic';
 
@@ -164,6 +164,19 @@ export async function POST(
 
       if (!existingLead) {
         return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+      }
+
+      if (lead?.contact?.email) {
+        const directContact = normalizeContact({
+          name: lead.contact.name || formatLocalPartAsName(lead.contact.email.split('@')[0]),
+          email: lead.contact.email,
+          title: lead.contact.title,
+          phone: lead.contact.phone,
+          buyingRole: lead.contact.buyingRole || 'decision_maker',
+          isDecisionMaker: lead.contact.isDecisionMaker ?? true,
+          crmStatus: 'lead',
+        });
+        harvestedContactsMap.set(directContact.email, directContact);
       }
 
       // Auto-merge all harvested thread contacts into the existing lead

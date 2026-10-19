@@ -42,7 +42,7 @@ type Props = {
     phone?: string;
   };
   threadParticipants?: NormalizedContact[];
-  mode: 'convert' | 'add_deal';
+  mode: 'convert' | 'add_deal' | 'add_contact';
   opened: boolean;
   onClose: () => void;
   onSuccess: (data: { leadId: string; deal?: any; lead?: any }) => void;
@@ -135,9 +135,17 @@ export function ConvertModal({
         }
       }
 
+      if (mode === 'add_contact') {
+        if (!contactEmail.trim()) {
+          setErrorMsg('Contact email is required');
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const payload = {
         threadId,
-        action: mode === 'convert' ? 'create_lead' : 'add_deal',
+        action: mode === 'convert' ? 'create_lead' : mode === 'add_deal' ? 'add_deal' : 'attach_lead',
         existingLeadId: leadId,
         lead:
           mode === 'convert'
@@ -154,9 +162,19 @@ export function ConvertModal({
                   buyingRole,
                 },
               }
+            : mode === 'add_contact'
+            ? {
+                contact: {
+                  name: contactName.trim(),
+                  email: contactEmail.trim().toLowerCase(),
+                  title: contactTitle.trim(),
+                  phone: contactPhone.trim(),
+                  buyingRole,
+                },
+              }
             : undefined,
         deal:
-          createDeal && dealValue && Number(dealValue) > 0
+          mode === 'add_deal' || (mode === 'convert' && createDeal && dealValue && Number(dealValue) > 0)
             ? {
                 createDeal: true,
                 value: Number(dealValue),
@@ -184,7 +202,9 @@ export function ConvertModal({
         message:
           mode === 'convert'
             ? `Converted "${entityName}" to Lead${data.deal ? ` with ${currency} ${Number(dealValue).toLocaleString()} Deal` : ''}.`
-            : `Added ${currency} ${Number(dealValue).toLocaleString()} Deal to ${leadName}.`,
+            : mode === 'add_contact'
+            ? `Added contact "${contactName || contactEmail}" to ${leadName || 'Lead'}.`
+            : `Added ${currency} ${Number(dealValue).toLocaleString()} Deal to ${leadName || 'Lead'}.`,
         color: 'teal',
         icon: <IconCheck size={16} />,
       });
@@ -204,9 +224,19 @@ export function ConvertModal({
       onClose={onClose}
       title={
         <Group gap="xs">
-          {mode === 'convert' ? <IconUserPlus size={20} color="var(--mantine-color-indigo-6)" /> : <IconCurrencyDollar size={20} color="var(--mantine-color-teal-6)" />}
+          {mode === 'convert' ? (
+            <IconUserPlus size={20} color="var(--mantine-color-indigo-6)" />
+          ) : mode === 'add_contact' ? (
+            <IconUsers size={20} color="var(--mantine-color-blue-6)" />
+          ) : (
+            <IconCurrencyDollar size={20} color="var(--mantine-color-teal-6)" />
+          )}
           <Text fw={700} size="md">
-            {mode === 'convert' ? 'Convert Email Contact to Lead & Deal' : `Add Deal to ${leadName || 'Lead'}`}
+            {mode === 'convert'
+              ? 'Convert Email Contact to Lead & Deal'
+              : mode === 'add_contact'
+              ? `Add Contact to ${leadName || 'Lead'}`
+              : `Add Deal to ${leadName || 'Lead'}`}
           </Text>
         </Group>
       }
@@ -221,8 +251,7 @@ export function ConvertModal({
         )}
 
         {mode === 'convert' && (
-          <>
-            <Paper p="sm" withBorder radius="sm" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
+          <Paper p="sm" withBorder radius="sm" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
               <Group gap="xs" mb="xs">
                 <IconBuilding size={16} color="var(--mantine-color-indigo-6)" />
                 <Text fw={700} size="sm">
@@ -263,125 +292,128 @@ export function ConvertModal({
                 </Group>
               </Stack>
             </Paper>
+        )}
 
-            <Paper p="sm" withBorder radius="sm">
-              <Group gap="xs" mb="xs">
-                <IconUserPlus size={16} color="var(--mantine-color-blue-6)" />
-                <Text fw={700} size="sm">
-                  Primary Contact
-                </Text>
+        {(mode === 'convert' || mode === 'add_contact') && (
+          <Paper p="sm" withBorder radius="sm">
+            <Group gap="xs" mb="xs">
+              <IconUserPlus size={16} color="var(--mantine-color-blue-6)" />
+              <Text fw={700} size="sm">
+                Primary Contact
+              </Text>
+            </Group>
+            <Stack gap="xs">
+              <Group grow>
+                <TextInput
+                  label="Contact Name"
+                  size="xs"
+                  placeholder="Jane Doe"
+                  value={contactName}
+                  onChange={(e) => setContactName(e.currentTarget.value)}
+                />
+                <TextInput
+                  label="Contact Email"
+                  required
+                  size="xs"
+                  placeholder="jane@acme.com"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.currentTarget.value)}
+                />
               </Group>
-              <Stack gap="xs">
-                <Group grow>
-                  <TextInput
-                    label="Contact Name"
-                    size="xs"
-                    placeholder="Jane Doe"
-                    value={contactName}
-                    onChange={(e) => setContactName(e.currentTarget.value)}
-                  />
-                  <TextInput
-                    label="Contact Email"
-                    required
-                    size="xs"
-                    placeholder="jane@acme.com"
-                    value={contactEmail}
-                    onChange={(e) => setContactEmail(e.currentTarget.value)}
-                  />
-                </Group>
-                <Group grow>
-                  <TextInput
-                    label="Job Title"
-                    size="xs"
-                    placeholder="VP Commercial"
-                    value={contactTitle}
-                    onChange={(e) => setContactTitle(e.currentTarget.value)}
-                  />
-                  <TextInput
-                    label="Phone"
-                    size="xs"
-                    placeholder="+1 555-0100"
-                    value={contactPhone}
-                    onChange={(e) => setContactPhone(e.currentTarget.value)}
-                  />
-                  <Select
-                    label="Buying Role"
-                    size="xs"
-                    data={BUYING_ROLES.map((r) => ({ value: r, label: r.replace('_', ' ') }))}
-                    value={buyingRole}
-                    onChange={(val) => val && setBuyingRole(val as BuyingRole)}
-                  />
-                </Group>
-              </Stack>
+              <Group grow>
+                <TextInput
+                  label="Job Title"
+                  size="xs"
+                  placeholder="VP Commercial"
+                  value={contactTitle}
+                  onChange={(e) => setContactTitle(e.currentTarget.value)}
+                />
+                <TextInput
+                  label="Phone"
+                  size="xs"
+                  placeholder="+1 555-0100"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.currentTarget.value)}
+                />
+                <Select
+                  label="Buying Role"
+                  size="xs"
+                  data={BUYING_ROLES.map((r) => ({ value: r, label: r.replace('_', ' ') }))}
+                  value={buyingRole}
+                  onChange={(val) => val && setBuyingRole(val as BuyingRole)}
+                />
+              </Group>
+            </Stack>
 
-              {threadParticipants.length > 1 && (
-                <Alert color="blue" variant="light" icon={<IconUsers size={16} />} mt="sm">
-                  <Text size="xs">
-                    <strong>{threadParticipants.length} contacts</strong> detected in this email thread will be automatically saved to this lead.
-                  </Text>
-                </Alert>
-              )}
-            </Paper>
-          </>
+            {threadParticipants.length > 1 && (
+              <Alert color="blue" variant="light" icon={<IconUsers size={16} />} mt="sm">
+                <Text size="xs">
+                  <strong>{threadParticipants.length} contacts</strong> detected in this email thread will be automatically saved to this lead.
+                </Text>
+              </Alert>
+            )}
+          </Paper>
         )}
 
         {/* Deal Section */}
-        <Paper p="sm" withBorder radius="sm" style={{ backgroundColor: createDeal ? 'var(--mantine-color-teal-0)' : undefined }}>
-          <Group justify="space-between" align="center" mb={createDeal ? 'xs' : 0}>
-            <Group gap="xs">
-              <IconCurrencyDollar size={18} color="var(--mantine-color-teal-7)" />
-              <Text fw={700} size="sm">
-                Deal Details
-              </Text>
-            </Group>
-            {mode === 'convert' && (
-              <Switch
-                label="Create Deal alongside Lead"
-                size="xs"
-                checked={createDeal}
-                onChange={(e) => setCreateDeal(e.currentTarget.checked)}
-              />
-            )}
-          </Group>
-
-          {createDeal && (
-            <Stack gap="xs">
-              <Group grow>
-                <NumberInput
-                  label="Deal Value"
-                  size="xs"
-                  required
-                  min={1}
-                  placeholder="10000"
-                  value={dealValue}
-                  onChange={(val) => setDealValue(val)}
-                />
-                <Select
-                  label="Currency"
-                  size="xs"
-                  data={CURRENCY_CODE_OPTIONS}
-                  value={currency}
-                  onChange={(val) => val && setCurrency(val as CurrencyCode)}
-                />
-                <NumberInput
-                  label="Win Probability (%)"
-                  size="xs"
-                  min={0}
-                  max={100}
-                  value={probability}
-                  onChange={(val) => setProbability(val)}
-                />
+        {(mode === 'convert' || mode === 'add_deal') && (
+          <Paper p="sm" withBorder radius="sm" style={{ backgroundColor: createDeal ? 'var(--mantine-color-teal-0)' : undefined }}>
+            <Group justify="space-between" align="center" mb={createDeal ? 'xs' : 0}>
+              <Group gap="xs">
+                <IconCurrencyDollar size={18} color="var(--mantine-color-teal-7)" />
+                <Text fw={700} size="sm">
+                  Deal Details
+                </Text>
               </Group>
-              <TextInput
-                label="Deal Title / Label"
-                size="xs"
-                placeholder="e.g. Q4 Sponsorship & Signage"
-                value={dealLabel}
-                onChange={(e) => setDealLabel(e.currentTarget.value)}
-              />
-            </Stack>
-          )}
-        </Paper>
+              {mode === 'convert' && (
+                <Switch
+                  label="Create Deal alongside Lead"
+                  size="xs"
+                  checked={createDeal}
+                  onChange={(e) => setCreateDeal(e.currentTarget.checked)}
+                />
+              )}
+            </Group>
+
+            {createDeal && (
+              <Stack gap="xs">
+                <Group grow>
+                  <NumberInput
+                    label="Deal Value"
+                    size="xs"
+                    required
+                    min={1}
+                    placeholder="10000"
+                    value={dealValue}
+                    onChange={(val) => setDealValue(val)}
+                  />
+                  <Select
+                    label="Currency"
+                    size="xs"
+                    data={CURRENCY_CODE_OPTIONS}
+                    value={currency}
+                    onChange={(val) => val && setCurrency(val as CurrencyCode)}
+                  />
+                  <NumberInput
+                    label="Win Probability (%)"
+                    size="xs"
+                    min={0}
+                    max={100}
+                    value={probability}
+                    onChange={(val) => setProbability(val)}
+                  />
+                </Group>
+                <TextInput
+                  label="Deal Title / Label"
+                  size="xs"
+                  placeholder="e.g. Q4 Sponsorship & Signage"
+                  value={dealLabel}
+                  onChange={(e) => setDealLabel(e.currentTarget.value)}
+                />
+              </Stack>
+            )}
+          </Paper>
+        )}
 
         <Group justify="flex-end" mt="sm">
           <Button variant="default" size="xs" onClick={onClose} disabled={submitting}>
@@ -389,12 +421,24 @@ export function ConvertModal({
           </Button>
           <Button
             size="xs"
-            color={mode === 'convert' ? 'indigo' : 'teal'}
-            leftSection={mode === 'convert' ? <IconUserPlus size={14} /> : <IconCurrencyDollar size={14} />}
+            color={mode === 'convert' ? 'indigo' : mode === 'add_contact' ? 'blue' : 'teal'}
+            leftSection={
+              mode === 'convert' ? (
+                <IconUserPlus size={14} />
+              ) : mode === 'add_contact' ? (
+                <IconUsers size={14} />
+              ) : (
+                <IconCurrencyDollar size={14} />
+              )
+            }
             onClick={handleSubmit}
             loading={submitting}
           >
-            {mode === 'convert' ? (createDeal ? 'Convert to Lead & Deal' : 'Convert to Lead') : 'Add Deal to Lead'}
+            {mode === 'convert'
+              ? (createDeal ? 'Convert to Lead & Deal' : 'Convert to Lead')
+              : mode === 'add_contact'
+              ? 'Add Contact to Lead'
+              : 'Add Deal to Lead'}
           </Button>
         </Group>
       </Stack>

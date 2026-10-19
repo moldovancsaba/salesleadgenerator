@@ -19,8 +19,8 @@ import { detectReplyClassification } from '../../../../lib/email-engagement'
 import { deleteCalendarTaskReminder } from '../../../../lib/gcal-sync'
 import {
   extractContactsFromEmailMessage,
-  mergeContactsIntoLead,
 } from '../../../../lib/email-contact-extractor'
+import { mergeContactsIntoLead } from '../../../../lib/email-contact-merge'
 
 // A generous cap for what should be a small, metadata-only payload
 // (resend.com/docs/dashboard/receiving/introduction confirms the webhook

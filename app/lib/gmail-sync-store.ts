@@ -22,8 +22,9 @@ import { deleteCalendarTaskReminder } from '../../lib/gcal-sync';
 import { isMessageHistorical } from '../../lib/lead-timeline-filter';
 import {
   extractContactsFromEmailMessage,
-  mergeContactsIntoLead,
+  cleanHtmlBody,
 } from '../../lib/email-contact-extractor';
+import { mergeContactsIntoLead } from '../../lib/email-contact-merge';
 
 export const GMAIL_SYNC_CURSORS_COLLECTION = 'gmailSyncCursors';
 
@@ -69,7 +70,7 @@ function decodeBase64Url(data: string): string {
 }
 
 function stripHtmlTags(html: string): string {
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return cleanHtmlBody(html);
 }
 
 function extractBodyText(payload: any): string | undefined {

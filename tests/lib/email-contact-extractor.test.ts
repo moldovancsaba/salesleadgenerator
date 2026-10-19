@@ -6,8 +6,10 @@ import {
   inferCountryFromDomain,
   isInternalOrSystemEmail,
   extractContactsFromEmailMessage,
-  mergeContactsIntoLead,
+  cleanHtmlBody,
+  cleanMessageSnippet,
 } from '../../lib/email-contact-extractor';
+import { mergeContactsIntoLead } from '../../lib/email-contact-merge';
 import { normalizeContact } from '../../lib/contacts';
 
 describe('email-contact-extractor', () => {
@@ -228,6 +230,26 @@ VP of Commercial Partnerships
       expect(res?.updated).toBe(1);
       expect(res?.contacts[0].title).toBe('Chief Marketing Officer');
       expect(res?.contacts[0].phone).toBe('+49123456789');
+    });
+  });
+
+  describe('cleanHtmlBody and cleanMessageSnippet', () => {
+    it('strips style blocks and raw CSS correctly', () => {
+      const html = '<style>* { margin: 0; padding: 0; font-family: sans-serif; }</style><p>Hello <b>Team</b>,</p><p>We would love to partner with you.</p>';
+      const cleaned = cleanHtmlBody(html);
+      expect(cleaned).not.toContain('margin: 0');
+      expect(cleaned).not.toContain('<style>');
+      expect(cleaned).toContain('Hello Team');
+      expect(cleaned).toContain('We would love to partner with you.');
+    });
+
+    it('creates a clean 2-line snippet stripped of CSS rules and HTML entities', () => {
+      const html = '<style>body { color: red; }</style><p>Hi there &amp; welcome to the club!&nbsp;Let us know if you are interested in a sponsorship.</p>';
+      const snippet = cleanMessageSnippet(html, 60);
+      expect(snippet).not.toContain('body { color');
+      expect(snippet).not.toContain('&amp;');
+      expect(snippet).toContain('Hi there & welcome');
+      expect(snippet.endsWith('…')).toBe(true);
     });
   });
 });

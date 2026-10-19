@@ -7,8 +7,12 @@ import { formatReSubject, resolveLeadThreadContext } from '../../lib/gmail-threa
 import type { OutreachTemplate } from './outreach/default-templates';
 import {
   extractContactsFromEmailMessage,
-  mergeContactsIntoLead,
+  cleanHtmlBody,
+  cleanMessageSnippet,
+  parseEmailParticipant,
+  formatLocalPartAsName,
 } from '../../lib/email-contact-extractor';
+import { mergeContactsIntoLead } from '../../lib/email-contact-merge';
 import type { NormalizedContact } from '../../lib/contacts';
 
 export const INBOX_THREAD_STATES_COLLECTION = 'inbox_thread_states';
@@ -68,6 +72,13 @@ export interface InboxThread {
   isStarred: boolean;
   isArchived: boolean;
   needsReply: boolean;
+  senderDisplayName?: string;
+  senderEmail?: string;
+  hasLead: boolean;
+  hasContact: boolean;
+  hasDeal: boolean;
+  dealsCount?: number;
+  contactsCount?: number;
   streams: InboxStream[];
   participants?: NormalizedContact[];
 }
@@ -122,12 +133,30 @@ function resolveMessageThreadId(doc: any): string {
   return `msg:${doc._id ? doc._id.toString() : String(Math.random())}`;
 }
 
+function parseAddressStrings(raw: any): string[] | undefined {
+  if (!raw) return undefined;
+  if (Array.isArray(raw)) {
+    return raw.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof raw === 'string') {
+    const parts = raw.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+    const cleaned = parts.map((p) => p.trim()).filter(Boolean);
+    return cleaned.length > 0 ? cleaned : undefined;
+  }
+  return undefined;
+}
+
 /**
  * Normalizes an activityLog record into an InboxMessage.
  */
 function mapActivityToInboxMessage(doc: any): InboxMessage {
   const threadId = resolveMessageThreadId(doc);
-  const bodyText = doc.bodyExcerpt || doc.text || doc.notes || doc.body || '';
+  const rawBody = doc.bodyExcerpt || doc.text || doc.notes || doc.body || '';
+  const bodyText = cleanHtmlBody(rawBody);
+
+  const toList = parseAddressStrings(doc.toAddresses) || parseAddressStrings(doc.to);
+  const ccList = parseAddressStrings(doc.ccAddresses) || parseAddressStrings(doc.cc);
+
   return {
     id: doc._id ? doc._id.toString() : String(Math.random()),
     threadId,
@@ -137,8 +166,8 @@ function mapActivityToInboxMessage(doc: any): InboxMessage {
     subject: doc.subject || undefined,
     body: bodyText,
     from: doc.fromAddress || doc.from,
-    to: Array.isArray(doc.toAddresses) ? doc.toAddresses : doc.to ? [doc.to] : undefined,
-    cc: Array.isArray(doc.ccAddresses) ? doc.ccAddresses : undefined,
+    to: toList,
+    cc: ccList,
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt || Date.now())).toISOString(),
     source: doc.source || 'activity-log',
     callDisposition: doc.callDisposition,
@@ -158,6 +187,12 @@ function mapActivityToInboxMessage(doc: any): InboxMessage {
  */
 function mapOutreachToInboxMessage(log: any): InboxMessage {
   const threadId = resolveMessageThreadId(log);
+  const rawBody = log.body || '';
+  const bodyText = cleanHtmlBody(rawBody);
+
+  const toList = parseAddressStrings(log.to);
+  const ccList = parseAddressStrings(log.cc);
+
   return {
     id: log._id ? log._id.toString() : String(Math.random()),
     threadId,
@@ -165,9 +200,10 @@ function mapOutreachToInboxMessage(log: any): InboxMessage {
     type: 'email-outbound',
     direction: 'outbound',
     subject: log.subject || undefined,
-    body: log.body || '',
+    body: bodyText,
     from: log.from,
-    to: log.to ? [log.to] : undefined,
+    to: toList,
+    cc: ccList,
     createdAt: (log.createdAt instanceof Date ? log.createdAt : new Date(log.createdAt || Date.now())).toISOString(),
     source: log.source || 'outreach-log',
     rfcMessageId: log.rfcMessageId,
@@ -328,17 +364,47 @@ export async function listInboxThreads(
     const threadLeadId = msgs.find((m) => m.leadId)?.leadId || '';
     const lead = threadLeadId ? leadLookup.get(threadLeadId) : null;
 
-    const leadName = lead?.entity_name || lead?.name || (threadLeadId ? `Lead #${threadLeadId.slice(-6)}` : 'System Communications');
-    const leadStage = lead?.kanbanColumn || lead?.status || undefined;
     const contact = lead?.contacts?.[0];
     const lastInbound = msgs.slice().reverse().find((m) => m.direction === 'inbound' && m.from);
     const lastOutbound = msgs.slice().reverse().find((m) => m.direction === 'outbound' && m.to && m.to[0]);
-    const contactName = contact?.name || (lastInbound?.from ? lastInbound.from.split('@')[0] : undefined);
-    const contactEmail = contact?.email || (lastInbound?.from ? lastInbound.from : (lastOutbound?.to ? lastOutbound.to[0] : undefined));
+
+    // Parse sender display name and email
+    const rawSender = lastInbound?.from || lastOutbound?.from || lastMessage.from || '';
+    const parsedSender = parseEmailParticipant(rawSender);
+    const senderDisplayName = parsedSender?.name || (rawSender.includes('@') ? formatLocalPartAsName(rawSender.split('@')[0]) : rawSender) || undefined;
+    const senderEmail = parsedSender?.email || (rawSender.includes('@') ? rawSender.trim().toLowerCase() : undefined);
+
+    const contactName = contact?.name || senderDisplayName || undefined;
+    const contactEmail = contact?.email || senderEmail || (lastOutbound?.to ? lastOutbound.to[0] : undefined);
     const dealValue = lead?.deals?.[0]?.amount || lead?.estimated_annual_revenue_usd || lead?.ticketSizeEstimate?.estimatedValue || undefined;
 
+    // Never show 'System Communications' for an email conversation:
+    let leadName = lead?.entity_name || lead?.name;
+    if (!leadName) {
+      if (threadLeadId) {
+        leadName = `Lead #${threadLeadId.slice(-6)}`;
+      } else if (senderDisplayName) {
+        leadName = senderDisplayName;
+      } else if (senderEmail) {
+        leadName = senderEmail;
+      } else if (lastMessage.subject && lastMessage.subject !== 'No Subject') {
+        leadName = lastMessage.subject;
+      } else if (msgs.some((m) => m.type.startsWith('email'))) {
+        leadName = 'External Prospect';
+      } else {
+        leadName = 'System Activity';
+      }
+    }
+
+    const hasLead = Boolean(threadLeadId && lead);
+    const contactsCount = (lead?.contacts && Array.isArray(lead.contacts)) ? lead.contacts.length : (contactEmail ? 1 : 0);
+    const hasContact = contactsCount > 0;
+    const dealsCount = (lead?.deals && Array.isArray(lead.deals)) ? lead.deals.length : (dealValue ? 1 : 0);
+    const hasDeal = dealsCount > 0;
+
+    const leadStage = lead?.kanbanColumn || lead?.status || undefined;
     const subject = lastMessage.subject || msgs.slice().reverse().find((m) => m.subject)?.subject || 'No Subject';
-    const snippet = truncateBody(lastMessage.body, 140) || '';
+    const snippet = cleanMessageSnippet(lastMessage.body, 140) || '';
 
     // Streams classification
     const streams = new Set<InboxStream>(['all']);
@@ -381,6 +447,13 @@ export async function listInboxThreads(
       leadStage,
       contactName,
       contactEmail,
+      senderDisplayName,
+      senderEmail,
+      hasLead,
+      hasContact,
+      hasDeal,
+      dealsCount,
+      contactsCount,
       dealValue,
       subject,
       snippet,
@@ -547,17 +620,46 @@ export async function getInboxThreadDetail(
     }).catch(() => null);
   }
 
-  const leadName = lead?.entity_name || lead?.name || (leadId ? `Lead #${leadId.slice(-6)}` : 'System Communications');
-  const leadStage = lead?.kanbanColumn || lead?.status || undefined;
   const contact = lead?.contacts?.[0];
   const lastInbound = messages.slice().reverse().find((m) => m.direction === 'inbound' && m.from);
   const lastOutbound = messages.slice().reverse().find((m) => m.direction === 'outbound' && m.to && m.to[0]);
-  const contactName = contact?.name || (lastInbound?.from ? lastInbound.from.split('@')[0] : undefined);
-  const contactEmail = contact?.email || (lastInbound?.from ? lastInbound.from : (lastOutbound?.to ? lastOutbound.to[0] : undefined));
+
+  // Parse sender display name and email
+  const rawSender = lastInbound?.from || lastOutbound?.from || lastMessage.from || '';
+  const parsedSender = parseEmailParticipant(rawSender);
+  const senderDisplayName = parsedSender?.name || (rawSender.includes('@') ? formatLocalPartAsName(rawSender.split('@')[0]) : rawSender) || undefined;
+  const senderEmail = parsedSender?.email || (rawSender.includes('@') ? rawSender.trim().toLowerCase() : undefined);
+
+  const contactName = contact?.name || senderDisplayName || undefined;
+  const contactEmail = contact?.email || senderEmail || (lastOutbound?.to ? lastOutbound.to[0] : undefined);
   const dealValue = lead?.deals?.[0]?.amount || lead?.estimated_annual_revenue_usd || lead?.ticketSizeEstimate?.estimatedValue || undefined;
 
+  let leadName = lead?.entity_name || lead?.name;
+  if (!leadName) {
+    if (leadId) {
+      leadName = `Lead #${leadId.slice(-6)}`;
+    } else if (senderDisplayName) {
+      leadName = senderDisplayName;
+    } else if (senderEmail) {
+      leadName = senderEmail;
+    } else if (lastMessage.subject && lastMessage.subject !== 'No Subject') {
+      leadName = lastMessage.subject;
+    } else if (messages.some((m) => m.type.startsWith('email'))) {
+      leadName = 'External Prospect';
+    } else {
+      leadName = 'System Activity';
+    }
+  }
+
+  const hasLead = Boolean(leadId && lead);
+  const contactsCount = (lead?.contacts && Array.isArray(lead.contacts)) ? lead.contacts.length : (contactEmail ? 1 : 0);
+  const hasContact = contactsCount > 0;
+  const dealsCount = (lead?.deals && Array.isArray(lead.deals)) ? lead.deals.length : (dealValue ? 1 : 0);
+  const hasDeal = dealsCount > 0;
+
+  const leadStage = lead?.kanbanColumn || lead?.status || undefined;
   const subject = lastMessage.subject || messages.slice().reverse().find((m) => m.subject)?.subject || 'No Subject';
-  const snippet = truncateBody(lastMessage.body, 140) || '';
+  const snippet = cleanMessageSnippet(lastMessage.body, 140) || '';
 
   const streams = new Set<InboxStream>(['all']);
   for (const m of messages) {
@@ -616,6 +718,13 @@ export async function getInboxThreadDetail(
     leadStage,
     contactName,
     contactEmail,
+    senderDisplayName,
+    senderEmail,
+    hasLead,
+    hasContact,
+    hasDeal,
+    dealsCount,
+    contactsCount,
     dealValue,
     subject,
     snippet,

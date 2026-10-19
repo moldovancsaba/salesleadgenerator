@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.296
+**Version:** 2.4.297
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -129,22 +129,32 @@ The **Inbox** (`/inbox/[brand]`, issue #257) is the centralized communication hu
 - **Filters**: Quickly toggle **Starred Only**, **Unread Only**, or browse the **Archived** folder.
 
 ### 2. Conversation Feed (Middle Pane)
+- **Sender Resolution & Identity** (issue #260, 2.4.297): Every thread card resolves the real counterparty sender name (`senderDisplayName`) and email address (`senderEmail`), with company context badges where available. Prospects without prior lead records are never mislabeled as generic "System Communications".
+- **Clean 2-Line Previews** (issue #260): Message snippet previews are sanitized of raw HTML tags, embedded CSS `<style>` blocks, scripts, and entities, rendering clean two-line message summaries.
+- **Availability Status Badges** (issue #260): Every thread card displays 3 dedicated entity status indicators:
+  - **Lead**: Teal badge (`Lead ✓`) if linked to an active lead record, or dashed gray (`No Lead`) if unlinked.
+  - **Contact**: Blue badge (`Contact ✓` with count) if contacts exist, or dashed gray (`No Contact`).
+  - **Deal**: Grape badge with monetary value (e.g., `Deal: €5,000` or count) if commercial deals are open, or dashed gray (`No Deal`).
 - Search across lead entity names, contact names, email addresses, subjects, and message previews with instant filtering.
 - Visual status indicators: Unread blue indicator dot, kanban stage badge (`Negotiating`, `Contacted`, `Discovered`), urgent `Reply Needed` orange badge, and message counter badge for multi-message threads.
 - One-click Star/Unstar toggle on each conversation card.
 
 ### 3. Conversation Reader & Composer (Right Pane)
-- **Context Header**: Displays lead title, link to open the lead directly in the pipeline board, kanban stage, deal value, and contact email. Provides quick actions to toggle Star, Mark Unread, or Archive.
-- **Lead & Deal Conversion**:
-  - Convert unlinked conversation threads to a new Lead and Deal in 1 click via the **Convert to Lead & Deal** button in the thread header.
-  - For threads linked to an existing lead, click **Add Deal** to quickly attach a new commercial opportunity with stage, value, currency, and expected close date.
+- **Context Header & 1-Click Conversion Actions** (issue #260):
+  - Displays thread subject as primary heading, sender identity, and direct pipeline link (`Open Lead in Pipeline ↗`) when linked.
+  - Prominent entity availability indicators with 1-click modals:
+    - `Lead ✓` or `+ Create Lead`: Opens `<ConvertModal mode="convert" />` to instantiate a new Lead and initial Deal.
+    - `Contact ✓` or `+ Add Contact`: Opens `<ConvertModal mode="add_contact" />` to append newly discovered thread participants directly to `lead.contacts`.
+    - `Deal: $value` or `+ Add Deal`: Opens `<ConvertModal mode="add_deal" />` to attach a pipeline deal with stage, value, and target close date.
+  - Quick action controls to toggle Star, Mark Unread, or Archive.
 - **Harvested Contacts from Emails**:
   - The thread viewer features an interactive **Contacts from emails** strip listing all discovered participants (`From`, `To`, `Cc`) extracted from RFC 5322 headers and body signatures.
   - Participants already saved on the lead display a `Lead Contact` badge.
   - Newly harvested external contacts display an `External` badge with a 1-click **Convert** or **Add Deal** button.
-  - Discovered contacts are automatically merged into `lead.contacts` upon loading or email sync.
-- **Message Timeline**: Chronological message bubble history with clear visual separation:
-  - *Inbound Emails*: Highlighted with prospect avatars, RFC 2822 timestamps, and formatted text bodies.
+  - Discovered contacts are automatically merged into `lead.contacts` upon loading or email sync via `lib/email-contact-merge.ts`.
+- **Message Timeline & Full Recipient Visibility** (issue #260): Chronological message bubble history with transparent recipient headers:
+  - *Full Recipient Headers*: Every email message bubble header explicitly displays comma-separated `From:`, `To:`, and `Cc:` recipient lists with full display names and email addresses.
+  - *Inbound Emails*: Highlighted with prospect avatars, RFC 2822 timestamps, and clean sanitized text bodies.
   - *Outbound Emails*: Stamped with sender rep identity and live delivery status (`sent`, `opened`, `clicked`, `replied`).
   - *Internal Notes*: Highlighted in amber with "Private Note" banners, visible only to logged-in team members.
   - *Calls & Meetings*: Compact event cards with call dispositions or scheduled calendar slots.
