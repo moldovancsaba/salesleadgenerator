@@ -1,5 +1,34 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.295
+
+### Inbox & CRM: Convert Email Contacts to Leads & Deals and Automated Contact Harvesting from Emails (issue #258)
+
+- **Automated Email Contact Extractor & Synchronizer (`lib/email-contact-extractor.ts`):**
+  - Built RFC 5322 participant extraction utility (`parseEmailParticipant`, `parseEmailAddressList`) extracting display names and emails from `from`, `to`, and `cc` headers.
+  - Implemented company domain inference (`inferCompanyFromEmail`) with public mail provider filtering (`gmail.com`, `yahoo.com`, `outlook.com`, etc.) and ccTLD country detection (`inferCountryFromDomain`).
+  - Added signature block enrichment connecting `parseSignatureBlock` to automatically extract phone numbers, job titles, and sender names from email message bodies.
+  - Built `mergeContactsIntoLead(db, brand, tenantId, leadId, candidateContacts)` to automatically deduplicate, enrich missing fields, append new contacts into `lead.contacts`, and update multikey index `lead.contactEmails`.
+- **Inbound Webhook & Gmail Sync Automated Contact Ingestion (`app/api/webhooks/inbound-email/route.ts`, `app/lib/gmail-sync-store.ts`):**
+  - Updated Resend inbound webhook ingestion to harvest all external email participants and automatically merge them into the matched lead's contacts directory.
+  - Updated Gmail background sync (`pollSingleGmailConnection`) to harvest all external email participants from headers and signatures and merge them into `lead.contacts`.
+- **Thread Detail Contact Auto-Harvesting (`app/lib/inbox-store.ts`, `app/api/inbox/[brand]/threads/[id]/route.ts`):**
+  - `getInboxThreadDetail` extracts all participants across all messages in a conversation thread and returns `participants: NormalizedContact[]`.
+  - Automatically merges any newly discovered contacts from the email thread into the associated lead on thread load.
+- **Email to Lead & Deal Conversion Endpoint (`app/api/inbox/[brand]/convert/route.ts`):**
+  - Built `POST /api/inbox/[brand]/convert` supporting `create_lead`, `add_deal`, and `attach_lead`.
+  - Automatically harvests all thread participants into `lead.contacts` upon conversion, calculates ICE scores, and enforces fingerprint deduplication.
+  - Sanitizes and creates Deals (`lib/deals.ts` `sanitizeDeal`) with value, currency (`CURRENCY_CODES`), pipeline stage, close date, and probability.
+  - Re-links all `activityLog` and `outreach_logs` entries in the conversation thread to the newly created or attached `leadId`.
+- **Inbox UI Conversion & Deal Affordances (`app/inbox/[brand]/inbox-client.tsx`, `app/inbox/[brand]/convert-modal.tsx`):**
+  - Added prominent "Convert to Lead & Deal" button for unlinked conversation threads in the thread header.
+  - Added "Add Deal" action button and deal value badges for already-linked leads.
+  - Implemented "Contacts from emails" conversation strip in the thread header displaying all detected participants with status badges ("Saved" / "Convert").
+  - Built `<ConvertModal />` with intelligent pre-filling for company name, website, country, primary contact, and optional Deal creation.
+- **Automated Test Coverage:**
+  - Added unit test suite `tests/lib/email-contact-extractor.test.ts` (17 tests covering header parsing, company inference, ccTLD mapping, internal address filtering, and lead merging).
+  - Added integration test suite `tests/integration/inbox-convert.integration.test.ts` (3 tests covering lead creation, deal creation, message re-linking, and 409 duplicate handling).
+
 ## 2.4.294
 
 ### Inbox & Communication: Metadata population, RFC 2822 webhook parity, participant resolution, and live background polling (issue #257)

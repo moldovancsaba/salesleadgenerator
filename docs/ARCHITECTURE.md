@@ -1,6 +1,6 @@
 # Architecture — Sales Lead Generator
 
-**Version:** 2.4.294
+**Version:** 2.4.295
 
 ---
 
@@ -1542,6 +1542,25 @@ Ingests CRM Cadence Engine & Sequence Enforcement into Sales Lead Generator:
     4. *Sales Process*: Sales cycle duration, decision authorities, purchase frequency, upsell paths, and customer reference cases.
     5. *Targets & Seasonality*: Revenue targets, period type, seasonality quarters, and commercial negotiation notes.
   - Clean separation of UI state, dirty-checking ("Unsaved changes" indicator), keyboard shortcuts (`Cmd+S`), and strict schema sanitation.
+
+### Unified Communication Center & Conversation Engine (2.4.294, issue #257)
+- **Omnichannel Conversation Aggregation (`app/lib/inbox-store.ts`, `/api/inbox/[brand]`, `/api/inbox/[brand]/threads/[id]`):**
+  - Consolidates prospect emails, outbound cadences, internal team notes, logged phone calls, and calendar meeting events across `activityLog` and `outreach_logs`.
+  - Normalizes threading via RFC 2822 message identifiers (`rfcMessageId`, `inReplyTo`, `references`) and Gmail `threadId`.
+  - Implements user-scoped thread state overrides (`inbox_thread_states` collection) for read, archived, starred, and custom assignment states.
+  - In-thread composer supports RFC 2822 reply threading via Gmail REST API or Resend, Document Library attachments, merge tokens, and signature insertion.
+  - 60-second live polling with unmount teardown, immediate sync on Google OAuth callback, and deep-linking query parameters (`stream`, `search`, `lead`, `thread`).
+
+### Automated Email Contact Harvesting & 1-Click Lead/Deal Conversion (2.4.295, issue #258)
+- **Automatic Contact Harvesting (`lib/email-contact-extractor.ts`):**
+  - Extracts and normalizes contact records from RFC 5322 headers (`From`, `To`, `Cc`) and text signatures (`parseSignatureBlock`).
+  - Company domain inference filters free public providers (`gmail.com`, `yahoo.com`, `outlook.com`, etc.) and derives formatted company names.
+  - Infers ccTLD country codes (`.de` -> `DE`, `.uk` -> `GB`, `.fr` -> `FR`, etc.) and filters internal brand/rep/system addresses.
+  - Continuous automatic harvesting persists new contacts into `lead.contacts` and multikey `lead.contactEmails[]` across Inbound Email webhooks, Gmail background sync, and Inbox thread loading.
+- **Conversion to Lead and Deal (`app/api/inbox/[brand]/convert/route.ts`, `app/inbox/[brand]/convert-modal.tsx`):**
+  - Reps can convert unlinked threads into a new Lead (`create_lead`), attach threads to an existing Lead (`attach_lead`), or add commercial Deals (`add_deal`) directly from the thread view.
+  - Automatically re-links all associated messages across `activityLog` and `outreach_logs` to the target `leadId`.
+  - Enforces deal sanitization (`sanitizeDeal`), pipeline stage progression, and auto-generates classification tags.
 
 ### Input Validation
 - POST, PUT, and PATCH payloads are all validated before processing (`validateLeadPayload`, with `{ partial: true }` for `PUT`'s partial updates; `validatePatchPayload` for action-envelope `PATCH`es)

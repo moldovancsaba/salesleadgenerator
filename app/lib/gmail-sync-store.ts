@@ -20,6 +20,10 @@ import { getBrandConfig, getAllBrandConfigs, type Brand } from './brand';
 import { tenantFilter } from '../../lib/tenant';
 import { deleteCalendarTaskReminder } from '../../lib/gcal-sync';
 import { isMessageHistorical } from '../../lib/lead-timeline-filter';
+import {
+  extractContactsFromEmailMessage,
+  mergeContactsIntoLead,
+} from '../../lib/email-contact-extractor';
 
 export const GMAIL_SYNC_CURSORS_COLLECTION = 'gmailSyncCursors';
 
@@ -303,6 +307,25 @@ export async function pollSingleGmailConnection(
           console.error('[gmail-sync-store] contact-suggestion generation failed', error);
         }
       }
+
+      // Automatically harvest all external email participants and merge into lead.contacts
+      try {
+        const harvested = extractContactsFromEmailMessage(
+          {
+            from: fromEmail,
+            to: toEmails,
+            cc: ccEmails,
+            body: bodyText,
+          },
+          { brand, internalEmails: [gmailAddress] }
+        );
+        if (harvested.length > 0) {
+          await mergeContactsIntoLead(db, brand, tenantId, matchedLeadId, harvested);
+        }
+      } catch (harvestErr) {
+        console.error('[gmail-sync-store] contact harvesting failed', harvestErr);
+      }
+
       // Issue #249 / #244: Inbound prospect reply cancels active cadence sequence and future calendar reminders,
       // provided the message is NOT historical pre-lead correspondence (Issue #244).
       if (!doc.isHistorical) {

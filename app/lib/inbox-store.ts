@@ -5,6 +5,11 @@ import { getBrandConfig } from './brand';
 import { sendManualEmail, type LeadForSend, type AutomatedSendResult } from '../../lib/outreach-send';
 import { formatReSubject, resolveLeadThreadContext } from '../../lib/gmail-threading';
 import type { OutreachTemplate } from './outreach/default-templates';
+import {
+  extractContactsFromEmailMessage,
+  mergeContactsIntoLead,
+} from '../../lib/email-contact-extractor';
+import type { NormalizedContact } from '../../lib/contacts';
 
 export const INBOX_THREAD_STATES_COLLECTION = 'inbox_thread_states';
 
@@ -64,6 +69,7 @@ export interface InboxThread {
   isArchived: boolean;
   needsReply: boolean;
   streams: InboxStream[];
+  participants?: NormalizedContact[];
 }
 
 export interface InboxCounts {
@@ -474,7 +480,7 @@ export async function getInboxThreadDetail(
   tenantId: string,
   threadId: string,
   options: { userId?: string; markRead?: boolean } = {}
-): Promise<{ thread: InboxThread | null; messages: InboxMessage[]; lead: any | null }> {
+): Promise<{ thread: InboxThread | null; messages: InboxMessage[]; lead: any | null; participants: NormalizedContact[] }> {
   await ensureInboxIndexes(db);
   await ensureActivityLogIndexes(db);
 
@@ -514,7 +520,7 @@ export async function getInboxThreadDetail(
   messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   if (messages.length === 0) {
-    return { thread: null, messages: [], lead: null };
+    return { thread: null, messages: [], lead: null, participants: [] };
   }
 
   const lastMessage = messages[messages.length - 1];
@@ -576,6 +582,33 @@ export async function getInboxThreadDetail(
     isRead = true;
   }
 
+  // Harvest all unique external participants across all messages in this thread
+  const participantsMap = new Map<string, NormalizedContact>();
+  for (const m of messages) {
+    const extracted = extractContactsFromEmailMessage(
+      { from: m.from, to: m.to, cc: m.cc, body: m.body },
+      { brand }
+    );
+    for (const p of extracted) {
+      if (!participantsMap.has(p.email)) {
+        participantsMap.set(p.email, p);
+      }
+    }
+  }
+  const participants = Array.from(participantsMap.values());
+
+  // Automatically merge newly discovered email contacts into the associated Lead
+  if (lead && leadId && participants.length > 0) {
+    try {
+      const mergeRes = await mergeContactsIntoLead(db, brand, tenantId, leadId, participants);
+      if (mergeRes && mergeRes.contacts) {
+        lead.contacts = mergeRes.contacts;
+      }
+    } catch {
+      // non-fatal
+    }
+  }
+
   const thread: InboxThread = {
     id: threadId,
     leadId,
@@ -595,9 +628,10 @@ export async function getInboxThreadDetail(
     isArchived,
     needsReply,
     streams: Array.from(streams),
+    participants,
   };
 
-  return { thread, messages, lead };
+  return { thread, messages, lead, participants };
 }
 
 /**

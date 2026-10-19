@@ -1,6 +1,6 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.294
+**Version:** 2.4.295
 
 **Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212); comprehensive alignment audit completed 2026-10-18 (2.4.291, issue #256) bringing the complete API surface, domain modules, and component tree up to date across all features through v2.4.291 (Multi-CRM lead exchange, Google Contacts sync, multi-account Google integration, modern 5-tab Sales Settings, Document Library, pipeline stage manager, email threading context, scheduler recovery, merge token inserter, and timeline noise filter). This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 
@@ -37,12 +37,13 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/leads/export/route.ts` | GET, POST | `requireBrandAccessApi` | Multi-CRM CSV and Google Sheets TSV export with field mapping presets for HubSpot, Pipedrive, Salesforce, and Google Sheets (`lib/crm-lead-exchange.ts`, issue #252) |
 | `app/api/leads/import/route.ts` | POST | `requireBrandAccessApi` | Multi-CRM batch lead ingestion with RFC 4180 parsing, SHA-256 fingerprint deduplication, and stage/country normalization (`lib/crm-lead-exchange.ts`, issue #252) |
 
-### Inbox & Communication Center (issue #257)
+### Inbox & Communication Center (issues #257, #258)
 
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
 | `app/api/inbox/[brand]/route.ts` | GET, PATCH | `requireBrandAccessApi` | GET lists aggregated conversation threads and stream metrics (`all`, `inbox`, `sent`, `needs_reply`, `internal`, `calls`, `system`, `unread`); PATCH handles bulk status updates (`isRead`, `isArchived`, `isStarred`) |
 | `app/api/inbox/[brand]/threads/[id]/route.ts` | GET, PATCH, POST | `requireBrandAccessApi` | GET returns chronological thread messages and lead context (auto-marks read); PATCH updates thread state flags; POST dispatches in-thread email reply or adds internal team note |
+| `app/api/inbox/[brand]/convert/route.ts` | POST | `requireBrandAccessApi` | Issue #258: Converts thread contacts into a new Lead (`create_lead`), creates a Deal on an existing Lead (`add_deal`), or attaches the thread to an existing Lead (`attach_lead`); auto-harvests thread participants, sanitizes deals, and re-links activityLog and outreach_logs entries |
 
 ### Saved filters (issue #214)
 
@@ -295,6 +296,7 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 - `lib/email-verification.ts` — `isRoleAccount`, `isFreeProvider`, `extractDomain`, `lookupMx`, `checkDomain`, `statusFromMxResult`, `verifyEmail`
 - `lib/contact-reply-matching.ts` — `CONTACT_SUGGESTIONS_COLLECTION`, `ContactSuggestionDocument`, `matchReplyToLeads`, `findMatchedContact`, `generateContactSuggestion`, `ensureContactSuggestionsIndexes`
 - `lib/signature-parser.ts` — `parseSignatureBlock`
+- `lib/email-contact-extractor.ts` — issue #258: RFC 5322 header and signature contact harvesting (`parseEmailParticipant`, `parseEmailAddressList`, `inferCompanyFromEmail`, `inferCountryFromDomain`, `isInternalOrSystemEmail`, `extractContactsFromEmailMessage`, `mergeContactsIntoLead`)
 - `lib/migrate-decision-maker.ts` — one-time migration: `looksLikeEmail/Phone`, `migrateDecisionMakerCollection`
 
 **Ticket size / deals / forecast math**
@@ -459,6 +461,7 @@ The concrete pattern that distinguishes the two layers: `lib/cadences.ts` has th
 - `PipelineManagerModal.tsx` — issue #235: `PipelineManagerModal({brand, opened, onClose, onSaved})` — custom deal pipeline and stage configuration editor
 - `ReportTemplateModal.tsx` — issue #251: `ReportTemplateModal({brand, opened, onClose, onSelectTemplate})` — starter CRM report template gallery dialog with 1-click template selection
 - `DocumentLibraryPickerModal.tsx` — issue #243: `DocumentLibraryPickerModal({brand, opened, onClose, onSelect})` — workspace document attachment library selector with size limit validation
+- `ConvertModal.tsx` (`app/inbox/[brand]/convert-modal.tsx`) — issue #258: `ConvertModal({brand, thread, initialContact, opened, onClose, onConverted})` — converts email contacts/threads into Leads and Deals with participant harvesting
 - `UserSettingsModal.tsx` — issue #250: `UserSettingsModal({opened, onClose})` — rep user preferences, default sending Google account selection, and signature sync
 - `AppLayout.tsx` — unified layout wrapper with fluid sidebar docking and sticky viewport alignment
 - `NavContext.tsx` — navigation state and drawer toggle context
@@ -480,7 +483,7 @@ Every page below is an async Server Component that calls `await requireBrandAcce
 | Page | Client component | API routes it/its children call |
 |---|---|---|
 | `app/today/[brand]/page.tsx` | `TodayPageClient` | `/api/today/{brand}`, `/api/today/{brand}/complete-step`, `/api/today/{brand}/snooze` (issue #237) |
-| `app/inbox/[brand]/page.tsx` | `InboxClient` | `/api/inbox/{brand}`, `/api/inbox/{brand}/threads/{id}`, `/api/outreach-templates`, `/api/documents`; 3-pane native Communication Center (issue #257) |
+| `app/inbox/[brand]/page.tsx` | `InboxClient` | `/api/inbox/{brand}`, `/api/inbox/{brand}/threads/{id}`, `/api/inbox/{brand}/convert`, `/api/outreach-templates`, `/api/documents`; 3-pane native Communication Center with email contact harvesting & lead/deal conversion modal (issues #257, #258) |
 | `app/sales/[brand]/page.tsx` | `SalesPageClient` | `/api/leads/{id}` (direct), `/api/boards/{brand}`, `/api/leads/export`, `/api/leads/import`; mounts `KanbanBoard` → `/api/leads/columns`, `/api/leads`; mounts `AddLeadModal` → `/api/leads` POST; mounts `LeadExportModal`, `LeadImportModal`, `FilterBar` |
 | `app/contacts/[brand]/page.tsx` | `ContactsClient` | `/api/contacts` (debounced search), `/api/contacts/import-google`; mounts `GoogleContactsWorkspaceModal` (issues #216, #249) |
 | `app/forecast/[brand]/page.tsx` | `ForecastClient` | `/api/boards/{brand}`, `/api/win-rates`, `/api/ticket-size-calibration` |

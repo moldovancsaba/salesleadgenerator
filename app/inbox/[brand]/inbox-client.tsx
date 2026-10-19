@@ -45,6 +45,9 @@ import {
   IconPaperclip,
   IconUser,
   IconCalendar,
+  IconUserPlus,
+  IconCurrencyDollar,
+  IconUsers,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import type {
@@ -53,6 +56,7 @@ import type {
   InboxMessage,
   InboxCounts,
 } from '@/app/lib/inbox-store';
+import { ConvertModal } from './convert-modal';
 
 type Props = {
   brand: Brand;
@@ -133,9 +137,15 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
   const [replyError, setReplyError] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
-  // External options for composer
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; subject: string; body: string }>>([]);
   const [documents, setDocuments] = useState<Array<{ id: string; displayName: string }>>([]);
+
+  // Conversion / Deal modal state
+  const [convertModalOpened, setConvertModalOpened] = useState(false);
+  const [convertModalMode, setConvertModalMode] = useState<'convert' | 'add_deal'>('convert');
+  const [targetContact, setTargetContact] = useState<
+    { name?: string; email: string; title?: string; phone?: string } | undefined
+  >(undefined);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -251,7 +261,14 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
         if (!res.ok) throw new Error('Failed to fetch thread detail');
         const data = await res.json();
         if (isMounted) {
-          setSelectedThread(data.thread);
+          setSelectedThread(
+            data.thread
+              ? {
+                  ...data.thread,
+                  participants: data.thread.participants || data.participants || [],
+                }
+              : null
+          );
           setMessages(data.messages || []);
           setLead(data.lead);
 
@@ -822,7 +839,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
             <Paper p="md" radius={0} style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
               <Group justify="space-between" align="flex-start">
                 <Box>
-                  <Group gap="xs" align="center">
+                  <Group gap="xs" align="center" wrap="wrap">
                     <Text fw={700} size="md">
                       {selectedThread.leadName}
                     </Text>
@@ -831,18 +848,52 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                         {selectedThread.leadStage}
                       </Badge>
                     )}
-                    {selectedThread.leadId && (
-                      <Tooltip label="Open Lead in Pipeline">
-                        <ActionIcon
-                          component={Link}
-                          href={`/sales/${brand}?leadId=${selectedThread.leadId}`}
-                          variant="subtle"
-                          size="sm"
-                          color="indigo"
+                    {selectedThread.dealValue && (
+                      <Badge size="sm" variant="outline" color="teal">
+                        ${selectedThread.dealValue.toLocaleString()}
+                      </Badge>
+                    )}
+                    {selectedThread.leadId ? (
+                      <>
+                        <Tooltip label="Open Lead in Pipeline">
+                          <ActionIcon
+                            component={Link}
+                            href={`/sales/${brand}?leadId=${selectedThread.leadId}`}
+                            variant="subtle"
+                            size="sm"
+                            color="indigo"
+                          >
+                            <IconExternalLink size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Button
+                          size="compact-xs"
+                          variant="light"
+                          color="teal"
+                          leftSection={<IconCurrencyDollar size={13} />}
+                          onClick={() => {
+                            setConvertModalMode('add_deal');
+                            setTargetContact(undefined);
+                            setConvertModalOpened(true);
+                          }}
                         >
-                          <IconExternalLink size={16} />
-                        </ActionIcon>
-                      </Tooltip>
+                          Add Deal
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="compact-xs"
+                        variant="filled"
+                        color="indigo"
+                        leftSection={<IconUserPlus size={13} />}
+                        onClick={() => {
+                          setConvertModalMode('convert');
+                          setTargetContact(undefined);
+                          setConvertModalOpened(true);
+                        }}
+                      >
+                        Convert to Lead & Deal
+                      </Button>
                     )}
                   </Group>
 
@@ -859,6 +910,78 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                   <Text fw={600} size="sm" mt={6}>
                     {selectedThread.subject}
                   </Text>
+
+                  {/* Thread Participants Strip (Contacts from emails) */}
+                  {selectedThread.participants && selectedThread.participants.length > 0 && (
+                    <Box mt="xs" pt="xs" style={{ borderTop: '1px dashed var(--mantine-color-gray-3)' }}>
+                      <Group gap={6} align="center" mb={4}>
+                        <IconUsers size={13} color="var(--mantine-color-indigo-6)" />
+                        <Text size="11px" fw={700} c="dimmed">
+                          Contacts from emails ({selectedThread.participants.length}):
+                        </Text>
+                      </Group>
+                      <Group gap="xs" wrap="wrap">
+                        {selectedThread.participants.map((p) => {
+                          const isOnLead = lead?.contacts?.some(
+                            (c: any) => c?.email && c.email.toLowerCase() === p.email.toLowerCase()
+                          );
+                          return (
+                            <Paper
+                              key={p.email}
+                              p="3px 8px"
+                              radius="sm"
+                              withBorder
+                              style={{
+                                backgroundColor: isOnLead
+                                  ? 'var(--mantine-color-teal-0)'
+                                  : 'var(--mantine-color-gray-0)',
+                                borderColor: isOnLead
+                                  ? 'var(--mantine-color-teal-3)'
+                                  : 'var(--mantine-color-gray-3)',
+                              }}
+                            >
+                              <Group gap={6} wrap="nowrap">
+                                <Avatar size={18} radius="xl" color={isOnLead ? 'teal' : 'indigo'}>
+                                  {p.name.charAt(0)}
+                                </Avatar>
+                                <Box>
+                                  <Text size="11px" fw={600} style={{ lineHeight: 1.1 }}>
+                                    {p.name}
+                                  </Text>
+                                  <Text size="10px" c="dimmed" style={{ lineHeight: 1.1 }}>
+                                    {p.email}
+                                  </Text>
+                                </Box>
+                                {isOnLead ? (
+                                  <Badge size="xs" color="teal" variant="light">
+                                    Saved
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    size="compact-xs"
+                                    variant="light"
+                                    color="indigo"
+                                    onClick={() => {
+                                      setTargetContact({
+                                        name: p.name,
+                                        email: p.email,
+                                        title: p.title,
+                                        phone: p.phone,
+                                      });
+                                      setConvertModalMode(selectedThread.leadId ? 'add_deal' : 'convert');
+                                      setConvertModalOpened(true);
+                                    }}
+                                  >
+                                    {selectedThread.leadId ? 'Add Deal' : 'Convert'}
+                                  </Button>
+                                )}
+                              </Group>
+                            </Paper>
+                          );
+                        })}
+                      </Group>
+                    </Box>
+                  )}
                 </Box>
 
                 <Group gap="xs">
@@ -1139,6 +1262,48 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
           </>
         )}
       </Box>
+
+      {selectedThread && (
+        <ConvertModal
+          brand={brand}
+          threadId={selectedThread.id}
+          leadId={selectedThread.leadId || undefined}
+          leadName={selectedThread.leadName !== 'System Communications' ? selectedThread.leadName : undefined}
+          defaultContact={
+            targetContact || {
+              name: selectedThread.contactName,
+              email: selectedThread.contactEmail || '',
+            }
+          }
+          threadParticipants={selectedThread.participants}
+          mode={convertModalMode}
+          opened={convertModalOpened}
+          onClose={() => {
+            setConvertModalOpened(false);
+            setTargetContact(undefined);
+          }}
+          onSuccess={(data) => {
+            if (data.leadId) {
+              setSelectedThread((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      leadId: data.leadId,
+                      leadName: data.lead?.entity_name || prev.leadName,
+                      leadStage: data.lead?.kanbanColumn || prev.leadStage,
+                      dealValue: data.deal?.value || prev.dealValue,
+                    }
+                  : null
+              );
+              if (data.lead) {
+                setLead(data.lead);
+              }
+              loadThreads();
+            }
+          }}
+        />
+      )}
     </Box>
   );
 }
+

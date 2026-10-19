@@ -17,6 +17,10 @@ import { getAllBrandConfigs, getBrandConfig } from '../../../lib/brand'
 import { suppressRecipient } from '../../../../lib/suppression'
 import { detectReplyClassification } from '../../../../lib/email-engagement'
 import { deleteCalendarTaskReminder } from '../../../../lib/gcal-sync'
+import {
+  extractContactsFromEmailMessage,
+  mergeContactsIntoLead,
+} from '../../../../lib/email-contact-extractor'
 
 // A generous cap for what should be a small, metadata-only payload
 // (resend.com/docs/dashboard/receiving/introduction confirms the webhook
@@ -342,6 +346,24 @@ export async function POST(request: NextRequest) {
         )
       } catch (err) {
         console.error('[inbound-email webhook] contact-suggestion generation failed', err)
+      }
+
+      // Automatically harvest all external email participants and merge into lead.contacts
+      try {
+        const harvested = extractContactsFromEmailMessage(
+          {
+            from: receivedEvent.from,
+            to: receivedEvent.to,
+            cc: receivedEvent.cc,
+            body: bodyExcerpt,
+          },
+          { brand: doc.brand as Brand }
+        )
+        if (harvested.length > 0) {
+          await mergeContactsIntoLead(db, doc.brand as Brand, doc.tenantId || 'default', doc.leadId, harvested)
+        }
+      } catch (harvestErr) {
+        console.error('[inbound-email webhook] contact harvesting failed', harvestErr)
       }
     }
 

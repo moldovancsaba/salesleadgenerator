@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.294
+**Version:** 2.4.295
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -135,6 +135,14 @@ The **Inbox** (`/inbox/[brand]`, issue #257) is the centralized communication hu
 
 ### 3. Conversation Reader & Composer (Right Pane)
 - **Context Header**: Displays lead title, link to open the lead directly in the pipeline board, kanban stage, deal value, and contact email. Provides quick actions to toggle Star, Mark Unread, or Archive.
+- **Lead & Deal Conversion**:
+  - Convert unlinked conversation threads to a new Lead and Deal in 1 click via the **Convert to Lead & Deal** button in the thread header.
+  - For threads linked to an existing lead, click **Add Deal** to quickly attach a new commercial opportunity with stage, value, currency, and expected close date.
+- **Harvested Contacts from Emails**:
+  - The thread viewer features an interactive **Contacts from emails** strip listing all discovered participants (`From`, `To`, `Cc`) extracted from RFC 5322 headers and body signatures.
+  - Participants already saved on the lead display a `Lead Contact` badge.
+  - Newly harvested external contacts display an `External` badge with a 1-click **Convert** or **Add Deal** button.
+  - Discovered contacts are automatically merged into `lead.contacts` upon loading or email sync.
 - **Message Timeline**: Chronological message bubble history with clear visual separation:
   - *Inbound Emails*: Highlighted with prospect avatars, RFC 2822 timestamps, and formatted text bodies.
   - *Outbound Emails*: Stamped with sender rep identity and live delivery status (`sent`, `opened`, `clicked`, `replied`).
