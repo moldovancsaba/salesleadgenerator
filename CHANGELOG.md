@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.302
+
+### Multi-Company Email Contact Conversion & Selective Harvesting Control (issue #265)
+
+- **Organization Pre-Fill Correction:**
+  - Resolved bug where the sender's personal display name (e.g. "Kitty Erdei") was pre-filled as "Company / Organization Name" when converting unlinked inbox threads.
+  - Organization name now correctly infers the company name from the sender's business domain (e.g. `frh.ro` -> "FRH").
+  - Fixed short acronym casing in `inferCompanyFromEmail` so acronyms <= 4 characters (e.g. `FRH`, `IBM`, `SAP`) format cleanly in uppercase instead of title-case.
+  - Added Romanian ccTLD (`.ro` -> `RO`) and 20 other international country ccTLDs (`pt`, `gr`, `fi`, `bg`, `hr`, `rs`, `sk`, `si`, `ua`, etc.) to `CCTLD_TO_COUNTRY`.
+- **Selective Contact Harvesting Picker:**
+  - Replaced the indiscriminate static harvesting alert with an interactive multi-company contact selector in `ConvertModal`.
+  - Automatically classifies all thread participants with domain badges: "Primary Contact", "Same Org (@domain)", "Different Org (@domain)", and "Personal Webmail".
+  - Implemented smart default selection: primary contact and same-domain contacts are pre-selected; contacts from external organizations and public webmail are unselected by default to prevent CRM contamination.
+  - Added quick filter buttons: "Only Primary", "Only @domain", and "Select All".
+  - Displays inline warning alert when cross-company contacts are intentionally selected.
+- **Multi-Company Conversion Destination Control:**
+  - Added conversion destination switcher (`SegmentedControl`) when thread already has an existing lead: users can choose between "Add to Current Lead" and "Create Separate Lead for [Inferred Company]".
+  - Added "Separate Lead" action button on participant strip in `inbox-client.tsx` allowing users to branch any participant into their own independent company lead.
+  - Supported `relinkThread: false` so creating a secondary lead from a thread preserves the thread's existing link to its primary lead.
+- **Multi-Company Background Isolation:**
+  - Updated `getInboxThreadDetail` in `app/lib/inbox-store.ts` so background thread loading only merges participants into an existing lead if they share the lead's domain or are already saved on the lead, preventing cross-company contacts (e.g. internal Seyu team members) from silently appending to external prospect leads.
+
 ## 2.4.301
 
 ### GDS & CRM: Phase 3 Systemic GDS Component Adoption Across Settings, Modals, Accounts, Table, and Admin (issue #264)

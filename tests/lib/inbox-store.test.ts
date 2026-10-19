@@ -360,6 +360,45 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       const updatedState = mockStateDocs.find((s) => s.threadId === 'thread_gamma');
       expect(updatedState?.isStarred).toBe(true);
     });
+
+    it('isolates multi-company participants and does not auto-merge different-company participants into lead', async () => {
+      const db = createMockDb();
+
+      mockLeadDocs = [
+        {
+          _id: 'lead_frh',
+          id: 'lead_frh',
+          entity_name: 'FRH',
+          url: 'https://frh.ro',
+          contacts: [{ name: 'Kitty Erdei', email: 'kitty.erdei@frh.ro' }],
+        },
+      ];
+
+      mockActivityDocs.push({
+        _id: 'act_multi',
+        brand: 'cogmap',
+        tenantId: 't_default',
+        leadId: 'lead_frh',
+        threadId: 'thread_multi_org',
+        type: 'email-inbound',
+        direction: 'inbound',
+        subject: 'Partnership discussion',
+        from: 'kitty.erdei@frh.ro',
+        to: ['tamas.sebestyen@seyuselfies.com'],
+        cc: ['csaba.moldovan@seyuselfies.com', 'radu.popescu@frh.ro'],
+        body: 'Hello team, let us review the schedule.',
+        createdAt: new Date('2026-10-18T15:00:00Z'),
+      });
+
+      const detail = await getInboxThreadDetail(db, 'cogmap', 't_default', 'thread_multi_org');
+      expect(detail.thread).toBeDefined();
+      expect(detail.participants.length).toBeGreaterThanOrEqual(3);
+
+      // Verify that the lead's contacts only contains same-domain contacts (frh.ro) and NOT seyuselfies.com
+      const leadContacts = detail.lead?.contacts || [];
+      const seyContacts = leadContacts.filter((c: any) => c.email.includes('seyuselfies.com'));
+      expect(seyContacts).toHaveLength(0);
+    });
   });
 
   describe('postInboxReply', () => {

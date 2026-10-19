@@ -11,6 +11,7 @@ import {
   cleanMessageSnippet,
   parseEmailParticipant,
   formatLocalPartAsName,
+  COMMON_PUBLIC_MAIL_DOMAINS,
 } from '../../lib/email-contact-extractor';
 import { mergeContactsIntoLead } from '../../lib/email-contact-merge';
 import type { NormalizedContact } from '../../lib/contacts';
@@ -699,12 +700,35 @@ export async function getInboxThreadDetail(
   }
   const participants = Array.from(participantsMap.values());
 
-  // Automatically merge newly discovered email contacts into the associated Lead
+  // Automatically merge newly discovered email contacts into the associated Lead ONLY if they belong to the same company domain
   if (lead && leadId && participants.length > 0) {
     try {
-      const mergeRes = await mergeContactsIntoLead(db, brand, tenantId, leadId, participants);
-      if (mergeRes && mergeRes.contacts) {
-        lead.contacts = mergeRes.contacts;
+      const leadUrl = (lead.url || '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+      const existingContactDomains = new Set<string>();
+      if (leadUrl && !COMMON_PUBLIC_MAIL_DOMAINS.has(leadUrl)) existingContactDomains.add(leadUrl);
+      if (Array.isArray(lead.contacts)) {
+        for (const c of lead.contacts) {
+          if (c?.email && c.email.includes('@')) {
+            const dom = c.email.split('@')[1].toLowerCase().trim();
+            if (!COMMON_PUBLIC_MAIL_DOMAINS.has(dom)) existingContactDomains.add(dom);
+          }
+        }
+      }
+
+      // Filter participants: only merge those who belong to the same company domain OR already exist on the lead
+      const sameCompanyParticipants = participants.filter((p) => {
+        const pDom = p.email.includes('@') ? p.email.split('@')[1].toLowerCase().trim() : '';
+        const alreadyOnLead = Array.isArray(lead.contacts) && lead.contacts.some((c: any) => c?.email?.toLowerCase() === p.email.toLowerCase());
+        if (alreadyOnLead) return true;
+        if (pDom && existingContactDomains.has(pDom)) return true;
+        return false;
+      });
+
+      if (sameCompanyParticipants.length > 0) {
+        const mergeRes = await mergeContactsIntoLead(db, brand, tenantId, leadId, sameCompanyParticipants);
+        if (mergeRes && mergeRes.contacts) {
+          lead.contacts = mergeRes.contacts;
+        }
       }
     } catch {
       // non-fatal

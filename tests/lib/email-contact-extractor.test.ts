@@ -4,6 +4,7 @@ import {
   parseEmailAddressList,
   inferCompanyFromEmail,
   inferCountryFromDomain,
+  isSameEmailDomain,
   isInternalOrSystemEmail,
   extractContactsFromEmailMessage,
   cleanHtmlBody,
@@ -68,6 +69,18 @@ describe('email-contact-extractor', () => {
       });
     });
 
+    it('formats short acronyms in uppercase (FRH, IBM, SAP)', () => {
+      const res = inferCompanyFromEmail('kitty.erdei@frh.ro');
+      expect(res).toEqual({
+        domain: 'frh.ro',
+        companyName: 'FRH',
+        isPublicProvider: false,
+      });
+
+      const ibmRes = inferCompanyFromEmail('sales@ibm.com');
+      expect(ibmRes?.companyName).toBe('IBM');
+    });
+
     it('handles ccTLD multi-level domains', () => {
       const res = inferCompanyFromEmail('sales@bayern-munich.co.uk');
       expect(res).toEqual({
@@ -87,8 +100,32 @@ describe('email-contact-extractor', () => {
     });
   });
 
+  describe('isSameEmailDomain', () => {
+    it('returns true for emails with identical private company domain', () => {
+      expect(isSameEmailDomain('kitty.erdei@frh.ro', 'secretary@frh.ro')).toBe(true);
+      expect(isSameEmailDomain('alice@acme.com', 'bob@acme.com')).toBe(true);
+    });
+
+    it('returns false for emails with different company domains', () => {
+      expect(isSameEmailDomain('kitty.erdei@frh.ro', 'tamas.sebestyen@seyuselfies.com')).toBe(false);
+      expect(isSameEmailDomain('user@apple.com', 'user@microsoft.com')).toBe(false);
+    });
+
+    it('returns false for public generic mail providers even if identical', () => {
+      expect(isSameEmailDomain('user1@gmail.com', 'user2@gmail.com')).toBe(false);
+      expect(isSameEmailDomain('user1@yahoo.com', 'user2@yahoo.com')).toBe(false);
+    });
+
+    it('returns false for null, undefined, or invalid inputs', () => {
+      expect(isSameEmailDomain(null, 'test@example.com')).toBe(false);
+      expect(isSameEmailDomain('test@example.com', undefined)).toBe(false);
+      expect(isSameEmailDomain('invalid', 'test@example.com')).toBe(false);
+    });
+  });
+
   describe('inferCountryFromDomain', () => {
-    it('maps ccTLD to country code', () => {
+    it('maps ccTLD to country code including RO', () => {
+      expect(inferCountryFromDomain('federation.ro')).toBe('RO');
       expect(inferCountryFromDomain('club.de')).toBe('DE');
       expect(inferCountryFromDomain('agency.co.uk')).toBe('GB');
       expect(inferCountryFromDomain('federation.fr')).toBe('FR');

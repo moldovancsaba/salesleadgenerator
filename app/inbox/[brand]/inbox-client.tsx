@@ -1057,9 +1057,28 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                                   </Text>
                                 </Box>
                                 {isOnLead ? (
-                                  <StatusBadge status="success" size="xs">
-                                    Saved
-                                  </StatusBadge>
+                                  <Group gap={4} wrap="nowrap">
+                                    <StatusBadge status="success" size="xs">
+                                      Saved
+                                    </StatusBadge>
+                                    <Button
+                                      size="compact-xs"
+                                      variant="subtle"
+                                      color="gray"
+                                      onClick={() => {
+                                        setTargetContact({
+                                          name: p.name,
+                                          email: p.email,
+                                          title: p.title,
+                                          phone: p.phone,
+                                        });
+                                        setConvertModalMode('add_contact');
+                                        setConvertModalOpened(true);
+                                      }}
+                                    >
+                                      Separate Lead
+                                    </Button>
+                                  </Group>
                                 ) : (
                                   <Button
                                     size="compact-xs"
@@ -1409,8 +1428,12 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
         <ConvertModal
           brand={brand}
           threadId={selectedThread.id}
-          leadId={selectedThread.leadId || undefined}
-          leadName={selectedThread.leadName !== 'System Communications' ? selectedThread.leadName : undefined}
+          leadId={selectedThread.hasLead ? (selectedThread.leadId || undefined) : undefined}
+          leadName={
+            selectedThread.hasLead && selectedThread.leadName !== 'System Communications'
+              ? selectedThread.leadName
+              : undefined
+          }
           defaultContact={
             targetContact || {
               name: selectedThread.contactName,
@@ -1426,21 +1449,42 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
           }}
           onSuccess={(data) => {
             if (data.leadId) {
-              setSelectedThread((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      leadId: data.leadId,
-                      leadName: data.lead?.entity_name || prev.leadName,
-                      leadStage: data.lead?.kanbanColumn || prev.leadStage,
-                      dealValue: data.deal?.value || prev.dealValue,
-                    }
-                  : null
-              );
-              if (data.lead) {
-                setLead(data.lead);
+              if (data.action !== 'create_lead' || !selectedThread.hasLead) {
+                setSelectedThread((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        leadId: data.leadId,
+                        leadName: data.lead?.entity_name || prev.leadName,
+                        leadStage: data.lead?.kanbanColumn || prev.leadStage,
+                        dealValue: data.deal?.value || prev.dealValue,
+                        hasLead: true,
+                      }
+                    : null
+                );
+                if (data.lead) {
+                  setLead(data.lead);
+                }
               }
               loadThreads();
+              if (selectedThread?.id) {
+                fetch(`/api/inbox/${brand}/threads/${encodeURIComponent(selectedThread.id)}`)
+                  .then((r) => (r.ok ? r.json() : null))
+                  .then((detail) => {
+                    if (detail?.thread) {
+                      setSelectedThread((prev) =>
+                        prev
+                          ? {
+                              ...detail.thread,
+                              participants: detail.thread.participants || detail.participants || [],
+                            }
+                          : null
+                      );
+                    }
+                    if (detail?.lead) setLead(detail.lead);
+                  })
+                  .catch(() => {});
+              }
             }
           }}
         />

@@ -22,6 +22,8 @@ import {
   inferCompanyFromEmail,
   inferCountryFromDomain,
   formatLocalPartAsName,
+  COMMON_PUBLIC_MAIL_DOMAINS,
+  isSameEmailDomain,
 } from '../../../../../lib/email-contact-extractor';
 import { mergeContactsIntoLead } from '../../../../../lib/email-contact-merge';
 
@@ -31,6 +33,9 @@ export interface ConvertInboxLeadRequest {
   threadId: string;
   action: 'create_lead' | 'add_deal' | 'attach_lead';
   existingLeadId?: string;
+  selectedContactEmails?: string[];
+  includeAllThreadContacts?: boolean;
+  relinkThread?: boolean;
   lead?: {
     entity_name?: string;
     url?: string;
@@ -166,6 +171,7 @@ export async function POST(
         return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
       }
 
+      const contactsToMerge: NormalizedContact[] = [];
       if (lead?.contact?.email) {
         const directContact = normalizeContact({
           name: lead.contact.name || formatLocalPartAsName(lead.contact.email.split('@')[0]),
@@ -176,13 +182,21 @@ export async function POST(
           isDecisionMaker: lead.contact.isDecisionMaker ?? true,
           crmStatus: 'lead',
         });
-        harvestedContactsMap.set(directContact.email, directContact);
+        contactsToMerge.push(directContact);
       }
 
-      // Auto-merge all harvested thread contacts into the existing lead
-      const allHarvested = Array.from(harvestedContactsMap.values());
-      if (allHarvested.length > 0) {
-        await mergeContactsIntoLead(db, brand, tenantId, targetLeadId, allHarvested);
+      // If user explicitly selected additional contact emails to attach
+      if (body.selectedContactEmails && Array.isArray(body.selectedContactEmails)) {
+        const allowed = new Set(body.selectedContactEmails.map((e) => e.toLowerCase().trim()));
+        for (const [emailKey, harvested] of harvestedContactsMap.entries()) {
+          if (allowed.has(emailKey.toLowerCase().trim()) && (!lead?.contact?.email || lead.contact.email.toLowerCase() !== emailKey.toLowerCase())) {
+            contactsToMerge.push(harvested);
+          }
+        }
+      }
+
+      if (contactsToMerge.length > 0) {
+        await mergeContactsIntoLead(db, brand, tenantId, targetLeadId, contactsToMerge);
       }
 
       // Sanitize deal if provided
@@ -252,7 +266,7 @@ export async function POST(
     const finalUrl = lead?.url?.trim() || (domain ? `https://${domain}` : `https://example.com`);
     const finalCountry = lead?.country?.trim().toUpperCase() || inferCountryFromDomain(domain);
 
-    // Build contacts list: explicitly sent contact + all harvested email participants
+    // Build contacts list: explicitly sent contact + selectively harvested email participants
     const contactsList: NormalizedContact[] = [];
 
     if (lead?.contact?.email) {
@@ -269,8 +283,30 @@ export async function POST(
       );
     }
 
-    for (const harvested of harvestedContactsMap.values()) {
-      contactsList.push(harvested);
+    if (Array.isArray(body.selectedContactEmails)) {
+      const allowed = new Set(body.selectedContactEmails.map((e) => e.toLowerCase().trim()));
+      for (const [emailKey, harvested] of harvestedContactsMap.entries()) {
+        if (
+          allowed.has(emailKey.toLowerCase().trim()) &&
+          (!lead?.contact?.email || lead.contact.email.toLowerCase() !== emailKey.toLowerCase())
+        ) {
+          contactsList.push(harvested);
+        }
+      }
+    } else if (body.includeAllThreadContacts) {
+      for (const harvested of harvestedContactsMap.values()) {
+        contactsList.push(harvested);
+      }
+    } else {
+      // By default, only include contacts from the same domain as the primary contact
+      for (const [emailKey, harvested] of harvestedContactsMap.entries()) {
+        if (
+          isSameEmailDomain(primaryContactEmail, emailKey) &&
+          (!lead?.contact?.email || lead.contact.email.toLowerCase() !== emailKey.toLowerCase())
+        ) {
+          contactsList.push(harvested);
+        }
+      }
     }
 
     const finalContacts = dedupeContacts(contactsList, { verify: true });
@@ -349,25 +385,27 @@ export async function POST(
     const insertResult = await db.collection(leadsCollection).insertOne(newLeadDoc as any);
     const newLeadId = insertResult.insertedId.toString();
 
-    // Re-link all thread messages in activityLog and outreach_logs to this new lead
-    await Promise.all([
-      db.collection(ACTIVITY_LOG_COLLECTION).updateMany(
-        {
-          brand,
-          tenantId,
-          $or: [{ threadId }, { externalId: threadId }],
-        },
-        { $set: { leadId: newLeadId } }
-      ),
-      db.collection('outreach_logs').updateMany(
-        {
-          brand,
-          tenantId,
-          $or: [{ gmailThreadId: threadId }, { resendEmailId: threadId }],
-        },
-        { $set: { leadId: newLeadId } }
-      ),
-    ]);
+    if (body.relinkThread !== false) {
+      // Re-link all thread messages in activityLog and outreach_logs to this new lead
+      await Promise.all([
+        db.collection(ACTIVITY_LOG_COLLECTION).updateMany(
+          {
+            brand,
+            tenantId,
+            $or: [{ threadId }, { externalId: threadId }],
+          },
+          { $set: { leadId: newLeadId } }
+        ),
+        db.collection('outreach_logs').updateMany(
+          {
+            brand,
+            tenantId,
+            $or: [{ gmailThreadId: threadId }, { resendEmailId: threadId }],
+          },
+          { $set: { leadId: newLeadId } }
+        ),
+      ]);
+    }
 
     return NextResponse.json({
       ok: true,

@@ -207,4 +207,68 @@ describe('POST /api/inbox/[brand]/convert', () => {
     const data = await res.json();
     expect(data.duplicate).toBe(true);
   });
+
+  it('isolates multi-company participants and respects selectedContactEmails when converting', async () => {
+    const db = await getTestDb();
+
+    const threadId = 'msg:multi-org-thread-202';
+
+    // Activity log entry containing participants from Romanian Handball Federation (frh.ro)
+    // and Seyu team members (seyuselfies.com)
+    await db.collection(ACTIVITY_LOG_COLLECTION).insertMany([
+      {
+        threadId,
+        brand: 'cogmap',
+        tenantId: 'default',
+        type: 'email-inbound',
+        direction: 'inbound',
+        fromAddress: '"Kitty Erdei" <kitty.erdei@frh.ro>',
+        toAddresses: ['"Tamas Sebestyen" <tamas.sebestyen@seyuselfies.com>'],
+        ccAddresses: [
+          '"Csaba Moldovan" <csaba.moldovan@seyuselfies.com>',
+          '"Radu Popescu" <radu.popescu@frh.ro>',
+        ],
+        subject: 'FRH Collaboration Proposal',
+        bodyExcerpt: 'Good morning, please see our proposal.\n\nKitty Erdei\nFRH Commercial Director',
+        createdAt: new Date(),
+      },
+    ]);
+
+    // Scenario A: Converting Kitty Erdei with explicit selectedContactEmails (only frh.ro contacts)
+    const req = buildApiRequest('/api/inbox/cogmap/convert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        threadId,
+        action: 'create_lead',
+        selectedContactEmails: ['kitty.erdei@frh.ro', 'radu.popescu@frh.ro'],
+        lead: {
+          entity_name: 'FRH',
+          url: 'https://frh.ro',
+          country: 'RO',
+          contact: {
+            name: 'Kitty Erdei',
+            email: 'kitty.erdei@frh.ro',
+            title: 'Commercial Director',
+          },
+        },
+      }),
+    });
+
+    const res = await convertPOST(req, { params: Promise.resolve({ brand: 'cogmap' }) });
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+
+    const leadDoc = await db.collection('leads').findOne({ _id: new ObjectId(data.leadId) });
+    expect(leadDoc?.entity_name).toBe('FRH');
+    expect(leadDoc?.country).toBe('RO');
+
+    const savedEmails = leadDoc?.contacts.map((c: any) => c.email);
+    expect(savedEmails).toContain('kitty.erdei@frh.ro');
+    expect(savedEmails).toContain('radu.popescu@frh.ro');
+    expect(savedEmails).not.toContain('tamas.sebestyen@seyuselfies.com');
+    expect(savedEmails).not.toContain('csaba.moldovan@seyuselfies.com');
+  });
 });

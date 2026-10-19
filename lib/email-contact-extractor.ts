@@ -46,6 +46,26 @@ const CCTLD_TO_COUNTRY: Record<string, string> = {
   ie: 'IE',
   nz: 'NZ',
   br: 'BR',
+  ro: 'RO',
+  pt: 'PT',
+  gr: 'GR',
+  fi: 'FI',
+  bg: 'BG',
+  hr: 'HR',
+  rs: 'RS',
+  sk: 'SK',
+  si: 'SI',
+  ua: 'UA',
+  ee: 'EE',
+  lv: 'LV',
+  lt: 'LT',
+  lu: 'LU',
+  is: 'IS',
+  za: 'ZA',
+  mx: 'MX',
+  ar: 'AR',
+  cl: 'CL',
+  co: 'CO',
 };
 
 /**
@@ -157,17 +177,32 @@ export function inferCompanyFromEmail(email: string): {
     mainPart = domainParts[domainParts.length - 3] || domainParts[0];
   }
 
-  const companyName = mainPart
-    .replace(/[-_]/g, ' ')
-    .split(/\s+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ');
+  const cleanMain = mainPart.replace(/[-_]/g, ' ').trim();
+  const companyName =
+    cleanMain.length <= 4 && !/[aeiouy]{2}/i.test(cleanMain)
+      ? cleanMain.toUpperCase()
+      : cleanMain
+          .split(/\s+/)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(' ');
 
   return {
     domain,
     companyName,
     isPublicProvider: false,
   };
+}
+
+/**
+ * Checks if two email addresses belong to the same private company domain.
+ * Returns false if either is missing, invalid, or belongs to a common public provider (e.g. Gmail).
+ */
+export function isSameEmailDomain(emailA?: string | null, emailB?: string | null): boolean {
+  if (!emailA || !emailB || !emailA.includes('@') || !emailB.includes('@')) return false;
+  const domainA = emailA.split('@')[1].toLowerCase().trim();
+  const domainB = emailB.split('@')[1].toLowerCase().trim();
+  if (!domainA || !domainB || domainA !== domainB) return false;
+  return !COMMON_PUBLIC_MAIL_DOMAINS.has(domainA);
 }
 
 /**
