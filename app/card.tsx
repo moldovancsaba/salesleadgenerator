@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ActionIcon, Badge, Box, Button, Group, Stack, Text } from '@mantine/core';
-import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
+import { ActionIcon, Avatar, Badge, Box, Button, Group, Stack, Text } from '@mantine/core';
+import { IconChevronDown, IconChevronUp, IconUser, IconArrowUpRight } from '@tabler/icons-react';
 import type { Lead } from './types';
 import type { CurrencyCode } from './lib/brand';
 import { getIceScore, getTicketSize } from './constants';
@@ -106,6 +106,20 @@ function ticketSizeCardCaption(ticketSize: TicketSizeDisplay): string | null {
   return 'Modelled estimate';
 }
 
+function formatSectorLabel(raw: string | undefined): string | null {
+  if (!raw) return null;
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) =>
+      s
+        .replace(/[-_]/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+    )
+    .join(' · ');
+}
+
 export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourTarget }: LeadCardProps) {
   const ice = getIceScore(lead);
   const region = lead.region || 'NA';
@@ -140,11 +154,27 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
 
   // Prefer the contact flagged isDecisionMaker (lib/contacts.ts); fall back to
   // the first contact so the row isn't always '—' before data gets flagged.
-  const contactName = getDecisionMakerContact(lead.contacts)?.name || lead.contacts?.[0]?.name || '—';
+  const decisionMaker = getDecisionMakerContact(lead.contacts);
+  const primaryContact = decisionMaker || lead.contacts?.[0] || null;
+  const contactName = primaryContact?.name?.trim() || '—';
+  const contactTitle = primaryContact?.title?.trim() || primaryContact?.role?.trim() || '';
 
-  const ownerLabel = lead.assignedToEmail
+  const rawOwner = lead.assignedToEmail
     ? lead.assignedToEmail.split('@')[0]
     : (lead.assignedTo || 'Unassigned');
+
+  // Format email prefix like "david.klopp" -> "David Klopp"
+  const ownerLabel = rawOwner.includes('.')
+    ? rawOwner.split('.').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
+    : rawOwner;
+
+  const ownerInitials = ownerLabel === 'Unassigned'
+    ? '?'
+    : ownerLabel
+        .split(' ')
+        .map((s) => s.charAt(0).toUpperCase())
+        .slice(0, 2)
+        .join('');
 
   const tier0Metadata = [
     { label: 'Region', value: region },
@@ -196,17 +226,36 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
             {lead.entity_name}
           </Text>
           {(lead.industry || lead.sport_or_sector) && (
-            <Text size="xs" c="dimmed" truncate style={{ marginTop: 2 }}>
-              {lead.industry || lead.sport_or_sector}
+            <Text size="xs" c="dimmed" truncate style={{ marginTop: 1 }}>
+              {formatSectorLabel(lead.industry || lead.sport_or_sector)}
             </Text>
           )}
         </Box>
+
+        {/* Primary Contact: Prominently identifies the human counterparty */}
+        <Group gap={4} wrap="nowrap" style={{ minWidth: 0, marginTop: 1 }}>
+          <IconUser size={13} style={{ flexShrink: 0, opacity: 0.6 }} />
+          {contactName !== '—' ? (
+            <Text size="xs" fw={500} truncate title={contactTitle ? `${contactName} (${contactTitle})` : contactName}>
+              {contactName}
+              {contactTitle && (
+                <Text component="span" size="xs" c="dimmed" fw={400}>
+                  {` · ${contactTitle}`}
+                </Text>
+              )}
+            </Text>
+          ) : (
+            <Text size="xs" c="dimmed" fs="italic">
+              No contact assigned
+            </Text>
+          )}
+        </Group>
 
         {/* Commercial Metric & Context Attribute Badges */}
         <Group gap={5} wrap="wrap" align="center">
           {hasDeals ? (
             <Badge
-              variant="light"
+              variant="filled"
               color="grape"
               size="sm"
               fw={700}
@@ -242,12 +291,6 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
             </Badge>
           )}
 
-          {hasDeals && (
-            <Badge variant="filled" color="grape" size="xs">
-              DEAL
-            </Badge>
-          )}
-
           {/* Stale / Urgency Indicator — de-duplicated so days are never displayed twice */}
           {staleness ? (
             <Badge
@@ -259,14 +302,16 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
               {`⚠ ${staleness.severity === 'critical' ? 'Critical' : 'Stale'} · ${staleness.daysSince}d`}
             </Badge>
           ) : rotten ? (
-            <Badge
-              variant="dot"
-              color={ROTTEN_COLOR[rotten.level]}
-              size="sm"
-              aria-label={`Last touched ${rotten.daysSince} days ago`}
-            >
-              {`${rotten.daysSince}d`}
-            </Badge>
+            rotten.level === 'green' ? null : (
+              <Badge
+                variant="dot"
+                color={ROTTEN_COLOR[rotten.level]}
+                size="sm"
+                aria-label={`Last touched ${rotten.daysSince} days ago`}
+              >
+                {`${rotten.daysSince}d`}
+              </Badge>
+            )
           ) : null}
         </Group>
 
@@ -278,9 +323,16 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
           pt={4}
           style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}
         >
-          <Group gap={4} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
-            <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>Owner:</Text>
-            <Text size="xs" fw={500} truncate title={ownerLabel}>
+          <Group gap={6} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+            <Avatar
+              size={18}
+              radius="xl"
+              color={ownerLabel === 'Unassigned' ? 'gray' : 'blue'}
+              style={{ fontSize: 9, fontWeight: 700, flexShrink: 0 }}
+            >
+              {ownerInitials}
+            </Avatar>
+            <Text size="xs" fw={500} truncate title={`Owner: ${ownerLabel}`}>
               {ownerLabel}
             </Text>
           </Group>
@@ -291,11 +343,11 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
           >
             {dueValid && dueDays !== null
               ? (dueDays < 0 ? `${Math.abs(dueDays)}d overdue` : dueDays === 0 ? 'Due today' : `Due in ${dueDays}d`)
-              : (updatedLabel ? `Updated ${updatedLabel}` : createdLabel ? `Created ${createdLabel}` : '')}
+              : (updatedLabel || createdLabel || '')}
           </Text>
         </Group>
 
-        {/* Action Bar: Progressive Disclosure Toggle & Direct Open */}
+        {/* Action Bar: Progressive Disclosure Toggle & Quiet Direct Open */}
         <Group justify="space-between" align="center" wrap="nowrap" pt={2}>
           <Group
             gap={4}
@@ -322,13 +374,15 @@ export function LeadCard({ lead, onOpen, staleness, nudge, winProbability, tourT
 
           {onOpen && (
             <Button
-              variant="light"
-              size="xs"
+              variant="subtle"
+              size="compact-xs"
+              color="gray"
               onClick={(e) => {
                 e.stopPropagation();
                 onOpen();
               }}
               data-tour={tourTarget ? TOUR_SELECTOR.leadDetailOpen : undefined}
+              rightSection={<IconArrowUpRight size={12} />}
             >
               Open
             </Button>

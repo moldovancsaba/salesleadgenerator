@@ -52,4 +52,34 @@ describe('LeadCard Layout & Hierarchy Redesign (Issue 259)', () => {
     expect(cardSource).toContain('lead.assignedToEmail');
     expect(cardSource).toContain('e.stopPropagation()');
   });
+
+  describe('Kanban Card Legibility and Hierarchy Enhancements (Issue 261)', () => {
+    it('surfaces primary decision-maker or key contact with icon on card face', () => {
+      expect(cardSource).toContain('IconUser');
+      expect(cardSource).toContain('getDecisionMakerContact(lead.contacts)');
+      expect(cardSource).toContain('No contact assigned');
+      expect(cardSource).toContain('contactName !==');
+    });
+
+    it('formats raw sector and industry slugs into Title Case with delimiters', () => {
+      expect(cardSource).toContain('formatSectorLabel');
+      expect(cardSource).toContain("join(' · ')");
+    });
+
+    it('renders owner with initials avatar chip and formatted display name', () => {
+      expect(cardSource).toContain('<Avatar');
+      expect(cardSource).toContain('ownerInitials');
+      expect(cardSource).toContain('title={`Owner: ${ownerLabel}`}');
+    });
+
+    it('suppresses redundant zero-day rotten badges when deals are fresh', () => {
+      expect(cardSource).toContain("rotten.level === 'green' ? null :");
+    });
+
+    it('renders quiet subtle open button with arrow icon', () => {
+      expect(cardSource).toContain('variant="subtle"');
+      expect(cardSource).toContain('size="compact-xs"');
+      expect(cardSource).toContain('IconArrowUpRight');
+    });
+  });
 });

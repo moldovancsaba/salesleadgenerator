@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.298
+
+### Kanban & CRM: Redesign Kanban Card Presentation: Visible Key Contact, Formatted Taxonomy, Untruncated Owner Avatar, and Quiet Actions (issue #261)
+
+- **Primary Decision-Maker & Key Contact on Card Face (`app/card.tsx`):**
+  - Resolved key decision-maker (`getDecisionMakerContact(lead.contacts)`) or first contact directly on the card face beneath the entity title and sector, eliminating the need to expand "Show more" just to see who the contact is.
+  - Formatted with `IconUser`, prominent contact name, and optional role/title (`👤 Paolo Maldini · Technical Director` or `👤 No contact assigned` when unassigned).
+- **Human-Readable Taxonomy Formatting (`app/card.tsx`):**
+  - Added `formatSectorLabel` converting raw database kebab-case slugs (`sports-club, media-broadcaster`) into clean, professional Title Case separated by middle dots (`Sports Club · Media Broadcaster`).
+- **Owner Avatar Chip & Untruncated Display (`app/card.tsx`):**
+  - Replaced cramped `Owner: Una...` / `Owner: david....` text with a 18px compact initials avatar circle (`DK` or `?`) alongside the formatted owner display name (`David Klopp` or `Unassigned`), eliminating severe 5-character truncation.
+  - Streamlined the right-side activity timestamp by removing repetitive `Updated ` prefixes, displaying clean compact labels (`today`, `21d ago`, or `Due in 2d`).
+- **De-duplicated Rotten / Health Indicators (`app/card.tsx`):**
+  - Suppressed redundant zero-day rotten badges (`• 0D`) when deals are fresh (`rotten.level === 'green'`), preventing meaningless alert pills from wrapping onto second badge lines while duplicating footer timestamps.
+  - Stale and aging inactive deals continue to render clear warning pills (`⚠ Stale · 21d` or `{days}d`).
+- **Quiet Action Affordances (`app/card.tsx`):**
+  - Replaced heavy primary purple `Open` button with a sleek, subtle action link (`variant="subtle"` `size="compact-xs" color="gray"` with `IconArrowUpRight`), preserving the onboarding tour selector (`TOUR_SELECTOR.leadDetailOpen`).
+- **Automated Test Coverage (`tests/lib/card-layout.test.ts`):**
+  - Added 5 new unit tests verifying contact display with `IconUser`, taxonomy formatting with `formatSectorLabel`, owner avatar initials with untruncated name, zero-day rotten badge suppression, and subtle open button styling.
+
 ## 2.4.297
 
 ### Inbox & CRM: Sender Resolution, HTML Snippet Stripping, Full To/Cc Recipient Display, and Lead/Deal/Contact Status Icons with 1-Click Conversion (issue #260)

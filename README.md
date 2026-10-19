@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.297  
+**Version:** 2.4.298  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -10,7 +10,7 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 ## What This Repo Contains
 
 - Next.js 16 app with App Router and API routes
-- Redesigned Modern Kanban Cards (`app/card.tsx`) with full-width wrapping organization titles, context subtitles, prominent commercial badges (deal values & ticket sizes), clean region chips, de-duplicated staleness indicators, and direct card-surface clickability
+- Redesigned Modern Kanban Cards (`app/card.tsx`) with full-width wrapping organization titles, human-readable Title Case taxonomy formatting, prominent key decision-maker contact row (`👤 Name · Title`), untruncated owner avatar initials, commercial badges, de-duplicated staleness indicators, and quiet subtle action affordances (`Open ↗`)
 - Native 3-Pane Communication Center (`/inbox/[brand]`) with dynamic sender resolution, clean 2-line textual snippets (stripped of CSS `<style>` blocks and HTML tags), Lead/Contact/Deal availability status badges, 1-click conversion affordances, and full `To:` / `Cc:` recipient visibility
 - Email Contact to Lead & Deal Conversion (`POST /api/inbox/[brand]/convert`, `ConvertModal`) with automatic email participant harvesting and enrichment (`lib/email-contact-extractor.ts`, `lib/email-contact-merge.ts`), company domain inference, and live thread conversation contacts strip
 - Desktop and tablet browser experience: docked collapsible sidebar navigation (`>= 768px`) with show/hide toggle, inline Board/Table/Backlog/Metrics view switcher, command palette shortcut affordances (`⌘K`), and unblocked multi-touch zoom
