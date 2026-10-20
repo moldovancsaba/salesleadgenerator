@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.311
+
+### Kanban Card Action Bar Layout & Semantic Button Styling (Issue #271)
+
+- **Card Action Bar Squeeze & Vertical Text Wrap Remediation (`app/card.tsx`):**
+  - Resolved visual layout defect where `Show more` collapsed into a single-character-wide column wrapping vertically (`S\nh\no\nw\nm\no\nr\ne`) and `Open ↗` button was clipped off the right card boundary.
+  - Decoupled the action bar into two clean, purpose-built rows:
+    1. Progressive Disclosure row: displays `Show more` / `Show less` on the left with `whiteSpace: 'nowrap'` and `flexShrink: 0`, and quiet `Open ↗` button on the right.
+    2. Stage Decision Action row: displays full-width, high-affordance `Accept` and `Decline` buttons in review columns (`DISCOVERED`, `QUALIFIED`), or `Email` in active pipeline columns.
+- **Semantic Button Color Styling (`app/card.tsx`, `app/globals.css`):**
+  - Overrode aggressive `@sovereignsquad/gds-theme` CSS rule (`.mantine-Button-root:not([data-variant='default'])`) that forced an identical purple background (`var(--gds-vibe-accent) !important`) on both `Accept` and `Decline` buttons.
+  - Added scoped classes (`.card-action-accept`, `.card-action-decline`, `.card-action-email`, `.card-action-open`):
+    - `Accept`: Affirmative light teal background (`#e6fcf5`), teal border, and crisp dark teal text (`#087f5b`).
+    - `Decline`: Semantic light/transparent red border, dark red text (`#e03131`), with subtle hover state.
+    - `Open ↗`: Unobtrusive text button with arrow icon, transparent background, and zero horizontal clipping.
+- **Automated Verification:**
+  - Added unit test in `tests/lib/card-layout.test.ts` verifying `whiteSpace: 'nowrap'` isolation, semantic action classes, and scoped CSS rules.
+
 ## 2.4.310
 
 ### Internal Team Email Filtering & Personal Mailbox Attribution Hardening (Issue #271)

@@ -111,5 +111,15 @@ describe('LeadCard Layout & Hierarchy Redesign (Issue 259)', () => {
       expect(cardSource).toContain('var(--gds-border-card)');
       expect(cardSource).toContain('var(--gds-text-primary)');
     });
+
+    it('isolates Show more and Open to prevent vertical text wrapping and horizontal clipping', () => {
+      expect(cardSource).toContain("whiteSpace: 'nowrap'");
+      expect(cardSource).toContain('card-action-accept');
+      expect(cardSource).toContain('card-action-decline');
+      expect(cardSource).toContain('card-action-open');
+      expect(globalsCss).toContain('.card-action-accept');
+      expect(globalsCss).toContain('.card-action-decline');
+      expect(globalsCss).toContain('.card-action-open');
+    });
   });
 });

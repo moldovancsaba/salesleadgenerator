@@ -414,90 +414,29 @@ export function LeadCard({
           </Text>
         </Group>
 
-        {/* Action Bar: Progressive Disclosure Toggle, Semantic Decisions & Direct Open */}
+        {/* Action Bar: Progressive Disclosure Toggle & Direct Open */}
         <Group justify="space-between" align="center" wrap="nowrap" pt={2} style={{ borderTop: '1px solid var(--gds-border-card)' }}>
-          <Group gap={4} wrap="nowrap">
-            {isReviewColumn && onAction ? (
-              <Group gap={4} wrap="nowrap">
-                <Button
-                  size="compact-xs"
-                  color="teal"
-                  variant="light"
-                  leftSection={<IconCheck size={12} />}
-                  loading={actionRunning}
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    try {
-                      setActionRunning(true);
-                      await onAction(lead._id, 'ACCEPT');
-                    } catch {
-                      // notification handled upstream
-                    } finally {
-                      setActionRunning(false);
-                    }
-                  }}
-                >
-                  Accept
-                </Button>
-                <Button
-                  size="compact-xs"
-                  color="red"
-                  variant="subtle"
-                  leftSection={<IconX size={12} />}
-                  loading={actionRunning}
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    try {
-                      setActionRunning(true);
-                      await onAction(lead._id, 'DECLINE');
-                    } catch {
-                      // notification handled upstream
-                    } finally {
-                      setActionRunning(false);
-                    }
-                  }}
-                >
-                  Decline
-                </Button>
-              </Group>
-            ) : !isTerminalColumn && primaryEmail ? (
-              <Button
-                size="compact-xs"
-                color="indigo"
-                variant="light"
-                leftSection={<IconMail size={12} />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onQuickEmail) onQuickEmail(lead);
-                  else window.location.href = `mailto:${primaryEmail}`;
-                }}
-              >
-                Email
-              </Button>
-            ) : null}
-
-            <Group
-              gap={4}
-              wrap="nowrap"
-              style={{ cursor: 'pointer', userSelect: 'none' }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpanded((v) => !v);
-              }}
+          <Group
+            gap={4}
+            wrap="nowrap"
+            style={{ cursor: 'pointer', userSelect: 'none', flexShrink: 0 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
+          >
+            <ActionIcon
+              size="xs"
+              variant="subtle"
+              color="gray"
+              aria-label={expanded ? 'Show less' : 'Show more'}
+              aria-expanded={expanded}
             >
-              <ActionIcon
-                size="xs"
-                variant="subtle"
-                color="gray"
-                aria-label={expanded ? 'Show less' : 'Show more'}
-                aria-expanded={expanded}
-              >
-                {expanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
-              </ActionIcon>
-              <Text size="xs" c="dimmed">
-                {expanded ? 'Show less' : 'Show more'}
-              </Text>
-            </Group>
+              {expanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+            </ActionIcon>
+            <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+              {expanded ? 'Show less' : 'Show more'}
+            </Text>
           </Group>
 
           {onOpen && (
@@ -505,6 +444,7 @@ export function LeadCard({
               variant="subtle"
               size="compact-xs"
               color="gray"
+              className="card-action-open"
               onClick={(e) => {
                 e.stopPropagation();
                 onOpen();
@@ -516,6 +456,72 @@ export function LeadCard({
             </Button>
           )}
         </Group>
+
+        {/* Semantic Stage Decisions: Accept / Decline in Review columns, or Quick Email in active pipeline */}
+        {isReviewColumn && onAction ? (
+          <Group gap={6} grow wrap="nowrap" pt={1}>
+            <Button
+              size="compact-xs"
+              color="teal"
+              variant="light"
+              className="card-action-accept"
+              leftSection={<IconCheck size={12} />}
+              loading={actionRunning}
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  setActionRunning(true);
+                  await onAction(lead._id, 'ACCEPT');
+                } catch {
+                  // notification handled upstream
+                } finally {
+                  setActionRunning(false);
+                }
+              }}
+            >
+              Accept
+            </Button>
+            <Button
+              size="compact-xs"
+              color="red"
+              variant="subtle"
+              className="card-action-decline"
+              leftSection={<IconX size={12} />}
+              loading={actionRunning}
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  setActionRunning(true);
+                  await onAction(lead._id, 'DECLINE');
+                } catch {
+                  // notification handled upstream
+                } finally {
+                  setActionRunning(false);
+                }
+              }}
+            >
+              Decline
+            </Button>
+          </Group>
+        ) : !isTerminalColumn && primaryEmail ? (
+          <Box pt={1}>
+            <Button
+              fullWidth
+              size="compact-xs"
+              color="indigo"
+              variant="light"
+              className="card-action-email"
+              leftSection={<IconMail size={12} />}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onQuickEmail) onQuickEmail(lead);
+                else window.location.href = `mailto:${primaryEmail}`;
+              }}
+            >
+              Email
+            </Button>
+          </Box>
+        ) : null}
 
         {/* Progressive Disclosure (Tier 1 Metadata) */}
         {expanded && (
