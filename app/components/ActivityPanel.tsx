@@ -121,6 +121,7 @@ type Props = {
   deals?: ActivityDeal[]
   refreshKey?: number
   onOpenCompose?: () => void
+  onContactUpdated?: () => void
 }
 
 const TYPE_LABEL: Record<ActivityEntry['type'], string> = {
@@ -141,12 +142,12 @@ const TYPE_LABEL: Record<ActivityEntry['type'], string> = {
 // unconditionally inside LeadDetailModal's content, which only ever renders
 // while the modal is open (LeadDetailModal returns null when !opened), so
 // this naturally only fetches while the lead detail is actually visible.
-export function ActivityPanel({ leadId, brand, contacts = [], deals = [], refreshKey = 0, onOpenCompose }: Props) {
+export function ActivityPanel({ leadId, brand, contacts = [], deals = [], refreshKey = 0, onOpenCompose, onContactUpdated }: Props) {
   const [activity, setActivity] = useState<ActivityEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<ContactSuggestion[]>([])
-  const [resolvingId, setResolvingId] = useState<string | null>(null)
+  const [resolvingState, setResolvingState] = useState<{ id: string; action: 'ACCEPT' | 'REJECT' } | null>(null)
   const [showHistorical, setShowHistorical] = useState(false)
   const [historicalCount, setHistoricalCount] = useState(0)
   const [syncingGmail, setSyncingGmail] = useState(false)
@@ -252,21 +253,34 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [], refres
   }, [leadId, brand])
 
   function resolveSuggestion(id: string, action: 'ACCEPT' | 'REJECT') {
-    setResolvingId(id)
+    setResolvingState({ id, action })
     fetch(`/api/contact-suggestions/${encodeURIComponent(id)}?brand=${encodeURIComponent(brand)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action }),
     })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to ${action.toLowerCase()} suggestion (${res.status})`)
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          throw new Error(data?.error || `Failed to ${action.toLowerCase()} suggestion (${res.status})`)
+        }
         setSuggestions((prev) => prev.filter((s) => s.id !== id))
+        showNotification({
+          message: action === 'ACCEPT' ? 'Contact details updated' : 'Suggestion dismissed',
+          color: action === 'ACCEPT' ? 'teal' : 'gray',
+        })
+        if (action === 'ACCEPT') {
+          onContactUpdated?.()
+        }
       })
-      .catch(() => {
-        // Leave the suggestion in place on failure — the user can retry;
-        // no silent removal of something that didn't actually resolve.
+      .catch((err) => {
+        showNotification({
+          message: err?.message || `Failed to ${action.toLowerCase()} suggestion`,
+          color: 'red',
+          autoClose: 5000,
+        })
       })
-      .finally(() => setResolvingId(null))
+      .finally(() => setResolvingState(null))
   }
 
   // Issue #200 — server re-validates contactKey/disposition/duration
@@ -405,8 +419,24 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [], refres
                   ))}
                 </Stack>
                 <Group gap="xs">
-                  <Button size="xs" color="teal" loading={resolvingId === s.id} onClick={() => resolveSuggestion(s.id, 'ACCEPT')}>Accept</Button>
-                  <Button size="xs" variant="subtle" color="gray" loading={resolvingId === s.id} onClick={() => resolveSuggestion(s.id, 'REJECT')}>Reject</Button>
+                  <Button
+                    size="xs"
+                    className="card-action-accept"
+                    loading={resolvingState?.id === s.id && resolvingState.action === 'ACCEPT'}
+                    disabled={resolvingState !== null}
+                    onClick={() => resolveSuggestion(s.id, 'ACCEPT')}
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    size="xs"
+                    className="card-action-decline"
+                    loading={resolvingState?.id === s.id && resolvingState.action === 'REJECT'}
+                    disabled={resolvingState !== null}
+                    onClick={() => resolveSuggestion(s.id, 'REJECT')}
+                  >
+                    Reject
+                  </Button>
                 </Group>
               </Box>
             ))}

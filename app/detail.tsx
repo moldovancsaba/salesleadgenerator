@@ -2045,6 +2045,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
         deals={lead.deals}
         refreshKey={outreachRefreshKey}
         onOpenCompose={() => setOutreachOpen(true)}
+        onContactUpdated={onUpdated}
       />
 
       {((normalizedPro && normalizedPro.length > 0) || (normalizedCon && normalizedCon.length > 0)) && (

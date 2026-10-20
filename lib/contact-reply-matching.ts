@@ -106,6 +106,90 @@ export async function findMatchedContact(
   return existingContacts.find((c) => c.email === email) || null;
 }
 
+// Finds the index of the contact in contacts[] that corresponds to a suggestion's
+// matchedContactKey. Resilient to contact edits (such as name normalization or
+// adding a last name, e.g. "Dávid" -> "Dávid Bozsik") that occurred between when
+// the suggestion was generated and when the user accepts it.
+export function findMatchingContactIndex(
+  contacts: NormalizedContact[],
+  matchedContactKey: string,
+  current?: ContactSuggestionFields
+): number {
+  if (!contacts || contacts.length === 0) return -1;
+
+  // 1. Exact contactKey match (fast path)
+  const exactIdx = contacts.findIndex((c) => contactKey(c) === matchedContactKey);
+  if (exactIdx !== -1) return exactIdx;
+
+  // 2. Parse matchedContactKey: format is typically "name|email" or "name|phone" or "name"
+  const parts = (matchedContactKey || '').split('|');
+  const keyName = parts[0]?.trim().toLowerCase();
+  const keyDetail = parts.slice(1).join('|').trim();
+
+  // If keyDetail contains an email, match by email
+  if (keyDetail && keyDetail.includes('@')) {
+    const normEmail = keyDetail.toLowerCase();
+    const emailIdx = contacts.findIndex((c) => c.email && c.email.toLowerCase().trim() === normEmail);
+    if (emailIdx !== -1) return emailIdx;
+  }
+
+  // If keyDetail is a phone number, match by phone digits
+  if (keyDetail && !keyDetail.includes('@')) {
+    const cleanKeyPhone = keyDetail.replace(/\D/g, '');
+    if (cleanKeyPhone.length >= 6) {
+      const phoneIdx = contacts.findIndex((c) => {
+        if (!c.phone) return false;
+        const cleanCPhone = c.phone.replace(/\D/g, '');
+        return (
+          cleanCPhone === cleanKeyPhone ||
+          (cleanCPhone.length >= 7 && cleanKeyPhone.endsWith(cleanCPhone)) ||
+          (cleanKeyPhone.length >= 7 && cleanCPhone.endsWith(cleanKeyPhone))
+        );
+      });
+      if (phoneIdx !== -1) return phoneIdx;
+    }
+  }
+
+  // 3. Name-based matching (handles name drift, e.g. "Dávid" vs "Dávid Bozsik")
+  const candidateNames = [
+    keyName,
+    current?.name?.trim().toLowerCase(),
+  ].filter(Boolean) as string[];
+
+  for (const nameToMatch of candidateNames) {
+    if (!nameToMatch) continue;
+    // Direct match (case-insensitive)
+    const nameIdx = contacts.findIndex((c) => c.name?.trim().toLowerCase() === nameToMatch);
+    if (nameIdx !== -1) return nameIdx;
+
+    // Substring or token match (e.g. "dávid" in "dávid bozsik", or "dávid bozsik" has tokens of "dávid")
+    const tokenIdx = contacts.findIndex((c) => {
+      const cName = c.name?.trim().toLowerCase();
+      if (!cName) return false;
+      const cTokens = cName.split(/\s+/);
+      const matchTokens = nameToMatch.split(/\s+/);
+      return matchTokens.every((t) => cTokens.includes(t)) || cTokens.every((t) => matchTokens.includes(t));
+    });
+    if (tokenIdx !== -1) return tokenIdx;
+  }
+
+  // 4. Current phone matching if provided
+  if (current?.phone) {
+    const cleanCurPhone = current.phone.replace(/\D/g, '');
+    if (cleanCurPhone.length >= 6) {
+      const phoneIdx = contacts.findIndex((c) => c.phone && c.phone.replace(/\D/g, '') === cleanCurPhone);
+      if (phoneIdx !== -1) return phoneIdx;
+    }
+  }
+
+  // 5. Single contact fallback: if the lead only has 1 contact, this suggestion belongs to it
+  if (contacts.length === 1) {
+    return 0;
+  }
+
+  return -1;
+}
+
 function diffSuggestedFields(
   existing: NormalizedContact,
   candidate: NormalizedContact

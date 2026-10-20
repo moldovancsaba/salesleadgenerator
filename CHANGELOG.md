@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.312
+
+### Suggested Contact Updates Matching Resilience & Activity Panel Feedback (Issue #271)
+
+- **Contact Suggestion Matching Resilience (`app/api/contact-suggestions/[id]/route.ts`, `lib/contact-reply-matching.ts`):**
+  - Resolved issue where clicking "Accept" on a suggested contact update failed with an unhandled HTTP 409 Conflict when a contact's name had been normalized or edited (e.g. `dávid` drifting to `Dávid Bozsik`) after the suggestion was initially generated from an email signature.
+  - Introduced `findMatchingContactIndex(contacts, matchedContactKey, current)` in `lib/contact-reply-matching.ts`:
+    1. Exact `contactKey` match.
+    2. Email address matching from `matchedContactKey` (e.g. `name|email`).
+    3. Phone digit matching from `matchedContactKey`.
+    4. Name token/substring matching (e.g. matching first/last name tokens between suggestion and stored contact).
+    5. Single-contact lead fallback (attributing suggestions on single-contact leads directly to that contact).
+- **Activity Panel User Feedback & Loading State Decoupling (`app/components/ActivityPanel.tsx`, `app/detail.tsx`):**
+  - Added Mantine `showNotification` toasts for suggestion resolution: affirmative teal toast on Accept ("Contact details updated"), subtle gray toast on Reject ("Suggestion dismissed"), and red toast with server-provided error message on failure.
+  - Decoupled button spinner state using `resolvingState: { id: string; action: 'ACCEPT' | 'REJECT' } | null` so only the clicked button spins, and buttons are safely disabled while resolving.
+  - Wired `onContactUpdated` prop in `ActivityPanel.tsx` to `LeadDetailModal`'s `onUpdated` in `app/detail.tsx` so the lead detail contacts section immediately updates without requiring modal close or page reload.
+  - Applied `.card-action-accept` and `.card-action-decline` semantic styling to prevent `@sovereignsquad/gds-theme` purple background override on Accept/Reject buttons.
+- **Automated Verification:**
+  - Added unit test suite in `tests/lib/contact-suggestions.test.ts` covering exact key match, email matching on drifted names, phone digit matching, name token matching, single-contact fallback, and deleted contact rejection.
+
 ## 2.4.311
 
 ### Kanban Card Action Bar Layout & Semantic Button Styling (Issue #271)

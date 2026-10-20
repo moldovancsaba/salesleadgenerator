@@ -5,8 +5,8 @@ import { getBrandConfig, resolveBrand } from '../../../lib/brand'
 import type { Brand } from '../../../lib/brand'
 import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../../lib/tenant'
-import { CONTACT_SUGGESTIONS_COLLECTION } from '../../../../lib/contact-reply-matching'
-import { dedupeContacts, deriveContactEmails, contactKey } from '../../../../lib/contacts'
+import { CONTACT_SUGGESTIONS_COLLECTION, findMatchingContactIndex } from '../../../../lib/contact-reply-matching'
+import { dedupeContacts, deriveContactEmails } from '../../../../lib/contacts'
 
 async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url)
@@ -90,20 +90,22 @@ export async function PATCH(
     }
 
     const existingContacts = dedupeContacts(lead.contacts || [])
-    let found = false
-    const mergedRaw = existingContacts.map((c) => {
-      if (contactKey(c) !== suggestion.matchedContactKey) return c
-      found = true
-      return {
-        ...c,
-        name: suggestion.suggested?.name || c.name,
-        title: suggestion.suggested?.title || c.title,
-        phone: suggestion.suggested?.phone || c.phone,
-      }
-    })
-    if (!found) {
-      return NextResponse.json({ error: 'Matched contact no longer exists on the lead (may have been edited/removed since this suggestion was generated)' }, { status: 409 })
+    const targetIdx = findMatchingContactIndex(existingContacts, suggestion.matchedContactKey, suggestion.current)
+    if (targetIdx === -1) {
+      return NextResponse.json({
+        error: 'Matched contact no longer exists on the lead (may have been edited or removed since this suggestion was generated)',
+      }, { status: 409 })
     }
+
+    const targetContact = existingContacts[targetIdx]
+    const updatedContact = {
+      ...targetContact,
+      name: suggestion.suggested?.name || targetContact.name,
+      title: suggestion.suggested?.title || targetContact.title,
+      phone: suggestion.suggested?.phone || targetContact.phone,
+    }
+
+    const mergedRaw = existingContacts.map((c, i) => (i === targetIdx ? updatedContact : c))
 
     const updatedContacts = dedupeContacts(mergedRaw, { verify: true })
     const contactEmails = deriveContactEmails(updatedContacts)
