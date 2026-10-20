@@ -150,9 +150,8 @@ export type IntegrationConnection = {
   - Strips internal company emails from `knownEmails` during brand and user Gmail polling, closing the loophole where having a colleague on a lead allowed personal emails to bypass data minimization.
   - Skips threads where all participants belong to the internal company team.
   - Attributes `userId`, `userEmail`, and `connectionId` on all ingested messages in `activityLog` with indexed lookups on `{ brand, userEmail, createdAt }` and `{ brand, userId, createdAt }`.
-- **Unified Inbox Scoping & UI Controls** (`app/lib/inbox-store.ts` & `app/inbox/[brand]/inbox-client.tsx`):
+- **Unified Inbox Scoping & User Mailbox Isolation** (`app/lib/inbox-store.ts` & `app/inbox/[brand]/inbox-client.tsx`):
   - Computed thread ownership (`isMyInbox`, `userMailbox`) based on active user connections, message participants, and assigned leads.
-  - "My Inbox" (default) shows conversations synced from the user's connected mailbox or assigned leads.
-  - "Team Inbox" shows shared CRM lead conversations across the brand, while strictly hiding unlinked private correspondence from other reps.
-  - UI affords a `SegmentedControl` ("My Inbox" vs "Team Inbox") in Pane 2 header, with a connected mailbox filter dropdown when viewing Team Inbox.
+  - Team Inbox is disabled per user directive: `/inbox/[brand]` and `GET /api/inbox/[brand]` strictly enforce user mailbox isolation (`scope: 'my'`), completely shielding other reps' mailboxes.
+  - UI streamlines the conversation feed to the current representative's own synced correspondence and assigned leads, showing connected mailbox attribution chips without exposing team-wide mailbox toggles.
 

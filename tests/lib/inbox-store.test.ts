@@ -350,7 +350,7 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       expect(leadIdSearchRes.threads[0].id).toBe('thread_alpha');
     });
 
-    it('filters threads by My Inbox vs Team Inbox and isolates mailboxes', async () => {
+    it('enforces My Inbox scoping and disables Team Inbox', async () => {
       const db = createMockDb();
 
       mockIntegrationDocs = [
@@ -409,7 +409,7 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
         createdAt: new Date('2026-10-19T11:00:00Z'),
       });
 
-      // When Alice views "My Inbox" (default scope: 'my', userEmail: 'alice@cogmap.com')
+      // When Alice views her inbox (userEmail: 'alice@cogmap.com')
       const aliceInbox = await listInboxThreads(db, 'cogmap', 't_default', {
         userEmail: 'alice@cogmap.com',
         scope: 'my',
@@ -420,8 +420,9 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       expect(aliceInbox.threads[0].userMailbox).toBe('alice@cogmap.com');
       expect(aliceInbox.threads[0].isMyInbox).toBe(true);
       expect(aliceInbox.counts.all).toBe(1);
+      expect(aliceInbox.activeScope).toBe('my');
 
-      // When Bob views "My Inbox"
+      // When Bob views his inbox
       const bobInbox = await listInboxThreads(db, 'cogmap', 't_default', {
         userEmail: 'bob@cogmap.com',
         scope: 'my',
@@ -431,26 +432,20 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       expect(bobInbox.threads[0].id).toBe('thread_bob_lead');
       expect(bobInbox.threads[0].userMailbox).toBe('bob@cogmap.com');
       expect(bobInbox.threads[0].isMyInbox).toBe(true);
+      expect(bobInbox.activeScope).toBe('my');
 
-      // When viewing "Team Inbox" (scope: 'team')
-      const teamInbox = await listInboxThreads(db, 'cogmap', 't_default', {
+      // Team Inbox is disabled: even if scope: 'team' is requested, it strictly enforces 'my' scope
+      const teamAttempt = await listInboxThreads(db, 'cogmap', 't_default', {
         userEmail: 'alice@cogmap.com',
-        scope: 'team',
+        scope: 'team' as any,
       });
 
-      expect(teamInbox.threads.length).toBe(2);
-      expect(teamInbox.counts.all).toBe(2);
-      expect(teamInbox.mailboxes.length).toBe(2);
-
-      // When filtering by specific mailbox in Team Inbox
-      const bobFiltered = await listInboxThreads(db, 'cogmap', 't_default', {
-        userEmail: 'alice@cogmap.com',
-        scope: 'team',
-        mailbox: 'bob@cogmap.com',
-      });
-
-      expect(bobFiltered.threads.length).toBe(1);
-      expect(bobFiltered.threads[0].id).toBe('thread_bob_lead');
+      // Alice only sees her own thread; Bob's thread is strictly isolated
+      expect(teamAttempt.threads.length).toBe(1);
+      expect(teamAttempt.threads[0].id).toBe('thread_alice_lead');
+      expect(teamAttempt.activeScope).toBe('my');
+      expect(teamAttempt.mailboxes.length).toBe(1);
+      expect(teamAttempt.mailboxes[0].email).toBe('alice@cogmap.com');
     });
   });
 

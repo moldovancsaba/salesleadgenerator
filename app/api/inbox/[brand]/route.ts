@@ -43,7 +43,8 @@ export async function GET(
     const claims = await resolveSessionFromIdToken(idToken);
     const userId = claims?.sub || claims?.email;
     const userEmail = claims?.email;
-    const scope = (searchParams.get('scope') || 'my') as 'my' | 'team';
+    // Team Inbox is disabled; force scope to 'my'
+    const scope: 'my' = 'my';
     const mailbox = searchParams.get('mailbox') || undefined;
 
     const tenantId = getTenantId(request);

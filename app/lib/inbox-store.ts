@@ -251,7 +251,7 @@ export async function listInboxThreads(
   counts: InboxCounts;
   total: number;
   mailboxes: InboxMailboxOption[];
-  activeScope: 'my' | 'team';
+  activeScope: 'my';
 }> {
   await ensureInboxIndexes(db);
   await ensureActivityLogIndexes(db);
@@ -302,7 +302,7 @@ export async function listInboxThreads(
       counts: { all: 0, inbox: 0, sent: 0, needs_reply: 0, internal: 0, calls: 0, system: 0, unread: 0 },
       total: 0,
       mailboxes: [],
-      activeScope: options.scope || 'my',
+      activeScope: 'my',
     };
   }
 
@@ -575,19 +575,13 @@ export async function listInboxThreads(
     });
   }
 
-  const requestedScope: 'my' | 'team' = options.scope || 'my';
+  // Team Inbox is disabled per user directive; always enforce 'my' scope
+  const requestedScope: 'my' = 'my';
 
-  // 6. Filter by scope (My Inbox vs Team Inbox)
+  // 6. Filter by scope: strictly My Inbox (threads belonging to user's connected mailboxes or assigned leads)
   let scopedThreads = allThreads;
-  if (requestedScope === 'my') {
-    // Show threads belonging to user's connected mailboxes or assigned leads
-    if (userMailboxSet.size > 0 || options.userId) {
-      scopedThreads = scopedThreads.filter((t) => t.isMyInbox);
-    }
-  } else if (requestedScope === 'team') {
-    // Team view shows CRM lead conversations across the brand, but strictly hides
-    // unlinked private correspondence belonging to other reps
-    scopedThreads = scopedThreads.filter((t) => t.hasLead || t.isMyInbox);
+  if (userMailboxSet.size > 0 || options.userId) {
+    scopedThreads = scopedThreads.filter((t) => t.isMyInbox);
   }
 
   // Filter by specific mailbox if requested
@@ -666,11 +660,13 @@ export async function listInboxThreads(
   const limit = Math.max(1, Math.min(200, options.limit || 50));
   const paged = filtered.slice(offset, offset + limit);
 
-  const mailboxes: InboxMailboxOption[] = Array.from(mailboxCounts.entries()).map(([email, count]) => ({
-    email,
-    label: email,
-    count,
-  }));
+  const mailboxes: InboxMailboxOption[] = Array.from(mailboxCounts.entries())
+    .filter(([email]) => userMailboxSet.size === 0 || userMailboxSet.has(email))
+    .map(([email, count]) => ({
+      email,
+      label: email,
+      count,
+    }));
 
   return {
     threads: paged,
