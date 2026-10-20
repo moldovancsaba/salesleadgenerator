@@ -1,6 +1,6 @@
 # User Guide — Sales Lead Generator
 
-**Version:** 2.4.309  
+**Version:** 2.4.310  
 **Application URL:** https://salesleadgenerator.vercel.app  
 
 Welcome to **Sales Lead Generator**, an intelligent, multi-brand CRM and sales execution platform designed for B2B sports business, corporate partnerships, and outbound pipeline operations. This guide walks you through daily workflows, lead management, communication, and pipeline tools.
@@ -22,6 +22,7 @@ Welcome to **Sales Lead Generator**, an intelligent, multi-brand CRM and sales e
 11. [Reports, Analytics & Forecast Projections](#11-reports-analytics--forecast-projections)
 12. [Accounts Directory & Company Hierarchy](#12-accounts-directory--company-hierarchy)
 13. [PWA Offline Support & Command Palette](#13-pwa-offline-support--command-palette)
+14. [Admin Settings & Mailbox Scoping Policy](#14-admin-settings--mailbox-scoping-policy)
 
 ---
 
@@ -89,6 +90,10 @@ Each card is engineered for immediate scannability:
 - **In Pipeline Stages (`CONTACTED`, `IN_PIPELINE`, etc.)**:
   - **Email** (`color="indigo"`, mail icon): 1-click quick outreach action.
 - **Open**: Subtle `Open ↗` button opens the comprehensive Lead Detail drawer. Clicking anywhere on the card surface also opens the drawer.
+
+### Board Resilience & Error Boundary Isolation
+- **Card-Level Error Boundaries**: Every card rendered on the Kanban board is isolated inside its own React `<ErrorBoundary>`. In the rare event of corrupted or malformed property values on an individual lead, that single card renders a localized fallback chip (`Card unavailable`) instead of letting an exception crash the entire board.
+- **Deduplication & Cursor Protection**: Incoming leads are deduplicated by `_id` before feeding `@dnd-kit/sortable` columns and cursor pagination state, preventing identifier collisions during rapid scroll or infinite loading.
 
 ---
 
@@ -298,3 +303,25 @@ Press `⌘K` anywhere in the application to open the Command Palette:
 - **Jump to Lead**: Instant fuzzy search across all active leads in your workspace.
 - **Quick Navigation**: Jump to Today, Pipeline, Inbox, Accounts, Contacts, Reports, or Sales Settings.
 - **Quick Actions**: Add Lead, Export View, Open Tour, or Toggle Select Mode.
+
+---
+
+## 14. Admin Settings & Mailbox Scoping Policy
+
+Super-administrators have access to centralized privacy and integration settings on `/admin/users` and `/salessettings/[client]`:
+
+### Linked Mailbox Aliases (`/admin/users`)
+- **Multi-Identity Mailbox Unification**: In the **Linked Mailboxes** column of the User Access table, administrators can view all linked mailboxes associated with each user's SSO account.
+- **Manage Aliases Modal**: Click the edit button on any user row to open `<ManageAliasesModal />`. Administrators can add or remove secondary corporate or personal email addresses (e.g. `office@seyuselfies.com`, `coo@seyuselfies.com`, `moldovancsaba@gmail.com`). All inbound and outbound communications across configured aliases automatically stream into the user's unified personal inbox.
+
+### Communication Center & Inbox Scoping Policy
+Configurable at both the brand level (`/salessettings/[client]`, Process tab) and user administration overview (`/admin/users`):
+- **Assigned Leads Thread Visibility (`includeAssignedLeadThreads`)**:
+  - *Strict Mailbox Only (Default)*: Sales representatives only see email threads where their own authenticated or linked mailboxes are direct participants (`From:`, `To:`, or `Cc:`). Colleague correspondence on assigned leads remains shielded.
+  - *Include Assigned Lead Threads*: When enabled, representatives can view all communication history associated with leads assigned to them, even if initiated or received by a colleague.
+- **CC Thread Privacy Isolation (`includeCcThreads`)**:
+  - *Direct Participation Only (Default)*: Threads where a user is only on CC are shielded from their personal inbox, preventing management oversight or courtesy copies from cluttering the prospect action queue.
+  - *Include CC Threads*: When enabled, threads where the user appears in the `Cc:` header are seamlessly included in their personal inbox stream.
+- **Fail-Closed Privacy Guard**: If an authenticated session cannot be verified or lacks resolved user claims, the inbox fails closed by returning 0 threads and 0 counts, completely eliminating accidental cross-team data exposure.
+- **Internal Team Email Filtering**: Emails where all participants belong to company staff or system accounts (e.g. internal staff syncs, weekly meetings, operation reminders) are automatically filtered out from sales CRM inbox aggregation.
+- **Gmail Thread 404 Recovery**: Outbound replies automatically recover if an existing Google thread ID is rejected (404), seamlessly retrying via RFC 2822 headers so conversations are never dropped.
