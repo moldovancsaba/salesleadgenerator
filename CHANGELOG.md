@@ -1,5 +1,38 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.309
+
+### Kanban Board Resilience & Lead Card Defensive Hardening (Issue #271)
+
+- **Kanban Board Crash Prevention & Error Boundary Isolation (`app/kanban.tsx`, `app/card.tsx`):**
+  - Resolved runtime board crash (`The kanban board couldn't be rendered. Try refreshing the page.`) caused by duplicate lead keys, rapid infinite sentinel triggering, and unhandled property accesses during card rendering.
+  - Wrapped each card in `renderItem` with a dedicated card-level `<ErrorBoundary>` displaying a localized card fallback (`Card unavailable`) instead of letting an individual card render issue crash the entire board.
+  - Deduplicated lead items by `_id` before feeding `GdsKanbanBoard`'s `columns[].items`, preventing `@dnd-kit/sortable` duplicate identifier collisions.
+  - Deduplicated leads in `loadColumn` state updates during cursor pagination.
+  - Stabilized `LoadMoreSentinel` IntersectionObserver callback using an internal ref, preventing rapid re-render cycles and infinite fetch loops.
+- **Defensive Card Data Extraction (`app/card.tsx`):**
+  - Hardened `rawOwner`, `ownerLabel`, and `ownerInitials` against non-string and object-shaped `assignedTo` values.
+  - Hardened contact name and title extraction to verify string types before calling `.trim()`, preventing exceptions on legacy or malformed contact records.
+  - Hardened `formatSectorLabel` to safely format arrays, strings, and unexpected types without throwing.
+  - Filtered `lead.tags` to strictly validate strings before rendering in tag badge list.
+- **Automated Verification:**
+  - Added unit test suite `tests/lib/kanban-resilience.test.ts` verifying lead ID deduplication, LoadMoreSentinel stabilization, card error boundary isolation, and safe parsing logic.
+
+## 2.4.308
+
+### Gmail Thread Recovery & People API Error Transparency (Issue #271 & #251)
+
+- **Gmail API Thread ID 404 Recovery (`lib/gmail-send.ts`, `lib/outreach-send.ts`, `app/lib/inbox-store.ts`):**
+  - Resolved `gmail rejected: Requested entity was not found.` error that occurred when attempting to reply to a conversation using a thread ID that was missing, foreign, or deleted from the authenticated sender's mailbox.
+  - In `lib/gmail-send.ts`, automatically catches HTTP 404 / `Requested entity was not found` responses when `threadId` is supplied, logging a warning and retrying the send without the optional `threadId` parameter. RFC 2822 `In-Reply-To` and `References` headers in the MIME payload ensure Gmail and receiving mail clients naturally thread the message.
+  - In `app/lib/inbox-store.ts` (`postInboxReply`), sanitized `threadId` to ensure synthetic cluster IDs (`lead:...`, `msg:...`) are never dispatched to Gmail API as native thread parameters.
+- **Google Contacts People API Error Transparency (`app/lib/google-contacts-store.ts`, `app/api/integrations/google-contacts/search/route.ts`):**
+  - Updated `searchGoogleContacts` to attempt connections list without `sortOrder` if a Workspace domain rejects `LAST_MODIFIED_DESCENDING`.
+  - Replaced generic `Could not reach Google Contacts` error with the actual Google People API error message, distinguishing between token expiration (401), missing permissions / disabled API (403), and network errors.
+  - Forwarded active SSO session identity (`userId`, `userEmail`) to support user-scoped Google Contacts connections in addition to brand-level connections.
+- **Automated Verification:**
+  - Added unit test in `tests/lib/gmail-send.test.ts` verifying automatic retry without `threadId` when Google returns 404 "Requested entity was not found."
+
 ## 2.4.307
 
 ### Strict CC Isolation, Outbound Counterparty Resolution & Topic Threading (Issue #271)

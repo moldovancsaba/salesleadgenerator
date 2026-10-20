@@ -76,21 +76,35 @@ export async function sendGmailMessage(params: {
   const url = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
   const raw = encodeBase64Url(params.rawMime);
 
+  const payload: Record<string, any> = { raw };
+  if (params.threadId) {
+    payload.threadId = params.threadId;
+  }
+
   const res = await fetchWithRetry(url, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${params.accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      raw,
-      ...(params.threadId ? { threadId: params.threadId } : {}),
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({}));
     const message = errorBody?.error?.message || `Gmail API send failed: ${res.status}`;
+
+    // If Google rejects with 404 because the provided threadId does not exist in the sender's mailbox
+    // (e.g. cross-account reply, foreign thread ID from a colleague, or purged thread), retry without threadId.
+    // RFC 2822 In-Reply-To and References headers in rawMime will still properly thread the message in Gmail.
+    if (params.threadId && (res.status === 404 || /not found/i.test(message))) {
+      console.warn(`[gmail-send] Thread ID ${params.threadId} not found in sender mailbox (404). Retrying without threadId parameter.`);
+      return sendGmailMessage({
+        accessToken: params.accessToken,
+        rawMime: params.rawMime,
+      });
+    }
+
     throw new Error(message);
   }
 

@@ -118,9 +118,11 @@ function ticketSizeCardCaption(ticketSize: TicketSizeDisplay): string | null {
   return 'Modelled estimate';
 }
 
-function formatSectorLabel(raw: string | undefined): string | null {
+function formatSectorLabel(raw: unknown): string | null {
   if (!raw) return null;
-  return raw
+  const str = Array.isArray(raw) ? raw.join(', ') : typeof raw === 'string' ? raw : String(raw);
+  if (!str.trim()) return null;
+  return str
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
@@ -178,26 +180,34 @@ export function LeadCard({
   // Prefer the contact flagged isDecisionMaker (lib/contacts.ts); fall back to
   // the first contact so the row isn't always '—' before data gets flagged.
   const decisionMaker = getDecisionMakerContact(lead.contacts);
-  const primaryContact = decisionMaker || lead.contacts?.[0] || null;
-  const contactName = primaryContact?.name?.trim() || '—';
-  const contactTitle = primaryContact?.title?.trim() || primaryContact?.role?.trim() || '';
+  const rawPrimary = decisionMaker || (Array.isArray(lead.contacts) ? lead.contacts[0] : null);
+  const primaryContact = rawPrimary && typeof rawPrimary === 'object' ? rawPrimary : null;
+  const rawName = primaryContact && typeof primaryContact.name === 'string' ? primaryContact.name.trim() : '';
+  const contactName = rawName || '—';
+  const rawTitle = primaryContact && typeof primaryContact.title === 'string' ? primaryContact.title.trim() : '';
+  const rawRole = primaryContact && typeof primaryContact.role === 'string' ? primaryContact.role.trim() : '';
+  const contactTitle = rawTitle || rawRole || '';
+  const primaryEmail = primaryContact?.email && typeof primaryContact.email === 'string' ? primaryContact.email.trim() : null;
 
-  const rawOwner = lead.assignedToEmail
+  const rawOwner = typeof lead.assignedToEmail === 'string' && lead.assignedToEmail.trim()
     ? lead.assignedToEmail.split('@')[0]
-    : (lead.assignedTo || 'Unassigned');
+    : typeof lead.assignedTo === 'string' && lead.assignedTo.trim()
+      ? lead.assignedTo
+      : 'Unassigned';
 
   // Format email prefix like "david.klopp" -> "David Klopp"
-  const ownerLabel = rawOwner.includes('.')
-    ? rawOwner.split('.').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
-    : rawOwner;
+  const ownerLabel = typeof rawOwner === 'string' && rawOwner.includes('.')
+    ? rawOwner.split('.').filter(Boolean).map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
+    : String(rawOwner || 'Unassigned');
 
   const ownerInitials = ownerLabel === 'Unassigned'
     ? '?'
     : ownerLabel
         .split(' ')
+        .filter(Boolean)
         .map((s) => s.charAt(0).toUpperCase())
         .slice(0, 2)
-        .join('');
+        .join('') || '?';
 
   const tier0Metadata = [
     { label: 'Region', value: region },
@@ -274,17 +284,17 @@ export function LeadCard({
               </Text>
             )}
           </Group>
-          {primaryContact?.email ? (
+          {primaryEmail ? (
             <ActionIcon
               size="xs"
               variant="subtle"
               color="indigo"
               aria-label={`Email ${contactName}`}
-              title={`Email ${contactName} (${primaryContact.email})`}
+              title={`Email ${contactName} (${primaryEmail})`}
               onClick={(e) => {
                 e.stopPropagation();
                 if (onQuickEmail) onQuickEmail(lead);
-                else window.location.href = `mailto:${primaryContact.email}`;
+                else window.location.href = `mailto:${primaryEmail}`;
               }}
             >
               <IconMail size={12} />
@@ -450,7 +460,7 @@ export function LeadCard({
                   Decline
                 </Button>
               </Group>
-            ) : !isTerminalColumn && primaryContact?.email ? (
+            ) : !isTerminalColumn && primaryEmail ? (
               <Button
                 size="compact-xs"
                 color="indigo"
@@ -459,7 +469,7 @@ export function LeadCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (onQuickEmail) onQuickEmail(lead);
-                  else window.location.href = `mailto:${primaryContact.email}`;
+                  else window.location.href = `mailto:${primaryEmail}`;
                 }}
               >
                 Email
@@ -519,18 +529,24 @@ export function LeadCard({
               ))}
             </Stack>
 
-            {(lead.tags?.length ?? 0) > 0 && (
-              <Group gap={4} wrap="wrap" role="list" aria-label="Tags" mt={2}>
-                {lead.tags!.slice(0, 3).map((tag) => (
-                  <Box component="span" role="listitem" key={tag}>
-                    <LabelTag tone="neutral" size="xs" label={tag} />
-                  </Box>
-                ))}
-                {lead.tags!.length > 3 && (
-                  <LabelTag tone="neutral" size="xs" label={`+${lead.tags!.length - 3}`} />
-                )}
-              </Group>
-            )}
+            {(() => {
+              const validTags = Array.isArray(lead.tags)
+                ? lead.tags.filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+                : [];
+              if (validTags.length === 0) return null;
+              return (
+                <Group gap={4} wrap="wrap" role="list" aria-label="Tags" mt={2}>
+                  {validTags.slice(0, 3).map((tag) => (
+                    <Box component="span" role="listitem" key={tag}>
+                      <LabelTag tone="neutral" size="xs" label={tag} />
+                    </Box>
+                  ))}
+                  {validTags.length > 3 && (
+                    <LabelTag tone="neutral" size="xs" label={`+${validTags.length - 3}`} />
+                  )}
+                </Group>
+              );
+            })()}
 
             {ticketSizeCaption && !hasDeals && (
               <Text size="xs" c="dimmed" fs="italic">{ticketSizeCaption}</Text>

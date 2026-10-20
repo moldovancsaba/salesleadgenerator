@@ -1253,6 +1253,13 @@ export async function postInboxReply(
 
     const idempotencyKey = `inbox-reply-${thread.leadId}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
+    const rawThreadId = threadId.startsWith('lead:') || threadId.startsWith('msg:')
+      ? threadContext?.threadId
+      : threadId;
+    const validGmailThreadId = rawThreadId && /^[0-9a-fA-F]{16,}$/.test(rawThreadId)
+      ? rawThreadId
+      : undefined;
+
     const sendResult = await sendManualEmail(db, leadForSend, syntheticTemplate, {
       brand,
       tenantId,
@@ -1263,7 +1270,7 @@ export async function postInboxReply(
       senderEmail: payload.senderEmail || userContext.userEmail,
       includeSignature: payload.includeSignature !== false,
       replyInThread: true,
-      threadId: threadId.startsWith('lead:') ? threadContext?.threadId : threadId,
+      threadId: validGmailThreadId,
       inReplyTo: threadContext?.inReplyTo,
       references: threadContext?.references,
     });

@@ -9,8 +9,8 @@ import type { Lead, KanbanColumn } from './types';
 import type { CurrencyCode } from './lib/brand';
 import { LeadCard } from './card';
 import { COLUMNS } from './constants';
-import { computeStaleness, DEFAULT_STALE_THRESHOLDS, type KanbanColumn as StaleDealColumn } from '../lib/stale-deal';
-import { getNextStepNudge } from '../lib/next-step-nudge';
+import { computeStaleness, DEFAULT_STALE_THRESHOLDS, type KanbanColumn as StaleDealColumn, type StaleDealResult } from '../lib/stale-deal';
+import { getNextStepNudge, type Nudge } from '../lib/next-step-nudge';
 import { DEFAULT_WIP_LIMITS, resolveWipThreshold, isOverWipLimit } from '../lib/wip-limits';
 import type { LeadFilter } from '../lib/saved-filters';
 import { TOUR_SELECTOR } from './lib/tour/selectors';
@@ -99,6 +99,11 @@ type LeadKanbanColumn = {
 // so it still reads as "below" the card rather than part of it.
 function LoadMoreSentinel({ onLoadMore }: { onLoadMore: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const onLoadMoreRef = useRef(onLoadMore);
+
+  useEffect(() => {
+    onLoadMoreRef.current = onLoadMore;
+  }, [onLoadMore]);
 
   useEffect(() => {
     const el = ref.current;
@@ -106,12 +111,12 @@ function LoadMoreSentinel({ onLoadMore }: { onLoadMore: () => void }) {
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) {
         observer.disconnect();
-        onLoadMore();
+        onLoadMoreRef.current();
       }
     }, { rootMargin: '200px' });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [onLoadMore]);
+  }, []);
 
   return (
     <Box ref={ref} pt="xs" mt="xs" style={{ borderTop: '1px solid var(--gds-border-card)' }}>
@@ -285,14 +290,23 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
 
       setColumnStates((prev) => {
         const current = prev[colKey] || { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
-        const newLeads = cursor
+        const existingIds = new Set<string>()
+        const dedupedLeads: Lead[] = []
+        const incoming = cursor
           ? [...(current.leads || []), ...(data.leads || [])]
           : [...(data.leads || [])]
+
+        for (const lead of incoming) {
+          if (lead && lead._id && !existingIds.has(lead._id)) {
+            existingIds.add(lead._id)
+            dedupedLeads.push(lead)
+          }
+        }
 
         return {
           ...prev,
           [colKey]: {
-            leads: newLeads,
+            leads: dedupedLeads,
             count: data.count || 0,
             hasMore: Boolean(data.hasMore),
             cursor: data.nextCursor || null,
@@ -711,17 +725,25 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       </Group>
     ) : plainTitle
 
+    const seenIds = new Set<string>()
+    const items: LeadKanbanItem[] = []
+    for (const lead of (colState.leads || [])) {
+      if (!lead || !lead._id || seenIds.has(lead._id)) continue
+      seenIds.add(lead._id)
+      items.push({
+        id: lead._id,
+        title: lead.entity_name || 'Untitled lead',
+        ariaLabel: lead.entity_name || 'Untitled lead',
+        lead,
+      })
+    }
+
     return {
       id: col.key,
       title,
       ariaLabel: overWipLimit ? `${plainTitle}, ${colState.count || 0} of ${wipThreshold} WIP limit` : undefined,
       totalCount: colState.count || 0,
-      items: (colState.leads || []).map((lead) => ({
-        id: lead._id,
-        title: lead.entity_name,
-        ariaLabel: lead.entity_name,
-        lead,
-      })),
+      items,
     }
   }), [columnStates, forecast, formatForecast, columnDefs, wipLimits])
 
@@ -742,36 +764,57 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // actually are at runtime, since we built them in `columns` above).
   const renderItem = useCallback((item: GdsKanbanItem, column: GdsKanbanColumnData) => {
     const leadItem = item as LeadKanbanItem
+    if (!leadItem?.lead) return null
+    const lead = leadItem.lead
     const colState = columnStates[column.id as KanbanColumn] || { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
     const isLast = column.items[column.items.length - 1]?.id === item.id
     const now = new Date()
-    const staleness = computeStaleness(
-      { kanbanColumn: leadItem.lead.kanbanColumn as StaleDealColumn, updatedAt: leadItem.lead.updatedAt },
-      staleThresholds,
-      now
-    )
-    const nudge = getNextStepNudge(
-      { kanbanColumn: leadItem.lead.kanbanColumn, createdAt: leadItem.lead.createdAt, contacts: leadItem.lead.contacts },
-      staleness,
-      now
-    )
+
+    let staleness: StaleDealResult | null = null
+    try {
+      staleness = computeStaleness(
+        { kanbanColumn: lead.kanbanColumn as StaleDealColumn, updatedAt: lead.updatedAt },
+        staleThresholds,
+        now
+      )
+    } catch {
+      staleness = null
+    }
+
+    let nudge: Nudge | null = null
+    try {
+      nudge = getNextStepNudge(
+        { kanbanColumn: lead.kanbanColumn, createdAt: lead.createdAt, contacts: lead.contacts },
+        staleness,
+        now
+      )
+    } catch {
+      nudge = null
+    }
+
     const tourTarget = column.id === firstNonEmptyColumnId && column.items[0]?.id === item.id
     return (
-      <>
+      <ErrorBoundary
+        fallback={
+          <Box p="xs" style={{ border: '1px solid var(--gds-border-card)', borderRadius: 6 }}>
+            <Text size="xs" c="dimmed">Card unavailable ({lead.entity_name || lead._id})</Text>
+          </Box>
+        }
+      >
         {selectMode && (
           <Checkbox
             size="sm"
             mb={4}
-            aria-label={`Select ${leadItem.lead.entity_name} for bulk action`}
-            checked={selectedIds.has(leadItem.lead._id)}
-            onChange={() => toggleSelected(leadItem.lead._id, column.id as KanbanColumn)}
+            aria-label={`Select ${lead.entity_name || 'lead'} for bulk action`}
+            checked={selectedIds.has(lead._id)}
+            onChange={() => toggleSelected(lead._id, column.id as KanbanColumn)}
             onClick={(e) => e.stopPropagation()}
-            disabled={Boolean(selectedColumn) && selectedColumn !== (column.id as KanbanColumn) && !selectedIds.has(leadItem.lead._id)}
+            disabled={Boolean(selectedColumn) && selectedColumn !== (column.id as KanbanColumn) && !selectedIds.has(lead._id)}
           />
         )}
         <LeadCard
-          lead={leadItem.lead}
-          onOpen={() => onOpenLead(leadItem.lead)}
+          lead={lead}
+          onOpen={() => onOpenLead(lead)}
           staleness={staleness}
           nudge={nudge}
           winProbability={forecast?.[column.id]?.probability ?? null}
@@ -781,7 +824,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         {isLast && Boolean(colState?.hasMore) && !colState?.loading && (
           <LoadMoreSentinel onLoadMore={() => loadColumn(column.id as KanbanColumn, colState.cursor)} />
         )}
-      </>
+      </ErrorBoundary>
     )
   }, [columnStates, onOpenLead, loadColumn, staleThresholds, selectMode, selectedIds, selectedColumn, toggleSelected, forecast, firstNonEmptyColumnId, onAction])
 

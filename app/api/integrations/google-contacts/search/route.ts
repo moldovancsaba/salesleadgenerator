@@ -4,6 +4,7 @@ import { requireBrandAccessApi } from '../../../../../lib/require-brand-access-a
 import { resolveBrand } from '../../../../lib/brand';
 import { getTenantId } from '../../../../../lib/tenant';
 import { searchGoogleContacts } from '../../../../lib/google-contacts-store';
+import { resolveSessionFromIdToken } from '../../../../../lib/session';
 
 // Issue #216 §10 — rep-initiated, read-only search against the rep's own
 // Google Contacts. Guarded by requireBrandAccessApi (the same guard
@@ -23,10 +24,15 @@ export async function GET(request: NextRequest) {
 
   if (!isMongoConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
 
+  const idToken = request.cookies.get('sso_id_token')?.value;
+  const claims = await resolveSessionFromIdToken(idToken);
+  const userId = claims?.sub || claims?.email;
+  const userEmail = claims?.email;
+
   const tenantId = getTenantId(request);
   const client = await clientPromise;
   const db = client.db();
-  const result = await searchGoogleContacts(db, brand, tenantId, query);
+  const result = await searchGoogleContacts(db, brand, tenantId, query, { userId, userEmail });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
 
   return NextResponse.json({ results: result.results });

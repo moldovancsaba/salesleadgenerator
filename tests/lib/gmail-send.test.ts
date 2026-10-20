@@ -138,5 +138,38 @@ describe('gmail-send (Issue 248)', () => {
         })
       ).rejects.toThrow('Insufficient Permission: gmail.send required');
     });
+
+    it('retries without threadId when Google rejects with 404 Requested entity was not found', async () => {
+      let callCount = 0;
+      const fakeFetch = vi.fn().mockImplementation(async (_url, options) => {
+        callCount++;
+        const parsedBody = JSON.parse(options.body);
+        if (callCount === 1) {
+          // First attempt with threadId fails with 404
+          expect(parsedBody.threadId).toBe('invalid-or-foreign-thread-id');
+          return {
+            ok: false,
+            status: 404,
+            json: async () => ({ error: { code: 404, message: 'Requested entity was not found.' } }),
+          };
+        }
+        // Second attempt without threadId succeeds
+        expect(parsedBody.threadId).toBeUndefined();
+        return {
+          ok: true,
+          json: async () => ({ id: 'new-msg-123', threadId: 'new-th-456' }),
+        };
+      });
+      vi.stubGlobal('fetch', fakeFetch);
+
+      const result = await sendGmailMessage({
+        accessToken: 'valid-token',
+        rawMime: 'From: me@company.com\r\n\r\nTest body',
+        threadId: 'invalid-or-foreign-thread-id',
+      });
+
+      expect(result).toEqual({ id: 'new-msg-123', threadId: 'new-th-456' });
+      expect(fakeFetch).toHaveBeenCalledTimes(2);
+    });
   });
 });
