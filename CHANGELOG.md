@@ -1,6 +1,25 @@
 # Changelog — Sales Lead Generator
 
-## 2.4.304
+## 2.4.305
+
+### Multi-Identity Mailbox Linking & Service Provider/Accounting Shielding (Issue #269)
+
+- **Multi-Identity Mailbox Linking (`app/lib/inbox-store.ts`):**
+  - Added canonical user alias mapping (`KNOWN_USER_ALIASES`) unifying personal Google SSO (`moldovancsaba@gmail.com`) with corporate Google Workspace accounts (`coo@seyuselfies.com`).
+  - Automatically queries linked SSO records in `sso_user_access` and active Gmail integration connections across all alias accounts, unifying mailboxes under `userMailboxSet` and `userIds`.
+  - Ensures seamless access to all personal and corporate communications when logged in under either identity in `listInboxThreads`.
+- **Accounting & Service Provider Domain Shield (`lib/email-contact-extractor.ts`):**
+  - Added `reliableaccount.hu` (Seyu's Hungarian accounting and payroll firm) to `INTERNAL_COMPANY_DOMAINS` and `isInternalOrSystemEmail`.
+  - Shields against private Hungarian VAT notifications (`áfa értesítő`) and payroll filings (`efo jelentések`) from ever being parsed or merged as CRM lead contacts.
+- **Database Sanitization & Lead Decoupling:**
+  - Decoupled contaminated foreign contacts from PSV Eindhoven (`6a57c08110cd2d62348d3309`), removing `konyveles@reliableaccount.hu`, `geva@htafc.co.il`, `michal@grund.co.il`, `santi.mendizabal@sport-gsic.com`, `russell@connectingbrands.co.uk`, and `sam.woodland@pdc.tv`. Retained clean PSV contacts (`s.jacobs@psv.nl` and Chairman Robert Van Der Wallen).
+  - Purged 7 leaked accounting/internal activity logs from `activityLog` and cleaned associated thread states.
+  - Backfilled attribution across 100% of activity logs in `activityLog` with valid `userEmail` and `userId`.
+- **Note Attribution in Quick Composer (`app/lib/inbox-store.ts`):**
+  - Updated `postInboxReply` to record `userId: userContext.userId` and `userEmail: userContext.userEmail` on internal notes, ensuring full ownership attribution.
+- **Automated Verification:**
+  - Added unit test in `tests/lib/inbox-store.test.ts` verifying multi-identity mailbox linking across personal and corporate accounts under `scope: 'my'`.
+  - Added unit test in `tests/lib/email-contact-extractor.test.ts` verifying `reliableaccount.hu` accounting email rejection.
 
 ### User Mailbox Isolation, Internal Domain Shield, and My Inbox Scoping (Issue #268)
 

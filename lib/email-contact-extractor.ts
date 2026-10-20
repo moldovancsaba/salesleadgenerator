@@ -32,6 +32,7 @@ export const INTERNAL_COMPANY_DOMAINS = new Set([
   'dvsc.hu',
   'haho.ai',
   'doneisbetter.com',
+  'reliableaccount.hu',
 ]);
 
 const CCTLD_TO_COUNTRY: Record<string, string> = {
@@ -281,7 +282,8 @@ export function isInternalOrSystemEmail(
     domain.endsWith('.cogmap.com') ||
     domain.endsWith('.cog-map.com') ||
     domain.endsWith('.dvsc.hu') ||
-    domain.endsWith('.haho.ai')
+    domain.endsWith('.haho.ai') ||
+    domain.endsWith('.reliableaccount.hu')
   ) {
     return true;
   }

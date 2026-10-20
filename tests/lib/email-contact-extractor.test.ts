@@ -160,6 +160,8 @@ describe('email-contact-extractor', () => {
       expect(isInternalOrSystemEmail('contact@dvsc.hu')).toBe(true);
       expect(isInternalOrSystemEmail('bot@haho.ai')).toBe(true);
       expect(isInternalOrSystemEmail('csaba@doneisbetter.com')).toBe(true);
+      expect(isInternalOrSystemEmail('konyveles@reliableaccount.hu')).toBe(true);
+      expect(isInternalOrSystemEmail('ber@reliableaccount.hu')).toBe(true);
     });
 
     it('identifies bot, meeting notetaker, calendar, and task management emails', () => {

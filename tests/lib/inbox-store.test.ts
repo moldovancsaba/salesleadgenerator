@@ -150,6 +150,18 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
                 return mockIntegrationDocs.filter((conn) => {
                   if (query.brand && conn.brand !== query.brand) return false;
                   if (query.status && conn.status !== query.status) return false;
+                  if (query.$or) {
+                    const match = query.$or.some((clause: any) => {
+                      if (clause.userId?.$in && clause.userId.$in.includes(conn.userId)) return true;
+                      if (clause.userId && clause.userId === conn.userId) return true;
+                      if (clause.connectedBy?.$in && clause.connectedBy.$in.includes(conn.connectedBy)) return true;
+                      if (clause.connectedBy && clause.connectedBy === conn.connectedBy) return true;
+                      if (clause.userEmail?.$in && clause.userEmail.$in.includes(conn.userEmail)) return true;
+                      if (clause.userEmail && clause.userEmail === conn.userEmail) return true;
+                      return false;
+                    });
+                    if (!match) return false;
+                  }
                   return true;
                 });
               },
@@ -159,8 +171,13 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
 
         if (name === 'sso_user_access') {
           return {
-            find: () => ({
-              toArray: async () => mockUserDocs,
+            find: (query: any) => ({
+              toArray: async () => {
+                return mockUserDocs.filter((u) => {
+                  if (query?.email?.$in && !query.email.$in.includes(u.email)) return false;
+                  return true;
+                });
+              },
             }),
           };
         }
@@ -446,6 +463,78 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       expect(teamAttempt.activeScope).toBe('my');
       expect(teamAttempt.mailboxes.length).toBe(1);
       expect(teamAttempt.mailboxes[0].email).toBe('alice@cogmap.com');
+    });
+
+    it('links multi-identity accounts (e.g. personal Google and corporate Workspace mailboxes)', async () => {
+      const db = createMockDb();
+
+      mockUserDocs = [
+        { ssoUserId: 'uid_csaba_google', email: 'moldovancsaba@gmail.com', name: 'Moldovan Csaba' },
+        { ssoUserId: 'uid_csaba_corp', email: 'coo@seyuselfies.com', name: 'Csaba Zoltán Moldován' },
+      ];
+
+      mockIntegrationDocs = [
+        {
+          _id: 'conn_csaba_google',
+          provider: 'gmail',
+          brand: 'seyu',
+          userId: 'uid_csaba_google',
+          userEmail: 'moldovancsaba@gmail.com',
+          status: 'active',
+        },
+        {
+          _id: 'conn_csaba_corp',
+          provider: 'gmail',
+          brand: 'seyu',
+          userId: 'uid_csaba_corp',
+          userEmail: 'coo@seyuselfies.com',
+          status: 'active',
+        },
+      ];
+
+      // Thread 1 synced from coo@seyuselfies.com
+      mockActivityDocs.push({
+        _id: 'act_corp',
+        brand: 'seyu',
+        tenantId: 't_default',
+        threadId: 'thread_corp',
+        type: 'email-outbound',
+        direction: 'outbound',
+        subject: 'Corporate Partnership Follow-up',
+        bodyExcerpt: 'Following up on our call',
+        from: 'coo@seyuselfies.com',
+        userEmail: 'coo@seyuselfies.com',
+        userId: 'uid_csaba_corp',
+        createdAt: new Date('2026-10-19T10:00:00Z'),
+      });
+
+      // Thread 2 synced from moldovancsaba@gmail.com
+      mockActivityDocs.push({
+        _id: 'act_google',
+        brand: 'seyu',
+        tenantId: 't_default',
+        threadId: 'thread_google',
+        type: 'email-outbound',
+        direction: 'outbound',
+        subject: 'Direct Executive Note',
+        bodyExcerpt: 'Direct note',
+        from: 'moldovancsaba@gmail.com',
+        userEmail: 'moldovancsaba@gmail.com',
+        userId: 'uid_csaba_google',
+        createdAt: new Date('2026-10-19T11:00:00Z'),
+      });
+
+      // When logged in via Google SSO as moldovancsaba@gmail.com
+      const res = await listInboxThreads(db, 'seyu', 't_default', {
+        userId: 'uid_csaba_google',
+        userEmail: 'moldovancsaba@gmail.com',
+        scope: 'my',
+      });
+
+      // Both threads are seamlessly included under My Inbox
+      expect(res.threads.length).toBe(2);
+      expect(res.threads.map((t) => t.id).sort()).toEqual(['thread_corp', 'thread_google']);
+      expect(res.counts.all).toBe(2);
     });
   });
 

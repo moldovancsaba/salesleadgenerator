@@ -18,6 +18,13 @@ import type { NormalizedContact } from '../../lib/contacts';
 
 export const INBOX_THREAD_STATES_COLLECTION = 'inbox_thread_states';
 
+export const KNOWN_USER_ALIASES: Record<string, string[]> = {
+  'moldovancsaba@gmail.com': ['coo@seyuselfies.com'],
+  'coo@seyuselfies.com': ['moldovancsaba@gmail.com'],
+  'ricardo.rmbd@gmail.com': ['ricardo.maia@seyuselfies.com'],
+  'ricardo.maia@seyuselfies.com': ['ricardo.rmbd@gmail.com'],
+};
+
 export type InboxStream = 'all' | 'inbox' | 'sent' | 'needs_reply' | 'internal' | 'calls' | 'system';
 
 export interface InboxThreadState {
@@ -306,27 +313,62 @@ export async function listInboxThreads(
     };
   }
 
-  // Load user's connected mailboxes to power My Inbox vs Team Inbox scoping
+  // Load user's connected mailboxes and user IDs to power My Inbox scoping
   const userMailboxSet = new Set<string>();
-  if (options.userEmail) {
-    userMailboxSet.add(options.userEmail.toLowerCase().trim());
-  }
+  const candidateEmails = new Set<string>();
+  const userIds = new Set<string>();
+
   if (options.userId) {
+    userIds.add(options.userId);
+  }
+
+  if (options.userEmail) {
+    const primaryEmail = options.userEmail.toLowerCase().trim();
+    candidateEmails.add(primaryEmail);
+    userMailboxSet.add(primaryEmail);
+
+    const aliases = KNOWN_USER_ALIASES[primaryEmail] || [];
+    for (const alias of aliases) {
+      candidateEmails.add(alias.toLowerCase().trim());
+      userMailboxSet.add(alias.toLowerCase().trim());
+    }
+  }
+
+  // Find linked SSO user accounts matching candidate emails
+  if (candidateEmails.size > 0) {
+    const ssoMatches = await db.collection('sso_user_access')
+      .find(
+        { email: { $in: Array.from(candidateEmails) } },
+        { projection: { ssoUserId: 1, email: 1 } }
+      )
+      .toArray()
+      .catch(() => []);
+    for (const s of ssoMatches) {
+      if (s.ssoUserId) userIds.add(s.ssoUserId);
+      if (s.email) userMailboxSet.add(s.email.toLowerCase().trim());
+    }
+  }
+
+  // Find all active Gmail connections for these userIds or emails
+  if (userIds.size > 0 || candidateEmails.size > 0) {
     const userConns = await db.collection('integration_connections')
-      .find({
-        provider: 'gmail',
-        status: 'active',
-        $or: [
-          { userId: options.userId },
-          { connectedBy: options.userId },
-          ...(options.userEmail ? [{ userEmail: options.userEmail }] : []),
-        ],
-      })
-      .project({ userEmail: 1 })
+      .find(
+        {
+          provider: 'gmail',
+          status: 'active',
+          $or: [
+            ...(userIds.size > 0 ? [{ userId: { $in: Array.from(userIds) } }] : []),
+            ...(userIds.size > 0 ? [{ connectedBy: { $in: Array.from(userIds) } }] : []),
+            ...(candidateEmails.size > 0 ? [{ userEmail: { $in: Array.from(candidateEmails) } }] : []),
+          ],
+        },
+        { projection: { userEmail: 1, userId: 1 } }
+      )
       .toArray()
       .catch(() => []);
     for (const c of userConns) {
       if (c.userEmail) userMailboxSet.add(c.userEmail.toLowerCase().trim());
+      if (c.userId) userIds.add(c.userId);
     }
   }
 
@@ -512,7 +554,7 @@ export async function listInboxThreads(
           userMailbox = msgUserEmail;
         }
       }
-      if (m.userId && options.userId && m.userId === options.userId) {
+      if (m.userId && userIds.has(m.userId)) {
         isMyInbox = true;
       }
       if (m.from && userMailboxSet.has(m.from.toLowerCase().trim())) {
@@ -530,7 +572,7 @@ export async function listInboxThreads(
     if (!isMyInbox && lead) {
       if (
         (lead.assignedToEmail && userMailboxSet.has(lead.assignedToEmail.toLowerCase().trim())) ||
-        (lead.assignedTo && options.userId && lead.assignedTo === options.userId)
+        (lead.assignedTo && userIds.has(lead.assignedTo))
       ) {
         isMyInbox = true;
       }
@@ -580,7 +622,7 @@ export async function listInboxThreads(
 
   // 6. Filter by scope: strictly My Inbox (threads belonging to user's connected mailboxes or assigned leads)
   let scopedThreads = allThreads;
-  if (userMailboxSet.size > 0 || options.userId) {
+  if (userMailboxSet.size > 0 || userIds.size > 0) {
     scopedThreads = scopedThreads.filter((t) => t.isMyInbox);
   }
 
@@ -1004,6 +1046,8 @@ export async function postInboxReply(
       matchedContactKey: null,
       bodyExcerpt: truncateBody(rawText, 5000),
       loggedBy: userContext.userEmail || userContext.userName || 'team',
+      userId: userContext.userId,
+      userEmail: userContext.userEmail,
       source: 'manual',
       threadId: threadId.startsWith('lead:') ? undefined : threadId,
       createdAt: now,

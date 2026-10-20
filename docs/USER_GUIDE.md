@@ -145,6 +145,8 @@ Navigate to `/inbox/[brand]` for an omnichannel 3-pane communication console:
 ### 2. Conversation Feed (Middle Pane)
 - **User Mailbox Scoping & Privacy Isolation**:
   - The inbox console strictly isolates email correspondence to your own authenticated Gmail connection and leads assigned directly to you. Other sales representatives' emails are shielded to prevent cross-rep mailbox leakage.
+  - **Multi-Identity Mailbox Linking**: If you sign in via Google SSO using your personal email (e.g. `moldovancsaba@gmail.com`) and have also connected a corporate Workspace mailbox (e.g. `coo@seyuselfies.com`), the inbox automatically recognizes your linked identities, unifying your personal and corporate correspondence into your unified My Inbox stream.
+  - **Accounting & Provider Shielding**: Internal corporate domains and external service providers (e.g. accounting, payroll, and automated note-taker bots) are shielded from ever being harvested as CRM lead contacts.
 - **Human-Friendly Sender Resolution**: Every card displays the real prospect name and email address. Prospects without prior lead records are never mislabeled as generic "System Communications".
 - **Mailbox Attribution Tag**: Displays which connected personal mailbox synced the message.
 - **Clean 2-Line Previews**: Snippet previews are sanitized of raw HTML tags, embedded CSS `<style>` blocks, and scripts.

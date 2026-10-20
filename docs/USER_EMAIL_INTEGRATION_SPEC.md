@@ -155,3 +155,16 @@ export type IntegrationConnection = {
   - Team Inbox is disabled per user directive: `/inbox/[brand]` and `GET /api/inbox/[brand]` strictly enforce user mailbox isolation (`scope: 'my'`), completely shielding other reps' mailboxes.
   - UI streamlines the conversation feed to the current representative's own synced correspondence and assigned leads, showing connected mailbox attribution chips without exposing team-wide mailbox toggles.
 
+### Deliverable 8: Multi-Identity Mailbox Linking & Service Provider Shielding (#269)
+- **Multi-Identity Mailbox Linking** (`app/lib/inbox-store.ts`):
+  - Canonical user alias mapping (`KNOWN_USER_ALIASES`) linking personal Google SSO (`moldovancsaba@gmail.com`) with corporate Google Workspace accounts (`coo@seyuselfies.com`).
+  - Automatically queries linked SSO records in `sso_user_access` and active Gmail integration connections across all alias accounts, unifying mailboxes under `userMailboxSet` and `userIds`.
+  - Ensures seamless access to all personal and corporate communications when logged in under either identity.
+- **Accounting & Service Provider Domain Shield**:
+  - Added `reliableaccount.hu` (corporate accounting & payroll firm) to `INTERNAL_COMPANY_DOMAINS` in `lib/email-contact-extractor.ts`.
+  - Hardened `isInternalOrSystemEmail` to shield against private VAT notifications (`áfa értesítő`) and payroll filings (`efo jelentések`).
+- **Database Sanitization & Lead Decoupling**:
+  - Purged 7 leaked accounting/internal activity logs from `activityLog` and cleaned associated thread states.
+  - Decoupled contaminated foreign contacts from PSV Eindhoven (`6a57c08110cd2d62348d3309`), restoring clean club contacts (`s.jacobs@psv.nl` and Chairman Robert Van Der Wallen).
+  - Backfilled attribution across 100% of activity logs in `activityLog` with valid `userEmail` and `userId`.
+
