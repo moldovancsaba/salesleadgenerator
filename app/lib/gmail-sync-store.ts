@@ -23,6 +23,7 @@ import { isMessageHistorical } from '../../lib/lead-timeline-filter';
 import {
   extractContactsFromEmailMessage,
   cleanHtmlBody,
+  isInternalOrSystemEmail,
 } from '../../lib/email-contact-extractor';
 import { mergeContactsIntoLead } from '../../lib/email-contact-merge';
 
@@ -209,6 +210,12 @@ export async function pollSingleGmailConnection(
     const fromEmail = fromEmails[0] || '';
     const participantEmails = [fromEmail, ...toEmails, ...ccEmails].filter(Boolean);
 
+    // Issue #268: Strictly ignore purely internal communications (between colleagues/internal bots)
+    if (participantEmails.length === 0 || participantEmails.every((p) => isInternalOrSystemEmail(p, { brand }))) {
+      skipped++;
+      continue;
+    }
+
     if (!participantsIntersectKnownEmails(participantEmails, knownEmails)) {
       skipped++;
       continue;
@@ -249,6 +256,9 @@ export async function pollSingleGmailConnection(
       externalId,
       fallbackHash,
       createdAt: new Date(dateIso),
+      userId: connection.userId,
+      userEmail: connection.userEmail || gmailAddress,
+      connectionId: connection.id,
       ...(meta.threadId ? { threadId: meta.threadId } : {}),
       ...(messageIdHeader ? { rfcMessageId: messageIdHeader } : {}),
       ...(inReplyToHeader ? { inReplyTo: inReplyToHeader } : {}),
@@ -399,7 +409,12 @@ export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string):
   const knownEmailDocs = await leadsCollection.find(tenantFilter(tenantId) as any, { projection: { contactEmails: 1 } }).toArray().catch(() => [] as any[]);
   const knownEmails = new Set<string>();
   for (const doc of knownEmailDocs) {
-    for (const email of doc.contactEmails || []) knownEmails.add(normalizeEmail(email));
+    for (const email of doc.contactEmails || []) {
+      const norm = normalizeEmail(email);
+      if (!isInternalOrSystemEmail(norm, { brand })) {
+        knownEmails.add(norm);
+      }
+    }
   }
 
   let totalIngested = 0;
@@ -465,7 +480,10 @@ export async function pollUserGmail(
       const knownEmails = new Set<string>();
       for (const doc of knownEmailDocs) {
         for (const email of doc.contactEmails || []) {
-          knownEmails.add(normalizeEmail(email));
+          const norm = normalizeEmail(email);
+          if (!isInternalOrSystemEmail(norm, { brand: b })) {
+            knownEmails.add(norm);
+          }
         }
       }
 

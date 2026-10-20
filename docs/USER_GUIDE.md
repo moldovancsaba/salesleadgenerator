@@ -143,7 +143,12 @@ Navigate to `/inbox/[brand]` for an omnichannel 3-pane communication console:
 - **Filters**: Quickly toggle **Starred Only**, **Unread Only**, or view the **Archived** folder.
 
 ### 2. Conversation Feed (Middle Pane)
+- **My Inbox vs. Team Inbox Scoping**:
+  - **My Inbox** (default): Focuses strictly on correspondence synced from your own connected Gmail mailbox and threads tied to leads assigned to you. Unlinked correspondence from other sales reps is shielded to preserve user privacy.
+  - **Team Inbox**: Surfaces shared CRM lead conversations across your brand team, enabling team visibility and seamless handoffs.
+  - **Mailbox Filter**: When viewing Team Inbox, use the mailbox selector dropdown to filter the conversation feed by individual sales representative mailboxes.
 - **Human-Friendly Sender Resolution**: Every card displays the real prospect name and email address. Prospects without prior lead records are never mislabeled as generic "System Communications".
+- **Mailbox Attribution Tag**: Shows which connected team mailbox synced the message.
 - **Clean 2-Line Previews**: Snippet previews are sanitized of raw HTML tags, embedded CSS `<style>` blocks, and scripts.
 - **Entity Status Badges**: Thread cards display 3 distinct status badges:
   - **Lead**: Teal badge (`Lead ✓`) if linked, or dashed gray (`No Lead`).

@@ -24,6 +24,16 @@ export const COMMON_PUBLIC_MAIL_DOMAINS = new Set([
   'mail.com',
 ]);
 
+export const INTERNAL_COMPANY_DOMAINS = new Set([
+  'seyuselfies.com',
+  'seyu.hu',
+  'cogmap.com',
+  'cog-map.com',
+  'dvsc.hu',
+  'haho.ai',
+  'doneisbetter.com',
+]);
+
 const CCTLD_TO_COUNTRY: Record<string, string> = {
   de: 'DE',
   uk: 'GB',
@@ -216,37 +226,84 @@ export function inferCountryFromDomain(domain: string): string {
 }
 
 /**
- * Detects if an address is an internal brand sender, system address, or automated robot.
+ * Detects if an address is an internal brand sender, company team member, system address, or automated robot.
  */
 export function isInternalOrSystemEmail(
   email: string,
   options: { brand?: string; internalEmails?: string[] } = {}
 ): boolean {
-  if (!email) return true;
+  if (!email || typeof email !== 'string') return true;
   const normalized = email.toLowerCase().trim();
+  if (!normalized.includes('@')) return true;
 
-  // Known system prefixes
+  const [localPart, domain] = normalized.split('@');
+  if (!localPart || !domain) return true;
+
+  // 1. Known system & bot prefixes
   if (
-    normalized.startsWith('noreply@') ||
-    normalized.startsWith('no-reply@') ||
-    normalized.startsWith('mailer-daemon@') ||
-    normalized.startsWith('notifications@') ||
-    normalized.startsWith('bounce@') ||
-    normalized.startsWith('postmaster@')
+    localPart.startsWith('noreply') ||
+    localPart.startsWith('no-reply') ||
+    localPart.startsWith('mailer-daemon') ||
+    localPart.startsWith('notification') ||
+    localPart.startsWith('bounce') ||
+    localPart.startsWith('postmaster') ||
+    localPart.startsWith('alert') ||
+    localPart.startsWith('alerts') ||
+    localPart.startsWith('billing') ||
+    localPart.startsWith('invitation') ||
+    localPart.startsWith('calendar')
   ) {
     return true;
   }
 
-  // Matches brand address prefix (e.g. cogmap@..., seyu@..., dvsc@...)
+  // 2. Known bot / meeting notetaker / automation platforms
+  if (
+    localPart.includes('notetaker') ||
+    localPart.includes('fyxer') ||
+    localPart.includes('gemini') ||
+    domain.includes('fyxer') ||
+    domain.includes('notetaker') ||
+    domain.includes('fireflies.ai') ||
+    domain.includes('otter.ai') ||
+    domain.includes('read.ai') ||
+    domain.includes('asana.com') ||
+    domain.includes('pipedrive') ||
+    domain.includes('resend.dev')
+  ) {
+    return true;
+  }
+
+  // 3. Known internal company domains
+  if (
+    INTERNAL_COMPANY_DOMAINS.has(domain) ||
+    domain.endsWith('.seyuselfies.com') ||
+    domain.endsWith('.seyu.hu') ||
+    domain.endsWith('.cogmap.com') ||
+    domain.endsWith('.cog-map.com') ||
+    domain.endsWith('.dvsc.hu') ||
+    domain.endsWith('.haho.ai')
+  ) {
+    return true;
+  }
+
+  // 4. Matches brand address prefix or domain (e.g. cogmap@..., seyu@..., dvsc@...)
   if (options.brand) {
     const brandLower = options.brand.toLowerCase();
-    const localPart = normalized.split('@')[0];
     if (localPart === brandLower || localPart.startsWith(`${brandLower}-`) || localPart.startsWith(`${brandLower}@`)) {
+      return true;
+    }
+    if (brandLower === 'seyu' && (domain.includes('seyu') || domain.includes('seyuselfies'))) {
+      return true;
+    }
+    if (brandLower === 'cogmap' && (domain.includes('cogmap') || domain.includes('cog-map'))) {
+      return true;
+    }
+    if (brandLower === 'dvsc' && domain.includes('dvsc')) {
       return true;
     }
   }
 
-  // Explicit internal emails passed in (e.g. user's own connected Gmail address)
+  // 5. Explicit internal emails passed in (e.g. rep emails from sso_user_access or user connection)
   if (options.internalEmails && options.internalEmails.length > 0) {
     const internalSet = new Set(options.internalEmails.map((e) => e.toLowerCase().trim()));
     if (internalSet.has(normalized)) {

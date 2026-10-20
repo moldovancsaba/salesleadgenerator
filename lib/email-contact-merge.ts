@@ -7,10 +7,11 @@ import {
   deriveContactEmails,
   type NormalizedContact,
 } from './contacts';
+import { isInternalOrSystemEmail } from './email-contact-extractor';
 
 /**
  * Merges candidate contacts into a Lead document in MongoDB, deduplicating and updating
- * contacts[] and contactEmails[] indexes automatically.
+ * contacts[] and contactEmails[] indexes automatically. Internal team emails are strictly excluded.
  */
 export async function mergeContactsIntoLead(
   db: Db,
@@ -20,6 +21,12 @@ export async function mergeContactsIntoLead(
   candidateContacts: NormalizedContact[]
 ): Promise<{ added: number; updated: number; contacts: NormalizedContact[] } | null> {
   if (!candidateContacts || candidateContacts.length === 0) return null;
+
+  // Strictly filter out internal company domains, bots, and system emails
+  const filteredCandidates = candidateContacts.filter(
+    (c) => c?.email && !isInternalOrSystemEmail(c.email, { brand })
+  );
+  if (filteredCandidates.length === 0) return null;
 
   const brandConfig = await getBrandConfig(brand).catch(() => null);
   if (!brandConfig) return null;
@@ -49,7 +56,7 @@ export async function mergeContactsIntoLead(
   let addedCount = 0;
   let updatedCount = 0;
 
-  for (const candidate of candidateContacts) {
+  for (const candidate of filteredCandidates) {
     const existingIndex = currentContacts.findIndex(
       (c: any) => c?.email && c.email.toLowerCase() === candidate.email.toLowerCase()
     );

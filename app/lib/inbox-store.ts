@@ -53,6 +53,10 @@ export interface InboxMessage {
   emailStatus?: string;
   openCount?: number;
   clickCount?: number;
+  // Mailbox & user attribution (Issue 268)
+  userId?: string;
+  userEmail?: string;
+  connectionId?: string;
 }
 
 export interface InboxThread {
@@ -82,6 +86,9 @@ export interface InboxThread {
   contactsCount?: number;
   streams: InboxStream[];
   participants?: NormalizedContact[];
+  // Mailbox scoping & ownership (Issue 268)
+  isMyInbox?: boolean;
+  userMailbox?: string;
 }
 
 export interface InboxCounts {
@@ -95,6 +102,12 @@ export interface InboxCounts {
   unread: number;
 }
 
+export interface InboxMailboxOption {
+  email: string;
+  label: string;
+  count: number;
+}
+
 export interface InboxListOptions {
   stream?: InboxStream;
   search?: string;
@@ -102,6 +115,9 @@ export interface InboxListOptions {
   unreadOnly?: boolean;
   archivedOnly?: boolean;
   userId?: string;
+  userEmail?: string;
+  scope?: 'my' | 'team';
+  mailbox?: string;
   limit?: number;
   offset?: number;
 }
@@ -180,6 +196,9 @@ function mapActivityToInboxMessage(doc: any): InboxMessage {
     emailStatus: doc.emailStatus,
     openCount: doc.openCount,
     clickCount: doc.clickCount,
+    userId: doc.userId,
+    userEmail: doc.userEmail,
+    connectionId: doc.connectionId,
   };
 }
 
@@ -212,19 +231,28 @@ function mapOutreachToInboxMessage(log: any): InboxMessage {
     references: log.references,
     openCount: log.openCount,
     clickCount: log.clickCount,
+    userId: log.userId,
+    userEmail: log.userEmail || (log.source === 'gmail' ? log.from : undefined),
+    connectionId: log.connectionId,
   };
 }
 
 /**
  * Lists conversation threads aggregated from activityLog and outreach_logs,
- * merged with thread read/starred/archived states and lead details.
+ * merged with thread read/starred/archived states, mailbox scoping, and lead details.
  */
 export async function listInboxThreads(
   db: Db,
   brand: string,
   tenantId: string,
   options: InboxListOptions = {}
-): Promise<{ threads: InboxThread[]; counts: InboxCounts; total: number }> {
+): Promise<{
+  threads: InboxThread[];
+  counts: InboxCounts;
+  total: number;
+  mailboxes: InboxMailboxOption[];
+  activeScope: 'my' | 'team';
+}> {
   await ensureInboxIndexes(db);
   await ensureActivityLogIndexes(db);
 
@@ -273,7 +301,33 @@ export async function listInboxThreads(
       threads: [],
       counts: { all: 0, inbox: 0, sent: 0, needs_reply: 0, internal: 0, calls: 0, system: 0, unread: 0 },
       total: 0,
+      mailboxes: [],
+      activeScope: options.scope || 'my',
     };
+  }
+
+  // Load user's connected mailboxes to power My Inbox vs Team Inbox scoping
+  const userMailboxSet = new Set<string>();
+  if (options.userEmail) {
+    userMailboxSet.add(options.userEmail.toLowerCase().trim());
+  }
+  if (options.userId) {
+    const userConns = await db.collection('integration_connections')
+      .find({
+        provider: 'gmail',
+        status: 'active',
+        $or: [
+          { userId: options.userId },
+          { connectedBy: options.userId },
+          ...(options.userEmail ? [{ userEmail: options.userEmail }] : []),
+        ],
+      })
+      .project({ userEmail: 1 })
+      .toArray()
+      .catch(() => []);
+    for (const c of userConns) {
+      if (c.userEmail) userMailboxSet.add(c.userEmail.toLowerCase().trim());
+    }
   }
 
   // 3. Load thread states
@@ -343,6 +397,8 @@ export async function listInboxThreads(
           deals: 1,
           estimated_annual_revenue_usd: 1,
           ticketSizeEstimate: 1,
+          assignedTo: 1,
+          assignedToEmail: 1,
         },
       })
       .toArray()
@@ -356,6 +412,7 @@ export async function listInboxThreads(
 
   // 5. Construct InboxThread objects
   const allThreads: InboxThread[] = [];
+  const mailboxCounts = new Map<string, number>();
 
   for (const [threadId, msgs] of messagesByThread.entries()) {
     // Sort messages chronologically oldest to newest
@@ -441,6 +498,52 @@ export async function listInboxThreads(
     const isStarred = Boolean(state?.isStarred);
     const isArchived = Boolean(state?.isArchived);
 
+    // Issue 268: Mailbox ownership and My Inbox attribution
+    let isMyInbox = false;
+    let userMailbox: string | undefined = undefined;
+
+    for (const m of msgs) {
+      const msgUserEmail = m.userEmail?.toLowerCase().trim();
+      if (msgUserEmail) {
+        if (userMailboxSet.has(msgUserEmail)) {
+          isMyInbox = true;
+          userMailbox = msgUserEmail;
+        } else if (!userMailbox) {
+          userMailbox = msgUserEmail;
+        }
+      }
+      if (m.userId && options.userId && m.userId === options.userId) {
+        isMyInbox = true;
+      }
+      if (m.from && userMailboxSet.has(m.from.toLowerCase().trim())) {
+        isMyInbox = true;
+        userMailbox = m.from.toLowerCase().trim();
+      }
+      if (m.to && m.to.some((t) => userMailboxSet.has(t.toLowerCase().trim()))) {
+        isMyInbox = true;
+      }
+      if (m.cc && m.cc.some((c) => userMailboxSet.has(c.toLowerCase().trim()))) {
+        isMyInbox = true;
+      }
+    }
+
+    if (!isMyInbox && lead) {
+      if (
+        (lead.assignedToEmail && userMailboxSet.has(lead.assignedToEmail.toLowerCase().trim())) ||
+        (lead.assignedTo && options.userId && lead.assignedTo === options.userId)
+      ) {
+        isMyInbox = true;
+      }
+    }
+
+    if (!userMailbox && lastOutbound?.from && lastOutbound.from.includes('@')) {
+      userMailbox = lastOutbound.from.toLowerCase().trim();
+    }
+
+    if (userMailbox) {
+      mailboxCounts.set(userMailbox, (mailboxCounts.get(userMailbox) || 0) + 1);
+    }
+
     allThreads.push({
       id: threadId,
       leadId: threadLeadId,
@@ -467,10 +570,35 @@ export async function listInboxThreads(
       isArchived,
       needsReply,
       streams: Array.from(streams),
+      isMyInbox,
+      userMailbox,
     });
   }
 
-  // 6. Compute counts across unarchived threads
+  const requestedScope: 'my' | 'team' = options.scope || 'my';
+
+  // 6. Filter by scope (My Inbox vs Team Inbox)
+  let scopedThreads = allThreads;
+  if (requestedScope === 'my') {
+    // Show threads belonging to user's connected mailboxes or assigned leads
+    if (userMailboxSet.size > 0 || options.userId) {
+      scopedThreads = scopedThreads.filter((t) => t.isMyInbox);
+    }
+  } else if (requestedScope === 'team') {
+    // Team view shows CRM lead conversations across the brand, but strictly hides
+    // unlinked private correspondence belonging to other reps
+    scopedThreads = scopedThreads.filter((t) => t.hasLead || t.isMyInbox);
+  }
+
+  // Filter by specific mailbox if requested
+  if (options.mailbox && options.mailbox !== 'all') {
+    const selectedMailbox = options.mailbox.toLowerCase().trim();
+    scopedThreads = scopedThreads.filter(
+      (t) => t.userMailbox === selectedMailbox || t.contactEmail === selectedMailbox
+    );
+  }
+
+  // 7. Compute counts across unarchived scoped threads
   const counts: InboxCounts = {
     all: 0,
     inbox: 0,
@@ -482,7 +610,7 @@ export async function listInboxThreads(
     unread: 0,
   };
 
-  for (const t of allThreads) {
+  for (const t of scopedThreads) {
     if (!t.isArchived) {
       counts.all++;
       if (t.streams.includes('inbox')) counts.inbox++;
@@ -495,8 +623,8 @@ export async function listInboxThreads(
     }
   }
 
-  // 7. Filter threads according to requested options
-  let filtered = allThreads;
+  // 8. Filter threads according to requested options
+  let filtered = scopedThreads;
 
   if (options.archivedOnly) {
     filtered = filtered.filter((t) => t.isArchived);
@@ -538,10 +666,18 @@ export async function listInboxThreads(
   const limit = Math.max(1, Math.min(200, options.limit || 50));
   const paged = filtered.slice(offset, offset + limit);
 
+  const mailboxes: InboxMailboxOption[] = Array.from(mailboxCounts.entries()).map(([email, count]) => ({
+    email,
+    label: email,
+    count,
+  }));
+
   return {
     threads: paged,
     counts,
     total,
+    mailboxes,
+    activeScope: requestedScope,
   };
 }
 
@@ -762,6 +898,7 @@ export async function getInboxThreadDetail(
     needsReply,
     streams: Array.from(streams),
     participants,
+    userMailbox: messages.find((m) => m.userEmail)?.userEmail || (lastOutbound?.from && lastOutbound.from.includes('@') ? lastOutbound.from.toLowerCase().trim() : undefined),
   };
 
   return { thread, messages, lead, participants };

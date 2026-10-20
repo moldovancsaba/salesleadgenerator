@@ -1,5 +1,33 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.304
+
+### User Mailbox Isolation, Internal Domain Shield, and My Inbox Scoping (Issue #268)
+
+- **Database Sanitization & Contamination Remediation:**
+  - Audited and purged leaked bot logs, meeting notetaker transcripts (Fyxer, Gemini), and task management alerts (Asana) from `activityLog`.
+  - Removed internal company colleagues (`david.bozsik@seyuselfies.com`, `mate.pecsi@seyuselfies.com`, `tom.vechy@seyuselfies.com`, `ricardo.maia@seyuselfies.com`, `coo@seyuselfies.com`) from prospect contact records across `seyu_leads` (e.g. PSV Eindhoven, Seyu Services, Seyuselfies).
+  - Backfilled missing attribution metadata (`userId`, `userEmail`, `connectionId`) on existing prospect correspondence in `activityLog`.
+- **Systemic Internal Company Domain Shield:**
+  - Added canonical `INTERNAL_COMPANY_DOMAINS` (`seyuselfies.com`, `seyu.hu`, `cogmap.com`, `cog-map.com`, `dvsc.hu`, `haho.ai`, `doneisbetter.com`) in `lib/email-contact-extractor.ts`.
+  - Hardened `isInternalOrSystemEmail()` to detect internal company domains across all brands, brand prefixes, registered user emails, and automated meeting notetaker / bot / calendar services (`asana.com`, `fyxer`, `notetaker`, `fireflies.ai`, `pipedrive`, `resend.dev`, `googlemail.com`).
+  - Strict guard in `lib/email-contact-merge.ts`: `mergeContactsIntoLead` now strictly drops internal company domains, bots, and system emails before merging contacts or updating `contactEmails` indexes on leads.
+- **Gmail Sync Store Minimization Hardening:**
+  - Updated `app/lib/gmail-sync-store.ts` to filter internal company emails out of `knownEmails` across brand and user polling routines, permanently closing the loophole where having a colleague on a lead caused that rep's personal/notification emails to bypass data minimization.
+  - Added internal-only conversation filtering to skip syncing threads where all participants belong to the internal team.
+  - Stamped `userId`, `userEmail`, and `connectionId` on all ingested messages in `activityLog` with indexed lookups on `{ brand, userEmail, createdAt }` and `{ brand, userId, createdAt }`.
+- **Unified Inbox Scoping (My Inbox vs. Team Inbox):**
+  - Updated `app/lib/inbox-store.ts` to compute thread ownership (`isMyInbox`, `userMailbox`) based on connected mailboxes, message participants, and assigned leads.
+  - Implemented `scope` (`'my'` vs `'team'`) and `mailbox` filtering in `listInboxThreads` and `getInboxThreadDetail`.
+  - Protected privacy in Team Inbox: unlinked private correspondence from other reps is strictly shielded, while CRM-linked correspondence is visible to the team.
+  - Added mailbox attribution pills in thread cards and thread header.
+- **Unified Inbox UI Controls:**
+  - Added Mantine `SegmentedControl` in `app/inbox/[brand]/inbox-client.tsx` Pane 2 header for switching between "My Inbox" and "Team Inbox".
+  - Added connected mailbox dropdown selector when in Team Inbox view to allow filtering by individual team member mailbox.
+- **Automated Verification:**
+  - Added unit test suites verifying `INTERNAL_COMPANY_DOMAINS`, bot detection, and internal email rejection in `tests/lib/email-contact-extractor.test.ts`.
+  - Added unit tests for `listInboxThreads` verifying `scope: 'my'` vs `scope: 'team'` and `mailbox` filter isolation in `tests/lib/inbox-store.test.ts`.
+
 ## 2.4.303
 
 ### High-Affordance Card Visual Architecture & Semantic GDS Actions (issue #266)

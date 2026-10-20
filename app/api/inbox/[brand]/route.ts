@@ -42,6 +42,9 @@ export async function GET(
     const idToken = request.cookies.get('sso_id_token')?.value;
     const claims = await resolveSessionFromIdToken(idToken);
     const userId = claims?.sub || claims?.email;
+    const userEmail = claims?.email;
+    const scope = (searchParams.get('scope') || 'my') as 'my' | 'team';
+    const mailbox = searchParams.get('mailbox') || undefined;
 
     const tenantId = getTenantId(request);
     const client = await clientPromise;
@@ -54,6 +57,9 @@ export async function GET(
       unreadOnly,
       archivedOnly,
       userId,
+      userEmail,
+      scope,
+      mailbox,
       limit,
       offset,
     });

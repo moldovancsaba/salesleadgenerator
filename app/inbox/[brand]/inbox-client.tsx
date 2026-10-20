@@ -61,6 +61,7 @@ import type {
   InboxThread,
   InboxMessage,
   InboxCounts,
+  InboxMailboxOption,
 } from '@/app/lib/inbox-store';
 import { ConvertModal } from './convert-modal';
 
@@ -109,6 +110,10 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
   const [starredOnly, setStarredOnly] = useState(false);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [archivedOnly, setArchivedOnly] = useState(false);
+
+  const [scope, setScope] = useState<'my' | 'team'>('my');
+  const [mailbox, setMailbox] = useState<string>('all');
+  const [availableMailboxes, setAvailableMailboxes] = useState<InboxMailboxOption[]>([]);
 
   const [threads, setThreads] = useState<InboxThread[]>([]);
   const [counts, setCounts] = useState<InboxCounts>({
@@ -187,6 +192,8 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
     try {
       const params = new URLSearchParams();
       if (stream) params.set('stream', stream);
+      if (scope) params.set('scope', scope);
+      if (mailbox && mailbox !== 'all') params.set('mailbox', mailbox);
       if (search.trim()) params.set('search', search.trim());
       if (starredOnly) params.set('starred', 'true');
       if (unreadOnly) params.set('unread', 'true');
@@ -199,12 +206,15 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
       if (data.counts) {
         setCounts(data.counts);
       }
+      if (Array.isArray(data.mailboxes)) {
+        setAvailableMailboxes(data.mailboxes);
+      }
     } catch (err: any) {
       console.error('Error fetching inbox threads:', err);
     } finally {
       setLoadingThreads(false);
     }
-  }, [brand, stream, search, starredOnly, unreadOnly, archivedOnly]);
+  }, [brand, stream, scope, mailbox, search, starredOnly, unreadOnly, archivedOnly]);
 
   useEffect(() => {
     loadThreads();
@@ -711,7 +721,59 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
           flexShrink: 0,
         }}
       >
-        <Box p="sm" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+        <Box p="xs" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+          <SegmentedControl
+            fullWidth
+            size="xs"
+            value={scope}
+            onChange={(val) => {
+              setScope(val as 'my' | 'team');
+              setSelectedThreadId(null);
+            }}
+            data={[
+              {
+                value: 'my',
+                label: (
+                  <Group gap={4} justify="center" wrap="nowrap">
+                    <IconUser size={13} />
+                    <span>My Inbox</span>
+                  </Group>
+                ),
+              },
+              {
+                value: 'team',
+                label: (
+                  <Group gap={4} justify="center" wrap="nowrap">
+                    <IconUsers size={13} />
+                    <span>Team Inbox</span>
+                  </Group>
+                ),
+              },
+            ]}
+            mb="xs"
+          />
+
+          {scope === 'team' && availableMailboxes.length > 1 && (
+            <Select
+              size="xs"
+              placeholder="All Connected Mailboxes"
+              value={mailbox}
+              onChange={(val) => {
+                setMailbox(val || 'all');
+                setSelectedThreadId(null);
+              }}
+              data={[
+                { value: 'all', label: 'All Team Mailboxes' },
+                ...availableMailboxes.map((mb) => ({
+                  value: mb.email,
+                  label: mb.label ? `${mb.label} (${mb.email})` : mb.email,
+                })),
+              ]}
+              mb="xs"
+              clearable={false}
+            />
+          )}
+
           <TextInput
             placeholder="Search conversations..."
             leftSection={<IconSearch size={16} />}
@@ -867,6 +929,18 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                         {t.messageCount > 1 && (
                           <CountBadge value={t.messageCount} size="xs" srLabel="Message count" />
                         )}
+                        {scope === 'team' && t.userMailbox && (
+                          <Tooltip label={`Synced from ${t.userMailbox}`}>
+                            <Box component="span">
+                              <LabelTag
+                                tone="neutral"
+                                size="xs"
+                                label={t.userMailbox.split('@')[0]}
+                                style={{ opacity: 0.75 }}
+                              />
+                            </Box>
+                          </Tooltip>
+                        )}
                       </Group>
 
                       <Group gap={4}>
@@ -997,6 +1071,18 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                         size="sm"
                         label={selectedThread.leadStage}
                       />
+                    )}
+
+                    {selectedThread.userMailbox && (
+                      <Tooltip label={`Synced from connected mailbox: ${selectedThread.userMailbox}`}>
+                        <Box component="span">
+                          <LabelTag
+                            tone="neutral"
+                            size="sm"
+                            label={`Mailbox: ${selectedThread.userMailbox}`}
+                          />
+                        </Box>
+                      </Tooltip>
                     )}
                   </Group>
 

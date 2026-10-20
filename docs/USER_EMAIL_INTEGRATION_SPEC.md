@@ -137,3 +137,22 @@ export type IntegrationConnection = {
   - `GET /api/leads/[id]/thread-context`: Endpoint providing thread context and availability to client.
   - `OutreachComposeModal.tsx`: Displays "↩ Reply in thread" / "New thread" toggle button when prior correspondence exists, auto-prefilling subject with `Re: <subject>` and chaining message headers.
 
+### Deliverable 7: User Mailbox Isolation, Internal Domain Shield, and My vs Team Inbox (#268)
+- **Database Sanitization & Contamination Remediation**:
+  - Purged leaked internal bot logs, meeting notetakers (Fyxer, Gemini), and task management alerts (Asana) from `activityLog`.
+  - Stripped internal team email addresses (`@seyuselfies.com`, `@cogmap.com`, `@dvsc.hu`, `@haho.ai`, etc.) mistakenly merged into prospect contact records.
+  - Backfilled missing ownership attribution (`userId`, `userEmail`, `connectionId`) on prospect communications.
+- **Systemic Internal Company Domain Shield**:
+  - Defined canonical `INTERNAL_COMPANY_DOMAINS` in `lib/email-contact-extractor.ts`.
+  - Hardened `isInternalOrSystemEmail()`: checks internal domains, brand prefixes, registered user emails, and automated bot / calendar platforms.
+  - Hardened `mergeContactsIntoLead` (`lib/email-contact-merge.ts`): strictly filters out candidate contacts matching internal team domains before saving to leads.
+- **Gmail Sync Minimization Hardening** (`app/lib/gmail-sync-store.ts`):
+  - Strips internal company emails from `knownEmails` during brand and user Gmail polling, closing the loophole where having a colleague on a lead allowed personal emails to bypass data minimization.
+  - Skips threads where all participants belong to the internal company team.
+  - Attributes `userId`, `userEmail`, and `connectionId` on all ingested messages in `activityLog` with indexed lookups on `{ brand, userEmail, createdAt }` and `{ brand, userId, createdAt }`.
+- **Unified Inbox Scoping & UI Controls** (`app/lib/inbox-store.ts` & `app/inbox/[brand]/inbox-client.tsx`):
+  - Computed thread ownership (`isMyInbox`, `userMailbox`) based on active user connections, message participants, and assigned leads.
+  - "My Inbox" (default) shows conversations synced from the user's connected mailbox or assigned leads.
+  - "Team Inbox" shows shared CRM lead conversations across the brand, while strictly hiding unlinked private correspondence from other reps.
+  - UI affords a `SegmentedControl` ("My Inbox" vs "Team Inbox") in Pane 2 header, with a connected mailbox filter dropdown when viewing Team Inbox.
+

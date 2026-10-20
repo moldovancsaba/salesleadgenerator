@@ -78,6 +78,10 @@ export type ActivityEntry = {
   openCount?: number
   clickCount?: number
   isHistorical?: boolean
+  // Mailbox & user attribution (Issue #268)
+  userId?: string
+  userEmail?: string
+  connectionId?: string
 }
 
 // The write-side shape for a new activityLog document (issue #141, this
@@ -142,6 +146,10 @@ export type ActivityLogDocument = {
   rfcMessageId?: string
   inReplyTo?: string
   references?: string
+  // Mailbox & user attribution (Issue #268)
+  userId?: string
+  userEmail?: string
+  connectionId?: string
 }
 
 // Lazily ensures the documented indexes exist — same idempotent,
@@ -157,9 +165,12 @@ export async function ensureActivityLogIndexes(db: Db): Promise<void> {
   if (indexesEnsured) return
   try {
     const collection = db.collection(ACTIVITY_LOG_COLLECTION)
+    if (typeof collection?.createIndex !== 'function') return
     await collection.createIndex({ leadId: 1, createdAt: -1 })
     await collection.createIndex({ externalId: 1 }, { unique: true, sparse: true })
     await collection.createIndex({ dealId: 1 }, { sparse: true })
+    await collection.createIndex({ brand: 1, userEmail: 1, createdAt: -1 }, { sparse: true })
+    await collection.createIndex({ brand: 1, userId: 1, createdAt: -1 }, { sparse: true })
     indexesEnsured = true
   } catch (error) {
     console.error('[activity-log-store] index creation failed', error)

@@ -150,6 +150,28 @@ describe('email-contact-extractor', () => {
       expect(isInternalOrSystemEmail('rep@mycompany.com', { internalEmails: ['rep@mycompany.com'] })).toBe(true);
       expect(isInternalOrSystemEmail('prospect@client.com', { internalEmails: ['rep@mycompany.com'] })).toBe(false);
     });
+
+    it('identifies internal company domains across all brands', () => {
+      expect(isInternalOrSystemEmail('david.bozsik@seyuselfies.com')).toBe(true);
+      expect(isInternalOrSystemEmail('mate.pecsi@seyuselfies.com')).toBe(true);
+      expect(isInternalOrSystemEmail('info@seyu.hu')).toBe(true);
+      expect(isInternalOrSystemEmail('rep@cogmap.com')).toBe(true);
+      expect(isInternalOrSystemEmail('admin@cog-map.com')).toBe(true);
+      expect(isInternalOrSystemEmail('contact@dvsc.hu')).toBe(true);
+      expect(isInternalOrSystemEmail('bot@haho.ai')).toBe(true);
+      expect(isInternalOrSystemEmail('csaba@doneisbetter.com')).toBe(true);
+    });
+
+    it('identifies bot, meeting notetaker, calendar, and task management emails', () => {
+      expect(isInternalOrSystemEmail('notification@asana.com')).toBe(true);
+      expect(isInternalOrSystemEmail('notes@fyxer.ai')).toBe(true);
+      expect(isInternalOrSystemEmail('assistant@notetaker.io')).toBe(true);
+      expect(isInternalOrSystemEmail('bot@fireflies.ai')).toBe(true);
+      expect(isInternalOrSystemEmail('calendar-notification@google.com')).toBe(true);
+      expect(isInternalOrSystemEmail('gemini-summary@workspace.google.com')).toBe(true);
+      expect(isInternalOrSystemEmail('mailer-daemon@googlemail.com')).toBe(true);
+      expect(isInternalOrSystemEmail('updates@pipedrivemail.com')).toBe(true);
+    });
   });
 
   describe('extractContactsFromEmailMessage', () => {
@@ -267,6 +289,37 @@ VP of Commercial Partnerships
       expect(res?.updated).toBe(1);
       expect(res?.contacts[0].title).toBe('Chief Marketing Officer');
       expect(res?.contacts[0].phone).toBe('+49123456789');
+    });
+
+    it('rejects merging internal company contacts into the lead', async () => {
+      const existingLead = {
+        _id: '507f1f77bcf86cd799439011',
+        entity_name: 'PSV Eindhoven',
+        contacts: [
+          { name: 'Director', email: 'director@psv.nl', title: 'Director' },
+        ],
+      };
+
+      const mockUpdateOne = vi.fn().mockResolvedValue({ acknowledged: true });
+      const mockFindOne = vi.fn().mockResolvedValue(existingLead);
+
+      const mockDb: any = {
+        collection: vi.fn().mockReturnValue({
+          findOne: mockFindOne,
+          updateOne: mockUpdateOne,
+        }),
+      };
+
+      const internalCandidate = normalizeContact({
+        name: 'David Bozsik',
+        email: 'david.bozsik@seyuselfies.com',
+        title: 'Sales Rep',
+        role: 'Participant',
+      });
+
+      const res = await mergeContactsIntoLead(mockDb, 'seyu', 'default', '507f1f77bcf86cd799439011', [internalCandidate]);
+      expect(res).toBeNull();
+      expect(mockUpdateOne).not.toHaveBeenCalled();
     });
   });
 

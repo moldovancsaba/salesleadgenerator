@@ -30,6 +30,8 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
   let mockOutreachDocs: any[] = [];
   let mockStateDocs: any[] = [];
   let mockLeadDocs: any[] = [];
+  let mockIntegrationDocs: any[] = [];
+  let mockUserDocs: any[] = [];
 
   function createMockDb() {
     return {
@@ -140,6 +142,29 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
           };
         }
 
+        if (name === 'integration_connections') {
+          return {
+            createIndex: vi.fn().mockResolvedValue('ok'),
+            find: (query: any) => ({
+              toArray: async () => {
+                return mockIntegrationDocs.filter((conn) => {
+                  if (query.brand && conn.brand !== query.brand) return false;
+                  if (query.status && conn.status !== query.status) return false;
+                  return true;
+                });
+              },
+            }),
+          };
+        }
+
+        if (name === 'sso_user_access') {
+          return {
+            find: () => ({
+              toArray: async () => mockUserDocs,
+            }),
+          };
+        }
+
         return {
           createIndex: vi.fn().mockResolvedValue('ok'),
           find: () => ({ toArray: async () => [] }),
@@ -156,6 +181,8 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
     mockOutreachDocs = [];
     mockStateDocs = [];
     mockLeadDocs = [];
+    mockIntegrationDocs = [];
+    mockUserDocs = [];
     vi.clearAllMocks();
   });
 
@@ -322,6 +349,109 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       expect(leadIdSearchRes.total).toBe(1);
       expect(leadIdSearchRes.threads[0].id).toBe('thread_alpha');
     });
+
+    it('filters threads by My Inbox vs Team Inbox and isolates mailboxes', async () => {
+      const db = createMockDb();
+
+      mockIntegrationDocs = [
+        {
+          _id: 'conn_1',
+          brand: 'cogmap',
+          userEmail: 'alice@cogmap.com',
+          status: 'active',
+          metadata: { email: 'alice@cogmap.com', displayName: 'Alice Rep' },
+        },
+        {
+          _id: 'conn_2',
+          brand: 'cogmap',
+          userEmail: 'bob@cogmap.com',
+          status: 'active',
+          metadata: { email: 'bob@cogmap.com', displayName: 'Bob Rep' },
+        },
+      ];
+
+      mockLeadDocs = [
+        {
+          _id: 'lead_b',
+          id: 'lead_b',
+          entity_name: 'Prospect B Corp',
+        },
+      ];
+
+      // Thread 1: Inbound message synced by Alice's mailbox (unlinked private thread)
+      mockActivityDocs.push({
+        _id: 'act_alice',
+        brand: 'cogmap',
+        tenantId: 't_default',
+        threadId: 'thread_alice_lead',
+        type: 'email-inbound',
+        direction: 'inbound',
+        subject: 'Interest from Prospect A',
+        bodyExcerpt: 'Can we chat?',
+        from: 'prospect_a@client.com',
+        userEmail: 'alice@cogmap.com',
+        createdAt: new Date('2026-10-19T10:00:00Z'),
+      });
+
+      // Thread 2: Inbound message synced by Bob's mailbox (linked to CRM lead)
+      mockActivityDocs.push({
+        _id: 'act_bob',
+        brand: 'cogmap',
+        tenantId: 't_default',
+        leadId: 'lead_b',
+        threadId: 'thread_bob_lead',
+        type: 'email-inbound',
+        direction: 'inbound',
+        subject: 'Interest from Prospect B',
+        bodyExcerpt: 'Send pricing please',
+        from: 'prospect_b@client.com',
+        userEmail: 'bob@cogmap.com',
+        createdAt: new Date('2026-10-19T11:00:00Z'),
+      });
+
+      // When Alice views "My Inbox" (default scope: 'my', userEmail: 'alice@cogmap.com')
+      const aliceInbox = await listInboxThreads(db, 'cogmap', 't_default', {
+        userEmail: 'alice@cogmap.com',
+        scope: 'my',
+      });
+
+      expect(aliceInbox.threads.length).toBe(1);
+      expect(aliceInbox.threads[0].id).toBe('thread_alice_lead');
+      expect(aliceInbox.threads[0].userMailbox).toBe('alice@cogmap.com');
+      expect(aliceInbox.threads[0].isMyInbox).toBe(true);
+      expect(aliceInbox.counts.all).toBe(1);
+
+      // When Bob views "My Inbox"
+      const bobInbox = await listInboxThreads(db, 'cogmap', 't_default', {
+        userEmail: 'bob@cogmap.com',
+        scope: 'my',
+      });
+
+      expect(bobInbox.threads.length).toBe(1);
+      expect(bobInbox.threads[0].id).toBe('thread_bob_lead');
+      expect(bobInbox.threads[0].userMailbox).toBe('bob@cogmap.com');
+      expect(bobInbox.threads[0].isMyInbox).toBe(true);
+
+      // When viewing "Team Inbox" (scope: 'team')
+      const teamInbox = await listInboxThreads(db, 'cogmap', 't_default', {
+        userEmail: 'alice@cogmap.com',
+        scope: 'team',
+      });
+
+      expect(teamInbox.threads.length).toBe(2);
+      expect(teamInbox.counts.all).toBe(2);
+      expect(teamInbox.mailboxes.length).toBe(2);
+
+      // When filtering by specific mailbox in Team Inbox
+      const bobFiltered = await listInboxThreads(db, 'cogmap', 't_default', {
+        userEmail: 'alice@cogmap.com',
+        scope: 'team',
+        mailbox: 'bob@cogmap.com',
+      });
+
+      expect(bobFiltered.threads.length).toBe(1);
+      expect(bobFiltered.threads[0].id).toBe('thread_bob_lead');
+    });
   });
 
   describe('getInboxThreadDetail & setThreadStatus', () => {
@@ -385,7 +515,7 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
         subject: 'Partnership discussion',
         from: 'kitty.erdei@frh.ro',
         to: ['tamas.sebestyen@seyuselfies.com'],
-        cc: ['csaba.moldovan@seyuselfies.com', 'radu.popescu@frh.ro'],
+        cc: ['partner@externalagency.com', 'radu.popescu@frh.ro'],
         body: 'Hello team, let us review the schedule.',
         createdAt: new Date('2026-10-18T15:00:00Z'),
       });
@@ -394,10 +524,13 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       expect(detail.thread).toBeDefined();
       expect(detail.participants.length).toBeGreaterThanOrEqual(3);
 
-      // Verify that the lead's contacts only contains same-domain contacts (frh.ro) and NOT seyuselfies.com
+      // Verify that the lead's contacts only contains same-domain contacts (frh.ro) and NOT externalagency.com or seyuselfies.com
       const leadContacts = detail.lead?.contacts || [];
       const seyContacts = leadContacts.filter((c: any) => c.email.includes('seyuselfies.com'));
       expect(seyContacts).toHaveLength(0);
+      const agencyContacts = leadContacts.filter((c: any) => c.email.includes('externalagency.com'));
+      expect(agencyContacts).toHaveLength(0);
+      expect(leadContacts.some((c: any) => c.email === 'radu.popescu@frh.ro')).toBe(true);
     });
   });
 
