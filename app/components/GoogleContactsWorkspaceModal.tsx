@@ -26,6 +26,7 @@ import {
   IconMail,
   IconPhone,
   IconRefresh,
+  IconBrandGoogle,
 } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 
@@ -284,7 +285,26 @@ export function GoogleContactsWorkspaceModal({
         </Group>
 
         {error && (
-          <InlineAlert severity="error" title="Workspace Sync Error" message={error} />
+          <Box>
+            <InlineAlert severity="error" title="Workspace Sync Error" message={error} />
+            {(error.toLowerCase().includes('token') ||
+              error.toLowerCase().includes('expired') ||
+              error.toLowerCase().includes('revoked') ||
+              error.toLowerCase().includes('reconnect') ||
+              error.toLowerCase().includes('authorization') ||
+              error.toLowerCase().includes('denied')) && (
+              <Button
+                component="a"
+                href={`/api/integrations/google_contacts/connect?brand=${encodeURIComponent(brand)}&returnUrl=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname + window.location.search : '')}`}
+                size="xs"
+                color="red"
+                mt="xs"
+                leftSection={<IconBrandGoogle size={14} />}
+              >
+                Reconnect Google Contacts
+              </Button>
+            )}
+          </Box>
         )}
 
         {loading ? (

@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { Modal, Stack, Group, Text, Button, TextInput, Loader, Tooltip } from '@mantine/core'
+import { Modal, Stack, Group, Text, Button, TextInput, Loader, Tooltip, Alert } from '@mantine/core'
 import { showNotification } from '@mantine/notifications'
+import { IconBrandGoogle, IconAlertCircle } from '@tabler/icons-react'
 
 type GoogleContactResult = {
   resourceName: string
@@ -130,7 +131,32 @@ export function GoogleContactsImport({ leadId, brand, connected, onImported }: P
           <Text id="google-contacts-search-status" role="status" aria-live="polite" size="xs" c="dimmed">
             {searching ? 'Searching…' : announcement}
           </Text>
-          {searchError && <Text c="red" size="sm" role="alert">{searchError}</Text>}
+          {searchError && (
+            <Alert
+              color="red"
+              variant="light"
+              title="Google Contacts Connection Error"
+              icon={<IconAlertCircle size={16} />}
+            >
+              <Text size="xs" mb="xs">{searchError}</Text>
+              {(searchError.toLowerCase().includes('token') ||
+                searchError.toLowerCase().includes('expired') ||
+                searchError.toLowerCase().includes('revoked') ||
+                searchError.toLowerCase().includes('reconnect') ||
+                searchError.toLowerCase().includes('authorization') ||
+                searchError.toLowerCase().includes('denied')) && (
+                <Button
+                  component="a"
+                  href={`/api/integrations/google_contacts/connect?brand=${encodeURIComponent(brand)}&returnUrl=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname + window.location.search : '')}`}
+                  size="xs"
+                  color="red"
+                  leftSection={<IconBrandGoogle size={14} />}
+                >
+                  Reconnect Google Contacts
+                </Button>
+              )}
+            </Alert>
+          )}
 
           {searching ? (
             <Group justify="center" py="md"><Loader size="sm" /></Group>

@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.313
+
+### Google Contacts Token Expiration Resilience & One-Click Reconnect (Issue #271)
+
+- **Google Contacts Token Expiration Detection & Human-Centric Error Transformation (`app/lib/google-contacts-store.ts`):**
+  - Resolved issue where Google OAuth token revocation/expiration returned raw, un-actionable `Token has been expired or revoked.` string that stranded users in a dead-end modal.
+  - Intercepted `invalid_grant` / token expiration in `resolveContactsAccess` and `searchGoogleContacts`, immediately marking the connection's status as `error` in MongoDB Atlas (`integration_connections`) and transforming the raw error into actionable guidance: `"Google Contacts authorization has expired or been revoked. Please reconnect your account."`.
+- **One-Click Reconnect Flow in Google Contacts Import Modals (`app/components/GoogleContactsImport.tsx`, `app/components/GoogleContactsWorkspaceModal.tsx`):**
+  - Replaced dead-end error text with a structured Mantine `Alert` component containing a direct **"Reconnect Google Contacts"** action button.
+  - The reconnect button dynamically launches `/api/integrations/google_contacts/connect?brand=${brand}&returnUrl=...`, re-authenticating with Google and redirecting back to the active workflow so contact importing can resume immediately without manual navigation to settings.
+- **Automated Verification:**
+  - Added unit test suite in `tests/lib/google-contacts-reconnect.test.ts` verifying modal reconnect button presence, return URL generation, and error message transformation.
+
 ## 2.4.312
 
 ### Suggested Contact Updates Matching Resilience & Activity Panel Feedback (Issue #271)

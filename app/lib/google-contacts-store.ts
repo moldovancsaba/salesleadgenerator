@@ -29,7 +29,7 @@ function mapPerson(person: any): GoogleContactResult | null {
 }
 
 export type ContactsAccessResult =
-  | { ok: true; token: string }
+  | { ok: true; token: string; connectionId?: string }
   | { ok: false; status: 404 | 503; error: string };
 
 async function resolveContactsAccess(
@@ -61,9 +61,24 @@ async function resolveContactsAccess(
   if (!connection) return { ok: false, status: 404, error: 'Google Contacts is not connected for this brand' };
   try {
     const token = await getValidCredential(db, connection);
-    return { ok: true, token };
+    return { ok: true, token, connectionId: connection.id };
   } catch (error) {
-    const reason = error instanceof ConnectionRevokedError ? error.message : 'Google Contacts connection needs to be reconnected';
+    const rawReason = error instanceof ConnectionRevokedError ? error.message : 'Google Contacts connection needs to be reconnected';
+    const isTokenRevoked =
+      rawReason.toLowerCase().includes('expired') ||
+      rawReason.toLowerCase().includes('revoked') ||
+      rawReason.toLowerCase().includes('invalid_grant');
+    const reason = isTokenRevoked
+      ? 'Google Contacts authorization has expired or been revoked. Please reconnect your account.'
+      : rawReason;
+
+    if (connection?.id && isTokenRevoked) {
+      await db.collection('integration_connections').updateOne(
+        { id: connection.id },
+        { $set: { status: 'error', lastSyncError: rawReason, updatedAt: new Date().toISOString() } }
+      ).catch(() => {});
+    }
+
     return { ok: false, status: 503, error: reason };
   }
 }
@@ -107,11 +122,23 @@ export async function searchGoogleContacts(
 
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({}));
-    const message = errorBody?.error?.message || `Google Contacts API returned status ${res.status}`;
+    const message = errorBody?.error?.message || errorBody?.error_description || errorBody?.error || `Google Contacts API returned status ${res.status}`;
     console.error('[google-contacts-store] People API failed:', res.status, message, errorBody);
 
-    if (res.status === 401) {
-      return { ok: false, status: 503, error: 'Google Contacts authorization expired. Please reconnect in User Settings.' };
+    const isTokenRevoked =
+      res.status === 401 ||
+      message.toLowerCase().includes('expired') ||
+      message.toLowerCase().includes('revoked') ||
+      message.toLowerCase().includes('invalid_grant');
+
+    if (isTokenRevoked) {
+      if (access.connectionId) {
+        await db.collection('integration_connections').updateOne(
+          { id: access.connectionId },
+          { $set: { status: 'error', lastSyncError: message, updatedAt: new Date().toISOString() } }
+        ).catch(() => {});
+      }
+      return { ok: false, status: 503, error: 'Google Contacts authorization has expired or been revoked. Please reconnect your account.' };
     }
     if (res.status === 403) {
       return { ok: false, status: 503, error: `Google Contacts access denied: ${message}` };
