@@ -11,6 +11,7 @@ import {
   cleanMessageSnippet,
   parseEmailParticipant,
   formatLocalPartAsName,
+  isInternalOrSystemEmail,
   COMMON_PUBLIC_MAIL_DOMAINS,
 } from '../../lib/email-contact-extractor';
 import { mergeContactsIntoLead } from '../../lib/email-contact-merge';
@@ -153,8 +154,17 @@ function resolveMessageThreadId(doc: any): string {
   if (doc.gmailThreadId && typeof doc.gmailThreadId === 'string' && doc.gmailThreadId.trim()) {
     return doc.gmailThreadId.trim();
   }
+  if (doc.metadata?.gmailThreadId && typeof doc.metadata.gmailThreadId === 'string' && doc.metadata.gmailThreadId.trim()) {
+    return doc.metadata.gmailThreadId.trim();
+  }
+  if (doc.metadata?.threadId && typeof doc.metadata.threadId === 'string' && doc.metadata.threadId.trim()) {
+    return doc.metadata.threadId.trim();
+  }
   if (doc.rfcMessageId && typeof doc.rfcMessageId === 'string' && doc.rfcMessageId.trim()) {
     return `msg:${doc.rfcMessageId.trim()}`;
+  }
+  if (doc.metadata?.rfcMessageId && typeof doc.metadata.rfcMessageId === 'string' && doc.metadata.rfcMessageId.trim()) {
+    return `msg:${doc.metadata.rfcMessageId.trim()}`;
   }
   if (doc.leadId !== undefined && doc.leadId !== null && String(doc.leadId).trim() !== '') {
     const rawSubject = (doc.subject || '').replace(/^(re|fwd|aw|wg):\s*/i, '').trim().toLowerCase();
@@ -298,6 +308,21 @@ export async function listInboxThreads(
   const messagesByThread = new Map<string, InboxMessage[]>();
 
   for (const doc of activityDocs) {
+    // Filter out purely internal team communications (e.g. staff weekly meetings, internal syncs)
+    if (doc.type === 'email-inbound' || doc.type === 'email-outbound') {
+      const fromAddr = doc.fromAddress || doc.from;
+      const toAddrs = parseAddressStrings(doc.toAddresses) || parseAddressStrings(doc.to) || [];
+      const ccAddrs = parseAddressStrings(doc.ccAddresses) || parseAddressStrings(doc.cc) || [];
+      const participants = [fromAddr, ...toAddrs, ...ccAddrs].filter(Boolean);
+      if (
+        fromAddr &&
+        toAddrs.length > 0 &&
+        participants.length >= 2 &&
+        participants.every((p) => isInternalOrSystemEmail(p, { brand }))
+      ) {
+        continue;
+      }
+    }
     const msg = mapActivityToInboxMessage(doc);
     const existing = messagesByThread.get(msg.threadId) || [];
     existing.push(msg);
@@ -648,8 +673,8 @@ export async function listInboxThreads(
       }
     }
 
-    if (!userMailbox && lastOutbound?.from && lastOutbound.from.includes('@')) {
-      userMailbox = lastOutbound.from.toLowerCase().trim();
+    if (!userMailbox && options.userEmail) {
+      userMailbox = options.userEmail.toLowerCase().trim();
     }
 
     if (userMailbox) {
@@ -1019,8 +1044,8 @@ export async function getInboxThreadDetail(
     }
   }
 
-  if (!resolvedUserMailbox) {
-    resolvedUserMailbox = messages.find((m) => m.userEmail)?.userEmail || (lastOutbound?.from && lastOutbound.from.includes('@') ? lastOutbound.from.toLowerCase().trim() : undefined);
+  if (!resolvedUserMailbox && options.userEmail) {
+    resolvedUserMailbox = options.userEmail.toLowerCase().trim();
   }
 
   const thread: InboxThread = {

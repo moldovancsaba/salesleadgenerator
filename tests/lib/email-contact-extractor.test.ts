@@ -162,6 +162,7 @@ describe('email-contact-extractor', () => {
       expect(isInternalOrSystemEmail('csaba@doneisbetter.com')).toBe(true);
       expect(isInternalOrSystemEmail('konyveles@reliableaccount.hu')).toBe(true);
       expect(isInternalOrSystemEmail('ber@reliableaccount.hu')).toBe(true);
+      expect(isInternalOrSystemEmail('vezertamasdaniel@gmail.com')).toBe(true);
     });
 
     it('identifies bot, meeting notetaker, calendar, and task management emails', () => {

@@ -718,6 +718,75 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       expect(thread.senderDisplayName).toContain('Inga Schuler');
     });
 
+    it('filters out purely internal team threads where all participants are internal staff', async () => {
+      const db = createMockDb();
+
+      // Purely internal staff meeting / sync email
+      mockActivityDocs.push({
+        _id: 'act_internal_sync',
+        brand: 'cogmap',
+        tenantId: 't_default',
+        threadId: 'thread_internal_meeting',
+        type: 'email-outbound',
+        direction: 'outbound',
+        subject: 'Weekly Team Sync',
+        bodyExcerpt: 'Agenda for Monday sync',
+        from: 'david.bozsik@seyuselfies.com',
+        to: ['coo@seyuselfies.com', 'vezertamasdaniel@gmail.com'],
+        cc: ['mate.pecsi@seyuselfies.com'],
+        createdAt: new Date(),
+      });
+
+      const res = await listInboxThreads(db, 'cogmap', 't_default', {
+        userEmail: 'coo@seyuselfies.com',
+      });
+
+      expect(res.threads.length).toBe(0);
+      expect(res.counts.all).toBe(0);
+    });
+
+    it('strictly attributes userMailbox to viewer even if last outbound was from another mailbox', async () => {
+      const db = createMockDb();
+
+      // Lead communication where user is an inbound recipient or thread participant
+      mockActivityDocs.push({
+        _id: 'act_lead_inbound',
+        brand: 'cogmap',
+        tenantId: 't_default',
+        threadId: 'thread_mixed_colleague',
+        type: 'email-inbound',
+        direction: 'inbound',
+        subject: 'Enterprise Inquiry',
+        bodyExcerpt: 'We want a demo',
+        from: 'prospect@acme-corp.com',
+        to: ['csaba@doneisbetter.com'],
+        createdAt: new Date('2026-10-19T10:00:00Z'),
+      });
+
+      // Outbound note from a colleague
+      mockActivityDocs.push({
+        _id: 'act_lead_outbound',
+        brand: 'cogmap',
+        tenantId: 't_default',
+        threadId: 'thread_mixed_colleague',
+        type: 'email-outbound',
+        direction: 'outbound',
+        subject: 'Re: Enterprise Inquiry',
+        bodyExcerpt: 'Here is our brochure',
+        from: 'david.bozsik@seyuselfies.com',
+        to: ['prospect@acme-corp.com'],
+        createdAt: new Date('2026-10-19T11:00:00Z'),
+      });
+
+      const res = await listInboxThreads(db, 'cogmap', 't_default', {
+        userEmail: 'csaba@doneisbetter.com',
+      });
+
+      expect(res.threads.length).toBe(1);
+      // userMailbox must be strictly csaba@doneisbetter.com, NOT david.bozsik@seyuselfies.com
+      expect(res.threads[0].userMailbox).toBe('csaba@doneisbetter.com');
+    });
+
     it('dynamically resolves admin-configured aliases from sso_user_access', async () => {
       const db = createMockDb();
 

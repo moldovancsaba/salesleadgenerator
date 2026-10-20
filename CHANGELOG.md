@@ -1,5 +1,24 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.310
+
+### Internal Team Email Filtering & Personal Mailbox Attribution Hardening (Issue #271)
+
+- **Internal Team Email Filtering (`app/lib/inbox-store.ts`, `lib/email-contact-extractor.ts`):**
+  - Resolved inbox pollution where purely internal company colleague sync threads (e.g. staff weekly meetings, internal syncs, operation reminders) appeared in the prospect sales CRM inbox.
+  - Added filter in `listInboxThreads` checking whether all email participants (`from`, `to`, and `cc`) belong to internal company staff / system addresses via `isInternalOrSystemEmail`. When a thread is purely internal, it is skipped from CRM inbox thread aggregation.
+  - Added `INTERNAL_KNOWN_ADDRESSES` set in `lib/email-contact-extractor.ts` including personal staff addresses (`vezertamasdaniel@gmail.com`) so they are recognized as internal team members across all brands.
+- **Personal Mailbox Attribution Hardening (`app/lib/inbox-store.ts`):**
+  - Fixed mailbox attribution badge and header in `listInboxThreads` and `getInboxThreadDetail`.
+  - Previously, when an outbound message was present in a thread, `userMailbox` fell back to `lastOutbound.from`, causing the UI chip to erroneously display a colleague's mailbox (`Synced from connected mailbox: david.bozsik@seyuselfies.com`) in another user's personal inbox.
+  - Replaced fallback with `options.userEmail`, strictly ensuring a personal inbox thread is attributed to the viewing user's own email.
+- **Activity Log Sanitization & Thread Clustering Hardening (`app/lib/inbox-store.ts`):**
+  - Purged historical internal team sync emails from MongoDB Atlas `activityLog` collection.
+  - Hardened `resolveMessageThreadId` to extract thread IDs from `metadata.gmailThreadId`, `metadata.threadId`, and `metadata.rfcMessageId`.
+- **Automated Verification:**
+  - Added unit test in `tests/lib/inbox-store.test.ts` verifying purely internal team syncs are filtered from `listInboxThreads` and `userMailbox` strictly defaults to `options.userEmail`.
+  - Added unit test in `tests/lib/email-contact-extractor.test.ts` verifying `INTERNAL_KNOWN_ADDRESSES` matching.
+
 ## 2.4.309
 
 ### Kanban Board Resilience & Lead Card Defensive Hardening (Issue #271)

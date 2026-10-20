@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.309  
+**Version:** 2.4.310  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -12,6 +12,7 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 - Next.js 16 app with App Router and API routes
 - Redesigned Modern Kanban Cards (`app/card.tsx`) with full-width wrapping organization titles, human-readable Title Case taxonomy formatting, prominent key decision-maker contact row with 1-click Quick Outreach (`IconMail`), stage-aware semantic decision buttons (Accept, Decline, Quick Email), high-visibility follow-up urgency status badges, untruncated owner avatar initials, commercial badges, de-duplicated staleness indicators, and quiet subtle action affordances (`Open ↗`)
 - Native 3-Pane Communication Center (`/inbox/[brand]`) with dynamic sender resolution, clean 2-line textual snippets (stripped of CSS `<style>` blocks and HTML tags), Lead/Contact/Deal availability status badges, 1-click conversion affordances, and full `To:` / `Cc:` recipient visibility
+- Internal Team Email Filtering & Personal Mailbox Attribution (`app/lib/inbox-store.ts`, `lib/email-contact-extractor.ts`) filtering purely internal colleague communications (staff syncs, weekly meetings) from CRM inbox views, and strictly attributing personal mailbox views to the active user's own email
 - User Mailbox Isolation & Fail-Closed Privacy Guard (`app/lib/inbox-store.ts`, `app/api/inbox/[brand]/route.ts`) strictly hiding all correspondence if session claims are unresolved, permanently closing fail-open leak vectors
 - Admin-Managed Mailbox Aliases & Scoping Policy (`/admin/users`, `/salessettings/[client]`, `sso_user_access`, `company_settings`) with self-service modal for linked mailboxes (`office@seyuselfies.com`, `coo@seyuselfies.com`, `moldovancsaba@gmail.com`) and instant toggle between Strict Mailbox Only and Assigned Lead Visibility
 - Multi-Identity Mailbox Linking (`KNOWN_USER_ALIASES`) unifying personal Google SSO (`moldovancsaba@gmail.com`) with corporate Google Workspace accounts (`coo@seyuselfies.com`) into a unified inbox stream

@@ -35,6 +35,10 @@ export const INTERNAL_COMPANY_DOMAINS = new Set([
   'reliableaccount.hu',
 ]);
 
+export const INTERNAL_KNOWN_ADDRESSES = new Set([
+  'vezertamasdaniel@gmail.com',
+]);
+
 const CCTLD_TO_COUNTRY: Record<string, string> = {
   de: 'DE',
   uk: 'GB',
@@ -274,8 +278,9 @@ export function isInternalOrSystemEmail(
     return true;
   }
 
-  // 3. Known internal company domains
+  // 3. Known internal company domains and personal staff addresses
   if (
+    INTERNAL_KNOWN_ADDRESSES.has(normalized) ||
     INTERNAL_COMPANY_DOMAINS.has(domain) ||
     domain.endsWith('.seyuselfies.com') ||
     domain.endsWith('.seyu.hu') ||
