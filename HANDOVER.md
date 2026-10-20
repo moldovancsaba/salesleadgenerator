@@ -1,5 +1,5 @@
 # HANDOVER: Sales Lead Generator
-Date: 2026-10-19. Owner: moldovancsaba. Board: https://github.com/users/moldovancsaba/projects/56. Repo: https://github.com/moldovancsaba/salesleadgenerator. Production: https://salesleadgenerator.vercel.app.
+Date: 2026-10-20. Owner: moldovancsaba. Board: https://github.com/users/moldovancsaba/projects/56. Repo: https://github.com/moldovancsaba/salesleadgenerator. Production: https://salesleadgenerator.vercel.app.
 
 The previous handover (session of 2026-10-05, v2.4.247) recorded baseline operations, branch hygiene, and initial pipeline fixes.
 

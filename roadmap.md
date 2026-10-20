@@ -8,7 +8,7 @@
 
 **Not the same file as `_archived/roadmap.md`** — that's a frozen, historical feature-status log (v2.4.61), superseded by `CHANGELOG.md`, sharing this file's basename by coincidence rather than by relation. See `README.md`'s "Archived Documentation" table.
 
-Last synced: 2026-10-19. #267 delivered and closed (Full documentation deep audit, technical doc realignment, canonical user guide creation, release note fix, and code comment hygiene). #266, #265, #264, #263, #262, #261, #260 shipped to main.
+Last synced: 2026-10-20. #269 and #268 delivered and closed (Multi-identity mailbox linking, corporate accounting shield, contact decoupling, and user mailbox isolation). Shipped through v2.4.305 to main. #267, #266, #265, #264, #263, #262, #261, #260 shipped to main.
 
 ---
 

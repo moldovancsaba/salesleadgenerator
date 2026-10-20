@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.303
+**Version:** 2.4.305
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -135,6 +135,10 @@ The **Inbox** (`/inbox/[brand]`, issue #257) is the centralized communication hu
   - **Lead**: Teal badge (`Lead ✓`) if linked to an active lead record, or dashed gray (`No Lead`) if unlinked.
   - **Contact**: Blue badge (`Contact ✓` with count) if contacts exist, or dashed gray (`No Contact`).
   - **Deal**: Grape badge with monetary value (e.g., `Deal: €5,000` or count) if commercial deals are open, or dashed gray (`No Deal`).
+- **User Mailbox Scoping & Privacy Isolation** (issues #268, #269):
+  - Inboxes strictly enforce "My Inbox" scoping (`scope: 'my'`), completely shielding unassigned and unlinked correspondence belonging to other sales representatives.
+  - **Multi-Identity Mailbox Linking**: Personal Google SSO accounts (e.g. `moldovancsaba@gmail.com`) are automatically linked with corporate Workspace accounts (e.g. `coo@seyuselfies.com`) via `KNOWN_USER_ALIASES`, unifying all personal and corporate email threads into your view regardless of which identity you signed in with.
+  - **Internal & Service Provider Shield**: Internal corporate domains (`seyuselfies.com`, `seyu.hu`, `cogmap.com`, `dvsc.hu`, `doneisbetter.com`) and external service providers (`reliableaccount.hu` accounting & payroll, meeting notetaker bots) are completely shielded from ever being harvested as prospect CRM contacts.
 - Search across lead entity names, contact names, email addresses, subjects, and message previews with instant filtering.
 - Visual status indicators: Unread blue indicator dot, kanban stage badge (`Negotiating`, `Contacted`, `Discovered`), urgent `Reply Needed` orange badge, and message counter badge for multi-message threads.
 - One-click Star/Unstar toggle on each conversation card.
@@ -156,7 +160,7 @@ The **Inbox** (`/inbox/[brand]`, issue #257) is the centralized communication hu
   - *Full Recipient Headers*: Every email message bubble header explicitly displays comma-separated `From:`, `To:`, and `Cc:` recipient lists with full display names and email addresses.
   - *Inbound Emails*: Highlighted with prospect avatars, RFC 2822 timestamps, and clean sanitized text bodies.
   - *Outbound Emails*: Stamped with sender rep identity and live delivery status (`sent`, `opened`, `clicked`, `replied`).
-  - *Internal Notes*: Highlighted in amber with "Private Note" banners, visible only to logged-in team members.
+  - *Internal Notes*: Highlighted in amber with "Private Note" banners, visible only to logged-in team members, and explicitly stamped with the authoring user's `userId` and `userEmail`.
   - *Calls & Meetings*: Compact event cards with call dispositions or scheduled calendar slots.
 - **In-Thread Quick Composer**:
   - Switch easily between **Reply via Email** and **Internal Note**.
@@ -167,7 +171,7 @@ The **Inbox** (`/inbox/[brand]`, issue #257) is the centralized communication hu
     - Toggle automatic inclusion of your synced Google signature.
     - Dispatches through your connected personal Gmail account (via Gmail REST API) or brand default transport.
   - When writing an internal note:
-    - Saves immediately to the lead's unified activity log and updates the lead's `updatedAt` timestamp.
+    - Saves immediately to the lead's unified activity log with `userId` and `userEmail` ownership attribution, updating the lead's `updatedAt` timestamp.
 
 ---
 

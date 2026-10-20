@@ -1,8 +1,13 @@
 # Lead Taxonomy Migration Plan — Rulebook v1.0 Backfill
 
-**Version:** 2.4.223
+**Version:** 2.4.305
 
-**Status:** Plan / design document, now with two completed execution slices. Phase 2's mechanical `sportCode` sub-step (see §4) ran against production first; the evidence-based agent-research path (§5) for the remaining identity fields (`orgTypeCode`, `businessUnitCode`, `genderCode`, `demographicCodes`, `competitionLevelCode`, `cityName`) resumed 2026-08-02 (issue #132) after a prior autonomous `/loop` session's branch was left unmerged and superseded — see the "Progress update" below. Most leads still have no identity fields beyond `sportCode` set.
+> [!IMPORTANT]
+> **Owner Directive (2026-10-16, `AGENTS.md` Rule 10):**
+> The AI assistant working in `salesleadgenerator` is strictly a software developer, not a content provider or manual lead-enrichment operator.
+> Never run manual lead-research or content-enrichment batches from a coding session. Do not pick leads from the database, run web searches on sports clubs, or issue manual `PUT /api/leads/[id]` calls during development sessions. Ongoing taxonomy population belongs exclusively to the automated `researchandenrich` runtime. This directive permanently supersedes the historical §9 manual agent-research loop below.
+
+**Status:** Plan / design document, with mechanical `sportCode` backfill fully completed (2,749 of 3,079 leads, 89.3%, 0 mechanically resolvable remaining across all 3 brands). Evidence-based manual agent research is permanently superseded by automated agent workers per Rule 10.
 
 ### Progress update — 2026-09-25 (issue #132 resumed again)
 
@@ -368,7 +373,7 @@ for brand in ['cogmap', 'seyu']:
 
 6. **Independently re-fetch and verify every write** — a fresh `GET`, not trusting the agent's or the PUT response's self-report. Print the key fields (`orgTypeCode`, `businessUnitCode`, `genderCode`, `competitionLevelCode`, `cityName`, `mergeKey`, `qualityStatus`, `ice`, `contacts`) and eyeball them against what was intended.
 
-7. **Every ~4 leads (one batch), ship a checkpoint**: write a CHANGELOG entry (what was found/fixed, not just what was written), bump `package.json` + every doc's `**Version:**` stamp by one patch version, run the full quality gate (`npx tsc --noEmit`, `npm run lint`, `npx vitest run`, `npm run test:integration`, `npm run test:smoke`, `npm run audit:gds-style`, `npx next build --webpack` — all clean, per CLAUDE.md Rule 1), commit, push to `claude/knowledge-update-44cuix` (standing authorization, no need to ask). **Never push to `main`** without a fresh, explicit "push to main" instruction for that specific work.
+7. **Historical Batch Checkpointing (Archival Reference — Superseded by AGENTS.md Rule 10)**: Historically, manual research loops checkpointed every ~4 leads. Under the current operating model (Owner Directive 2026-10-16 / `AGENTS.md` Rule 10), manual lead-enrichment loops in developer sessions are permanently decommissioned; all ongoing lead discovery and enrichment are handled by the automated `researchandenrich` runtime or code-reviewed migration scripts. Furthermore, per `AGENTS.md` Rule 6 and Rule 8, deliverable code and documentation chunks are committed and pushed directly to `main` under the owner identity (`moldovancsaba <moldovancsaba@gmail.com>`) with zero AI-assistant branding after satisfying the zero-tolerance quality gate. No developer session pushes to obsolete feature branches like `claude/*`.
 
 8. **Every ~20-30 leads, post a progress comment on GitHub issue #132** with the running total and any new findings/issues filed — issue #132 is the durable, cross-session source of truth for exact progress; read its comment history first when resuming, don't trust this document's own snapshot numbers as more current than the issue. **Use a real comment-adding call (`add_issue_comment` or equivalent), never `issue_write` with `method: update`** — the latter overwrites the issue's own body instead of appending, silently destroying the running log and leaving only the latest snapshot (this happened at least once before 2.4.131; caught via owner QA, not caught internally). `CHANGELOG.md` + git history remain the accurate record regardless of which method was used for any given past update.
 
