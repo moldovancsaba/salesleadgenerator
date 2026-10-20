@@ -172,6 +172,10 @@ export interface SalesSettings {
   seasonality: Seasonality;
   notes: string;
   revenueTarget: RevenueTarget;
+  // Issue 271: Scoping policy for Communication Center (/inbox/[brand])
+  inboxSettings?: {
+    includeAssignedLeadThreads?: boolean;
+  };
   updatedAt?: string;
 }
 
@@ -283,6 +287,7 @@ export function emptySalesSettings(brand: string, tenantId = 'default', currency
     seasonality: { quarters: [], specificMonths: '' },
     notes: '',
     revenueTarget: { currency: defaultRevenueTargetCurrency(currency), period: 'annual' },
+    inboxSettings: { includeAssignedLeadThreads: false },
   };
 }
 
@@ -534,6 +539,9 @@ export function sanitizeSalesSettings(
     },
     notes: sanitizeString(raw.notes, 4000),
     revenueTarget: sanitizeRevenueTarget(raw.revenueTarget, currency),
+    inboxSettings: {
+      includeAssignedLeadThreads: Boolean((raw.inboxSettings as any)?.includeAssignedLeadThreads),
+    },
   };
 }
 

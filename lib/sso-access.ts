@@ -24,6 +24,9 @@ export type SsoUserAccessRecord = {
   // comment on absent-key-vs-explicit-value) — undefined vs. a real
   // timestamp are the only two states, never a boolean.
   tourSeenAt?: string;
+  // Issue 271: Admin-managed linked mailbox aliases (e.g. personal SSO email
+  // linked to corporate Google Workspace mailboxes). Stored normalized lowercase.
+  aliases?: string[];
 };
 
 // Deliberately NOT persisted as a field on the record — persisting it risks
@@ -114,6 +117,36 @@ export async function setUserOrgAccess(
     await collection.updateOne({ ssoUserId }, { $set: { [`orgAccess.${brand}`]: role, updatedAt: now } });
   }
   return getUserAccess(db, ssoUserId);
+}
+
+// Issue 271: Admin-managed mailbox aliases for a user
+export async function setUserAliases(
+  db: Db,
+  ssoUserId: string,
+  aliases: string[]
+): Promise<SsoUserAccessRecord | null> {
+  const collection = db.collection<SsoUserAccessRecord>(COLLECTION);
+  const now = new Date().toISOString();
+  const cleanAliases = Array.from(
+    new Set(
+      aliases
+        .map((a) => (typeof a === 'string' ? a.trim().toLowerCase() : ''))
+        .filter((a) => a.includes('@'))
+    )
+  );
+  await collection.updateOne(
+    { ssoUserId },
+    { $set: { aliases: cleanAliases, updatedAt: now } }
+  );
+  return getUserAccess(db, ssoUserId);
+}
+
+export async function getUserAliases(
+  db: Db,
+  ssoUserIdOrEmail: string
+): Promise<string[]> {
+  const record = await getUserAccess(db, ssoUserIdOrEmail);
+  return record?.aliases || [];
 }
 
 // --- Pure functions below: no DB, no network, fully unit-testable. ---

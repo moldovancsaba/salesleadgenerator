@@ -8,7 +8,7 @@
 
 **Not the same file as `_archived/roadmap.md`** — that's a frozen, historical feature-status log (v2.4.61), superseded by `CHANGELOG.md`, sharing this file's basename by coincidence rather than by relation. See `README.md`'s "Archived Documentation" table.
 
-Last synced: 2026-10-20. #269 and #268 delivered and closed (Multi-identity mailbox linking, corporate accounting shield, contact decoupling, and user mailbox isolation). Shipped through v2.4.305 to main. #267, #266, #265, #264, #263, #262, #261, #260 shipped to main.
+Last synced: 2026-10-20. #271 delivered and closed (Admin-managed mailbox aliases, strict scoping policy, and fail-closed privacy guard). Shipped through v2.4.306 to main. #270, #269, #268, #267, #266, #265, #264, #263, #262, #261, #260 shipped to main.
 
 ---
 

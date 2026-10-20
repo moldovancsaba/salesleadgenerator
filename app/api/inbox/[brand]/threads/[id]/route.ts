@@ -37,6 +37,7 @@ export async function GET(
     const idToken = request.cookies.get('sso_id_token')?.value;
     const claims = await resolveSessionFromIdToken(idToken);
     const userId = claims?.sub || claims?.email;
+    const userEmail = claims?.email;
 
     const tenantId = getTenantId(request);
     const client = await clientPromise;
@@ -44,6 +45,7 @@ export async function GET(
 
     const detail = await getInboxThreadDetail(db, brand, tenantId, decodeURIComponent(threadId), {
       userId,
+      userEmail,
       markRead,
     });
 

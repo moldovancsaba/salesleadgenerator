@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.305  
+**Version:** 2.4.306  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -12,7 +12,8 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 - Next.js 16 app with App Router and API routes
 - Redesigned Modern Kanban Cards (`app/card.tsx`) with full-width wrapping organization titles, human-readable Title Case taxonomy formatting, prominent key decision-maker contact row with 1-click Quick Outreach (`IconMail`), stage-aware semantic decision buttons (Accept, Decline, Quick Email), high-visibility follow-up urgency status badges, untruncated owner avatar initials, commercial badges, de-duplicated staleness indicators, and quiet subtle action affordances (`Open ↗`)
 - Native 3-Pane Communication Center (`/inbox/[brand]`) with dynamic sender resolution, clean 2-line textual snippets (stripped of CSS `<style>` blocks and HTML tags), Lead/Contact/Deal availability status badges, 1-click conversion affordances, and full `To:` / `Cc:` recipient visibility
-- User Mailbox Isolation & Strict My Inbox Scoping (`app/lib/inbox-store.ts`, `app/api/inbox/[brand]/route.ts`) shielding individual sales reps' personal correspondence and eliminating cross-rep mailbox exposure
+- User Mailbox Isolation & Fail-Closed Privacy Guard (`app/lib/inbox-store.ts`, `app/api/inbox/[brand]/route.ts`) strictly hiding all correspondence if session claims are unresolved, permanently closing fail-open leak vectors
+- Admin-Managed Mailbox Aliases & Scoping Policy (`/admin/users`, `/salessettings/[client]`, `sso_user_access`, `company_settings`) with self-service modal for linked mailboxes (`office@seyuselfies.com`, `coo@seyuselfies.com`, `moldovancsaba@gmail.com`) and instant toggle between Strict Mailbox Only and Assigned Lead Visibility
 - Multi-Identity Mailbox Linking (`KNOWN_USER_ALIASES`) unifying personal Google SSO (`moldovancsaba@gmail.com`) with corporate Google Workspace accounts (`coo@seyuselfies.com`) into a unified inbox stream
 - Systemic Internal Company & Service Provider Shield (`lib/email-contact-extractor.ts`, `lib/email-contact-merge.ts`) with canonical `INTERNAL_COMPANY_DOMAINS` and `reliableaccount.hu` shielding against accounting/payroll files and automated meeting notetakers
 - Email Contact to Lead & Deal Conversion (`POST /api/inbox/[brand]/convert`, `ConvertModal`) with automatic email participant harvesting and enrichment (`lib/email-contact-extractor.ts`, `lib/email-contact-merge.ts`), multi-company domain inference, selective harvesting participant selector with domain badges, conversion destination switching ("Add to Current Lead" vs "Separate Lead"), and live thread conversation contacts strip
@@ -107,7 +108,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.305**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25; updated to 2.4.305) and needs updating on every version-stamp sync pass, not just when someone notices.
+Current app version is **2.4.306**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25; updated to 2.4.306) and needs updating on every version-stamp sync pass, not just when someone notices.
 
 Single source of truth: `package.json`
 

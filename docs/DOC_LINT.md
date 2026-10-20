@@ -1,6 +1,6 @@
 # Doc Lint Checklist
 
-**Version:** 2.4.305
+**Version:** 2.4.306
 
 Use this checklist when updating docs to avoid drift.
 

@@ -1,6 +1,6 @@
 # Operator Guide — Sales Lead Generator
 
-**Version:** 2.4.305
+**Version:** 2.4.306
 **App:** https://salesleadgenerator.vercel.app
 
 ---
@@ -135,9 +135,11 @@ The **Inbox** (`/inbox/[brand]`, issue #257) is the centralized communication hu
   - **Lead**: Teal badge (`Lead ✓`) if linked to an active lead record, or dashed gray (`No Lead`) if unlinked.
   - **Contact**: Blue badge (`Contact ✓` with count) if contacts exist, or dashed gray (`No Contact`).
   - **Deal**: Grape badge with monetary value (e.g., `Deal: €5,000` or count) if commercial deals are open, or dashed gray (`No Deal`).
-- **User Mailbox Scoping & Privacy Isolation** (issues #268, #269):
-  - Inboxes strictly enforce "My Inbox" scoping (`scope: 'my'`), completely shielding unassigned and unlinked correspondence belonging to other sales representatives.
-  - **Multi-Identity Mailbox Linking**: Personal Google SSO accounts (e.g. `moldovancsaba@gmail.com`) are automatically linked with corporate Workspace accounts (e.g. `coo@seyuselfies.com`) via `KNOWN_USER_ALIASES`, unifying all personal and corporate email threads into your view regardless of which identity you signed in with.
+- **User Mailbox Scoping & Privacy Isolation** (issues #268, #269, #271):
+  - Inboxes strictly enforce "My Inbox" scoping (`scope: 'my'`), completely shielding correspondence belonging to other sales representatives.
+  - **Fail-Closed Privacy Guard** (issue #271): If session claims cannot be verified or resolved, the inbox strictly fails closed with zero threads, permanently eliminating fail-open leakage of team correspondence.
+  - **Admin-Managed Mailbox Aliases** (issue #271): Super-admins can configure linked email aliases (`aliases: string[]`) directly in `/admin/users` via `<ManageAliasesModal />`. Personal SSO accounts (`moldovancsaba@gmail.com`) and corporate accounts (`coo@seyuselfies.com`, `office@seyuselfies.com`) unite seamlessly into a single inbox stream.
+  - **Configurable Scoping Policy** (issue #271): Controlled via `/admin/users` and `/salessettings/[client]` (`company_settings.inboxSettings.includeAssignedLeadThreads`). Defaults to Strict Mailbox Only (sales reps strictly only see emails where their linked mailboxes are participants; colleagues' separate emails on assigned leads will not leak). Lead-assignment visibility can be toggled on per brand if team collaboration on assigned leads is preferred.
   - **Internal & Service Provider Shield**: Internal corporate domains (`seyuselfies.com`, `seyu.hu`, `cogmap.com`, `dvsc.hu`, `doneisbetter.com`) and external service providers (`reliableaccount.hu` accounting & payroll, meeting notetaker bots) are completely shielded from ever being harvested as prospect CRM contacts.
 - Search across lead entity names, contact names, email addresses, subjects, and message previews with instant filtering.
 - Visual status indicators: Unread blue indicator dot, kanban stage badge (`Negotiating`, `Contacted`, `Discovered`), urgent `Reply Needed` orange badge, and message counter badge for multi-message threads.

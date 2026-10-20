@@ -32,6 +32,7 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
   let mockLeadDocs: any[] = [];
   let mockIntegrationDocs: any[] = [];
   let mockUserDocs: any[] = [];
+  let mockCompanySettingsDoc: any = null;
 
   function createMockDb() {
     return {
@@ -174,11 +175,27 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
             find: (query: any) => ({
               toArray: async () => {
                 return mockUserDocs.filter((u) => {
+                  if (query.$or) {
+                    return query.$or.some((clause: any) => {
+                      if (clause.ssoUserId?.$in && clause.ssoUserId.$in.includes(u.ssoUserId)) return true;
+                      if (clause.ssoUserId && clause.ssoUserId === u.ssoUserId) return true;
+                      if (clause.email?.$in && clause.email.$in.includes(u.email)) return true;
+                      if (clause.email && clause.email === u.email) return true;
+                      if (clause.aliases?.$in && u.aliases?.some((a: string) => clause.aliases.$in.includes(a))) return true;
+                      return false;
+                    });
+                  }
                   if (query?.email?.$in && !query.email.$in.includes(u.email)) return false;
                   return true;
                 });
               },
             }),
+          };
+        }
+
+        if (name === 'company_settings') {
+          return {
+            findOne: async () => mockCompanySettingsDoc,
           };
         }
 
@@ -200,13 +217,14 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
     mockLeadDocs = [];
     mockIntegrationDocs = [];
     mockUserDocs = [];
+    mockCompanySettingsDoc = null;
     vi.clearAllMocks();
   });
 
   describe('listInboxThreads', () => {
     it('returns empty list and zero counts when no messages exist', async () => {
       const db = createMockDb();
-      const res = await listInboxThreads(db, 'cogmap', 't_default');
+      const res = await listInboxThreads(db, 'cogmap', 't_default', { userEmail: 'sales@cogmap.com' });
 
       expect(res.threads).toEqual([]);
       expect(res.total).toBe(0);
@@ -266,7 +284,7 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
         createdAt: new Date('2026-10-18T12:00:00Z'),
       });
 
-      const res = await listInboxThreads(db, 'cogmap', 't_default');
+      const res = await listInboxThreads(db, 'cogmap', 't_default', { userEmail: 'sales@cogmap.com' });
 
       expect(res.total).toBe(1);
       expect(res.threads.length).toBe(1);
@@ -312,6 +330,7 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
         direction: 'inbound',
         subject: 'Alpha inquiry',
         bodyExcerpt: 'Alpha text',
+        to: ['rep@cogmap.com'],
         createdAt: new Date('2026-10-18T10:00:00Z'),
       });
 
@@ -325,6 +344,7 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
         type: 'note',
         direction: null,
         bodyExcerpt: 'Called them, left voicemail on mobile',
+        userEmail: 'rep@cogmap.com',
         loggedBy: 'rep@cogmap.com',
         createdAt: new Date('2026-10-18T11:00:00Z'),
       });
@@ -340,29 +360,29 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       });
 
       // List all
-      const allRes = await listInboxThreads(db, 'cogmap', 't_default');
+      const allRes = await listInboxThreads(db, 'cogmap', 't_default', { userEmail: 'rep@cogmap.com' });
       expect(allRes.total).toBe(2);
       expect(allRes.counts.internal).toBe(1);
       expect(allRes.counts.inbox).toBe(1);
       expect(allRes.counts.unread).toBe(0); // alpha was explicitly marked read; beta is internal note (read by default)
 
       // Filter by stream: internal
-      const internalRes = await listInboxThreads(db, 'cogmap', 't_default', { stream: 'internal' });
+      const internalRes = await listInboxThreads(db, 'cogmap', 't_default', { stream: 'internal', userEmail: 'rep@cogmap.com' });
       expect(internalRes.total).toBe(1);
       expect(internalRes.threads[0].id).toBe('thread_beta');
 
       // Filter by starred
-      const starredRes = await listInboxThreads(db, 'cogmap', 't_default', { starredOnly: true });
+      const starredRes = await listInboxThreads(db, 'cogmap', 't_default', { starredOnly: true, userEmail: 'rep@cogmap.com' });
       expect(starredRes.total).toBe(1);
       expect(starredRes.threads[0].id).toBe('thread_alpha');
 
       // Search query
-      const searchRes = await listInboxThreads(db, 'cogmap', 't_default', { search: 'voicemail' });
+      const searchRes = await listInboxThreads(db, 'cogmap', 't_default', { search: 'voicemail', userEmail: 'rep@cogmap.com' });
       expect(searchRes.total).toBe(1);
       expect(searchRes.threads[0].id).toBe('thread_beta');
 
       // Search query by leadId
-      const leadIdSearchRes = await listInboxThreads(db, 'cogmap', 't_default', { search: 'lead_1' });
+      const leadIdSearchRes = await listInboxThreads(db, 'cogmap', 't_default', { search: 'lead_1', userEmail: 'rep@cogmap.com' });
       expect(leadIdSearchRes.total).toBe(1);
       expect(leadIdSearchRes.threads[0].id).toBe('thread_alpha');
     });
@@ -535,6 +555,128 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       expect(res.threads.length).toBe(2);
       expect(res.threads.map((t) => t.id).sort()).toEqual(['thread_corp', 'thread_google']);
       expect(res.counts.all).toBe(2);
+    });
+
+    it('enforces fail-closed privacy guard when neither userId nor userEmail is provided', async () => {
+      const db = createMockDb();
+
+      mockActivityDocs.push({
+        _id: 'act_secret',
+        brand: 'seyu',
+        tenantId: 't_default',
+        threadId: 'thread_secret',
+        type: 'email-outbound',
+        direction: 'outbound',
+        subject: 'Confidential Negotiations',
+        bodyExcerpt: 'Private team correspondence',
+        from: 'rep@seyuselfies.com',
+        userEmail: 'rep@seyuselfies.com',
+        createdAt: new Date(),
+      });
+
+      // Calling listInboxThreads without user identity fails closed immediately
+      const res = await listInboxThreads(db, 'seyu', 't_default');
+
+      expect(res.threads).toEqual([]);
+      expect(res.total).toBe(0);
+      expect(res.counts.all).toBe(0);
+    });
+
+    it('enforces strict mailbox isolation by default, ignoring assigned leads unless enabled in company_settings', async () => {
+      const db = createMockDb();
+
+      mockLeadDocs = [
+        {
+          _id: 'lead_assigned',
+          id: 'lead_assigned',
+          entity_name: 'Assigned Prospect Inc',
+          assignedToEmail: 'myrep@cogmap.com',
+          assignedTo: 'uid_myrep',
+        },
+      ];
+
+      // A colleague emailed this assigned lead
+      mockActivityDocs.push({
+        _id: 'act_other_colleague',
+        brand: 'cogmap',
+        tenantId: 't_default',
+        leadId: 'lead_assigned',
+        threadId: 'thread_other_colleague',
+        type: 'email-inbound',
+        direction: 'inbound',
+        subject: 'Discussion with colleague',
+        bodyExcerpt: 'Colleague conversation',
+        from: 'prospect@assignedinc.com',
+        to: ['colleague@cogmap.com'],
+        userEmail: 'colleague@cogmap.com',
+        createdAt: new Date(),
+      });
+
+      // 1. By default, companySettings has includeAssignedLeadThreads = false (Strict Mailbox Only)
+      mockCompanySettingsDoc = {
+        brand: 'cogmap',
+        inboxSettings: { includeAssignedLeadThreads: false },
+      };
+
+      const strictRes = await listInboxThreads(db, 'cogmap', 't_default', {
+        userId: 'uid_myrep',
+        userEmail: 'myrep@cogmap.com',
+      });
+
+      // Thread is NOT included in myrep's inbox because myrep was not an email participant
+      expect(strictRes.threads.length).toBe(0);
+
+      // 2. When companySettings has includeAssignedLeadThreads = true
+      mockCompanySettingsDoc = {
+        brand: 'cogmap',
+        inboxSettings: { includeAssignedLeadThreads: true },
+      };
+
+      const permissiveRes = await listInboxThreads(db, 'cogmap', 't_default', {
+        userId: 'uid_myrep',
+        userEmail: 'myrep@cogmap.com',
+      });
+
+      // Thread is now visible to lead owner
+      expect(permissiveRes.threads.length).toBe(1);
+      expect(permissiveRes.threads[0].id).toBe('thread_other_colleague');
+    });
+
+    it('dynamically resolves admin-configured aliases from sso_user_access', async () => {
+      const db = createMockDb();
+
+      mockUserDocs = [
+        {
+          ssoUserId: 'uid_sarah',
+          email: 'sarah.personal@gmail.com',
+          aliases: ['sarah@corporate.com', 'helpdesk@corporate.com'],
+        },
+      ];
+
+      mockActivityDocs.push({
+        _id: 'act_alias_thread',
+        brand: 'cogmap',
+        tenantId: 't_default',
+        threadId: 'thread_alias_helpdesk',
+        type: 'email-inbound',
+        direction: 'inbound',
+        subject: 'Helpdesk ticket 402',
+        bodyExcerpt: 'Inbound to helpdesk',
+        from: 'client@external.com',
+        to: ['helpdesk@corporate.com'],
+        userEmail: 'helpdesk@corporate.com',
+        createdAt: new Date(),
+      });
+
+      // Sarah signs in with personal email
+      const res = await listInboxThreads(db, 'cogmap', 't_default', {
+        userId: 'uid_sarah',
+        userEmail: 'sarah.personal@gmail.com',
+      });
+
+      // Dynamic alias resolution united helpdesk@corporate.com into her inbox
+      expect(res.threads.length).toBe(1);
+      expect(res.threads[0].id).toBe('thread_alias_helpdesk');
     });
   });
 

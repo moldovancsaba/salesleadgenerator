@@ -1,5 +1,31 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.306
+
+### Admin-Managed Mailbox Aliases, Scoping Policy, and Fail-Closed Privacy Guard (Issue #271)
+
+- **Fail-Closed Privacy Guard (`app/lib/inbox-store.ts`):**
+  - Hardened `listInboxThreads` so that if no user identity or mailbox is resolved (e.g. unverified session, expired token, or missing credentials), it strictly returns an empty list (`threads: []`) and zero counts (`counts = 0`).
+  - Permanently eliminates the fail-open vulnerability where an unauthenticated or unresolved request could fall back to dumping all team correspondence across all representatives.
+- **Admin-Managed Linked Mailboxes & Aliases (`lib/sso-access.ts`, `app/admin/users/admin-users-client.tsx`):**
+  - Added `aliases?: string[]` to `SsoUserAccessRecord` with helper functions `setUserAliases` and `getUserAliases`.
+  - Created `GET`/`PUT /api/admin/users/[userId]/aliases` endpoint for super-admins to configure and manage user mailbox aliases directly from the web interface.
+  - Added Linked Mailboxes column and interactive `<ManageAliasesModal />` in `/admin/users` enabling self-service alias management without code deployments.
+  - Dynamically resolves all user aliases and linked Google accounts in `listInboxThreads`, uniting personal and corporate correspondence across all mapped mailboxes.
+  - Linked `office@seyuselfies.com` alongside `moldovancsaba@gmail.com` and `coo@seyuselfies.com` across database records.
+- **Configurable Inbox Scoping Policy (`company_settings`, `/admin/users`, `/salessettings/[client]`):**
+  - Added `inboxSettings: { includeAssignedLeadThreads: boolean }` to `company_settings` (default: `false` for strict mailbox-only isolation).
+  - When disabled (Strict Mailbox Only), sales reps strictly only see email threads where their own linked mailboxes or user identity are an active participant (`From:`, `To:`, `Cc:`). Reps no longer see other colleagues' separate email threads even on leads assigned to them.
+  - When enabled, lead owners can also view team correspondence on leads assigned to them.
+  - Exposed management UI:
+    - On `/admin/users` via Communication Center & Inbox Scoping Policy card with brand selection and instant toggle (`/api/admin/inbox-settings`).
+    - On `/salessettings/[client]` in the Sales Process tab under Communication Center & Inbox Scoping Policy.
+- **Automated Verification:**
+  - Added unit test in `tests/lib/inbox-store.test.ts` verifying fail-closed privacy guard.
+  - Added unit test in `tests/lib/inbox-store.test.ts` verifying strict mailbox isolation by default vs. permissive lead-assignment visibility.
+  - Added unit test in `tests/lib/inbox-store.test.ts` verifying dynamic alias resolution from `sso_user_access`.
+  - Added unit test in `tests/lib/sso-access.test.ts` verifying `setUserAliases` and `getUserAliases` normalization.
+
 ## 2.4.305
 
 ### Multi-Identity Mailbox Linking & Service Provider/Accounting Shielding (Issue #269)

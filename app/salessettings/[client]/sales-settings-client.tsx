@@ -980,6 +980,40 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
                   />
                 </Stack>
               </Paper>
+
+              {/* Issue 271: Communication Center & Inbox Scoping Policy */}
+              <Paper withBorder p="md" radius="md">
+                <Stack gap="sm">
+                  <Title order={4}>Communication Center &amp; Inbox Scoping Policy</Title>
+                  <Text size="xs" c="dimmed">
+                    Configure mailbox isolation and thread visibility rules for the Unified Inbox.
+                  </Text>
+                  <Group justify="space-between" align="center">
+                    <Box style={{ flex: 1 }}>
+                      <Text size="sm" fw={500}>Include Team Correspondence on Assigned Leads</Text>
+                      <Text size="xs" c="dimmed">
+                        {settings.inboxSettings?.includeAssignedLeadThreads
+                          ? 'Active: Sales reps will see correspondence on leads assigned to them, including emails sent or received by other colleagues.'
+                          : 'Strict Mailbox Only (Recommended): Sales reps strictly only see emails where their own linked mailboxes are an active participant (From, To, Cc). Other reps\' emails on assigned leads will not appear in their inbox.'}
+                      </Text>
+                    </Box>
+                    <Switch
+                      checked={Boolean(settings.inboxSettings?.includeAssignedLeadThreads)}
+                      onChange={(e) => {
+                        const checked = e.currentTarget.checked;
+                        setSettings((s) => ({
+                          ...s,
+                          inboxSettings: {
+                            ...s.inboxSettings,
+                            includeAssignedLeadThreads: checked,
+                          },
+                        }));
+                      }}
+                      aria-label="Toggle include team correspondence on assigned leads"
+                    />
+                  </Group>
+                </Stack>
+              </Paper>
             </Stack>
           </Tabs.Panel>
 

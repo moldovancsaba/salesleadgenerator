@@ -5,6 +5,8 @@ import {
   hasAccessToBrand,
   getRoleForBrand,
   resolveLoginDestination,
+  setUserAliases,
+  getUserAliases,
 } from '../../lib/sso-access';
 
 // isSuperAdminEmail reads process.env.SSO_SUPER_ADMIN_EMAILS fresh on every
@@ -166,6 +168,46 @@ describe('lib/sso-access', () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = 'moldovancsaba@gmail.com';
       expect(resolveLoginDestination('approved', 'moldovancsaba@gmail.com', undefined, ALL_BRANDS)).toBe('/forecast/cogmap');
       expect(resolveLoginDestination(undefined, 'moldovancsaba@gmail.com', {}, ALL_BRANDS)).toBe('/forecast/cogmap');
+    });
+  });
+
+  describe('setUserAliases and getUserAliases', () => {
+    it('sets and retrieves normalized lowercased aliases', async () => {
+      let storedUser: any = {
+        ssoUserId: 'user_123',
+        email: 'primary@example.com',
+        aliases: [],
+      };
+
+      const mockDb: any = {
+        collection: () => ({
+          updateOne: async (query: any, update: any) => {
+            if (query.ssoUserId === storedUser.ssoUserId) {
+              storedUser = { ...storedUser, ...update.$set };
+            }
+            return { matchedCount: 1 };
+          },
+          findOne: async (query: any) => {
+            if (query.$or) {
+              const match = query.$or.some((c: any) => c.ssoUserId === storedUser.ssoUserId || c.email === storedUser.email);
+              return match ? storedUser : null;
+            }
+            return storedUser.ssoUserId === query.ssoUserId ? storedUser : null;
+          },
+        }),
+      };
+
+      const updated = await setUserAliases(mockDb, 'user_123', [
+        ' Work@Company.com ',
+        'OFFICE@company.com',
+        'invalid-email',
+      ]);
+
+      expect(updated).toBeDefined();
+      expect(updated?.aliases).toEqual(['work@company.com', 'office@company.com']);
+
+      const retrieved = await getUserAliases(mockDb, 'user_123');
+      expect(retrieved).toEqual(['work@company.com', 'office@company.com']);
     });
   });
 });

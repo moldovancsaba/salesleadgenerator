@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
       orgAccess: r.orgAccess,
       isSuperAdmin: isSuperAdminEmail(r.email),
       accessibleBrands: getAccessibleBrands(r.email, r.orgAccess, allBrands),
+      aliases: r.aliases || [],
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
     })),

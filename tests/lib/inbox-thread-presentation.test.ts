@@ -42,7 +42,7 @@ describe('Inbox Thread Presentation (Issue 260)', () => {
           type: 'email-inbound',
           direction: 'inbound',
           fromAddress: 'marcus.vance@acme-sports.com',
-          toAddresses: ['sales@cogmap.com', 'rep@cogmap.com'],
+          toAddresses: ['sales@cogmap.com', 'rep@cogmap.com', 'outreach@cogmap.com'],
           ccAddresses: ['boss@acme-sports.com'],
           subject: 'Partnership Inquiry',
           bodyExcerpt: '<style>* { margin: 0; }</style><p>Hello, we are interested in your solution.</p>',
@@ -91,7 +91,7 @@ describe('Inbox Thread Presentation (Issue 260)', () => {
         }),
       };
 
-      const result = await listInboxThreads(mockDb, 'cogmap', 'default');
+      const result = await listInboxThreads(mockDb, 'cogmap', 'default', { userEmail: 'outreach@cogmap.com' });
       expect(result.threads).toHaveLength(1);
       const thread = result.threads[0];
 
@@ -183,7 +183,7 @@ describe('Inbox Thread Presentation (Issue 260)', () => {
         }),
       };
 
-      const result = await listInboxThreads(mockDb, 'cogmap', 'default');
+      const result = await listInboxThreads(mockDb, 'cogmap', 'default', { userEmail: 'outreach@cogmap.com' });
       expect(result.threads).toHaveLength(1);
       const thread = result.threads[0];
 

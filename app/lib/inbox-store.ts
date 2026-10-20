@@ -19,8 +19,9 @@ import type { NormalizedContact } from '../../lib/contacts';
 export const INBOX_THREAD_STATES_COLLECTION = 'inbox_thread_states';
 
 export const KNOWN_USER_ALIASES: Record<string, string[]> = {
-  'moldovancsaba@gmail.com': ['coo@seyuselfies.com'],
-  'coo@seyuselfies.com': ['moldovancsaba@gmail.com'],
+  'moldovancsaba@gmail.com': ['coo@seyuselfies.com', 'office@seyuselfies.com'],
+  'coo@seyuselfies.com': ['moldovancsaba@gmail.com', 'office@seyuselfies.com'],
+  'office@seyuselfies.com': ['moldovancsaba@gmail.com', 'coo@seyuselfies.com'],
   'ricardo.rmbd@gmail.com': ['ricardo.maia@seyuselfies.com'],
   'ricardo.maia@seyuselfies.com': ['ricardo.rmbd@gmail.com'],
 };
@@ -334,18 +335,48 @@ export async function listInboxThreads(
     }
   }
 
-  // Find linked SSO user accounts matching candidate emails
-  if (candidateEmails.size > 0) {
-    const ssoMatches = await db.collection('sso_user_access')
-      .find(
-        { email: { $in: Array.from(candidateEmails) } },
-        { projection: { ssoUserId: 1, email: 1 } }
-      )
-      .toArray()
-      .catch(() => []);
-    for (const s of ssoMatches) {
-      if (s.ssoUserId) userIds.add(s.ssoUserId);
-      if (s.email) userMailboxSet.add(s.email.toLowerCase().trim());
+  // Issue 271: Fail-Closed Privacy Guard — if no user identity or email is resolved,
+  // strictly return empty results rather than leaking team correspondence across reps.
+  if (userIds.size === 0 && candidateEmails.size === 0) {
+    return {
+      threads: [],
+      counts: { all: 0, inbox: 0, sent: 0, needs_reply: 0, internal: 0, calls: 0, system: 0, unread: 0 },
+      total: 0,
+      mailboxes: [],
+      activeScope: 'my',
+    };
+  }
+
+  // Find linked SSO user accounts and admin-managed aliases matching candidate emails or user IDs
+  const ssoMatches = await db.collection('sso_user_access')
+    .find(
+      {
+        $or: [
+          ...(userIds.size > 0 ? [{ ssoUserId: { $in: Array.from(userIds) } }] : []),
+          ...(candidateEmails.size > 0 ? [{ email: { $in: Array.from(candidateEmails) } }] : []),
+          ...(candidateEmails.size > 0 ? [{ aliases: { $in: Array.from(candidateEmails) } }] : []),
+        ],
+      },
+      { projection: { ssoUserId: 1, email: 1, aliases: 1 } }
+    )
+    .toArray()
+    .catch(() => []);
+
+  for (const s of ssoMatches) {
+    if (s.ssoUserId) userIds.add(s.ssoUserId);
+    if (s.email) {
+      const normEmail = s.email.toLowerCase().trim();
+      userMailboxSet.add(normEmail);
+      candidateEmails.add(normEmail);
+    }
+    if (Array.isArray(s.aliases)) {
+      for (const a of s.aliases) {
+        if (typeof a === 'string' && a.includes('@')) {
+          const normAlias = a.toLowerCase().trim();
+          userMailboxSet.add(normAlias);
+          candidateEmails.add(normAlias);
+        }
+      }
     }
   }
 
@@ -371,6 +402,15 @@ export async function listInboxThreads(
       if (c.userId) userIds.add(c.userId);
     }
   }
+
+  // Issue 271: Retrieve company/brand inbox policy settings
+  const companySettingsDoc = await (typeof db.collection('company_settings')?.findOne === 'function'
+    ? db.collection('company_settings').findOne({ brand, ...(tenantId ? { tenantId } : {}) })
+    : Promise.resolve(null)
+  ).catch(() => null);
+  const includeAssignedLeadThreads = Boolean(
+    (companySettingsDoc as any)?.inboxSettings?.includeAssignedLeadThreads
+  );
 
   // 3. Load thread states
   const threadIds = Array.from(messagesByThread.keys());
@@ -569,7 +609,8 @@ export async function listInboxThreads(
       }
     }
 
-    if (!isMyInbox && lead) {
+    // Issue 271: Only inherit leads into personal inbox if the brand's policy permits it
+    if (!isMyInbox && includeAssignedLeadThreads && lead) {
       if (
         (lead.assignedToEmail && userMailboxSet.has(lead.assignedToEmail.toLowerCase().trim())) ||
         (lead.assignedTo && userIds.has(lead.assignedTo))
@@ -621,10 +662,7 @@ export async function listInboxThreads(
   const requestedScope: 'my' = 'my';
 
   // 6. Filter by scope: strictly My Inbox (threads belonging to user's connected mailboxes or assigned leads)
-  let scopedThreads = allThreads;
-  if (userMailboxSet.size > 0 || userIds.size > 0) {
-    scopedThreads = scopedThreads.filter((t) => t.isMyInbox);
-  }
+  let scopedThreads = allThreads.filter((t) => t.isMyInbox);
 
   // Filter by specific mailbox if requested
   if (options.mailbox && options.mailbox !== 'all') {
@@ -727,7 +765,7 @@ export async function getInboxThreadDetail(
   brand: string,
   tenantId: string,
   threadId: string,
-  options: { userId?: string; markRead?: boolean } = {}
+  options: { userId?: string; userEmail?: string; markRead?: boolean } = {}
 ): Promise<{ thread: InboxThread | null; messages: InboxMessage[]; lead: any | null; participants: NormalizedContact[] }> {
   await ensureInboxIndexes(db);
   await ensureActivityLogIndexes(db);
@@ -1021,7 +1059,11 @@ export async function postInboxReply(
     userName?: string;
   }
 ): Promise<{ success: boolean; result?: AutomatedSendResult | any; error?: string }> {
-  const detail = await getInboxThreadDetail(db, brand, tenantId, threadId, { markRead: false });
+  const detail = await getInboxThreadDetail(db, brand, tenantId, threadId, {
+    userId: userContext?.userId,
+    userEmail: userContext?.userEmail,
+    markRead: false,
+  });
   if (!detail.thread) {
     return { success: false, error: 'Conversation thread not found' };
   }

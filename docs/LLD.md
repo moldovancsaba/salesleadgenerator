@@ -1,8 +1,8 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.305
+**Version:** 2.4.306
 
-**Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212); comprehensive alignment audit completed 2026-10-18 (2.4.291, issue #256) bringing the complete API surface, domain modules, and component tree up to date across all features through v2.4.305 (Multi-identity mailbox linking, user mailbox privacy isolation, corporate accounting domain shield, foreign contact decoupling, selective harvesting control, GDS Phases 1-3 design system migration, high-affordance card visual architecture, and stage-aware semantic actions). This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
+**Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212); comprehensive alignment audit completed 2026-10-18 (2.4.291, issue #256) bringing the complete API surface, domain modules, and component tree up to date across all features through v2.4.306 (Admin-managed mailbox aliases, configurable inbox scoping policy, fail-closed privacy guard, multi-identity mailbox linking, user mailbox privacy isolation, corporate accounting domain shield, foreign contact decoupling, selective harvesting control, GDS Phases 1-3 design system migration, high-affordance card visual architecture, and stage-aware semantic actions). This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 
 Compiled directly from the real source (export lists, import graphs, route handlers) — every claim below was verified against a real file, not inferred. If this doc and the source ever disagree, the source is correct; treat the disagreement as a doc bug to fix, not a spec violation to reconcile the code toward. See `docs/DOC_LINT.md` before editing.
 
@@ -131,6 +131,8 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 |---|---|---|---|
 | `app/api/admin/users/route.ts` | GET | `requireSuperAdminSession` | List all users + org access for `/admin/users` |
 | `app/api/admin/users/[userId]/access/route.ts` | PUT | `requireSuperAdminSession` | Grant/revoke per-brand role via `setUserOrgAccess` |
+| `app/api/admin/users/[userId]/aliases/route.ts` | GET, PUT | `requireSuperAdminSession` | Read/update linked mailbox email aliases via `setUserAliases` (issue #271) |
+| `app/api/admin/inbox-settings/route.ts` | GET, PUT | `requireBrandAccessApi` | Get/set brand inbox scoping policy (`includeAssignedLeadThreads`) in `company_settings` (issue #271) |
 | `app/api/admin/toggle/route.ts` | PUT, GET | `requireSuperAdminSession` | Reads/writes a feature-flag-style JSON file on disk |
 | `app/api/admin/data-hygiene/route.ts` | GET | `requireApiKey` | Data-quality scan (missing `PRO_FIELD`/`CON_FIELD` etc.); honors `?brand=` since 2.4.231 |
 | `app/api/admin/data-hygiene/country/route.ts` | GET | `requireApiKey` | Read-only country-vs-address check over a whole brand (`lib/country-consistency.ts`, issue #222): per-reason counts plus at most 20 rows for one `?reason=` (`?offset=` to page) |
