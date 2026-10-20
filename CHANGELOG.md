@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.307
+
+### Strict CC Isolation, Outbound Counterparty Resolution & Topic Threading (Issue #271)
+
+- **Strict CC Privacy Isolation (`app/lib/inbox-store.ts`, `app/lib/sales-settings.ts`):**
+  - Added `inboxSettings.includeCcThreads` brand-level policy (default: `false` for strict direct participation).
+  - When disabled, threads where a user is only on CC (and not a direct sender, recipient in `To:`, or connected mailbox owner) are excluded from their personal Inbox. Prevents team management oversight CCs from flooding executive or sales rep inboxes with colleagues' client conversations.
+  - When enabled, users can opt into viewing CC'd conversations alongside direct threads.
+  - Configurable via `/admin/users` (Communication Center & Inbox Scoping Policy) and `/salessettings/[client]` (Process tab).
+  - Seeded in MongoDB Atlas for `seyu`, `cogmap`, and `dvsc` with `includeCcThreads: false`.
+- **Outbound-Only Counterparty Resolution (`app/lib/inbox-store.ts`):**
+  - Fixed counterparty resolution on outbound email conversations. When an internal sales rep initiates an outreach thread or event update and no inbound reply exists yet, counterparty accurately resolves to the external prospect recipient (`lastOutbound.to[0]`), rather than erroneously assigning the internal sales rep as the contact/counterparty.
+  - Fixes erroneous "CONTACT: [Internal Rep]" chips and ensures in-thread replies and lead conversion buttons target the external prospect.
+- **Topic-Aware Thread Clustering (`app/lib/inbox-store.ts`):**
+  - Hardened `resolveMessageThreadId` to group messages without Gmail thread IDs by lead ID and normalized subject, preventing distinct communications on large shared organizational accounts from collapsing into a single conglomerate thread.
+- **Viewer Mailbox Attribution (`app/lib/inbox-store.ts`):**
+  - Corrected `userMailbox` resolution in thread lists and detail views to prefer the viewer's own matching connected mailbox/alias. Prevents threads from being branded with colleagues' synced mailboxes in personal inboxes.
+- **Automated Verification:**
+  - Added test in `tests/lib/inbox-store.test.ts` verifying CC-only thread exclusion by default and inclusion when enabled.
+  - Added test in `tests/lib/inbox-store.test.ts` verifying outbound-only counterparty resolution to the external prospect recipient.
+
 ## 2.4.306
 
 ### Admin-Managed Mailbox Aliases, Scoping Policy, and Fail-Closed Privacy Guard (Issue #271)

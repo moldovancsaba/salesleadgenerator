@@ -642,6 +642,82 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       expect(permissiveRes.threads[0].id).toBe('thread_other_colleague');
     });
 
+    it('enforces includeCcThreads policy: excludes CC-only threads by default unless enabled', async () => {
+      const db = createMockDb();
+
+      // Thread where colleague emailed prospect and CC'd manager
+      mockActivityDocs.push({
+        _id: 'act_cc_thread',
+        brand: 'cogmap',
+        tenantId: 't_default',
+        threadId: 'thread_cc_only',
+        type: 'email-outbound',
+        direction: 'outbound',
+        subject: 'Event planning update',
+        bodyExcerpt: 'Here is the plan',
+        from: 'colleague@cogmap.com',
+        to: ['prospect@eventclient.com'],
+        cc: ['manager@cogmap.com'],
+        userEmail: 'colleague@cogmap.com',
+        createdAt: new Date(),
+      });
+
+      // 1. By default, includeCcThreads is false (strict direct participation)
+      mockCompanySettingsDoc = {
+        brand: 'cogmap',
+        inboxSettings: { includeCcThreads: false },
+      };
+
+      const strictRes = await listInboxThreads(db, 'cogmap', 't_default', {
+        userEmail: 'manager@cogmap.com',
+      });
+      // Manager is only on CC, so thread is NOT in manager's personal inbox
+      expect(strictRes.threads.length).toBe(0);
+
+      // 2. When includeCcThreads is true
+      mockCompanySettingsDoc = {
+        brand: 'cogmap',
+        inboxSettings: { includeCcThreads: true },
+      };
+
+      const permissiveRes = await listInboxThreads(db, 'cogmap', 't_default', {
+        userEmail: 'manager@cogmap.com',
+      });
+      // Manager now sees CC thread, and userMailbox resolves to manager's email (not colleague)
+      expect(permissiveRes.threads.length).toBe(1);
+      expect(permissiveRes.threads[0].userMailbox).toBe('manager@cogmap.com');
+    });
+
+    it('resolves external recipient as counterparty for outbound-only threads', async () => {
+      const db = createMockDb();
+
+      mockActivityDocs.push({
+        _id: 'act_outbound_only',
+        brand: 'cogmap',
+        tenantId: 't_default',
+        threadId: 'thread_outbound_only',
+        type: 'email-outbound',
+        direction: 'outbound',
+        subject: 'Selfie Event Setup',
+        bodyExcerpt: 'Details for Saturday',
+        from: 'rep@cogmap.com',
+        to: ['inga.schuler@scb.ch'],
+        userEmail: 'rep@cogmap.com',
+        createdAt: new Date(),
+      });
+
+      const res = await listInboxThreads(db, 'cogmap', 't_default', {
+        userEmail: 'rep@cogmap.com',
+      });
+
+      expect(res.threads.length).toBe(1);
+      const thread = res.threads[0];
+      // Counterparty must be external recipient (Inga Schuler), NEVER the rep who sent it
+      expect(thread.senderEmail).toBe('inga.schuler@scb.ch');
+      expect(thread.contactEmail).toBe('inga.schuler@scb.ch');
+      expect(thread.senderDisplayName).toContain('Inga Schuler');
+    });
+
     it('dynamically resolves admin-configured aliases from sso_user_access', async () => {
       const db = createMockDb();
 

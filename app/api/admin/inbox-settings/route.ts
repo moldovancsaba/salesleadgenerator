@@ -32,11 +32,15 @@ export async function GET(request: NextRequest) {
   const includeAssignedLeadThreads = Boolean(
     (doc as any)?.inboxSettings?.includeAssignedLeadThreads
   );
+  const includeCcThreads = Boolean(
+    (doc as any)?.inboxSettings?.includeCcThreads
+  );
 
   return NextResponse.json({
     brand,
     tenantId,
     includeAssignedLeadThreads,
+    includeCcThreads,
   });
 }
 
@@ -55,26 +59,36 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
   }
 
-  const includeAssignedLeadThreads = Boolean(body.includeAssignedLeadThreads);
   const tenantId = getTenantId(request);
   const client = await clientPromise;
   const db = client.db();
 
+  const setFields: Record<string, any> = {
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (body.includeAssignedLeadThreads !== undefined) {
+    setFields['inboxSettings.includeAssignedLeadThreads'] = Boolean(body.includeAssignedLeadThreads);
+  }
+  if (body.includeCcThreads !== undefined) {
+    setFields['inboxSettings.includeCcThreads'] = Boolean(body.includeCcThreads);
+  }
+
   await db.collection('company_settings').updateOne(
     { brand, ...(tenantId ? { tenantId } : {}) },
-    {
-      $set: {
-        'inboxSettings.includeAssignedLeadThreads': includeAssignedLeadThreads,
-        updatedAt: new Date().toISOString(),
-      },
-    },
+    { $set: setFields },
     { upsert: true }
   );
+
+  const updatedDoc = await db.collection('company_settings')
+    .findOne({ brand, ...(tenantId ? { tenantId } : {}) })
+    .catch(() => null);
 
   return NextResponse.json({
     ok: true,
     brand,
     tenantId,
-    includeAssignedLeadThreads,
+    includeAssignedLeadThreads: Boolean((updatedDoc as any)?.inboxSettings?.includeAssignedLeadThreads),
+    includeCcThreads: Boolean((updatedDoc as any)?.inboxSettings?.includeCcThreads),
   });
 }

@@ -994,7 +994,7 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
                       <Text size="xs" c="dimmed">
                         {settings.inboxSettings?.includeAssignedLeadThreads
                           ? 'Active: Sales reps will see correspondence on leads assigned to them, including emails sent or received by other colleagues.'
-                          : 'Strict Mailbox Only (Recommended): Sales reps strictly only see emails where their own linked mailboxes are an active participant (From, To, Cc). Other reps\' emails on assigned leads will not appear in their inbox.'}
+                          : 'Strict Mailbox Only (Recommended): Sales reps strictly only see emails where their own linked mailboxes are an active participant (From, To). Other reps\' emails on assigned leads will not appear in their inbox.'}
                       </Text>
                     </Box>
                     <Switch
@@ -1010,6 +1010,31 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
                         }));
                       }}
                       aria-label="Toggle include team correspondence on assigned leads"
+                    />
+                  </Group>
+                  <Divider />
+                  <Group justify="space-between" align="center">
+                    <Box style={{ flex: 1 }}>
+                      <Text size="sm" fw={500}>Include CC&apos;d Threads in My Inbox</Text>
+                      <Text size="xs" c="dimmed">
+                        {settings.inboxSettings?.includeCcThreads
+                          ? 'Active: Threads where a user is on CC will appear in their personal Inbox alongside direct correspondence.'
+                          : 'Strict Direct Participation (Recommended): Threads where a user is only on CC are excluded from their personal Inbox. Prevents management oversight CCs from cluttering sales inboxes.'}
+                      </Text>
+                    </Box>
+                    <Switch
+                      checked={Boolean(settings.inboxSettings?.includeCcThreads)}
+                      onChange={(e) => {
+                        const checked = e.currentTarget.checked;
+                        setSettings((s) => ({
+                          ...s,
+                          inboxSettings: {
+                            ...s.inboxSettings,
+                            includeCcThreads: checked,
+                          },
+                        }));
+                      }}
+                      aria-label="Toggle include CC threads in inbox"
                     />
                   </Group>
                 </Stack>

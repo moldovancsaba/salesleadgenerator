@@ -15,6 +15,7 @@ import {
 } from '../../lib/email-contact-extractor';
 import { mergeContactsIntoLead } from '../../lib/email-contact-merge';
 import type { NormalizedContact } from '../../lib/contacts';
+import { getUserAliases } from '../../lib/sso-access';
 
 export const INBOX_THREAD_STATES_COLLECTION = 'inbox_thread_states';
 
@@ -152,7 +153,14 @@ function resolveMessageThreadId(doc: any): string {
   if (doc.gmailThreadId && typeof doc.gmailThreadId === 'string' && doc.gmailThreadId.trim()) {
     return doc.gmailThreadId.trim();
   }
+  if (doc.rfcMessageId && typeof doc.rfcMessageId === 'string' && doc.rfcMessageId.trim()) {
+    return `msg:${doc.rfcMessageId.trim()}`;
+  }
   if (doc.leadId !== undefined && doc.leadId !== null && String(doc.leadId).trim() !== '') {
+    const rawSubject = (doc.subject || '').replace(/^(re|fwd|aw|wg):\s*/i, '').trim().toLowerCase();
+    if (rawSubject) {
+      return `lead:${String(doc.leadId).trim()}:${rawSubject}`;
+    }
     return `lead:${String(doc.leadId).trim()}`;
   }
   return `msg:${doc._id ? doc._id.toString() : String(Math.random())}`;
@@ -411,6 +419,9 @@ export async function listInboxThreads(
   const includeAssignedLeadThreads = Boolean(
     (companySettingsDoc as any)?.inboxSettings?.includeAssignedLeadThreads
   );
+  const includeCcThreads = Boolean(
+    (companySettingsDoc as any)?.inboxSettings?.includeCcThreads
+  );
 
   // 3. Load thread states
   const threadIds = Array.from(messagesByThread.keys());
@@ -508,11 +519,21 @@ export async function listInboxThreads(
     const lastInbound = msgs.slice().reverse().find((m) => m.direction === 'inbound' && m.from);
     const lastOutbound = msgs.slice().reverse().find((m) => m.direction === 'outbound' && m.to && m.to[0]);
 
-    // Parse sender display name and email
-    const rawSender = lastInbound?.from || lastOutbound?.from || lastMessage.from || '';
-    const parsedSender = parseEmailParticipant(rawSender);
-    const senderDisplayName = parsedSender?.name || (rawSender.includes('@') ? formatLocalPartAsName(rawSender.split('@')[0]) : rawSender) || undefined;
-    const senderEmail = parsedSender?.email || (rawSender.includes('@') ? rawSender.trim().toLowerCase() : undefined);
+    // Parse counterparty display name and email:
+    // For inbound emails, counterparty is the external sender (lastInbound.from).
+    // For outbound-only threads, counterparty is the external recipient (lastOutbound.to[0]), NEVER the internal sender!
+    let counterpartyRaw = '';
+    if (lastInbound?.from) {
+      counterpartyRaw = lastInbound.from;
+    } else if (lastOutbound?.to && lastOutbound.to[0]) {
+      counterpartyRaw = lastOutbound.to[0];
+    } else {
+      counterpartyRaw = lastMessage.from || '';
+    }
+
+    const parsedSender = parseEmailParticipant(counterpartyRaw);
+    const senderDisplayName = parsedSender?.name || (counterpartyRaw.includes('@') ? formatLocalPartAsName(counterpartyRaw.split('@')[0]) : counterpartyRaw) || undefined;
+    const senderEmail = parsedSender?.email || (counterpartyRaw.includes('@') ? counterpartyRaw.trim().toLowerCase() : undefined);
 
     const contactName = contact?.name || senderDisplayName || undefined;
     const contactEmail = contact?.email || senderEmail || (lastOutbound?.to ? lastOutbound.to[0] : undefined);
@@ -580,32 +601,40 @@ export async function listInboxThreads(
     const isStarred = Boolean(state?.isStarred);
     const isArchived = Boolean(state?.isArchived);
 
-    // Issue 268: Mailbox ownership and My Inbox attribution
+    // Issue 268 & 271: Mailbox ownership and My Inbox attribution
     let isMyInbox = false;
     let userMailbox: string | undefined = undefined;
 
     for (const m of msgs) {
       const msgUserEmail = m.userEmail?.toLowerCase().trim();
-      if (msgUserEmail) {
-        if (userMailboxSet.has(msgUserEmail)) {
-          isMyInbox = true;
-          userMailbox = msgUserEmail;
-        } else if (!userMailbox) {
-          userMailbox = msgUserEmail;
-        }
+      if (msgUserEmail && userMailboxSet.has(msgUserEmail)) {
+        isMyInbox = true;
+        if (!userMailbox) userMailbox = msgUserEmail;
       }
       if (m.userId && userIds.has(m.userId)) {
         isMyInbox = true;
       }
-      if (m.from && userMailboxSet.has(m.from.toLowerCase().trim())) {
-        isMyInbox = true;
-        userMailbox = m.from.toLowerCase().trim();
+      if (m.from) {
+        const fromEmail = m.from.toLowerCase().trim();
+        if (userMailboxSet.has(fromEmail)) {
+          isMyInbox = true;
+          if (!userMailbox) userMailbox = fromEmail;
+        }
       }
-      if (m.to && m.to.some((t) => userMailboxSet.has(t.toLowerCase().trim()))) {
-        isMyInbox = true;
+      if (m.to) {
+        const matchingTo = m.to.find((t) => userMailboxSet.has(t.toLowerCase().trim()));
+        if (matchingTo) {
+          isMyInbox = true;
+          if (!userMailbox) userMailbox = matchingTo.toLowerCase().trim();
+        }
       }
-      if (m.cc && m.cc.some((c) => userMailboxSet.has(c.toLowerCase().trim()))) {
-        isMyInbox = true;
+      // Only include CC'd correspondence if explicitly enabled by brand policy
+      if (includeCcThreads && m.cc) {
+        const matchingCc = m.cc.find((c) => userMailboxSet.has(c.toLowerCase().trim()));
+        if (matchingCc) {
+          isMyInbox = true;
+          if (!userMailbox) userMailbox = matchingCc.toLowerCase().trim();
+        }
       }
     }
 
@@ -775,14 +804,22 @@ export async function getInboxThreadDetail(
 
   // Build filter for messages in this thread
   const isLeadThread = threadId.startsWith('lead:');
-  const targetLeadId = isLeadThread ? threadId.replace(/^lead:/, '') : undefined;
+  const leadParts = isLeadThread ? threadId.replace(/^lead:/, '').split(':') : [];
+  const targetLeadId = leadParts[0] || undefined;
+  const targetSubject = leadParts[1] || undefined;
 
   const activityFilter: Record<string, any> = { ...brandFilter };
   const outreachFilter: Record<string, any> = { ...brandFilter, activityLogWritten: { $ne: true } };
 
   if (isLeadThread && targetLeadId) {
-    activityFilter.$or = [{ threadId }, { leadId: targetLeadId }];
-    outreachFilter.$or = [{ gmailThreadId: threadId }, { leadId: targetLeadId }];
+    if (targetSubject) {
+      const subjectRegex = new RegExp(targetSubject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      activityFilter.$or = [{ threadId }, { leadId: targetLeadId, subject: subjectRegex }];
+      outreachFilter.$or = [{ gmailThreadId: threadId }, { leadId: targetLeadId, subject: subjectRegex }];
+    } else {
+      activityFilter.$or = [{ threadId }, { leadId: targetLeadId }];
+      outreachFilter.$or = [{ gmailThreadId: threadId }, { leadId: targetLeadId }];
+    }
   } else {
     activityFilter.$or = [{ threadId }, { externalId: threadId }];
     outreachFilter.$or = [{ gmailThreadId: threadId }, { resendEmailId: threadId }, { gmailMessageId: threadId }];
@@ -837,11 +874,21 @@ export async function getInboxThreadDetail(
   const lastInbound = messages.slice().reverse().find((m) => m.direction === 'inbound' && m.from);
   const lastOutbound = messages.slice().reverse().find((m) => m.direction === 'outbound' && m.to && m.to[0]);
 
-  // Parse sender display name and email
-  const rawSender = lastInbound?.from || lastOutbound?.from || lastMessage.from || '';
-  const parsedSender = parseEmailParticipant(rawSender);
-  const senderDisplayName = parsedSender?.name || (rawSender.includes('@') ? formatLocalPartAsName(rawSender.split('@')[0]) : rawSender) || undefined;
-  const senderEmail = parsedSender?.email || (rawSender.includes('@') ? rawSender.trim().toLowerCase() : undefined);
+  // Parse counterparty display name and email:
+  // For inbound emails, counterparty is the external sender (lastInbound.from).
+  // For outbound-only threads, counterparty is the external recipient (lastOutbound.to[0]), NEVER the internal sender!
+  let counterpartyRaw = '';
+  if (lastInbound?.from) {
+    counterpartyRaw = lastInbound.from;
+  } else if (lastOutbound?.to && lastOutbound.to[0]) {
+    counterpartyRaw = lastOutbound.to[0];
+  } else {
+    counterpartyRaw = lastMessage.from || '';
+  }
+
+  const parsedSender = parseEmailParticipant(counterpartyRaw);
+  const senderDisplayName = parsedSender?.name || (counterpartyRaw.includes('@') ? formatLocalPartAsName(counterpartyRaw.split('@')[0]) : counterpartyRaw) || undefined;
+  const senderEmail = parsedSender?.email || (counterpartyRaw.includes('@') ? counterpartyRaw.trim().toLowerCase() : undefined);
 
   const contactName = contact?.name || senderDisplayName || undefined;
   const contactEmail = contact?.email || senderEmail || (lastOutbound?.to ? lastOutbound.to[0] : undefined);
@@ -947,6 +994,35 @@ export async function getInboxThreadDetail(
     }
   }
 
+  // Resolve userMailbox: if viewer email is provided, check if one of their mailboxes/aliases participated
+  let resolvedUserMailbox: string | undefined = undefined;
+  if (options.userEmail) {
+    const viewerEmail = options.userEmail.toLowerCase().trim();
+    const viewerAliases = await getUserAliases(db, viewerEmail).catch(() => [viewerEmail]);
+    const viewerSet = new Set(viewerAliases.map((a) => a.toLowerCase().trim()));
+    for (const m of messages) {
+      if (m.userEmail && viewerSet.has(m.userEmail.toLowerCase().trim())) {
+        resolvedUserMailbox = m.userEmail.toLowerCase().trim();
+        break;
+      }
+      if (m.from && viewerSet.has(m.from.toLowerCase().trim())) {
+        resolvedUserMailbox = m.from.toLowerCase().trim();
+        break;
+      }
+      if (m.to) {
+        const matchTo = m.to.find((t) => viewerSet.has(t.toLowerCase().trim()));
+        if (matchTo) {
+          resolvedUserMailbox = matchTo.toLowerCase().trim();
+          break;
+        }
+      }
+    }
+  }
+
+  if (!resolvedUserMailbox) {
+    resolvedUserMailbox = messages.find((m) => m.userEmail)?.userEmail || (lastOutbound?.from && lastOutbound.from.includes('@') ? lastOutbound.from.toLowerCase().trim() : undefined);
+  }
+
   const thread: InboxThread = {
     id: threadId,
     leadId,
@@ -974,7 +1050,7 @@ export async function getInboxThreadDetail(
     needsReply,
     streams: Array.from(streams),
     participants,
-    userMailbox: messages.find((m) => m.userEmail)?.userEmail || (lastOutbound?.from && lastOutbound.from.includes('@') ? lastOutbound.from.toLowerCase().trim() : undefined),
+    userMailbox: resolvedUserMailbox,
   };
 
   return { thread, messages, lead, participants };

@@ -47,6 +47,7 @@ export function AdminUsersClient() {
   // Inbox Scoping Policy state
   const [policyBrand, setPolicyBrand] = useState<string>(brandKeys[0] || 'seyu')
   const [includeAssignedLeadThreads, setIncludeAssignedLeadThreads] = useState(false)
+  const [includeCcThreads, setIncludeCcThreads] = useState(false)
   const [loadingPolicy, setLoadingPolicy] = useState(false)
   const [savingPolicy, setSavingPolicy] = useState(false)
   const [policyNotice, setPolicyNotice] = useState<string | null>(null)
@@ -83,6 +84,7 @@ export function AdminUsersClient() {
       if (res.ok) {
         const data = await res.json()
         setIncludeAssignedLeadThreads(Boolean(data.includeAssignedLeadThreads))
+        setIncludeCcThreads(Boolean(data.includeCcThreads))
       }
     } catch {
       // non-fatal
@@ -115,6 +117,32 @@ export function AdminUsersClient() {
         checked
           ? 'Policy updated: Reps will also see team correspondence on leads assigned to them.'
           : 'Policy updated: Strict mailbox isolation active. Reps only see emails sent or received by their own mailboxes.'
+      )
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save policy')
+    } finally {
+      setSavingPolicy(false)
+    }
+  }
+
+  const handleToggleCcPolicy = async (checked: boolean) => {
+    setSavingPolicy(true)
+    setPolicyNotice(null)
+    try {
+      const res = await fetch('/api/admin/inbox-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand: policyBrand, includeCcThreads: checked }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to update policy')
+      }
+      setIncludeCcThreads(checked)
+      setPolicyNotice(
+        checked
+          ? 'Policy updated: Emails where a user is on CC will also appear in their personal Inbox.'
+          : 'Policy updated: Strict direct participation active. Threads where a user is only on CC are excluded from their personal Inbox.'
       )
     } catch (err: any) {
       setError(err?.message || 'Failed to save policy')
@@ -246,7 +274,7 @@ export function AdminUsersClient() {
                 <Text size="xs" c="dimmed" mt={2}>
                   {includeAssignedLeadThreads
                     ? 'Active: Sales reps will see correspondence on leads assigned to them, including emails sent or received by other colleagues.'
-                    : 'Strict Mailbox Only (Recommended): Sales reps strictly only see emails where their own linked mailboxes are an active participant (From, To, Cc). Other reps\' emails on assigned leads will not appear in their inbox.'}
+                    : 'Strict Mailbox Only (Recommended): Sales reps strictly only see emails where their own linked mailboxes are an active participant (From, To). Other reps\' emails on assigned leads will not appear in their inbox.'}
                 </Text>
               </Box>
               <Switch
@@ -255,6 +283,24 @@ export function AdminUsersClient() {
                 disabled={loadingPolicy || savingPolicy}
                 onChange={(e) => handleTogglePolicy(e.currentTarget.checked)}
                 aria-label="Toggle include team correspondence on assigned leads"
+              />
+            </Group>
+            <Divider />
+            <Group justify="space-between" align="flex-start" wrap="nowrap">
+              <Box style={{ flex: 1 }}>
+                <Text size="xs" fw={500}>Include CC&apos;d Threads in My Inbox</Text>
+                <Text size="xs" c="dimmed" mt={2}>
+                  {includeCcThreads
+                    ? 'Active: Threads where a user is on CC will appear in their personal Inbox alongside direct correspondence.'
+                    : 'Strict Direct Participation (Recommended): Threads where a user is only on CC are excluded from their personal Inbox. Prevents management oversight CCs from cluttering sales inboxes.'}
+                </Text>
+              </Box>
+              <Switch
+                size="sm"
+                checked={includeCcThreads}
+                disabled={loadingPolicy || savingPolicy}
+                onChange={(e) => handleToggleCcPolicy(e.currentTarget.checked)}
+                aria-label="Toggle include CC threads in inbox"
               />
             </Group>
             {policyNotice && (
