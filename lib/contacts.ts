@@ -93,6 +93,10 @@ export type NormalizedContact = {
   // capped) on every pass, and undefined rather than [] when absent so an
   // untouched contact isn't rewritten with an empty array.
   fieldVerifications?: FieldVerification[];
+  // Linkage / attribution metadata for inbox participants and CRM directory
+  isExistingContact?: boolean;
+  existingLeadId?: string;
+  existingLeadName?: string;
 };
 
 export type NormalizeContactOptions = {
@@ -241,6 +245,9 @@ export function normalizeContact(c: ContactInput, options?: NormalizeContactOpti
     fieldVerifications: c?.fieldVerifications === undefined
       ? undefined
       : normalizeFieldVerifications(c.fieldVerifications),
+    isExistingContact: c?.isExistingContact !== undefined ? Boolean(c.isExistingContact) : undefined,
+    existingLeadId: typeof c?.existingLeadId === 'string' ? c.existingLeadId : undefined,
+    existingLeadName: typeof c?.existingLeadName === 'string' ? c.existingLeadName : undefined,
   };
 }
 

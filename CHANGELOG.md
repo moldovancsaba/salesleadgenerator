@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.315
+
+### Cross-Lead Contact Identification & Open Affordance in Inbox Participant Strip (Issue #271)
+
+- **Cross-Lead Contact Identification (`app/lib/inbox-store.ts`, `lib/contacts.ts`):**
+  - Resolved issue where participants in the "Contacts from emails" strip above conversation threads displayed a purple `+ Contact` button even when they were already existing contacts in the CRM (either on another lead, such as `krisztian.szika@sportfive.com` on `Sportfive` and `matteo.coggiola@asroma.it` on `As Roma`, or on the current lead).
+  - Enhanced `getInboxThreadDetail` to cross-reference harvested participants against both the current thread's lead contacts and the brand's indexed `contactEmails` and `contacts.email`/`contacts.secondaryEmail` lead records.
+  - Enriched each participant with `isExistingContact: true`, `existingLeadId`, and `existingLeadName`, while backfilling missing contact names, titles, and phone numbers from the CRM record.
+  - Added linkage fields (`isExistingContact?: boolean; existingLeadId?: string; existingLeadName?: string;`) to `NormalizedContact` in `lib/contacts.ts` and passed them through in `normalizeContact`.
+- **High-Affordance Contact Actions & Suppression of Redundant `+ Contact` (`app/inbox/[brand]/inbox-client.tsx`, `app/inbox/[brand]/convert-modal.tsx`):**
+  - Updated participant strip rendering in `inbox-client.tsx`:
+    - For existing contacts (`isExisting = true`): renders an `Open ↗` button (`component="a" href="/sales/${brand}?leadId=${targetLeadId}" target="_blank" rel="noopener noreferrer"`), opening the lead in the sales pipeline in a new tab without interrupting inbox workflow.
+    - Displays the linked company/lead badge (e.g. `Sportfive`, `As Roma`) using `StatusBadge` alongside the contact's name.
+    - Completely suppresses the `+ Contact` / `Convert` button for existing contacts.
+    - Retains subtle `Separate Lead` action for branching contacts off into an independent lead when needed.
+    - Unsaved prospects exclusively retain the `+ Contact` / `Convert` creation affordance.
+  - In `convert-modal.tsx`: displays `Saved on [Lead Name]` badge for existing contacts and avoids auto-pre-selecting existing contacts from other organizations.
+- **Automated Verification:**
+  - Added automated unit test suite in `tests/lib/inbox-participants.test.ts` verifying cross-lead identification on current thread leads and external CRM leads, and asserting correct button affordances (`Open ↗` present, `+ Contact` suppressed).
+
 ## 2.4.314
 
 ### In-App Logout Redirection & Session Termination Hygiene (Issue #271)

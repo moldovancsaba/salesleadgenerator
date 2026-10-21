@@ -1051,41 +1051,68 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                       </Group>
                       <Group gap="xs" wrap="wrap">
                         {selectedThread.participants.map((p) => {
-                          const isOnLead = lead?.contacts?.some(
-                            (c: any) => c?.email && c.email.toLowerCase() === p.email.toLowerCase()
+                          const isOnLead = Boolean(
+                            lead?.contacts?.some(
+                              (c: any) =>
+                                (c?.email && c.email.toLowerCase() === p.email.toLowerCase()) ||
+                                (c?.secondaryEmail && c.secondaryEmail.toLowerCase() === p.email.toLowerCase())
+                            )
                           );
+                          const isExisting = Boolean(p.isExistingContact || isOnLead || p.existingLeadId);
+                          const targetLeadId = (p.existingLeadId || (isOnLead ? (lead?._id || lead?.id) : undefined))?.toString();
+                          const targetLeadName = p.existingLeadName || (isOnLead ? (lead?.entity_name || lead?.name) : undefined);
+
                           return (
                             <Paper
                               key={p.email}
-                              p="3px 8px"
+                              p="4px 8px"
                               radius="sm"
                               withBorder
                               style={{
-                                backgroundColor: isOnLead
+                                backgroundColor: isExisting
                                   ? 'var(--mantine-color-teal-0)'
                                   : 'var(--mantine-color-gray-0)',
-                                borderColor: isOnLead
+                                borderColor: isExisting
                                   ? 'var(--mantine-color-teal-3)'
                                   : 'var(--mantine-color-gray-3)',
                               }}
                             >
                               <Group gap={6} wrap="nowrap">
-                                <Avatar size={18} radius="xl" color={isOnLead ? 'teal' : 'indigo'}>
-                                  {p.name.charAt(0)}
+                                <Avatar size={18} radius="xl" color={isExisting ? 'teal' : 'indigo'}>
+                                  {p.name ? p.name.charAt(0).toUpperCase() : p.email.charAt(0).toUpperCase()}
                                 </Avatar>
                                 <Box>
-                                  <Text size="11px" fw={600} style={{ lineHeight: 1.1 }}>
-                                    {p.name}
-                                  </Text>
+                                  <Group gap={4} align="center" wrap="nowrap">
+                                    <Text size="11px" fw={600} style={{ lineHeight: 1.1 }}>
+                                      {p.name || p.email}
+                                    </Text>
+                                    {isExisting && targetLeadName && (
+                                      <StatusBadge status="success" size="xs">
+                                        {targetLeadName}
+                                      </StatusBadge>
+                                    )}
+                                  </Group>
                                   <Text size="10px" c="dimmed" style={{ lineHeight: 1.1 }}>
-                                    {p.email}
+                                    {p.email} {p.title ? `• ${p.title}` : ''}
                                   </Text>
                                 </Box>
-                                {isOnLead ? (
+                                {isExisting ? (
                                   <Group gap={4} wrap="nowrap">
-                                    <StatusBadge status="success" size="xs">
-                                      Saved
-                                    </StatusBadge>
+                                    {targetLeadId && (
+                                      <Button
+                                        component="a"
+                                        href={`/sales/${brand}?leadId=${encodeURIComponent(targetLeadId)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        size="compact-xs"
+                                        variant="light"
+                                        color="teal"
+                                        leftSection={<IconExternalLink size={11} />}
+                                        title={`Open ${targetLeadName || 'contact'} in sales pipeline`}
+                                      >
+                                        Open
+                                      </Button>
+                                    )}
                                     <Button
                                       size="compact-xs"
                                       variant="subtle"
@@ -1100,6 +1127,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                                         setConvertModalMode('add_contact');
                                         setConvertModalOpened(true);
                                       }}
+                                      title="Create separate lead for this contact"
                                     >
                                       Separate Lead
                                     </Button>

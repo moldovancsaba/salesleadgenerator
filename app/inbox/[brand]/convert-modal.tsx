@@ -551,6 +551,11 @@ export function ConvertModal({
                         }}
                       />
                       <Group gap={4} wrap="nowrap">
+                        {p.isExistingContact && (
+                          <Badge size="xs" color="teal" variant="light">
+                            {p.existingLeadName ? `Saved on ${p.existingLeadName}` : 'Existing Contact'}
+                          </Badge>
+                        )}
                         {isPrimary && (
                           <Badge size="xs" color="indigo" variant="filled">
                             Primary

@@ -1019,6 +1019,100 @@ export async function getInboxThreadDetail(
     }
   }
 
+  // Identify existing CRM contacts across the active brand/tenant so participants already in CRM
+  // can be opened directly, rather than showing "+ Contact"
+  if (participants.length > 0) {
+    try {
+      // 1. Check if participant is already on this thread's associated lead
+      if (lead && Array.isArray(lead.contacts)) {
+        for (const p of participants) {
+          const pEmail = p.email.toLowerCase().trim();
+          const matched = lead.contacts.find((c: any) =>
+            (c?.email && c.email.toLowerCase().trim() === pEmail) ||
+            (c?.secondaryEmail && c.secondaryEmail.toLowerCase().trim() === pEmail)
+          );
+          if (matched) {
+            p.isExistingContact = true;
+            p.existingLeadId = (lead._id ? lead._id.toString() : String(lead.id || leadId || ''));
+            p.existingLeadName = lead.entity_name || lead.name;
+            if (matched.name && (!p.name || p.name === p.email)) p.name = matched.name;
+            if (matched.title && !p.title) p.title = matched.title;
+            if (matched.phone && !p.phone) p.phone = matched.phone;
+          }
+        }
+      }
+
+      // 2. For participants not on this lead, batch query the brand's leads collection
+      const unmatchedEmails = participants
+        .filter((p) => !p.isExistingContact)
+        .map((p) => p.email.toLowerCase().trim())
+        .filter(Boolean);
+
+      if (unmatchedEmails.length > 0) {
+        const brandConfig = await getBrandConfig(brand).catch(() => null);
+        const leadsCollectionName = brandConfig?.dbCollection || 'leads';
+        const matchedLeads = await db
+          .collection(leadsCollectionName)
+          .find(
+            {
+              ...(tenantId ? { tenantId } : {}),
+              $or: [
+                { contactEmails: { $in: unmatchedEmails } },
+                { 'contacts.email': { $in: unmatchedEmails } },
+                { 'contacts.secondaryEmail': { $in: unmatchedEmails } },
+              ],
+            },
+            {
+              projection: {
+                _id: 1,
+                id: 1,
+                entity_name: 1,
+                name: 1,
+                contacts: 1,
+                contactEmails: 1,
+              },
+            }
+          )
+          .toArray()
+          .catch(() => []);
+
+        for (const p of participants) {
+          if (p.isExistingContact) continue;
+          const pEmail = p.email.toLowerCase().trim();
+          const leadMatch = matchedLeads.find((ml) => {
+            if (ml.contactEmails && Array.isArray(ml.contactEmails)) {
+              if (ml.contactEmails.some((e: string) => e?.toLowerCase().trim() === pEmail)) return true;
+            }
+            if (ml.contacts && Array.isArray(ml.contacts)) {
+              return ml.contacts.some((c: any) =>
+                (c?.email && c.email.toLowerCase().trim() === pEmail) ||
+                (c?.secondaryEmail && c.secondaryEmail.toLowerCase().trim() === pEmail)
+              );
+            }
+            return false;
+          });
+
+          if (leadMatch) {
+            p.isExistingContact = true;
+            p.existingLeadId = leadMatch._id ? leadMatch._id.toString() : String(leadMatch.id || '');
+            p.existingLeadName = leadMatch.entity_name || leadMatch.name;
+            const matchedContact = leadMatch.contacts?.find((c: any) =>
+              (c?.email && c.email.toLowerCase().trim() === pEmail) ||
+              (c?.secondaryEmail && c.secondaryEmail.toLowerCase().trim() === pEmail)
+            );
+            if (matchedContact) {
+              if (matchedContact.name && (!p.name || p.name === p.email)) p.name = matchedContact.name;
+              if (matchedContact.title && !p.title) p.title = matchedContact.title;
+              if (matchedContact.phone && !p.phone) p.phone = matchedContact.phone;
+            }
+          }
+        }
+      }
+    } catch {
+      // non-fatal
+    }
+  }
+
   // Resolve userMailbox: if viewer email is provided, check if one of their mailboxes/aliases participated
   let resolvedUserMailbox: string | undefined = undefined;
   if (options.userEmail) {
