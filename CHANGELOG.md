@@ -1,5 +1,13 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.316
+
+### Tablet and Desktop Header Organization Switcher Responsiveness (Issue #271)
+
+- **Header Organization Switcher Breakpoint Adjustment (`app/components/AppHeader.tsx`):**
+  - Updated the active organization/brand switcher dropdown in `AppHeaderInner` from `visibleFrom="md"` (992px) to `visibleFrom="xs"`.
+  - Ensures the brand switcher (e.g. `[ Seyu ▼ ]`) remains visible on tablets and iPads in portrait mode (768px-834px) rather than only wide desktops.
+
 ## 2.4.315
 
 ### Cross-Lead Contact Identification & Open Affordance in Inbox Participant Strip (Issue #271)

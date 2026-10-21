@@ -123,7 +123,7 @@ function AppHeaderInner() {
                 }
               }
             }}
-            visibleFrom="md"
+            visibleFrom="xs"
           />
         )}
       </Group>

@@ -8,7 +8,7 @@
 
 **Not the same file as `_archived/roadmap.md`** — that's a frozen, historical feature-status log (v2.4.61), superseded by `CHANGELOG.md`, sharing this file's basename by coincidence rather than by relation. See `README.md`'s "Archived Documentation" table.
 
-Last synced: 2026-10-21. #271 delivered and closed (Admin-managed mailbox aliases, strict scoping policy, CC isolation, Gmail 404 thread recovery, Kanban board resilience, internal sync email filtering, personal mailbox attribution, card action bar de-squeeze, suggested contact update matching resilience, Google Contacts token expiration resilience, in-app logout redirection, cross-lead contact identification with Open affordance in inbox strip, and fail-closed privacy guard). Shipped through v2.4.315 to main. #270, #269, #268, #267, #266, #265, #264, #263, #262, #261, #260 shipped to main.
+Last synced: 2026-10-21. #271 delivered and closed (Admin-managed mailbox aliases, strict scoping policy, CC isolation, Gmail 404 thread recovery, Kanban board resilience, internal sync email filtering, personal mailbox attribution, card action bar de-squeeze, suggested contact update matching resilience, Google Contacts token expiration resilience, in-app logout redirection, cross-lead contact identification with Open affordance in inbox strip, header organization switcher responsiveness, and fail-closed privacy guard). Shipped through v2.4.316 to main. #270, #269, #268, #267, #266, #265, #264, #263, #262, #261, #260 shipped to main.
 
 ---
 
