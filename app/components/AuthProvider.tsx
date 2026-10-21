@@ -95,19 +95,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      const res = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-      const data = await res.json().catch(() => ({}));
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch (err) {
+      console.error('[AuthProvider] logout failed:', err);
+    } finally {
       setUser(null);
       setPermission(null);
       setAccessibleBrands([]);
       setBrandLabels({});
       setIsSuperAdmin(false);
       setHasSeenTour(false);
-      if (data.ssoLogoutUrl) {
-        window.location.href = data.ssoLogoutUrl;
-      }
-    } catch (err) {
-      console.error('[AuthProvider] logout failed:', err);
+      // Hard navigation to '/' ensures full cleanup of in-memory client state
+      // and router caches across all tenant workspaces on sign-out.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = '/';
     }
   }, []);
 

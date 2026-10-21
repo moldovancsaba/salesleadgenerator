@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.314
+
+### In-App Logout Redirection & Session Termination Hygiene (Issue #271)
+
+- **Eliminated External SSO Redirection on Logout (`app/api/auth/logout/route.ts`, `app/components/AuthProvider.tsx`):**
+  - Resolved unacceptable logout behavior where clicking "Sign out" redirected the browser away from `salesleadgenerator.vercel.app` to external `https://sso.doneisbetter.com`.
+  - Removed `ssoLogoutUrl` parameter pointing to external SSO host from `POST /api/auth/logout`, returning in-app `{ ok: true, redirectTo: '/' }`.
+  - Added `GET /api/auth/logout` endpoint redirecting cleanly to `/` of the current origin for direct browser navigations.
+  - Enhanced cookie cleanup in `clearAuthCookies` to purge all session and OAuth tokens (`sso_access_token`, `sso_id_token`, `sso_refresh_token`, `sso_oauth_state`, `sso_code_verifier`).
+  - Updated `logout` in `AuthProvider.tsx` to clear all user/role context and perform a clean in-app hard navigation to `/` (`salesleadgenerator.vercel.app/`), ensuring the user lands on the app's clean landing page.
+- **Automated Verification:**
+  - Added unit test suite in `tests/lib/auth-logout.test.ts` verifying `POST` and `GET /api/auth/logout` delete all auth cookies, redirect in-app to `/`, and `AuthProvider.tsx` never navigates to external SSO.
+
 ## 2.4.313
 
 ### Google Contacts Token Expiration Resilience & One-Click Reconnect (Issue #271)
