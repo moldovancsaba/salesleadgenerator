@@ -204,4 +204,15 @@ describe('desktop and tablet navigation affordances', () => {
     expect(nav).toContain("sidebarOpen ? 'Collapse navigation sidebar' : 'Expand navigation sidebar'");
     expect(nav).toContain("variant={sidebarOpen ? 'light' : 'filled'}");
   });
+
+  it('surfaces What\'s New & Release Notes navigation in AppHeader and AppNav (issue 269)', () => {
+    const header = readFileSync(join(root, 'app', 'components', 'AppHeader.tsx'), 'utf8');
+    expect(header).toContain("Tooltip label=\"What's New & Release Notes\"");
+    expect(header).toContain('/whats-new/${activeBrand}');
+    expect(header).toContain('IconSparkles');
+
+    const nav = readFileSync(join(root, 'app', 'components', 'AppNav.tsx'), 'utf8');
+    expect(nav).toContain('label="What\'s New"');
+    expect(nav).toContain('/whats-new/${effectiveBrand}');
+  });
 });

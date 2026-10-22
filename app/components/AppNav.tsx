@@ -9,7 +9,7 @@ import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
   IconAddressBook, IconRepeat, IconBuilding, IconBuildings, IconCompass, IconUsersGroup, IconBolt, IconShoppingCart, IconReportAnalytics, IconKey,
-  IconCalendarTime, IconChevronLeft, IconFiles, IconInbox,
+  IconCalendarTime, IconChevronLeft, IconFiles, IconInbox, IconSparkles,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -74,6 +74,8 @@ function currentBrandFromPath(pathname: string, knownBrands: string[]): Brand | 
   if (todayMatch && knownBrandSet.has(todayMatch[1])) return todayMatch[1] as Brand;
   const inboxMatch = pathname.match(/^\/inbox\/([^/]+)/);
   if (inboxMatch && knownBrandSet.has(inboxMatch[1])) return inboxMatch[1] as Brand;
+  const whatsNewMatch = pathname.match(/^\/whats-new\/([^/]+)/);
+  if (whatsNewMatch && knownBrandSet.has(whatsNewMatch[1])) return whatsNewMatch[1] as Brand;
   return null;
 }
 
@@ -374,6 +376,14 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
                   handleLinkClick();
                   startTour({ brand: effectiveBrand ?? undefined });
                 }}
+              />
+              <NavLink
+                component={Link}
+                href={`/whats-new/${effectiveBrand}`}
+                label="What's New"
+                leftSection={<IconSparkles size={18} color="var(--mantine-color-indigo-6)" />}
+                active={pathname.startsWith('/whats-new')}
+                onClick={handleLinkClick}
               />
 
               <Divider my="xs" />

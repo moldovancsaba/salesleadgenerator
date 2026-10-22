@@ -13,6 +13,7 @@ import {
   IconBuildings,
   IconTrendingUp,
   IconReportAnalytics,
+  IconSparkles,
 } from '@tabler/icons-react';
 import { useCommandLauncher } from '@sovereignsquad/gds-core/client';
 import { AppNav } from './AppNav';
@@ -23,7 +24,7 @@ import type { Brand } from '@/app/lib/brand';
 function extractBrandFromPathname(pathname: string, knownBrands: string[]): Brand | null {
   const brandSet = new Set(knownBrands);
   const match = pathname.match(
-    /^\/(?:sales|today|inbox|contacts|salessettings|forecast|reports|accounts|battlecards|outreach\/[a-z]+|admin\/products|automation|documents)\/([^/?#]+)/
+    /^\/(?:sales|today|inbox|contacts|whats-new|salessettings|forecast|reports|accounts|battlecards|outreach\/[a-z]+|admin\/products|automation|documents)\/([^/?#]+)/
   );
   if (match && brandSet.has(match[1])) {
     return match[1] as Brand;
@@ -148,8 +149,21 @@ function AppHeaderInner() {
         </Group>
       )}
 
-      {/* Right: Quick Command Search + Organization switcher */}
+      {/* Right: What's New + Quick Command Search + Organization switcher */}
       <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
+        <Tooltip label="What's New & Release Notes">
+          <ActionIcon
+            component={Link}
+            href={`/whats-new/${activeBrand}`}
+            variant={pathname.startsWith('/whats-new') ? 'filled' : 'default'}
+            color="indigo"
+            size="md"
+            aria-label="What's New & Release Notes"
+          >
+            <IconSparkles size={16} color={pathname.startsWith('/whats-new') ? 'white' : 'var(--mantine-color-indigo-6)'} />
+          </ActionIcon>
+        </Tooltip>
+
         <Tooltip label="Search or command palette (⌘K)">
           <ActionIcon
             variant="default"

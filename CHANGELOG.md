@@ -1,5 +1,30 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.324
+
+### Blog-Style What's New Menu, Chronological Release Notes & Feature/Fix Categorization
+
+- **Blog-Style What's New Experience (`app/whats-new/[brand]/page.tsx`, `whats-new-client.tsx`):**
+  - Built a dedicated `/whats-new/[brand]` blog timeline presenting all releases chronologically from newest to oldest.
+  - Each release is rendered in a blog-style card displaying calendar date, relative age badge ("Today", "Yesterday", "3 days ago"), version pill (`v2.4.324`), release title, and count indicators (`2 New`, `1 Fixed`, `1 Security`).
+  - Added instant search filtering across release versions, titles, and technical bullet details with clear-text affordances.
+  - Added interactive category filters: **All Updates**, **🚀 What's New** (new features and enhancements), **🛠️ What's Fixed** (bug fixes and error remediation), and **🔒 Security & Privacy** (mailbox shields, token safety, and isolation).
+  - Included 1-click "Copy direct link to release" copying anchor URLs (`/whats-new/[brand]#v2-4-324`) to clipboard with visual confirmation.
+  - Added expandable "Show raw changelog markdown" collapsible drawer for technical inspection and operator review.
+  - Built desktop sticky Quick Jump sidebar listing recent releases for instantaneous navigation.
+- **Persistent What's New Navigation Affordances (`app/components/AppNav.tsx`, `app/components/AppHeader.tsx`):**
+  - Added "What's New" menu item with `IconSparkles` in `AppNavContent` under the Help section.
+  - Added 1-click What's New action icon in the desktop top navigation header (`AppHeader.tsx`) with active route highlighting and tooltip.
+  - Added root route redirect at `app/whats-new/page.tsx` redirecting to the user's default accessible brand.
+- **Changelog Parser & Release Notes Engine (`lib/release-notes-parser.ts`, `lib/release-notes.ts`, `lib/release-notes-dates.ts`):**
+  - Extracted 324 historical release dates from git commit history, providing exact chronological dating across the entire history of the project.
+  - Implemented `parseChangelog` and `classifyItemType` categorizing updates into `new` (`feat`), `fix` (`fix`), `security`, and `doc` types.
+  - Built `GET /api/release-notes` supporting pagination (`limit`, `offset`), category filtering, full-text search, and single-version lookup.
+- **Automated Verification:**
+  - Added unit test suites in `tests/lib/release-notes-parser.test.ts` (5 tests) and `tests/lib/release-notes-route.test.ts` (4 tests).
+  - Updated `tests/lib/desktop-tablet-nav.test.ts` asserting What's New navigation presence in `AppHeader` and `AppNav`.
+  - All 125 test suites and 1,611 tests pass 100%.
+
 ## 2.4.323
 
 ### Linked SSO Multi-Identity Connection Resolution & Inbox Sync Error Feedback

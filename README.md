@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.323  
+**Version:** 2.4.324  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -10,6 +10,7 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 ## What This Repo Contains
 
 - Next.js 16 app with App Router and API routes
+- Native What's New & Release Notes Blog (`/whats-new/[brand]`, `app/components/AppNav.tsx`, `app/components/AppHeader.tsx`) presenting chronological release notes like a blog from newest to oldest with exact commit dates, categorized highlights distinguishing new features (What's New) from bug fixes (What's Fixed) and security/privacy protections, real-time search filtering, deep-linking version anchors, and 1-click header/sidebar navigation
 - Redesigned Modern Kanban Cards (`app/card.tsx`) with full-width wrapping organization titles, human-readable Title Case taxonomy formatting, prominent key decision-maker contact row with 1-click Quick Outreach (`IconMail`), stage-aware semantic decision buttons (Accept, Decline, Quick Email), high-visibility follow-up urgency status badges, untruncated owner avatar initials, commercial badges, de-duplicated staleness indicators, and quiet subtle action affordances (`Open ↗`)
 - Native 3-Pane Communication Center (`/inbox/[brand]`) with dynamic sender resolution, clean 2-line textual snippets (stripped of CSS `<style>` blocks and HTML tags), Lead/Contact/Deal availability status badges, 1-click conversion affordances, and full `To:` / `Cc:` recipient visibility
 - Internal Team Email Filtering & Personal Mailbox Attribution (`app/lib/inbox-store.ts`, `lib/email-contact-extractor.ts`) filtering purely internal colleague communications (staff syncs, weekly meetings) from CRM inbox views, and strictly attributing personal mailbox views to the active user's own email
