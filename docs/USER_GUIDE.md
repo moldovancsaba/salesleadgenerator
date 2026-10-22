@@ -1,6 +1,6 @@
 # User Guide — Sales Lead Generator
 
-**Version:** 2.4.311  
+**Version:** 2.4.328  
 **Application URL:** https://salesleadgenerator.vercel.app  
 
 Welcome to **Sales Lead Generator**, an intelligent, multi-brand CRM and sales execution platform designed for B2B sports business, corporate partnerships, and outbound pipeline operations. This guide walks you through daily workflows, lead management, communication, and pipeline tools.
@@ -23,6 +23,7 @@ Welcome to **Sales Lead Generator**, an intelligent, multi-brand CRM and sales e
 12. [Accounts Directory & Company Hierarchy](#12-accounts-directory--company-hierarchy)
 13. [PWA Offline Support & Command Palette](#13-pwa-offline-support--command-palette)
 14. [Admin Settings & Mailbox Scoping Policy](#14-admin-settings--mailbox-scoping-policy)
+15. [What's New & Release Notes Blog](#15-whats-new--release-notes-blog)
 
 ---
 
@@ -35,9 +36,10 @@ Sales Lead Generator uses DoneIsBetter Single Sign-On (SSO). Click **Sign in** t
 - **DVSC**: Club partnerships, academy scouting, and team operations.
 
 ### Navigation Layout
-- **Desktop & Tablet (`>= 768px`)**: A docked, collapsible sidebar navigation sits on the left edge. Use the **Hide / Show Navigation** toggle to collapse the sidebar when you want maximum screen space.
+- **Desktop & Tablet (`>= 768px`)**: A docked, collapsible sidebar navigation sits on the left edge, grouped into **Core CRM** (`Today`, `Inbox`, `Pipeline`, `Contacts`, `Accounts`), **Outreach & Content** (`Cadences`, `Outreach Templates`, `Documents`, `Battlecards`), **Analytics** (`Forecast`, `Reports`), **Settings** (`Sales Settings`, `Product Catalog`, `Automation`), and **Help & Updates** (`What's New`, `Take the tour`). When the sidebar is collapsed, horizontal navigation links appear in the top header bar.
 - **Mobile (`< 768px`)**: Tap the hamburger menu (☰) in the top bar to open the navigation drawer.
-- **Brand Switcher**: If you have access to multiple brands, use the brand dropdown at the top of the sidebar to switch workspaces instantly.
+- **Version Indicator & What's New**: The live application version badge (`v2.4.328`) is displayed in the top header next to the application title and in the navigation sidebar, linking directly to the **What's New & Release Notes** blog.
+- **Brand Switcher**: If you have access to multiple brands, use the **Organization** dropdown at the top of the sidebar (or in the top header when the sidebar is collapsed) to switch workspaces instantly without duplicate controls.
 - **Full-Width Workspace**: All tables, boards, and inboxes expand to 100% display width for maximum data scannability.
 
 ---
@@ -51,10 +53,11 @@ Navigate to `/today/[brand]` for your high-priority daily execution cockpit. Tod
 3. **Due Today**: Scheduled follow-up commitments due in today's calendar window (highlighted with amber badges).
 4. **Deals Needing Attention**: Active pipeline deals that have exceeded their expected close date or have had no recorded activity for 7+ days.
 
-### 1-Click Inline Actions
+### 1-Click Inline Actions & Two-Way Google Calendar Sync
 - **Complete Step**: For cadence tasks, records task completion (`completed_at`), logs an audit entry in the activity timeline, and advances the sequence to the next scheduled step.
-- **Mark Done**: Clears the scheduled commitment and logs an activity record.
-- **Snooze**: Postpones a follow-up commitment by 1 day, 3 days, 1 week, or a custom date.
+- **Mark Done**: Clears the scheduled commitment, logs an activity record, and automatically deletes the corresponding reminder event (`followup-{leadId}`) from your connected Google Calendar.
+- **Snooze & Quick Reschedule**: Postpones a follow-up commitment by `+1d`, `+3d`, `+7d`, `+14d`, or a custom date, and automatically updates or creates the corresponding Google Calendar reminder event at the new due timestamp. Stale deals also include a 1-click **Schedule Tomorrow** action.
+- **Sync Cal**: 1-click button on Cadence Tasks and Follow-up cards to immediately sync or update the task reminder on your Google Calendar.
 - **Log Call**: Opens the call disposition modal directly to record call outcomes (`connected`, `voicemail`, `busy`, `no-answer`).
 - **My Work / All**: Toggle at the top of the page to switch between your assigned leads and the entire team's queue.
 
@@ -94,6 +97,10 @@ Each card is engineered for immediate scannability:
 ### Board Resilience & Error Boundary Isolation
 - **Card-Level Error Boundaries**: Every card rendered on the Kanban board is isolated inside its own React `<ErrorBoundary>`. In the rare event of corrupted or malformed property values on an individual lead, that single card renders a localized fallback chip (`Card unavailable`) instead of letting an exception crash the entire board.
 - **Deduplication & Cursor Protection**: Incoming leads are deduplicated by `_id` before feeding `@dnd-kit/sortable` columns and cursor pagination state, preventing identifier collisions during rapid scroll or infinite loading.
+
+### 1-Click Quick Filter Pills & Inline Table Editing
+- **Quick Filter Pills**: Use the 1-click pill bar at the top of `/sales/[brand]` (`All Leads`, `My Leads`, `Needs Follow-up`, `High Value >= €25k`, `Unassigned`) to filter both the Kanban board and Table view in real time.
+- **Inline Table Editing (`?view=table`)**: In Table view, reps can change a lead's pipeline stage directly from the inline `<Select>` dropdown (`COLUMN_MOVE`) or click the pencil icon next to the Deal Value cell to edit the expected deal value inline without opening the Lead Detail drawer.
 
 ---
 
@@ -147,10 +154,14 @@ Navigate to `/inbox/[brand]` for an omnichannel 3-pane communication console:
 - **System**: Automated system alerts, calendar appointments, and cadence triggers.
 - **Filters**: Quickly toggle **Starred Only**, **Unread Only**, or view the **Archived** folder.
 
-### 2. Conversation Feed (Middle Pane)
+### 2. Conversation Feed & Bulk Thread Actions (Middle Pane)
+- **Bulk Thread Selection & Batch Actions**:
+  - Tick the checkbox on any conversation card or use the **Select All** header checkbox to select multiple threads at once.
+  - A bulk action toolbar appears supporting 1-click batch operations: **Mark Read**, **Mark Unread**, **Star**, **Unstar**, **Archive**, and **Unarchive** (`POST /api/inbox/[brand]/bulk`).
 - **User Mailbox Scoping & Privacy Isolation**:
   - The inbox console strictly isolates email correspondence to your own authenticated Gmail connection and leads assigned directly to you. Other sales representatives' emails are shielded to prevent cross-rep mailbox leakage.
   - **Multi-Identity Mailbox Linking**: If you sign in via Google SSO using your personal email (e.g. `moldovancsaba@gmail.com`) and have also connected a corporate Workspace mailbox (e.g. `coo@seyuselfies.com`), the inbox automatically recognizes your linked identities, unifying your personal and corporate correspondence into your unified My Inbox stream.
+  - **Clean Email Disconnect**: Disconnecting an email account in **Email & Integrations** (`UserSettingsModal`) immediately revokes and filters out the disconnected account across all linked SSO identities while promoting your next active connection as default sender.
   - **Accounting & Provider Shielding**: Internal corporate domains and external service providers (e.g. accounting, payroll, and automated note-taker bots) are shielded from ever being harvested as CRM lead contacts.
 - **Human-Friendly Sender Resolution**: Every card displays the real prospect name and email address. Prospects without prior lead records are never mislabeled as generic "System Communications".
 - **Mailbox Attribution Tag**: Displays which connected personal mailbox synced the message.
@@ -162,14 +173,14 @@ Navigate to `/inbox/[brand]` for an omnichannel 3-pane communication console:
 
 ### 3. Conversation Reader & Composer (Right Pane)
 - **1-Click Conversion Actions**: Header displays the thread subject, sender identity, and 1-click modals (`+ Create Lead`, `+ Add Contact`, `+ Add Deal`).
-- **Full Recipient Headers**: Chronological message bubbles explicitly display comma-separated `From:`, `To:`, and `Cc:` recipient lists.
+- **Full Recipient Headers & Attachment Downloads**: Chronological message bubbles explicitly display comma-separated `From:`, `To:`, and `Cc:` recipient lists, plus 1-click downloadable attachment chips for both inbound Gmail MIME attachments and outbound Document Library collateral (`/api/inbox/[brand]/attachments`).
 - **In-Thread Quick Composer**:
   - Switch between **Reply via Email** and **Internal Note**.
-  - Automatically chains RFC 2822 headers (`In-Reply-To`, `References`, `Re: <subject>`) to maintain conversation grouping in Gmail and Outlook.
-  - Insert pre-approved messaging from Outreach Templates.
-  - Insert dynamic merge tokens with live variable previews.
+  - Automatically chains RFC 2822 headers (`In-Reply-To`, `References`, `Re: <subject>`) and encodes non-ASCII headers/bodies via RFC 2047 and Quoted-Printable MIME encoding so international characters render with 100% fidelity.
+  - Use the **Formatting Toolbar** (**Bold**, **Italic**, **Bulleted List**, **Insert Link**) to format your message.
+  - Insert pre-approved messaging from Outreach Templates and dynamic merge tokens with live variable previews.
   - Attach sales collateral directly from your brand's Document Library.
-  - Toggle automatic inclusion of your synced Google signature.
+  - Toggle automatic inclusion of your synced Google signature and inspect it inline via the collapsible **Signature Preview** drawer.
 
 ---
 
@@ -325,3 +336,14 @@ Configurable at both the brand level (`/salessettings/[client]`, Process tab) an
 - **Fail-Closed Privacy Guard**: If an authenticated session cannot be verified or lacks resolved user claims, the inbox fails closed by returning 0 threads and 0 counts, completely eliminating accidental cross-team data exposure.
 - **Internal Team Email Filtering**: Emails where all participants belong to company staff or system accounts (e.g. internal staff syncs, weekly meetings, operation reminders) are automatically filtered out from sales CRM inbox aggregation.
 - **Gmail Thread 404 Recovery**: Outbound replies automatically recover if an existing Google thread ID is rejected (404), seamlessly retrying via RFC 2822 headers so conversations are never dropped.
+
+---
+
+## 15. What's New & Release Notes Blog
+
+Navigate to `/whats-new/[brand]` (or click the `v2.4.328` version badge / ✨ sparkles icon in the top header or **Help & Updates → What's New** in the sidebar) to browse the chronological release notes blog:
+
+- **Chronological Release Timeline**: Every release is displayed from newest to oldest with its exact calendar date, relative age badge (`Today`, `Yesterday`, `3 days ago`), version badge, and summary counts for **New**, **Fixed**, and **Security** items.
+- **Category & Search Filtering**: Filter releases in real time by keyword (e.g. `inbox`, `calendar`, `table`, `sso`) or switch between **All Updates**, **🚀 What's New**, **🛠️ What's Fixed**, and **🔒 Security**.
+- **Direct Deep Links & Raw Markdown**: Copy a direct anchor link to any release (`/whats-new/[brand]#v2-4-328`) or expand the raw changelog markdown drawer for technical verification.
+- **Unread Release Indicator**: When a new version ships, an unread dot appears on the What's New icon in the header and sidebar until you visit the page.

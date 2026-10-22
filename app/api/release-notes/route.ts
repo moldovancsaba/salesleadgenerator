@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getReleaseNotes, getReleaseNoteByVersion } from '@/lib/release-notes';
 import { filterReleaseNotes, ReleaseCategory } from '@/lib/release-notes-parser';
+import { APP_VERSION } from '@/lib/release-notes-dates';
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
       notes: paginated,
       total: filtered.length,
       hasMore: offset + limit < filtered.length,
-      latestVersion: allNotes[0]?.version || '2.4.323',
+      latestVersion: allNotes[0]?.version || APP_VERSION,
       latestDate: allNotes[0]?.date || '2026-10-22',
     });
   } catch (err: any) {

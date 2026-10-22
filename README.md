@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.327  
+**Version:** 2.4.328  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -110,11 +110,11 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.321**. `package.json` remains the single source of truth per the line below — this line has drifted before (once to a stale `2.4.29`, corrected 2026-07-25; again to a stale `2.4.187`, corrected 2026-09-25; updated to 2.4.321) and needs updating on every version-stamp sync pass, not just when someone notices.
+Current app version is **2.4.328** (`APP_VERSION` in `lib/release-notes-dates.ts`, matching `package.json` and displayed visibly in `AppHeader` and `AppNav`).
 
-Single source of truth: `package.json`
+Single source of truth: `package.json` & `lib/release-notes-dates.ts`
 
-All docs and release notes should reference this version until the next intentional bump.
+All docs and release notes reference this version until the next intentional bump.
 
 ---
 
@@ -180,8 +180,11 @@ Key endpoints:
 - `GET /api/leads/export?brand=<brand>&preset=<crm>` — multi-CRM lead exports (HubSpot, Salesforce, Pipedrive, Google Sheets / CSV / TSV)
 - `POST /api/leads/import` — batch lead import with SHA-256 fingerprint deduplication and stage normalization
 - `GET /api/inbox/[brand]` — list aggregated conversation threads and stream metrics
+- `POST /api/inbox/[brand]/bulk` — batch thread state actions (mark read/unread, star/unstar, archive/unarchive)
+- `GET /api/inbox/[brand]/attachments` — authenticated download proxy for Gmail message attachments and workspace Document Library files
 - `GET /api/inbox/[brand]/threads/[id]` — get thread message timeline and dispatch in-thread email replies or internal notes
 - `POST /api/inbox/[brand]/convert` — convert thread participants to Lead/Deal/Contact with multi-company destination control
+- `GET /api/release-notes` — paginated, searchable release notes and single-version lookup parsed from `CHANGELOG.md`
 - `POST /api/contacts/import-google` — Google Contacts 1-click import and lead creation
 - `GET /api/leads/[id]/thread-context` — email conversation thread context resolution
 - `GET /api/search?q=<query>&brand=<brand>` — predictive lead search (`brand` required unless the caller is a super-admin session)

@@ -1,5 +1,24 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.328
+
+### App-Wide Visible Version Badge, What's New Release Notes Fixes, Documentation Alignment & Code Comment Hygiene
+
+- **Visible Application Version Badge & Canonical Version Constant (`lib/release-notes-dates.ts`, `app/components/AppHeader.tsx`, `app/components/AppNav.tsx`, `app/api/release-notes/route.ts`, `package.json`):**
+  - Exported canonical `APP_VERSION = "2.4.328"` from `lib/release-notes-dates.ts` as the single source of truth across the frontend and API, replacing hardcoded `'2.4.327'` and `'2.4.323'` strings.
+  - Added a visible, clickable `v2.4.328` badge pill in the top application bar (`AppHeader.tsx`) next to the application title linking directly to `/whats-new/[brand]`.
+  - Added `Release Notes (v2.4.328)` subtitle description on the "What's New" menu item and a `Version 2.4.328` footer indicator inside `AppNavContent` (`AppNav.tsx`).
+- **What's New Release Notes Engine & Routing Fixes (`app/whats-new/page.tsx`, `app/whats-new/[brand]/page.tsx`, `app/whats-new/[brand]/whats-new-client.tsx`, `lib/release-notes-parser.ts`, `next.config.js`):**
+  - Added `outputFileTracingIncludes: { '/**': ['./CHANGELOG.md'] }` in `next.config.js` so Vercel serverless runtime bundles always include `CHANGELOG.md`.
+  - Marked `/whats-new` and `/whats-new/[brand]` with `export const dynamic = 'force-dynamic'` and resolved the user's first accessible brand from session cookies, eliminating static build-time prerender redirects to `/whats-new/cogmap` that caused cross-brand `/access-denied` traps for single-brand users.
+  - Added client-side fallback fetch to `/api/release-notes?limit=100` in `WhatsNewClient` if SSR `initialNotes` is empty.
+  - Added `cleanReleaseText` in `lib/release-notes-parser.ts` to strip raw markdown bold asterisks (`**`) and inline code backticks (`` ` ``) from parsed release item titles and detail lines so release cards read cleanly.
+  - Migrated `WhatsNewClient` badges to governed GDS `LabelTag` and `StatusBadge` primitives and removed invalid `'&:hover'` inline style keys.
+- **Comprehensive Documentation & Comment Alignment (`README.md`, `HANDOVER.md`, `roadmap.md`, `docs/*.md`):**
+  - Synchronized all 14 documentation files in `docs/` (`USER_GUIDE.md`, `ARCHITECTURE.md`, `LLD.md`, `OPERATOR_GUIDE.md`, `STACK_AND_DEPENDENCIES.md`, `USER_EMAIL_INTEGRATION_SPEC.md`, `LESSONS_LEARNED.md`, `LEAD_ENRICHMENT_GUIDE.md`, `LEAD_TAXONOMY_MIGRATION_PLAN.md`, `ISSUE_MANAGEMENT.md`, `WEBHOOKS.md`, `INDEX.md`, `DOC_LINT.md`) and `README.md` to **Version: 2.4.328**.
+  - Updated `docs/USER_GUIDE.md`, `docs/OPERATOR_GUIDE.md`, `docs/ARCHITECTURE.md`, `docs/LLD.md`, and `docs/USER_EMAIL_INTEGRATION_SPEC.md` to document What's New & Release Notes Blog, Pipeline Quick Filter Pills & Inline Table Editing, Unified Inbox Bulk Actions / Attachment Extraction / Composer Formatting Toolbar, Email Disconnect & Linked SSO Identities, RFC 2047 / Quoted-Printable MIME Encoding, and Two-Way Google Calendar Sync.
+  - Cleaned up obsolete code comments in `app/components/AppNav.tsx` and across the codebase.
+
 ## 2.4.327
 
 ### Unified Inbox Productivity, Pipeline Quick Filters, Inline Table Editing & Two-Way Calendar Sync

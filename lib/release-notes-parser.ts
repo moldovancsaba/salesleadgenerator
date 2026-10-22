@@ -147,7 +147,7 @@ export function classifyItemType(text: string): 'new' | 'fix' | 'security' | 'do
 function extractComponent(text: string): string | undefined {
   const match = text.match(/\(([^)]+)\)/);
   if (match) {
-    const raw = match[1].trim();
+    const raw = match[1].trim().replace(/`/g, '');
     // If it's a file path like app/lib/inbox-store.ts, get basename or directory
     if (raw.includes('/') || raw.includes('.')) {
       const parts = raw.split(/,\s*/);
@@ -156,6 +156,16 @@ function extractComponent(text: string): string | undefined {
     return raw;
   }
   return undefined;
+}
+
+export function cleanReleaseText(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/:\*\*$/, '')
+    .replace(/\*\*:?$/, '')
+    .replace(/:$/, '')
+    .trim();
 }
 
 export function parseChangelog(
@@ -211,9 +221,10 @@ export function parseChangelog(
         if (currentItem) {
           items.push(currentItem);
         }
-        const itemTitle = trimmed.replace(/^[-*]\s+/, '').replace(/:$/, '').trim();
+        const rawTitle = trimmed.replace(/^[-*]\s+/, '').trim();
+        const itemTitle = cleanReleaseText(rawTitle);
         const itemType = classifyItemType(itemTitle);
-        const comp = extractComponent(itemTitle);
+        const comp = extractComponent(rawTitle);
 
         currentItem = {
           title: itemTitle,
@@ -223,7 +234,8 @@ export function parseChangelog(
         };
       } else if (currentItem) {
         // Sub-bullet or explanation
-        const detailLine = trimmed.replace(/^[-*]\s+/, '').trim();
+        const rawDetail = trimmed.replace(/^[-*]\s+/, '').trim();
+        const detailLine = cleanReleaseText(rawDetail);
         if (detailLine) {
           currentItem.details.push(detailLine);
           // If the item was classified as other or doc, but a sub-bullet clearly indicates a fix or feature, refine it

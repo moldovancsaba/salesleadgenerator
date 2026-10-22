@@ -50,6 +50,9 @@ describe('Release Notes Parser (issue 269)', () => {
     expect(first.date).toBe('2026-10-22');
     expect(first.formattedDate).toBe('October 22, 2026');
     expect(first.items).toHaveLength(3);
+    expect(first.items[0].title).toBe('Multi-Identity SSO Connection Resolution (app/lib/integration-store.ts, lib/sso-access.ts)');
+    expect(first.items[0].title).not.toContain('**');
+    expect(first.items[0].details[0]).not.toContain('`');
 
     const second = notes[1];
     expect(second.version).toBe('2.4.322');

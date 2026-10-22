@@ -17,33 +17,16 @@ import { useTour } from './TourProvider';
 import { useNav } from './NavContext';
 import { TOUR_SELECTOR } from '../lib/tour/selectors';
 import { UserSettingsModal } from './UserSettingsModal';
+import { APP_VERSION } from '@/lib/release-notes-dates';
 
-// Issue #95: this app had no persistent in-app navigation anywhere — every
-// page (including Sales Settings) was only reachable by typing its URL
-// directly. This is the single nav surface for the whole app, mounted once
-// in the root layout so it's present on every page.
+// Persistent navigation surface mounted in the root layout so it is present
+// on every page (desktop collapsible sidebar via AppNavSidebar and mobile/tablet
+// slide-over drawer via AppNavInner).
 //
-// Client isolation is load-bearing here, not cosmetic: an earlier version of
-// this component listed every configured brand side by side under "Pipeline"
-// and "Sales Settings" — showing CogMap and Seyu as sibling menu options in
-// the same view. That's forbidden in this app (the same principle already
-// enforced server-side — cross-brand vocabulary/field isolation, see
-// docs/ARCHITECTURE.md's Input Validation section) and was corrected
-// immediately once flagged.
-//
-// Issue #103: which brand's section shows is no longer purely a function of
-// the current URL — it's the user's real SSO-derived access
-// (useAuth().accessibleBrands), enforced server-side by every brand page's
-// own requireBrandAccess() (this component only ever reflects that access,
-// it never grants it). Three real states, not one: 0 accessible brands (a
-// genuine "no access yet" state, distinct from "not logged in" or "no URL
-// context"), exactly 1 (the per-client section, same as before), and 2+ (a
-// new organization switcher — the first time this app can navigate between
-// clients without knowing a URL by heart).
-// Issue #195 — knownBrands (every configured brand's slug, regardless of
-// the viewer's own access) is now passed in from useAuth().brandLabels
-// (sourced server-side from the Mongo-backed brand registry) instead of
-// this Client Component importing the static BRAND_CONFIG object directly.
+// Client isolation is strictly enforced: the user's SSO-derived accessibleBrands
+// determines whether 0, 1, or 2+ organizations are available, and all links are
+// scoped to the active effectiveBrand (Today, Inbox, Pipeline, Contacts, Accounts,
+// Outreach & Content, Analytics, Settings, Help & Updates, and Admin).
 function currentBrandFromPath(pathname: string, knownBrands: string[]): Brand | null {
   const knownBrandSet = new Set(knownBrands);
   const salesMatch = pathname.match(/^\/sales\/([^/]+)/);
@@ -190,8 +173,10 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
   useEffect(() => {
     try {
       const seen = localStorage.getItem('slg_seen_version');
-      if (seen !== '2.4.327') {
+      if (seen !== APP_VERSION) {
         setHasNewRelease(true);
+      } else {
+        setHasNewRelease(false);
       }
     } catch {
       // Safe fallback
@@ -481,6 +466,7 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
                 component={Link}
                 href={`/whats-new/${effectiveBrand}`}
                 label="What's New"
+                description={`Release Notes (v${APP_VERSION})`}
                 leftSection={<IconSparkles size={18} color="var(--mantine-color-indigo-6)" />}
                 rightSection={hasNewRelease ? <CountBadge size="xs" value={1} srLabel="New release updates available" /> : null}
                 active={pathname.startsWith('/whats-new')}
@@ -571,6 +557,9 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
               logout();
             }}
           />
+          <Text size="xs" c="dimmed" ta="center" mt="xs">
+            Version {APP_VERSION}
+          </Text>
           <UserSettingsModal
             opened={userSettingsOpen}
             onClose={() => setUserSettingsOpen(false)}

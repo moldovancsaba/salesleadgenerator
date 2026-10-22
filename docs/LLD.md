@@ -1,8 +1,8 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.311
+**Version:** 2.4.328
 
-**Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212); comprehensive alignment audit completed 2026-10-18 (2.4.291, issue #256) bringing the complete API surface, domain modules, and component tree up to date across all features through v2.4.311 (Card action bar layout de-squeeze and semantic button styling, Internal team email filtering & personal mailbox attribution hardening, Kanban board resilience & card error isolation, Gmail 404 thread recovery, transparent People API error logging, Admin-managed mailbox aliases, configurable CC and assigned-lead scoping policies, fail-closed privacy guard, outbound counterparty resolution, multi-identity mailbox linking, user mailbox privacy isolation, corporate accounting domain shield, foreign contact decoupling, selective harvesting control, GDS Phases 1-3 design system migration, high-affordance card visual architecture, and stage-aware semantic actions). This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
+**Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212); comprehensive alignment audit completed 2026-10-22 (2.4.328, issue #275) bringing the complete API surface, domain modules, and component tree up to date across all features through v2.4.328 (App-wide visible `APP_VERSION` badge, What's New release notes blog & parser engine, Organization switcher de-duplication & CRM navigation taxonomy, Email disconnect lifecycle resolution across linked SSO identities, RFC 2047 & Quoted-Printable MIME encoding, Unified Inbox bulk actions, Gmail MIME attachment extraction & download proxy, composer formatting toolbar, Pipeline 1-click Quick Filter pills, inline Table stage & deal value editing, and Today two-way Google Calendar reminder completion/reschedule sync). This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 
 Compiled directly from the real source (export lists, import graphs, route handlers) — every claim below was verified against a real file, not inferred. If this doc and the source ever disagree, the source is correct; treat the disagreement as a doc bug to fix, not a spec violation to reconcile the code toward. See `docs/DOC_LINT.md` before editing.
 
@@ -37,13 +37,16 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/leads/export/route.ts` | GET, POST | `requireBrandAccessApi` | Multi-CRM CSV and Google Sheets TSV export with field mapping presets for HubSpot, Pipedrive, Salesforce, and Google Sheets (`lib/crm-lead-exchange.ts`, issue #252) |
 | `app/api/leads/import/route.ts` | POST | `requireBrandAccessApi` | Multi-CRM batch lead ingestion with RFC 4180 parsing, SHA-256 fingerprint deduplication, and stage/country normalization (`lib/crm-lead-exchange.ts`, issue #252) |
 
-### Inbox & Communication Center (issues #257, #258, #260, #265)
+### Inbox & Communication Center (issues #257, #258, #260, #265, #272, #275)
 
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
-| `app/api/inbox/[brand]/route.ts` | GET, PATCH | `requireBrandAccessApi` | Issues #257, #268, #269: GET lists aggregated conversation threads and stream metrics (`all`, `inbox`, `sent`, `needs_reply`, `internal`, `calls`, `system`, `unread`) with strict "My Inbox" scoping (`scope: 'my'`) and multi-identity account linking; PATCH handles bulk status updates (`isRead`, `isArchived`, `isStarred`) |
+| `app/api/inbox/[brand]/route.ts` | GET, PATCH | `requireBrandAccessApi` | Issues #257, #268, #269: GET lists aggregated conversation threads and stream metrics (`all`, `inbox`, `sent`, `needs_reply`, `internal`, `calls`, `system`, `unread`) with strict "My Inbox" scoping (`scope: 'my'`) and multi-identity account linking; PATCH handles single/bulk status updates (`isRead`, `isArchived`, `isStarred`) |
+| `app/api/inbox/[brand]/bulk/route.ts` | POST | `requireBrandAccessApi` | Issue #272: Batch thread state mutations (`mark_read`, `mark_unread`, `star`, `unstar`, `archive`, `unarchive`) via `bulkSetThreadStatus` |
+| `app/api/inbox/[brand]/attachments/route.ts` | GET | `requireBrandAccessApi` | Issue #272: Authenticated download proxy streaming Gmail message attachments (`messageId`, `attachmentId`) and workspace Document Library files (`documentId`) with `Content-Disposition: attachment` |
 | `app/api/inbox/[brand]/threads/[id]/route.ts` | GET, PATCH, POST | `requireBrandAccessApi` | Issues #257, #269: GET returns chronological thread messages and lead context (auto-marks read); PATCH updates thread state flags; POST dispatches in-thread email reply or adds internal team note with `userId`/`userEmail` ownership attribution |
 | `app/api/inbox/[brand]/convert/route.ts` | POST | `requireBrandAccessApi` | Issues #258, #260, #265: Converts thread contacts into a new Lead (`create_lead`), creates a Deal on an existing Lead (`add_deal`), attaches the thread to an existing Lead (`attach_lead`), or appends contacts (`add_contact`); supports `relinkThread`, multi-company domain inference, and selective contact harvesting |
+| `app/api/release-notes/route.ts` | GET | none (public read-only metadata) | Issues #269, #275: Paginated, searchable release notes and single-version lookup parsed from `CHANGELOG.md` (`lib/release-notes.ts`, `lib/release-notes-parser.ts`) |
 
 ### Saved filters (issue #214)
 
@@ -226,13 +229,15 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/products/[brand]/[productId]/route.ts` | PATCH, DELETE | `requireBrandAccessApi` (since 2.4.226) | Update/delete one product |
 | `app/api/admin/products-backfill/route.ts` | POST | `requireApiKey` | One-time idempotent backfill promoting Sales Settings' free-text `ProductLine[]` into the priced catalog (`lib/backfill-products.ts`) |
 
-### Today view workbench & action queues (issue #237)
+### Today view workbench & action queues (issues #237, #274)
 
 | Route | Methods | Auth | Purpose |
 |---|---|---|---|
 | `app/api/today/[brand]/route.ts` | GET | `requireBrandAccessApi` | Aggregates rep action queues (cadence tasks, overdue followups, due today, deals needing attention) via `getTodayQueue` |
 | `app/api/today/[brand]/complete-step/route.ts` | POST | `requireBrandAccessApi` | Completes manual sequence task (`call`, `linkedin`, `general`) and advances cadence |
 | `app/api/today/[brand]/snooze/route.ts` | POST | `requireBrandAccessApi` | Postpones follow-up reminder date without losing sequence context |
+| `app/api/leads/[id]/action-done/route.ts` | POST | `requireBrandAccessApi` | Marks a lead's scheduled follow-up done, clears `nextActionDueAt`, logs an activity entry, and fail-safely removes the `followup-{leadId}` reminder event from Google Calendar (`deleteCalendarTaskReminder`, issue #274) |
+| `app/api/leads/[id]/snooze/route.ts` | POST | `requireBrandAccessApi` | Snoozes/reschedules a lead's `nextActionDueAt`, logs an activity entry, and fail-safely creates/updates the `followup-{leadId}` reminder event in Google Calendar (`syncTaskReminderToGoogleCalendar`, issue #274) |
 
 ### Multi-pipeline configuration & custom stages (issue #235)
 
@@ -341,6 +346,8 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 - `lib/gmail-threading.ts` — issue #246, pure: `resolveThreadContext`, `chainThreadHeaders`, `buildInReplyToHeader`, `buildReferencesHeader` (RFC 2822 header chaining and continuous email thread linking)
 - `lib/lead-timeline-filter.ts` — issue #248, pure: `filterTimelineActivities`, `isPreLeadNoise`, `applyGraceWindow` (suppresses pre-creation correspondence noise outside 48h grace window)
 - `lib/compose-token-insertion.ts` — issue #254, pure: `TokenCategory`, `PersonalizationTokenDescriptor`, `AVAILABLE_COMPOSE_TOKENS`, `insertMergeTokenAtCursor`, `previewTokenInterpolation` (merge token modal and live hover resolver)
+- `lib/quick-filter-presets.ts` — issue #273, pure: `QuickFilterPreset`, `QUICK_FILTER_PRESETS`, `HIGH_VALUE_THRESHOLD`, `getLeadNumericDealValue`, `isLeadNeedsFollowup`, `matchesQuickFilterPreset` (1-click Pipeline Quick Filter pills shared across Kanban and Table views)
+- `lib/release-notes-dates.ts`, `lib/release-notes-parser.ts`, `lib/release-notes.ts` — issues #269, #275: `APP_VERSION`, `RELEASE_DATES`, `parseChangelog`, `cleanReleaseText`, `filterReleaseNotes`, `getReleaseNotes`, `getReleaseNoteByVersion` (What's New changelog parser and version registry)
 - `lib/template-conversion.ts` — `computeTemplateConversions`
 
 **Dedup / merge / CRM exchange**

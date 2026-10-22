@@ -1,6 +1,6 @@
 # Outbound Webhooks — Integrator Guide
 
-**Version:** 2.4.210
+**Version:** 2.4.328
 
 This is the integrator-facing recipe for consuming Sales Lead Generator's outbound webhooks (issue #210 sub-issue #219): the event set, the request shape, and exactly how to verify a delivery is genuinely from this app rather than an impersonation. It's written to the same level of detail `docs/LEAD_ENRICHMENT_GUIDE.md` gives the *inbound* research-agent contract — this is the outbound counterpart.
 

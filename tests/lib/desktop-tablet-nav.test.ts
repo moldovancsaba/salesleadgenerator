@@ -239,4 +239,15 @@ describe('desktop and tablet navigation affordances', () => {
     expect(nav).toContain('Settings');
     expect(nav).toContain('Help & Updates');
   });
+
+  it('displays visible APP_VERSION badge in AppHeader and AppNav (issue 275)', () => {
+    const header = readFileSync(join(root, 'app', 'components', 'AppHeader.tsx'), 'utf8');
+    expect(header).toContain('APP_VERSION');
+    expect(header).toContain('v{APP_VERSION}');
+
+    const nav = readFileSync(join(root, 'app', 'components', 'AppNav.tsx'), 'utf8');
+    expect(nav).toContain('APP_VERSION');
+    expect(nav).toContain('Release Notes (v${APP_VERSION})');
+    expect(nav).toContain('Version {APP_VERSION}');
+  });
 });

@@ -20,6 +20,7 @@ import { AppNav } from './AppNav';
 import { useAuth } from './AuthProvider';
 import { useNav } from './NavContext';
 import type { Brand } from '@/app/lib/brand';
+import { APP_VERSION } from '@/lib/release-notes-dates';
 
 function extractBrandFromPathname(pathname: string, knownBrands: string[]): Brand | null {
   const brandSet = new Set(knownBrands);
@@ -75,8 +76,10 @@ function AppHeaderInner() {
   useEffect(() => {
     try {
       const seen = localStorage.getItem('slg_seen_version');
-      if (seen !== '2.4.327') {
+      if (seen !== APP_VERSION) {
         setHasNewRelease(true);
+      } else {
+        setHasNewRelease(false);
       }
     } catch {
       // Safe fallback
@@ -120,12 +123,24 @@ function AppHeaderInner() {
         boxSizing: 'border-box',
       }}
     >
-      {/* Left: AppNav hamburger + title */}
-      <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
+      {/* Left: AppNav hamburger + title + version badge */}
+      <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
         <AppNav />
         <Text fw={700} size="sm" visibleFrom="xs">
           Sales Lead Generator
         </Text>
+        <Tooltip label={`What's New in v${APP_VERSION}`}>
+          <Button
+            component={Link}
+            href={`/whats-new/${activeBrand}`}
+            variant="light"
+            color="indigo"
+            size="compact-xs"
+            style={{ fontSize: '11px', fontWeight: 700, padding: '0 6px', height: '20px' }}
+          >
+            v{APP_VERSION}
+          </Button>
+        </Tooltip>
       </Group>
 
       {/* Center: Desktop horizontal navigation links (only rendered when sidebar is collapsed to eliminate duplication) */}

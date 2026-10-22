@@ -6,7 +6,6 @@ import {
   Box,
   Title,
   Text,
-  Badge,
   Group,
   Stack,
   Paper,
@@ -19,7 +18,9 @@ import {
   Tooltip,
   Container,
   Grid,
+  Loader,
 } from '@mantine/core';
+import { LabelTag, StatusBadge } from '@sovereignsquad/gds-core/client';
 import {
   IconSparkles,
   IconCalendar,
@@ -38,6 +39,7 @@ import {
 } from '@tabler/icons-react';
 import type { ReleaseNote, ReleaseCategory, ReleaseItem } from '@/lib/release-notes-parser';
 import { filterReleaseNotes } from '@/lib/release-notes-parser';
+import { APP_VERSION } from '@/lib/release-notes-dates';
 
 interface WhatsNewClientProps {
   initialNotes: ReleaseNote[];
@@ -46,6 +48,8 @@ interface WhatsNewClientProps {
 }
 
 export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientProps) {
+  const [notes, setNotes] = useState<ReleaseNote[]>(initialNotes);
+  const [loadingFallback, setLoadingFallback] = useState(false);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ReleaseCategory>('all');
   const [visibleCount, setVisibleCount] = useState(15);
@@ -54,16 +58,39 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
 
   useEffect(() => {
     try {
-      localStorage.setItem('slg_seen_version', '2.4.327');
+      localStorage.setItem('slg_seen_version', APP_VERSION);
     } catch {
       // Safe fallback
     }
   }, []);
 
+  useEffect(() => {
+    if (initialNotes && initialNotes.length > 0) {
+      setNotes(initialNotes);
+      return;
+    }
+    let mounted = true;
+    setLoadingFallback(true);
+    fetch('/api/release-notes?limit=100')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (mounted && Array.isArray(data?.notes) && data.notes.length > 0) {
+          setNotes(data.notes);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setLoadingFallback(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [initialNotes]);
+
   // Filter notes in memory
   const filteredNotes = useMemo(() => {
-    return filterReleaseNotes(initialNotes, { query, category });
-  }, [initialNotes, query, category]);
+    return filterReleaseNotes(notes, { query, category });
+  }, [notes, query, category]);
 
   const displayedNotes = useMemo(() => {
     return filteredNotes.slice(0, visibleCount);
@@ -118,9 +145,7 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
                 >
                   Back to {label}
                 </Button>
-                <Badge variant="light" color="indigo" size="sm" leftSection={<IconSparkles size={12} />}>
-                  Changelog & Updates
-                </Badge>
+                <LabelTag tone="info" size="sm" label="Changelog & Updates" />
               </Group>
               <Title order={2} style={{ fontSize: '24px', fontWeight: 800 }}>
                 What&apos;s New in Sales Lead Generator
@@ -131,29 +156,27 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
             </Stack>
 
             <Group gap="xs" align="center">
-              {initialNotes[0] && (
-                <Paper
-                  withBorder
-                  p="xs"
-                  radius="md"
-                  style={{
-                    background: 'var(--mantine-color-indigo-0)',
-                    borderColor: 'var(--mantine-color-indigo-2)',
-                  }}
-                >
-                  <Group gap="xs">
-                    <IconSparkles size={16} color="var(--mantine-color-indigo-7)" />
-                    <Stack gap={0}>
-                      <Text size="xs" fw={700} c="indigo.8">
-                        Latest: v{initialNotes[0].version}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {initialNotes[0].formattedDate}
-                      </Text>
-                    </Stack>
-                  </Group>
-                </Paper>
-              )}
+              <Paper
+                withBorder
+                p="xs"
+                radius="md"
+                style={{
+                  background: 'var(--mantine-color-indigo-0)',
+                  borderColor: 'var(--mantine-color-indigo-2)',
+                }}
+              >
+                <Group gap="xs">
+                  <IconSparkles size={16} color="var(--mantine-color-indigo-7)" />
+                  <Stack gap={0}>
+                    <Text size="xs" fw={700} c="indigo.8">
+                      Latest: v{notes[0]?.version || APP_VERSION}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {notes[0]?.formattedDate || 'October 22, 2026'}
+                    </Text>
+                  </Stack>
+                </Group>
+              </Paper>
             </Group>
           </Group>
 
@@ -208,7 +231,12 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
         <Grid gap="xl">
           {/* Main Feed: Blog Cards */}
           <Grid.Col span={{ base: 12, md: 8, lg: 9 }}>
-            {displayedNotes.length === 0 ? (
+            {loadingFallback ? (
+              <Paper withBorder p="xl" radius="md" style={{ textAlign: 'center', background: 'var(--mantine-color-body)' }}>
+                <Loader size="sm" color="indigo" style={{ margin: '0 auto 12px' }} />
+                <Text size="sm" c="dimmed">Loading release notes...</Text>
+              </Paper>
+            ) : displayedNotes.length === 0 ? (
               <Paper withBorder p="xl" radius="md" style={{ textAlign: 'center', background: 'var(--mantine-color-body)' }}>
                 <IconSearch size={36} color="var(--mantine-color-gray-5)" style={{ margin: '0 auto 12px' }} />
                 <Title order={4} mb="xs">No releases match your search</Title>
@@ -250,20 +278,16 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
                       {/* Release Card Header */}
                       <Group justify="space-between" align="flex-start" wrap="wrap" gap="xs" mb="sm">
                         <Group gap="xs" wrap="wrap" align="center">
-                          <Badge
-                            size="md"
-                            variant="filled"
-                            color={isLatest ? 'indigo' : 'dark'}
-                            radius="sm"
-                            style={{ fontWeight: 700 }}
-                          >
-                            v{note.version}
-                          </Badge>
+                          <LabelTag
+                            size="sm"
+                            tone={isLatest ? 'info' : 'neutral'}
+                            label={`v${note.version}`}
+                          />
 
                           {isLatest && (
-                            <Badge size="xs" variant="light" color="teal">
+                            <StatusBadge size="xs" status="success">
                               Latest Release
-                            </Badge>
+                            </StatusBadge>
                           )}
 
                           <Group gap={4} c="dimmed" wrap="nowrap">
@@ -273,26 +297,24 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
                             </Text>
                           </Group>
 
-                          <Badge size="xs" variant="subtle" color="gray">
-                            {note.relativeAge}
-                          </Badge>
+                          <LabelTag size="xs" tone="neutral" label={note.relativeAge} />
                         </Group>
 
                         <Group gap={6}>
                           {note.newCount > 0 && (
-                            <Badge size="xs" variant="light" color="teal" leftSection={<IconRocket size={10} />}>
-                              {note.newCount} New
-                            </Badge>
+                            <StatusBadge size="xs" status="success">
+                              {`${note.newCount} New`}
+                            </StatusBadge>
                           )}
                           {note.fixCount > 0 && (
-                            <Badge size="xs" variant="light" color="blue" leftSection={<IconBug size={10} />}>
-                              {note.fixCount} Fixed
-                            </Badge>
+                            <StatusBadge size="xs" status="info">
+                              {`${note.fixCount} Fixed`}
+                            </StatusBadge>
                           )}
                           {note.securityCount > 0 && (
-                            <Badge size="xs" variant="light" color="violet" leftSection={<IconShieldLock size={10} />}>
-                              {note.securityCount} Security
-                            </Badge>
+                            <StatusBadge size="xs" status="warning">
+                              {`${note.securityCount} Security`}
+                            </StatusBadge>
                           )}
                           <Tooltip label={copiedVersion === note.version ? 'Link copied!' : 'Copy direct link to release'}>
                             <ActionIcon
@@ -368,16 +390,15 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
                               }}
                             >
                               <Group gap="xs" align="flex-start" wrap="nowrap">
-                                <Badge
-                                  size="xs"
-                                  variant="filled"
-                                  color={badgeColor}
-                                  radius="xs"
-                                  leftSection={<IconComponent size={10} />}
-                                  style={{ flexShrink: 0, marginTop: '2px' }}
-                                >
-                                  {badgeLabel}
-                                </Badge>
+                                <Group gap={4} wrap="nowrap" style={{ flexShrink: 0, marginTop: '2px' }}>
+                                  <IconComponent size={13} color={`var(--mantine-color-${badgeColor}-6)`} />
+                                  <StatusBadge
+                                    size="xs"
+                                    status={isNew ? 'success' : isFix ? 'info' : isSec ? 'warning' : 'neutral'}
+                                  >
+                                    {badgeLabel}
+                                  </StatusBadge>
+                                </Group>
 
                                 <Box style={{ flex: 1, minWidth: 0 }}>
                                   <Text size="sm" fw={600} style={{ wordBreak: 'break-word' }}>
@@ -475,14 +496,12 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
                   <Text size="xs" fw={700} tt="uppercase" c="dimmed">
                     Recent Releases
                   </Text>
-                  <Badge size="xs" variant="light" color="gray">
-                    {initialNotes.length} total
-                  </Badge>
+                  <LabelTag size="xs" tone="neutral" label={`${notes.length} total`} />
                 </Group>
                 <Divider mb="sm" />
 
                 <Stack gap={4}>
-                  {initialNotes.slice(0, 20).map((n) => {
+                  {notes.slice(0, 20).map((n) => {
                     const slug = `v${n.version.replace(/\./g, '-')}`;
                     return (
                       <Box
@@ -496,9 +515,6 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
                           color: 'inherit',
                           display: 'block',
                           transition: 'background 0.15s ease',
-                          '&:hover': {
-                            background: 'var(--mantine-color-gray-1)',
-                          },
                         }}
                       >
                         <Group justify="space-between" wrap="nowrap">
