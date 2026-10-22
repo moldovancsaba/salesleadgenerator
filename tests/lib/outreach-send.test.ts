@@ -268,7 +268,7 @@ describe('dispatchOutreachEmail — Personalization Gating & Send Invariants (is
     );
 
     expect(res.sent).toBe(true);
-    expect(capturedRawMime).toContain('Reaching out about our solution.\r\n\r\n-- \r\nBest,\r\nAlex Rep\r\nVP Sales');
+    expect(capturedRawMime).toContain('Reaching out about our solution.\r\n\r\n--=20\r\nBest,\r\nAlex Rep\r\nVP Sales');
     expect(mockDb.insertedLogs[0].bodyExcerpt).toContain('Reaching out about our solution.\n\n-- \nBest,\nAlex Rep\nVP Sales');
     expect(mockDb.insertedLogs[1].body).toContain('Reaching out about our solution.\n\n-- \nBest,\nAlex Rep\nVP Sales');
   });

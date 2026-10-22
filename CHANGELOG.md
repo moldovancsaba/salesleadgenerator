@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.318
+
+### MIME Character Encoding Fix for Outbound Gmail Integration (RFC 2047 & Quoted-Printable)
+
+- **RFC 2047 Header Encoding (`lib/gmail-send.ts`):**
+  - Added `encodeRfc2047(text: string): string` to encode non-ASCII email headers using standard MIME encoded-word syntax (`=?UTF-8?B?<base64>?=`). Slices text cleanly along Unicode code points into chunks of at most 45 UTF-8 bytes to strictly guarantee that no encoded-word exceeds RFC 2047's 75-character limit.
+  - Updated `formatMailbox(person)`: when display names contain non-ASCII characters (e.g. `Moldován Csaba`, `Dávid Bozsik`), formats mailbox display name using RFC 2047 encoded-word syntax *without* enclosing quotes per RFC 2047 Section 5 (`=?UTF-8?B?...?= <email@domain.com>`). Pure US-ASCII display names remain formatted as standard quoted strings (`"Jane Doe" <email@domain.com>`).
+  - Updated `buildRfc2822Message()`: subject lines containing non-ASCII characters or special markers are encoded using `encodeRfc2047()`, eliminating mojibake / corrupted subject lines in external email clients.
+- **RFC 2045 Quoted-Printable Body Encoding (`lib/gmail-send.ts`):**
+  - Added `encodeQuotedPrintable(text: string): string` conforming to RFC 2045 Section 6.7. Encodes UTF-8 multi-byte characters (`á`, `é`, `ő`, `ű`, etc.) as uppercase `=XX` hex octets, encodes literal `=` as `=3D`, encodes trailing line whitespace (spaces and tabs) as `=20` and `=09`, and limits line lengths to at most 76 characters using soft line breaks (`=\r\n`).
+  - Updated `buildRfc2822Message()`: switched `Content-Transfer-Encoding` header from `7bit` to `quoted-printable`, completely eliminating the high-bit stripping and character mangling caused by SMTP relays and email clients receiving 8-bit octets under a 7-bit contract.
+- **Automated Verification:**
+  - Added unit test suite in `tests/lib/gmail-send.test.ts` verifying RFC 2047 encoded-word generation for Hungarian accented names (`Moldován Csaba`, `Dávid Bozsik`), multi-chunk long subject line handling, Quoted-Printable hex byte encoding, line soft breaking, trailing space preservation, and full RFC 2822 message construction.
+  - Updated `tests/lib/outreach-send.test.ts` to assert Quoted-Printable formatted raw MIME (`--=20` signature delimiter).
+  - All 123 test suites (1,595 unit tests) pass 100%.
+
 ## 2.4.317
 
 ### Desktop Horizontal Navigation Bar & Responsive Sidebar Expand Affordance (Issue #271)
