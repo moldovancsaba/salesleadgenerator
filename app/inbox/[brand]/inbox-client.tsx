@@ -125,7 +125,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
   });
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [syncingGmail, setSyncingGmail] = useState(false);
-  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<{ message: string; color: 'teal' | 'red' | 'blue' } | null>(null);
 
   // Selected thread state
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(initialThreadId || null);
@@ -229,13 +229,16 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
         const msg = data.ingested > 0
           ? `Synced ${data.ingested} new message${data.ingested === 1 ? '' : 's'} from your Gmail inbox.`
           : 'Gmail inbox checked — no new correspondence found.';
-        setSyncNotice(msg);
+        setSyncNotice({ message: msg, color: 'teal' });
         loadThreads();
       } else {
-        setSyncNotice(data.error || 'Connect Gmail in Email & Integrations to sync correspondence.');
+        const errorText = data.error === 'invalid_grant'
+          ? 'Google authorization has expired or was revoked. Please reconnect your account in Email & Integrations.'
+          : (data.error || 'Connect Gmail in Email & Integrations to sync correspondence.');
+        setSyncNotice({ message: errorText, color: 'red' });
       }
     } catch {
-      setSyncNotice('Could not reach server to sync Gmail.');
+      setSyncNotice({ message: 'Could not reach server to sync Gmail.', color: 'red' });
     } finally {
       setSyncingGmail(false);
     }
@@ -513,14 +516,14 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
 
         {syncNotice && (
           <Alert
-            color="teal"
+            color={syncNotice.color}
             variant="light"
             withCloseButton
             onClose={() => setSyncNotice(null)}
             mb="xs"
             p="xs"
           >
-            <Text size="xs">{syncNotice}</Text>
+            <Text size="xs">{syncNotice.message}</Text>
           </Alert>
         )}
 

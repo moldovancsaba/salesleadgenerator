@@ -119,6 +119,81 @@ export async function setUserOrgAccess(
   return getUserAccess(db, ssoUserId);
 }
 
+// Issue 271: Admin-managed linked mailbox aliases (e.g. personal SSO email
+// linked to corporate Google Workspace mailboxes). Stored normalized lowercase.
+export const KNOWN_USER_ALIASES: Record<string, string[]> = {
+  'moldovancsaba@gmail.com': ['coo@seyuselfies.com', 'office@seyuselfies.com'],
+  'coo@seyuselfies.com': ['moldovancsaba@gmail.com', 'office@seyuselfies.com'],
+  'office@seyuselfies.com': ['moldovancsaba@gmail.com', 'coo@seyuselfies.com'],
+  'ricardo.rmbd@gmail.com': ['ricardo.maia@seyuselfies.com'],
+  'ricardo.maia@seyuselfies.com': ['ricardo.rmbd@gmail.com'],
+};
+
+export async function resolveLinkedUserIdentities(
+  db: Db,
+  userIdOrEmail: string
+): Promise<{ userIds: string[]; emails: string[] }> {
+  const userIds = new Set<string>();
+  const emails = new Set<string>();
+
+  if (userIdOrEmail) {
+    if (userIdOrEmail.includes('@')) {
+      emails.add(userIdOrEmail.toLowerCase().trim());
+    } else {
+      userIds.add(userIdOrEmail);
+    }
+  }
+
+  // Look up matching records in sso_user_access
+  const ssoRecords = await db.collection(COLLECTION)
+    .find({
+      $or: [
+        ...(userIds.size > 0 ? [{ ssoUserId: { $in: Array.from(userIds) } }] : []),
+        ...(emails.size > 0 ? [{ email: { $in: Array.from(emails) } }] : []),
+        ...(emails.size > 0 ? [{ aliases: { $in: Array.from(emails) } }] : []),
+      ],
+    }, { projection: { ssoUserId: 1, email: 1, aliases: 1 } })
+    .toArray()
+    .catch(() => []);
+
+  for (const s of ssoRecords) {
+    if (s.ssoUserId) userIds.add(s.ssoUserId);
+    if (s.email) emails.add(s.email.toLowerCase().trim());
+    if (Array.isArray(s.aliases)) {
+      for (const a of s.aliases) {
+        if (typeof a === 'string' && a.includes('@')) emails.add(a.toLowerCase().trim());
+      }
+    }
+  }
+
+  // Query KNOWN_USER_ALIASES mapping
+  for (const em of Array.from(emails)) {
+    const known = KNOWN_USER_ALIASES[em] || [];
+    for (const k of known) {
+      emails.add(k.toLowerCase().trim());
+    }
+  }
+
+  // Second pass to find any additional SSO user IDs for aliases discovered from KNOWN_USER_ALIASES
+  if (emails.size > 0) {
+    const additionalRecords = await db.collection(COLLECTION)
+      .find({
+        $or: [
+          { email: { $in: Array.from(emails) } },
+          { aliases: { $in: Array.from(emails) } },
+        ],
+      }, { projection: { ssoUserId: 1, email: 1 } })
+      .toArray()
+      .catch(() => []);
+    for (const s of additionalRecords) {
+      if (s.ssoUserId) userIds.add(s.ssoUserId);
+      if (s.email) emails.add(s.email.toLowerCase().trim());
+    }
+  }
+
+  return { userIds: Array.from(userIds), emails: Array.from(emails) };
+}
+
 // Issue 271: Admin-managed mailbox aliases for a user
 export async function setUserAliases(
   db: Db,

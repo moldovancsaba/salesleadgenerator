@@ -5,6 +5,7 @@ import {
   oauthConfigFor, apiKeyConfigFor,
 } from '../../lib/integration-connections';
 import { fetchWithRetry } from '../../lib/integration-http';
+import { resolveLinkedUserIdentities } from '../../lib/sso-access';
 
 export const INTEGRATION_CONNECTIONS_COLLECTION = 'integration_connections';
 
@@ -232,39 +233,78 @@ export async function upsertOAuthConnection(
   );
 }
 
-// User-level connection accessors (issue #247, enhanced for multi-account in issue #252)
+// User-level connection accessors (issue #247, enhanced for multi-account in issue #252 and linked aliases in issue #271)
 export async function getUserConnection(
   db: Db, userId: string, provider: IntegrationProvider, connectionIdOrEmail?: string
 ): Promise<IntegrationConnection | null> {
-  const query: Record<string, any> = {
-    userId, provider, status: { $ne: 'revoked' },
+  const { userIds, emails } = await resolveLinkedUserIdentities(db, userId);
+
+  const hasMultiple = userIds.length > 1 || emails.length > 0;
+  const userClause: Record<string, any> = hasMultiple
+    ? {
+        $or: [
+          { userId: { $in: userIds } },
+          { connectedBy: { $in: userIds } },
+          ...(emails.length > 0 ? [{ userEmail: { $in: emails } }] : []),
+        ],
+      }
+    : { userId };
+
+  const baseQuery: Record<string, any> = {
+    ...userClause,
+    provider,
+    status: { $ne: 'revoked' },
   };
+
   if (connectionIdOrEmail) {
-    const byId = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
-      ...query, id: connectionIdOrEmail,
-    });
-    if (byId) return byId as unknown as IntegrationConnection;
-    const byEmail = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
-      ...query, userEmail: connectionIdOrEmail,
-    });
-    if (byEmail) return byEmail as unknown as IntegrationConnection;
+    const isEmail = connectionIdOrEmail.includes('@');
+    if (isEmail) {
+      const normEmail = connectionIdOrEmail.toLowerCase().trim();
+      const byEmail = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
+        ...baseQuery,
+        ...(hasMultiple
+          ? { $or: [{ userEmail: normEmail }, { providerAccountLabel: normEmail }] }
+          : { userEmail: normEmail }),
+      });
+      if (byEmail) return byEmail as unknown as IntegrationConnection;
+    } else {
+      const byId = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
+        ...baseQuery,
+        id: connectionIdOrEmail,
+      });
+      if (byId) return byId as unknown as IntegrationConnection;
+    }
     return null;
   }
+
   // Try finding explicit default first, otherwise fall back to any active connection
   const defaultDoc = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
-    ...query,
+    ...baseQuery,
     isDefault: true,
   });
   if (defaultDoc) return defaultDoc as unknown as IntegrationConnection;
 
-  const doc = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne(query);
+  const doc = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne(baseQuery);
   return doc as unknown as IntegrationConnection | null;
 }
 
 export async function listUserConnections(
   db: Db, userId: string, provider?: IntegrationProvider
 ): Promise<SafeIntegrationConnection[]> {
-  const query: Record<string, any> = { userId };
+  const { userIds, emails } = await resolveLinkedUserIdentities(db, userId);
+
+  const hasMultiple = userIds.length > 1 || emails.length > 0;
+  const query: Record<string, any> = {
+    ...(hasMultiple
+      ? {
+          $or: [
+            { userId: { $in: userIds } },
+            { connectedBy: { $in: userIds } },
+            ...(emails.length > 0 ? [{ userEmail: { $in: emails } }] : []),
+          ],
+        }
+      : { userId }),
+  };
   if (provider) query.provider = provider;
   const cursor = db.collection(INTEGRATION_CONNECTIONS_COLLECTION).find(query);
   const docs = typeof cursor.sort === 'function'
@@ -276,8 +316,20 @@ export async function listUserConnections(
 export async function listActiveUserConnections(
   db: Db, userId: string, provider?: IntegrationProvider
 ): Promise<IntegrationConnection[]> {
+  const { userIds, emails } = await resolveLinkedUserIdentities(db, userId);
+
+  const hasMultiple = userIds.length > 1 || emails.length > 0;
   const query: Record<string, any> = {
-    userId, status: 'active',
+    ...(hasMultiple
+      ? {
+          $or: [
+            { userId: { $in: userIds } },
+            { connectedBy: { $in: userIds } },
+            ...(emails.length > 0 ? [{ userEmail: { $in: emails } }] : []),
+          ],
+        }
+      : { userId }),
+    status: 'active',
   };
   if (provider) query.provider = provider;
   const cursor = db.collection(INTEGRATION_CONNECTIONS_COLLECTION).find(query);

@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.323
+
+### Linked SSO Multi-Identity Connection Resolution & Inbox Sync Error Feedback
+
+- **Multi-Identity SSO Connection Resolution (`app/lib/integration-store.ts`, `lib/sso-access.ts`):**
+  - Exported `resolveLinkedUserIdentities(db, userIdOrEmail)` combining `KNOWN_USER_ALIASES` with live `sso_user_access` records to resolve linked SSO identities across personal and corporate accounts.
+  - Updated `getUserConnection`, `listUserConnections`, and `listActiveUserConnections` to query across all linked user IDs and emails via `$or: [{ userId: { $in: userIds } }, { userEmail: { $in: emails } }]`.
+  - Solves the gap where logging in with personal Google SSO (`moldovancsaba@gmail.com`) could not resolve active connections established under linked corporate accounts (`coo@seyuselfies.com`, `office@seyuselfies.com`), allowing seamless sync and reply dispatch without manual re-authentication.
+- **Inbox Sync Notice Status & Error Guidance (`app/inbox/[brand]/inbox-client.tsx`):**
+  - Enhanced `syncNotice` state to include semantic color status (`color: 'teal' | 'red' | 'blue'`).
+  - Added descriptive, actionable error message for `invalid_grant` token expirations advising users to reconnect Google OAuth in Email & Integrations, rendered with red alert styling instead of generic notices.
+- **Automated Verification:**
+  - Added unit test in `tests/lib/user-integrations.test.ts` verifying that `listActiveUserConnections` and `getUserConnection` resolve active connections across linked SSO accounts and admin-managed aliases.
+  - All 123 test suites and 1,601 tests pass 100%.
+
 ## 2.4.322
 
 ### Strict Mailbox Privacy Shield, Email Leak Protection & Comprehensive Sync Ingestion

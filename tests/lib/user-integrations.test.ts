@@ -10,91 +10,91 @@ process.env.GOOGLE_OAUTH_REDIRECT_URI = 'https://example.com/callback';
 import {
   getUserConnection,
   listUserConnections,
+  listActiveUserConnections,
   listAllActiveUserConnections,
   listAllActiveGmailConnections,
   upsertOAuthConnection,
   setUserDefaultConnection,
 } from '../../app/lib/integration-store';
 
+function matchesQuery(doc: any, query: any): boolean {
+  if (!query || Object.keys(query).length === 0) return true;
+  for (const [key, val] of Object.entries(query)) {
+    if (key === '$or' && Array.isArray(val)) {
+      if (!val.some((subQuery) => matchesQuery(doc, subQuery))) return false;
+      continue;
+    }
+    if (typeof val === 'object' && val !== null) {
+      if ('$exists' in val && Boolean(doc[key] !== undefined) !== val.$exists) return false;
+      if ('$ne' in val && doc[key] === (val as any).$ne) return false;
+      if ('$in' in val && Array.isArray((val as any).$in)) {
+        if (!(val as any).$in.includes(doc[key])) return false;
+        continue;
+      }
+    } else if (doc[key] !== val) {
+      return false;
+    }
+  }
+  return true;
+}
+
 describe('User Integrations Store (issue 247 & 252)', () => {
   let mockDb: any;
   let storedDocs: any[];
+  let ssoDocs: any[];
 
   beforeEach(() => {
     storedDocs = [];
+    ssoDocs = [];
     mockDb = {
-      collection: (name: string) => ({
-        createIndex: vi.fn().mockResolvedValue('index_name'),
-        findOne: vi.fn().mockImplementation((query: any) => {
-          return Promise.resolve(
-            storedDocs.find((doc) => {
-              for (const [key, val] of Object.entries(query)) {
-                if (typeof val === 'object' && val !== null && '$ne' in val) {
-                  if (doc[key] === (val as any).$ne) return false;
-                } else if (doc[key] !== val) {
-                  return false;
-                }
-              }
-              return true;
-            }) || null
-          );
-        }),
-        find: vi.fn().mockImplementation((query: any) => ({
-          sort: vi.fn().mockReturnThis(),
-          toArray: vi.fn().mockImplementation(() => {
-            return Promise.resolve(
-              storedDocs.filter((doc) => {
-                for (const [key, val] of Object.entries(query)) {
-                  if (typeof val === 'object' && val !== null) {
-                    if ('$exists' in val && Boolean(doc[key] !== undefined) !== val.$exists) return false;
-                    if ('$ne' in val && doc[key] === val.$ne) return false;
-                  } else if (doc[key] !== val) {
-                    return false;
-                  }
-                }
-                return true;
-              })
-            );
+      collection: (name: string) => {
+        const pool = name === 'sso_user_access' ? ssoDocs : storedDocs;
+        return {
+          createIndex: vi.fn().mockResolvedValue('index_name'),
+          findOne: vi.fn().mockImplementation((query: any) => {
+            return Promise.resolve(pool.find((doc) => matchesQuery(doc, query)) || null);
           }),
-        })),
-        updateOne: vi.fn().mockImplementation((filter: any, update: any) => {
-          const setKeys = new Set(Object.keys(update.$set || {}));
-          for (const key of Object.keys(update.$setOnInsert || {})) {
-            if (setKeys.has(key)) {
-              throw new Error(`Updating the path ${key} would create a conflict at ${key}`);
-            }
-          }
-          let doc = storedDocs.find((d) => {
-            if (filter.id) return d.id === filter.id;
-            if (filter.userId) {
-              if (filter.userEmail) {
-                return d.userId === filter.userId && d.provider === filter.provider && d.userEmail === filter.userEmail;
+          find: vi.fn().mockImplementation((query: any) => ({
+            sort: vi.fn().mockReturnThis(),
+            toArray: vi.fn().mockImplementation(() => {
+              return Promise.resolve(pool.filter((doc) => matchesQuery(doc, query)));
+            }),
+          })),
+          updateOne: vi.fn().mockImplementation((filter: any, update: any) => {
+            const setKeys = new Set(Object.keys(update.$set || {}));
+            for (const key of Object.keys(update.$setOnInsert || {})) {
+              if (setKeys.has(key)) {
+                throw new Error(`Updating the path ${key} would create a conflict at ${key}`);
               }
-              return d.userId === filter.userId && d.provider === filter.provider;
             }
-            return d.brand === filter.brand && d.tenantId === filter.tenantId && d.provider === filter.provider;
-          });
-          if (!doc) {
-            doc = { ...(update.$setOnInsert || {}), ...(update.$set || {}) };
-            storedDocs.push(doc);
-          } else {
-            Object.assign(doc, update.$set || {});
-          }
-          return Promise.resolve({ acknowledged: true });
-        }),
-        updateMany: vi.fn().mockImplementation((filter: any, update: any) => {
-          for (const doc of storedDocs) {
-            let match = true;
-            for (const [key, val] of Object.entries(filter)) {
-              if (doc[key] !== val) { match = false; break; }
+            let doc = pool.find((d) => {
+              if (filter.id) return d.id === filter.id;
+              if (filter.userId) {
+                if (filter.userEmail) {
+                  return d.userId === filter.userId && d.provider === filter.provider && d.userEmail === filter.userEmail;
+                }
+                return d.userId === filter.userId && d.provider === filter.provider;
+              }
+              return d.brand === filter.brand && d.tenantId === filter.tenantId && d.provider === filter.provider;
+            });
+            if (!doc) {
+              doc = { ...(update.$setOnInsert || {}), ...(update.$set || {}) };
+              pool.push(doc);
+            } else {
+              Object.assign(doc, update.$set);
             }
-            if (match) {
-              Object.assign(doc, update.$set || {});
+            return Promise.resolve({ matchedCount: 1, modifiedCount: 1 });
+          }),
+          updateMany: vi.fn().mockImplementation((filter: any, update: any) => {
+            for (const doc of pool) {
+              if (matchesQuery(doc, filter)) {
+                Object.assign(doc, update.$set || {});
+              }
             }
-          }
-          return Promise.resolve({ acknowledged: true });
-        }),
-      }),
+            return Promise.resolve({ acknowledged: true });
+          }),
+        };
+      },
     };
   });
 
@@ -296,6 +296,38 @@ describe('User Integrations Store (issue 247 & 252)', () => {
 
     const newDefaultConn = await getUserConnection(mockDb, 'usr_sso_1', 'gmail');
     expect(newDefaultConn?.userEmail).toBe('work@company.com');
+  });
+
+  it('resolves active connections across linked SSO accounts and admin-managed aliases', async () => {
+    // Setup SSO linked account: Csaba personal SSO ID linked with corporate Workspace email
+    ssoDocs.push({
+      ssoUserId: 'sso_csaba_personal',
+      email: 'moldovancsaba@gmail.com',
+      aliases: ['coo@seyuselfies.com', 'office@seyuselfies.com'],
+    });
+
+    // Connection created under corporate account
+    storedDocs.push({
+      id: 'conn_coo',
+      userId: 'sso_csaba_corporate',
+      brand: 'seyu',
+      tenantId: 'default',
+      provider: 'gmail',
+      userEmail: 'coo@seyuselfies.com',
+      status: 'active',
+      isDefault: true,
+      updatedAt: new Date().toISOString(),
+    });
+
+    // When queried using personal SSO ID 'sso_csaba_personal', it resolves the linked corporate connection
+    const activeConns = await listActiveUserConnections(mockDb, 'sso_csaba_personal', 'gmail');
+    expect(activeConns).toHaveLength(1);
+    expect(activeConns[0].userEmail).toBe('coo@seyuselfies.com');
+
+    // Targeted lookup for coo@seyuselfies.com using personal SSO ID succeeds
+    const targetedConn = await getUserConnection(mockDb, 'sso_csaba_personal', 'gmail', 'coo@seyuselfies.com');
+    expect(targetedConn).not.toBeNull();
+    expect(targetedConn?.id).toBe('conn_coo');
   });
 });
 

@@ -16,17 +16,11 @@ import {
 } from '../../lib/email-contact-extractor';
 import { mergeContactsIntoLead } from '../../lib/email-contact-merge';
 import type { NormalizedContact } from '../../lib/contacts';
-import { getUserAliases } from '../../lib/sso-access';
+import { getUserAliases, KNOWN_USER_ALIASES } from '../../lib/sso-access';
 
 export const INBOX_THREAD_STATES_COLLECTION = 'inbox_thread_states';
 
-export const KNOWN_USER_ALIASES: Record<string, string[]> = {
-  'moldovancsaba@gmail.com': ['coo@seyuselfies.com', 'office@seyuselfies.com'],
-  'coo@seyuselfies.com': ['moldovancsaba@gmail.com', 'office@seyuselfies.com'],
-  'office@seyuselfies.com': ['moldovancsaba@gmail.com', 'coo@seyuselfies.com'],
-  'ricardo.rmbd@gmail.com': ['ricardo.maia@seyuselfies.com'],
-  'ricardo.maia@seyuselfies.com': ['ricardo.rmbd@gmail.com'],
-};
+export { KNOWN_USER_ALIASES };
 
 export type InboxStream = 'all' | 'inbox' | 'sent' | 'needs_reply' | 'internal' | 'calls' | 'system';
 
