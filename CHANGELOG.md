@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.317
+
+### Desktop Horizontal Navigation Bar & Responsive Sidebar Expand Affordance (Issue #271)
+
+- **Desktop Horizontal Top Navigation Bar (`app/components/AppHeader.tsx`):**
+  - Added dedicated desktop horizontal navigation bar in `AppHeaderInner` (`visibleFrom="md"`), rendering 1-click navigation links to core workspace modules: **Today**, **Inbox**, **Pipeline**, **Contacts**, **Accounts**, **Forecast**, and **Reports**.
+  - Provides active-state route highlighting (`variant="light" color="indigo"`) indicating the current workspace module at a glance.
+  - Ensures desktop and tablet users always have prominent, persistent navigation across the top header, eliminating reliance on a mobile-style hamburger menu even when the left sidebar is collapsed to maximize screen width.
+  - Fixed brand path extraction regex in `extractBrandFromPathname` to include `/inbox/`, ensuring active brand state is accurately detected on Unified Communication Center URLs.
+- **Responsive Sidebar Expand & Collapse State Cues (`app/components/AppNav.tsx`):**
+  - Updated the header hamburger action icon with contextual visual state: renders `variant="filled"` when sidebar is collapsed (signaling an expandable drawer/sidebar) and `variant="light"` when sidebar is docked.
+  - Updated tooltips to clearly differentiate between `"Expand navigation sidebar"` and `"Collapse navigation sidebar"`.
+- **Automated Verification:**
+  - Added unit test coverage in `tests/lib/desktop-tablet-nav.test.ts` verifying desktop horizontal nav rendering, route labels, active path extraction for `/inbox/`, and sidebar toggle states.
+
 ## 2.4.316
 
 ### Tablet and Desktop Header Organization Switcher Responsiveness (Issue #271)

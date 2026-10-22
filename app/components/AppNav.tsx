@@ -92,21 +92,21 @@ export function AppNav() {
 }
 
 function AppNavInner() {
-  const { toggleNav, drawerOpen, closeDrawer } = useNav();
+  const { toggleNav, drawerOpen, closeDrawer, sidebarOpen } = useNav();
 
   return (
     <>
-      <Tooltip label="Toggle navigation bar">
+      <Tooltip label={sidebarOpen ? 'Collapse navigation sidebar' : 'Expand navigation sidebar'}>
         <ActionIcon
-          variant="filled"
+          variant={sidebarOpen ? 'light' : 'filled'}
           color="indigo"
-          size={40}
+          size={32}
           radius="md"
-          aria-label="Open navigation menu"
+          aria-label={sidebarOpen ? 'Collapse navigation sidebar' : 'Expand navigation sidebar'}
           onClick={toggleNav}
           data-tour={TOUR_SELECTOR.navHamburger}
         >
-          <IconMenu2 size={24} />
+          <IconMenu2 size={20} />
         </ActionIcon>
       </Tooltip>
       <Drawer

@@ -1,9 +1,19 @@
 'use client';
 
 import { Suspense, useMemo } from 'react';
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Group, Text, Select, ActionIcon, Tooltip } from '@mantine/core';
-import { IconSearch } from '@tabler/icons-react';
+import { Group, Text, Select, ActionIcon, Tooltip, Button } from '@mantine/core';
+import {
+  IconSearch,
+  IconCalendarTime,
+  IconInbox,
+  IconLayoutKanban,
+  IconAddressBook,
+  IconBuildings,
+  IconTrendingUp,
+  IconReportAnalytics,
+} from '@tabler/icons-react';
 import { useCommandLauncher } from '@sovereignsquad/gds-core/client';
 import { AppNav } from './AppNav';
 import { useAuth } from './AuthProvider';
@@ -12,7 +22,7 @@ import type { Brand } from '@/app/lib/brand';
 function extractBrandFromPathname(pathname: string, knownBrands: string[]): Brand | null {
   const brandSet = new Set(knownBrands);
   const match = pathname.match(
-    /^\/(?:sales|today|contacts|salessettings|forecast|reports|accounts|battlecards|outreach\/[a-z]+|admin\/products|automation|documents)\/([^/?#]+)/
+    /^\/(?:sales|today|inbox|contacts|salessettings|forecast|reports|accounts|battlecards|outreach\/[a-z]+|admin\/products|automation|documents)\/([^/?#]+)/
   );
   if (match && brandSet.has(match[1])) {
     return match[1] as Brand;
@@ -65,6 +75,19 @@ function AppHeaderInner() {
     return accessibleBrands[0] || 'cogmap';
   }, [pathname, brandKeys, accessibleBrands]);
 
+  const navItems = useMemo(() => {
+    if (!activeBrand) return [];
+    return [
+      { label: 'Today', href: `/today/${activeBrand}`, icon: IconCalendarTime },
+      { label: 'Inbox', href: `/inbox/${activeBrand}`, icon: IconInbox },
+      { label: 'Pipeline', href: `/sales/${activeBrand}`, icon: IconLayoutKanban },
+      { label: 'Contacts', href: `/contacts/${activeBrand}`, icon: IconAddressBook },
+      { label: 'Accounts', href: `/accounts/${activeBrand}`, icon: IconBuildings },
+      { label: 'Forecast', href: `/forecast/${activeBrand}`, icon: IconTrendingUp },
+      { label: 'Reports', href: `/reports/${activeBrand}`, icon: IconReportAnalytics },
+    ];
+  }, [activeBrand]);
+
   return (
     <div
       style={{
@@ -89,6 +112,39 @@ function AppHeaderInner() {
           Sales Lead Generator
         </Text>
       </Group>
+
+      {/* Center: Desktop horizontal navigation links (visible on desktop) */}
+      {accessibleBrands.length > 0 && (
+        <Group
+          gap={4}
+          wrap="nowrap"
+          visibleFrom="md"
+          style={{ flex: 1, justifyContent: 'center', minWidth: 0, overflow: 'hidden' }}
+        >
+          {navItems.map((item) => {
+            const active = pathname.startsWith(item.href);
+            const Icon = item.icon;
+            return (
+              <Button
+                key={item.label}
+                component={Link}
+                href={item.href}
+                size="compact-xs"
+                variant={active ? 'light' : 'subtle'}
+                color={active ? 'indigo' : 'gray'}
+                leftSection={<Icon size={14} />}
+                style={{
+                  fontWeight: active ? 700 : 500,
+                  fontSize: '12px',
+                  borderRadius: '6px',
+                }}
+              >
+                {item.label}
+              </Button>
+            );
+          })}
+        </Group>
+      )}
 
       {/* Right: Quick Command Search + Organization switcher */}
       <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>

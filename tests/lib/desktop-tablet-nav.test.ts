@@ -181,4 +181,25 @@ describe('desktop and tablet navigation affordances', () => {
     expect(products).toContain('CountBadge');
     expect(products).toContain('width: 280');
   });
+
+  it('renders desktop horizontal navigation links in AppHeader for direct 1-click access', () => {
+    const header = readFileSync(join(root, 'app', 'components', 'AppHeader.tsx'), 'utf8');
+    expect(header).toContain('navItems');
+    expect(header).toContain("label: 'Today'");
+    expect(header).toContain("label: 'Inbox'");
+    expect(header).toContain("label: 'Pipeline'");
+    expect(header).toContain("label: 'Contacts'");
+    expect(header).toContain("label: 'Accounts'");
+    expect(header).toContain("label: 'Forecast'");
+    expect(header).toContain("label: 'Reports'");
+    expect(header).toContain('visibleFrom="md"');
+    // Verifies inbox is recognized in brand path matching
+    expect(header).toContain('today|inbox|contacts');
+  });
+
+  it('provides responsive expand and collapse indicators on AppNav hamburger', () => {
+    const nav = readFileSync(join(root, 'app', 'components', 'AppNav.tsx'), 'utf8');
+    expect(nav).toContain("sidebarOpen ? 'Collapse navigation sidebar' : 'Expand navigation sidebar'");
+    expect(nav).toContain("variant={sidebarOpen ? 'light' : 'filled'}");
+  });
 });
