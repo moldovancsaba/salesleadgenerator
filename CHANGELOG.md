@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.319
+
+### Navigation Duplication Elimination & Context-Aware Header Links
+
+- **Context-Aware Top Header Navigation (`app/components/AppHeader.tsx`):**
+  - Integrated `useNav()` into `AppHeaderInner` to conditionally render the top horizontal navigation buttons (`[Today] [Inbox] [Pipeline] [Contacts] [Accounts] [Forecast] [Reports]`) only when the left sidebar is collapsed (`!sidebarOpen`).
+  - When the left sidebar is docked/open, the duplicate buttons are completely hidden from the header, keeping the top bar clean and eliminating visual redundancy.
+  - When the sidebar is collapsed (e.g. to maximize screen width on the 3-column Unified Inbox or wide Kanban), the top horizontal navigation buttons dynamically appear, providing persistent 1-click access across all primary modules without reopening the sidebar.
+- **Automated Verification:**
+  - Updated `tests/lib/desktop-tablet-nav.test.ts` to assert conditional rendering logic (`!sidebarOpen && accessibleBrands.length > 0`).
+
 ## 2.4.318
 
 ### MIME Character Encoding Fix for Outbound Gmail Integration (RFC 2047 & Quoted-Printable)

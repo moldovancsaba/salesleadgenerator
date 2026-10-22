@@ -17,6 +17,7 @@ import {
 import { useCommandLauncher } from '@sovereignsquad/gds-core/client';
 import { AppNav } from './AppNav';
 import { useAuth } from './AuthProvider';
+import { useNav } from './NavContext';
 import type { Brand } from '@/app/lib/brand';
 
 function extractBrandFromPathname(pathname: string, knownBrands: string[]): Brand | null {
@@ -66,6 +67,7 @@ function AppHeaderInner() {
   const pathname = usePathname();
   const router = useRouter();
   const { accessibleBrands, brandLabels } = useAuth();
+  const { sidebarOpen } = useNav();
   const launcher = useCommandLauncher();
 
   const brandKeys = useMemo(() => Object.keys(brandLabels), [brandLabels]);
@@ -113,8 +115,8 @@ function AppHeaderInner() {
         </Text>
       </Group>
 
-      {/* Center: Desktop horizontal navigation links (visible on desktop) */}
-      {accessibleBrands.length > 0 && (
+      {/* Center: Desktop horizontal navigation links (only rendered when sidebar is collapsed to eliminate duplication) */}
+      {!sidebarOpen && accessibleBrands.length > 0 && (
         <Group
           gap={4}
           wrap="nowrap"

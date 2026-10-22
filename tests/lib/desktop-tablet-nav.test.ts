@@ -182,7 +182,7 @@ describe('desktop and tablet navigation affordances', () => {
     expect(products).toContain('width: 280');
   });
 
-  it('renders desktop horizontal navigation links in AppHeader for direct 1-click access', () => {
+  it('renders desktop horizontal navigation links in AppHeader for direct 1-click access when sidebar is collapsed', () => {
     const header = readFileSync(join(root, 'app', 'components', 'AppHeader.tsx'), 'utf8');
     expect(header).toContain('navItems');
     expect(header).toContain("label: 'Today'");
@@ -195,6 +195,8 @@ describe('desktop and tablet navigation affordances', () => {
     expect(header).toContain('visibleFrom="md"');
     // Verifies inbox is recognized in brand path matching
     expect(header).toContain('today|inbox|contacts');
+    // Verifies duplication guard: only renders horizontal links when left sidebar is collapsed
+    expect(header).toContain('!sidebarOpen && accessibleBrands.length > 0');
   });
 
   it('provides responsive expand and collapse indicators on AppNav hamburger', () => {
