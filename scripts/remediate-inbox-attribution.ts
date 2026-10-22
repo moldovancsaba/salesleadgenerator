@@ -121,9 +121,96 @@ async function remediate() {
   );
   console.log('6. Fixed direction on all internal outbound emails:', internalOutboundRes.modifiedCount);
 
-  // 7. Verify Seyu Services logs count
+  // 7. Clean broken fromAddress / toAddresses / ccAddresses on Sportfive emails
+  const cleanAddressMap = [
+    { id: new ObjectId('6ad8b7c71616faea55868598'), from: 'zoltan.nemenyi@sportfive.com' },
+    { id: new ObjectId('6ad50975dc502efcb3b72b97'), from: 'balazs.pataki@sportfive.com' },
+    { id: new ObjectId('6ad50977dc502efcb3b72b99'), from: 'zoltan.nemenyi@sportfive.com' },
+    { id: new ObjectId('6ad50978dc502efcb3b72b9a'), from: 'istvan.gabor@sportfive.com' },
+    { id: new ObjectId('6ad5097edc502efcb3b72b9f'), from: 'istvan.gabor@sportfive.com' },
+  ];
+  for (const c of cleanAddressMap) {
+    await db.collection('activityLog').updateOne(
+      { _id: c.id },
+      { $set: { fromAddress: c.from } }
+    );
+  }
+  console.log('7. Cleaned broken fromAddress on 5 Sportfive records');
+
+  // Strip non-email tokens from toAddresses and ccAddresses in all activityLog entries
+  const allBroken = await db.collection('activityLog').find({
+    brand: 'seyu',
+    $or: [
+      { toAddresses: { $regex: /\"/ } },
+      { ccAddresses: { $regex: /\"/ } }
+    ]
+  }).toArray();
+  for (const doc of allBroken) {
+    const cleanList = (arr: any) => {
+      if (!Array.isArray(arr)) return arr;
+      return arr.filter((s: string) => typeof s === 'string' && s.includes('@') && !s.includes('"'));
+    };
+    await db.collection('activityLog').updateOne(
+      { _id: doc._id },
+      {
+        $set: {
+          toAddresses: cleanList(doc.toAddresses),
+          ccAddresses: cleanList(doc.ccAddresses)
+        }
+      }
+    );
+  }
+  console.log(`8. Cleaned non-email tokens in ${allBroken.length} activityLog entries`);
+
+  // 9. Fix misattributed userEmail on outbound emails
+  const staffUsers = [
+    { email: 'david.bozsik@seyuselfies.com', userId: '5277db2c-b251-402b-831e-29aab81a3526' },
+    { email: 'coo@seyuselfies.com', userId: '13c27f1a-1d8c-4108-96e3-c10e1dca4a09' },
+    { email: 'moldovancsaba@gmail.com', userId: '5143beb1-9bb6-47e7-a099-e9eeb2d89e93' },
+    { email: 'office@seyuselfies.com', userId: 'ac2021ea-cca7-4938-bf09-02705331c134' },
+    { email: 'ricardo.maia@seyuselfies.com', userId: '25b1e7a3-f496-4155-8f04-e2bcf53bc571' },
+    { email: 'mate.pecsi@seyuselfies.com', userId: 'b8eec566-71f4-460f-aa23-d4e18904576c' },
+    { email: 'tom.vechy@seyuselfies.com', userId: 'e028f6c3-643e-4028-9a61-619ddebe2058' },
+    { email: 'partnerships@seyuselfies.com', userId: 'da66899f-7492-447a-9803-7b96b9b9d068' },
+  ];
+  for (const staff of staffUsers) {
+    const res = await db.collection('activityLog').updateMany(
+      {
+        brand: 'seyu',
+        type: 'email-outbound',
+        fromAddress: staff.email,
+        userEmail: { $ne: staff.email }
+      },
+      {
+        $set: {
+          userEmail: staff.email,
+          userId: staff.userId
+        }
+      }
+    );
+    if (res.modifiedCount > 0) {
+      console.log(`9. Fixed userEmail for ${staff.email}: ${res.modifiedCount} updated`);
+    }
+  }
+
+  // 10. Reset gmailSyncCursors for coo@seyuselfies.com and office@seyuselfies.com to 30 days ago
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const resetCursors = await db.collection('gmailSyncCursors').updateMany(
+    {
+      gmailAddress: { $in: ['coo@seyuselfies.com', 'office@seyuselfies.com', 'moldovancsaba@gmail.com'] }
+    },
+    {
+      $set: {
+        lastSyncedAt: thirtyDaysAgo,
+        updatedAt: new Date().toISOString()
+      }
+    }
+  );
+  console.log(`10. Reset ${resetCursors.modifiedCount} Gmail sync cursors back to 30 days ago (${thirtyDaysAgo})`);
+
+  // 11. Verify Seyu Services logs count
   const remainingSeyuServices = await db.collection('activityLog').countDocuments({ leadId: '6ad50814c501c40783f2cc0d' });
-  console.log('7. Remaining logs on Seyu Services:', remainingSeyuServices);
+  console.log('11. Remaining logs on Seyu Services:', remainingSeyuServices);
 
   await client.close();
   console.log('Remediation completed successfully.');

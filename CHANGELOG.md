@@ -1,5 +1,30 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.322
+
+### Strict Mailbox Privacy Shield, Email Leak Protection & Comprehensive Sync Ingestion
+
+- **Strict Mailbox Isolation & Privacy Security Shield (`app/lib/inbox-store.ts`):**
+  - Completely rewrote the `isMyInbox` determination loop for email correspondence (`email-inbound`, `email-outbound`): messages only belong to a user's personal inbox (`isMyInbox = true`) if the user is the direct sender (`From:`) or direct recipient (`To:`).
+  - **CC Exclusion Guard**: Threads where a rep is only on `Cc:` are strictly excluded from "My Inbox" by default unless explicitly allowed by the brand's policy (`includeCcThreads === true`), preventing colleague outreach from leaking into personal streams.
+  - **Sync Metadata Decoupling**: Worker connection metadata (`m.userEmail` / `m.userId` in `activityLog`) is no longer checked for email ownership, ensuring that an email downloaded via a manager's Gmail connection is never falsely stamped as the manager's sent/received email.
+  - **Thread Detail Route Authorization Gate (`getInboxThreadDetail` in `app/lib/inbox-store.ts`)**: Added a strict participant authorization check returning `thread: null` (404) if a user attempts to access another rep's private email thread via direct URL/ID.
+- **RFC 5322 Address Parsing Overhaul (`app/lib/gmail-sync-store.ts`, `app/lib/inbox-store.ts`):**
+  - Completely overhauled `parseAddressList` and `parseAddressStrings` with robust email extraction regex, eliminating comma-splitting bugs inside quoted display names (which previously generated corrupted tokens such as `'"NEMÉNYI'` or `'"PATAKI'`).
+  - Added `parseSingleEmail` helper in `inbox-store.ts` to sanitize all incoming `fromAddress` fields.
+- **Comprehensive Known Leads Collection & Outbound Sync (`app/lib/gmail-sync-store.ts`):**
+  - Extracted `collectKnownBrandEmails` helper that aggregates `contactEmails`, `contacts[].email`, `general_contact`, and `decision_maker_contact` across all lead documents, plus previous `outreach_logs` recipient addresses (unblocking 451 leads that previously had contacts but were skipped by Gmail sync).
+  - Added `isOutboundFromUser` gate: sales emails sent directly by a connected rep to external contacts are ingested into `activityLog`, allowing new prospect communications to appear immediately in the inbox.
+- **Internal Staff Identity Registry (`lib/email-contact-extractor.ts`):**
+  - Registered personal email addresses for company staff (`moldovancsaba@gmail.com`, `rolandbiro08@gmail.com`, `ricardo.rmbd@gmail.com`, `liliprekop@gmail.com`) in `INTERNAL_KNOWN_ADDRESSES`, ensuring internal emails are never treated as external leads.
+- **Database Remediation (`scripts/remediate-inbox-attribution.ts`):**
+  - Cleaned broken `fromAddress`, `toAddresses`, and `ccAddresses` across 14 `activityLog` entries.
+  - Corrected misattributed `userEmail` across 38 outbound emails (David Bozsik, Partnerships, Tom, Mate, Ricardo, Csaba).
+  - Reset 9 Gmail sync cursors back to 30 days ago, allowing background sync to re-poll and ingest missing emails with the new safe parser and comprehensive known-emails collector.
+- **Automated Verification:**
+  - Added unit test in `tests/lib/inbox-store.test.ts` verifying that `getInboxThreadDetail` returns `thread: null` for unauthorized users.
+  - All 123 test suites and 1,600 tests pass 100%.
+
 ## 2.4.321
 
 ### External Counterparty Resolution & Internal Colleague Attribution Shield

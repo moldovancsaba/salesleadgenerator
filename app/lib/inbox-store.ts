@@ -176,17 +176,40 @@ function resolveMessageThreadId(doc: any): string {
   return `msg:${doc._id ? doc._id.toString() : String(Math.random())}`;
 }
 
-function parseAddressStrings(raw: any): string[] | undefined {
-  if (!raw) return undefined;
-  if (Array.isArray(raw)) {
-    return raw.map((item) => String(item).trim()).filter(Boolean);
-  }
-  if (typeof raw === 'string') {
-    const parts = raw.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-    const cleaned = parts.map((p) => p.trim()).filter(Boolean);
-    return cleaned.length > 0 ? cleaned : undefined;
+function parseSingleEmail(raw: any): string | undefined {
+  if (!raw || typeof raw !== 'string') return undefined;
+  const match = raw.match(/<([^>]+)>/) || raw.match(/([a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+)/);
+  if (match) {
+    const email = (match[1] || match[0]).trim().toLowerCase();
+    if (email.includes('@')) return email;
   }
   return undefined;
+}
+
+function parseAddressStrings(raw: any): string[] | undefined {
+  if (!raw) return undefined;
+  const emails: string[] = [];
+  const regex = /(?:<([^\s<>@]+@[^\s<>@]+)>|([a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+))/g;
+
+  const extract = (str: string) => {
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(str)) !== null) {
+      const addr = (match[1] || match[2] || '').trim().toLowerCase();
+      if (addr && addr.includes('@') && !emails.includes(addr)) {
+        emails.push(addr);
+      }
+    }
+  };
+
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (typeof item === 'string') extract(item);
+    }
+  } else if (typeof raw === 'string') {
+    extract(raw);
+  }
+
+  return emails.length > 0 ? emails : undefined;
 }
 
 /**
@@ -208,7 +231,7 @@ function mapActivityToInboxMessage(doc: any): InboxMessage {
     direction: doc.direction ?? null,
     subject: doc.subject || undefined,
     body: bodyText,
-    from: doc.fromAddress || doc.from,
+    from: parseSingleEmail(doc.fromAddress || doc.from) || doc.fromAddress || doc.from,
     to: toList,
     cc: ccList,
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt || Date.now())).toISOString(),
@@ -247,7 +270,7 @@ function mapOutreachToInboxMessage(log: any): InboxMessage {
     direction: 'outbound',
     subject: log.subject || undefined,
     body: bodyText,
-    from: log.from,
+    from: parseSingleEmail(log.from) || log.from,
     to: toList,
     cc: ccList,
     createdAt: (log.createdAt instanceof Date ? log.createdAt : new Date(log.createdAt || Date.now())).toISOString(),
@@ -657,34 +680,47 @@ export async function listInboxThreads(
     let userMailbox: string | undefined = undefined;
 
     for (const m of msgs) {
-      const msgUserEmail = m.userEmail?.toLowerCase().trim();
-      if (msgUserEmail && userMailboxSet.has(msgUserEmail)) {
-        isMyInbox = true;
-        if (!userMailbox) userMailbox = msgUserEmail;
-      }
-      if (m.userId && userIds.has(m.userId)) {
-        isMyInbox = true;
-      }
-      if (m.from) {
-        const fromEmail = m.from.toLowerCase().trim();
-        if (userMailboxSet.has(fromEmail)) {
+      if (m.type === 'email-inbound' || m.type === 'email-outbound') {
+        const fromEmail = m.from?.toLowerCase().trim();
+        const toList = (m.to || []).map((t) => t.toLowerCase().trim());
+        const ccList = (m.cc || []).map((c) => c.toLowerCase().trim());
+
+        const isSender = Boolean(fromEmail && userMailboxSet.has(fromEmail));
+        const isDirectRecipient = toList.some((t) => userMailboxSet.has(t));
+        const isOnCc = ccList.some((c) => userMailboxSet.has(c));
+
+        if (isSender) {
           isMyInbox = true;
           if (!userMailbox) userMailbox = fromEmail;
-        }
-      }
-      if (m.to) {
-        const matchingTo = m.to.find((t) => userMailboxSet.has(t.toLowerCase().trim()));
-        if (matchingTo) {
+        } else if (isDirectRecipient) {
           isMyInbox = true;
-          if (!userMailbox) userMailbox = matchingTo.toLowerCase().trim();
-        }
-      }
-      // Only include CC'd correspondence if explicitly enabled by brand policy
-      if (includeCcThreads && m.cc) {
-        const matchingCc = m.cc.find((c) => userMailboxSet.has(c.toLowerCase().trim()));
-        if (matchingCc) {
+          if (!userMailbox) {
+            const match = toList.find((t) => userMailboxSet.has(t));
+            if (match) userMailbox = match;
+          }
+        } else if (isOnCc && includeCcThreads) {
           isMyInbox = true;
-          if (!userMailbox) userMailbox = matchingCc.toLowerCase().trim();
+          if (!userMailbox) {
+            const match = ccList.find((c) => userMailboxSet.has(c));
+            if (match) userMailbox = match;
+          }
+        } else if (!isOnCc && m.direction === 'inbound') {
+          // Fallback for inbound messages where explicit `to` was omitted (e.g. legacy/mock records)
+          const msgUserEmail = m.userEmail?.toLowerCase().trim();
+          if (msgUserEmail && userMailboxSet.has(msgUserEmail)) {
+            isMyInbox = true;
+            if (!userMailbox) userMailbox = msgUserEmail;
+          }
+        }
+      } else {
+        // Internal notes, calls, system events created by or assigned to this user
+        const msgUserEmail = m.userEmail?.toLowerCase().trim();
+        if (msgUserEmail && userMailboxSet.has(msgUserEmail)) {
+          isMyInbox = true;
+          if (!userMailbox) userMailbox = msgUserEmail;
+        }
+        if (m.userId && userIds.has(m.userId)) {
+          isMyInbox = true;
         }
       }
     }
@@ -919,6 +955,82 @@ export async function getInboxThreadDetail(
       $or: orClauses,
       ...(tenantId ? { tenantId } : {}),
     }).catch(() => null);
+  }
+
+  // Issue 271: Strict user mailbox privacy check in My Inbox scope
+  if (options.userEmail || options.userId) {
+    const candidateEmails = new Set<string>();
+    const userIds = new Set<string>();
+    if (options.userId) userIds.add(options.userId);
+    if (options.userEmail) {
+      const primaryEmail = options.userEmail.toLowerCase().trim();
+      candidateEmails.add(primaryEmail);
+      const aliases = KNOWN_USER_ALIASES[primaryEmail] || [];
+      for (const a of aliases) candidateEmails.add(a.toLowerCase().trim());
+    }
+
+    const ssoMatches = await db.collection('sso_user_access')
+      .find({
+        $or: [
+          ...(userIds.size > 0 ? [{ ssoUserId: { $in: Array.from(userIds) } }] : []),
+          ...(candidateEmails.size > 0 ? [{ email: { $in: Array.from(candidateEmails) } }] : []),
+          ...(candidateEmails.size > 0 ? [{ aliases: { $in: Array.from(candidateEmails) } }] : []),
+        ],
+      }, { projection: { ssoUserId: 1, email: 1, aliases: 1 } })
+      .toArray()
+      .catch(() => []);
+
+    for (const s of ssoMatches) {
+      if (s.ssoUserId) userIds.add(s.ssoUserId);
+      if (s.email) candidateEmails.add(s.email.toLowerCase().trim());
+      if (Array.isArray(s.aliases)) {
+        for (const a of s.aliases) {
+          if (typeof a === 'string' && a.includes('@')) candidateEmails.add(a.toLowerCase().trim());
+        }
+      }
+    }
+
+    const companySettingsDoc = await (typeof db.collection('company_settings')?.findOne === 'function'
+      ? db.collection('company_settings').findOne({ brand, ...(tenantId ? { tenantId } : {}) })
+      : Promise.resolve(null)
+    ).catch(() => null);
+    const includeAssigned = Boolean((companySettingsDoc as any)?.inboxSettings?.includeAssignedLeadThreads);
+    const includeCc = Boolean((companySettingsDoc as any)?.inboxSettings?.includeCcThreads);
+
+    const hasEmailMessages = messages.some(
+      (m) => (m.type === 'email-inbound' || m.type === 'email-outbound') && Boolean(m.from || (m.to && m.to.length > 0))
+    );
+    if (hasEmailMessages) {
+      let hasAccess = false;
+      for (const m of messages) {
+        if (m.type === 'email-inbound' || m.type === 'email-outbound') {
+          const fromEmail = m.from?.toLowerCase().trim();
+          const toList = (m.to || []).map((t) => t.toLowerCase().trim());
+          const ccList = (m.cc || []).map((c) => c.toLowerCase().trim());
+
+          if (fromEmail && candidateEmails.has(fromEmail)) { hasAccess = true; break; }
+          if (toList.some((t) => candidateEmails.has(t))) { hasAccess = true; break; }
+          if (includeCc && ccList.some((c) => candidateEmails.has(c))) { hasAccess = true; break; }
+          if (!ccList.some((c) => candidateEmails.has(c)) && m.direction === 'inbound') {
+            const msgUserEmail = m.userEmail?.toLowerCase().trim();
+            if (msgUserEmail && candidateEmails.has(msgUserEmail)) { hasAccess = true; break; }
+          }
+        }
+      }
+
+      if (!hasAccess && includeAssigned && lead) {
+        if (
+          (lead.assignedToEmail && candidateEmails.has(lead.assignedToEmail.toLowerCase().trim())) ||
+          (lead.assignedTo && userIds.has(lead.assignedTo))
+        ) {
+          hasAccess = true;
+        }
+      }
+
+      if (!hasAccess) {
+        return { thread: null, messages: [], lead: null, participants: [] };
+      }
+    }
   }
 
   const lastInbound = messages.slice().reverse().find((m) => m.direction === 'inbound' && m.from);

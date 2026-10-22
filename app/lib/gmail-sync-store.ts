@@ -98,12 +98,16 @@ function getHeader(headers: Array<{ name: string; value: string }> | undefined, 
 
 function parseAddressList(value: string | undefined): string[] {
   if (!value) return [];
-  // Minimal RFC 5322 mailbox-list split — good enough for "a@b.com, Name <c@d.com>"
-  // shaped headers; a full parser is out of proportion for this issue's scope.
-  return value.split(',').map((part) => {
-    const match = part.match(/<([^>]+)>/);
-    return (match ? match[1] : part).trim();
-  }).filter(Boolean);
+  const emails: string[] = [];
+  const regex = /(?:<([^\s<>@]+@[^\s<>@]+)>|([a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+))/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(value)) !== null) {
+    const addr = (match[1] || match[2] || '').trim().toLowerCase();
+    if (addr && addr.includes('@') && !emails.includes(addr)) {
+      emails.push(addr);
+    }
+  }
+  return emails;
 }
 
 const GMAIL_API_BASE = 'https://gmail.googleapis.com/gmail/v1/users/me';
@@ -216,7 +220,18 @@ export async function pollSingleGmailConnection(
       continue;
     }
 
-    if (!participantsIntersectKnownEmails(participantEmails, knownEmails)) {
+    const direction = resolveGmailDirection(fromEmail, gmailAddress, brand);
+
+    // Inbound emails from external senders must intersect known contact/prospect emails to avoid ingesting random spam/newsletters.
+    // Outbound emails directly sent by the connected rep account to external recipients are sales communications and are ingested.
+    const isOutboundFromUser =
+      Boolean(gmailAddress) &&
+      normalizeEmail(fromEmail) === normalizeEmail(gmailAddress) &&
+      direction === 'outbound';
+
+    const matchesKnown = participantsIntersectKnownEmails(participantEmails, knownEmails);
+
+    if (!matchesKnown && !isOutboundFromUser) {
       skipped++;
       continue;
     }
@@ -237,8 +252,10 @@ export async function pollSingleGmailConnection(
     });
     if (existingByHash) { skipped++; continue; }
 
-    const direction = resolveGmailDirection(fromEmail, gmailAddress, brand);
     const counterpartyEmail = resolveCounterpartyEmail(direction, fromEmail, [...toEmails, ...ccEmails], knownEmails, brand);
+
+    const internalSender = fromEmail && isInternalOrSystemEmail(fromEmail, { brand }) ? normalizeEmail(fromEmail) : null;
+    const docUserEmail = internalSender || connection.userEmail || gmailAddress;
 
     const doc: ActivityLogDocument = {
       leadId: null,
@@ -256,8 +273,8 @@ export async function pollSingleGmailConnection(
       externalId,
       fallbackHash,
       createdAt: new Date(dateIso),
-      userId: connection.userId,
-      userEmail: connection.userEmail || gmailAddress,
+      userId: (internalSender && internalSender !== normalizeEmail(connection.userEmail || '')) ? undefined : connection.userId,
+      userEmail: docUserEmail,
       connectionId: connection.id,
       ...(meta.threadId ? { threadId: meta.threadId } : {}),
       ...(messageIdHeader ? { rfcMessageId: messageIdHeader } : {}),
@@ -386,6 +403,68 @@ export async function pollSingleGmailConnection(
   return { ingested, skipped };
 }
 
+async function collectKnownBrandEmails(
+  db: Db,
+  brand: Brand,
+  tenantId: string,
+  leadsCollectionName: string
+): Promise<Set<string>> {
+  const knownEmails = new Set<string>();
+  const leadsCollection = db.collection(leadsCollectionName);
+  const docs = await leadsCollection
+    .find(tenantFilter(tenantId) as any, {
+      projection: { contactEmails: 1, contacts: 1, general_contact: 1, decision_maker_contact: 1 },
+    })
+    .toArray()
+    .catch(() => [] as any[]);
+
+  for (const doc of docs) {
+    if (Array.isArray(doc.contactEmails)) {
+      for (const email of doc.contactEmails) {
+        const norm = normalizeEmail(email);
+        if (norm && !isInternalOrSystemEmail(norm, { brand })) {
+          knownEmails.add(norm);
+        }
+      }
+    }
+    if (Array.isArray(doc.contacts)) {
+      for (const c of doc.contacts) {
+        if (c && c.email) {
+          const norm = normalizeEmail(c.email);
+          if (norm && !isInternalOrSystemEmail(norm, { brand })) {
+            knownEmails.add(norm);
+          }
+        }
+      }
+    }
+    for (const field of [doc.general_contact, doc.decision_maker_contact]) {
+      if (typeof field === 'string' && field.includes('@')) {
+        for (const e of parseAddressList(field)) {
+          const norm = normalizeEmail(e);
+          if (norm && !isInternalOrSystemEmail(norm, { brand })) {
+            knownEmails.add(norm);
+          }
+        }
+      }
+    }
+  }
+
+  const outreachDocs = await db.collection('outreach_logs')
+    .find({ brand, ...(tenantId ? { tenantId } : {}) }, { projection: { to: 1 } })
+    .toArray()
+    .catch(() => [] as any[]);
+  for (const o of outreachDocs) {
+    for (const e of parseAddressList(o.to)) {
+      const norm = normalizeEmail(e);
+      if (norm && !isInternalOrSystemEmail(norm, { brand })) {
+        knownEmails.add(norm);
+      }
+    }
+  }
+
+  return knownEmails;
+}
+
 // Issue #216 / #249: Polls all active Gmail connections for a brand (including both
 // brand-level and individual rep accounts).
 export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string): Promise<GmailPollResult> {
@@ -405,17 +484,7 @@ export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string):
   const connections = Array.from(connectionMap.values());
   if (connections.length === 0) return { ingested: 0, skipped: 0 };
 
-  const leadsCollection = db.collection(brandConfig.dbCollection);
-  const knownEmailDocs = await leadsCollection.find(tenantFilter(tenantId) as any, { projection: { contactEmails: 1 } }).toArray().catch(() => [] as any[]);
-  const knownEmails = new Set<string>();
-  for (const doc of knownEmailDocs) {
-    for (const email of doc.contactEmails || []) {
-      const norm = normalizeEmail(email);
-      if (!isInternalOrSystemEmail(norm, { brand })) {
-        knownEmails.add(norm);
-      }
-    }
-  }
+  const knownEmails = await collectKnownBrandEmails(db, brand, tenantId, brandConfig.dbCollection);
 
   let totalIngested = 0;
   let totalSkipped = 0;
@@ -471,21 +540,7 @@ export async function pollUserGmail(
       if (!brandConfig) continue;
 
       const tenantId = connection.tenantId || 'default';
-      const leadsCollection = db.collection(brandConfig.dbCollection);
-      const knownEmailDocs = await leadsCollection
-        .find(tenantFilter(tenantId) as any, { projection: { contactEmails: 1 } })
-        .toArray()
-        .catch(() => [] as any[]);
-
-      const knownEmails = new Set<string>();
-      for (const doc of knownEmailDocs) {
-        for (const email of doc.contactEmails || []) {
-          const norm = normalizeEmail(email);
-          if (!isInternalOrSystemEmail(norm, { brand: b })) {
-            knownEmails.add(norm);
-          }
-        }
-      }
+      const knownEmails = await collectKnownBrandEmails(db, b as Brand, tenantId, brandConfig.dbCollection);
 
       try {
         const res = await pollSingleGmailConnection(db, connection, b as Brand, tenantId, brandConfig, knownEmails);

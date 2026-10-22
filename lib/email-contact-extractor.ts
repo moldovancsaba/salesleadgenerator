@@ -37,6 +37,10 @@ export const INTERNAL_COMPANY_DOMAINS = new Set([
 
 export const INTERNAL_KNOWN_ADDRESSES = new Set([
   'vezertamasdaniel@gmail.com',
+  'moldovancsaba@gmail.com',
+  'rolandbiro08@gmail.com',
+  'ricardo.rmbd@gmail.com',
+  'liliprekop@gmail.com',
 ]);
 
 const CCTLD_TO_COUNTRY: Record<string, string> = {

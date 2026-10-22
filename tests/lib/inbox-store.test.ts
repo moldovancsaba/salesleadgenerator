@@ -721,6 +721,11 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
     it('strictly resolves external counterparty when an internal colleague emails a prospect and CCs the active rep', async () => {
       const db = createMockDb();
 
+      mockCompanySettingsDoc = {
+        brand: 'seyu',
+        inboxSettings: { includeCcThreads: true },
+      };
+
       // Email sent by internal colleague David Bozsik to external Inga Schuler, CCing coo@seyuselfies.com
       mockActivityDocs.push({
         _id: 'act_colleague_outreach',
@@ -936,6 +941,45 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       const agencyContacts = leadContacts.filter((c: any) => c.email.includes('externalagency.com'));
       expect(agencyContacts).toHaveLength(0);
       expect(leadContacts.some((c: any) => c.email === 'radu.popescu@frh.ro')).toBe(true);
+    });
+
+    it('enforces privacy gate: denies access to unauthorized users for colleague email threads', async () => {
+      const db = createMockDb();
+
+      mockCompanySettingsDoc = {
+        brand: 'seyu',
+        inboxSettings: { includeCcThreads: false, includeAssignedLeadThreads: false },
+      };
+
+      // Email between David Bozsik and Inga Schuler at SC Bern
+      mockActivityDocs.push({
+        _id: 'act_david_scb',
+        brand: 'seyu',
+        tenantId: 't_default',
+        threadId: 'thread_david_scb',
+        type: 'email-outbound',
+        direction: 'outbound',
+        subject: 'Re: SC Bern Partnership',
+        bodyExcerpt: 'Hi Inga, see proposal...',
+        fromAddress: 'david.bozsik@seyuselfies.com',
+        toAddresses: ['inga.schuler@scb.ch'],
+        ccAddresses: ['coo@seyuselfies.com'],
+        createdAt: new Date(),
+      });
+
+      // 1. Unauthorized rep (Csaba, who is only on CC while includeCcThreads is false)
+      const unauthorizedDetail = await getInboxThreadDetail(db, 'seyu', 't_default', 'thread_david_scb', {
+        userEmail: 'coo@seyuselfies.com',
+      });
+      expect(unauthorizedDetail.thread).toBeNull();
+      expect(unauthorizedDetail.messages).toEqual([]);
+
+      // 2. Authorized rep (David Bozsik, who is the sender)
+      const authorizedDetail = await getInboxThreadDetail(db, 'seyu', 't_default', 'thread_david_scb', {
+        userEmail: 'david.bozsik@seyuselfies.com',
+      });
+      expect(authorizedDetail.thread).not.toBeNull();
+      expect(authorizedDetail.messages.length).toBe(1);
     });
   });
 
