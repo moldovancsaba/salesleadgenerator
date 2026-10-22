@@ -54,7 +54,7 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
 
   useEffect(() => {
     try {
-      localStorage.setItem('slg_seen_version', '2.4.326');
+      localStorage.setItem('slg_seen_version', '2.4.327');
     } catch {
       // Safe fallback
     }

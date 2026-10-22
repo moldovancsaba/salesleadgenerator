@@ -1,16 +1,29 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Box, Button, Group, Text, UnstyledButton } from '@mantine/core';
+import { Box, Button, Group, Text, UnstyledButton, Select, TextInput, ActionIcon, Tooltip } from '@mantine/core';
+import { IconEdit, IconCheck, IconX } from '@tabler/icons-react';
 import { AdminDataTable, type AdminDataTableSort } from '@sovereignsquad/gds-admin/client';
 import { StatusBadge, LabelTag, CountBadge } from '@sovereignsquad/gds-core/client';
 import type { Lead } from './types';
 import { getIceScore, getTicketSize, type TicketSizeDisplay } from './constants';
 import type { CurrencyCode } from './lib/brand';
 
+const DEFAULT_STAGE_OPTIONS = [
+  { value: 'DISCOVERED', label: 'DISCOVERED' },
+  { value: 'QUALIFIED', label: 'QUALIFIED' },
+  { value: 'ENGAGED', label: 'ENGAGED' },
+  { value: 'PROPOSAL', label: 'PROPOSAL' },
+  { value: 'WON', label: 'WON' },
+  { value: 'LOST', label: 'LOST' },
+];
+
 type TableViewProps = {
   leads: Lead[];
   onOpenLead: (lead: Lead) => void;
+  onAction?: (leadId: string, action: string, payload?: any) => Promise<void>;
+  onInlineValueSave?: (leadId: string, newValue: number) => Promise<void>;
+  stageOptions?: Array<{ value: string; label: string }>;
 };
 
 type TableRow = Lead & {
@@ -56,8 +69,13 @@ function getQualityBadgeColor(status?: string): string {
   }
 }
 
-export function TableView({ leads, onOpenLead }: TableViewProps) {
+export function TableView({ leads, onOpenLead, onAction, onInlineValueSave, stageOptions }: TableViewProps) {
   const [sort, setSort] = useState<AdminDataTableSort>({ key: 'score', direction: 'desc' });
+  const [editingValueLeadId, setEditingValueLeadId] = useState<string | null>(null);
+  const [editingValueInput, setEditingValueInput] = useState<string>('');
+  const [savingLeadId, setSavingLeadId] = useState<string | null>(null);
+
+  const effectiveStages = stageOptions && stageOptions.length > 0 ? stageOptions : DEFAULT_STAGE_OPTIONS;
 
   const rows: TableRow[] = useMemo(() => {
     return leads.map((lead) => {
@@ -143,26 +161,120 @@ export function TableView({ leads, onOpenLead }: TableViewProps) {
             key: 'valueNumeric',
             header: 'Deal Value',
             sortable: true,
-            width: 120,
-            accessor: (row: TableRow) => (
-              <Text size="sm" fw={600} c={row.valueNumeric > 0 ? undefined : 'dimmed'}>
-                {getTicketSizeDisplay(row.ticketSize)}
-              </Text>
-            ),
+            width: 150,
+            accessor: (row: TableRow) => {
+              if (editingValueLeadId === row._id && onInlineValueSave) {
+                return (
+                  <Group gap={4} wrap="nowrap" onClick={(e) => e.stopPropagation()}>
+                    <TextInput
+                      size="xs"
+                      w={85}
+                      value={editingValueInput}
+                      onChange={(e) => setEditingValueInput(e.currentTarget.value)}
+                      aria-label={`Edit deal value for ${row.entity_name}`}
+                    />
+                    <ActionIcon
+                      size="xs"
+                      color="teal"
+                      variant="light"
+                      loading={savingLeadId === row._id}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const parsed = Number(editingValueInput.replace(/[^0-9.]/g, ''));
+                        if (!Number.isNaN(parsed) && parsed >= 0) {
+                          setSavingLeadId(row._id);
+                          try {
+                            await onInlineValueSave(row._id, parsed);
+                            setEditingValueLeadId(null);
+                          } finally {
+                            setSavingLeadId(null);
+                          }
+                        }
+                      }}
+                      aria-label="Save deal value"
+                    >
+                      <IconCheck size={12} />
+                    </ActionIcon>
+                    <ActionIcon
+                      size="xs"
+                      color="gray"
+                      variant="subtle"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingValueLeadId(null);
+                      }}
+                      aria-label="Cancel deal value edit"
+                    >
+                      <IconX size={12} />
+                    </ActionIcon>
+                  </Group>
+                );
+              }
+
+              return (
+                <Group gap={4} wrap="nowrap">
+                  <Text size="sm" fw={600} c={row.valueNumeric > 0 ? undefined : 'dimmed'}>
+                    {getTicketSizeDisplay(row.ticketSize)}
+                  </Text>
+                  {onInlineValueSave && (
+                    <Tooltip label="Inline edit deal value">
+                      <ActionIcon
+                        size="xs"
+                        variant="subtle"
+                        color="gray"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingValueLeadId(row._id);
+                          setEditingValueInput(String(Math.round(row.valueNumeric || 0)));
+                        }}
+                        aria-label={`Inline edit deal value for ${row.entity_name}`}
+                      >
+                        <IconEdit size={12} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </Group>
+              );
+            },
           },
           {
             key: 'kanbanColumn',
             header: 'Stage',
             sortable: true,
-            width: 120,
-            accessor: (row: TableRow) => (
-              <StatusBadge
-                size="xs"
-                status={row.kanbanColumn === 'WON' ? 'success' : row.kanbanColumn === 'LOST' ? 'danger' : 'neutral'}
-              >
-                {row.kanbanColumn || 'DISCOVERED'}
-              </StatusBadge>
-            ),
+            width: 145,
+            accessor: (row: TableRow) => {
+              if (onAction) {
+                return (
+                  <Box onClick={(e) => e.stopPropagation()}>
+                    <Select
+                      size="xs"
+                      w={130}
+                      value={row.kanbanColumn || 'DISCOVERED'}
+                      data={effectiveStages}
+                      disabled={savingLeadId === row._id}
+                      onChange={async (nextStage) => {
+                        if (!nextStage || nextStage === row.kanbanColumn) return;
+                        setSavingLeadId(row._id);
+                        try {
+                          await onAction(row._id, 'MOVE', { column: nextStage });
+                        } finally {
+                          setSavingLeadId(null);
+                        }
+                      }}
+                      aria-label={`Change stage for ${row.entity_name}`}
+                    />
+                  </Box>
+                );
+              }
+              return (
+                <StatusBadge
+                  size="xs"
+                  status={row.kanbanColumn === 'WON' ? 'success' : row.kanbanColumn === 'LOST' ? 'danger' : 'neutral'}
+                >
+                  {row.kanbanColumn || 'DISCOVERED'}
+                </StatusBadge>
+              );
+            },
           },
           {
             key: 'score',

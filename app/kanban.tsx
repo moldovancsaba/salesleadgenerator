@@ -18,6 +18,7 @@ import { isAutoManagedColumn } from '../lib/kanban-column';
 import { decideMoveItemAction, resolveReorderNeighbors } from '../lib/kanban-reorder';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isVerticalScrollIntent } from '../lib/desktop-scroll-passthrough';
+import { matchesQuickFilterPreset, type QuickFilterPreset } from '../lib/quick-filter-presets';
 
 type ColumnState = {
   leads: Lead[];
@@ -61,13 +62,10 @@ type BoardProps = {
   // same action — added 2026-09-02 alongside bulk Accept: reviewing at scale
   // previously required opening every lead's own modal one at a time.
   onAction?: (leadId: string, action: string, payload?: Record<string, unknown>) => Promise<void>;
-  // Issue #213 — the command palette's "jump to lead" command needs a
-  // flattened, deduped list of whatever leads are currently loaded across
-  // this board's columns (GDS's CommandPalette exposes no query-change
-  // hook to back a live search instead — see docs/ARCHITECTURE.md). Fired
-  // from an effect whenever columnStates changes; optional and additive —
-  // a caller that doesn't pass it sees zero behavior change.
   onVisibleLeadsChange?: (leads: Lead[]) => void;
+  quickPreset?: QuickFilterPreset;
+  currentUserId?: string | null;
+  currentUserEmail?: string | null;
 };
 
 type LeadKanbanItem = {
@@ -127,7 +125,7 @@ function LoadMoreSentinel({ onLoadMore }: { onLoadMore: () => void }) {
   );
 }
 
-export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false, columnDefs = COLUMNS, onVisibleLeadsChange, onAction }: BoardProps) {
+export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false, columnDefs = COLUMNS, onVisibleLeadsChange, onAction, quickPreset = 'all', currentUserId, currentUserEmail }: BoardProps) {
   // Record<string, ...> (not Record<KanbanColumn, ...>) — this component no
   // longer always manages all 6 Pipeline columns; the Backlog board mounts
   // it with a single 'BACKLOG' entry instead (issue #126).
@@ -729,6 +727,9 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     const items: LeadKanbanItem[] = []
     for (const lead of (colState.leads || [])) {
       if (!lead || !lead._id || seenIds.has(lead._id)) continue
+      if (quickPreset && quickPreset !== 'all' && !matchesQuickFilterPreset(lead, quickPreset, { currentUserId, currentUserEmail })) {
+        continue
+      }
       seenIds.add(lead._id)
       items.push({
         id: lead._id,
@@ -738,14 +739,16 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       })
     }
 
+    const effectiveTotalCount = quickPreset && quickPreset !== 'all' ? items.length : (colState.count || 0)
+
     return {
       id: col.key,
       title,
       ariaLabel: overWipLimit ? `${plainTitle}, ${colState.count || 0} of ${wipThreshold} WIP limit` : undefined,
-      totalCount: colState.count || 0,
+      totalCount: effectiveTotalCount,
       items,
     }
-  }), [columnStates, forecast, formatForecast, columnDefs, wipLimits])
+  }), [columnStates, forecast, formatForecast, columnDefs, wipLimits, quickPreset, currentUserId, currentUserEmail])
 
   // Issue #185 — onboarding tour needs exactly one real card to spotlight,
   // not every card on the board. `LeadCard` mounts once per card

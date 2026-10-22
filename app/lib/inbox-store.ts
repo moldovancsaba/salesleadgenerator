@@ -35,6 +35,15 @@ export interface InboxThreadState {
   updatedAt: string;
 }
 
+export interface InboxAttachmentMeta {
+  filename: string;
+  mimeType: string;
+  size?: number;
+  attachmentId?: string;
+  gmailMessageId?: string;
+  documentId?: string;
+}
+
 export interface InboxMessage {
   id: string;
   threadId: string;
@@ -61,6 +70,9 @@ export interface InboxMessage {
   userId?: string;
   userEmail?: string;
   connectionId?: string;
+  // Attachment metadata (Issue 272)
+  gmailMessageId?: string;
+  attachments?: InboxAttachmentMeta[];
 }
 
 export interface InboxThread {
@@ -206,6 +218,48 @@ function parseAddressStrings(raw: any): string[] | undefined {
   return emails.length > 0 ? emails : undefined;
 }
 
+function normalizeAttachments(doc: any): InboxAttachmentMeta[] | undefined {
+  const rawList = Array.isArray(doc.attachments)
+    ? doc.attachments
+    : Array.isArray(doc.metadata?.attachments)
+      ? doc.metadata.attachments
+      : [];
+  const gmailMessageId =
+    doc.gmailMessageId ||
+    doc.metadata?.gmailMessageId ||
+    (typeof doc.externalId === 'string' && doc.externalId.startsWith('gmail:')
+      ? doc.externalId.replace(/^gmail:/, '')
+      : undefined);
+
+  const items: InboxAttachmentMeta[] = [];
+  for (const a of rawList) {
+    if (a && typeof a.filename === 'string' && a.filename.trim()) {
+      items.push({
+        filename: a.filename.trim(),
+        mimeType: a.mimeType || 'application/octet-stream',
+        size: typeof a.size === 'number' ? a.size : undefined,
+        attachmentId: a.attachmentId ? String(a.attachmentId) : undefined,
+        gmailMessageId: a.gmailMessageId || gmailMessageId,
+        documentId: a.documentId ? String(a.documentId) : undefined,
+      });
+    }
+  }
+
+  if (Array.isArray(doc.documentIds)) {
+    for (const docId of doc.documentIds) {
+      if (typeof docId === 'string' && docId.trim()) {
+        items.push({
+          filename: `Document (${docId.slice(-6)})`,
+          mimeType: 'application/pdf',
+          documentId: docId.trim(),
+        });
+      }
+    }
+  }
+
+  return items.length > 0 ? items : undefined;
+}
+
 /**
  * Normalizes an activityLog record into an InboxMessage.
  */
@@ -216,6 +270,13 @@ function mapActivityToInboxMessage(doc: any): InboxMessage {
 
   const toList = parseAddressStrings(doc.toAddresses) || parseAddressStrings(doc.to);
   const ccList = parseAddressStrings(doc.ccAddresses) || parseAddressStrings(doc.cc);
+  const attachments = normalizeAttachments(doc);
+  const gmailMessageId =
+    doc.gmailMessageId ||
+    doc.metadata?.gmailMessageId ||
+    (typeof doc.externalId === 'string' && doc.externalId.startsWith('gmail:')
+      ? doc.externalId.replace(/^gmail:/, '')
+      : undefined);
 
   return {
     id: doc._id ? doc._id.toString() : String(Math.random()),
@@ -242,6 +303,8 @@ function mapActivityToInboxMessage(doc: any): InboxMessage {
     userId: doc.userId,
     userEmail: doc.userEmail,
     connectionId: doc.connectionId,
+    ...(gmailMessageId ? { gmailMessageId } : {}),
+    ...(attachments ? { attachments } : {}),
   };
 }
 
@@ -255,6 +318,7 @@ function mapOutreachToInboxMessage(log: any): InboxMessage {
 
   const toList = parseAddressStrings(log.to);
   const ccList = parseAddressStrings(log.cc);
+  const attachments = normalizeAttachments(log);
 
   return {
     id: log._id ? log._id.toString() : String(Math.random()),
@@ -277,6 +341,7 @@ function mapOutreachToInboxMessage(log: any): InboxMessage {
     userId: log.userId,
     userEmail: log.userEmail || (log.source === 'gmail' ? log.from : undefined),
     connectionId: log.connectionId,
+    ...(attachments ? { attachments } : {}),
   };
 }
 
@@ -1380,6 +1445,36 @@ export async function setThreadStatus(
     ...updates,
     updatedAt: now,
   };
+}
+
+/**
+ * Bulk-updates thread state flags across multiple threadIds (Issue 272).
+ */
+export async function bulkSetThreadStatus(
+  db: Db,
+  brand: string,
+  tenantId: string,
+  threadIds: string[],
+  updates: { isRead?: boolean; isStarred?: boolean; isArchived?: boolean },
+  userId?: string
+): Promise<{ updatedCount: number }> {
+  const validIds = Array.from(
+    new Set(
+      (threadIds || [])
+        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+        .map((id) => id.trim())
+    )
+  ).slice(0, 100);
+
+  if (validIds.length === 0) {
+    return { updatedCount: 0 };
+  }
+
+  for (const tid of validIds) {
+    await setThreadStatus(db, brand, tenantId, tid, updates, userId);
+  }
+
+  return { updatedCount: validIds.length };
 }
 
 export type InboxReplyPayload =

@@ -78,10 +78,20 @@ export type ActivityEntry = {
   openCount?: number
   clickCount?: number
   isHistorical?: boolean
-  // Mailbox & user attribution (Issue #268)
+  // Mailbox & user attribution (Issue 268)
   userId?: string
   userEmail?: string
   connectionId?: string
+  // Attachment metadata (Issue 272)
+  gmailMessageId?: string
+  attachments?: Array<{
+    filename: string
+    mimeType: string
+    size?: number
+    attachmentId?: string
+    gmailMessageId?: string
+    documentId?: string
+  }>
 }
 
 // The write-side shape for a new activityLog document (issue #141, this
@@ -146,10 +156,20 @@ export type ActivityLogDocument = {
   rfcMessageId?: string
   inReplyTo?: string
   references?: string
-  // Mailbox & user attribution (Issue #268)
+  // Mailbox & user attribution (Issue 268)
   userId?: string
   userEmail?: string
   connectionId?: string
+  // Attachment metadata (Issue 272)
+  gmailMessageId?: string
+  attachments?: Array<{
+    filename: string
+    mimeType: string
+    size?: number
+    attachmentId?: string
+    gmailMessageId?: string
+    documentId?: string
+  }>
 }
 
 // Lazily ensures the documented indexes exist — same idempotent,

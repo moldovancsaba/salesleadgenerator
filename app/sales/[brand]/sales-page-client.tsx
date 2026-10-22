@@ -27,6 +27,7 @@ import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { useAuth } from '@/app/components/AuthProvider';
 import { useIsFinePointer } from '@/app/lib/use-is-fine-pointer';
 import { buildSalesBoardCommandDescriptors } from '@/lib/command-palette-commands';
+import { matchesQuickFilterPreset, type QuickFilterPreset } from '@/lib/quick-filter-presets';
 
 // Issue #126 — 'backlog' mounts the exact same KanbanBoard component as
 // 'kanban', just with a single-column columnDefs (BACKLOG_COLUMN_DEF) —
@@ -87,6 +88,7 @@ export function SalesPageClient({ brand, currency }: Props) {
   // Issue #71: shared across kanban and table view (both mount the same
   // FilterBar), so switching views mid-session keeps the same active filter.
   const [leadFilter, setLeadFilter] = useState<LeadFilter>({})
+  const [quickPreset, setQuickPreset] = useState<QuickFilterPreset>('all')
   // Issue #70/#53 follow-up: owned here (not inside KanbanBoard) so the
   // toggle sits in the same slim toolbar row as the Filters trigger, rather
   // than each control mounting its own separate row.
@@ -258,10 +260,46 @@ export function SalesPageClient({ brand, currency }: Props) {
     }
   }, [brand])
 
-  // Table view shows the full brand list server-fetched above; no client-side
-  // region/status filtering (removed — the kanban board's columns already
-  // group by status, and cross-brand region filters weren't in use).
-  const filteredLeads = useMemo(() => (view === 'table' ? tableLeads : []), [tableLeads, view])
+  // Table view shows the full brand list server-fetched above; filtered by any active Quick Filter pill.
+  const { registerCommands } = useCommandLauncher()
+  const { user, accessibleBrands, brandLabels } = useAuth()
+  const isFinePointer = useIsFinePointer()
+
+  const handleSelectQuickPreset = useCallback((preset: QuickFilterPreset) => {
+    setQuickPreset(preset)
+    if (preset === 'my_leads') {
+      setLeadFilter((prev) => ({ ...prev, assignedTo: 'me' }))
+    } else if (preset === 'unassigned') {
+      setLeadFilter((prev) => ({ ...prev, assignedTo: 'unassigned' }))
+    } else {
+      setLeadFilter((prev) => {
+        if (prev.assignedTo === 'me' || prev.assignedTo === 'unassigned') {
+          const next = { ...prev }
+          delete next.assignedTo
+          return next
+        }
+        return prev
+      })
+    }
+  }, [])
+
+  const handleInlineValueSave = useCallback(async (leadId: string, expectedValue: number) => {
+    await handleAction(leadId, 'MODIFY', {
+      manualTicketSizeExpected: expectedValue,
+      manualTicketSizeReason: 'Inline table deal value edit',
+    })
+  }, [handleAction])
+
+  const filteredLeads = useMemo(() => {
+    if (view !== 'table') return []
+    if (quickPreset === 'all') return tableLeads
+    return tableLeads.filter((lead) =>
+      matchesQuickFilterPreset(lead, quickPreset, {
+        currentUserId: user?.id,
+        currentUserEmail: user?.email,
+      })
+    )
+  }, [tableLeads, view, quickPreset, user?.id, user?.email])
 
   // Live predictive search: debounced fetch against /api/search as the user
   // types, results shown in a plain dropdown below an always-editable input.
@@ -307,16 +345,6 @@ export function SalesPageClient({ brand, currency }: Props) {
     // dropdown unmounts (blur fires before click otherwise).
     searchBlurTimeoutRef.current = setTimeout(() => setSearchOpen(false), 150)
   }, [])
-
-  // Command palette (issue #213) — single assembler for this whole page,
-  // per §8's own required convention: registerCommands() replaces the
-  // list rather than merging, so exactly one effect must own the full
-  // command set here, and must clear it on unmount (§15's own flagged
-  // edge case) so navigating away never leaves stale, page-scoped
-  // commands bound to a stale closure.
-  const { registerCommands } = useCommandLauncher()
-  const { accessibleBrands, brandLabels } = useAuth()
-  const isFinePointer = useIsFinePointer()
 
   const registerCommandsRef = useRef(registerCommands)
   useEffect(() => {
@@ -535,6 +563,32 @@ export function SalesPageClient({ brand, currency }: Props) {
               ]}
             />
           </Group>
+
+          {(view === 'kanban' || view === 'table' || view === 'backlog') && (
+            <Group gap={6} mt="xs" pt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }} wrap="wrap">
+              <Text size="xs" c="dimmed" fw={600} mr={4}>
+                Quick Filters:
+              </Text>
+              {([
+                { key: 'all', label: 'All Leads' },
+                { key: 'my_leads', label: 'My Leads' },
+                { key: 'needs_followup', label: 'Needs Follow-up' },
+                { key: 'high_value', label: 'High Value (≥ €25k)' },
+                { key: 'unassigned', label: 'Unassigned' },
+              ] as { key: QuickFilterPreset; label: string }[]).map((pill) => (
+                <Button
+                  key={pill.key}
+                  size="compact-xs"
+                  radius="xl"
+                  variant={quickPreset === pill.key ? 'filled' : 'light'}
+                  color={quickPreset === pill.key ? 'indigo' : 'gray'}
+                  onClick={() => handleSelectQuickPreset(pill.key)}
+                >
+                  {pill.label}
+                </Button>
+              ))}
+            </Group>
+          )}
         </Paper>
 
         <Box style={{ flex: 1, minWidth: 0 }}>
@@ -557,12 +611,15 @@ export function SalesPageClient({ brand, currency }: Props) {
                 selectMode={selectMode}
                 onAction={handleAction}
                 onVisibleLeadsChange={handleVisibleLeadsChange}
+                quickPreset={quickPreset}
+                currentUserId={user?.id}
+                currentUserEmail={user?.email}
               />
             </ErrorBoundary>
           )}
 
           {view === 'backlog' && (
-            // Issue #126 — Backlog is excluded entirely from Forecast (no
+            // Issue 126 — Backlog is excluded entirely from Forecast (no
             // `forecast` prop passed), same component otherwise.
             <ErrorBoundary
               fallback={
@@ -579,6 +636,9 @@ export function SalesPageClient({ brand, currency }: Props) {
                 selectMode={selectMode}
                 columnDefs={BACKLOG_COLUMN_DEF}
                 onAction={handleAction}
+                quickPreset={quickPreset}
+                currentUserId={user?.id}
+                currentUserEmail={user?.email}
               />
             </ErrorBoundary>
           )}
@@ -586,7 +646,19 @@ export function SalesPageClient({ brand, currency }: Props) {
           {view === 'table' && (
             tableLoading
               ? <Box py="xl"><Group justify="center"><Loader /></Group></Box>
-              : <TableView leads={filteredLeads} onOpenLead={setSelectedLead} />
+              : (
+                <TableView
+                  leads={filteredLeads}
+                  onOpenLead={setSelectedLead}
+                  onAction={handleAction}
+                  onInlineValueSave={handleInlineValueSave}
+                  stageOptions={
+                    activePipeline?.stages?.length
+                      ? activePipeline.stages.map((s) => ({ value: s.key, label: s.label }))
+                      : undefined
+                  }
+                />
+              )
           )}
 
           {view === 'metrics' && <MetricsPanel brand={brand} tenantId="default" />}

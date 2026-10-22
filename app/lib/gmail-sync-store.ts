@@ -139,13 +139,52 @@ async function getMessageHeaders(token: string, id: string): Promise<any> {
   return res.json();
 }
 
-async function getMessageBody(token: string, id: string): Promise<string | undefined> {
+export type GmailAttachmentInfo = {
+  filename: string;
+  mimeType: string;
+  size?: number;
+  attachmentId: string;
+  gmailMessageId?: string;
+};
+
+export function extractAttachments(payload: any, gmailMessageId?: string): GmailAttachmentInfo[] {
+  const results: GmailAttachmentInfo[] = [];
+  function walk(part: any) {
+    if (!part) return;
+    const filename = typeof part.filename === 'string' ? part.filename.trim() : '';
+    const attachmentId = part.body?.attachmentId;
+    if (filename && attachmentId) {
+      results.push({
+        filename,
+        mimeType: part.mimeType || 'application/octet-stream',
+        size: typeof part.body?.size === 'number' ? part.body.size : undefined,
+        attachmentId: String(attachmentId),
+        ...(gmailMessageId ? { gmailMessageId } : {}),
+      });
+    }
+    if (Array.isArray(part.parts)) {
+      for (const child of part.parts) {
+        walk(child);
+      }
+    }
+  }
+  walk(payload);
+  return results;
+}
+
+async function getMessageFull(
+  token: string,
+  id: string
+): Promise<{ bodyText?: string; attachments: GmailAttachmentInfo[] }> {
   const url = new URL(`${GMAIL_API_BASE}/messages/${id}`);
   url.searchParams.set('format', 'full');
   const res = await fetchWithRetry(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) return undefined;
+  if (!res.ok) return { bodyText: undefined, attachments: [] };
   const body = await res.json();
-  return extractBodyText(body.payload);
+  return {
+    bodyText: extractBodyText(body.payload),
+    attachments: extractAttachments(body.payload, id),
+  };
 }
 
 export type GmailPollResult = { ingested: number; skipped: number; failure?: string };
@@ -314,8 +353,12 @@ export async function pollSingleGmailConnection(
 
     // Body is fetched only now — after every cheap, header-only gate
     // above already passed — matching the data-minimization requirement.
-    const bodyText = await getMessageBody(token, messageId);
+    const { bodyText, attachments } = await getMessageFull(token, messageId);
     doc.bodyExcerpt = truncateBody(bodyText);
+    doc.gmailMessageId = messageId;
+    if (attachments.length > 0) {
+      doc.attachments = attachments;
+    }
 
     let insertedId: unknown;
     try {

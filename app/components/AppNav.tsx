@@ -190,7 +190,7 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
   useEffect(() => {
     try {
       const seen = localStorage.getItem('slg_seen_version');
-      if (seen !== '2.4.326') {
+      if (seen !== '2.4.327') {
         setHasNewRelease(true);
       }
     } catch {

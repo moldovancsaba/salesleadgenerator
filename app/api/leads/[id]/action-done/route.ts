@@ -10,6 +10,7 @@ import {
   truncateBody,
 } from '../../../../lib/activity-log-store';
 import { resolveSessionFromIdToken } from '../../../../../lib/session';
+import { deleteCalendarTaskReminder } from '../../../../../lib/gcal-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,9 +101,24 @@ export async function POST(
       console.error('[leads/action-done] activity log write failed', logErr);
     }
 
+    // Two-way Google Calendar reminder completion hook (Issue 274):
+    // Fail-safe deletion of any synced follow-up reminder event on Google Calendar.
+    let calendarDeleted = false;
+    try {
+      const calRes = await deleteCalendarTaskReminder(db, {
+        brand,
+        tenantId,
+        taskId: `followup-${id}`,
+      });
+      calendarDeleted = calRes.deleted;
+    } catch {
+      // Fail-safe: never block CRM completion
+    }
+
     return NextResponse.json({
       ok: true,
       completed: true,
+      calendarDeleted,
     });
   } catch (error: any) {
     console.error('POST /api/leads/[id]/action-done Error:', error);

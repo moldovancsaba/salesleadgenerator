@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.327
+
+### Unified Inbox Productivity, Pipeline Quick Filters, Inline Table Editing & Two-Way Calendar Sync
+
+- **Unified Inbox Bulk Actions, Attachment Extraction & Rich Composer (`app/inbox/[brand]/inbox-client.tsx`, `app/lib/inbox-store.ts`, `app/lib/gmail-sync-store.ts`, `app/api/inbox/[brand]/bulk/route.ts`, `app/api/inbox/[brand]/attachments/route.ts`):**
+  - Added multi-select thread checkboxes, a **Select All** header toggle, and a floating bulk action bar supporting 1-click batch operations (**Mark Read**, **Mark Unread**, **Star**, **Unstar**, **Archive**, **Unarchive**) via `POST /api/inbox/[brand]/bulk` and `bulkSetThreadStatus`.
+  - Implemented recursive MIME attachment metadata extraction (`extractAttachments`) during Gmail message synchronization, storing attachment descriptors (`filename`, `mimeType`, `sizeBytes`, `gmailAttachmentId`, `gmailMessageId`) on `activityLog`.
+  - Built authenticated download proxy `GET /api/inbox/[brand]/attachments` streaming both Gmail message attachments and workspace Document Library files with `Content-Disposition: attachment` headers, surfaced as downloadable attachment chips on timeline message bubbles.
+  - Added a rich text formatting toolbar (**Bold**, **Italic**, **Bulleted List**, **Insert Link**) and a collapsible **Gmail Signature Preview** panel directly inside the Inbox reply composer.
+- **Kanban & Table Quick Filter Pills and Inline Editing (`lib/quick-filter-presets.ts`, `app/sales/[brand]/sales-page-client.tsx`, `app/kanban.tsx`, `app/table.tsx`):**
+  - Added a 1-click **Quick Filters** pill bar (`All Leads`, `My Leads`, `Needs Follow-up`, `High Value >= €25k`, `Unassigned`) to the Pipeline toolbar on `/sales/[brand]`, filtering both Kanban columns and Table view in real time while synchronizing server-side ownership filters.
+  - Upgraded `TableView` (`app/table.tsx`) with inline pipeline stage `<Select>` transitions (`COLUMN_MOVE`) and inline deal value editing (`MODIFY` manual ticket-size override) so reps can update stage and deal value directly from the table without opening the detail modal.
+- **Today Workbench Quick Reschedule & Two-Way Google Calendar Sync (`app/today/[brand]/today-client.tsx`, `app/api/leads/[id]/action-done/route.ts`, `app/api/leads/[id]/snooze/route.ts`):**
+  - Wired fail-safe `deleteCalendarTaskReminder` into `POST /api/leads/[id]/action-done` so marking a follow-up completed automatically removes its deterministic reminder event (`followup-{leadId}`) from Google Calendar.
+  - Wired fail-safe `syncTaskReminderToGoogleCalendar` into `POST /api/leads/[id]/snooze` so snoozing or rescheduling a follow-up automatically updates or creates the corresponding Google Calendar event at the new due timestamp.
+  - Added 1-click **Sync Cal** buttons on Cadence Tasks and Follow-up cards, expanded quick snooze presets (`+1d`, `+3d`, `+7d`, `+14d`), and added a **Schedule Tomorrow** quick-action button on Stale Deals in `/today/[brand]`.
+- **Automated Verification:**
+  - Added unit tests in `tests/lib/inbox-store.test.ts`, `tests/lib/gmail-sync-store.test.ts`, `tests/lib/quick-filter-presets.test.ts`, and `tests/lib/gcal-sync.test.ts`.
+  - All 126 test suites and 1,627 tests pass 100%.
+
 ## 2.4.326
 
 ### Eliminate Organization Switcher Duplication & Align CRM Navigation Taxonomy

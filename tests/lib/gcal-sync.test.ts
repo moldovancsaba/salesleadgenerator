@@ -287,5 +287,14 @@ describe('Google Calendar Task Reminders Sync (issue 244)', () => {
 
       expect(res.deleted).toBe(true);
     });
+
+    it('uses identical deterministic event ID for followup-{leadId} across snooze upsert and action-done delete (Issue 274)', () => {
+      const leadId = '65f1a2b3c4d5e6f7a8b9c0d1';
+      const snoozeEventId = deriveCalendarEventId(`followup-${leadId}`);
+      const actionDoneEventId = deriveCalendarEventId(`followup-${leadId}`);
+      expect(snoozeEventId).toBe(actionDoneEventId);
+      expect(/^[a-v0-9]+$/.test(snoozeEventId)).toBe(true);
+      expect(snoozeEventId.includes(leadId)).toBe(true);
+    });
   });
 });

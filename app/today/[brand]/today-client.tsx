@@ -83,6 +83,8 @@ export function TodayClient({ brand, label }: Props) {
   const [callDuration, setCallDuration] = useState<number>(5);
   const [callNotes, setCallNotes] = useState<string>('');
   const [callSubmitting, setCallSubmitting] = useState(false);
+  const [calendarSyncingId, setCalendarSyncingId] = useState<string | null>(null);
+  const [syncedCalendarIds, setSyncedCalendarIds] = useState<Record<string, boolean>>({});
 
   const fetchTodayData = useCallback(async () => {
     try {
@@ -154,6 +156,44 @@ export function TodayClient({ brand, label }: Props) {
       alert(err?.message || 'Action failed');
     } finally {
       setActionInProgress(null);
+    }
+  };
+
+  const handleSyncToCalendar = async (params: {
+    taskId: string;
+    leadId: string;
+    title: string;
+    dueAt: string;
+    channel?: string;
+    contactName?: string;
+    contactEmail?: string;
+    companyName?: string;
+    instructions?: string;
+  }) => {
+    try {
+      setCalendarSyncingId(params.taskId);
+      const res = await fetch('/api/calendar/sync-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brand,
+          ...params,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.synced) {
+        alert(
+          json.reason === 'not_connected'
+            ? 'Google Calendar is not connected. Connect Google Calendar in Settings → Integrations first.'
+            : `Calendar sync skipped: ${json.reason || json.error || 'Unknown reason'}`
+        );
+        return;
+      }
+      setSyncedCalendarIds((prev) => ({ ...prev, [params.taskId]: true }));
+    } catch (err: any) {
+      alert(err?.message || 'Failed to sync reminder to Google Calendar');
+    } finally {
+      setCalendarSyncingId(null);
     }
   };
 
@@ -434,6 +474,28 @@ export function TodayClient({ brand, label }: Props) {
                         </div>
                       </Group>
                       <Group gap="xs">
+                        <Button
+                          size="xs"
+                          variant={syncedCalendarIds[`cadence-${task.leadId}-${task.stepIndex}`] ? 'light' : 'default'}
+                          color={syncedCalendarIds[`cadence-${task.leadId}-${task.stepIndex}`] ? 'green' : undefined}
+                          leftSection={<IconCalendar size={14} />}
+                          loading={calendarSyncingId === `cadence-${task.leadId}-${task.stepIndex}`}
+                          onClick={() =>
+                            handleSyncToCalendar({
+                              taskId: `cadence-${task.leadId}-${task.stepIndex}`,
+                              leadId: task.leadId,
+                              title: task.reminderNote || `${task.channel.toUpperCase()} Step ${task.stepIndex} - ${task.entityName}`,
+                              dueAt: task.taskDueAt,
+                              channel: task.channel,
+                              contactName: task.contactName,
+                              contactEmail: task.contactEmail,
+                              companyName: task.entityName,
+                              instructions: task.reminderNote,
+                            })
+                          }
+                        >
+                          {syncedCalendarIds[`cadence-${task.leadId}-${task.stepIndex}`] ? 'Synced' : 'Sync Cal'}
+                        </Button>
                         {task.channel === 'call' && (
                           <Button
                             size="xs"
@@ -524,6 +586,27 @@ export function TodayClient({ brand, label }: Props) {
                       <Group gap="xs">
                         <Button
                           size="xs"
+                          variant={syncedCalendarIds[`followup-${item.leadId}`] ? 'light' : 'default'}
+                          color={syncedCalendarIds[`followup-${item.leadId}`] ? 'green' : undefined}
+                          leftSection={<IconCalendar size={14} />}
+                          loading={calendarSyncingId === `followup-${item.leadId}`}
+                          onClick={() =>
+                            handleSyncToCalendar({
+                              taskId: `followup-${item.leadId}`,
+                              leadId: item.leadId,
+                              title: item.nextActionNote || `Follow up with ${item.entityName}`,
+                              dueAt: item.nextActionDueAt,
+                              contactName: item.contactName,
+                              contactEmail: item.contactEmail,
+                              companyName: item.entityName,
+                              instructions: item.nextActionNote,
+                            })
+                          }
+                        >
+                          {syncedCalendarIds[`followup-${item.leadId}`] ? 'Synced' : 'Sync Cal'}
+                        </Button>
+                        <Button
+                          size="xs"
                           variant="light"
                           color="teal"
                           leftSection={<IconPhone size={14} />}
@@ -538,7 +621,7 @@ export function TodayClient({ brand, label }: Props) {
                         >
                           Log Call
                         </Button>
-                        <Menu shadow="md" width={160}>
+                        <Menu shadow="md" width={175}>
                           <Menu.Target>
                             <Button size="xs" variant="default" leftSection={<IconCalendarPlus size={14} />}>
                               Snooze
@@ -551,8 +634,11 @@ export function TodayClient({ brand, label }: Props) {
                             <Menu.Item onClick={() => handleSnooze(item.leadId, '3d')}>
                               In 3 days (+3d)
                             </Menu.Item>
-                            <Menu.Item onClick={() => handleSnooze(item.leadId, '1w')}>
-                              Next week (+1w)
+                            <Menu.Item onClick={() => handleSnooze(item.leadId, '7d')}>
+                              Next week (+7d)
+                            </Menu.Item>
+                            <Menu.Item onClick={() => handleSnooze(item.leadId, '14d')}>
+                              In 2 weeks (+14d)
                             </Menu.Item>
                           </Menu.Dropdown>
                         </Menu>
@@ -628,6 +714,27 @@ export function TodayClient({ brand, label }: Props) {
                       <Group gap="xs">
                         <Button
                           size="xs"
+                          variant={syncedCalendarIds[`followup-${item.leadId}`] ? 'light' : 'default'}
+                          color={syncedCalendarIds[`followup-${item.leadId}`] ? 'green' : undefined}
+                          leftSection={<IconCalendar size={14} />}
+                          loading={calendarSyncingId === `followup-${item.leadId}`}
+                          onClick={() =>
+                            handleSyncToCalendar({
+                              taskId: `followup-${item.leadId}`,
+                              leadId: item.leadId,
+                              title: item.nextActionNote || `Follow up with ${item.entityName}`,
+                              dueAt: item.nextActionDueAt,
+                              contactName: item.contactName,
+                              contactEmail: item.contactEmail,
+                              companyName: item.entityName,
+                              instructions: item.nextActionNote,
+                            })
+                          }
+                        >
+                          {syncedCalendarIds[`followup-${item.leadId}`] ? 'Synced' : 'Sync Cal'}
+                        </Button>
+                        <Button
+                          size="xs"
                           variant="light"
                           color="teal"
                           leftSection={<IconPhone size={14} />}
@@ -642,7 +749,7 @@ export function TodayClient({ brand, label }: Props) {
                         >
                           Log Call
                         </Button>
-                        <Menu shadow="md" width={160}>
+                        <Menu shadow="md" width={175}>
                           <Menu.Target>
                             <Button size="xs" variant="default" leftSection={<IconCalendarPlus size={14} />}>
                               Snooze
@@ -655,8 +762,11 @@ export function TodayClient({ brand, label }: Props) {
                             <Menu.Item onClick={() => handleSnooze(item.leadId, '3d')}>
                               In 3 days (+3d)
                             </Menu.Item>
-                            <Menu.Item onClick={() => handleSnooze(item.leadId, '1w')}>
-                              Next week (+1w)
+                            <Menu.Item onClick={() => handleSnooze(item.leadId, '7d')}>
+                              Next week (+7d)
+                            </Menu.Item>
+                            <Menu.Item onClick={() => handleSnooze(item.leadId, '14d')}>
+                              In 2 weeks (+14d)
                             </Menu.Item>
                           </Menu.Dropdown>
                         </Menu>
@@ -733,15 +843,26 @@ export function TodayClient({ brand, label }: Props) {
                           </Group>
                         </div>
                       </Group>
-                      <Button
-                        component={Link}
-                        href={`/sales/${brand}?lead=${deal.leadId}`}
-                        size="xs"
-                        variant="default"
-                        rightSection={<IconArrowRight size={14} />}
-                      >
-                        View Deal
-                      </Button>
+                      <Group gap="xs">
+                        <Button
+                          size="xs"
+                          variant="default"
+                          leftSection={<IconCalendarPlus size={14} />}
+                          loading={actionInProgress === deal.leadId}
+                          onClick={() => handleSnooze(deal.leadId, '1d')}
+                        >
+                          Schedule Tomorrow
+                        </Button>
+                        <Button
+                          component={Link}
+                          href={`/sales/${brand}?lead=${deal.leadId}`}
+                          size="xs"
+                          variant="default"
+                          rightSection={<IconArrowRight size={14} />}
+                        >
+                          View Deal
+                        </Button>
+                      </Group>
                     </Group>
                   </Paper>
                 ))}

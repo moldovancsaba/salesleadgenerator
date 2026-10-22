@@ -3,9 +3,11 @@ import {
   listInboxThreads,
   getInboxThreadDetail,
   setThreadStatus,
+  bulkSetThreadStatus,
   postInboxReply,
   INBOX_THREAD_STATES_COLLECTION,
 } from '../../app/lib/inbox-store';
+import { extractAttachments } from '../../app/lib/gmail-sync-store';
 import { ACTIVITY_LOG_COLLECTION } from '../../app/lib/activity-log-store';
 import * as brandModule from '../../app/lib/brand';
 import * as outreachSendModule from '../../lib/outreach-send';
@@ -1072,6 +1074,76 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       expect(templateArg?.body).toBe('Hi Alex, our tier is $15k per year.');
       expect(contextArg.replyInThread).toBe(true);
       expect(contextArg.senderUserId).toBe('user_1');
+    });
+
+    it('bulkSetThreadStatus updates multiple threads and deduplicates IDs (issue 272)', async () => {
+      const db = createMockDb();
+
+      const res = await bulkSetThreadStatus(
+        db,
+        'cogmap',
+        't_default',
+        ['thread_1', 'thread_2', 'thread_1', '  '],
+        { isRead: true, isArchived: true },
+        'user_1'
+      );
+
+      expect(res.updatedCount).toBe(2);
+      expect(mockStateDocs.length).toBe(2);
+      expect(mockStateDocs.find((s) => s.threadId === 'thread_1')?.isArchived).toBe(true);
+      expect(mockStateDocs.find((s) => s.threadId === 'thread_2')?.isRead).toBe(true);
+    });
+
+    it('extractAttachments parses nested MIME attachment parts and getInboxThreadDetail exposes them (issue 272)', async () => {
+      const mimePayload = {
+        mimeType: 'multipart/mixed',
+        parts: [
+          { mimeType: 'text/plain', body: { data: 'SGVsbG8=' } },
+          {
+            filename: 'Sponsorship_Proposal_2026.pdf',
+            mimeType: 'application/pdf',
+            body: { attachmentId: 'att_99', size: 245760 },
+          },
+        ],
+      };
+
+      const extracted = extractAttachments(mimePayload, 'gmail_msg_42');
+      expect(extracted).toEqual([
+        {
+          filename: 'Sponsorship_Proposal_2026.pdf',
+          mimeType: 'application/pdf',
+          size: 245760,
+          attachmentId: 'att_99',
+          gmailMessageId: 'gmail_msg_42',
+        },
+      ]);
+
+      const db = createMockDb();
+      mockActivityDocs.push({
+        _id: 'act_with_att',
+        brand: 'cogmap',
+        tenantId: 't_default',
+        leadId: 'lead_1',
+        threadId: 'thread_att',
+        type: 'email-inbound',
+        direction: 'inbound',
+        fromAddress: 'client@club.com',
+        toAddresses: ['rep@cogmap.com'],
+        subject: 'Proposal attached',
+        bodyExcerpt: 'Please see the attached PDF.',
+        gmailMessageId: 'gmail_msg_42',
+        attachments: extracted,
+        createdAt: new Date(),
+      });
+
+      const detail = await getInboxThreadDetail(db, 'cogmap', 't_default', 'thread_att', {
+        userEmail: 'rep@cogmap.com',
+      });
+
+      expect(detail.messages).toHaveLength(1);
+      expect(detail.messages[0].attachments).toHaveLength(1);
+      expect(detail.messages[0].attachments?.[0].filename).toBe('Sponsorship_Proposal_2026.pdf');
+      expect(detail.messages[0].attachments?.[0].attachmentId).toBe('att_99');
     });
   });
 });

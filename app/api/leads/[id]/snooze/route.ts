@@ -11,6 +11,7 @@ import {
   truncateBody,
 } from '../../../../lib/activity-log-store';
 import { resolveSessionFromIdToken } from '../../../../../lib/session';
+import { syncTaskReminderToGoogleCalendar } from '../../../../../lib/gcal-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,10 +106,34 @@ export async function POST(
       console.error('[leads/snooze] activity log write failed', logErr);
     }
 
+    // Two-way Google Calendar reminder reschedule hook (Issue 274):
+    // Fail-safe update/upsert of the follow-up reminder event on Google Calendar.
+    const effectiveNote = note !== undefined ? note : lead.nextActionNote;
+    const primaryContact = Array.isArray(lead.contacts) ? lead.contacts[0] : undefined;
+    let calendarSynced = false;
+    try {
+      const calRes = await syncTaskReminderToGoogleCalendar(db, {
+        brand,
+        tenantId,
+        taskId: `followup-${id}`,
+        title: effectiveNote || `Follow up with ${lead.entity_name || 'Prospect'}`,
+        dueAt: nextDue.toISOString(),
+        contactName: primaryContact?.name,
+        contactEmail: primaryContact?.email,
+        companyName: lead.entity_name,
+        instructions: effectiveNote || undefined,
+        leadId: id,
+      });
+      calendarSynced = calRes.synced;
+    } catch {
+      // Fail-safe: never block CRM snooze
+    }
+
     return NextResponse.json({
       ok: true,
       nextActionDueAt: nextDue.toISOString(),
-      nextActionNote: note !== undefined ? note : lead.nextActionNote,
+      nextActionNote: effectiveNote,
+      calendarSynced,
     });
   } catch (error: any) {
     console.error('POST /api/leads/[id]/snooze Error:', error);

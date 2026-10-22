@@ -24,6 +24,8 @@ import {
   Paper,
   Alert,
   NavLink,
+  Checkbox,
+  Collapse,
 } from '@mantine/core';
 import {
   StatusBadge,
@@ -34,6 +36,7 @@ import {
 import {
   IconInbox,
   IconMail,
+  IconMailOpened,
   IconSend,
   IconNote,
   IconPhone,
@@ -55,6 +58,12 @@ import {
   IconCurrencyDollar,
   IconUsers,
   IconBuilding,
+  IconBold,
+  IconItalic,
+  IconList,
+  IconLink,
+  IconDownload,
+  IconEye,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand-constants';
 import type {
@@ -148,6 +157,13 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; subject: string; body: string }>>([]);
   const [documents, setDocuments] = useState<Array<{ id: string; displayName: string }>>([]);
 
+  // Bulk thread selection & composer enhancement state (Issue 272)
+  const [checkedThreadIds, setCheckedThreadIds] = useState<string[]>([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [userSignatureText, setUserSignatureText] = useState<string>('');
+  const [showSignaturePreview, setShowSignaturePreview] = useState(false);
+  const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
+
   // Conversion / Deal modal state
   const [convertModalOpened, setConvertModalOpened] = useState(false);
   const [convertModalMode, setConvertModalMode] = useState<'convert' | 'add_deal' | 'add_contact'>('convert');
@@ -157,13 +173,14 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch templates and documents for composer
+  // Fetch templates, documents, and user signature for composer
   useEffect(() => {
     async function loadComposerResources() {
       try {
-        const [tplRes, docRes] = await Promise.all([
+        const [tplRes, docRes, intRes] = await Promise.all([
           fetch(`/api/outreach-templates?brand=${brand}`).then((r) => (r.ok ? r.json() : null)),
           fetch(`/api/documents?brand=${brand}`).then((r) => (r.ok ? r.json() : null)),
+          fetch(`/api/user/integrations`).then((r) => (r.ok ? r.json() : null)),
         ]);
         if (tplRes?.templates && Array.isArray(tplRes.templates)) {
           setTemplates(tplRes.templates);
@@ -176,12 +193,89 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
             }))
           );
         }
+        if (intRes?.connections && Array.isArray(intRes.connections)) {
+          const activeGmail =
+            intRes.connections.find((c: any) => c.provider === 'gmail' && c.status === 'active' && c.isDefault) ||
+            intRes.connections.find((c: any) => c.provider === 'gmail' && c.status === 'active');
+          if (activeGmail?.signatureText) {
+            setUserSignatureText(activeGmail.signatureText);
+          }
+        }
       } catch {
         // non-fatal
       }
     }
     loadComposerResources();
   }, [brand]);
+
+  const handleToggleThreadCheck = (threadId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCheckedThreadIds((prev) =>
+      prev.includes(threadId) ? prev.filter((id) => id !== threadId) : [...prev, threadId]
+    );
+  };
+
+  const handleToggleSelectAllThreads = () => {
+    if (checkedThreadIds.length === threads.length && threads.length > 0) {
+      setCheckedThreadIds([]);
+    } else {
+      setCheckedThreadIds(threads.map((t) => t.id));
+    }
+  };
+
+  const handleBulkAction = async (updates: { isRead?: boolean; isStarred?: boolean; isArchived?: boolean }) => {
+    if (checkedThreadIds.length === 0) return;
+    setBulkUpdating(true);
+    try {
+      const res = await fetch(`/api/inbox/${brand}/bulk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadIds: checkedThreadIds, updates }),
+      });
+      if (res.ok) {
+        const count = checkedThreadIds.length;
+        setCheckedThreadIds([]);
+        setSyncNotice({
+          message: `Updated ${count} conversation${count === 1 ? '' : 's'}.`,
+          color: 'teal',
+        });
+        await loadThreads();
+      }
+    } catch {
+      setSyncNotice({ message: 'Failed to apply bulk action.', color: 'red' });
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  const handleApplyFormat = (format: 'bold' | 'italic' | 'list' | 'link') => {
+    const el = replyTextareaRef.current;
+    const start = el ? el.selectionStart : replyBody.length;
+    const end = el ? el.selectionEnd : replyBody.length;
+    const selected = replyBody.slice(start, end);
+
+    let replacement = '';
+    if (format === 'bold') {
+      replacement = `**${selected || 'bold text'}**`;
+    } else if (format === 'italic') {
+      replacement = `_${selected || 'italic text'}_`;
+    } else if (format === 'list') {
+      const lines = (selected || 'Item').split('\n');
+      replacement = (start > 0 && replyBody[start - 1] !== '\n' ? '\n' : '') + lines.map((l) => `- ${l}`).join('\n');
+    } else if (format === 'link') {
+      replacement = `${selected || 'Link text'} (https://)`;
+    }
+
+    const nextBody = replyBody.slice(0, start) + replacement + replyBody.slice(end);
+    setReplyBody(nextBody);
+    setTimeout(() => {
+      if (el) {
+        el.focus();
+        const cursorPos = start + replacement.length;
+        el.setSelectionRange(cursorPos, cursorPos);
+      }
+    }, 0);
+  };
 
   // Load threads (Team inbox is disabled; always scoped to current user)
   const loadThreads = useCallback(async () => {
@@ -728,6 +822,85 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
             value={search}
             onChange={(e) => setSearch(e.currentTarget.value)}
           />
+          {threads.length > 0 && (
+            <Group justify="space-between" align="center" mt="xs" wrap="nowrap">
+              <Checkbox
+                size="xs"
+                label={
+                  checkedThreadIds.length > 0
+                    ? `${checkedThreadIds.length} selected`
+                    : 'Select all'
+                }
+                checked={checkedThreadIds.length === threads.length && threads.length > 0}
+                indeterminate={checkedThreadIds.length > 0 && checkedThreadIds.length < threads.length}
+                onChange={handleToggleSelectAllThreads}
+                aria-label="Select all threads"
+              />
+              {checkedThreadIds.length > 0 && (
+                <Group gap={4} wrap="nowrap">
+                  <Tooltip label="Mark selected as Read">
+                    <ActionIcon
+                      size="xs"
+                      variant="light"
+                      color="indigo"
+                      loading={bulkUpdating}
+                      onClick={() => handleBulkAction({ isRead: true })}
+                      aria-label="Bulk mark read"
+                    >
+                      <IconMailOpened size={13} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Mark selected as Unread">
+                    <ActionIcon
+                      size="xs"
+                      variant="light"
+                      color="gray"
+                      loading={bulkUpdating}
+                      onClick={() => handleBulkAction({ isRead: false })}
+                      aria-label="Bulk mark unread"
+                    >
+                      <IconMail size={13} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Star selected">
+                    <ActionIcon
+                      size="xs"
+                      variant="light"
+                      color="yellow"
+                      loading={bulkUpdating}
+                      onClick={() => handleBulkAction({ isStarred: true })}
+                      aria-label="Bulk star"
+                    >
+                      <IconStar size={13} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label={archivedOnly ? 'Unarchive selected' : 'Archive selected'}>
+                    <ActionIcon
+                      size="xs"
+                      variant="light"
+                      color="teal"
+                      loading={bulkUpdating}
+                      onClick={() => handleBulkAction({ isArchived: !archivedOnly })}
+                      aria-label="Bulk archive"
+                    >
+                      <IconArchive size={13} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Clear selection">
+                    <ActionIcon
+                      size="xs"
+                      variant="subtle"
+                      color="gray"
+                      onClick={() => setCheckedThreadIds([])}
+                      aria-label="Clear bulk selection"
+                    >
+                      <IconX size={13} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Group>
+              )}
+            </Group>
+          )}
         </Box>
 
         <ScrollArea style={{ flex: 1 }}>
@@ -745,6 +918,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
             <Box>
               {threads.map((t) => {
                 const isSelected = selectedThreadId === t.id;
+                const isChecked = checkedThreadIds.includes(t.id);
                 return (
                   <Box
                     key={t.id}
@@ -761,9 +935,16 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                       transition: 'background-color 150ms ease',
                     }}
                   >
-                    {/* Header Row: Sender / Title + Timestamp */}
+                    {/* Header Row: Checkbox + Sender / Title + Timestamp */}
                     <Group justify="space-between" align="flex-start" wrap="nowrap" mb={2}>
                       <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+                        <Checkbox
+                          size="xs"
+                          checked={isChecked}
+                          onChange={() => {}}
+                          onClick={(e) => handleToggleThreadCheck(t.id, e)}
+                          aria-label={`Select thread ${t.subject}`}
+                        />
                         {!t.isRead && (
                           <Box
                             w={8}
@@ -1329,6 +1510,40 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                         >
                           {m.body}
                         </Text>
+
+                        {/* Attachment Pills & Download Links (Issue 272) */}
+                        {m.attachments && m.attachments.length > 0 && (
+                          <Group gap="xs" mt="sm" wrap="wrap">
+                            {m.attachments.map((att, idx) => {
+                              const sizeLabel =
+                                typeof att.size === 'number' && att.size > 0
+                                  ? ` (${Math.max(1, Math.round(att.size / 1024))} KB)`
+                                  : '';
+                              const downloadHref = att.documentId
+                                ? `/api/inbox/${brand}/attachments?documentId=${encodeURIComponent(att.documentId)}&filename=${encodeURIComponent(att.filename)}`
+                                : att.attachmentId && (att.gmailMessageId || m.gmailMessageId)
+                                ? `/api/inbox/${brand}/attachments?messageId=${encodeURIComponent(att.gmailMessageId || m.gmailMessageId || '')}&attachmentId=${encodeURIComponent(att.attachmentId)}&filename=${encodeURIComponent(att.filename)}&mimeType=${encodeURIComponent(att.mimeType)}`
+                                : undefined;
+
+                              return (
+                                <Button
+                                  key={`${att.filename}-${idx}`}
+                                  component={downloadHref ? 'a' : 'button'}
+                                  href={downloadHref}
+                                  target={downloadHref ? '_blank' : undefined}
+                                  rel={downloadHref ? 'noopener noreferrer' : undefined}
+                                  size="compact-xs"
+                                  variant="default"
+                                  leftSection={<IconPaperclip size={12} />}
+                                  rightSection={downloadHref ? <IconDownload size={12} /> : undefined}
+                                >
+                                  {att.filename}
+                                  {sizeLabel}
+                                </Button>
+                              );
+                            })}
+                          </Group>
+                        )}
                       </Paper>
                     );
                   })}
@@ -1434,7 +1649,52 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                 </Stack>
               )}
 
+              {/* Formatting Toolbar (Issue 272) */}
+              <Group gap={4} mb={6}>
+                <Tooltip label="Bold (**text**)">
+                  <ActionIcon
+                    size="xs"
+                    variant="default"
+                    onClick={() => handleApplyFormat('bold')}
+                    aria-label="Format bold"
+                  >
+                    <IconBold size={13} />
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip label="Italic (_text_)">
+                  <ActionIcon
+                    size="xs"
+                    variant="default"
+                    onClick={() => handleApplyFormat('italic')}
+                    aria-label="Format italic"
+                  >
+                    <IconItalic size={13} />
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip label="Bulleted list (- item)">
+                  <ActionIcon
+                    size="xs"
+                    variant="default"
+                    onClick={() => handleApplyFormat('list')}
+                    aria-label="Format bulleted list"
+                  >
+                    <IconList size={13} />
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip label="Insert link">
+                  <ActionIcon
+                    size="xs"
+                    variant="default"
+                    onClick={() => handleApplyFormat('link')}
+                    aria-label="Insert link"
+                  >
+                    <IconLink size={13} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+
               <Textarea
+                ref={replyTextareaRef}
                 placeholder={
                   replyMode === 'email'
                     ? 'Write your email reply to the client...'
@@ -1448,14 +1708,46 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                 mb="xs"
               />
 
+              {replyMode === 'email' && includeSignature && userSignatureText && (
+                <Collapse expanded={showSignaturePreview}>
+                  <Paper
+                    p="xs"
+                    mb="xs"
+                    radius="sm"
+                    withBorder
+                    style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}
+                  >
+                    <Text size="10px" fw={700} c="dimmed" tt="uppercase" mb={2}>
+                      Synced Gmail Signature Preview
+                    </Text>
+                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
+                      -- {'\n'}
+                      {userSignatureText}
+                    </Text>
+                  </Paper>
+                </Collapse>
+              )}
+
               <Group justify="space-between" align="center">
                 {replyMode === 'email' ? (
-                  <Switch
-                    label="Include Email Signature"
-                    size="xs"
-                    checked={includeSignature}
-                    onChange={(e) => setIncludeSignature(e.currentTarget.checked)}
-                  />
+                  <Group gap="sm">
+                    <Switch
+                      label="Include Email Signature"
+                      size="xs"
+                      checked={includeSignature}
+                      onChange={(e) => setIncludeSignature(e.currentTarget.checked)}
+                    />
+                    {includeSignature && userSignatureText && (
+                      <Button
+                        size="compact-xs"
+                        variant="default"
+                        leftSection={<IconEye size={12} />}
+                        onClick={() => setShowSignaturePreview((v) => !v)}
+                      >
+                        {showSignaturePreview ? 'Hide Signature' : 'Preview Signature'}
+                      </Button>
+                    )}
+                  </Group>
                 ) : (
                   <Text size="xs" c="dimmed">
                     Notes are stamped with your user email and private to this organization.
