@@ -231,7 +231,7 @@ Example `PUT` fragment:
 
 ```
 PUT /api/leads/{leadId}?brand={cogmap|seyu|dvsc}
-Headers: x-api-key: <SLG_API_KEY>
+Headers: x-api-key: <SCOPED_KEY_OR_SLG_API_KEY>
 Content-Type: application/json
 
 Body: only the fields being changed, e.g.
@@ -249,6 +249,9 @@ Body: only the fields being changed, e.g.
   "cityName": "Munich"
 }
 ```
+
+> [!NOTE]
+> **Authentication (Issue #210/#220)**: `PUT /api/leads/{leadId}` accepts either a named, brand-scoped read-write API key generated for that brand via `/admin/api-keys` (e.g. `research-agent-{brand}`, recommended) or the legacy shared `SLG_API_KEY`. Scoped keys enforce brand boundaries (refusing cross-brand writes with HTTP 403) and provide audit logging on key usage.
 
 A 400 response means validation failed — read `details` in the response body, it lists every specific rule broken (format, forbidden brand term, wrong enum value). Do not retry with the same payload; fix the specific field(s) named in the error.
 
@@ -279,7 +282,7 @@ No auth required, no params, no request body. Returns the exact same arrays `lib
 
 ```
 PATCH /api/leads?brand={cogmap|seyu|dvsc}&id={leadId}
-Headers: x-api-key: <SLG_API_KEY>
+Headers: x-api-key: <SCOPED_KEY_OR_SLG_API_KEY>
 Content-Type: application/json
 
 Body: { "action": "RESCAN_TECH" }
