@@ -1,6 +1,6 @@
 # Low-Level Design — Sales Lead Generator
 
-**Version:** 2.4.328
+**Version:** 2.4.329
 
 **Status:** First written 2026-08-02 (2.4.177); brought current 2026-09-25 (2.4.212); comprehensive alignment audit completed 2026-10-22 (2.4.328, issue #275) bringing the complete API surface, domain modules, and component tree up to date across all features through v2.4.328 (App-wide visible `APP_VERSION` badge, What's New release notes blog & parser engine, Organization switcher de-duplication & CRM navigation taxonomy, Email disconnect lifecycle resolution across linked SSO identities, RFC 2047 & Quoted-Printable MIME encoding, Unified Inbox bulk actions, Gmail MIME attachment extraction & download proxy, composer formatting toolbar, Pipeline 1-click Quick Filter pills, inline Table stage & deal value editing, and Today two-way Google Calendar reminder completion/reschedule sync). This sits one level below `docs/ARCHITECTURE.md` (which covers system-level request flows, the data model's *shape and meaning*, and the deployment picture) — this doc is the module-by-module inventory: every API route, every shared library module, every major UI component, and exactly how they wire together. Where `ARCHITECTURE.md` explains *why* a decision was made, this doc is a map of *where the code that implements it actually lives*.
 

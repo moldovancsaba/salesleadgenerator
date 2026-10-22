@@ -1,7 +1,8 @@
 // Canonical application version and release dates for CHANGELOG.md
-export const APP_VERSION = "2.4.328";
+export const APP_VERSION = "2.4.329";
 
 export const RELEASE_DATES: Record<string, string> = {
+  "2.4.329": "2026-10-22",
   "2.4.328": "2026-10-22",
   "2.4.327": "2026-10-22",
   "2.4.326": "2026-10-22",

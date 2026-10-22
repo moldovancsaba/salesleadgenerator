@@ -1,13 +1,13 @@
 # Lead Taxonomy Migration Plan — Rulebook v1.0 Backfill
 
-**Version:** 2.4.328
+**Version:** 2.4.329
 
 > [!IMPORTANT]
 > **Owner Directive (2026-10-16, `AGENTS.md` Rule 10):**
 > The AI assistant working in `salesleadgenerator` is strictly a software developer, not a content provider or manual lead-enrichment operator.
 > Never run manual lead-research or content-enrichment batches from a coding session. Do not pick leads from the database, run web searches on sports clubs, or issue manual `PUT /api/leads/[id]` calls during development sessions. Ongoing taxonomy population belongs exclusively to the automated `researchandenrich` runtime. This directive permanently supersedes the historical §9 manual agent-research loop below.
 
-**Status:** Plan / design document, with mechanical `sportCode` backfill fully completed (2,749 of 3,079 leads, 89.3%, 0 mechanically resolvable remaining across all 3 brands). Evidence-based manual agent research is permanently superseded by automated agent workers per Rule 10.
+**Status:** Plan / design document, with mechanical `sportCode` backfill fully completed (2,800 of 3,091 leads, 90.6%, 0 mechanically resolvable remaining across all 3 brands after the v2.4.329 alias expansion). Evidence-based manual agent research is permanently superseded by automated agent workers per Rule 10.
 
 ### Progress update — 2026-09-25 (issue #132 resumed again)
 

@@ -16,6 +16,13 @@ describe('resolveSportAlias', () => {
     expect(resolveSportAlias('MMA')).toBe('martial-arts');
     expect(resolveSportAlias('  ICE HOCKEY  ')).toBe('ice-hockey');
     expect(resolveSportAlias('Track & Field')).toBe('athletics');
+    expect(resolveSportAlias('Track and field / Athletics')).toBe('athletics');
+    expect(resolveSportAlias('Football - Serie A')).toBe('football');
+    expect(resolveSportAlias('Football - LaLiga')).toBe('football');
+    expect(resolveSportAlias('Football (club-wide fit)')).toBe('football');
+    expect(resolveSportAlias('Esports / Gaming')).toBe('esports');
+    expect(resolveSportAlias('Multi-Sport High Performance')).toBe('multi-sport');
+    expect(resolveSportAlias('Multi-sport Olympic Movement')).toBe('multi-sport');
   });
 
   it('is case- and whitespace-insensitive', () => {

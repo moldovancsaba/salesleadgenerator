@@ -1,6 +1,6 @@
 # User Guide — Sales Lead Generator
 
-**Version:** 2.4.328  
+**Version:** 2.4.329  
 **Application URL:** https://salesleadgenerator.vercel.app  
 
 Welcome to **Sales Lead Generator**, an intelligent, multi-brand CRM and sales execution platform designed for B2B sports business, corporate partnerships, and outbound pipeline operations. This guide walks you through daily workflows, lead management, communication, and pipeline tools.
@@ -38,7 +38,7 @@ Sales Lead Generator uses DoneIsBetter Single Sign-On (SSO). Click **Sign in** t
 ### Navigation Layout
 - **Desktop & Tablet (`>= 768px`)**: A docked, collapsible sidebar navigation sits on the left edge, grouped into **Core CRM** (`Today`, `Inbox`, `Pipeline`, `Contacts`, `Accounts`), **Outreach & Content** (`Cadences`, `Outreach Templates`, `Documents`, `Battlecards`), **Analytics** (`Forecast`, `Reports`), **Settings** (`Sales Settings`, `Product Catalog`, `Automation`), and **Help & Updates** (`What's New`, `Take the tour`). When the sidebar is collapsed, horizontal navigation links appear in the top header bar.
 - **Mobile (`< 768px`)**: Tap the hamburger menu (☰) in the top bar to open the navigation drawer.
-- **Version Indicator & What's New**: The live application version badge (`v2.4.328`) is displayed in the top header next to the application title and in the navigation sidebar, linking directly to the **What's New & Release Notes** blog.
+- **Version Indicator & What's New**: The live application version badge (`v2.4.329`) is displayed in the top header next to the application title and in the navigation sidebar, linking directly to the **What's New & Release Notes** blog.
 - **Brand Switcher**: If you have access to multiple brands, use the **Organization** dropdown at the top of the sidebar (or in the top header when the sidebar is collapsed) to switch workspaces instantly without duplicate controls.
 - **Full-Width Workspace**: All tables, boards, and inboxes expand to 100% display width for maximum data scannability.
 
@@ -341,7 +341,7 @@ Configurable at both the brand level (`/salessettings/[client]`, Process tab) an
 
 ## 15. What's New & Release Notes Blog
 
-Navigate to `/whats-new/[brand]` (or click the `v2.4.328` version badge / ✨ sparkles icon in the top header or **Help & Updates → What's New** in the sidebar) to browse the chronological release notes blog:
+Navigate to `/whats-new/[brand]` (or click the `v2.4.329` version badge / ✨ sparkles icon in the top header or **Help & Updates → What's New** in the sidebar) to browse the chronological release notes blog:
 
 - **Chronological Release Timeline**: Every release is displayed from newest to oldest with its exact calendar date, relative age badge (`Today`, `Yesterday`, `3 days ago`), version badge, and summary counts for **New**, **Fixed**, and **Security** items.
 - **Category & Search Filtering**: Filter releases in real time by keyword (e.g. `inbox`, `calendar`, `table`, `sso`) or switch between **All Updates**, **🚀 What's New**, **🛠️ What's Fixed**, and **🔒 Security**.

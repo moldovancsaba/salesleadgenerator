@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.329
+
+### Scoped Research Agent API Keys, Inbound Email Webhook Activation, Taxonomy Backfill Completion & Full Backlog Delivery
+
+- **Scoped API Key Migration for Research Agent & Cron Verification (Issue #220):**
+  - Minted three brand-scoped API keys (`research-agent-cogmap`, `research-agent-seyu`, `research-agent-dvsc`, `scopes: ['read-write']`) in production MongoDB (`api_keys` collection) via `createApiKey` (`app/lib/api-key-store.ts`).
+  - Migrated the external research agent runtime's per-tenant credential files (`.env.cogmap`, `.env.seyu`, `.env.dvsc`) off the shared legacy `SLG_API_KEY` onto their dedicated brand-scoped keys.
+  - Verified live against `https://salesleadgenerator.vercel.app` (`GET /api/leads?brand=<brand>&limit=1` and `GET /api/sales-settings/<brand>`): all three scoped keys return `200 OK` for their own brand, cross-brand requests are strictly rejected with `403 Forbidden`, and `lastUsedAt` is stamped on all three key records.
+- **Inbound & Outbound Email Webhook Activation in Production (Issue #202):**
+  - Verified Resend domain `leads.haho.ai` (`1223ee20-8f7a-48a4-83dc-94636fd3f861`) active with `sending: enabled` and `receiving: enabled`.
+  - Updated Resend webhook `797f9da9-9b89-4e97-a6a3-0ee29111f77a` (`https://salesleadgenerator.vercel.app/api/webhooks/inbound-email`) to subscribe to `email.received` plus all eight outbound delivery lifecycle events (`email.sent`, `email.delivered`, `email.delivery_delayed`, `email.complained`, `email.bounced`, `email.opened`, `email.clicked`, `email.failed`).
+  - Configured `RESEND_API_KEY` and `RESEND_WEBHOOK_SECRET` in Vercel production for `salesleadgenerator` and verified live webhook delivery and `activityLog` ingestion.
+- **Mechanical `sportCode` Alias Expansion & Backfill Completion (Issue #132):**
+  - Expanded `SPORT_ALIASES` in `lib/lead-taxonomy.ts` with 29 deterministic aliases for recurring multi-sport, Olympic, football league, esports, athletics, and rugby strings found in production data.
+  - Executed `scripts/taxonomy-sportcode-backfill.ts --apply` across all 3,091 leads (`cogmap`: 2,310, `seyu`: 713, `dvsc`: 68), classifying 45 additional leads with 0 failures and preserving `kanbanColumn` stage assignments (bringing `sportCode` coverage to 2,800 of 3,091 leads, 90.6%).
+  - Added unit test assertions in `tests/lib/lead-taxonomy.test.ts`.
+- **Comprehensive Near-Duplicate Scan & Queue Synchronization (Issue #137) & Onboarding Tour Closure (Issue #165):**
+  - Executed full near-duplicate scan (`findCandidatePairs`) across all 3,091 leads in `cogmap`, `seyu`, and `dvsc`, inserting 119 newly identified candidate pairs into `duplicate_reviews` (total: 450 CogMap pairs / 419 unresolved; 276 Seyu pairs / 260 unresolved; 0 DVSC pairs; 0 orphaned review rows).
+  - Verified onboarding tour (`driver.js`, `app/components/OnboardingTour.tsx`, `lib/onboarding-tour.ts`) and closed all remaining open issues (`#132`, `#137`, `#165`, `#202`, `#220`).
+
 ## 2.4.328
 
 ### App-Wide Visible Version Badge, What's New Release Notes Fixes, Documentation Alignment & Code Comment Hygiene
