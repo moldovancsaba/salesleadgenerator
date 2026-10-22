@@ -23,6 +23,7 @@ import {
   Avatar,
   Paper,
   Alert,
+  NavLink,
 } from '@mantine/core';
 import {
   StatusBadge,
@@ -514,10 +515,8 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
         <Divider mb="sm" />
 
         <Stack gap={4} style={{ flex: 1 }}>
-          <Button
-            variant={stream === 'inbox' ? 'light' : 'subtle'}
-            color="indigo"
-            justify="space-between"
+          <NavLink
+            label="Inbox"
             leftSection={<IconInbox size={18} />}
             rightSection={
               counts.unread > 0 ? (
@@ -528,38 +527,34 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                 </Text>
               ) : null
             }
+            active={stream === 'inbox' && !archivedOnly}
+            color="indigo"
             onClick={() => {
               setStream('inbox');
               setArchivedOnly(false);
             }}
-            styles={{ inner: { justifyContent: 'space-between' } }}
-          >
-            Inbox
-          </Button>
+            style={{ borderRadius: 6 }}
+          />
 
-          <Button
-            variant={stream === 'needs_reply' ? 'light' : 'subtle'}
-            color="orange"
-            justify="space-between"
+          <NavLink
+            label="Needs Reply"
             leftSection={<IconFlame size={18} />}
             rightSection={
               counts.needs_reply > 0 ? (
                 <CountBadge size="xs" value={counts.needs_reply} srLabel="Needs reply count" />
               ) : null
             }
+            active={stream === 'needs_reply' && !archivedOnly}
+            color="orange"
             onClick={() => {
               setStream('needs_reply');
               setArchivedOnly(false);
             }}
-            styles={{ inner: { justifyContent: 'space-between' } }}
-          >
-            Needs Reply
-          </Button>
+            style={{ borderRadius: 6 }}
+          />
 
-          <Button
-            variant={stream === 'sent' ? 'light' : 'subtle'}
-            color="gray"
-            justify="space-between"
+          <NavLink
+            label="Sent Outreach"
             leftSection={<IconSend size={18} />}
             rightSection={
               counts.sent > 0 ? (
@@ -568,19 +563,17 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                 </Text>
               ) : null
             }
+            active={stream === 'sent' && !archivedOnly}
+            color="gray"
             onClick={() => {
               setStream('sent');
               setArchivedOnly(false);
             }}
-            styles={{ inner: { justifyContent: 'space-between' } }}
-          >
-            Sent Outreach
-          </Button>
+            style={{ borderRadius: 6 }}
+          />
 
-          <Button
-            variant={stream === 'internal' ? 'light' : 'subtle'}
-            color="yellow"
-            justify="space-between"
+          <NavLink
+            label="Internal Notes"
             leftSection={<IconNote size={18} />}
             rightSection={
               counts.internal > 0 ? (
@@ -589,19 +582,17 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                 </Text>
               ) : null
             }
+            active={stream === 'internal' && !archivedOnly}
+            color="yellow"
             onClick={() => {
               setStream('internal');
               setArchivedOnly(false);
             }}
-            styles={{ inner: { justifyContent: 'space-between' } }}
-          >
-            Internal Notes
-          </Button>
+            style={{ borderRadius: 6 }}
+          />
 
-          <Button
-            variant={stream === 'calls' ? 'light' : 'subtle'}
-            color="violet"
-            justify="space-between"
+          <NavLink
+            label="Call Logs"
             leftSection={<IconPhone size={18} />}
             rightSection={
               counts.calls > 0 ? (
@@ -610,19 +601,17 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                 </Text>
               ) : null
             }
+            active={stream === 'calls' && !archivedOnly}
+            color="violet"
             onClick={() => {
               setStream('calls');
               setArchivedOnly(false);
             }}
-            styles={{ inner: { justifyContent: 'space-between' } }}
-          >
-            Call Logs
-          </Button>
+            style={{ borderRadius: 6 }}
+          />
 
-          <Button
-            variant={stream === 'system' ? 'light' : 'subtle'}
-            color="cyan"
-            justify="space-between"
+          <NavLink
+            label="System & Events"
             leftSection={<IconBell size={18} />}
             rightSection={
               counts.system > 0 ? (
@@ -631,19 +620,17 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                 </Text>
               ) : null
             }
+            active={stream === 'system' && !archivedOnly}
+            color="cyan"
             onClick={() => {
               setStream('system');
               setArchivedOnly(false);
             }}
-            styles={{ inner: { justifyContent: 'space-between' } }}
-          >
-            System & Events
-          </Button>
+            style={{ borderRadius: 6 }}
+          />
 
-          <Button
-            variant={stream === 'all' && !archivedOnly ? 'light' : 'subtle'}
-            color="gray"
-            justify="space-between"
+          <NavLink
+            label="All Threads"
             leftSection={<IconMail size={18} />}
             rightSection={
               counts.all > 0 ? (
@@ -652,14 +639,14 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                 </Text>
               ) : null
             }
+            active={stream === 'all' && !archivedOnly}
+            color="gray"
             onClick={() => {
               setStream('all');
               setArchivedOnly(false);
             }}
-            styles={{ inner: { justifyContent: 'space-between' } }}
-          >
-            All Threads
-          </Button>
+            style={{ borderRadius: 6 }}
+          />
 
           <Divider my="xs" label="Filters" labelPosition="left" />
 
@@ -687,17 +674,16 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
 
           <Divider my="xs" />
 
-          <Button
-            variant={archivedOnly ? 'light' : 'subtle'}
-            color="gray"
-            justify="flex-start"
+          <NavLink
+            label={archivedOnly ? 'Active Inbox' : 'Archived'}
             leftSection={<IconArchive size={18} />}
+            active={archivedOnly}
+            color="gray"
             onClick={() => {
               setArchivedOnly(!archivedOnly);
             }}
-          >
-            {archivedOnly ? 'Active Inbox' : 'Archived'}
-          </Button>
+            style={{ borderRadius: 6 }}
+          />
         </Stack>
       </Box>
 

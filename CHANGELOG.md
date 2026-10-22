@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.320
+
+### Unified Inbox Stream Navigation Alignment & NavLink Migration
+
+- **Semantic Mantine NavLink Migration (`app/inbox/[brand]/inbox-client.tsx`):**
+  - Replaced 8 folder/stream `<Button>` elements (`Inbox`, `Needs Reply`, `Sent Outreach`, `Internal Notes`, `Call Logs`, `System & Events`, `All Threads`, `Archived`) with semantic Mantine `<NavLink>` components matching `AppNav.tsx`.
+  - **Clean Left Alignment**: Eliminated the irregular centered/floating text layout caused by `<Button>`'s default label centering. Labels are now strictly left-aligned adjacent to their stream icon with consistent spacing.
+  - **Neutral / Non-CTA Styling**: Removed solid purple CTA background fills caused by GDS theme overrides targeting non-default Mantine `<Button>` variants (`.mantine-Button-root:not([data-variant='default'])`). Stream list items now render with transparent backgrounds on idle, standard hover states, and clear active highlighting (`color="indigo"` or `color="orange"`).
+  - **Readable Badges**: Count badges and unread indicators are cleanly pinned to the right edge via `rightSection`, retaining full contrast and readability.
+- **Verification:**
+  - TypeScript zero-error check (`npx tsc --noEmit`), ESLint zero warnings (`npm run lint`), GDS style audit (`npm run audit:gds-style`), smoke tests (`npm run test:smoke`), Vitest suite (123 files, 1,595 tests passing), and Next.js webpack build passed cleanly.
+
 ## 2.4.319
 
 ### Navigation Duplication Elimination & Context-Aware Header Links
