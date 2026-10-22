@@ -1,9 +1,9 @@
 'use client';
 
-import { Suspense, useMemo } from 'react';
+import { Suspense, useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Group, Text, Select, ActionIcon, Tooltip, Button } from '@mantine/core';
+import { Group, Text, Select, ActionIcon, Tooltip, Button, Indicator } from '@mantine/core';
 import {
   IconSearch,
   IconCalendarTime,
@@ -68,8 +68,20 @@ function AppHeaderInner() {
   const pathname = usePathname();
   const router = useRouter();
   const { accessibleBrands, brandLabels } = useAuth();
-  const { sidebarOpen } = useNav();
+  const { sidebarOpen, isDesktopOrTablet } = useNav();
   const launcher = useCommandLauncher();
+  const [hasNewRelease, setHasNewRelease] = useState(false);
+
+  useEffect(() => {
+    try {
+      const seen = localStorage.getItem('slg_seen_version');
+      if (seen !== '2.4.326') {
+        setHasNewRelease(true);
+      }
+    } catch {
+      // Safe fallback
+    }
+  }, [pathname]);
 
   const brandKeys = useMemo(() => Object.keys(brandLabels), [brandLabels]);
   const activeBrand: Brand = useMemo(() => {
@@ -152,16 +164,18 @@ function AppHeaderInner() {
       {/* Right: What's New + Quick Command Search + Organization switcher */}
       <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
         <Tooltip label="What's New & Release Notes">
-          <ActionIcon
-            component={Link}
-            href={`/whats-new/${activeBrand}`}
-            variant={pathname.startsWith('/whats-new') ? 'filled' : 'default'}
-            color="indigo"
-            size="md"
-            aria-label="What's New & Release Notes"
-          >
-            <IconSparkles size={16} color={pathname.startsWith('/whats-new') ? 'white' : 'var(--mantine-color-indigo-6)'} />
-          </ActionIcon>
+          <Indicator disabled={!hasNewRelease} size={8} color="indigo" offset={2}>
+            <ActionIcon
+              component={Link}
+              href={`/whats-new/${activeBrand}`}
+              variant={pathname.startsWith('/whats-new') ? 'filled' : 'default'}
+              color="indigo"
+              size="md"
+              aria-label="What's New & Release Notes"
+            >
+              <IconSparkles size={16} color={pathname.startsWith('/whats-new') ? 'white' : 'var(--mantine-color-indigo-6)'} />
+            </ActionIcon>
+          </Indicator>
         </Tooltip>
 
         <Tooltip label="Search or command palette (⌘K)">
@@ -176,7 +190,7 @@ function AppHeaderInner() {
           </ActionIcon>
         </Tooltip>
 
-        {accessibleBrands.length > 1 && (
+        {accessibleBrands.length > 1 && !(sidebarOpen && isDesktopOrTablet) && (
           <Select
             size="xs"
             w={120}

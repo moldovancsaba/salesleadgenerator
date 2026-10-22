@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Box,
@@ -51,6 +51,14 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
   const [visibleCount, setVisibleCount] = useState(15);
   const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({});
   const [copiedVersion, setCopiedVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('slg_seen_version', '2.4.326');
+    } catch {
+      // Safe fallback
+    }
+  }, []);
 
   // Filter notes in memory
   const filteredNotes = useMemo(() => {

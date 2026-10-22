@@ -1,5 +1,30 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.326
+
+### Eliminate Organization Switcher Duplication & Align CRM Navigation Taxonomy
+
+- **Eliminate Organization Switcher Duplication (`app/components/AppHeader.tsx`):**
+  - Gated top header organization switcher to `{accessibleBrands.length > 1 && !(sidebarOpen && isDesktopOrTablet) && (`.
+  - When the sidebar is docked on desktop/tablet, the organization switcher is rendered solely at the top of the sidebar under `NAVIGATION`, permanently resolving the dual-dropdown duplication on desktop.
+  - When the sidebar is collapsed or on mobile devices, the organization switcher remains immediately accessible in `AppHeader`.
+- **Align CRM Navigation Taxonomy (`app/components/AppNav.tsx`):**
+  - Promoted `Contacts` and `Accounts` into the primary Core CRM section immediately following `Pipeline` and its views, matching the header's canonical sequence (`Today` -> `Inbox` -> `Pipeline` -> `Contacts` -> `Accounts`).
+  - Restructured sidebar navigation into distinct functional CRM groupings:
+    - **Core CRM**: `Today`, `Inbox`, `Pipeline`, `Contacts`, `Accounts`
+    - **Pipeline Views** (when on Pipeline): `Kanban`, `Table`, `Metrics`, `Search Learning`
+    - **Outreach & Content**: `Cadences`, `Outreach Templates`, `Documents`, `Battlecards`
+    - **Analytics**: `Forecast`, `Reports`
+    - **Settings**: `Sales Settings`, `Product Catalog`, `Automation`
+    - **Help & Updates**: `What's New`, `Take the tour`
+    - **Admin** (for super admins): `Prompt Editor`, `Clients`, `Users & Access`, `Teams`, `Duplicate Review`, `API Keys`
+- **Ambient Release Update Indicators (`app/components/AppHeader.tsx`, `app/components/AppNav.tsx`, `app/whats-new/[brand]/whats-new-client.tsx`):**
+  - Added client-side unread tracking via `localStorage` (`slg_seen_version`).
+  - Surfaced an unread dot `Indicator` on the What's New `IconSparkles` in `AppHeader` and an ambient `CountBadge` on the What's New `NavLink` in `AppNav`, which automatically clears once the user views `/whats-new`.
+- **Automated Verification:**
+  - Added unit test in `tests/lib/desktop-tablet-nav.test.ts` verifying organization switcher duplication guard, indicator presence, and CRM navigation sequence.
+  - All 22/22 desktop and tablet navigation tests pass.
+
 ## 2.4.325
 
 ### Email Disconnect Lifecycle Resolution & Revocation Filtering in Integrations

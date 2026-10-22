@@ -185,6 +185,18 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [userSettingsOpen, setUserSettingsOpen] = useState(false);
   const [unreadInboxCount, setUnreadInboxCount] = useState<number>(0);
+  const [hasNewRelease, setHasNewRelease] = useState(false);
+
+  useEffect(() => {
+    try {
+      const seen = localStorage.getItem('slg_seen_version');
+      if (seen !== '2.4.326') {
+        setHasNewRelease(true);
+      }
+    } catch {
+      // Safe fallback
+    }
+  }, [pathname]);
   useEffect(() => {
     if (urlBrand && accessibleBrands.includes(urlBrand)) {
       setSelectedBrand((prev) => (prev === urlBrand ? prev : urlBrand));
@@ -313,19 +325,10 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
                 active={pathname === `/sales/${effectiveBrand}`}
                 onClick={handleLinkClick}
               />
-              <NavLink
-                component={Link}
-                href={`/salessettings/${effectiveBrand}`}
-                label="Sales Settings"
-                leftSection={<IconSettings size={18} />}
-                active={pathname === `/salessettings/${effectiveBrand}`}
-                onClick={handleLinkClick}
-                data-tour={TOUR_SELECTOR.salesSettingsLink}
-              />
               {isSalesBoard && (
                 <>
                   <Text size="xs" fw={600} c="dimmed" tt="uppercase" mt="xs">
-                    View
+                    Pipeline Views
                   </Text>
                   <NavLink
                     component={Link}
@@ -361,84 +364,6 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
                   />
                 </>
               )}
-              <Divider my="xs" />
-
-              {/* Issue #185 — the only discoverable way to replay the
-                  onboarding tour once its automatic first-run has
-                  already fired (or been skipped/dismissed). */}
-              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-                Help
-              </Text>
-              <NavLink
-                label="Take the tour"
-                leftSection={<IconCompass size={18} />}
-                onClick={() => {
-                  handleLinkClick();
-                  startTour({ brand: effectiveBrand ?? undefined });
-                }}
-              />
-              <NavLink
-                component={Link}
-                href={`/whats-new/${effectiveBrand}`}
-                label="What's New"
-                leftSection={<IconSparkles size={18} color="var(--mantine-color-indigo-6)" />}
-                active={pathname.startsWith('/whats-new')}
-                onClick={handleLinkClick}
-              />
-
-              <Divider my="xs" />
-
-              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-                Reporting
-              </Text>
-              <NavLink
-                component={Link}
-                href={`/forecast/${effectiveBrand}`}
-                label="Forecast"
-                leftSection={<IconTrendingUp size={18} />}
-                active={pathname === `/forecast/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href={`/battlecards/${effectiveBrand}`}
-                label="Battlecards"
-                leftSection={<IconCards size={18} />}
-                active={pathname === `/battlecards/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href={`/outreach/templates/${effectiveBrand}`}
-                label="Outreach Templates"
-                leftSection={<IconMail size={18} />}
-                active={pathname === `/outreach/templates/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href={`/outreach/cadences/${effectiveBrand}`}
-                label="Cadences"
-                leftSection={<IconRepeat size={18} />}
-                active={pathname === `/outreach/cadences/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href={`/documents/${effectiveBrand}`}
-                label="Documents"
-                leftSection={<IconFiles size={18} />}
-                active={pathname === `/documents/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href={`/automation/${effectiveBrand}`}
-                label="Automation"
-                leftSection={<IconBolt size={18} />}
-                active={pathname === `/automation/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
               <NavLink
                 component={Link}
                 href={`/contacts/${effectiveBrand}`}
@@ -455,6 +380,81 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
                 active={pathname === `/accounts/${effectiveBrand}`}
                 onClick={handleLinkClick}
               />
+
+              <Divider my="xs" />
+
+              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                Outreach & Content
+              </Text>
+              <NavLink
+                component={Link}
+                href={`/outreach/cadences/${effectiveBrand}`}
+                label="Cadences"
+                leftSection={<IconRepeat size={18} />}
+                active={pathname === `/outreach/cadences/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/outreach/templates/${effectiveBrand}`}
+                label="Outreach Templates"
+                leftSection={<IconMail size={18} />}
+                active={pathname === `/outreach/templates/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/documents/${effectiveBrand}`}
+                label="Documents"
+                leftSection={<IconFiles size={18} />}
+                active={pathname === `/documents/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/battlecards/${effectiveBrand}`}
+                label="Battlecards"
+                leftSection={<IconCards size={18} />}
+                active={pathname === `/battlecards/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+
+              <Divider my="xs" />
+
+              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                Analytics
+              </Text>
+              <NavLink
+                component={Link}
+                href={`/forecast/${effectiveBrand}`}
+                label="Forecast"
+                leftSection={<IconTrendingUp size={18} />}
+                active={pathname === `/forecast/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                component={Link}
+                href={`/reports/${effectiveBrand}`}
+                label="Reports"
+                leftSection={<IconReportAnalytics size={18} />}
+                active={pathname === `/reports/${effectiveBrand}`}
+                onClick={handleLinkClick}
+              />
+
+              <Divider my="xs" />
+
+              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                Settings
+              </Text>
+              <NavLink
+                component={Link}
+                href={`/salessettings/${effectiveBrand}`}
+                label="Sales Settings"
+                leftSection={<IconSettings size={18} />}
+                active={pathname === `/salessettings/${effectiveBrand}`}
+                onClick={handleLinkClick}
+                data-tour={TOUR_SELECTOR.salesSettingsLink}
+              />
               <NavLink
                 component={Link}
                 href={`/admin/products/${effectiveBrand}`}
@@ -465,11 +465,34 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
               />
               <NavLink
                 component={Link}
-                href={`/reports/${effectiveBrand}`}
-                label="Reports"
-                leftSection={<IconReportAnalytics size={18} />}
-                active={pathname === `/reports/${effectiveBrand}`}
+                href={`/automation/${effectiveBrand}`}
+                label="Automation"
+                leftSection={<IconBolt size={18} />}
+                active={pathname === `/automation/${effectiveBrand}`}
                 onClick={handleLinkClick}
+              />
+
+              <Divider my="xs" />
+
+              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                Help & Updates
+              </Text>
+              <NavLink
+                component={Link}
+                href={`/whats-new/${effectiveBrand}`}
+                label="What's New"
+                leftSection={<IconSparkles size={18} color="var(--mantine-color-indigo-6)" />}
+                rightSection={hasNewRelease ? <CountBadge size="xs" value={1} srLabel="New release updates available" /> : null}
+                active={pathname.startsWith('/whats-new')}
+                onClick={handleLinkClick}
+              />
+              <NavLink
+                label="Take the tour"
+                leftSection={<IconCompass size={18} />}
+                onClick={() => {
+                  handleLinkClick();
+                  startTour({ brand: effectiveBrand ?? undefined });
+                }}
               />
             </>
           )}

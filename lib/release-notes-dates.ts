@@ -1,5 +1,6 @@
 // Auto-generated release dates from git history for CHANGELOG.md
 export const RELEASE_DATES: Record<string, string> = {
+  "2.4.326": "2026-10-22",
   "2.4.325": "2026-10-22",
   "2.4.324": "2026-10-22",
   "2.4.323": "2026-10-22",

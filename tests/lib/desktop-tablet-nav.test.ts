@@ -215,4 +215,28 @@ describe('desktop and tablet navigation affordances', () => {
     expect(nav).toContain('label="What\'s New"');
     expect(nav).toContain('/whats-new/${effectiveBrand}');
   });
+
+  it('eliminates organization switcher duplication and aligns CRM navigation taxonomy (issue 271)', () => {
+    const header = readFileSync(join(root, 'app', 'components', 'AppHeader.tsx'), 'utf8');
+    // Duplication guard: hides organization switcher from header when sidebar is docked on desktop
+    expect(header).toContain('!(sidebarOpen && isDesktopOrTablet)');
+    expect(header).toContain('Indicator');
+
+    const nav = readFileSync(join(root, 'app', 'components', 'AppNav.tsx'), 'utf8');
+    // Verifies aligned Core CRM grouping: Contacts & Accounts placed directly after Pipeline
+    const pipelineIdx = nav.indexOf('label="Pipeline"');
+    const contactsIdx = nav.indexOf('label="Contacts"');
+    const accountsIdx = nav.indexOf('label="Accounts"');
+    const cadencesIdx = nav.indexOf('label="Cadences"');
+    expect(pipelineIdx).toBeGreaterThan(-1);
+    expect(contactsIdx).toBeGreaterThan(pipelineIdx);
+    expect(accountsIdx).toBeGreaterThan(contactsIdx);
+    expect(cadencesIdx).toBeGreaterThan(accountsIdx);
+
+    // Verifies clean semantic section headings
+    expect(nav).toContain('Outreach & Content');
+    expect(nav).toContain('Analytics');
+    expect(nav).toContain('Settings');
+    expect(nav).toContain('Help & Updates');
+  });
 });
