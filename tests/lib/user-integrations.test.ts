@@ -56,6 +56,10 @@ describe('User Integrations Store (issue 247 & 252)', () => {
           }),
           find: vi.fn().mockImplementation((query: any) => ({
             sort: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            next: vi.fn().mockImplementation(() => {
+              return Promise.resolve(pool.find((doc) => matchesQuery(doc, query)) || null);
+            }),
             toArray: vi.fn().mockImplementation(() => {
               return Promise.resolve(pool.filter((doc) => matchesQuery(doc, query)));
             }),
@@ -328,6 +332,80 @@ describe('User Integrations Store (issue 247 & 252)', () => {
     const targetedConn = await getUserConnection(mockDb, 'sso_csaba_personal', 'gmail', 'coo@seyuselfies.com');
     expect(targetedConn).not.toBeNull();
     expect(targetedConn?.id).toBe('conn_coo');
+  });
+
+  it('listUserConnections excludes revoked connections', async () => {
+    storedDocs.push(
+      {
+        id: 'conn_active',
+        userId: 'usr_active_test',
+        provider: 'gmail',
+        userEmail: 'active@seyu.com',
+        status: 'active',
+        updatedAt: '2026-10-22T00:00:00.000Z',
+      },
+      {
+        id: 'conn_revoked',
+        userId: 'usr_active_test',
+        provider: 'gmail',
+        userEmail: 'revoked@seyu.com',
+        status: 'revoked',
+        revokedAt: '2026-10-22T00:00:00.000Z',
+        updatedAt: '2026-10-22T00:00:00.000Z',
+      }
+    );
+
+    const conns = await listUserConnections(mockDb, 'usr_active_test');
+    expect(conns).toHaveLength(1);
+    expect(conns[0].userEmail).toBe('active@seyu.com');
+  });
+
+  it('disconnectUserConnection revokes connection across linked accounts and promotes next active connection', async () => {
+    ssoDocs.push({
+      ssoUserId: 'sso_user_primary',
+      email: 'primary@example.com',
+      aliases: ['corp@company.com'],
+    });
+
+    storedDocs.push(
+      {
+        id: 'conn_corp',
+        userId: 'sso_user_corp',
+        provider: 'gmail',
+        userEmail: 'corp@company.com',
+        status: 'active',
+        isDefault: true,
+        updatedAt: '2026-10-22T00:00:00.000Z',
+      },
+      {
+        id: 'conn_primary',
+        userId: 'sso_user_primary',
+        provider: 'gmail',
+        userEmail: 'primary@example.com',
+        status: 'active',
+        isDefault: false,
+        updatedAt: '2026-10-21T00:00:00.000Z',
+      }
+    );
+
+    // Rep calls disconnect on the linked corporate connection using primary SSO id
+    const { disconnectUserConnection } = await import('../../app/lib/integration-store');
+    const ok = await disconnectUserConnection(mockDb, 'sso_user_primary', 'gmail', 'conn_corp');
+    expect(ok).toBe(true);
+
+    // Corporate connection is now revoked
+    const revokedDoc = storedDocs.find((d) => d.id === 'conn_corp');
+    expect(revokedDoc?.status).toBe('revoked');
+    expect(revokedDoc?.revokedAt).toBeDefined();
+
+    // Primary connection was promoted to default
+    const promotedDoc = storedDocs.find((d) => d.id === 'conn_primary');
+    expect(promotedDoc?.isDefault).toBe(true);
+
+    // listUserConnections called with primary SSO id now only lists primary connection
+    const remaining = await listUserConnections(mockDb, 'sso_user_primary');
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].userEmail).toBe('primary@example.com');
   });
 });
 

@@ -304,6 +304,7 @@ export async function listUserConnections(
           ],
         }
       : { userId }),
+    status: { $ne: 'revoked' },
   };
   if (provider) query.provider = provider;
   const cursor = db.collection(INTEGRATION_CONNECTIONS_COLLECTION).find(query);
@@ -362,8 +363,25 @@ export async function listAllActiveGmailConnections(db: Db): Promise<Integration
 export async function disconnectUserConnection(
   db: Db, userId: string, provider: IntegrationProvider, connectionId?: string
 ): Promise<boolean> {
+  const { userIds, emails } = await resolveLinkedUserIdentities(db, userId);
+  const hasMultiple = userIds.length > 1 || emails.length > 0;
+  const userClause = hasMultiple
+    ? {
+        $or: [
+          { userId: { $in: userIds } },
+          { connectedBy: { $in: userIds } },
+          ...(emails.length > 0 ? [{ userEmail: { $in: emails } }] : []),
+        ],
+      }
+    : { userId };
+
   const connection = connectionId
-    ? await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({ id: connectionId, userId, provider, status: { $ne: 'revoked' } })
+    ? await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
+        id: connectionId,
+        provider,
+        status: { $ne: 'revoked' },
+        ...userClause,
+      })
     : await getUserConnection(db, userId, provider);
   if (!connection) return false;
   await disconnectConnection(db, connection as unknown as IntegrationConnection);
@@ -371,7 +389,12 @@ export async function disconnectUserConnection(
   // If the disconnected connection was default, promote another active connection to default
   if ((connection as any).isDefault) {
     const nextActive = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION)
-      .find({ userId, provider, status: 'active', id: { $ne: connection.id } })
+      .find({
+        provider,
+        status: 'active',
+        id: { $ne: connection.id },
+        ...userClause,
+      })
       .sort({ updatedAt: -1 })
       .limit(1)
       .next();
@@ -389,14 +412,29 @@ export async function disconnectUserConnection(
 export async function setUserDefaultConnection(
   db: Db, userId: string, provider: IntegrationProvider, connectionId: string
 ): Promise<boolean> {
+  const { userIds, emails } = await resolveLinkedUserIdentities(db, userId);
+  const hasMultiple = userIds.length > 1 || emails.length > 0;
+  const userClause = hasMultiple
+    ? {
+        $or: [
+          { userId: { $in: userIds } },
+          { connectedBy: { $in: userIds } },
+          ...(emails.length > 0 ? [{ userEmail: { $in: emails } }] : []),
+        ],
+      }
+    : { userId };
+
   const target = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
-    id: connectionId, userId, provider, status: 'active',
+    id: connectionId,
+    provider,
+    status: 'active',
+    ...userClause,
   });
   if (!target) return false;
 
   const now = new Date().toISOString();
   await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).updateMany(
-    { userId, provider },
+    { provider, ...userClause },
     { $set: { isDefault: false, updatedAt: now } }
   );
   await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).updateOne(

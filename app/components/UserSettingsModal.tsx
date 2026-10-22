@@ -68,7 +68,6 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
 
   const loadConnections = useCallback(async () => {
     setLoading(true);
-    setFeedback(null);
     try {
       const res = await fetch('/api/user/integrations');
       if (res.ok) {
@@ -288,9 +287,11 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
       });
       if (res.ok) {
         setFeedback({ type: 'success', message: 'Google account disconnected.' });
+        setConnections((prev) => prev.filter((c) => c.id !== id));
         await loadConnections();
       } else {
-        setFeedback({ type: 'error', message: 'Failed to disconnect account.' });
+        const data = await res.json().catch(() => ({}));
+        setFeedback({ type: 'error', message: data.error || 'Failed to disconnect account.' });
       }
     } catch {
       setFeedback({ type: 'error', message: 'Network error while disconnecting.' });

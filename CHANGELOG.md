@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.325
+
+### Email Disconnect Lifecycle Resolution & Revocation Filtering in Integrations
+
+- **Revocation Exclusion in User Integrations (`app/lib/integration-store.ts`, `app/components/UserSettingsModal.tsx`):**
+  - Added `status: { $ne: 'revoked' }` to `listUserConnections` query in `app/lib/integration-store.ts`, preventing disconnected Google accounts from continuing to appear in the rep's mailbox list.
+  - Hardened `UserSettingsModal.tsx` to immediately remove disconnected accounts from component state upon successful revocation (`setConnections(prev => prev.filter(c => c.id !== id))`), eliminating the visual lag where disconnected mailboxes stayed on screen.
+  - Preserved disconnect feedback notices by removing preemptive `setFeedback(null)` from `loadConnections()`.
+- **Linked SSO Account Resolution for Disconnect & Default Actions (`app/lib/integration-store.ts`):**
+  - Updated `disconnectUserConnection` to resolve linked user identities via `resolveLinkedUserIdentities(db, userId)`. Previously, searching only by session `userId` failed with 404 when disconnecting connections established under linked corporate accounts or aliases (`coo@seyuselfies.com`, `office@seyuselfies.com`).
+  - Updated `setUserDefaultConnection` to resolve linked identities, ensuring setting a linked corporate account as default sender works seamlessly without authorization mismatch errors.
+  - Automatically promotes the next active connection across linked accounts when disconnecting a default account.
+- **Automated Verification:**
+  - Added unit tests in `tests/lib/user-integrations.test.ts` verifying that `listUserConnections` excludes revoked connections and `disconnectUserConnection` revokes connections across linked SSO accounts while promoting the next active connection.
+  - All 125 test suites and 1,613 tests pass 100%.
+
 ## 2.4.324
 
 ### Blog-Style What's New Menu, Chronological Release Notes & Feature/Fix Categorization
