@@ -540,28 +540,53 @@ export async function listInboxThreads(
     const threadLeadId = msgs.find((m) => m.leadId)?.leadId || '';
     const lead = threadLeadId ? leadLookup.get(threadLeadId) : null;
 
-    const contact = lead?.contacts?.[0];
     const lastInbound = msgs.slice().reverse().find((m) => m.direction === 'inbound' && m.from);
     const lastOutbound = msgs.slice().reverse().find((m) => m.direction === 'outbound' && m.to && m.to[0]);
 
     // Parse counterparty display name and email:
-    // For inbound emails, counterparty is the external sender (lastInbound.from).
-    // For outbound-only threads, counterparty is the external recipient (lastOutbound.to[0]), NEVER the internal sender!
-    let counterpartyRaw = '';
-    if (lastInbound?.from) {
-      counterpartyRaw = lastInbound.from;
-    } else if (lastOutbound?.to && lastOutbound.to[0]) {
-      counterpartyRaw = lastOutbound.to[0];
-    } else {
-      counterpartyRaw = lastMessage.from || '';
+    // Strictly resolve the external prospect/client counterparty, NEVER internal company colleagues!
+    const findExternalParticipant = (): string => {
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const m = msgs[i];
+        if (m.from && !isInternalOrSystemEmail(m.from, { brand })) {
+          return m.from;
+        }
+      }
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const m = msgs[i];
+        if (m.to) {
+          const extTo = m.to.find((t) => !isInternalOrSystemEmail(t, { brand }));
+          if (extTo) return extTo;
+        }
+        if (m.cc) {
+          const extCc = m.cc.find((c) => !isInternalOrSystemEmail(c, { brand }));
+          if (extCc) return extCc;
+        }
+      }
+      return '';
+    };
+
+    const externalAddress = findExternalParticipant();
+    let counterpartyRaw = externalAddress;
+    if (!counterpartyRaw) {
+      if (lastInbound?.from && !isInternalOrSystemEmail(lastInbound.from, { brand })) {
+        counterpartyRaw = lastInbound.from;
+      } else if (lastOutbound?.to && lastOutbound.to[0] && !isInternalOrSystemEmail(lastOutbound.to[0], { brand })) {
+        counterpartyRaw = lastOutbound.to[0];
+      } else {
+        counterpartyRaw = lastMessage.from || '';
+      }
     }
 
     const parsedSender = parseEmailParticipant(counterpartyRaw);
     const senderDisplayName = parsedSender?.name || (counterpartyRaw.includes('@') ? formatLocalPartAsName(counterpartyRaw.split('@')[0]) : counterpartyRaw) || undefined;
     const senderEmail = parsedSender?.email || (counterpartyRaw.includes('@') ? counterpartyRaw.trim().toLowerCase() : undefined);
 
-    const contactName = contact?.name || senderDisplayName || undefined;
-    const contactEmail = contact?.email || senderEmail || (lastOutbound?.to ? lastOutbound.to[0] : undefined);
+    const validContact = lead?.contacts?.find((c: any) => c.email && !isInternalOrSystemEmail(c.email, { brand })) || lead?.contacts?.[0];
+    const contactName = validContact?.name || senderDisplayName || undefined;
+    const contactEmail = (validContact?.email && !isInternalOrSystemEmail(validContact.email, { brand }) ? validContact.email : undefined) ||
+                         (senderEmail && !isInternalOrSystemEmail(senderEmail, { brand }) ? senderEmail : undefined) ||
+                         (externalAddress || undefined);
     const dealValue = lead?.deals?.[0]?.amount || lead?.estimated_annual_revenue_usd || lead?.ticketSizeEstimate?.estimatedValue || undefined;
 
     // Never show 'System Communications' for an email conversation:
@@ -614,8 +639,9 @@ export async function listInboxThreads(
     if (hasCall) streams.add('calls');
     if (hasSystem) streams.add('system');
 
-    // Needs reply: prospect sent the latest message and it's inbound email
-    const needsReply = lastMessage.direction === 'inbound' && lastMessage.type === 'email-inbound';
+    // Needs reply: external prospect sent the latest message (strictly non-internal) and it's inbound email
+    const lastMsgFromInternal = lastMessage.from ? isInternalOrSystemEmail(lastMessage.from, { brand }) : false;
+    const needsReply = !lastMsgFromInternal && lastMessage.direction === 'inbound' && lastMessage.type === 'email-inbound';
     if (needsReply) {
       streams.add('needs_reply');
     }
@@ -895,28 +921,53 @@ export async function getInboxThreadDetail(
     }).catch(() => null);
   }
 
-  const contact = lead?.contacts?.[0];
   const lastInbound = messages.slice().reverse().find((m) => m.direction === 'inbound' && m.from);
   const lastOutbound = messages.slice().reverse().find((m) => m.direction === 'outbound' && m.to && m.to[0]);
 
   // Parse counterparty display name and email:
-  // For inbound emails, counterparty is the external sender (lastInbound.from).
-  // For outbound-only threads, counterparty is the external recipient (lastOutbound.to[0]), NEVER the internal sender!
-  let counterpartyRaw = '';
-  if (lastInbound?.from) {
-    counterpartyRaw = lastInbound.from;
-  } else if (lastOutbound?.to && lastOutbound.to[0]) {
-    counterpartyRaw = lastOutbound.to[0];
-  } else {
-    counterpartyRaw = lastMessage.from || '';
+  // Strictly resolve the external prospect/client counterparty, NEVER internal company colleagues!
+  const findExternalParticipant = (): string => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.from && !isInternalOrSystemEmail(m.from, { brand })) {
+        return m.from;
+      }
+    }
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.to) {
+        const extTo = m.to.find((t) => !isInternalOrSystemEmail(t, { brand }));
+        if (extTo) return extTo;
+      }
+      if (m.cc) {
+        const extCc = m.cc.find((c) => !isInternalOrSystemEmail(c, { brand }));
+        if (extCc) return extCc;
+      }
+    }
+    return '';
+  };
+
+  const externalAddress = findExternalParticipant();
+  let counterpartyRaw = externalAddress;
+  if (!counterpartyRaw) {
+    if (lastInbound?.from && !isInternalOrSystemEmail(lastInbound.from, { brand })) {
+      counterpartyRaw = lastInbound.from;
+    } else if (lastOutbound?.to && lastOutbound.to[0] && !isInternalOrSystemEmail(lastOutbound.to[0], { brand })) {
+      counterpartyRaw = lastOutbound.to[0];
+    } else {
+      counterpartyRaw = lastMessage.from || '';
+    }
   }
 
   const parsedSender = parseEmailParticipant(counterpartyRaw);
   const senderDisplayName = parsedSender?.name || (counterpartyRaw.includes('@') ? formatLocalPartAsName(counterpartyRaw.split('@')[0]) : counterpartyRaw) || undefined;
   const senderEmail = parsedSender?.email || (counterpartyRaw.includes('@') ? counterpartyRaw.trim().toLowerCase() : undefined);
 
-  const contactName = contact?.name || senderDisplayName || undefined;
-  const contactEmail = contact?.email || senderEmail || (lastOutbound?.to ? lastOutbound.to[0] : undefined);
+  const validContact = lead?.contacts?.find((c: any) => c.email && !isInternalOrSystemEmail(c.email, { brand })) || lead?.contacts?.[0];
+  const contactName = validContact?.name || senderDisplayName || undefined;
+  const contactEmail = (validContact?.email && !isInternalOrSystemEmail(validContact.email, { brand }) ? validContact.email : undefined) ||
+                       (senderEmail && !isInternalOrSystemEmail(senderEmail, { brand }) ? senderEmail : undefined) ||
+                       (externalAddress || undefined);
   const dealValue = lead?.deals?.[0]?.amount || lead?.estimated_annual_revenue_usd || lead?.ticketSizeEstimate?.estimatedValue || undefined;
 
   let leadName = lead?.entity_name || lead?.name;
@@ -955,7 +1006,8 @@ export async function getInboxThreadDetail(
     if (m.type === 'system' || m.type === 'meeting-scheduled') streams.add('system');
   }
 
-  const needsReply = lastMessage.direction === 'inbound' && lastMessage.type === 'email-inbound';
+  const lastMsgFromInternal = lastMessage.from ? isInternalOrSystemEmail(lastMessage.from, { brand }) : false;
+  const needsReply = !lastMsgFromInternal && lastMessage.direction === 'inbound' && lastMessage.type === 'email-inbound';
   if (needsReply) streams.add('needs_reply');
 
   const defaultUnread = lastMessage.direction === 'inbound';

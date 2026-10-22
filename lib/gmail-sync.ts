@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import { normalizeEmail } from './contacts';
+import { isInternalOrSystemEmail } from './email-contact-extractor';
 
 // Gmail sync (issue #216) — pure dedup-key, direction, and gating logic.
 // Zero DB, zero network, fully unit-testable in isolation from
@@ -48,24 +49,37 @@ export function participantsIntersectKnownEmails(participantEmails: string[], kn
   return participantEmails.some((email) => knownEmails.has(normalizeEmail(email)));
 }
 
-export function resolveGmailDirection(fromEmail: string, repGmailAddress: string): 'outbound' | 'inbound' {
-  return normalizeEmail(fromEmail) === normalizeEmail(repGmailAddress) ? 'outbound' : 'inbound';
+export function resolveGmailDirection(fromEmail: string, repGmailAddress: string, brand?: string): 'outbound' | 'inbound' {
+  if (normalizeEmail(fromEmail) === normalizeEmail(repGmailAddress)) {
+    return 'outbound';
+  }
+  if (isInternalOrSystemEmail(fromEmail, { brand })) {
+    return 'outbound';
+  }
+  return 'inbound';
 }
 
 // The "other side" of the conversation — whichever known address isn't the
-// rep's own, used to drive matchReplyToLeads(). Returns null if no known
-// counterparty can be identified (should not happen given the caller only
-// reaches this after participantsIntersectKnownEmails() already passed,
-// but stays defensive rather than assuming).
+// rep's or internal team's own, used to drive matchReplyToLeads(). Returns null if no external
+// counterparty can be identified.
 export function resolveCounterpartyEmail(
   direction: 'outbound' | 'inbound',
   fromEmail: string,
   toCcEmails: string[],
-  knownEmails: Set<string>
+  knownEmails: Set<string>,
+  brand?: string
 ): string | null {
+  const externalToCc = toCcEmails
+    .map((e) => normalizeEmail(e))
+    .filter((e) => !isInternalOrSystemEmail(e, { brand }));
+
   if (direction === 'inbound') {
-    return normalizeEmail(fromEmail);
+    if (!isInternalOrSystemEmail(fromEmail, { brand })) {
+      return normalizeEmail(fromEmail);
+    }
+    return externalToCc[0] || null;
   }
-  const match = toCcEmails.find((email) => knownEmails.has(normalizeEmail(email)));
-  return match ? normalizeEmail(match) : null;
+
+  const match = externalToCc.find((email) => knownEmails.has(email));
+  return match || externalToCc[0] || null;
 }

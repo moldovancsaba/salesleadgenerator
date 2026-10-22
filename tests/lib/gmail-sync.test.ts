@@ -76,8 +76,13 @@ describe('resolveGmailDirection (issue 216)', () => {
     expect(resolveGmailDirection('rep@example.com', 'Rep@Example.com')).toBe('outbound');
   });
 
-  it('is inbound when the sender is not the rep', () => {
+  it('is inbound when the sender is not the rep and not an internal address', () => {
     expect(resolveGmailDirection('lead@example.com', 'rep@example.com')).toBe('inbound');
+  });
+
+  it('is outbound when the sender is an internal team member even if different from the syncing rep', () => {
+    expect(resolveGmailDirection('david.bozsik@seyuselfies.com', 'coo@seyuselfies.com', 'seyu')).toBe('outbound');
+    expect(resolveGmailDirection('mate.pecsi@seyuselfies.com', 'coo@seyuselfies.com', 'seyu')).toBe('outbound');
   });
 });
 
@@ -92,7 +97,23 @@ describe('resolveCounterpartyEmail (issue 216)', () => {
     expect(resolveCounterpartyEmail('outbound', 'rep@example.com', ['unrelated@example.com', 'Lead@Example.com'], knownEmails)).toBe('lead@example.com');
   });
 
-  it('returns null when no known counterparty can be identified', () => {
-    expect(resolveCounterpartyEmail('outbound', 'rep@example.com', ['unrelated@example.com'], knownEmails)).toBeNull();
+  it('never picks an internal colleague as counterparty', () => {
+    expect(
+      resolveCounterpartyEmail(
+        'outbound',
+        'david.bozsik@seyuselfies.com',
+        ['partnerships@seyuselfies.com', 'inga.schuler@scb.ch'],
+        new Set(),
+        'seyu'
+      )
+    ).toBe('inga.schuler@scb.ch');
+  });
+
+  it('falls back to the first external recipient when none are in knownEmails', () => {
+    expect(resolveCounterpartyEmail('outbound', 'rep@example.com', ['newprospect@company.org'], knownEmails)).toBe('newprospect@company.org');
+  });
+
+  it('returns null when no external counterparty exists (purely internal thread)', () => {
+    expect(resolveCounterpartyEmail('outbound', 'rep@example.com', ['coo@seyuselfies.com', 'partnerships@seyuselfies.com'], knownEmails, 'seyu')).toBeNull();
   });
 });

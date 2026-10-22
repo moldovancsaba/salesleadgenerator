@@ -1,5 +1,29 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.321
+
+### External Counterparty Resolution & Internal Colleague Attribution Shield
+
+- **Internal Colleague Direction & Counterparty Isolation (`lib/gmail-sync.ts`, `app/lib/gmail-sync-store.ts`):**
+  - Updated `resolveGmailDirection(fromEmail, repGmailAddress, brand)`: emails sent from internal team members or company domains (`isInternalOrSystemEmail(fromEmail, { brand })`) are strictly classified as `outbound`, eliminating bugs where a colleague's outreach was synced into the mailbox as an "inbound" prospect lead.
+  - Hardened `resolveCounterpartyEmail(direction, fromEmail, toCcEmails, knownEmails, brand)`: strictly filters out internal addresses, guaranteeing that `counterpartyEmail` always resolves to the external prospect/client, never an internal colleague (`david.bozsik@seyuselfies.com`, etc.).
+- **Unified Inbox Stream & Detail Counterparty Hardening (`app/lib/inbox-store.ts`):**
+  - Updated `listInboxThreads` and `getInboxThreadDetail` to search the conversation timeline for the external client participant (`!isInternalOrSystemEmail`), preventing internal colleagues from being rendered as counterparties or senders.
+  - Guarded `needsReply` check: if the latest message was sent by an internal team member, `needs_reply` is strictly `false`.
+  - Guarded `contactEmail` and `contactName` extraction: ensures internal colleague contacts are never treated as prospect contacts.
+- **Composer Recipient Safety Guard (`app/inbox/[brand]/inbox-client.tsx`):**
+  - Ensured `setReplyRecipient` resolves strictly to the external counterparty and never pre-fills an internal colleague's address.
+- **Database Remediation (`scripts/remediate-inbox-attribution.ts`):**
+  - Cleared internal colleague David Bozsik from `Seyu Services` lead contacts and `contactEmails`.
+  - Removed misattributed Inga Schuler from PSV Eindhoven (restoring sole association with SCB).
+  - Re-linked 25 activity log entries for `inga.schuler@scb.ch` to `SCB` (`6ad7c73fb9e32a7106cb7787`).
+  - Re-linked misattributed prospect logs for Romanian Handball Federation, As Roma, Sportfive, and Moltkesports away from `Seyu Services`.
+  - Converted 45 internal colleague emails incorrectly flagged as `direction: 'inbound'` to `direction: 'outbound'`.
+- **Automated Verification:**
+  - Added unit test cases to `tests/lib/gmail-sync.test.ts` asserting internal colleague direction and counterparty isolation.
+  - Added unit test to `tests/lib/inbox-store.test.ts` asserting external counterparty resolution on colleague CC threads.
+  - All 123 test suites and 1,598 unit tests pass 100%.
+
 ## 2.4.320
 
 ### Unified Inbox Stream Navigation Alignment & NavLink Migration

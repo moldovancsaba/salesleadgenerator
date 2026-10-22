@@ -63,6 +63,7 @@ import type {
   InboxMessage,
   InboxCounts,
 } from '@/app/lib/inbox-store';
+import { isInternalOrSystemEmail } from '@/lib/email-contact-extractor';
 import { ConvertModal } from './convert-modal';
 
 type Props = {
@@ -292,7 +293,18 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
           // Pre-fill composer
           const th = data.thread;
           setReplySubject(th.subject.startsWith('Re: ') ? th.subject : `Re: ${th.subject}`);
-          setReplyRecipient(th.contactEmail || '');
+
+          // Ensure reply recipient is strictly an external prospect, never an internal colleague
+          let recipient = '';
+          if (th.contactEmail && !isInternalOrSystemEmail(th.contactEmail, { brand })) {
+            recipient = th.contactEmail;
+          } else if (th.counterpartyEmail && !isInternalOrSystemEmail(th.counterpartyEmail, { brand })) {
+            recipient = th.counterpartyEmail;
+          } else if (Array.isArray(th.participants)) {
+            const externalP = th.participants.find((p: any) => p.email && !isInternalOrSystemEmail(p.email, { brand }));
+            if (externalP?.email) recipient = externalP.email;
+          }
+          setReplyRecipient(recipient || th.contactEmail || '');
           setReplyBody('');
           setReplyDocumentIds([]);
         }

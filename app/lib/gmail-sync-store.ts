@@ -237,8 +237,8 @@ export async function pollSingleGmailConnection(
     });
     if (existingByHash) { skipped++; continue; }
 
-    const direction = resolveGmailDirection(fromEmail, gmailAddress);
-    const counterpartyEmail = resolveCounterpartyEmail(direction, fromEmail, [...toEmails, ...ccEmails], knownEmails);
+    const direction = resolveGmailDirection(fromEmail, gmailAddress, brand);
+    const counterpartyEmail = resolveCounterpartyEmail(direction, fromEmail, [...toEmails, ...ccEmails], knownEmails, brand);
 
     const doc: ActivityLogDocument = {
       leadId: null,

@@ -718,6 +718,40 @@ describe('inbox-store (Issue 257: Unified Communication Center)', () => {
       expect(thread.senderDisplayName).toContain('Inga Schuler');
     });
 
+    it('strictly resolves external counterparty when an internal colleague emails a prospect and CCs the active rep', async () => {
+      const db = createMockDb();
+
+      // Email sent by internal colleague David Bozsik to external Inga Schuler, CCing coo@seyuselfies.com
+      mockActivityDocs.push({
+        _id: 'act_colleague_outreach',
+        brand: 'seyu',
+        tenantId: 't_default',
+        threadId: 'thread_colleague_superfan',
+        type: 'email-outbound',
+        direction: 'outbound',
+        subject: 'Re: DU BIST EIN SUPERFAN!',
+        bodyExcerpt: 'Hi Inga, thank you...',
+        fromAddress: 'david.bozsik@seyuselfies.com',
+        toAddresses: ['inga.schuler@scb.ch'],
+        ccAddresses: ['coo@seyuselfies.com', 'partnerships@seyuselfies.com'],
+        userEmail: 'coo@seyuselfies.com',
+        createdAt: new Date(),
+      });
+
+      const res = await listInboxThreads(db, 'seyu', 't_default', {
+        userEmail: 'coo@seyuselfies.com',
+      });
+
+      expect(res.threads.length).toBe(1);
+      const thread = res.threads[0];
+      // Counterparty MUST be external prospect Inga Schuler, NEVER internal colleague David Bozsik
+      expect(thread.senderEmail).toBe('inga.schuler@scb.ch');
+      expect(thread.contactEmail).toBe('inga.schuler@scb.ch');
+      expect(thread.senderDisplayName).toContain('Inga Schuler');
+      // Must not falsely flag as needing reply since internal colleague sent the latest message
+      expect(thread.needsReply).toBe(false);
+    });
+
     it('filters out purely internal team threads where all participants are internal staff', async () => {
       const db = createMockDb();
 
