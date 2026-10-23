@@ -1,6 +1,6 @@
 # User Guide — Sales Lead Generator
 
-**Version:** 2.4.329  
+**Version:** 2.4.330  
 **Application URL:** https://salesleadgenerator.vercel.app  
 
 Welcome to **Sales Lead Generator**, an intelligent, multi-brand CRM and sales execution platform designed for B2B sports business, corporate partnerships, and outbound pipeline operations. This guide walks you through daily workflows, lead management, communication, and pipeline tools.
@@ -38,7 +38,7 @@ Sales Lead Generator uses DoneIsBetter Single Sign-On (SSO). Click **Sign in** t
 ### Navigation Layout
 - **Desktop & Tablet (`>= 768px`)**: A docked, collapsible sidebar navigation sits on the left edge, grouped into **Core CRM** (`Today`, `Inbox`, `Pipeline`, `Contacts`, `Accounts`), **Outreach & Content** (`Cadences`, `Outreach Templates`, `Documents`, `Battlecards`), **Analytics** (`Forecast`, `Reports`), **Settings** (`Sales Settings`, `Product Catalog`, `Automation`), and **Help & Updates** (`What's New`, `Take the tour`). When the sidebar is collapsed, horizontal navigation links appear in the top header bar.
 - **Mobile (`< 768px`)**: Tap the hamburger menu (☰) in the top bar to open the navigation drawer.
-- **Version Indicator & What's New**: The live application version badge (`v2.4.329`) is displayed in the top header next to the application title and in the navigation sidebar, linking directly to the **What's New & Release Notes** blog.
+- **Version Indicator & What's New**: The live application version badge (`v2.4.330`) is displayed in the top header next to the application title and in the navigation sidebar, linking directly to the **What's New & Release Notes** blog.
 - **Brand Switcher**: If you have access to multiple brands, use the **Organization** dropdown at the top of the sidebar (or in the top header when the sidebar is collapsed) to switch workspaces instantly without duplicate controls.
 - **Full-Width Workspace**: All tables, boards, and inboxes expand to 100% display width for maximum data scannability.
 
@@ -216,8 +216,11 @@ If an email thread relates to a prospect that already has an existing Lead in yo
 
 Click any card or table row to open the comprehensive Lead Detail Drawer:
 
-### Commercial Overview
-- **Deals & Value**: Track multiple deal lines with distinct stages, currencies (`USD`, `EUR`), and target close dates.
+### Commercial Overview, Sales Path & Deal Health
+- **Visual Sales Path & Discovery Playbooks**: At the top of every Lead Detail drawer, the interactive Sales Path stepper shows stage-specific **Key Fields & Exit Criteria** and provides 1-click access to structured **BANT**, **MEDDPICC**, and **Sports Sponsorship & Activation** discovery playbooks (`SalesPathPlaybookBar`).
+- **Deal Health Score (0–100)**: Every lead displays a real-time composite Deal Health Score (`Healthy >= 75`, `Monitor 50–74`, `At Risk < 50`) broken down across 5 dimensions: Fit & Quality (ICE), Momentum & Freshness, Buying Committee Coverage, Next-Step Hygiene, and Commercial Readiness.
+- **Deals, Value & Multi-Rep Opportunity Splits**: Track multiple deal lines with distinct stages, currencies (`USD`, `EUR`, `GBP`, `HUF`), target close dates, and multi-rep **Opportunity Splits** (`primary`, `overlay`, `se` percentages) that automatically credit each rep's quota attainment on `/forecast/[brand]`.
+- **Call & Meeting Transcript Analyzer**: When logging a call in the Activity panel, click **Analyze Call Notes** to automatically detect mentioned competitors (surfacing matching Battlecards), extract action items into your checklist, and identify budget/timeline/objection signals.
 - **ICE Scoring**: View detailed breakdowns of Impact, Confidence, and Ease factors.
 - **Value Propositions**: Value drivers generated for the prospect's sector.
 - **Checklist**: Track deal milestones and qualification criteria.
@@ -270,8 +273,8 @@ Configure products and generate professional PDF quotes from `/admin/products/[b
 3. Select product line items from your active Product Catalog (`/admin/products/[brand]`).
 4. Set quantities, custom discounts, and payment terms.
 5. Click **Generate PDF**. The platform generates a serverless PDF document via `@react-pdf/renderer` and stores it securely.
-6. Click **Send to Prospect** to email the quote with a secure, rate-limited public review link (`/api/quotes/[quoteId]/view`).
-7. Track quote status: `Draft`, `Sent`, `Viewed`, and `Signed`.
+6. Click **Open Portal** or **Copy Portal Link** to share the interactive buyer quote portal (`/quotes/[quoteId]`), where buyers can review itemized line items, download the PDF, and self-service e-sign with their name, title, email, and optional PO number.
+7. Track quote status: `Draft`, `Sent`, `Viewed`, `Accepted`, and `Signed`.
 
 ---
 
@@ -286,7 +289,9 @@ Configure products and generate professional PDF quotes from `/admin/products/[b
 - **View Switcher**: Toggle between **Bar Chart**, **Line Trend**, and **Data Table** views.
 - **Null-Safety & Filtering**: Real-time filtering by date range, stage, and owner with automatic null-data sanitization.
 
-### Forecast Projections (`/forecast/[brand]`)
+### Forecast Projections & Pipeline Inspection (`/forecast/[brand]`)
+- **Pipeline Inspection & Deal Movement Waterfall**: Inspect deal flow across 7d, 14d, 30d, or 90d windows broken down into 6 clickable buckets: **New Pipeline**, **Advanced**, **Regressed**, **Slipped Close Date**, **Closed Won**, and **Closed Lost**.
+- **Split-Adjusted Quota Attainment**: Rep attainment automatically credits multi-rep Opportunity Splits (`Deal.splits[]`).
 - Real-time pipeline weighting and revenue projections.
 - Win-rate calibration by stage and historical outcome correlation.
 - Target attainment tracking against brand quotas configured in Sales Settings.
@@ -341,7 +346,7 @@ Configurable at both the brand level (`/salessettings/[client]`, Process tab) an
 
 ## 15. What's New & Release Notes Blog
 
-Navigate to `/whats-new/[brand]` (or click the `v2.4.329` version badge / ✨ sparkles icon in the top header or **Help & Updates → What's New** in the sidebar) to browse the chronological release notes blog:
+Navigate to `/whats-new/[brand]` (or click the `v2.4.330` version badge / ✨ sparkles icon in the top header or **Help & Updates → What's New** in the sidebar) to browse the chronological release notes blog:
 
 - **Chronological Release Timeline**: Every release is displayed from newest to oldest with its exact calendar date, relative age badge (`Today`, `Yesterday`, `3 days ago`), version badge, and summary counts for **New**, **Fixed**, and **Security** items.
 - **Category & Search Filtering**: Filter releases in real time by keyword (e.g. `inbox`, `calendar`, `table`, `sso`) or switch between **All Updates**, **🚀 What's New**, **🛠️ What's Fixed**, and **🔒 Security**.

@@ -499,6 +499,18 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
                         Assign team members who manage pipeline leads for this brand and designate the default deal owner.
                       </Text>
                     </div>
+                  <Group gap="xs">
+                    <Button
+                      component={Link}
+                      href={`/forms/${brand}`}
+                      target="_blank"
+                      variant="light"
+                      color="indigo"
+                      size="xs"
+                      leftSection={<IconExternalLink size={14} />}
+                    >
+                      Public Lead Form
+                    </Button>
                     <Button
                       component={Link}
                       href="/admin/users"
@@ -508,6 +520,7 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
                     >
                       Manage Users
                     </Button>
+                  </Group>
                   </Group>
 
                   {/* Default Deal Owner */}
@@ -592,6 +605,53 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
                       })}
                     </SimpleGrid>
                   )}
+                </Stack>
+              </Paper>
+
+              {/* Issue #284: Inbound Web Lead Capture Form (Share & Embed) */}
+              <Paper withBorder p="md" radius="md">
+                <Stack gap="sm">
+                  <Group justify="space-between" align="center" wrap="wrap">
+                    <div>
+                      <Group gap="xs" align="center">
+                        <Title order={4}>Inbound Web Lead Capture Form (Share &amp; Embed)</Title>
+                        <StatusBadge status="success" size="xs">Live</StatusBadge>
+                      </Group>
+                      <Text size="xs" c="dimmed">
+                        Public and embeddable web form that creates DISCOVERED leads with source=&apos;inbound&apos;, deduplicates contacts, and triggers lead.created automations.
+                      </Text>
+                    </div>
+                    <Group gap="xs">
+                      <Button
+                        size="xs"
+                        variant="light"
+                        onClick={() => {
+                          const url = `${window.location.origin}/forms/${brand}`;
+                          navigator.clipboard?.writeText(url);
+                          showNotification({ title: 'Copied', message: 'Public form URL copied to clipboard.', color: 'teal' });
+                        }}
+                      >
+                        Copy Public URL
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="default"
+                        onClick={() => {
+                          const snippet = `<iframe src="${window.location.origin}/forms/${brand}?embed=1" width="100%" height="680" style="border:0;border-radius:8px;" loading="lazy"></iframe>`;
+                          navigator.clipboard?.writeText(snippet);
+                          showNotification({ title: 'Copied', message: 'HTML iframe embed snippet copied to clipboard.', color: 'teal' });
+                        }}
+                      >
+                        Copy Embed &lt;iframe&gt;
+                      </Button>
+                    </Group>
+                  </Group>
+                  <TextInput
+                    label="Direct Public URL"
+                    readOnly
+                    value={`/forms/${brand}`}
+                    description="Share on social bio links, event QR codes, or partner portals."
+                  />
                 </Stack>
               </Paper>
             </Stack>

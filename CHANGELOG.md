@@ -1,5 +1,40 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.330
+
+### Enterprise CRM Parity Wave: Public Quote Portal & E-Signature, Pipeline Inspection Waterfall, Sales Playbooks, Scheduler Google Meet & Rep Routing, Deal Health Score, Call Transcript Analyzer, Multi-Rep Opportunity Splits, Cadence A/B Testing & Inbound Web Lead Forms
+
+- **Interactive Public Quote Portal & Buyer Self-Service E-Signature (Issue #276, `lib/quotes.ts`, `app/lib/quotes-store.ts`, `app/api/quotes/[quoteId]/accept/route.ts`, `app/quotes/[quoteId]/page.tsx`, `app/detail.tsx`):**
+  - Built unauthenticated buyer-facing web portal at `/quotes/[quoteId]` displaying multi-line itemized commercial quotes, pricing totals, expiration status, PDF download, and an interactive e-signature acceptance form (`signerName`, `signerTitle`, `signerEmail`, optional `purchaseOrderNumber`).
+  - Added `GET /api/quotes/[quoteId]/accept` and rate-limited `POST /api/quotes/[quoteId]/accept` transitioning quotes to `accepted`, recording `acceptedAt`, `signerIp`, and `signatureText`, writing a `quote-signed` entry to `activityLog`, and updating `lead.nextActionNote`.
+  - Surfaced **Open Portal**, **Copy Portal Link**, and full buyer signature attribution in `LeadDetailModal` (`app/detail.tsx`).
+- **Pipeline Inspection & Deal Movement Waterfall (Issue #277, `lib/pipeline-inspection.ts`, `app/api/forecast/inspection/route.ts`, `app/forecast/[brand]/forecast-client.tsx`):**
+  - Built pure movement waterfall engine (`computePipelineInspection`) and `GET /api/forecast/inspection?brand=<brand>&days=7|14|30|90` classifying pipeline movement over configurable time windows into 6 actionable buckets: **New Pipeline**, **Advanced**, **Regressed**, **Slipped Close Date**, **Closed Won**, and **Closed Lost**.
+  - Added interactive **Pipeline Inspection & Deal Movement Waterfall** section to `/forecast/[brand]` with window selector (`7d`, `14d`, `30d`, `90d`), 6 clickable KPI summary cards, net pipeline delta badge, and drill-down `AdminDataTable`.
+- **Visual Sales Path Stepper & Interactive Discovery Playbooks (Issue #278, `lib/sales-playbooks.ts`, `app/components/SalesPathPlaybookBar.tsx`, `app/detail.tsx`):**
+  - Built stage-specific **Key Fields & Exit Criteria** guidance across all pipeline stages (`DISCOVERED` through `WON`/`LOST`) and 3 structured discovery frameworks (**BANT Qualification**, **MEDDPICC Enterprise**, and **Sports Sponsorship & Activation**).
+  - Mounted `<SalesPathPlaybookBar />` at the top of `LeadDetailModal` (`app/detail.tsx`) with 1-click stage transitions, collapsible stage coaching criteria, and interactive playbook Q&A modal that logs structured discovery notes to `activityLog` and appends missing exit-criteria items to `lead.checklist`.
+- **Scheduler Google Meet Auto-Creation & Assigned-Rep Calendar Routing (Issue #279, `lib/scheduling.ts`, `app/lib/scheduling-store.ts`, `app/api/schedule/[brand]/availability/route.ts`, `app/api/schedule/[brand]/book/route.ts`, `app/schedule/[brand]/schedule-client.tsx`):**
+  - Updated `resolveSchedulingCalendarConnection` to route availability and booking requests through the assigned lead owner's personal `google_calendar` connection first before falling back to the brand-level calendar connection.
+  - Added automatic Google Meet conference provisioning (`conferenceData.createRequest` with `?conferenceDataVersion=1`) to `bookSlot()`, persisting `meetingUrl` onto `activityLog` and `lead.nextActionNote`, and surfacing a **Join Google Meet** button on `/schedule/[brand]`.
+- **Engagement-Weighted Deal Health Score (0–100) (Issue #280, `lib/deal-health.ts`, `app/detail.tsx`, `app/table.tsx`, `app/card.tsx`):**
+  - Implemented composite 0–100 `computeDealHealth(lead)` scoring across 5 transparent dimensions: **Fit & Quality (ICE)** (25 pts), **Momentum & Freshness** (25 pts), **Buying Committee Coverage** (20 pts), **Next-Step Hygiene** (15 pts), and **Commercial Readiness** (15 pts), classified into `healthy` (`>= 75`), `monitor` (`50–74`), and `at_risk` (`< 50`).
+  - Surfaced Deal Health `StatusBadge` and 5-factor breakdown in `LeadDetailModal` (`app/detail.tsx`), sortable `Health` column in `TableView` (`app/table.tsx`), and compact `HP <score>` indicator on Kanban cards (`app/card.tsx`).
+- **Call & Meeting Transcript Analyzer (Issue #281, `lib/transcript-intelligence.ts`, `app/components/ActivityPanel.tsx`, `app/detail.tsx`):**
+  - Built `analyzeTranscript(text, battlecards)` to automatically detect mentioned competitors (linking directly to matching Battlecard counter-points and landmines), extract committed action items and follow-up dates, and classify budget, timeline, and objection signals.
+  - Integrated **Analyze Call Notes** into the Call Log form in `ActivityPanel.tsx` with 1-click **+ Checklist** and **Set Follow-up** actions.
+- **Multi-Rep Opportunity Splits & Split-Adjusted Quota Attribution (Issue #282, `lib/deals.ts`, `lib/quota.ts`, `app/lib/quota-store.ts`, `app/detail.tsx`):**
+  - Extended `Deal` with `splits?: DealSplit[]` (`userId`, `email`, `percent`, `role`: `'primary' | 'overlay' | 'se'`), enforced `0 < percent <= 100`, `sum(percent) <= 100`, and unique `userId` invariants in `sanitizeDeal()`.
+  - Updated `dealValueForLead(lead, forUserId)` and `getQuotaAttainment` (`app/lib/quota-store.ts`) to query `$or: [{ assignedTo: userId }, { 'deals.splits.userId': userId }]` and credit each rep's exact split percentage on `/forecast/[brand]`.
+  - Added Opportunity Splits display badges and multi-rep split editor in `LeadDetailModal` (`app/detail.tsx`).
+- **Sequence Step A/B Testing & Variant Lift Analytics (Issue #283, `lib/cadences.ts`, `lib/outreach-send.ts`, `app/api/admin/cadence-tick/route.ts`, `app/api/outreach/engagement/route.ts`, `app/outreach/cadences/[brand]/cadences-client.tsx`):**
+  - Added optional `variantTemplateId?: string` on `CadenceStep` and deterministic FNV-1a 50/50 split assignment `selectCadenceStepVariant(leadId, stepIndex, hasVariantB)` in `lib/cadences.ts`.
+  - Updated `cadence-tick` and `sendAutomatedEmail` to dispatch `variantTemplateId` when Variant `'B'` is selected and stamp `cadenceVariant: 'A' | 'B'` on `outreach_logs`.
+  - Added `computeCadenceVariantPerformance` in `GET /api/outreach/engagement` and surfaced Variant B selector and Variant A vs. Variant B open/reply lift badges in `CadencesClient`.
+- **Public & Embeddable Inbound Web Lead Capture Forms (Issue #284, `lib/inbound-lead-form.ts`, `app/api/forms/[brand]/submit/route.ts`, `app/forms/[brand]/page.tsx`, `app/salessettings/[client]/sales-settings-client.tsx`):**
+  - Built public and iframe-embeddable (`/forms/[brand]?embed=1`) lead capture form and rate-limited `POST /api/forms/[brand]/submit` with honeypot bot filtering, ccTLD country inference, fingerprint/email deduplication, default deal owner assignment, `DISCOVERED` lead creation (`source: 'inbound'`), `activityLog` recording, and `lead.created` automation/webhook triggers.
+  - Added **Inbound Web Lead Capture Form (Share & Embed)** card with 1-click **Copy Public URL** and **Copy Embed `<iframe>`** controls in `/salessettings/[client]`.
+
 ## 2.4.329
 
 ### Scoped Research Agent API Keys, Inbound Email Webhook Activation, Taxonomy Backfill Completion & Full Backlog Delivery

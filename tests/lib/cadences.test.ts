@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   sanitizeCadenceStep, sanitizeCadenceSteps, sanitizeCadence, validateCadence,
   computeStepDueAt, buildInitialActiveCadence, advanceActiveCadence, completeTaskStep,
+  selectCadenceStepVariant, computeCadenceVariantPerformance,
 } from '../../lib/cadences';
 
 const NOW = new Date('2026-07-31T00:00:00.000Z');
@@ -277,5 +278,70 @@ describe('completeTaskStep', () => {
     };
     const nextActive = completeTaskStep(cadence, active, NOW);
     expect(nextActive).toBeNull();
+  });
+});
+
+describe('A/B testing & variant performance (issue 283)', () => {
+  it('sanitizes variantTemplateId and omits it when identical to templateId', () => {
+    const stepWithVariant = sanitizeCadenceStep({
+      channel: 'email',
+      templateId: 'tpl_a',
+      variantTemplateId: '  tpl_b  ',
+    });
+    expect(stepWithVariant?.variantTemplateId).toBe('tpl_b');
+
+    const duplicateVariant = sanitizeCadenceStep({
+      channel: 'email',
+      templateId: 'tpl_a',
+      variantTemplateId: 'tpl_a',
+    });
+    expect(duplicateVariant?.variantTemplateId).toBeUndefined();
+  });
+
+  it('deterministically selects Variant A when hasVariantB is false, and splits ~50/50 when true', () => {
+    expect(selectCadenceStepVariant('lead_123', 0, false)).toBe('A');
+    expect(selectCadenceStepVariant('lead_456', 0, false)).toBe('A');
+
+    // Idempotent for identical inputs
+    const first = selectCadenceStepVariant('lead_abc', 0, true);
+    const second = selectCadenceStepVariant('lead_abc', 0, true);
+    expect(first).toBe(second);
+
+    // Reasonable ~50/50 split across 200 synthetic leads
+    let countA = 0;
+    let countB = 0;
+    for (let i = 0; i < 200; i++) {
+      const v = selectCadenceStepVariant(`lead_${i}`, 0, true);
+      if (v === 'A') countA++;
+      else countB++;
+    }
+    expect(countA).toBeGreaterThan(70);
+    expect(countB).toBeGreaterThan(70);
+  });
+
+  it('computes Variant A vs Variant B rates and identifies winning variant', () => {
+    const perf = computeCadenceVariantPerformance([
+      { cadenceId: 'cad_1', stepIndex: 0, cadenceVariant: 'A', sendAttempted: true, routingAllowed: true, openedAt: NOW },
+      { cadenceId: 'cad_1', stepIndex: 0, cadenceVariant: 'A', sendAttempted: true, routingAllowed: true },
+      { cadenceId: 'cad_1', stepIndex: 0, cadenceVariant: 'B', sendAttempted: true, routingAllowed: true, openedAt: NOW, repliedAt: NOW, replyClass: 'human' },
+      { cadenceId: 'cad_1', stepIndex: 0, cadenceVariant: 'B', sendAttempted: true, routingAllowed: true, openedAt: NOW },
+      // Cancelled / machine open / OOO reply handling
+      { cadenceId: 'cad_1', stepIndex: 0, cadenceVariant: 'A', sendAttempted: false, cancelledAt: NOW },
+      { cadenceId: 'cad_1', stepIndex: 0, cadenceVariant: 'A', sendAttempted: true, routingAllowed: true, openedAt: NOW, openedMachine: true, repliedAt: NOW, replyClass: 'out_of_office' },
+    ]);
+
+    expect(perf).toHaveLength(1);
+    const step0 = perf[0];
+    expect(step0.cadenceId).toBe('cad_1');
+    expect(step0.stepIndex).toBe(0);
+    expect(step0.variantA.sent).toBe(3);
+    expect(step0.variantA.opened).toBe(1);
+    expect(step0.variantA.replied).toBe(0);
+    expect(step0.variantB.sent).toBe(2);
+    expect(step0.variantB.opened).toBe(2);
+    expect(step0.variantB.replied).toBe(1);
+    expect(step0.variantB.replyRate).toBe(50);
+    expect(step0.winningVariant).toBe('B');
+    expect(step0.replyLiftPts).toBe(50);
   });
 });

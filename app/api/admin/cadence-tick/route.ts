@@ -7,7 +7,7 @@ import { tenantFilter } from '../../../../lib/tenant'
 import { getAllBrandConfigs } from '../../../lib/brand'
 import { DEFAULT_OUTREACH_TEMPLATES } from '../../../lib/outreach/default-templates'
 import type { OutreachTemplate } from '../../../lib/outreach/default-templates'
-import { advanceActiveCadence } from '../../../../lib/cadences'
+import { advanceActiveCadence, selectCadenceStepVariant } from '../../../../lib/cadences'
 import type { CadenceStep, ActiveCadence } from '../../../../lib/cadences'
 import { sendAutomatedEmail, isResendSendConfigured } from '../../../../lib/outreach-send'
 import type { LeadForSend } from '../../../../lib/outreach-send'
@@ -279,13 +279,23 @@ async function runCadenceTick(): Promise<TickSummary> {
           summary.failures.push({ leadId, brand, reason: 'email sending not configured (RESEND_API_KEY unset): step held, cadence not advanced' })
           continue
         }
-        const template = await resolveTemplate(db, brand, currentStep.templateId)
+        const selectedVariant = selectCadenceStepVariant(
+          leadId,
+          active.currentStepIndex,
+          Boolean(currentStep.variantTemplateId)
+        )
+        const chosenTemplateId =
+          selectedVariant === 'B' && currentStep.variantTemplateId
+            ? currentStep.variantTemplateId
+            : currentStep.templateId
+        const template = await resolveTemplate(db, brand, chosenTemplateId)
         const leadForSend: LeadForSend = { ...leadDoc, _id: leadId }
         const result = await sendAutomatedEmail(db, leadForSend, template, {
           brand,
           tenantId: TENANT_ID,
           cadenceId: cadenceForAdvance.id,
           stepIndex: active.currentStepIndex,
+          cadenceVariant: selectedVariant,
           documentIds: currentStep.documentIds,
         })
         if (result.sent) {

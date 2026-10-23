@@ -36,6 +36,13 @@ export type DealLineItem = {
 // Mongo-free.
 export type ProductPriceLookup = Map<string, { unitPrice: number; currency: DealCurrency }>;
 
+export type DealSplit = {
+  userId: string;
+  userEmail?: string;
+  percent: number;
+  role?: string;
+};
+
 export type Deal = {
   id: string;
   value: number;
@@ -52,6 +59,8 @@ export type Deal = {
   expectedCloseDate?: string;
   probability?: number;
   contactIds?: string[];
+  // Issue #282 — Multi-Rep Opportunity Splits (0 < percent <= 100, sum <= 100)
+  splits?: DealSplit[];
 };
 
 export type SanitizeDealOptions = {
@@ -161,6 +170,29 @@ export function sanitizeDeal(input: DealInput, options?: SanitizeDealOptions): D
     contactIds = cleaned.length > 0 ? Array.from(new Set(cleaned)) : undefined;
   }
 
+  let splits: DealSplit[] | undefined = existing?.splits;
+  if (Array.isArray(input.splits)) {
+    const validSplits: DealSplit[] = [];
+    let runningPercent = 0;
+    const seenUsers = new Set<string>();
+    for (const s of input.splits) {
+      if (!s || typeof s !== 'object') continue;
+      const uid = typeof s.userId === 'string' ? s.userId.trim() : '';
+      const pct = Number(s.percent);
+      if (!uid || seenUsers.has(uid) || !Number.isFinite(pct) || pct <= 0 || pct > 100) continue;
+      if (runningPercent + pct > 100) continue;
+      seenUsers.add(uid);
+      runningPercent += pct;
+      validSplits.push({
+        userId: uid,
+        ...(typeof s.userEmail === 'string' && s.userEmail.trim() ? { userEmail: s.userEmail.trim() } : {}),
+        percent: Math.round(pct * 100) / 100,
+        ...(typeof s.role === 'string' && s.role.trim() ? { role: s.role.trim().slice(0, 60) } : {}),
+      });
+    }
+    splits = validSplits.length > 0 ? validSplits : undefined;
+  }
+
   // Issue #215 §11/§15 #9 — when lineItems resolves to at least one valid
   // entry, the server-computed total always wins, ignoring any client-sent
   // input.value outright (prevents a stale/tampered figure from bypassing
@@ -183,6 +215,7 @@ export function sanitizeDeal(input: DealInput, options?: SanitizeDealOptions): D
         expectedCloseDate: expectedCloseDate || undefined,
         probability,
         contactIds,
+        splits,
       };
     }
   }
@@ -214,6 +247,7 @@ export function sanitizeDeal(input: DealInput, options?: SanitizeDealOptions): D
     expectedCloseDate: expectedCloseDate || undefined,
     probability,
     contactIds,
+    splits,
   };
 }
 

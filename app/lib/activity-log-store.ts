@@ -71,6 +71,7 @@ export type ActivityEntry = {
   meetingProvider?: 'google'
   meetingEventId?: string
   meetingBookedByEmail?: string
+  meetingUrl?: string
   // Vega CRM Phase 6 / Handoff 07 — canonical email status and cancel label
   emailStatus?: string
   cancelReasonLabel?: string
@@ -150,6 +151,7 @@ export type ActivityLogDocument = {
   meetingProvider?: 'google'
   meetingEventId?: string
   meetingBookedByEmail?: string
+  meetingUrl?: string
   replyClass?: string
   isHistorical?: boolean
   threadId?: string
@@ -263,6 +265,7 @@ export function mapActivityLogDoc(doc: any): ActivityEntry {
     meetingProvider: doc.meetingProvider === 'google' ? 'google' : undefined,
     meetingEventId: typeof doc.meetingEventId === 'string' ? doc.meetingEventId : undefined,
     meetingBookedByEmail: typeof doc.meetingBookedByEmail === 'string' ? doc.meetingBookedByEmail : undefined,
+    meetingUrl: typeof doc.meetingUrl === 'string' ? doc.meetingUrl : undefined,
     emailStatus: doc.type === 'email-inbound'
       ? (isHumanReply(doc.createdAt, doc.replyClass) ? 'replied' : 'sent')
       : (doc.type === 'email-outbound' ? 'sent' : undefined),

@@ -1,7 +1,7 @@
 # User Email Integration & 2-Way Sync Specification
 
 **Issues:** #247, #248, #249, #270, #271, #272  
-**Version:** 2.4.329  
+**Version:** 2.4.330  
 **Date:** 2026-10-22  
 
 ---

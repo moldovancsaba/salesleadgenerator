@@ -32,22 +32,26 @@ export function ScheduleClient({ brand, label, linkToken }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [confirmed, setConfirmed] = useState<Slot | null>(null)
+  const [meetingUrl, setMeetingUrl] = useState<string | null>(null)
+  const [hostEmail, setHostEmail] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
 
   const loadSlots = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/schedule/${encodeURIComponent(brand)}/availability?days=14`)
+      const qs = linkToken ? `days=14&t=${encodeURIComponent(linkToken)}` : 'days=14'
+      const res = await fetch(`/api/schedule/${encodeURIComponent(brand)}/availability?${qs}`)
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.error || 'This scheduling link is not available right now')
       setSlots(data.slots || [])
+      if (typeof data.hostEmail === 'string' && data.hostEmail) setHostEmail(data.hostEmail)
     } catch (err: any) {
       setError(err?.message || 'This scheduling link is not available right now')
     } finally {
       setLoading(false)
     }
-  }, [brand])
+  }, [brand, linkToken])
 
   useEffect(() => { loadSlots() }, [loadSlots])
 
@@ -88,6 +92,8 @@ export function ScheduleClient({ brand, label, linkToken }: Props) {
         throw new Error(data?.error || 'Could not book this meeting')
       }
       setConfirmed(selected)
+      if (typeof data.meetingUrl === 'string' && data.meetingUrl) setMeetingUrl(data.meetingUrl)
+      if (typeof data.hostEmail === 'string' && data.hostEmail) setHostEmail(data.hostEmail)
       setAnnouncement(`Confirmed for ${formatDayHeader(selected.start)} at ${formatTime(selected.start)}.`)
     } catch (err: any) {
       setSubmitError(err?.message || 'Could not book this meeting')
@@ -101,7 +107,10 @@ export function ScheduleClient({ brand, label, linkToken }: Props) {
       <Stack gap="md">
         <div>
           <Title order={2}>Schedule a meeting</Title>
-          <Text size="sm" c="dimmed">{label}</Text>
+          <Text size="sm" c="dimmed">
+            {label}
+            {hostEmail ? ` · Host: ${hostEmail}` : ''}
+          </Text>
         </div>
 
         <Text role="status" aria-live="polite" size="xs" c="dimmed" style={{ position: confirmed ? 'static' : 'absolute', left: confirmed ? undefined : -9999 }}>
@@ -114,6 +123,20 @@ export function ScheduleClient({ brand, label, linkToken }: Props) {
               <Title order={4}>You&apos;re booked</Title>
               <Text>{formatDayHeader(confirmed.start)} at {formatTime(confirmed.start)}</Text>
               <Text size="sm" c="dimmed">A calendar invite has been sent to {email}.</Text>
+              {meetingUrl && (
+                <Group gap="xs" mt="xs">
+                  <Button
+                    component="a"
+                    href={meetingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="xs"
+                    color="teal"
+                  >
+                    Join Google Meet
+                  </Button>
+                </Group>
+              )}
             </Stack>
           </Paper>
         ) : loading ? (

@@ -4,7 +4,7 @@ import { getBrandConfig, type Brand } from './brand';
 import { tenantFilter } from '../../lib/tenant';
 import type { Deal } from '../../lib/deals';
 import {
-  type Quote, type QuoteStatus, type CatalogProductLookup,
+  type Quote, type QuoteStatus, type CatalogProductLookup, type BuyerAcceptanceInput, type QuoteLineItem,
   buildLineItemFromDeal, buildLineItemsFromDeal, sumLineItems, isValidStatusTransition,
 } from '../../lib/quotes';
 import { renderQuotePdf } from '../../lib/quote-pdf';
@@ -47,6 +47,12 @@ function toQuote(doc: any): Quote {
     viewedAt: doc.viewedAt,
     signedAt: doc.signedAt,
     signedBy: doc.signedBy,
+    signerName: doc.signerName,
+    signerTitle: doc.signerTitle,
+    signerEmail: doc.signerEmail,
+    purchaseOrderNumber: doc.purchaseOrderNumber,
+    signatureText: doc.signatureText,
+    signerIp: doc.signerIp,
   };
 }
 
@@ -246,6 +252,162 @@ export async function markQuoteSigned(db: Db, quoteId: string, tenantId: string,
 
 export async function fetchQuotePdfBytes(quote: Quote): Promise<Buffer | null> {
   return fetchQuotePdf(quote.pdfBlobPath);
+}
+
+export type PublicQuotePortalDto = {
+  quoteId: string;
+  brand: string;
+  brandLabel: string;
+  entityName: string;
+  status: QuoteStatus;
+  lineItems: QuoteLineItem[];
+  totalValue: number;
+  currency: string;
+  createdAt: string;
+  sentAt?: string;
+  viewedAt?: string;
+  signedAt?: string;
+  signerName?: string;
+  signerTitle?: string;
+  signerEmail?: string;
+  purchaseOrderNumber?: string;
+};
+
+export type GetQuotePortalResult =
+  | { ok: true; portal: PublicQuotePortalDto }
+  | { ok: false; status: 403 | 404 };
+
+export async function getPublicQuotePortalData(
+  db: Db,
+  quoteId: string,
+  token: string
+): Promise<GetQuotePortalResult> {
+  const viewRes = await recordQuoteView(db, quoteId, token);
+  if (!viewRes.ok) return viewRes;
+
+  const quote = viewRes.quote;
+  const brandConfig = await getBrandConfig(quote.brand as Brand);
+  const brandLabel = brandConfig?.label || quote.brand;
+  let entityName = 'Prospect';
+
+  if (brandConfig) {
+    try {
+      const { ObjectId } = await import('mongodb');
+      if (ObjectId.isValid(quote.leadId)) {
+        const leadDoc = await db.collection(brandConfig.dbCollection).findOne(
+          { _id: new ObjectId(quote.leadId) },
+          { projection: { entity_name: 1 } }
+        );
+        if (leadDoc && typeof leadDoc.entity_name === 'string' && leadDoc.entity_name.trim()) {
+          entityName = leadDoc.entity_name.trim();
+        }
+      }
+    } catch {
+      // Non-fatal fallback
+    }
+  }
+
+  return {
+    ok: true,
+    portal: {
+      quoteId: quote._id,
+      brand: quote.brand,
+      brandLabel,
+      entityName,
+      status: quote.status,
+      lineItems: quote.lineItems,
+      totalValue: quote.totalValue,
+      currency: quote.currency,
+      createdAt: quote.createdAt,
+      sentAt: quote.sentAt,
+      viewedAt: quote.viewedAt,
+      signedAt: quote.signedAt,
+      signerName: quote.signerName,
+      signerTitle: quote.signerTitle,
+      signerEmail: quote.signerEmail,
+      purchaseOrderNumber: quote.purchaseOrderNumber,
+    },
+  };
+}
+
+export type AcceptQuoteByBuyerResult =
+  | { ok: true; quote: Quote }
+  | { ok: false; status: 403 | 404 | 409; error: string };
+
+export async function acceptQuoteByBuyer(
+  db: Db,
+  quoteId: string,
+  token: string,
+  input: BuyerAcceptanceInput,
+  clientIp?: string
+): Promise<AcceptQuoteByBuyerResult> {
+  const quote = await getQuoteById(db, quoteId);
+  if (!quote) return { ok: false, status: 404, error: 'Quote not found' };
+  if (!shareTokenMatches(quote.shareToken, token)) return { ok: false, status: 403, error: 'Not found' };
+  if (quote.status === 'signed') return { ok: false, status: 409, error: 'This quote has already been signed' };
+
+  const { ObjectId } = await import('mongodb');
+  const now = new Date().toISOString();
+
+  const updated = await db.collection(COLLECTION).findOneAndUpdate(
+    { _id: new ObjectId(quoteId), status: { $ne: 'signed' } },
+    {
+      $set: {
+        status: 'signed',
+        signedAt: now,
+        signedBy: input.signerEmail,
+        signerName: input.signerName,
+        ...(input.signerTitle ? { signerTitle: input.signerTitle } : {}),
+        signerEmail: input.signerEmail,
+        ...(input.purchaseOrderNumber ? { purchaseOrderNumber: input.purchaseOrderNumber } : {}),
+        signatureText: input.signatureText,
+        ...(clientIp ? { signerIp: clientIp } : {}),
+        updatedAt: now,
+      },
+    },
+    { returnDocument: 'after' }
+  );
+
+  if (!updated) {
+    return { ok: false, status: 409, error: 'This quote has already been signed' };
+  }
+
+  const signedQuote = toQuote(updated);
+
+  // Record audit trail on activityLog and update lead's nextActionNote
+  try {
+    await db.collection('activityLog').insertOne({
+      leadId: signedQuote.leadId,
+      brand: signedQuote.brand,
+      tenantId: signedQuote.tenantId,
+      type: 'quote-signed',
+      summary: `Quote accepted & e-signed by ${input.signerName}${input.signerTitle ? ` (${input.signerTitle})` : ''} <${input.signerEmail}>${input.purchaseOrderNumber ? ` · PO #${input.purchaseOrderNumber}` : ''}`,
+      quoteId: signedQuote._id,
+      signerName: input.signerName,
+      signerTitle: input.signerTitle,
+      signerEmail: input.signerEmail,
+      purchaseOrderNumber: input.purchaseOrderNumber,
+      createdAt: new Date(now),
+      userEmail: input.signerEmail,
+    });
+
+    const brandConfig = await getBrandConfig(signedQuote.brand as Brand);
+    if (brandConfig && ObjectId.isValid(signedQuote.leadId)) {
+      await db.collection(brandConfig.dbCollection).updateOne(
+        { _id: new ObjectId(signedQuote.leadId) },
+        {
+          $set: {
+            updatedAt: new Date(now),
+            nextActionNote: `Quote e-signed by ${input.signerName} (${input.signerEmail})${input.purchaseOrderNumber ? ` · PO #${input.purchaseOrderNumber}` : ''}`,
+          },
+        }
+      );
+    }
+  } catch (err) {
+    console.error('[app/lib/quotes-store] Non-fatal activity log write failed after quote acceptance', err);
+  }
+
+  return { ok: true, quote: signedQuote };
 }
 
 // Real, TTL-indexed rate limiting on the public /view route (issue #211

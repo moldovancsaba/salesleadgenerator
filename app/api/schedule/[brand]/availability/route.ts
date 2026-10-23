@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import clientPromise, { isMongoConfigured } from '../../../../../lib/mongodb';
 import { resolveBrand } from '../../../../lib/brand';
-import { getAvailability, checkAndRecordRateLimit } from '../../../../lib/scheduling-store';
+import { getAvailability, checkAndRecordRateLimit, resolveSchedulingLinkToken } from '../../../../lib/scheduling-store';
 
 function clientIp(request: NextRequest): string {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -28,11 +28,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { searchParams } = new URL(request.url);
   const daysParam = Number.parseInt(searchParams.get('days') || '14', 10);
   const days = Number.isFinite(daysParam) ? daysParam : 14;
+  const linkToken = searchParams.get('t') || searchParams.get('linkToken') || undefined;
+  const leadId = linkToken ? await resolveSchedulingLinkToken(db, brand, 'default', linkToken) : undefined;
 
-  const result = await getAvailability(db, brand, 'default', days);
+  const result = await getAvailability(db, brand, 'default', days, leadId);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
 
-  return NextResponse.json({ slots: result.slots });
+  return NextResponse.json({ slots: result.slots, ...(result.hostEmail ? { hostEmail: result.hostEmail } : {}) });
 }
 
 export const dynamic = 'force-dynamic';

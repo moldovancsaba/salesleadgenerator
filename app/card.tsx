@@ -24,6 +24,7 @@ import type { Nudge } from '@/lib/next-step-nudge';
 import { sumDeals } from '@/lib/deals';
 import { checklistProgress } from '@/lib/checklist';
 import { computeRottenLevel } from '@/lib/rotten-indicator';
+import { computeDealHealth } from '@/lib/deal-health';
 import { shouldShowWinProbability } from '@/lib/card-tiering';
 import { TOUR_SELECTOR } from './lib/tour/selectors';
 
@@ -168,6 +169,7 @@ export function LeadCard({
 
   const now = new Date();
   const rotten = computeRottenLevel({ kanbanColumn: lead.kanbanColumn, updatedAt: lead.updatedAt }, now);
+  const dealHealth = computeDealHealth(lead, now);
   const createdLabel = formatRelativeDays(lead.createdAt, now);
   const updatedLabel = formatRelativeDays(lead.updatedAt, now);
 
@@ -344,6 +346,22 @@ export function LeadCard({
               size="xs"
             >
               {quality}
+            </StatusBadge>
+          )}
+
+          {!isTerminalColumn && (
+            <StatusBadge
+              status={
+                dealHealth.tier === 'healthy'
+                  ? 'success'
+                  : dealHealth.tier === 'at_risk'
+                    ? 'warning'
+                    : 'danger'
+              }
+              size="xs"
+              aria-label={`Deal health: ${dealHealth.label}`}
+            >
+              {`HP ${dealHealth.score}`}
             </StatusBadge>
           )}
 

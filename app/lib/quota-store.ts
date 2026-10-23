@@ -48,10 +48,14 @@ export async function getQuotaAttainment(
   const filter = tenantFilter(tenantId)
   const leads = await db.collection(config.dbCollection).find({
     ...filter,
-    assignedTo: userId,
     kanbanColumn: 'WON',
+    $or: [
+      { assignedTo: userId },
+      { 'deals.splits.userId': userId },
+    ],
   }).project({
     _id: 1,
+    assignedTo: 1,
     actualDealValueUsd: 1,
     deals: 1,
     ticketSizeEstimate: 1,
@@ -76,7 +80,10 @@ export async function getQuotaAttainment(
       const id = lead._id.toString()
       const wonAt = firstWonAt.get(id)
       if (!wonAt) continue
-      wonEntries.push({ leadId: id, wonAt, value: dealValueForLead(lead) })
+      const credited = dealValueForLead(lead, userId)
+      if (credited > 0) {
+        wonEntries.push({ leadId: id, wonAt, value: credited })
+      }
     }
   }
 

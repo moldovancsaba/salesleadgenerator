@@ -5,7 +5,12 @@ import Link from 'next/link'
 import { Box, Text, Stack, Loader, Group, Button, Select, NumberInput, Textarea, Tooltip } from '@mantine/core'
 import { StatusBadge, LabelTag } from '@sovereignsquad/gds-core/client'
 import { showNotification } from '@mantine/notifications'
-import { IconInbox } from '@tabler/icons-react'
+import { IconInbox, IconSparkles, IconPlus } from '@tabler/icons-react'
+import {
+  analyzeTranscript,
+  type BattlecardForAnalysis,
+  type TranscriptAnalysisResult,
+} from '@/lib/transcript-intelligence'
 
 // Issue #200 — closed set, mirrors app/lib/activity-log-store.ts's own
 // CallDisposition (not imported directly — this file already keeps its own
@@ -122,6 +127,8 @@ type Props = {
   refreshKey?: number
   onOpenCompose?: () => void
   onContactUpdated?: () => void
+  onAddChecklistItem?: (text: string) => Promise<void>
+  onSetFollowUpNote?: (note: string) => Promise<void>
 }
 
 const TYPE_LABEL: Record<ActivityEntry['type'], string> = {
@@ -142,7 +149,17 @@ const TYPE_LABEL: Record<ActivityEntry['type'], string> = {
 // unconditionally inside LeadDetailModal's content, which only ever renders
 // while the modal is open (LeadDetailModal returns null when !opened), so
 // this naturally only fetches while the lead detail is actually visible.
-export function ActivityPanel({ leadId, brand, contacts = [], deals = [], refreshKey = 0, onOpenCompose, onContactUpdated }: Props) {
+export function ActivityPanel({
+  leadId,
+  brand,
+  contacts = [],
+  deals = [],
+  refreshKey = 0,
+  onOpenCompose,
+  onContactUpdated,
+  onAddChecklistItem,
+  onSetFollowUpNote,
+}: Props) {
   const [activity, setActivity] = useState<ActivityEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -151,6 +168,13 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [], refres
   const [showHistorical, setShowHistorical] = useState(false)
   const [historicalCount, setHistoricalCount] = useState(0)
   const [syncingGmail, setSyncingGmail] = useState(false)
+
+  // Call & Meeting Transcript Analyzer (issue #281)
+  const [analyzerOpen, setAnalyzerOpen] = useState(false)
+  const [transcriptInput, setTranscriptInput] = useState('')
+  const [battlecards, setBattlecards] = useState<BattlecardForAnalysis[]>([])
+  const [analysisResult, setAnalysisResult] = useState<TranscriptAnalysisResult | null>(null)
+  const [savingTranscriptNote, setSavingTranscriptNote] = useState(false)
 
   // Deal association state (predecessor CRM roadmap §CRM line 20)
   const [callDealId, setCallDealId] = useState<string | null>(null)
@@ -251,6 +275,48 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [], refres
       })
     return () => { cancelled = true }
   }, [leadId, brand])
+
+  useEffect(() => {
+    if (!analyzerOpen || battlecards.length > 0) return
+    let cancelled = false
+    fetch(`/api/battlecards?brand=${encodeURIComponent(brand)}`)
+      .then((res) => (res.ok ? res.json() : { battlecards: [] }))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data.battlecards)) {
+          setBattlecards(data.battlecards)
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [analyzerOpen, brand, battlecards.length])
+
+  function handleRunTranscriptAnalysis() {
+    const res = analyzeTranscript(transcriptInput, battlecards)
+    setAnalysisResult(res)
+  }
+
+  function handleSaveTranscriptAsNote() {
+    const trimmed = transcriptInput.trim()
+    if (!trimmed) return
+    setSavingTranscriptNote(true)
+    fetch(`/api/leads/${encodeURIComponent(leadId)}/activity?brand=${encodeURIComponent(brand)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'note',
+        text: `[Call / Meeting Transcript]\n${trimmed}`,
+      }),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Failed to save transcript note')
+        showNotification({ message: 'Transcript saved to activity timeline', color: 'teal' })
+        loadActivity()
+      })
+      .catch((err) => {
+        showNotification({ message: err?.message || 'Failed to save transcript', color: 'red' })
+      })
+      .finally(() => setSavingTranscriptNote(false))
+  }
 
   function resolveSuggestion(id: string, action: 'ACCEPT' | 'REJECT') {
     setResolvingState({ id, action })
@@ -493,9 +559,18 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [], refres
             size="xs"
             variant="light"
             color="yellow"
-            onClick={() => { setNoteFormOpen((v) => !v); setCallFormOpen(false); }}
+            onClick={() => { setNoteFormOpen((v) => !v); setCallFormOpen(false); setAnalyzerOpen(false); }}
           >
             Add note
+          </Button>
+          <Button
+            size="xs"
+            variant="light"
+            color="grape"
+            leftSection={<IconSparkles size={13} />}
+            onClick={() => { setAnalyzerOpen((v) => !v); setNoteFormOpen(false); setCallFormOpen(false); }}
+          >
+            Analyze Call Notes
           </Button>
           {/* Issue #200 — disabled with a reason (not hidden) when the lead
               has zero contacts, per CLAUDE.md Rule 7: no live-looking control
@@ -505,13 +580,202 @@ export function ActivityPanel({ leadId, brand, contacts = [], deals = [], refres
               size="xs"
               variant="light"
               disabled={contactOptions.length === 0}
-              onClick={() => { setCallFormOpen((v) => !v); setNoteFormOpen(false); }}
+              onClick={() => { setCallFormOpen((v) => !v); setNoteFormOpen(false); setAnalyzerOpen(false); }}
             >
               Log a call
             </Button>
           </Tooltip>
         </Group>
       </Group>
+
+      {analyzerOpen && (
+        <Box
+          mb="sm"
+          p="xs"
+          style={{
+            border: '1px solid var(--gds-border-card, var(--mantine-color-gray-3))',
+            borderRadius: 6,
+            backgroundColor: 'var(--gds-bg-card)',
+          }}
+        >
+          <Stack gap="xs">
+            <Text size="xs" fw={600}>
+              Call &amp; Meeting Transcript Intelligence
+            </Text>
+            <Text size="xs" c="dimmed">
+              Paste raw meeting notes or a call transcript to automatically surface competitor Battlecards, action items, budget/timeline signals, and objections.
+            </Text>
+            <Textarea
+              placeholder="Paste call notes or transcript here (e.g. 'Spoke with Commercial Director. They are comparing us with Hudl. Budget is €30k for Q3. I will send the ROI deck tomorrow…')"
+              value={transcriptInput}
+              onChange={(e) => setTranscriptInput(e.currentTarget.value)}
+              minRows={3}
+              maxRows={8}
+              autosize
+            />
+            <Group gap="xs">
+              <Button
+                size="xs"
+                color="indigo"
+                leftSection={<IconSparkles size={13} />}
+                disabled={!transcriptInput.trim()}
+                onClick={handleRunTranscriptAnalysis}
+              >
+                Extract Signals &amp; Battlecards
+              </Button>
+              <Button
+                size="xs"
+                variant="light"
+                color="teal"
+                loading={savingTranscriptNote}
+                disabled={!transcriptInput.trim()}
+                onClick={handleSaveTranscriptAsNote}
+              >
+                Save to Timeline
+              </Button>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="gray"
+                onClick={() => {
+                  setAnalyzerOpen(false);
+                  setAnalysisResult(null);
+                }}
+              >
+                Close
+              </Button>
+            </Group>
+
+            {analysisResult && (
+              <Stack gap="xs" mt="xs">
+                <Group gap="xs">
+                  <Text size="xs" fw={600}>
+                    Detected Sentiment:
+                  </Text>
+                  <StatusBadge
+                    size="xs"
+                    status={
+                      analysisResult.sentiment === 'positive'
+                        ? 'success'
+                        : analysisResult.sentiment === 'cautious'
+                          ? 'warning'
+                          : 'info'
+                    }
+                  >
+                    {analysisResult.sentiment.toUpperCase()}
+                  </StatusBadge>
+                </Group>
+
+                {analysisResult.matchedBattlecards.length > 0 && (
+                  <Box>
+                    <Text size="xs" fw={600} mb={4}>
+                      Matched Competitor Battlecards ({analysisResult.matchedBattlecards.length})
+                    </Text>
+                    <Stack gap={4}>
+                      {analysisResult.matchedBattlecards.map((bc) => (
+                        <Box
+                          key={bc.battlecardId}
+                          p="xs"
+                          style={{
+                            border: '1px solid var(--gds-border-card)',
+                            borderRadius: 6,
+                          }}
+                        >
+                          <Group gap="xs" mb={2}>
+                            <StatusBadge size="xs" status="warning">
+                              Competitor: {bc.competitorName}
+                            </StatusBadge>
+                          </Group>
+                          <Text size="xs">{bc.positioningSummary}</Text>
+                          {bc.topObjectionRebuttal && (
+                            <Text size="xs" c="dimmed" mt={2}>
+                              <Text span fw={600}>Rebuttal:</Text> {bc.topObjectionRebuttal.response}
+                            </Text>
+                          )}
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {analysisResult.actionItems.length > 0 && (
+                  <Box>
+                    <Text size="xs" fw={600} mb={4}>
+                      Extracted Action Items ({analysisResult.actionItems.length})
+                    </Text>
+                    <Stack gap={4}>
+                      {analysisResult.actionItems.map((act, idx) => (
+                        <Group key={idx} justify="space-between" wrap="nowrap" gap="xs">
+                          <Text size="xs" style={{ flex: 1 }}>
+                            • {act}
+                          </Text>
+                          <Group gap={4} wrap="nowrap">
+                            {onAddChecklistItem && (
+                              <Button
+                                size="compact-xs"
+                                variant="light"
+                                leftSection={<IconPlus size={11} />}
+                                onClick={() => onAddChecklistItem(act)}
+                              >
+                                Checklist
+                              </Button>
+                            )}
+                            {onSetFollowUpNote && (
+                              <Button
+                                size="compact-xs"
+                                variant="subtle"
+                                onClick={() => onSetFollowUpNote(act)}
+                              >
+                                Set Follow-up
+                              </Button>
+                            )}
+                          </Group>
+                        </Group>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {analysisResult.signals.length > 0 && (
+                  <Box>
+                    <Text size="xs" fw={600} mb={4}>
+                      Commercial &amp; Qualification Signals
+                    </Text>
+                    <Stack gap={4}>
+                      {analysisResult.signals.map((sig, idx) => (
+                        <Group key={idx} gap="xs" wrap="nowrap">
+                          <LabelTag
+                            size="xs"
+                            tone={
+                              sig.category === 'budget' || sig.category === 'buying_intent'
+                                ? 'success'
+                                : sig.category === 'objection'
+                                  ? 'warning'
+                                  : 'info'
+                            }
+                            label={sig.category.replace('_', ' ').toUpperCase()}
+                          />
+                          <Text size="xs" c="dimmed" style={{ flex: 1 }}>
+                            {sig.snippet}
+                          </Text>
+                        </Group>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {analysisResult.matchedBattlecards.length === 0 &&
+                  analysisResult.actionItems.length === 0 &&
+                  analysisResult.signals.length === 0 && (
+                    <Text size="xs" c="dimmed">
+                      No specific competitor names, action verbs, or budget/timeline signals detected in this excerpt.
+                    </Text>
+                  )}
+              </Stack>
+            )}
+          </Stack>
+        </Box>
+      )}
 
       {noteFormOpen && (
         <Box mb="sm" p="xs" style={{ border: '1px solid var(--mantine-color-yellow-4)', borderRadius: 6, background: 'var(--mantine-color-yellow-0)' }}>

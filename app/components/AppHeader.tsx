@@ -35,7 +35,7 @@ function extractBrandFromPathname(pathname: string, knownBrands: string[]): Bran
 
 export function AppHeader() {
   const pathname = usePathname();
-  if (pathname?.startsWith('/schedule/')) return null;
+  if (pathname?.startsWith('/schedule/') || pathname?.startsWith('/quotes/') || pathname?.startsWith('/forms/')) return null;
 
   return (
     <Suspense

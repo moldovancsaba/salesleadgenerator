@@ -87,6 +87,24 @@ describe('dealValueForLead', () => {
   it('returns 0 for a lead with no value signal at all', () => {
     expect(dealValueForLead({})).toBe(0);
   });
+
+  it('attributes split deal percentages per user when forUserId is passed (issue 282)', () => {
+    const leadWithSplits = {
+      assignedTo: 'rep_1',
+      deals: [
+        {
+          value: 50000,
+          splits: [
+            { userId: 'rep_1', percent: 60 },
+            { userId: 'rep_2', percent: 40 },
+          ],
+        },
+      ],
+    };
+    expect(dealValueForLead(leadWithSplits, 'rep_1')).toBe(30000);
+    expect(dealValueForLead(leadWithSplits, 'rep_2')).toBe(20000);
+    expect(dealValueForLead(leadWithSplits, 'rep_3')).toBe(0);
+  });
 });
 
 describe('computeAttainmentFromWonLeads', () => {

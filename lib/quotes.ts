@@ -47,22 +47,77 @@ export type Quote = {
   sentAt?: string;
   viewedAt?: string;
   signedAt?: string;
-  signedBy?: string; // rep who manually marked it signed (v1 — no real signer identity)
+  signedBy?: string; // rep who manually marked it signed OR buyer email
+  signerName?: string;
+  signerTitle?: string;
+  signerEmail?: string;
+  purchaseOrderNumber?: string;
+  signatureText?: string;
+  signerIp?: string;
 };
 
 // The shape returned to an authenticated rep-facing API caller — the raw
-// pdfBlobPath/shareToken are never included; viewUrl is the one thing built
-// from shareToken a caller actually needs, and only ever a full URL, never
-// the token itself (so a client response can never be used to reconstruct
-// another quote's token). See docs/ARCHITECTURE.md's "Quotes" section for
-// why this differs from the issue's own literal §9 Quote shape.
-export type PublicQuote = Omit<Quote, 'pdfBlobPath' | 'shareToken'> & { viewUrl: string };
+// pdfBlobPath/shareToken are never included; viewUrl and portalUrl are the
+// URLs built from shareToken a caller actually needs, and only ever full
+// URLs, never the token itself (so a client response can never be used to
+// reconstruct another quote's token). See docs/ARCHITECTURE.md's "Quotes"
+// section for why this differs from the issue's own literal §9 Quote shape.
+export type PublicQuote = Omit<Quote, 'pdfBlobPath' | 'shareToken' | 'signerIp'> & {
+  viewUrl: string;
+  portalUrl?: string;
+};
 
-export function toPublicQuote(quote: Quote, viewUrl: string): PublicQuote {
-  const { pdfBlobPath, shareToken, ...rest } = quote;
+export function toPublicQuote(quote: Quote, viewUrl: string, portalUrl?: string): PublicQuote {
+  const { pdfBlobPath, shareToken, signerIp, ...rest } = quote;
   void pdfBlobPath;
   void shareToken;
-  return { ...rest, viewUrl };
+  void signerIp;
+  return portalUrl ? { ...rest, viewUrl, portalUrl } : { ...rest, viewUrl };
+}
+
+export type BuyerAcceptanceInput = {
+  signerName: string;
+  signerEmail: string;
+  signerTitle?: string;
+  purchaseOrderNumber?: string;
+  signatureText: string;
+};
+
+export type ValidatedBuyerAcceptance =
+  | { ok: true; data: BuyerAcceptanceInput }
+  | { ok: false; error: string };
+
+export function validateBuyerAcceptanceInput(raw: unknown): ValidatedBuyerAcceptance {
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false, error: 'Invalid request payload' };
+  }
+  const obj = raw as Record<string, unknown>;
+  const signerName = typeof obj.signerName === 'string' ? obj.signerName.trim().slice(0, 120) : '';
+  const signerEmail = typeof obj.signerEmail === 'string' ? obj.signerEmail.trim().toLowerCase().slice(0, 160) : '';
+  const signerTitle = typeof obj.signerTitle === 'string' ? obj.signerTitle.trim().slice(0, 120) : '';
+  const purchaseOrderNumber = typeof obj.purchaseOrderNumber === 'string' ? obj.purchaseOrderNumber.trim().slice(0, 80) : '';
+  const signatureText = typeof obj.signatureText === 'string' ? obj.signatureText.trim().slice(0, 120) : '';
+
+  if (signerName.length < 2) {
+    return { ok: false, error: 'Signer full name is required (at least 2 characters)' };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signerEmail)) {
+    return { ok: false, error: 'A valid business email address is required' };
+  }
+  if (signatureText.length < 2) {
+    return { ok: false, error: 'Typed e-signature is required' };
+  }
+
+  return {
+    ok: true,
+    data: {
+      signerName,
+      signerEmail,
+      ...(signerTitle ? { signerTitle } : {}),
+      ...(purchaseOrderNumber ? { purchaseOrderNumber } : {}),
+      signatureText,
+    },
+  };
 }
 
 // A quote with no positive value has nothing to quote — mirrors

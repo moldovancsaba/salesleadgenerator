@@ -7,6 +7,7 @@ import { AdminDataTable, type AdminDataTableSort } from '@sovereignsquad/gds-adm
 import { StatusBadge, LabelTag, CountBadge } from '@sovereignsquad/gds-core/client';
 import type { Lead } from './types';
 import { getIceScore, getTicketSize, type TicketSizeDisplay } from './constants';
+import { computeDealHealth, type DealHealthTier } from '@/lib/deal-health';
 import type { CurrencyCode } from './lib/brand';
 
 const DEFAULT_STAGE_OPTIONS = [
@@ -28,6 +29,9 @@ type TableViewProps = {
 
 type TableRow = Lead & {
   score: number;
+  healthScore: number;
+  healthTier: DealHealthTier;
+  healthLabel: string;
   ticketSize: TicketSizeDisplay;
   valueNumeric: number;
   primaryContactName: string;
@@ -78,8 +82,10 @@ export function TableView({ leads, onOpenLead, onAction, onInlineValueSave, stag
   const effectiveStages = stageOptions && stageOptions.length > 0 ? stageOptions : DEFAULT_STAGE_OPTIONS;
 
   const rows: TableRow[] = useMemo(() => {
+    const now = new Date();
     return leads.map((lead) => {
       const score = getIceScore(lead);
+      const health = computeDealHealth(lead, now);
       const ticketSize = getTicketSize(lead);
       let valueNumeric = 0;
       if (ticketSize && ticketSize.kind === 'estimate') {
@@ -91,6 +97,9 @@ export function TableView({ leads, onOpenLead, onAction, onInlineValueSave, stag
       return {
         ...lead,
         score,
+        healthScore: health.score,
+        healthTier: health.tier,
+        healthLabel: health.label,
         ticketSize,
         valueNumeric,
         primaryContactName: primaryContact?.name || '',
@@ -109,6 +118,8 @@ export function TableView({ leads, onOpenLead, onAction, onInlineValueSave, stag
         cmp = a.valueNumeric - b.valueNumeric;
       } else if (sort.key === 'score') {
         cmp = a.score - b.score;
+      } else if (sort.key === 'healthScore') {
+        cmp = a.healthScore - b.healthScore;
       } else if (sort.key === 'kanbanColumn' || sort.key === 'stage') {
         cmp = (a.kanbanColumn || '').localeCompare(b.kanbanColumn || '');
       } else if (sort.key === 'region') {
@@ -287,6 +298,27 @@ export function TableView({ leads, onOpenLead, onAction, onInlineValueSave, stag
                 value={row.score}
                 srLabel="ICE Score"
               />
+            ),
+          },
+          {
+            key: 'healthScore',
+            header: 'Health',
+            sortable: true,
+            width: 115,
+            accessor: (row: TableRow) => (
+              <StatusBadge
+                size="xs"
+                status={
+                  row.healthTier === 'healthy'
+                    ? 'success'
+                    : row.healthTier === 'at_risk'
+                      ? 'warning'
+                      : 'danger'
+                }
+                withIcon={row.healthTier !== 'healthy'}
+              >
+                {row.healthLabel}
+              </StatusBadge>
             ),
           },
           {

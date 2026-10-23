@@ -1,6 +1,6 @@
 # Lead Taxonomy Migration Plan — Rulebook v1.0 Backfill
 
-**Version:** 2.4.329
+**Version:** 2.4.330
 
 > [!IMPORTANT]
 > **Owner Directive (2026-10-16, `AGENTS.md` Rule 10):**

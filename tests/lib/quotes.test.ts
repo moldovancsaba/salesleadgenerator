@@ -5,6 +5,7 @@ import {
   sumLineItems,
   isValidStatusTransition,
   toPublicQuote,
+  validateBuyerAcceptanceInput,
   type Quote,
   type CatalogProductLookup,
 } from '../../lib/quotes';
@@ -209,12 +210,59 @@ describe('toPublicQuote (issue 211)', () => {
       pdfBlobPath: 'quotes/default/q1.pdf', shareToken: 'super-secret-token',
       createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', createdBy: 'rep@example.com',
     };
-    const publicQuote = toPublicQuote(quote, 'https://example.com/api/quotes/q1/view?token=super-secret-token');
+    const publicQuote = toPublicQuote(
+      quote,
+      'https://example.com/api/quotes/q1/view?token=super-secret-token',
+      'https://example.com/quotes/q1?token=super-secret-token'
+    );
     expect(publicQuote).not.toHaveProperty('pdfBlobPath');
     expect(publicQuote).not.toHaveProperty('shareToken');
     expect(publicQuote.viewUrl).toBe('https://example.com/api/quotes/q1/view?token=super-secret-token');
+    expect(publicQuote.portalUrl).toBe('https://example.com/quotes/q1?token=super-secret-token');
     expect(publicQuote._id).toBe('q1');
     expect(publicQuote.status).toBe('draft');
     expect(publicQuote.totalValue).toBe(1000);
+  });
+});
+
+describe('validateBuyerAcceptanceInput (issue 276)', () => {
+  it('accepts valid buyer e-signature input and trims fields', () => {
+    const res = validateBuyerAcceptanceInput({
+      signerName: '  Paolo Maldini  ',
+      signerEmail: '  Paolo@ACMilantest.it ',
+      signerTitle: ' Technical Director ',
+      purchaseOrderNumber: ' PO-991 ',
+      signatureText: ' Paolo Maldini ',
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data).toEqual({
+        signerName: 'Paolo Maldini',
+        signerEmail: 'paolo@acmilantest.it',
+        signerTitle: 'Technical Director',
+        purchaseOrderNumber: 'PO-991',
+        signatureText: 'Paolo Maldini',
+      });
+    }
+  });
+
+  it('rejects missing or short signerName, invalid email, or missing signatureText', () => {
+    expect(validateBuyerAcceptanceInput({
+      signerName: 'A',
+      signerEmail: 'valid@example.com',
+      signatureText: 'Alice',
+    }).ok).toBe(false);
+
+    expect(validateBuyerAcceptanceInput({
+      signerName: 'Alice Smith',
+      signerEmail: 'not-an-email',
+      signatureText: 'Alice Smith',
+    }).ok).toBe(false);
+
+    expect(validateBuyerAcceptanceInput({
+      signerName: 'Alice Smith',
+      signerEmail: 'alice@example.com',
+      signatureText: ' ',
+    }).ok).toBe(false);
   });
 });

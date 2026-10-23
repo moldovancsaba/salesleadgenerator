@@ -9,6 +9,14 @@ import { CALIBRATABLE_STAGES } from '@/lib/win-rate-calibration';
 import type { CurrencyCode } from '@/app/lib/brand';
 import { PERIOD_TYPES, isValidPeriod } from '@/lib/quota';
 import type { PeriodType } from '@/lib/quota';
+import {
+  INSPECTION_WINDOWS,
+  BUCKET_LABELS,
+  type InspectionWindowDays,
+  type InspectionMovementBucket,
+  type PipelineInspectionReport,
+  type InspectionLeadRow,
+} from '@/lib/pipeline-inspection';
 
 type ConcentrationRisk = {
   topLeadId: string;
@@ -157,6 +165,13 @@ export function ForecastClient({ brand, label }: Props) {
   const [savingQuota, setSavingQuota] = useState(false);
   const [quotaSaveError, setQuotaSaveError] = useState<string | null>(null);
 
+  // Pipeline Inspection & Deal Movement Waterfall (issue #277)
+  const [inspectionDays, setInspectionDays] = useState<InspectionWindowDays>(30);
+  const [inspection, setInspection] = useState<PipelineInspectionReport | null>(null);
+  const [inspectionLoading, setInspectionLoading] = useState(true);
+  const [inspectionError, setInspectionError] = useState<string | null>(null);
+  const [selectedBucket, setSelectedBucket] = useState<InspectionMovementBucket | 'all'>('all');
+
   const loadForecast = useCallback(async (brandKey: string) => {
     setLoading(true);
     setError(null);
@@ -242,11 +257,34 @@ export function ForecastClient({ brand, label }: Props) {
     }
   }, []);
 
+  const loadInspection = useCallback(async (brandKey: string, days: InspectionWindowDays) => {
+    setInspectionLoading(true);
+    setInspectionError(null);
+    try {
+      const tenantId = brandKey;
+      const res = await fetch(
+        `/api/forecast/inspection?brand=${encodeURIComponent(brandKey)}&tenantId=${encodeURIComponent(tenantId)}&days=${days}`
+      );
+      if (!res.ok) throw new Error(`Pipeline inspection API: ${res.status}`);
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      setInspection(json.inspection || null);
+    } catch (err: any) {
+      setInspectionError(err?.message || 'Load failed');
+    } finally {
+      setInspectionLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadForecast(brand);
     loadWinRates(brand);
     loadTicketSizeCalibration(brand);
   }, [brand, loadForecast, loadWinRates, loadTicketSizeCalibration]);
+
+  useEffect(() => {
+    loadInspection(brand, inspectionDays);
+  }, [brand, inspectionDays, loadInspection]);
 
   useEffect(() => {
     let cancelled = false;
@@ -445,6 +483,169 @@ export function ForecastClient({ brand, label }: Props) {
                 Target is set in {data.coverage.targetCurrency} but this brand&apos;s pipeline is forecast in a different currency — no automatic conversion is applied. Update the target currency in Company Setup to compare accurately.
               </Text>
             )}
+          </Stack>
+        )}
+      </Paper>
+
+      <Paper withBorder p="md" radius="md" mb="lg">
+        <Group justify="space-between" align="flex-start" mb="sm" wrap="wrap">
+          <div>
+            <Title order={4}>Pipeline Inspection &amp; Deal Movement Waterfall</Title>
+            <Text size="xs" c="dimmed">
+              Track net pipeline flow over the selected period: New Pipeline, Stage Advanced, Stage Regressed, Closed Won, Closed Lost, and Slipped / Stale deals.
+            </Text>
+          </div>
+          <Group gap={6}>
+            {INSPECTION_WINDOWS.map((w) => (
+              <Button
+                key={w}
+                size="compact-xs"
+                variant={inspectionDays === w ? 'filled' : 'default'}
+                onClick={() => setInspectionDays(w)}
+              >
+                Last {w}d
+              </Button>
+            ))}
+          </Group>
+        </Group>
+
+        {inspectionError ? (
+          <AdminFormStatus state="error" title="Couldn't load pipeline inspection" description={inspectionError} />
+        ) : inspectionLoading ? (
+          <AdminFormStatus state="loading" title="Loading pipeline movement waterfall" />
+        ) : !inspection ? (
+          <AdminResourceEmptyState
+            title="No movement data"
+            description="Pipeline movement metrics will appear once leads enter or transition across stages."
+          />
+        ) : (
+          <Stack gap="md">
+            <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="xs">
+              {(['new', 'advanced', 'regressed', 'won', 'lost', 'slipped'] as InspectionMovementBucket[]).map((bKey) => {
+                const summary = inspection.buckets[bKey];
+                const isSelected = selectedBucket === bKey;
+                const tone: 'positive' | 'negative' | 'neutral' =
+                  bKey === 'new' || bKey === 'advanced' || bKey === 'won'
+                    ? 'positive'
+                    : bKey === 'regressed' || bKey === 'lost' || bKey === 'slipped'
+                      ? 'negative'
+                      : 'neutral';
+                return (
+                  <Paper
+                    key={bKey}
+                    withBorder
+                    p="xs"
+                    radius="sm"
+                    style={{
+                      cursor: 'pointer',
+                      borderColor: isSelected ? 'var(--mantine-color-indigo-6)' : 'var(--gds-border-card)',
+                      backgroundColor: 'var(--gds-bg-card)',
+                    }}
+                    onClick={() => setSelectedBucket((prev) => (prev === bKey ? 'all' : bKey))}
+                  >
+                    <Group justify="space-between" align="center" mb={4}>
+                      <Text size="xs" fw={600} c="dimmed">
+                        {summary.label}
+                      </Text>
+                      <StatusBadge
+                        status={tone === 'positive' ? 'success' : tone === 'negative' ? 'warning' : 'neutral'}
+                        size="xs"
+                      >
+                        {summary.count}
+                      </StatusBadge>
+                    </Group>
+                    <Text fw={700} size="sm">
+                      {Math.round(summary.totalValue).toLocaleString()}
+                    </Text>
+                  </Paper>
+                );
+              })}
+            </SimpleGrid>
+
+            <Group justify="space-between" align="center" wrap="wrap">
+              <Group gap="xs">
+                <LabelTag
+                  tone={inspection.netPipelineDeltaValue >= 0 ? 'success' : 'warning'}
+                  size="sm"
+                  label={`Net Pipeline Delta: ${inspection.netPipelineDeltaValue >= 0 ? '+' : ''}${Math.round(inspection.netPipelineDeltaValue).toLocaleString()} (${inspection.netPipelineDeltaCount >= 0 ? '+' : ''}${inspection.netPipelineDeltaCount} deals)`}
+                />
+                {selectedBucket !== 'all' && (
+                  <Button size="compact-xs" variant="subtle" onClick={() => setSelectedBucket('all')}>
+                    Show all buckets ({inspection.movements.length})
+                  </Button>
+                )}
+              </Group>
+              <Text size="xs" c="dimmed">
+                Click any bucket card above to filter the drill-down table.
+              </Text>
+            </Group>
+
+            {(() => {
+              const filteredRows =
+                selectedBucket === 'all'
+                  ? inspection.movements
+                  : inspection.movements.filter((m) => m.bucket === selectedBucket);
+              if (filteredRows.length === 0) {
+                return (
+                  <Text size="xs" c="dimmed">
+                    No deals in this movement category over the last {inspection.windowDays} days.
+                  </Text>
+                );
+              }
+              return (
+                <AdminDataTable<InspectionLeadRow>
+                  rows={filteredRows.slice(0, 25)}
+                  caption={`Deal movements over last ${inspection.windowDays} days`}
+                  columns={[
+                    { key: 'entityName', header: 'Deal / Organization', rowHeader: true, width: 220, accessor: (r) => r.entityName },
+                    {
+                      key: 'bucket',
+                      header: 'Category',
+                      width: 150,
+                      accessor: (r) => (
+                        <StatusBadge
+                          status={
+                            r.bucket === 'won' || r.bucket === 'new' || r.bucket === 'advanced'
+                              ? 'success'
+                              : r.bucket === 'slipped' || r.bucket === 'regressed'
+                                ? 'warning'
+                                : 'danger'
+                          }
+                          size="xs"
+                        >
+                          {BUCKET_LABELS[r.bucket]}
+                        </StatusBadge>
+                      ),
+                    },
+                    {
+                      key: 'transition',
+                      header: 'Stage Transition',
+                      width: 180,
+                      accessor: (r) =>
+                        r.bucket === 'slipped'
+                          ? `${r.toStage} (${r.staleDays ?? 0}d idle)`
+                          : r.fromStage
+                            ? `${r.fromStage} → ${r.toStage}`
+                            : `Created in ${r.toStage}`,
+                    },
+                    {
+                      key: 'value',
+                      header: 'Value',
+                      numeric: true,
+                      width: 120,
+                      accessor: (r) => (r.value > 0 ? `${r.currency} ${Math.round(r.value).toLocaleString()}` : '—'),
+                    },
+                    {
+                      key: 'owner',
+                      header: 'Owner',
+                      width: 160,
+                      accessor: (r) => r.assignedToEmail || 'Unassigned',
+                    },
+                  ]}
+                  getRowKey={(r) => `${r.leadId}:${r.bucket}`}
+                />
+              );
+            })()}
           </Stack>
         )}
       </Paper>

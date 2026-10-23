@@ -202,6 +202,8 @@ export type Lead = {
     // resolution/precedence rules. `value` above is still the single
     // authoritative, persisted total every existing reader already uses.
     lineItems?: Array<{ productId: string; quantity: number; unitPriceOverride?: number }>;
+    // Multi-rep opportunity splits (issue #282) — optional percentage attribution across reps.
+    splits?: Array<{ userId: string; userEmail?: string; percent: number; role?: string }>;
   }>;
   // Per-item action checklist, distinct from the free-text `notes` field
   // above — see lib/checklist.ts, issue #117.

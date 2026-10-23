@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeAvailableSlots, isSlotStillAvailable, isRateLimited, isValidAvailabilityWindow,
-  DEFAULT_AVAILABILITY_WINDOW, type AvailabilityWindow,
+  DEFAULT_AVAILABILITY_WINDOW, buildGoogleMeetEventPayload, extractGoogleMeetUrl, type AvailabilityWindow,
 } from '../../lib/scheduling';
 
 const WINDOW: AvailabilityWindow = {
@@ -142,5 +142,41 @@ describe('isValidAvailabilityWindow (issue 207)', () => {
 
   it('rejects an out-of-range weekday', () => {
     expect(isValidAvailabilityWindow({ ...DEFAULT_AVAILABILITY_WINDOW, weekdays: [7] })).toBe(false);
+  });
+});
+
+describe('buildGoogleMeetEventPayload & extractGoogleMeetUrl (issue 279)', () => {
+  it('constructs a hangoutsMeet conferenceData request payload', () => {
+    const payload = buildGoogleMeetEventPayload({
+      start: '2026-10-25T10:00:00.000Z',
+      end: '2026-10-25T10:30:00.000Z',
+      summary: 'Meeting: Paolo Maldini',
+      attendeeEmail: 'paolo@acmilan.com',
+      requestId: 'meet_123',
+    });
+    expect(payload.conferenceData.createRequest).toEqual({
+      requestId: 'meet_123',
+      conferenceSolutionKey: { type: 'hangoutsMeet' },
+    });
+    expect(payload.attendees).toEqual([{ email: 'paolo@acmilan.com' }]);
+  });
+
+  it('extracts hangoutLink or video entryPoint uri from Google Calendar response', () => {
+    expect(
+      extractGoogleMeetUrl({ hangoutLink: 'https://meet.google.com/abc-defg-hij' })
+    ).toBe('https://meet.google.com/abc-defg-hij');
+
+    expect(
+      extractGoogleMeetUrl({
+        conferenceData: {
+          entryPoints: [
+            { entryPointType: 'phone', uri: 'tel:+123456' },
+            { entryPointType: 'video', uri: 'https://meet.google.com/xyz-uvwx-rst' },
+          ],
+        },
+      })
+    ).toBe('https://meet.google.com/xyz-uvwx-rst');
+
+    expect(extractGoogleMeetUrl({})).toBeUndefined();
   });
 });

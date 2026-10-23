@@ -110,3 +110,55 @@ export function isValidAvailabilityWindow(value: unknown): value is Availability
     typeof w.bufferMinutes === 'number' && w.bufferMinutes >= 0 && w.bufferMinutes <= 120
   );
 }
+
+// Issue #279 — Google Meet conference payload builder and extractor for
+// Google Calendar v3 events.insert (?conferenceDataVersion=1).
+export type GoogleCalendarCreateEventPayload = {
+  summary: string;
+  start: { dateTime: string };
+  end: { dateTime: string };
+  attendees: Array<{ email: string }>;
+  conferenceData: {
+    createRequest: {
+      requestId: string;
+      conferenceSolutionKey: { type: 'hangoutsMeet' };
+    };
+  };
+};
+
+export function buildGoogleMeetEventPayload(params: {
+  start: string;
+  end: string;
+  summary: string;
+  attendeeEmail: string;
+  requestId: string;
+}): GoogleCalendarCreateEventPayload {
+  return {
+    summary: params.summary,
+    start: { dateTime: params.start },
+    end: { dateTime: params.end },
+    attendees: [{ email: params.attendeeEmail }],
+    conferenceData: {
+      createRequest: {
+        requestId: params.requestId,
+        conferenceSolutionKey: { type: 'hangoutsMeet' },
+      },
+    },
+  };
+}
+
+export function extractGoogleMeetUrl(eventResponse: unknown): string | undefined {
+  if (!eventResponse || typeof eventResponse !== 'object') return undefined;
+  const ev = eventResponse as Record<string, any>;
+  if (typeof ev.hangoutLink === 'string' && ev.hangoutLink.trim()) {
+    return ev.hangoutLink.trim();
+  }
+  const entryPoints = ev.conferenceData?.entryPoints;
+  if (Array.isArray(entryPoints)) {
+    const videoEntry = entryPoints.find(
+      (ep: any) => ep && ep.entryPointType === 'video' && typeof ep.uri === 'string' && ep.uri.trim()
+    );
+    if (videoEntry) return videoEntry.uri.trim();
+  }
+  return undefined;
+}

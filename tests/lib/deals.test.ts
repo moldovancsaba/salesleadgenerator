@@ -177,6 +177,24 @@ describe('sanitizeDeal — catalog line items (issue 215)', () => {
     const low = sanitizeDeal({ value: 1000, probability: -10 }, { now: NOW });
     expect(low?.probability).toBe(0);
   });
+
+  it('sanitizes opportunity splits (issue 282) ensuring 0 < percent <= 100 and sum <= 100', () => {
+    const deal = sanitizeDeal(
+      {
+        value: 40000,
+        splits: [
+          { userId: 'rep_1', userEmail: 'rep1@example.com', percent: 60, role: 'Primary AE' },
+          { userId: 'rep_2', userEmail: 'rep2@example.com', percent: 40, role: 'Overlay SE' },
+          { userId: 'rep_3', percent: 20 }, // exceeds 100% total -> dropped
+        ],
+      },
+      { now: NOW }
+    );
+    expect(deal?.splits).toEqual([
+      { userId: 'rep_1', userEmail: 'rep1@example.com', percent: 60, role: 'Primary AE' },
+      { userId: 'rep_2', userEmail: 'rep2@example.com', percent: 40, role: 'Overlay SE' },
+    ]);
+  });
 });
 
 describe('sanitizeDeals', () => {

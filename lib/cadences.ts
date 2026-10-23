@@ -28,12 +28,39 @@ export type CadenceStep = {
   // for an email/linkedin step. Optional because a `call` step never has a
   // template — it's always just a reminder.
   templateId?: string;
+  // Optional Variant B template for 50/50 A/B testing on automated email steps (issue #283).
+  variantTemplateId?: string;
   // Shown as Lead.nextActionNote when this step is a linkedin/call/general
   // reminder (issue #151, #236) — irrelevant for an email step, which sends the
   // template's own content instead.
   reminderNote?: string;
   // Document IDs referenced from the document library (Predecessor Handoff 11, issue #243)
   documentIds?: string[];
+};
+
+export type CadenceVariantPerformance = {
+  cadenceId: string;
+  stepIndex: number;
+  variantA: {
+    sent: number;
+    opened: number;
+    clicked: number;
+    replied: number;
+    openRate: number;
+    clickRate: number;
+    replyRate: number;
+  };
+  variantB: {
+    sent: number;
+    opened: number;
+    clicked: number;
+    replied: number;
+    openRate: number;
+    clickRate: number;
+    replyRate: number;
+  };
+  winningVariant: 'A' | 'B' | 'tie';
+  replyLiftPts: number;
 };
 
 export type CadenceInput = Record<string, any>;
@@ -102,6 +129,12 @@ export function sanitizeCadenceStep(input: any): CadenceStep | null {
   const templateId = typeof input.templateId === 'string' && input.templateId.trim()
     ? input.templateId.trim()
     : undefined;
+  const rawVariantTemplateId = typeof input.variantTemplateId === 'string' && input.variantTemplateId.trim()
+    ? input.variantTemplateId.trim()
+    : undefined;
+  const variantTemplateId = rawVariantTemplateId && rawVariantTemplateId !== templateId
+    ? rawVariantTemplateId
+    : undefined;
   const reminderNote = typeof input.reminderNote === 'string'
     ? input.reminderNote.trim().slice(0, MAX_REMINDER_NOTE_LENGTH)
     : undefined;
@@ -116,6 +149,7 @@ export function sanitizeCadenceStep(input: any): CadenceStep | null {
     channel,
     waitDaysAfterPrevious,
     templateId,
+    variantTemplateId,
     reminderNote: reminderNote || undefined,
     documentIds: documentIds && documentIds.length > 0 ? documentIds : undefined,
   };
@@ -242,5 +276,129 @@ export function completeTaskStep(
     taskCompletedAt: compDate.toISOString(),
     status: 'active',
   };
+}
+
+/**
+ * Deterministically assigns Variant 'A' or 'B' using FNV-1a 32-bit hashing on `${leadId}:${stepIndex}` (issue #283).
+ * Ensures 50/50 split across leads while keeping the assignment idempotent across cron retries.
+ */
+export function selectCadenceStepVariant(
+  leadId: string,
+  stepIndex: number,
+  hasVariantB: boolean
+): 'A' | 'B' {
+  if (!hasVariantB) return 'A';
+  const input = `${leadId}:${stepIndex}`;
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash % 2 === 0 ? 'A' : 'B';
+}
+
+export type CadenceOutreachLogForVariant = {
+  cadenceId?: string;
+  stepIndex?: number;
+  cadenceVariant?: 'A' | 'B' | string;
+  sendAttempted?: boolean;
+  routingAllowed?: boolean;
+  bouncedAt?: Date | string | null;
+  cancelledAt?: Date | string | null;
+  openedAt?: Date | string | null;
+  openCount?: number;
+  openedMachine?: boolean;
+  clickedAt?: Date | string | null;
+  clickCount?: number;
+  repliedAt?: Date | string | null;
+  replyClass?: string | null;
+};
+
+/**
+ * Aggregates Variant A vs Variant B performance per `(cadenceId, stepIndex)` from outreach logs (issue #283).
+ */
+export function computeCadenceVariantPerformance(
+  logs: CadenceOutreachLogForVariant[]
+): CadenceVariantPerformance[] {
+  const groups = new Map<
+    string,
+    {
+      cadenceId: string;
+      stepIndex: number;
+      A: { sent: number; opened: number; clicked: number; replied: number };
+      B: { sent: number; opened: number; clicked: number; replied: number };
+    }
+  >();
+
+  for (const log of logs) {
+    if (!log.cadenceId || typeof log.stepIndex !== 'number') continue;
+    if (log.sendAttempted === false || log.cancelledAt != null || log.routingAllowed === false) continue;
+
+    const variant: 'A' | 'B' = log.cadenceVariant === 'B' ? 'B' : 'A';
+    const key = `${log.cadenceId}:${log.stepIndex}`;
+    let entry = groups.get(key);
+    if (!entry) {
+      entry = {
+        cadenceId: log.cadenceId,
+        stepIndex: log.stepIndex,
+        A: { sent: 0, opened: 0, clicked: 0, replied: 0 },
+        B: { sent: 0, opened: 0, clicked: 0, replied: 0 },
+      };
+      groups.set(key, entry);
+    }
+
+    const bucket = entry[variant];
+    bucket.sent += 1;
+
+    const isBounced = log.bouncedAt != null;
+    if (!isBounced) {
+      if ((log.openedAt != null && !log.openedMachine) || ((log.openCount ?? 0) > 0 && !log.openedMachine)) {
+        bucket.opened += 1;
+      }
+      if (log.clickedAt != null || (log.clickCount ?? 0) > 0) {
+        bucket.clicked += 1;
+      }
+      if (log.repliedAt != null && log.replyClass !== 'out_of_office' && log.replyClass !== 'auto_reply') {
+        bucket.replied += 1;
+      }
+    }
+  }
+
+  const results: CadenceVariantPerformance[] = [];
+  for (const entry of groups.values()) {
+    const rate = (num: number, den: number) => (den > 0 ? Number(((num / den) * 100).toFixed(1)) : 0);
+    const variantA = {
+      ...entry.A,
+      openRate: rate(entry.A.opened, entry.A.sent),
+      clickRate: rate(entry.A.clicked, entry.A.sent),
+      replyRate: rate(entry.A.replied, entry.A.sent),
+    };
+    const variantB = {
+      ...entry.B,
+      openRate: rate(entry.B.opened, entry.B.sent),
+      clickRate: rate(entry.B.clicked, entry.B.sent),
+      replyRate: rate(entry.B.replied, entry.B.sent),
+    };
+
+    const replyDiff = Number((variantB.replyRate - variantA.replyRate).toFixed(1));
+    let winningVariant: 'A' | 'B' | 'tie' = 'tie';
+    if (variantA.sent > 0 && variantB.sent > 0) {
+      if (variantB.replyRate > variantA.replyRate) winningVariant = 'B';
+      else if (variantA.replyRate > variantB.replyRate) winningVariant = 'A';
+      else if (variantB.openRate > variantA.openRate) winningVariant = 'B';
+      else if (variantA.openRate > variantB.openRate) winningVariant = 'A';
+    }
+
+    results.push({
+      cadenceId: entry.cadenceId,
+      stepIndex: entry.stepIndex,
+      variantA,
+      variantB,
+      winningVariant,
+      replyLiftPts: replyDiff,
+    });
+  }
+
+  return results;
 }
 

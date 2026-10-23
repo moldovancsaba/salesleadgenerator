@@ -49,7 +49,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: result.error, freshSlots: result.freshSlots }, { status: result.status });
   }
 
-  return NextResponse.json({ confirmed: true, startAt: result.startAt, endAt: result.endAt });
+  return NextResponse.json({
+    confirmed: true,
+    startAt: result.startAt,
+    endAt: result.endAt,
+    ...(result.meetingUrl ? { meetingUrl: result.meetingUrl } : {}),
+    ...(result.hostEmail ? { hostEmail: result.hostEmail } : {}),
+  });
 }
 
 export const dynamic = 'force-dynamic';

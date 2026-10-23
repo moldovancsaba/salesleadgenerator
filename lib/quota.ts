@@ -67,10 +67,30 @@ export function periodToDateRange(period: string, periodType: PeriodType): DateR
 // fallback, not a fabricated one.
 export function dealValueForLead(lead: {
   actualDealValueUsd?: number
-  deals?: Array<{ value?: number }>
+  deals?: Array<{ value?: number; splits?: Array<{ userId: string; percent: number }> }>
   ticketSizeEstimate?: { expected?: number }
   estimated_annual_revenue_usd?: number
-}): number {
+  assignedTo?: string
+}, forUserId?: string): number {
+  if (forUserId && Array.isArray(lead.deals) && lead.deals.length > 0 && lead.deals.some((d) => Array.isArray(d.splits) && d.splits.length > 0)) {
+    let credited = 0
+    for (const d of lead.deals) {
+      const val = Number(d.value) || 0
+      if (val <= 0) continue
+      if (Array.isArray(d.splits) && d.splits.length > 0) {
+        const entry = d.splits.find((s) => s.userId === forUserId)
+        if (entry && entry.percent > 0) {
+          credited += val * (entry.percent / 100)
+        }
+      } else if (lead.assignedTo === forUserId) {
+        credited += val
+      }
+    }
+    return credited
+  }
+  if (forUserId && lead.assignedTo && lead.assignedTo !== forUserId) {
+    return 0
+  }
   if (typeof lead.actualDealValueUsd === 'number' && Number.isFinite(lead.actualDealValueUsd)) {
     return lead.actualDealValueUsd
   }

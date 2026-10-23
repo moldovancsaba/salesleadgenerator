@@ -4,6 +4,7 @@ import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 import { resolveBrand } from '../../../lib/brand';
 import { getTenantId } from '../../../../lib/tenant';
 import { computeEngagementRates, type OutreachLogItem } from '../../../../lib/email-engagement';
+import { computeCadenceVariantPerformance } from '../../../../lib/cadences';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,7 @@ export async function GET(request: NextRequest) {
         brand,
         tenantId,
         rates: computeEngagementRates([]),
+        variantPerformance: [],
         source: 'default',
       });
     }
@@ -67,11 +69,30 @@ export async function GET(request: NextRequest) {
     }));
 
     const rates = computeEngagementRates(outreachItems);
+    const variantPerformance = computeCadenceVariantPerformance(
+      logs.map((log) => ({
+        cadenceId: log.cadenceId,
+        stepIndex: log.stepIndex,
+        cadenceVariant: log.cadenceVariant,
+        sendAttempted: log.sendAttempted,
+        routingAllowed: log.routingAllowed,
+        bouncedAt: log.bouncedAt,
+        cancelledAt: log.cancelledAt,
+        openedAt: log.openedAt,
+        openCount: log.openCount,
+        openedMachine: log.openedMachine,
+        clickedAt: log.clickedAt,
+        clickCount: log.clickCount,
+        repliedAt: log.repliedAt,
+        replyClass: log.replyClass,
+      }))
+    );
 
     return NextResponse.json({
       brand,
       tenantId,
       rates,
+      variantPerformance,
       source: 'mongodb',
     });
   } catch (error: any) {

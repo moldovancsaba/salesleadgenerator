@@ -35,6 +35,7 @@ export type AutomatedSendContext = {
   tenantId: string;
   cadenceId: string;
   stepIndex: number;
+  cadenceVariant?: 'A' | 'B';
   documentIds?: string[];
 };
 
@@ -71,7 +72,7 @@ export type ManualSendContext = {
 // resulting outreach_logs row with quoteId so it's traceable back to the
 // specific Quote it sent, never a second/parallel send implementation.
 export type OutreachSendSource =
-  | { kind: 'cadence'; cadenceId: string; stepIndex: number; documentIds?: string[] }
+  | { kind: 'cadence'; cadenceId: string; stepIndex: number; cadenceVariant?: 'A' | 'B'; documentIds?: string[] }
   | {
       kind: 'manual';
       idempotencyKey: string;
@@ -157,6 +158,7 @@ async function writeOutreachLog(
     sentAutomatically: boolean;
     cadenceId?: string;
     stepIndex?: number;
+    cadenceVariant?: 'A' | 'B';
     // Issue #211 — set only for a Quote "Send" action, tracing this
     // outreach_logs row back to the specific Quote it sent.
     quoteId?: string;
@@ -204,6 +206,7 @@ async function writeOutreachLog(
     sentAutomatically: fields.sentAutomatically,
     cadenceId: fields.cadenceId,
     stepIndex: fields.stepIndex,
+    cadenceVariant: fields.cadenceVariant,
     quoteId: fields.quoteId,
     activityLogWritten: fields.activityLogWritten,
   });
@@ -280,7 +283,8 @@ export async function dispatchOutreachEmail(
 ): Promise<AutomatedSendResult> {
   const leadId = lead._id;
   const sentAutomatically = source.kind === 'cadence';
-  const cadenceFields = source.kind === 'cadence' ? { cadenceId: source.cadenceId, stepIndex: source.stepIndex }
+  const cadenceFields = source.kind === 'cadence'
+    ? { cadenceId: source.cadenceId, stepIndex: source.stepIndex, cadenceVariant: source.cadenceVariant }
     : source.kind === 'quote' ? { quoteId: source.quoteId }
     : {};
 
@@ -648,7 +652,13 @@ export async function sendAutomatedEmail(
     lead,
     template,
     { brand: context.brand, tenantId: context.tenantId },
-    { kind: 'cadence', cadenceId: context.cadenceId, stepIndex: context.stepIndex, documentIds: context.documentIds }
+    {
+      kind: 'cadence',
+      cadenceId: context.cadenceId,
+      stepIndex: context.stepIndex,
+      cadenceVariant: context.cadenceVariant,
+      documentIds: context.documentIds,
+    }
   );
 }
 

@@ -14,12 +14,14 @@ import { getTicketSize, SIZE_FIELD_OPTIONS } from './constants';
 import { isContactStale, DEFAULT_STALENESS_THRESHOLD_DAYS } from '@/lib/contact-freshness';
 import { computeStaleness, DEFAULT_STALE_THRESHOLDS } from '@/lib/stale-deal';
 import { getNextStepNudge } from '@/lib/next-step-nudge';
+import { computeDealHealth } from '@/lib/deal-health';
 import { sumDeals } from '@/lib/deals';
 import type { Deal } from '@/lib/deals';
 import { ContactsEditor, type ContactRow } from './components/ContactsEditor';
 import { GoogleContactsImport } from './components/GoogleContactsImport';
 import { ActivityPanel } from './components/ActivityPanel';
 import { CadencePanel } from './components/CadencePanel';
+import { SalesPathPlaybookBar } from './components/SalesPathPlaybookBar';
 import { resolveBuyingRole, deriveIsDecisionMaker } from '@/lib/contacts';
 import { FORECAST_CATEGORIES, resolveDefaultCategory, effectiveForecastCategory } from '@/lib/forecast-category';
 import type { ForecastCategory } from '@/lib/forecast-category';
@@ -394,7 +396,16 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
   // auto-computed ticketSizeEstimate above; nothing here ever runs
   // automatically.
   type DealLineItemRow = { productId: string; quantity: number; unitPriceOverride?: number };
-  type DealRow = { id?: string; value: number | ''; currency: CurrencyCode; label: string; source?: Deal['source']; lineItems?: DealLineItemRow[] };
+  type DealSplitRow = { userId: string; userEmail?: string; percent: number; role?: string };
+  type DealRow = {
+    id?: string;
+    value: number | '';
+    currency: CurrencyCode;
+    label: string;
+    source?: Deal['source'];
+    lineItems?: DealLineItemRow[];
+    splits?: DealSplitRow[];
+  };
   const [editingDeals, setEditingDeals] = useState(false);
   const [dealsForm, setDealsForm] = useState<DealRow[]>([]);
   const [savingDeals, setSavingDeals] = useState(false);
@@ -408,7 +419,17 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
 
   function openEditDeals() {
     if (!lead) return;
-    setDealsForm((lead.deals || []).map((d) => ({ id: d.id, value: d.value, currency: d.currency, label: d.label || '', source: d.source, lineItems: d.lineItems })));
+    setDealsForm(
+      (lead.deals || []).map((d) => ({
+        id: d.id,
+        value: d.value,
+        currency: d.currency,
+        label: d.label || '',
+        source: d.source,
+        lineItems: d.lineItems,
+        splits: d.splits ? d.splits.map((s) => ({ ...s })) : undefined,
+      }))
+    );
     setEditingDeals(true);
     if (!catalogLoaded) {
       setCatalogLoaded(true);
@@ -446,7 +467,17 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
   // configured), driving the disabled state of the buttons below per
   // CLAUDE.md Rule 7 — a genuinely non-functional action is rendered
   // disabled, never live-looking.
-  type QuoteRow = { _id: string; dealId: string; status: QuoteStatus; viewUrl: string; createdAt: string };
+  type QuoteRow = {
+    _id: string;
+    dealId: string;
+    status: QuoteStatus;
+    viewUrl: string;
+    portalUrl?: string;
+    createdAt: string;
+    signerName?: string;
+    signerEmail?: string;
+    purchaseOrderNumber?: string;
+  };
   const [quotesByDeal, setQuotesByDeal] = useState<Record<string, QuoteRow[]>>({});
   const [quotesCanGenerate, setQuotesCanGenerate] = useState(false);
   const [quotesCanSend, setQuotesCanSend] = useState(false);
@@ -694,6 +725,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
     nudgeStaleness,
     nudgeNow
   );
+  const dealHealth = computeDealHealth(lead, nudgeNow);
 
   const iceToneValue = iceScore >= 700 ? 'teal' : iceScore >= 480 ? 'green' : iceScore >= 200 ? 'orange' : 'blue';
   const regionToneValue = lead.region === 'US' ? 'blue' : lead.region === 'CEE' ? 'indigo' : lead.region === 'MENA' ? 'green' : 'gray';
@@ -1249,6 +1281,12 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
         >
           {qualityStatus}
         </StatusBadge>
+        <StatusBadge
+          status={dealHealth.tier === 'healthy' ? 'success' : dealHealth.tier === 'at_risk' ? 'warning' : 'danger'}
+          withIcon={dealHealth.tier !== 'healthy'}
+        >
+          {dealHealth.label}
+        </StatusBadge>
       </Group>
       {techSignalsSection(lead)}
     </Stack>
@@ -1256,6 +1294,24 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
 
   const content = (
     <Stack gap="md" data-tour="lead-detail-content">
+      <SalesPathPlaybookBar
+        currentStage={lead.kanbanColumn}
+        stageOptions={stageOptions}
+        disabled={movingStage || busy}
+        existingQualification={lead.qualification}
+        existingChecklist={lead.checklist}
+        existingNotes={lead.notes}
+        onSelectStage={(nextStage) => handleStageChange(nextStage)}
+        onApplyPlaybook={async (payload) => {
+          await onAction(lead._id, 'MODIFY', payload);
+          showNotification({
+            message: 'Discovery Playbook saved to qualification, notes, and checklist',
+            color: 'teal',
+            autoClose: 4000,
+          });
+        }}
+      />
+
       <Box>
         <Group justify="space-between">
           <Text fw={600}>ICE Score</Text>
@@ -1276,6 +1332,47 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
             <Text fw={600}>{ice.ease} / 10</Text>
           </Box>
         </SimpleGrid>
+      </Box>
+
+      <Box
+        p="xs"
+        style={{
+          border: '1px solid var(--gds-border-card)',
+          borderRadius: 8,
+          backgroundColor: 'var(--gds-bg-card)',
+        }}
+      >
+        <Group justify="space-between" align="center" mb={6}>
+          <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+            Deal Health Score (Multi-Signal)
+          </Text>
+          <StatusBadge
+            size="xs"
+            status={dealHealth.tier === 'healthy' ? 'success' : dealHealth.tier === 'at_risk' ? 'warning' : 'danger'}
+            withIcon={dealHealth.tier !== 'healthy'}
+          >
+            {dealHealth.label}
+          </StatusBadge>
+        </Group>
+        <Stack gap={4}>
+          {dealHealth.factors.map((f) => (
+            <Group key={f.dimension} justify="space-between" wrap="nowrap" gap="xs">
+              <Text size="xs" fw={500}>
+                {f.dimension}
+              </Text>
+              <Group gap={6} wrap="nowrap">
+                <Text size="xs" c="dimmed" truncate style={{ maxWidth: 220 }}>
+                  {f.detail}
+                </Text>
+                <LabelTag
+                  size="xs"
+                  tone={f.status === 'positive' ? 'success' : f.status === 'warning' ? 'warning' : 'neutral'}
+                  label={`${f.score}/${f.maxScore}`}
+                />
+              </Group>
+            </Group>
+          ))}
+        </Stack>
       </Box>
 
       {ticketSizeDetailSection(lead)}
@@ -1703,6 +1800,18 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
                         : 'Manual deal'
                       )}
                     </Text>
+                    {Array.isArray(d.splits) && d.splits.length > 0 && (
+                      <Group gap={4} mt={4} wrap="wrap">
+                        {d.splits.map((sp, spIdx) => (
+                          <LabelTag
+                            key={spIdx}
+                            size="xs"
+                            tone="info"
+                            label={`${sp.userEmail || sp.userId}: ${sp.percent}%${sp.role ? ` (${sp.role})` : ''}`}
+                          />
+                        ))}
+                      </Group>
+                    )}
                   </Box>
                 </Group>
                 {/* Deals: Quote generation (issue #211) — quotesLoaded gates
@@ -1711,45 +1820,80 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
                 {quotesLoaded && (
                   <Stack gap={4} pl="xs">
                     {(quotesByDeal[d.id] || []).map((q) => (
-                      <Group key={q._id} gap="xs" wrap="wrap">
-                        {quoteStatusBadge(q.status)}
-                        <Text size="xs" c="dimmed">{new Date(q.createdAt).toLocaleDateString()}</Text>
-                        <Button
-                          size="compact-xs"
-                          variant="subtle"
-                          component="a"
-                          href={q.viewUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`View quote PDF generated ${new Date(q.createdAt).toLocaleDateString()}`}
-                        >
-                          View PDF
-                        </Button>
-                        {q.status === 'draft' && (
+                      <Stack key={q._id} gap={2}>
+                        <Group gap="xs" wrap="wrap">
+                          {quoteStatusBadge(q.status)}
+                          <Text size="xs" c="dimmed">{new Date(q.createdAt).toLocaleDateString()}</Text>
                           <Button
                             size="compact-xs"
-                            variant="light"
-                            disabled={!quotesCanSend || quoteBusyId === q._id}
-                            loading={quoteBusyId === q._id}
-                            onClick={() => handleSendQuote(q._id)}
-                            aria-describedby={!quotesCanSend ? 'quote-send-disabled-reason' : undefined}
+                            variant="subtle"
+                            component="a"
+                            href={q.viewUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`View quote PDF generated ${new Date(q.createdAt).toLocaleDateString()}`}
                           >
-                            Send
+                            View PDF
                           </Button>
+                          {q.portalUrl && (
+                            <>
+                              <Button
+                                size="compact-xs"
+                                variant="subtle"
+                                component="a"
+                                href={q.portalUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Open Portal
+                              </Button>
+                              <Button
+                                size="compact-xs"
+                                variant="subtle"
+                                leftSection={<IconCopy size={12} />}
+                                onClick={() => {
+                                  navigator.clipboard.writeText(q.portalUrl!)
+                                    .then(() => showNotification({ message: 'Buyer e-sign portal link copied to clipboard', color: 'teal', autoClose: 3000 }))
+                                    .catch(() => showNotification({ message: 'Could not copy portal link', color: 'red', autoClose: 4000 }));
+                                }}
+                              >
+                                Copy Portal Link
+                              </Button>
+                            </>
+                          )}
+                          {q.status === 'draft' && (
+                            <Button
+                              size="compact-xs"
+                              variant="light"
+                              disabled={!quotesCanSend || quoteBusyId === q._id}
+                              loading={quoteBusyId === q._id}
+                              onClick={() => handleSendQuote(q._id)}
+                              aria-describedby={!quotesCanSend ? 'quote-send-disabled-reason' : undefined}
+                            >
+                              Send
+                            </Button>
+                          )}
+                          {(q.status === 'sent' || q.status === 'viewed') && (
+                            <Button
+                              size="compact-xs"
+                              variant="light"
+                              color="teal"
+                              disabled={quoteBusyId === q._id}
+                              loading={quoteBusyId === q._id}
+                              onClick={() => handleMarkQuoteSigned(q._id)}
+                            >
+                              Mark as signed
+                            </Button>
+                          )}
+                        </Group>
+                        {q.status === 'signed' && (q.signerName || q.signerEmail) && (
+                          <Text size="xs" c="dimmed">
+                            Signed by {q.signerName || q.signerEmail}
+                            {q.signerEmail && q.signerName ? ` (${q.signerEmail})` : ''}
+                            {q.purchaseOrderNumber ? ` · PO #${q.purchaseOrderNumber}` : ''}
+                          </Text>
                         )}
-                        {(q.status === 'sent' || q.status === 'viewed') && (
-                          <Button
-                            size="compact-xs"
-                            variant="light"
-                            color="teal"
-                            disabled={quoteBusyId === q._id}
-                            loading={quoteBusyId === q._id}
-                            onClick={() => handleMarkQuoteSigned(q._id)}
-                          >
-                            Mark as signed
-                          </Button>
-                        )}
-                      </Group>
+                      </Stack>
                     ))}
                     <Button
                       size="compact-xs"
@@ -1889,6 +2033,130 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
                     <Text size="xs" fw={600}>Running total: {formatTicketSizeCurrency(dealLineItemTotal(d), d.currency)}</Text>
                   </Stack>
                 )}
+                <Box mt="xs" pt="xs" style={{ borderTop: '1px dashed var(--gds-border-card, var(--mantine-color-gray-3))' }}>
+                  <Group justify="space-between" align="center" mb={4}>
+                    <Text size="xs" fw={600} c="dimmed">
+                      Opportunity Splits (Revenue Attribution)
+                    </Text>
+                    <Button
+                      size="compact-xs"
+                      variant="subtle"
+                      leftSection={<IconPlus size={11} />}
+                      disabled={assignableUsers.length === 0}
+                      onClick={() => {
+                        const firstUser = assignableUsers[0];
+                        if (!firstUser) return;
+                        setDealsForm((rows) =>
+                          rows.map((r, idx) =>
+                            idx === i
+                              ? {
+                                  ...r,
+                                  splits: [
+                                    ...(r.splits || []),
+                                    { userId: firstUser.ssoUserId, userEmail: firstUser.email, percent: 50, role: 'Co-Owner' },
+                                  ],
+                                }
+                              : r
+                          )
+                        );
+                      }}
+                    >
+                      Add Rep Split
+                    </Button>
+                  </Group>
+                  {(d.splits || []).map((sp, spIdx) => (
+                    <Group key={spIdx} gap="xs" align="flex-end" wrap="nowrap" mb={4}>
+                      <Select
+                        size="xs"
+                        label="Rep"
+                        data={assignableUsers.map((u) => ({
+                          value: u.ssoUserId,
+                          label: u.name ? `${u.name} (${u.email})` : u.email,
+                        }))}
+                        value={sp.userId}
+                        onChange={(v) => {
+                          if (!v) return;
+                          const matched = assignableUsers.find((u) => u.ssoUserId === v);
+                          setDealsForm((rows) =>
+                            rows.map((r, idx) =>
+                              idx === i
+                                ? {
+                                    ...r,
+                                    splits: (r.splits || []).map((s2, s2i) =>
+                                      s2i === spIdx ? { ...s2, userId: v, userEmail: matched?.email } : s2
+                                    ),
+                                  }
+                                : r
+                            )
+                          );
+                        }}
+                        style={{ flex: 2 }}
+                      />
+                      <NumberInput
+                        size="xs"
+                        label="Split %"
+                        min={1}
+                        max={100}
+                        suffix="%"
+                        value={sp.percent}
+                        onChange={(v) =>
+                          setDealsForm((rows) =>
+                            rows.map((r, idx) =>
+                              idx === i
+                                ? {
+                                    ...r,
+                                    splits: (r.splits || []).map((s2, s2i) =>
+                                      s2i === spIdx ? { ...s2, percent: typeof v === 'number' ? v : 50 } : s2
+                                    ),
+                                  }
+                                : r
+                            )
+                          )
+                        }
+                        style={{ flex: 1 }}
+                      />
+                      <TextInput
+                        size="xs"
+                        label="Role"
+                        placeholder="Overlay / SE"
+                        value={sp.role || ''}
+                        onChange={(e) => {
+                          const val = e.currentTarget.value;
+                          setDealsForm((rows) =>
+                            rows.map((r, idx) =>
+                              idx === i
+                                ? {
+                                    ...r,
+                                    splits: (r.splits || []).map((s2, s2i) =>
+                                      s2i === spIdx ? { ...s2, role: val } : s2
+                                    ),
+                                  }
+                                : r
+                            )
+                          );
+                        }}
+                        style={{ flex: 1 }}
+                      />
+                      <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        color="red"
+                        aria-label="Remove split"
+                        onClick={() =>
+                          setDealsForm((rows) =>
+                            rows.map((r, idx) =>
+                              idx === i
+                                ? { ...r, splits: (r.splits || []).filter((_, s2i) => s2i !== spIdx) }
+                                : r
+                            )
+                          )
+                        }
+                      >
+                        <IconTrash size={14} />
+                      </ActionIcon>
+                    </Group>
+                  ))}
+                </Box>
               </Box>
               );
             })}
@@ -2046,6 +2314,19 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
         refreshKey={outreachRefreshKey}
         onOpenCompose={() => setOutreachOpen(true)}
         onContactUpdated={onUpdated}
+        onAddChecklistItem={async (text) => {
+          const updatedChecklist = [...(lead.checklist || []), { text, done: false }];
+          await onAction(lead._id, 'MODIFY', { checklist: updatedChecklist });
+          showNotification({ message: 'Action item added to checklist', color: 'teal', autoClose: 3000 });
+        }}
+        onSetFollowUpNote={async (note) => {
+          const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
+          await onAction(lead._id, 'MODIFY', {
+            nextActionDueAt: lead.nextActionDueAt || tomorrow,
+            nextActionNote: note,
+          });
+          showNotification({ message: 'Follow-up note updated', color: 'teal', autoClose: 3000 });
+        }}
       />
 
       {((normalizedPro && normalizedPro.length > 0) || (normalizedCon && normalizedCon.length > 0)) && (

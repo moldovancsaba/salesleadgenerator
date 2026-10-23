@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.329  
+**Version:** 2.4.330  
 **Production:** https://salesleadgenerator.vercel.app
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -31,8 +31,11 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 - Automated Scheduler Offline Recovery & Pacing Throttles (`lib/scheduler-recovery.ts`, `/api/admin/scheduler-recovery`) with downtime detection, slot redistribution, and cadence catch-up pacing
 - Pipeline Stage Management Modal (`PipelineManagerModal`, `/api/pipelines`) for creating custom pipelines, stages, win probabilities, and default pipeline customization
 - Today rep execution surface and unified daily action queue (`/today/[brand]`) with inline complete/snooze/call-log actions
-- Product catalog and CPQ quote generation (`/admin/products/[brand]`, `/api/quotes`) with multi-line PDF quotes and e-signature tracking
-- Sequences and outreach cadences with manual task completion gating (`call`, `linkedin`, `general`), stop-on-reply, and last-mile suppression
+- Product catalog and CPQ quote generation (`/admin/products/[brand]`, `/api/quotes`) with multi-line PDF quotes, interactive public buyer quote portal (`/quotes/[quoteId]`), and self-service e-signature acceptance (`POST /api/quotes/[quoteId]/accept`)
+- Revenue intelligence & pipeline inspection (`/forecast/[brand]`, `/api/forecast/inspection`) with deal movement waterfalls (New, Advanced, Regressed, Slipped, Won, Lost), engagement-weighted Deal Health Score (0–100 across Kanban, Table, and Lead Detail), and multi-rep opportunity splits (`Deal.splits[]`) with split-adjusted quota attainment
+- Visual Sales Path stepper, interactive BANT/MEDDPICC/Sports Activation discovery playbooks (`SalesPathPlaybookBar`), and call/meeting transcript intelligence analyzer (`lib/transcript-intelligence.ts`) auto-detecting competitor Battlecards, action items, and buying signals
+- Sequences and outreach cadences with 50/50 step A/B testing (`variantTemplateId`) and variant lift analytics, manual task completion gating (`call`, `linkedin`, `general`), stop-on-reply, and last-mile suppression
+- Public & embeddable inbound web lead capture forms (`/forms/[brand]`, `POST /api/forms/[brand]/submit`) and Google Calendar public booking links (`/schedule/[brand]`) with automatic Google Meet video link provisioning and assigned-rep calendar routing
 - RFC 2822 Threaded Email Follow-Ups with `In-Reply-To` and `References` chaining in Outreach Compose and Gmail sync
 - Interactive Merge Token Inserter toolbar in Outreach Compose with live variable hover preview tooltips
 - Lead timeline noise filtering with 48h grace window to suppress historical correspondence predating contact creation
@@ -110,7 +113,7 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 
 ## Versioning
 
-Current app version is **2.4.329** (`APP_VERSION` in `lib/release-notes-dates.ts`, matching `package.json` and displayed visibly in `AppHeader` and `AppNav`).
+Current app version is **2.4.330** (`APP_VERSION` in `lib/release-notes-dates.ts`, matching `package.json` and displayed visibly in `AppHeader` and `AppNav`).
 
 Single source of truth: `package.json` & `lib/release-notes-dates.ts`
 

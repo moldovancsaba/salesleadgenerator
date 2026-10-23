@@ -19,6 +19,10 @@ function viewUrl(origin: string, quoteId: string, shareToken: string): string {
   return `${origin}/api/quotes/${quoteId}/view?token=${shareToken}`;
 }
 
+function portalUrl(origin: string, quoteId: string, shareToken: string): string {
+  return `${origin}/quotes/${quoteId}?token=${shareToken}`;
+}
+
 // Deals: Quote generation (issue #211). GET lists a lead's quotes (newest
 // first) plus canGenerate/canSend feature-detection flags — an additive
 // field beyond the issue's own literal §10 response shape, needed so
@@ -47,7 +51,7 @@ export async function GET(
     const origin = new URL(request.url).origin;
 
     return NextResponse.json({
-      quotes: quotes.map((q) => toPublicQuote(q, viewUrl(origin, q._id, q.shareToken))),
+      quotes: quotes.map((q) => toPublicQuote(q, viewUrl(origin, q._id, q.shareToken), portalUrl(origin, q._id, q.shareToken))),
       canGenerate: isBlobConfigured(),
       canSend: isResendSendConfigured(),
     });
@@ -96,7 +100,7 @@ export async function POST(
 
     const origin = new URL(request.url).origin;
     return NextResponse.json(
-      { quote: toPublicQuote(result.quote, viewUrl(origin, result.quote._id, result.quote.shareToken)) },
+      { quote: toPublicQuote(result.quote, viewUrl(origin, result.quote._id, result.quote.shareToken), portalUrl(origin, result.quote._id, result.quote.shareToken)) },
       { status: result.status }
     );
   } catch (error: any) {

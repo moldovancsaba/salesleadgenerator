@@ -1,12 +1,14 @@
 import type { Db } from 'mongodb';
 import { ObjectId } from 'mongodb';
 import { randomBytes } from 'crypto';
-import { getActiveConnectionByProvider, getValidCredential, ConnectionRevokedError } from './integration-store';
+import { getActiveConnectionByProvider, getUserConnection, getValidCredential, ConnectionRevokedError } from './integration-store';
 import { fetchWithRetry } from '../../lib/integration-http';
 import {
   computeAvailableSlots, isSlotStillAvailable, isRateLimited, isValidAvailabilityWindow,
-  DEFAULT_AVAILABILITY_WINDOW, type AvailabilityWindow, type Slot, type BusyInterval,
+  DEFAULT_AVAILABILITY_WINDOW, buildGoogleMeetEventPayload, extractGoogleMeetUrl,
+  type AvailabilityWindow, type Slot, type BusyInterval,
 } from '../../lib/scheduling';
+import type { IntegrationConnection } from '../../lib/integration-connections';
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes, type ActivityLogDocument } from './activity-log-store';
 import { getBrandConfig, type Brand } from './brand';
 import { tenantFilter } from '../../lib/tenant';
@@ -97,27 +99,74 @@ async function fetchFreeBusy(token: string, rangeStart: string, rangeEnd: string
   return busy.map((b: any) => ({ start: b.start, end: b.end }));
 }
 
-async function createCalendarEvent(token: string, params: { start: string; end: string; summary: string; attendeeEmail: string }): Promise<{ id: string } | null> {
-  const res = await fetchWithRetry(`${CALENDAR_API_BASE}/calendars/primary/events`, {
+async function createCalendarEvent(
+  token: string,
+  params: { start: string; end: string; summary: string; attendeeEmail: string }
+): Promise<{ id: string; meetingUrl?: string } | null> {
+  const requestId = `meet_${randomBytes(8).toString('hex')}`;
+  const payload = buildGoogleMeetEventPayload({
+    ...params,
+    requestId,
+  });
+  const res = await fetchWithRetry(`${CALENDAR_API_BASE}/calendars/primary/events?conferenceDataVersion=1`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      summary: params.summary,
-      start: { dateTime: params.start },
-      end: { dateTime: params.end },
-      attendees: [{ email: params.attendeeEmail }],
-    }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) return null;
-  return res.json();
+  const body = await res.json();
+  return {
+    id: body.id,
+    meetingUrl: extractGoogleMeetUrl(body),
+  };
+}
+
+// Issue #279 — resolves the assigned rep's personal google_calendar connection
+// first when the booking is tied to a lead with assignedTo / assignedToEmail,
+// falling back to the brand-level google_calendar connection.
+async function resolveSchedulingCalendarConnection(
+  db: Db,
+  brand: Brand,
+  tenantId: string,
+  leadId?: string
+): Promise<{ connection: IntegrationConnection | null; hostEmail?: string }> {
+  if (leadId && ObjectId.isValid(leadId)) {
+    const config = await getBrandConfig(brand);
+    if (config) {
+      const leadDoc = await db.collection(config.dbCollection).findOne(
+        { _id: new ObjectId(leadId), ...tenantFilter(tenantId) },
+        { projection: { assignedTo: 1, assignedToEmail: 1 } }
+      );
+      const assignedUserId = typeof leadDoc?.assignedTo === 'string' && leadDoc.assignedTo.trim()
+        ? leadDoc.assignedTo.trim()
+        : undefined;
+      const assignedEmail = typeof leadDoc?.assignedToEmail === 'string' && leadDoc.assignedToEmail.trim()
+        ? leadDoc.assignedToEmail.trim()
+        : undefined;
+      if (assignedUserId) {
+        const repConn = await getUserConnection(db, assignedUserId, 'google_calendar', assignedEmail);
+        if (repConn) {
+          return { connection: repConn, hostEmail: repConn.userEmail || assignedEmail };
+        }
+      }
+    }
+  }
+  const brandConn = await getActiveConnectionByProvider(db, brand, tenantId, 'google_calendar');
+  return { connection: brandConn, hostEmail: brandConn?.userEmail };
 }
 
 export type AvailabilityResult =
-  | { ok: true; slots: Slot[] }
+  | { ok: true; slots: Slot[]; hostEmail?: string }
   | { ok: false; status: 404 | 503; error: string };
 
-export async function getAvailability(db: Db, brand: Brand, tenantId: string, days: number): Promise<AvailabilityResult> {
-  const connection = await getActiveConnectionByProvider(db, brand, tenantId, 'google_calendar');
+export async function getAvailability(
+  db: Db,
+  brand: Brand,
+  tenantId: string,
+  days: number,
+  leadId?: string
+): Promise<AvailabilityResult> {
+  const { connection, hostEmail } = await resolveSchedulingCalendarConnection(db, brand, tenantId, leadId);
   if (!connection) return { ok: false, status: 404, error: 'This scheduling link is not available right now' };
 
   let token: string;
@@ -139,11 +188,11 @@ export async function getAvailability(db: Db, brand: Brand, tenantId: string, da
   }
 
   const slots = computeAvailableSlots({ rangeStart, rangeEnd, timeZone: settings.timeZone, window: settings.availabilityWindow, busy });
-  return { ok: true, slots };
+  return { ok: true, slots, hostEmail };
 }
 
 export type BookingResult =
-  | { ok: true; startAt: string; endAt: string }
+  | { ok: true; startAt: string; endAt: string; meetingUrl?: string; hostEmail?: string }
   | { ok: false; status: 404 | 409 | 503; error: string; freshSlots?: Slot[] };
 
 // Race-safe commit (issue #207 §11/§15): a short-lived, unique-indexed
@@ -194,7 +243,7 @@ export async function resolveSchedulingLinkToken(db: Db, brand: Brand, tenantId:
 export async function bookSlot(db: Db, brand: Brand, tenantId: string, params: {
   slotStart: string; slotEnd: string; leadId?: string; prospectName: string; prospectEmail: string;
 }): Promise<BookingResult> {
-  const connection = await getActiveConnectionByProvider(db, brand, tenantId, 'google_calendar');
+  const { connection, hostEmail } = await resolveSchedulingCalendarConnection(db, brand, tenantId, params.leadId);
   if (!connection) return { ok: false, status: 404, error: 'This scheduling link is not available right now' };
 
   let token: string;
@@ -230,21 +279,14 @@ export async function bookSlot(db: Db, brand: Brand, tenantId: string, params: {
     throw error;
   }
 
-  // The claim above exists only to win the TOCTOU race for the moment of
-  // creation; once we know creation failed (rejected by Google, or the
-  // call itself couldn't complete), it must not keep blocking the slot for
-  // its own TTL — that would tell the very next request (often the same
-  // prospect retrying immediately) the slot is taken when nothing was
-  // actually booked. Release it explicitly on every failure path rather
-  // than waiting out SLOT_CLAIM_TTL_SECONDS.
-  let event: { id: string } | null;
+  let event: { id: string; meetingUrl?: string } | null;
   try {
     event = await createCalendarEvent(token, {
       start: params.slotStart, end: params.slotEnd,
       summary: `Meeting: ${params.prospectName}`,
       attendeeEmail: params.prospectEmail,
     });
-  } catch (error) {
+  } catch {
     await db.collection(SCHEDULING_SLOT_CLAIMS_COLLECTION).deleteOne({ _id: claimId as any }).catch(() => {});
     return { ok: false, status: 503, error: 'This scheduling link is temporarily unavailable' };
   }
@@ -266,6 +308,7 @@ export async function bookSlot(db: Db, brand: Brand, tenantId: string, params: {
     meetingProvider: 'google',
     meetingEventId: event.id,
     meetingBookedByEmail: params.prospectEmail,
+    ...(event.meetingUrl ? { meetingUrl: event.meetingUrl } : {}),
     createdAt: new Date(),
   } as ActivityLogDocument;
   await db.collection(ACTIVITY_LOG_COLLECTION).insertOne(activityDoc as any);
@@ -275,16 +318,26 @@ export async function bookSlot(db: Db, brand: Brand, tenantId: string, params: {
     if (brandConfig) {
       await db.collection(brandConfig.dbCollection).updateOne(
         { _id: new ObjectId(params.leadId), ...tenantFilter(tenantId) },
-        { $set: { nextActionDueAt: params.slotStart, nextActionNote: `Meeting scheduled for ${params.slotStart}`, updatedAt: new Date().toISOString() } }
+        {
+          $set: {
+            nextActionDueAt: params.slotStart,
+            nextActionNote: `Meeting scheduled for ${params.slotStart}${event.meetingUrl ? ` (${event.meetingUrl})` : ''}`,
+            updatedAt: new Date().toISOString(),
+          },
+        }
       ).catch((error) => {
-        // The prospect's booking must never fail because of internal-app
-        // state (issue #207 §15) — logged for manual follow-up, not thrown.
         console.error('[scheduling-store] lead write-back failed', error);
       });
     }
   }
 
-  return { ok: true, startAt: params.slotStart, endAt: params.slotEnd };
+  return {
+    ok: true,
+    startAt: params.slotStart,
+    endAt: params.slotEnd,
+    meetingUrl: event.meetingUrl,
+    hostEmail,
+  };
 }
 
 export { ConnectionRevokedError };
