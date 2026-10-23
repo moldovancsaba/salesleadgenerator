@@ -559,9 +559,19 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
               logout();
             }}
           />
-          <Text size="xs" c="dimmed" ta="center" mt="xs">
-            Version {APP_VERSION}
-          </Text>
+          <Group justify="center" gap="xs" mt="xs">
+            <Text component={Link} href="/privacy" size="xs" c="dimmed">
+              Privacy
+            </Text>
+            <Text size="xs" c="dimmed">•</Text>
+            <Text component={Link} href="/terms" size="xs" c="dimmed">
+              Terms
+            </Text>
+            <Text size="xs" c="dimmed">•</Text>
+            <Text size="xs" c="dimmed">
+              Version {APP_VERSION}
+            </Text>
+          </Group>
           <UserSettingsModal
             opened={userSettingsOpen}
             onClose={() => setUserSettingsOpen(false)}

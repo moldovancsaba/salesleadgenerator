@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Version:** 2.4.330
+**Version:** 2.4.331
 
 ---
 
@@ -13,6 +13,8 @@
 ## Detailed Documentation
 
 - `docs/USER_GUIDE.md` — canonical end-user user guide for sales reps and account executives across all CRM surfaces
+- `docs/PRIVACY_POLICY.md` — canonical privacy policy with Google API User Data Policy & Limited Use compliance
+- `docs/TERMS_OF_SERVICE.md` — canonical terms of service, mailbox integration authorization, and anti-spam terms
 - `docs/ARCHITECTURE.md` — system context, request flows, data model, module map, auth, deployment
 - `docs/LLD.md` — low-level design, route inventory, module catalog, component hierarchy
 - `docs/OPERATOR_GUIDE.md` — daily workflow, outreach, filters, API examples, known issues

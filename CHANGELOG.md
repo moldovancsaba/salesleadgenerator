@@ -1,5 +1,26 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.332
+
+### Compliance & Legal: Comprehensive Privacy Policy, Terms of Service, and Mailbox OAuth Send/Receive Disclosures
+
+- **Canonical Privacy Policy & Terms of Service (Issue #286, `docs/PRIVACY_POLICY.md`, `docs/TERMS_OF_SERVICE.md`):**
+  - Authored comprehensive canonical `PRIVACY_POLICY.md` complying with Google API Services User Data Policy (including Limited Use requirements: strict prohibition on transferring user data to third parties, using data for advertising, or training artificial intelligence / machine learning models without user consent, with no human reading of emails except with user permission or for security investigations).
+  - Detailed explicit, step-by-step disclosures on how sales reps connect personal mailboxes (Google Workspace / Gmail OAuth 2.0 PKCE), how outbound emails are sent through the Gmail REST API with RFC 2822 threading, and how 2-way inbound sync operates via Data Minimization filtering (evaluating CRM-matched threads without ingesting non-CRM emails into storage).
+  - Documented enterprise cryptographic security controls (AES-256-GCM token encryption, zero plaintext credentials), fail-closed multi-tenant mailbox isolation, one-click mailbox disconnect and automatic cryptographic purge, and full GDPR / CCPA data subject rights.
+  - Authored binding `TERMS_OF_SERVICE.md` establishing explicit customer obligations regarding anti-spam compliance (CAN-SPAM, GDPR, PECR), prohibited outbound spam, mandatory opt-out mechanisms, customer data ownership, service availability, liability limitations, and Hungarian governing law.
+- **Dedicated Public Web Routes (Issue #286, `app/privacy/page.tsx`, `app/terms/page.tsx`):**
+  - Created unauthenticated, public-facing web routes `/privacy` and `/terms` rendered with Government Digital Service (GDS) design principles, Mantine Typography, and comprehensive responsive navigation links.
+- **In-App Disclosures & Navigation Integration (Issue #286, `app/components/UserSettingsModal.tsx`, `app/components/AppNav.tsx`):**
+  - Integrated explicit OAuth consent and security policy notices inside `UserSettingsModal` directly beneath the "Personal Mailboxes (Google / Gmail)" heading, linking directly to `/privacy` and `/terms`.
+  - Added public footer links to `Privacy` and `Terms` in `AppNav` navigation chrome next to the application version number.
+- **Documentation & Technical Spec Alignment (Issue #286, `docs/USER_EMAIL_INTEGRATION_SPEC.md`, `docs/USER_GUIDE.md`, `docs/ARCHITECTURE.md`, `docs/INDEX.md`, `docs/DOC_LINT.md`, `README.md`, `HANDOVER.md`, `roadmap.md`):**
+  - Added dedicated Section 5 to `USER_EMAIL_INTEGRATION_SPEC.md` covering Google API Limited Use compliance, scopes, and customer security posture.
+  - Added Section 16 to `USER_GUIDE.md` outlining mailbox connection legal requirements, data protection, and user rights.
+  - Synchronized repo documentation index, doc-lint rules, architecture, and roadmap tracking.
+- **Automated Verification (Issue #286, `tests/lib/legal-compliance.test.ts`):**
+  - Added automated test suite ensuring required compliance clauses, public route availability, component consent disclosures, and doc catalog references are permanently enforced in CI.
+
 ## 2.4.331
 
 ### Forecast Categories Completion: Omitted Category, Per-Category Deal Drill-Down & Inline Table View Editing

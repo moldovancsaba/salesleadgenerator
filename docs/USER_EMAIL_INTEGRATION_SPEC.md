@@ -168,3 +168,41 @@ export type IntegrationConnection = {
   - Decoupled contaminated foreign contacts from PSV Eindhoven (`6a57c08110cd2d62348d3309`), restoring clean club contacts (`s.jacobs@psv.nl` and Chairman Robert Van Der Wallen).
   - Backfilled attribution across 100% of activity logs in `activityLog` with valid `userEmail` and `userId`.
 
+---
+
+## 5. Legal, Regulatory & Google API Limited Use Compliance (#286)
+
+### Google API Services User Data Policy & Limited Use Disclosure
+Sales Lead Generator strictly complies with the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements:
+1. **No AI/ML Training**: Google User Data (including message contents, headers, bodies, or attachments) is **never used to develop, train, fine-tune, or improve generalized artificial intelligence (AI) models, large language models (LLMs), or machine learning (ML) algorithms**.
+2. **No Data Selling or Advertising**: Google User Data is never sold, rented, leased, or transferred to third-party brokers, nor used for serving any form of advertising (including targeted, retargeted, or interest-based ads).
+3. **Restricted Sub-Processor Sharing**: Google User Data is transferred only to secure, SOC-2 compliant hosting providers (MongoDB Atlas for encrypted storage, Vercel for serverless execution) strictly as necessary to provide user-facing CRM features.
+4. **Human Reading Prohibitions**: No human reads email message contents unless explicit user consent is granted for specific technical support instances, required for security/fraud investigations, or mandated by law.
+
+### Mailbox Connection & User Consent Workflow
+- Sales representatives connect their mailboxes voluntarily via the **My Account & Integrations** modal (`app/components/UserSettingsModal.tsx`).
+- The authorization flow initiates via Google OAuth 2.0 with PKCE (`S256`) requesting minimal scopes:
+  - `gmail.send`: 1:1 business outreach and sequence steps dispatched directly from the rep's mailbox.
+  - `gmail.readonly`: Inbound reply synchronization restricted to CRM lead contacts.
+  - `userinfo.email`: Identity resolution and sender account assignment.
+- Disclosures and direct links to `/privacy` and `/terms` are presented directly within `UserSettingsModal.tsx`.
+
+### Inbound Email Synchronization (Receiving Emails)
+- **Data Minimization Gate**: Background sync inspects message metadata against registered CRM lead and contact email addresses. Emails not involving a known CRM contact are **immediately discarded without fetching or storing message contents**.
+- **Internal Domain Shield**: Colleagues on `INTERNAL_COMPANY_DOMAINS` are shielded, preventing internal administrative or operational correspondence from polluting the CRM.
+- **Fail-Closed Privacy Guard**: Reps only access their own synced correspondence. Unauthenticated or unresolved sessions return 0 threads.
+
+### Outbound Email Dispatch (Sending Emails)
+- Messages are dispatched directly via Google's official Gmail REST API (`POST https://gmail.googleapis.com/gmail/v1/users/me/messages/send`) using the rep's authenticated credentials, preserving SPF, DKIM, and DMARC integrity.
+- Automated cadence sequences automatically terminate upon prospect reply to prevent redundant contact.
+- Gmail SendAs signatures are synchronized and formatted with standard RFC 3676 delimiters (`-- `).
+
+### Anti-Spam Obligations & Acceptable Use
+- Users must comply with the CAN-SPAM Act, GDPR, and ePrivacy/PECR regulations.
+- Truthful header information and non-misleading subject lines are strictly required.
+- Reps must promptly honor opt-out and unsubscribe requests.
+
+### Canonical Legal Documentation & Public Routes
+- Canonical Privacy Policy: `docs/PRIVACY_POLICY.md` and public endpoint `/privacy` (`app/privacy/page.tsx`).
+- Canonical Terms of Service: `docs/TERMS_OF_SERVICE.md` and public endpoint `/terms` (`app/terms/page.tsx`).
+

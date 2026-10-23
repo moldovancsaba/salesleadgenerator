@@ -453,6 +453,8 @@ The concrete pattern that distinguishes the two layers: `lib/cadences.ts` has th
 - `app/layout.tsx` — `RootLayout`, mounts `Providers`/`AuthProvider`/`AppNav`/`AppSidebar`
 - `app/sidebar.tsx` — `AppSidebar` — docked collapsible sidebar navigation (`>= 768px`) with persistent collapsed toggle, drawer fallback on mobile (issue #245)
 - `app/offline/page.tsx` — `OfflinePage` — standalone PWA offline shell (issue #238)
+- `app/privacy/page.tsx` — `PrivacyPolicyPage` — public legal privacy policy with Google API User Data Policy & Limited Use compliance (issue #286)
+- `app/terms/page.tsx` — `TermsOfServicePage` — public legal terms of service, mailbox integration authorization, and anti-spam terms (issue #286)
 - `app/error.tsx` — `GlobalError` (Next.js error boundary page)
 
 ### 5.2 `app/components/*.tsx`

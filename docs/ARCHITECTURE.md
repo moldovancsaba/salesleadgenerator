@@ -1378,6 +1378,20 @@ Ingests CRM Handoff 07 (Email Engagement Read Model & Status Precedence) into Sa
 - **Documents REST API Surface (`app/api/documents/route.ts` & `app/api/documents/[id]/route.ts`):** `GET /api/documents?brand=<brand>` (list documents) and `POST /api/documents` (register document metadata) with `requireBrandAccessApi` authentication. `DELETE /api/documents/[id]?brand=<brand>` protected by the `canDeleteDocument` fail-closed safety check.
 - **Test Coverage:** `tests/lib/documents.test.ts` (16 unit tests), `tests/lib/outreach-send.test.ts` (attachment missing dispatch verification), and `tests/lib/cadences.test.ts` (step documentIds sanitization).
 
+### Legal, Privacy & Google API Limited Use Compliance (2.4.331, issue #286)
+- **Canonical Legal Documents & Public Endpoints:** Canonical Privacy Policy (`docs/PRIVACY_POLICY.md`, `/privacy`) and Terms of Service (`docs/TERMS_OF_SERVICE.md`, `/terms`).
+- **Google API Services User Data Policy Compliance:** Strict adherence to the Limited Use requirements:
+  - *No AI/ML Training:* Google User Data (including message contents, headers, bodies, or attachments) is never used to develop, train, fine-tune, or improve generalized AI/ML models or LLMs.
+  - *No Data Selling:* Google User Data is never sold, leased, or transferred to third-party brokers.
+  - *No Advertising:* Never used for serving targeted, retargeted, or interest-based ads.
+  - *No Human Reading:* Strictly restricted to explicit user consent for technical support, security/fraud investigations, or statutory legal mandates.
+- **Mailbox Connection Architecture:** Sales reps connect personal and corporate mailboxes via Google OAuth 2.0 PKCE (`S256`) requesting minimal scopes (`gmail.send`, `gmail.readonly`, `userinfo.email`).
+- **Inbound Data Minimization Gate:** Background sync checks message metadata against registered CRM lead/contact email addresses; non-CRM emails are immediately skipped and never fetched, parsed, or stored.
+- **Fail-Closed Mailbox Isolation:** Reps only access their own synced correspondence and assigned leads; unresolved sessions return 0 threads.
+- **Outbound Direct Dispatch:** Outreach is dispatched directly through Google's Gmail REST API from the rep's authenticated account with standard RFC 2822 threading headers and synchronized SendAs signatures.
+- **Token Security:** Stored OAuth access and refresh tokens are encrypted at rest using AES-256-GCM.
+- **Anti-Spam Requirements:** Mandatory adherence to CAN-SPAM, GDPR, and ePrivacy/PECR standards with automated stop-on-reply cadence cancellation.
+
 ### Google Calendar Task Reminders Sync (Phase 8, issue #244)
 - **Google Calendar Task Reminders Engine (`lib/gcal-sync.ts`):** Ingests CRM Handoff 08 (Google Calendar Sync). Bridges manual sequence tasks (`call`, `linkedin`, `general`) and rep follow-up reminders to Google Calendar via the third-party integration connection hub (`lib/integration-connections.ts`).
 - **Deterministic Event IDs (`deriveCalendarEventId`):** Event IDs are derived deterministically from the task ID (`slg` prefix + sanitized `[a-v0-9]` string), strictly meeting Google Calendar RFC requirements. Idempotent retries reuse the deterministic ID so background job retries or worker restarts never duplicate events.

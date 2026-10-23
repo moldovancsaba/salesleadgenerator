@@ -24,6 +24,7 @@ Welcome to **Sales Lead Generator**, an intelligent, multi-brand CRM and sales e
 13. [PWA Offline Support & Command Palette](#13-pwa-offline-support--command-palette)
 14. [Admin Settings & Mailbox Scoping Policy](#14-admin-settings--mailbox-scoping-policy)
 15. [What's New & Release Notes Blog](#15-whats-new--release-notes-blog)
+16. [Legal, Privacy & Terms of Service](#16-legal-privacy--terms-of-service)
 
 ---
 
@@ -354,3 +355,22 @@ Navigate to `/whats-new/[brand]` (or click the `v2.4.330` version badge / ✨ sp
 - **Category & Search Filtering**: Filter releases in real time by keyword (e.g. `inbox`, `calendar`, `table`, `sso`) or switch between **All Updates**, **🚀 What's New**, **🛠️ What's Fixed**, and **🔒 Security**.
 - **Direct Deep Links & Raw Markdown**: Copy a direct anchor link to any release (`/whats-new/[brand]#v2-4-328`) or expand the raw changelog markdown drawer for technical verification.
 - **Unread Release Indicator**: When a new version ships, an unread dot appears on the What's New icon in the header and sidebar until you visit the page.
+
+---
+
+## 16. Legal, Privacy & Terms of Service
+
+Sales Lead Generator provides comprehensive legal documentation and public transparency regarding user data protection, mailbox integrations, and anti-spam obligations:
+
+### Mailbox Integration & Google User Data Disclosures
+- **How to Connect Your Mailbox**: Open **Email & Integrations** in the navigation menu and click **Connect with Google** to authenticate via Google OAuth 2.0 PKCE.
+- **Outbound Email Authorization**: Connecting a mailbox authorizes the Service to send 1:1 business outreach emails and automated sequence follow-ups directly from your authenticated address via the official Gmail REST API.
+- **Inbound Email Receiving & Data Minimization**: When checking for incoming replies, the sync engine only ingests emails from recognized CRM leads and contacts. Personal correspondence and non-CRM emails are **immediately skipped and never fetched, parsed, or stored**.
+- **User Mailbox Isolation**: Reps only see emails sent to or received from their own connected mailboxes or assigned leads. Unverified sessions strictly fail closed with zero threads.
+- **Google Limited Use Compliance**: We strictly adhere to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy). Google User Data is **never used to train, develop, or improve AI/ML models**, never sold to third parties, and never used for advertising.
+- **Token Security**: Stored OAuth access and refresh tokens are encrypted at rest using **AES-256-GCM** encryption.
+- **1-Click Disconnection**: You can disconnect your account and revoke token access at any time in **Email & Integrations** or via [Google Account Permissions](https://myaccount.google.com/permissions).
+
+### Public Legal Endpoints
+- **Privacy Policy**: Accessible at [`/privacy`](https://salesleadgenerator.vercel.app/privacy) and canonically documented in `docs/PRIVACY_POLICY.md`.
+- **Terms of Service**: Accessible at [`/terms`](https://salesleadgenerator.vercel.app/terms) and canonically documented in `docs/TERMS_OF_SERVICE.md`.

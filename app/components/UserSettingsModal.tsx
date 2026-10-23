@@ -345,8 +345,18 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
 
         <div>
           <Title order={5} mb={4}>Personal Mailboxes (Google / Gmail)</Title>
-          <Text size="xs" c="dimmed">
+          <Text size="xs" c="dimmed" mb={4}>
             Connect one or more Google accounts to send outreach emails directly from your personal or brand mailboxes and automatically sync lead replies.
+          </Text>
+          <Text size="xs" c="dimmed">
+            By connecting, you authorize message sending and sync under our{' '}
+            <Text component="a" href="/privacy" target="_blank" rel="noopener noreferrer" size="xs" c="indigo" inherit style={{ textDecoration: 'underline' }}>
+              Privacy Policy
+            </Text>{' '}
+            and{' '}
+            <Text component="a" href="/terms" target="_blank" rel="noopener noreferrer" size="xs" c="indigo" inherit style={{ textDecoration: 'underline' }}>
+              Terms of Service
+            </Text>. Google User Data is never used for AI/ML training or sold.
           </Text>
         </div>
 
@@ -651,7 +661,16 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
           </Paper>
         )}
 
-        <Group justify="flex-end" mt="xs">
+        <Group justify="space-between" align="center" mt="xs">
+          <Group gap="xs">
+            <Text component="a" href="/privacy" target="_blank" rel="noopener noreferrer" size="xs" c="dimmed">
+              Privacy Policy
+            </Text>
+            <Text size="xs" c="dimmed">•</Text>
+            <Text component="a" href="/terms" target="_blank" rel="noopener noreferrer" size="xs" c="dimmed">
+              Terms of Service
+            </Text>
+          </Group>
           <Button variant="default" onClick={onClose} size="sm">
             Close
           </Button>
