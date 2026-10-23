@@ -38,7 +38,7 @@ Sales Lead Generator uses DoneIsBetter Single Sign-On (SSO). Click **Sign in** t
 ### Navigation Layout
 - **Desktop & Tablet (`>= 768px`)**: A docked, collapsible sidebar navigation sits on the left edge, grouped into **Core CRM** (`Today`, `Inbox`, `Pipeline`, `Contacts`, `Accounts`), **Outreach & Content** (`Cadences`, `Outreach Templates`, `Documents`, `Battlecards`), **Analytics** (`Forecast`, `Reports`), **Settings** (`Sales Settings`, `Product Catalog`, `Automation`), and **Help & Updates** (`What's New`, `Take the tour`). When the sidebar is collapsed, horizontal navigation links appear in the top header bar.
 - **Mobile (`< 768px`)**: Tap the hamburger menu (☰) in the top bar to open the navigation drawer.
-- **Version Indicator & What's New**: The live application version badge (`v2.4.330`) is displayed in the top header next to the application title and in the navigation sidebar, linking directly to the **What's New & Release Notes** blog.
+- **Version Indicator & What's New**: The live application version badge (`v2.4.331`) is displayed in the top header next to the application title and in the navigation sidebar, linking directly to the **What's New & Release Notes** blog.
 - **Brand Switcher**: If you have access to multiple brands, use the **Organization** dropdown at the top of the sidebar (or in the top header when the sidebar is collapsed) to switch workspaces instantly without duplicate controls.
 - **Full-Width Workspace**: All tables, boards, and inboxes expand to 100% display width for maximum data scannability.
 
@@ -290,6 +290,8 @@ Configure products and generate professional PDF quotes from `/admin/products/[b
 - **Null-Safety & Filtering**: Real-time filtering by date range, stage, and owner with automatic null-data sanitization.
 
 ### Forecast Projections & Pipeline Inspection (`/forecast/[brand]`)
+- **Forecast Categories & Per-Category Deal Drill-Down**: Analyze pipeline across 5 standard CRM categories: **Pipeline**, **Best Case**, **Commit**, **Closed**, and **Omitted** (weight 0%, allowing reps to park or exclude non-forecastable deals without deleting them or forcing a `LOST` stage move). Click any category card to open the interactive deal-level drill-down list displaying top contributing opportunities, raw deal values, weighted values, and assignment origin (Stage Default vs Manual Override).
+- **Inline Forecast Category Editing in Table View**: On `/sales/[brand]` (Table View), use the sortable `Forecast` column to reassign categories on the fly with 1-click `↺ Reset (Stage Default)` support when an override is active.
 - **Pipeline Inspection & Deal Movement Waterfall**: Inspect deal flow across 7d, 14d, 30d, or 90d windows broken down into 6 clickable buckets: **New Pipeline**, **Advanced**, **Regressed**, **Slipped Close Date**, **Closed Won**, and **Closed Lost**.
 - **Split-Adjusted Quota Attainment**: Rep attainment automatically credits multi-rep Opportunity Splits (`Deal.splits[]`).
 - Real-time pipeline weighting and revenue projections.

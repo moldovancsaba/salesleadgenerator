@@ -23,7 +23,7 @@ import { ActivityPanel } from './components/ActivityPanel';
 import { CadencePanel } from './components/CadencePanel';
 import { SalesPathPlaybookBar } from './components/SalesPathPlaybookBar';
 import { resolveBuyingRole, deriveIsDecisionMaker } from '@/lib/contacts';
-import { FORECAST_CATEGORIES, resolveDefaultCategory, effectiveForecastCategory } from '@/lib/forecast-category';
+import { FORECAST_CATEGORIES, FORECAST_CATEGORY_LABEL, resolveDefaultCategory, effectiveForecastCategory } from '@/lib/forecast-category';
 import type { ForecastCategory } from '@/lib/forecast-category';
 import {
   IconX,
@@ -60,13 +60,6 @@ const BUYING_ROLE_BADGE: Partial<Record<NonNullable<Lead['contacts']>[number]['b
   influencer: { label: 'Influencer', color: 'grape' },
   blocker: { label: 'Blocker', color: 'red' },
   decision_maker: { label: 'Decision Maker', color: 'blue' },
-};
-
-const FORECAST_CATEGORY_LABEL: Record<ForecastCategory, string> = {
-  pipeline: 'Pipeline',
-  best_case: 'Best Case',
-  commit: 'Commit',
-  closed: 'Closed',
 };
 
 type Props = {

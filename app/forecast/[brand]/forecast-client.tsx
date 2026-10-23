@@ -17,6 +17,13 @@ import {
   type PipelineInspectionReport,
   type InspectionLeadRow,
 } from '@/lib/pipeline-inspection';
+import {
+  FORECAST_CATEGORIES,
+  FORECAST_CATEGORY_LABEL,
+  type ForecastCategory,
+  type CategoryBreakdownEntry,
+  type CategoryDealSummary,
+} from '@/lib/forecast-category';
 
 type ConcentrationRisk = {
   topLeadId: string;
@@ -38,10 +45,6 @@ type Coverage = {
   currencyMismatch: boolean;
 };
 
-type ForecastCategory = 'pipeline' | 'best_case' | 'commit' | 'closed';
-
-type CategoryBreakdownEntry = { leads: number; rawRevenue: number; weightedRevenue: number; weight: number | null };
-
 type Forecast = {
   pipeline?: Record<string, { leads: number; participants: number; rawRevenue: number; probability: number; weightedRevenue: number; probabilitySource?: 'static' | 'calibrated'; concentrationRisk?: ConcentrationRisk | null }>;
   totalWeightedRevenue?: number;
@@ -60,13 +63,7 @@ type Forecast = {
   categoryWeightsUsed?: Record<ForecastCategory, number>;
 };
 
-const FORECAST_CATEGORY_ORDER: ForecastCategory[] = ['pipeline', 'best_case', 'commit', 'closed'];
-const FORECAST_CATEGORY_LABEL: Record<ForecastCategory, string> = {
-  pipeline: 'Pipeline',
-  best_case: 'Best Case',
-  commit: 'Commit',
-  closed: 'Closed',
-};
+const FORECAST_CATEGORY_ORDER: ForecastCategory[] = ['pipeline', 'best_case', 'commit', 'closed', 'omitted'];
 
 type StageStat = { sampleSize: number; wonCount: number; lostCount: number; rate: number; confidence: 'ok' | 'insufficient' };
 type WinRatesResponse = { tenantId: string; brand: string; computedAt: string | null; windowDays: number | null; minSampleSize: number; stages: Record<string, StageStat> };
@@ -171,6 +168,9 @@ export function ForecastClient({ brand, label }: Props) {
   const [inspectionLoading, setInspectionLoading] = useState(true);
   const [inspectionError, setInspectionError] = useState<string | null>(null);
   const [selectedBucket, setSelectedBucket] = useState<InspectionMovementBucket | 'all'>('all');
+
+  // Forecast Category Drill-Down (issue #285)
+  const [selectedForecastCategory, setSelectedForecastCategory] = useState<ForecastCategory | null>(null);
 
   const loadForecast = useCallback(async (brandKey: string) => {
     setLoading(true);
@@ -899,8 +899,8 @@ export function ForecastClient({ brand, label }: Props) {
             <div>
               <Title order={4}>Forecast Category</Title>
               <Text size="xs" c="dimmed">
-                Rep-editable Pipeline / Best Case / Commit / Closed view, shown alongside the stage-weighted
-                total above — an additive second lens on the same leads, not a replacement.
+                Rep-editable Pipeline / Best Case / Commit / Closed / Omitted view, shown alongside the stage-weighted
+                total above — an additive second lens on the same leads, not a replacement. Click a category to inspect its deals.
               </Text>
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -908,22 +908,144 @@ export function ForecastClient({ brand, label }: Props) {
               <Text fw={700} size="lg">${(data.categoryWeightedRevenue || 0).toLocaleString()}</Text>
             </div>
           </Group>
-          <SimpleGrid cols={{ base: 2, md: 4 }}>
+          <SimpleGrid cols={{ base: 2, sm: 3, md: 5 }}>
             {FORECAST_CATEGORY_ORDER.map((cat) => {
               const row = data.byCategory?.[cat];
               if (!row) return null;
+              const isSelected = selectedForecastCategory === cat;
               return (
-                <div key={cat}>
-                  <Text size="xs" c="dimmed">{FORECAST_CATEGORY_LABEL[cat]}</Text>
-                  <Text fw={700}>${row.weightedRevenue.toLocaleString()}</Text>
+                <Paper
+                  key={cat}
+                  withBorder
+                  p="xs"
+                  radius="sm"
+                  style={{
+                    cursor: 'pointer',
+                    borderColor: isSelected ? 'var(--mantine-color-indigo-6)' : undefined,
+                    backgroundColor: isSelected ? 'var(--mantine-color-indigo-0)' : undefined,
+                    transition: 'border-color 150ms ease, background-color 150ms ease',
+                  }}
+                  onClick={() => setSelectedForecastCategory(isSelected ? null : cat)}
+                >
+                  <Group justify="space-between" wrap="nowrap" mb={2}>
+                    <Text size="xs" fw={isSelected ? 700 : 500} c={isSelected ? 'indigo' : 'dimmed'}>
+                      {FORECAST_CATEGORY_LABEL[cat]}
+                    </Text>
+                    {cat === 'omitted' && (
+                      <LabelTag size="xs" tone="neutral" label="Weight 0%" />
+                    )}
+                  </Group>
+                  <Text fw={700} size="md">${row.weightedRevenue.toLocaleString()}</Text>
                   <Text size="xs" c="dimmed">
                     {row.leads} leads · raw ${row.rawRevenue.toLocaleString()}
                     {row.weight !== null ? ` · ${Math.round(row.weight * 100)}%` : ''}
                   </Text>
-                </div>
+                  <Text size="xs" c={isSelected ? 'indigo' : 'dimmed'} mt={4}>
+                    {isSelected ? 'Hide deals ▲' : 'View deals ▼'}
+                  </Text>
+                </Paper>
               );
             })}
           </SimpleGrid>
+
+          {selectedForecastCategory && data.byCategory?.[selectedForecastCategory] && (
+            <Box mt="md" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>
+              <Group justify="space-between" mb="xs">
+                <div>
+                  <Group gap="xs" align="center">
+                    <Title order={5}>
+                      {FORECAST_CATEGORY_LABEL[selectedForecastCategory]} Deals
+                    </Title>
+                    <LabelTag
+                      size="xs"
+                      tone="info"
+                      label={`${data.byCategory[selectedForecastCategory].deals?.length || 0} top deals`}
+                    />
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    Top deals contributing to {FORECAST_CATEGORY_LABEL[selectedForecastCategory]}.
+                    {selectedForecastCategory === 'omitted' && ' These deals are excluded from category-weighted revenue.'}
+                  </Text>
+                </div>
+                <Button
+                  size="xs"
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => setSelectedForecastCategory(null)}
+                >
+                  Close drill-down
+                </Button>
+              </Group>
+
+              {(!data.byCategory[selectedForecastCategory].deals || data.byCategory[selectedForecastCategory].deals.length === 0) ? (
+                <MissingDataPrompt
+                  title={`No deals in ${FORECAST_CATEGORY_LABEL[selectedForecastCategory]}`}
+                  description="No deals are currently assigned or mapped to this forecast category."
+                />
+              ) : (
+                <AdminDataTable<CategoryDealSummary>
+                  rows={data.byCategory[selectedForecastCategory].deals!}
+                  caption={`${FORECAST_CATEGORY_LABEL[selectedForecastCategory]} deals`}
+                  columns={[
+                    {
+                      key: 'name',
+                      header: 'Deal Name',
+                      rowHeader: true,
+                      width: 240,
+                      accessor: (r) => (
+                        <Box>
+                          <Text fw={600} size="sm">{r.name}</Text>
+                          {r.overridden && (
+                            <Text size="xs" c="indigo">Manual Category Override</Text>
+                          )}
+                        </Box>
+                      ),
+                    },
+                    {
+                      key: 'stage',
+                      header: 'Stage',
+                      width: 130,
+                      accessor: (r) => (
+                        <StatusBadge
+                          size="xs"
+                          status={r.stage === 'WON' ? 'success' : r.stage === 'LOST' ? 'danger' : 'neutral'}
+                        >
+                          {r.stage}
+                        </StatusBadge>
+                      ),
+                    },
+                    {
+                      key: 'value',
+                      header: 'Deal Value',
+                      numeric: true,
+                      width: 140,
+                      accessor: (r) => `$${r.value.toLocaleString()}`,
+                    },
+                    {
+                      key: 'weightedValue',
+                      header: 'Weighted Value',
+                      numeric: true,
+                      width: 140,
+                      accessor: (r) => `$${r.weightedValue.toLocaleString()}`,
+                    },
+                    {
+                      key: 'overridden',
+                      header: 'Assignment',
+                      width: 130,
+                      accessor: (r) => (
+                        <LabelTag
+                          size="xs"
+                          tone={r.overridden ? 'info' : 'neutral'}
+                          label={r.overridden ? 'Overridden' : 'Stage Default'}
+                        />
+                      ),
+                    },
+                  ]}
+                  getRowKey={(r) => r.id || `${r.name}-${r.stage}-${r.value}`}
+                />
+              )}
+            </Box>
+          )}
         </Paper>
       )}
 

@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.331
+
+### Forecast Categories Completion: Omitted Category, Per-Category Deal Drill-Down & Inline Table View Editing
+
+- **Omitted Forecast Category (Issue #285, `lib/forecast-category.ts`, `lib/validate-lead.ts`, `app/lib/forecast.ts`):**
+  - Expanded `ForecastCategory` enum to `'pipeline' | 'best_case' | 'commit' | 'closed' | 'omitted'` with default weight `0.0` in `DEFAULT_FORECAST_CATEGORY_WEIGHTS`.
+  - Added `'omitted'` to `FORECAST_CATEGORY_SET` and validation in `lib/validate-lead.ts`.
+  - Allows sales reps to explicitly exclude disqualified or non-forecastable opportunities from category-weighted revenue without requiring deal deletion or forced stage moves to `LOST`.
+  - Fixed MongoDB aggregation projection in `app/lib/forecast.ts` ensuring `forecastCategory` and `forecastCategoryOverriddenBy` are preserved across Seyu pipeline calculation stages.
+- **Per-Category Deal Drill-Down (Issue #285, `lib/forecast-category.ts`, `app/forecast/[brand]/forecast-client.tsx`):**
+  - Enhanced `computeCategoryForecast()` to populate a top deals list (`deals?: CategoryDealSummary[]`) for every category bucket, sorted descending by raw deal value and weighted value.
+  - Replaced static forecast category tiles on `/forecast/[brand]` with interactive, selectable cards (`cols={{ base: 2, sm: 3, md: 5 }}`) displaying deal counts, raw volume, weighted revenue, and category weights (highlighting `Weight 0%` on Omitted).
+  - Added an interactive deal-level drill-down `AdminDataTable` beneath the category grid rendering Deal Name (with manual override indicators), Stage `StatusBadge`, Deal Value, Weighted Value, and Stage Default vs Overridden assignment status.
+- **Inline Forecast Category Editing in Table View (Issue #285, `app/table.tsx`):**
+  - Added sortable `Forecast` column to `TableView` (`app/table.tsx`) with inline `Select` dropdown.
+  - Provides instant 1-click category updates via `SET_FORECAST_CATEGORY` and a dedicated `↺ Reset (Stage Default)` option when a lead has a manual override.
+  - Added responsive Forecast Category status badges to mobile table view cards.
+
 ## 2.4.330
 
 ### Enterprise CRM Parity Wave: Public Quote Portal & E-Signature, Pipeline Inspection Waterfall, Sales Playbooks, Scheduler Google Meet & Rep Routing, Deal Health Score, Call Transcript Analyzer, Multi-Rep Opportunity Splits, Cadence A/B Testing & Inbound Web Lead Forms

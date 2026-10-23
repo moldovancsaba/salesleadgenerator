@@ -142,6 +142,7 @@ describe('desktop and tablet navigation affordances', () => {
     expect(table).toContain("header: 'Lead Name'");
     expect(table).toContain("header: 'Deal Value'");
     expect(table).toContain("header: 'Stage'");
+    expect(table).toContain("header: 'Forecast'");
     expect(table).toContain("header: 'Primary Contact'");
     expect(table).toContain("header: 'Assignee'");
 

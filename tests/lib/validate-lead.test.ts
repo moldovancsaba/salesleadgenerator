@@ -159,6 +159,11 @@ describe('validatePatchPayload', () => {
     expect(result.valid).toBe(true);
   });
 
+  it('allows SET_FORECAST_CATEGORY with omitted category (issue 285)', () => {
+    const result = validatePatchPayload({ action: 'SET_FORECAST_CATEGORY', forecastCategory: 'omitted' }, 'cogmap', []);
+    expect(result.valid).toBe(true);
+  });
+
   it('allows SET_FORECAST_CATEGORY with null to clear an override', () => {
     const result = validatePatchPayload({ action: 'SET_FORECAST_CATEGORY', forecastCategory: null }, 'cogmap', []);
     expect(result.valid).toBe(true);

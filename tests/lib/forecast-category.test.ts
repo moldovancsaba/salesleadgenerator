@@ -27,8 +27,10 @@ describe('resolveDefaultCategory', () => {
 });
 
 describe('isForecastCategory', () => {
-  it('accepts exactly the 4 closed-enum values', () => {
+  it('accepts exactly the 5 closed-enum values', () => {
+    expect(FORECAST_CATEGORIES).toHaveLength(5);
     for (const cat of FORECAST_CATEGORIES) expect(isForecastCategory(cat)).toBe(true);
+    expect(isForecastCategory('omitted')).toBe(true);
   });
 
   it('rejects anything else', () => {
@@ -126,5 +128,50 @@ describe('computeCategoryForecast', () => {
     );
     expect(result.byCategory.best_case.weightedRevenue).toBe(400); // 1000 * 0.40, not 1000
     expect(result.byCategory.closed.leads).toBe(0);
+  });
+
+  it('handles omitted category with 0 weight and excludes it from total categoryWeightedRevenue (issue 285)', () => {
+    const result = computeCategoryForecast(
+      [
+        { id: 'deal-1', name: 'Deal 1', kanbanColumn: 'ENGAGED', value: 5000, forecastCategory: 'omitted', forecastCategoryOverriddenBy: 'user-1' },
+        { id: 'deal-2', name: 'Deal 2', kanbanColumn: 'PROPOSAL', value: 10000 },
+      ],
+      DEFAULT_FORECAST_CATEGORY_WEIGHTS,
+      stageWeights
+    );
+    expect(result.byCategory.omitted.leads).toBe(1);
+    expect(result.byCategory.omitted.rawRevenue).toBe(5000);
+    expect(result.byCategory.omitted.weightedRevenue).toBe(0);
+    expect(result.byCategory.omitted.weight).toBe(0.0);
+    // Only deal-2 (PROPOSAL -> commit: 10000 * 0.9 = 9000) counts in total
+    expect(result.categoryWeightedRevenue).toBe(9000);
+  });
+
+  it('populates per-category deals drill-down sorted descending by value (issue 285)', () => {
+    const result = computeCategoryForecast(
+      [
+        { id: 'd-1', name: 'Small Lead', kanbanColumn: 'PROPOSAL', value: 1000 },
+        { id: 'd-2', name: 'Big Lead', kanbanColumn: 'PROPOSAL', value: 8000 },
+        { id: 'd-3', name: 'Medium Lead', kanbanColumn: 'DISCOVERED', value: 5000, forecastCategory: 'commit', forecastCategoryOverriddenBy: 'rep-1' },
+      ],
+      DEFAULT_FORECAST_CATEGORY_WEIGHTS,
+      stageWeights
+    );
+    const commitDeals = result.byCategory.commit.deals;
+    expect(commitDeals).toBeDefined();
+    expect(commitDeals).toHaveLength(3);
+    // Should be sorted by value descending: 8000, then 5000, then 1000
+    expect(commitDeals![0].id).toBe('d-2');
+    expect(commitDeals![0].value).toBe(8000);
+    expect(commitDeals![0].weightedValue).toBe(7200);
+    expect(commitDeals![0].overridden).toBe(false);
+
+    expect(commitDeals![1].id).toBe('d-3');
+    expect(commitDeals![1].value).toBe(5000);
+    expect(commitDeals![1].weightedValue).toBe(4500);
+    expect(commitDeals![1].overridden).toBe(true);
+
+    expect(commitDeals![2].id).toBe('d-1');
+    expect(commitDeals![2].value).toBe(1000);
   });
 });

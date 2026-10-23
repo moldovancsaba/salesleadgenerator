@@ -143,6 +143,14 @@ describe('PATCH /api/leads — SET_FORECAST_CATEGORY (issue 204)', () => {
     expect(body.lead.forecastCategoryOverriddenAt).toBeTruthy();
   });
 
+  it('allows setting omitted category (issue 285)', async () => {
+    const id = await seedLead('Omitted Deal Co');
+    const res = await PATCH(patchReq(id, { action: 'SET_FORECAST_CATEGORY', forecastCategory: 'omitted' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lead.forecastCategory).toBe('omitted');
+  });
+
   it('rejects an invalid category value', async () => {
     const id = await seedLead('Bad Forecast Category Co');
     const res = await PATCH(patchReq(id, { action: 'SET_FORECAST_CATEGORY', forecastCategory: 'not_a_category' }));

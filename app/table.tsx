@@ -9,6 +9,13 @@ import type { Lead } from './types';
 import { getIceScore, getTicketSize, type TicketSizeDisplay } from './constants';
 import { computeDealHealth, type DealHealthTier } from '@/lib/deal-health';
 import type { CurrencyCode } from './lib/brand';
+import {
+  FORECAST_CATEGORIES,
+  FORECAST_CATEGORY_LABEL,
+  resolveDefaultCategory,
+  effectiveForecastCategory,
+  type ForecastCategory,
+} from '@/lib/forecast-category';
 
 const DEFAULT_STAGE_OPTIONS = [
   { value: 'DISCOVERED', label: 'DISCOVERED' },
@@ -36,6 +43,8 @@ type TableRow = Lead & {
   valueNumeric: number;
   primaryContactName: string;
   primaryContactEmail: string;
+  effectiveCategory: ForecastCategory;
+  isCategoryOverridden: boolean;
 };
 
 const STAGE_COLORS: Record<string, string> = {
@@ -94,6 +103,8 @@ export function TableView({ leads, onOpenLead, onAction, onInlineValueSave, stag
         valueNumeric = ticketSize.value;
       }
       const primaryContact = (lead.contacts && lead.contacts[0]) || null;
+      const effectiveCategory = effectiveForecastCategory(lead);
+      const isCategoryOverridden = Boolean(lead.forecastCategoryOverriddenBy);
       return {
         ...lead,
         score,
@@ -104,6 +115,8 @@ export function TableView({ leads, onOpenLead, onAction, onInlineValueSave, stag
         valueNumeric,
         primaryContactName: primaryContact?.name || '',
         primaryContactEmail: primaryContact?.email || '',
+        effectiveCategory,
+        isCategoryOverridden,
       };
     });
   }, [leads]);
@@ -122,6 +135,8 @@ export function TableView({ leads, onOpenLead, onAction, onInlineValueSave, stag
         cmp = a.healthScore - b.healthScore;
       } else if (sort.key === 'kanbanColumn' || sort.key === 'stage') {
         cmp = (a.kanbanColumn || '').localeCompare(b.kanbanColumn || '');
+      } else if (sort.key === 'forecastCategory' || sort.key === 'effectiveCategory') {
+        cmp = (a.effectiveCategory || '').localeCompare(b.effectiveCategory || '');
       } else if (sort.key === 'region') {
         cmp = (a.region || '').localeCompare(b.region || '');
       } else if (sort.key === 'qualityStatus') {
@@ -288,6 +303,67 @@ export function TableView({ leads, onOpenLead, onAction, onInlineValueSave, stag
             },
           },
           {
+            key: 'forecastCategory',
+            header: 'Forecast',
+            sortable: true,
+            width: 155,
+            accessor: (row: TableRow) => {
+              if (onAction) {
+                const defaultCat = resolveDefaultCategory(row.kanbanColumn);
+                const isOverridden = row.isCategoryOverridden;
+                const selectOptions = [
+                  ...(isOverridden
+                    ? [{ value: '__RESET__', label: `↺ Reset (${FORECAST_CATEGORY_LABEL[defaultCat]})` }]
+                    : []),
+                  ...FORECAST_CATEGORIES.map((cat) => ({
+                    value: cat,
+                    label: cat === defaultCat && !isOverridden
+                      ? `${FORECAST_CATEGORY_LABEL[cat]} (auto)`
+                      : FORECAST_CATEGORY_LABEL[cat],
+                  })),
+                ];
+
+                return (
+                  <Box onClick={(e) => e.stopPropagation()}>
+                    <Select
+                      size="xs"
+                      w={145}
+                      value={row.effectiveCategory}
+                      data={selectOptions}
+                      disabled={savingLeadId === row._id}
+                      onChange={async (nextVal) => {
+                        if (!nextVal) return;
+                        if (nextVal === '__RESET__') {
+                          setSavingLeadId(row._id);
+                          try {
+                            await onAction(row._id, 'SET_FORECAST_CATEGORY', { forecastCategory: null });
+                          } finally {
+                            setSavingLeadId(null);
+                          }
+                        } else if (nextVal !== row.effectiveCategory || !isOverridden) {
+                          setSavingLeadId(row._id);
+                          try {
+                            await onAction(row._id, 'SET_FORECAST_CATEGORY', { forecastCategory: nextVal });
+                          } finally {
+                            setSavingLeadId(null);
+                          }
+                        }
+                      }}
+                      aria-label={`Change forecast category for ${row.entity_name}`}
+                    />
+                  </Box>
+                );
+              }
+              return (
+                <LabelTag
+                  size="xs"
+                  tone={row.isCategoryOverridden ? 'info' : 'neutral'}
+                  label={FORECAST_CATEGORY_LABEL[row.effectiveCategory]}
+                />
+              );
+            },
+          },
+          {
             key: 'score',
             header: 'ICE Score',
             sortable: true,
@@ -436,12 +512,19 @@ export function TableView({ leads, onOpenLead, onAction, onInlineValueSave, stag
                 <Text fw={600} size="sm">{row.entity_name}</Text>
                 <Text size="xs" c="dimmed">{row.region} • {row.qualityStatus || 'DRAFT'}</Text>
               </div>
-              <StatusBadge
-                size="xs"
-                status={row.kanbanColumn === 'WON' ? 'success' : row.kanbanColumn === 'LOST' ? 'danger' : 'neutral'}
-              >
-                {row.kanbanColumn}
-              </StatusBadge>
+              <Group gap={4}>
+                <StatusBadge
+                  size="xs"
+                  status={row.kanbanColumn === 'WON' ? 'success' : row.kanbanColumn === 'LOST' ? 'danger' : 'neutral'}
+                >
+                  {row.kanbanColumn}
+                </StatusBadge>
+                <LabelTag
+                  size="xs"
+                  tone={row.isCategoryOverridden ? 'info' : 'neutral'}
+                  label={FORECAST_CATEGORY_LABEL[row.effectiveCategory]}
+                />
+              </Group>
             </Group>
             {row.valueNumeric > 0 && (
               <Text size="xs" fw={600} mt={4}>

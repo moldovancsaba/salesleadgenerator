@@ -7,9 +7,17 @@ import type { Db } from 'mongodb'
 // stage-mapping + weighting math lives here (Mongo-free, independently
 // unit-testable), same split as lib/win-rate-calibration.ts.
 
-export type ForecastCategory = 'pipeline' | 'best_case' | 'commit' | 'closed'
+export type ForecastCategory = 'pipeline' | 'best_case' | 'commit' | 'closed' | 'omitted'
 
-export const FORECAST_CATEGORIES: ForecastCategory[] = ['pipeline', 'best_case', 'commit', 'closed']
+export const FORECAST_CATEGORIES: ForecastCategory[] = ['pipeline', 'best_case', 'commit', 'closed', 'omitted']
+
+export const FORECAST_CATEGORY_LABEL: Record<ForecastCategory, string> = {
+  pipeline: 'Pipeline',
+  best_case: 'Best Case',
+  commit: 'Commit',
+  closed: 'Closed',
+  omitted: 'Omitted',
+}
 
 export function isForecastCategory(value: unknown): value is ForecastCategory {
   return typeof value === 'string' && (FORECAST_CATEGORIES as string[]).includes(value)
@@ -57,13 +65,14 @@ export function effectiveForecastCategory(lead: {
 // closed's flat weight is never actually used by computeCategoryForecast()
 // below (closed leads are split WON=full/LOST=zero, same treatment as the
 // existing per-stage weight) — kept here only so the settings doc/admin UI
-// always has a complete, displayable 4-entry weight table rather than a
-// mysteriously-missing 4th row.
+// always has a complete, displayable 5-entry weight table rather than a
+// mysteriously-missing row. Omitted deals are weight 0 by default.
 export const DEFAULT_FORECAST_CATEGORY_WEIGHTS: Record<ForecastCategory, number> = {
   pipeline: 0.10,
   best_case: 0.40,
   commit: 0.90,
   closed: 1.0,
+  omitted: 0.0,
 }
 
 export async function getForecastCategoryWeights(db: Db): Promise<Record<ForecastCategory, number>> {
@@ -83,11 +92,21 @@ export async function setForecastCategoryWeights(db: Db, weights: Record<Forecas
   )
 }
 
+export type CategoryDealSummary = {
+  id: string
+  name: string
+  value: number
+  weightedValue: number
+  stage: string
+  overridden: boolean
+}
+
 export type CategoryBreakdownEntry = {
   leads: number
   rawRevenue: number
   weightedRevenue: number
   weight: number | null
+  deals?: CategoryDealSummary[]
 }
 
 export type CategoryForecastResult = {
@@ -97,6 +116,10 @@ export type CategoryForecastResult = {
 }
 
 export type PerLeadCategoryInput = {
+  _id?: any
+  id?: string
+  entity_name?: string
+  name?: string
   kanbanColumn?: string | null
   value?: number
   forecastCategory?: string | null
@@ -111,17 +134,19 @@ export type PerLeadCategoryInput = {
 // than a category-level constant — closed IS the WON/LOST split, a flat
 // weight there would double-count or mis-weight it. `weight` on the
 // 'closed' row of byCategory is reported as null for the same reason: no
-// single number applies to that bucket.
+// single number applies to that bucket. Omitted leads contribute 0 to
+// total weighted revenue (omitted weight defaults to 0).
 export function computeCategoryForecast(
   perLeadDocs: PerLeadCategoryInput[],
   categoryWeights: Record<ForecastCategory, number>,
   stageWeightsUsed: Record<string, number>
 ): CategoryForecastResult {
   const byCategory: Record<ForecastCategory, CategoryBreakdownEntry> = {
-    pipeline: { leads: 0, rawRevenue: 0, weightedRevenue: 0, weight: categoryWeights.pipeline },
-    best_case: { leads: 0, rawRevenue: 0, weightedRevenue: 0, weight: categoryWeights.best_case },
-    commit: { leads: 0, rawRevenue: 0, weightedRevenue: 0, weight: categoryWeights.commit },
-    closed: { leads: 0, rawRevenue: 0, weightedRevenue: 0, weight: null },
+    pipeline: { leads: 0, rawRevenue: 0, weightedRevenue: 0, weight: categoryWeights.pipeline, deals: [] },
+    best_case: { leads: 0, rawRevenue: 0, weightedRevenue: 0, weight: categoryWeights.best_case, deals: [] },
+    commit: { leads: 0, rawRevenue: 0, weightedRevenue: 0, weight: categoryWeights.commit, deals: [] },
+    closed: { leads: 0, rawRevenue: 0, weightedRevenue: 0, weight: null, deals: [] },
+    omitted: { leads: 0, rawRevenue: 0, weightedRevenue: 0, weight: categoryWeights.omitted ?? 0, deals: [] },
   }
 
   let total = 0
@@ -140,10 +165,26 @@ export function computeCategoryForecast(
     byCategory[category].rawRevenue += value
     byCategory[category].weightedRevenue += weightedValue
     total += weightedValue
+
+    const leadId = doc._id ? String(doc._id) : (doc.id || '')
+    const leadName = doc.entity_name || doc.name || 'Untitled'
+    byCategory[category].deals!.push({
+      id: leadId,
+      name: leadName,
+      value: Math.round(value),
+      weightedValue: Math.round(weightedValue),
+      stage: doc.kanbanColumn || 'UNKNOWN',
+      overridden: Boolean(doc.forecastCategoryOverriddenBy),
+    })
   }
 
   for (const cat of FORECAST_CATEGORIES) {
     byCategory[cat].weightedRevenue = Math.round(byCategory[cat].weightedRevenue)
+    byCategory[cat].rawRevenue = Math.round(byCategory[cat].rawRevenue)
+    byCategory[cat].deals!.sort((a, b) => b.value - a.value || b.weightedValue - a.weightedValue)
+    if (byCategory[cat].deals!.length > 25) {
+      byCategory[cat].deals = byCategory[cat].deals!.slice(0, 25)
+    }
   }
 
   return {

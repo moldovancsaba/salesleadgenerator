@@ -410,6 +410,8 @@ export async function computeForecast(db: Db, brand: Brand, tenantId: string): P
         $project: {
           entity_name: 1,
           kanbanColumn: 1,
+          forecastCategory: 1,
+          forecastCategoryOverriddenBy: 1,
           companyPricing: { $objectToArray: { $ifNull: ['$pricingByCompany', {}] } },
         },
       },

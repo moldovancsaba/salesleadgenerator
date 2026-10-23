@@ -50,7 +50,7 @@ const ORG_SIZE_SET = new Set(ORG_SIZES);
 // snapshot rather than accepting new user input, so it needs no extra
 // per-action validation beyond the base action-name check below.
 const PATCH_ACTIONS = new Set(['ACCEPT', 'DECLINE', 'MODIFY', 'PIN', 'REQUEST_REFRESH', 'COLUMN_MOVE', 'RESCAN_TECH', 'ASSIGN', 'UNDO_BULK', 'SET_FORECAST_CATEGORY', 'COLUMN_REORDER']);
-const FORECAST_CATEGORY_SET = new Set(['pipeline', 'best_case', 'commit', 'closed']);
+const FORECAST_CATEGORY_SET = new Set(['pipeline', 'best_case', 'commit', 'closed', 'omitted']);
 
 function contactConfidence(contact: any): number {
   if (!contact || typeof contact !== 'object') return 0;
@@ -267,7 +267,7 @@ export function validatePatchPayload(body: any, brand: string, forbiddenTerms: s
   if (action === 'SET_FORECAST_CATEGORY') {
     const value = body.forecastCategory;
     if (value !== null && !FORECAST_CATEGORY_SET.has(value)) {
-      errors.push('forecastCategory must be one of: pipeline, best_case, commit, closed, or null to clear');
+      errors.push('forecastCategory must be one of: pipeline, best_case, commit, closed, omitted, or null to clear');
     }
   }
 
