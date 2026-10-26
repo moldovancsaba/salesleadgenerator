@@ -8,7 +8,7 @@
 
 **Not the same file as `_archived/roadmap.md`** — that's a frozen, historical feature-status log (v2.4.61), superseded by `CHANGELOG.md`, sharing this file's basename by coincidence rather than by relation. See `README.md`'s "Archived Documentation" table.
 
-Last synced: 2026-10-23. Delivered and closed in v2.4.332: #286 ([Compliance & Legal]: Comprehensive Privacy Policy, Terms of Service, and Mailbox OAuth Send/Receive Disclosures). Delivered and closed in v2.4.331: #285 ([Forecasting]: Forecast categories completion — Omitted category, per-category deal drill-down & inline Table editing). All 9 Enterprise CRM Parity Wave issues (#276–#284) delivered and closed in v2.4.330: #276 (Interactive Public Quote Portal & Buyer Self-Service E-Signature), #277 (Pipeline Inspection & Deal Movement Waterfall), #278 (Visual Sales Path Stepper & Interactive Discovery Playbooks), #279 (Scheduler Google Meet Auto-Creation & Assigned-Rep Calendar Routing), #280 (Engagement-Weighted Deal Health Score 0–100), #281 (Call & Meeting Transcript Analyzer), #282 (Multi-Rep Opportunity Splits & Split-Adjusted Quota Attribution), #283 (Sequence Step A/B Testing & Variant Lift Analytics), and #284 (Public & Embeddable Inbound Web Lead Capture Forms). Previously delivered and closed in v2.4.329: #220, #202, #132, #137, and #165. Shipped through v2.4.332 to main.
+Last synced: 2026-10-26. Delivered and closed in v2.4.333: #287 ([Landing Page]: Decouple and build comprehensive Sales Lead Generator landing page). Delivered and closed in v2.4.332: #286 ([Compliance & Legal]: Comprehensive Privacy Policy, Terms of Service, and Mailbox OAuth Send/Receive Disclosures). Delivered and closed in v2.4.331: #285 ([Forecasting]: Forecast categories completion — Omitted category, per-category deal drill-down & inline Table editing). All 9 Enterprise CRM Parity Wave issues (#276–#284) delivered and closed in v2.4.330. Shipped through v2.4.333 to main.
 
 ---
 
@@ -18,13 +18,31 @@ Last synced: 2026-10-23. Delivered and closed in v2.4.332: #286 ([Compliance & L
 |---|---|---|---|
 *(None currently in progress)*
 
-
-
 ## Ready (unblocked, unstarted)
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
 *(None currently open)*
+
+
+## Blocked
+
+| # | Title | Priority | Notes |
+|---|---|---|---|
+*(None currently blocked)*
+
+## Backlog
+
+| # | Title | Priority | Notes |
+|---|---|---|---|
+*(None currently in backlog)*
+
+## Recently closed (context)
+
+| # | Title | Resolution |
+|---|---|---|
+| [#287](https://github.com/moldovancsaba/salesleadgenerator/issues/287) | [Landing Page]: Decouple and build comprehensive Sales Lead Generator landing page | Fixed 2.4.333, shipped to `main`. Completely decoupled landing page content into `content/landing.ts` matching messmass.com architecture. Redesigned root landing page (`app/page.tsx`, `app/page.module.css`) with modern hero, metrics grid, value propositions, 4-step workflow, 9-feature capability cards, pricing tiers, FAQ accordion, conversion banner, and public chrome isolation in `AppLayout.tsx`. Unit tests verified in `tests/lib/landing-page.test.ts` and `tests/lib/landing-chrome.test.ts`. |
+| [#286](https://github.com/moldovancsaba/salesleadgenerator/issues/286) | [Compliance & Legal]: Comprehensive Privacy Policy, Terms of Service, and Mailbox OAuth Send/Receive Disclosures | Fixed 2.4.332, shipped to `main`. Authored canonical `docs/PRIVACY_POLICY.md` and `docs/TERMS_OF_SERVICE.md` complying with Google API Limited Use (no AI/ML training, no data selling, no advertising, no human email reading), detailed OAuth connection steps, RFC 2822 outbound sending, Data Minimization inbound sync, token encryption, and GDPR/CCPA rights. Created public routes `/privacy` and `/terms`, added modal consent notices in `UserSettingsModal.tsx` and footer links in `AppNav.tsx`, updated technical specs (`USER_EMAIL_INTEGRATION_SPEC.md`, `USER_GUIDE.md`), and added automated CI unit tests (`tests/lib/legal-compliance.test.ts`). |
 
 
 ## Blocked

@@ -8,9 +8,10 @@ import { AppNavSidebar } from './AppNav';
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // Issue #207 — public customer-facing calendar booking page
-  // (/schedule/[brand]) hides the internal authenticated app chrome entirely.
-  if (pathname.startsWith('/schedule/')) {
+  // Public customer-facing calendar booking page (/schedule/[brand]),
+  // public commercial proposal quote portal (/quotes/[quoteId]),
+  // and public landing page (/) hide the internal authenticated app chrome entirely.
+  if (pathname.startsWith('/schedule/') || pathname.startsWith('/quotes/') || pathname === '/') {
     return <>{children}</>;
   }
 

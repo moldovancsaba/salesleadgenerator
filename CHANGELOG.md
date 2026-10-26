@@ -1,5 +1,27 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.333
+
+### Decoupled Content Architecture & Comprehensive Product Landing Page
+
+- **Decoupled Landing Content Module (Issue #287, `content/landing.ts`):**
+  - Completely separated all landing page marketing copy, typography, feature descriptions, quantitative metrics, value pillars, workflow steps, pricing tiers, FAQs, and navigation metadata from presentation code, following the decoupled architecture model established on sibling platform messmass.com.
+  - Defined strictly typed TypeScript interfaces (`LandingContent`, `LandingFeature`, `LandingValuePillar`, `LandingMetric`, `LandingWorkflowStep`, `LandingPricingTier`, `LandingFaqItem`) ensuring all marketing copy can be edited, translated, or dynamically driven without touching component JSX.
+- **Modern Responsive Landing Page UI (Issue #287, `app/page.tsx`, `app/page.module.css`):**
+  - Redesigned the root landing page (`/`) into a complete enterprise commercial presentation.
+  - **Header / Navbar**: Brand icon, application version badge, smooth section navigation links (Platform, Workflow, Pillars, Pricing, FAQ), Sign In action, and conditional "Go to Dashboard" button for authenticated reps.
+  - **Hero Section**: Value proposition badge, high-contrast headline, conversion subtitle, primary quote inquiry CTA, SSO sign-in button, trust badges (Strict Mailbox Privacy Guard, Google Workspace OAuth, Multi-CRM Sync, Tenant Isolation), and a 4-metric quantitative proof-points grid (3,000+ accounts, 100% fail-closed mailbox isolation, 4 CRMs supported, <24h quote turnaround).
+  - **Value Pillars**: 3-card grid highlighting Data Sovereignty & Mailbox Isolation, Commercial Revenue Operations (forecast categories & deal health), and Automated Sports & Enterprise Lead Discovery.
+  - **Workflow Section**: 4-step execution narrative (Discover & Ingest -> Qualify & Engage -> Inspect & Guide -> Quote & Close) with concrete key deliverables.
+  - **Capabilities Grid**: 9 feature cards with GDS status badges and Tabler icons covering the Unified 3-Pane Communication Hub, Modern Kanban & Inline Table Views, CPQ Proposals & Buyer E-Signature, Outreach Cadences with A/B Testing, Sales Path Playbooks, Transcript Intelligence, Google Calendar Booking, Multi-Rep Opportunity Splits, and Universal CRM Import & Export.
+  - **Pricing Tiers**: Commercial Starter, Growth & RevOps (highlighted recommended tier), and Enterprise Sovereignty tiers with feature itemization and tailored quote/demo inquiry buttons.
+  - **Interactive FAQ Accordion**: Expandable Q&As covering mailbox OAuth security, Google API Limited Use compliance, CRM bi-directional sync, public quote portals, and supported sports taxonomies.
+  - **CTA Banner & Footer**: High-contrast gradient closing banner and comprehensive footer with legal policy links (`/privacy`, `/terms`), release notes (`/whats-new`), and copyright notices.
+- **Public Chrome Isolation (Issue #287, `app/components/AppLayout.tsx`, `tests/lib/landing-chrome.test.ts`):**
+  - Isolated the public landing page (`pathname === '/'`) from the internal CRM sidebar and top workspace header in `AppLayout.tsx`, allowing visitors to view a clean standalone presentation without CRM UI chrome collisions.
+- **Automated Verification (Issue #287, `tests/lib/landing-page.test.ts`, `tests/lib/landing-chrome.test.ts`):**
+  - Added unit test suites verifying decoupled content structure, presentation imports, compliance assurances, footer links, absence of AI branding, and layout isolation.
+
 ## 2.4.332
 
 ### Compliance & Legal: Comprehensive Privacy Policy, Terms of Service, and Mailbox OAuth Send/Receive Disclosures
