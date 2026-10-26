@@ -1,5 +1,15 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.335
+
+### Tooling & Registry: GDS Migration from GitHub Packages to npmjs Registry (6.8.0)
+
+- **GDS npmjs Registry Resolution (Issue #289, `.npmrc`, `package.json`, `package-lock.json`):**
+  - Removed GitHub Packages (`npm.pkg.github.com`) registry routing and `${GITHUB_TOKEN}` requirement from `.npmrc`.
+  - Upgraded `@sovereignsquad/gds-admin`, `@sovereignsquad/gds-core`, `@sovereignsquad/gds-theme`, `@sovereignsquad/gds-compliance`, and `@sovereignsquad/gds-eslint-config` from `^6.5.0` to `^6.8.0`.
+  - Regenerated `package-lock.json` resolving all GDS packages directly from the standard public npmjs registry (`https://registry.npmjs.org/`), resolving Vercel deployment build failures caused by GitHub organization package billing transfer limits.
+  - Updated `docs/STACK_AND_DEPENDENCIES.md` to reflect npmjs registry hosting.
+
 ## 2.4.334
 
 ### Legal & Compliance: Operating Entity and Contact Update to Moldován Csaba Kft.

@@ -21,7 +21,7 @@
 |-----------|---------|--------|------|
 | Mantine (`@mantine/core`, `hooks`, `modals`, `notifications`) | 9.4.2 (was 7.17.8) | Active | Component library — bumped in 2.4.27, see Dependency Audit below |
 | @tabler/icons-react | 3.45.0 | Active | Icons |
-| @sovereignsquad/gds-admin, gds-core, gds-theme | ^6.5.0 (was 3.14.3) | Active | Private design-system components/theme — required for all UI/UX work per project policy. Provides `StatusBadge`, `LabelTag`, `CountBadge`, `MeaningBadge`, `SemanticButton`, `InlineAlert`, `BannerNotice`, and CSS token system (`--gds-border-card`, `--gds-bg-card`, `--gds-text-primary`). |
+| @sovereignsquad/gds-admin, gds-core, gds-theme | ^6.8.0 (was 6.5.0) | Active | Private/scoped design-system components/theme published on npmjs — required for all UI/UX work per project policy. Provides `StatusBadge`, `LabelTag`, `CountBadge`, `MeaningBadge`, `SemanticButton`, `InlineAlert`, `BannerNotice`, and CSS token system (`--gds-border-card`, `--gds-bg-card`, `--gds-text-primary`). |
 | @dnd-kit/core, sortable, utilities | ^6.3.1, ^10.0.0, ^3.2.2 | Active | Direct dependencies backing Kanban board drag-and-drop operations. |
 | @mantine/dates | ^9.4.2 | Active | Date inputs in follow-up reminders and scheduling filters. |
 | dayjs | ^1.11.21 | Active | Date formatting and manipulation peer dependency for Mantine dates. |
@@ -57,8 +57,8 @@ There is no Framer Motion or Sonner dependency in this project — both were pre
 | Vitest | ^4.1.11 | Active | Unit tests (`tests/lib/*.test.ts`, `vitest.config.ts`). |
 | @vitest/coverage-v8 | ^4.1.11 | Active | Vitest test coverage reporting. |
 | tsx | ^4.7.0 | Active | Runs smoke tests and database migration scripts. |
-| @sovereignsquad/gds-compliance | ^6.5.0 | Active, clean | `npm run audit:gds-style` (GDS design-system compliance check). |
-| @sovereignsquad/gds-eslint-config | ^6.5.0 | Active | GDS shared ESLint configuration. |
+| @sovereignsquad/gds-compliance | ^6.8.0 | Active, clean | `npm run audit:gds-style` (GDS design-system compliance check). |
+| @sovereignsquad/gds-eslint-config | ^6.8.0 | Active | GDS shared ESLint configuration. |
 | mongodb-memory-server | ^11.2.0 | Active | Real in-process MongoDB for integration tests. |
 
 ---
@@ -208,4 +208,4 @@ Never throws: every failure mode (`blocked`/`timeout`/`invalid_url`/`non_html`/`
 
 ## Known Package-Manager Constraint
 
-The `@sovereignsquad/*` packages (`gds-admin`, `gds-core`, `gds-theme`, `gds-compliance`, `gds-eslint-config`) come from GitHub Packages (`npm.pkg.github.com`), not the public npm registry — `.npmrc` routes the `@sovereignsquad` scope there and authenticates with `${GITHUB_TOKEN}` (set in Vercel for Production and Preview). An environment without a `GITHUB_TOKEN` that has `read:packages` access cannot resolve or upgrade them; installing from the existing `package-lock.json` works where the tarballs are already cached. (Corrected 2026-09-26: this section previously said they were installed from GitHub release-asset URLs, which stopped being true at commit `f73a09e`.)
+The `@sovereignsquad/*` packages (`gds-admin`, `gds-core`, `gds-theme`, `gds-compliance`, `gds-eslint-config`) are published and resolved directly from the standard public npmjs registry (`https://registry.npmjs.org/`) at version `6.8.0`. As of 2.4.335 (issue #289), `.npmrc` has removed the legacy GitHub Packages (`npm.pkg.github.com`) override and token requirement, preventing `E403 billing limit reached` failures on cloud build platforms like Vercel.
