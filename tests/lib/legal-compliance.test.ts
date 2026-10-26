@@ -118,4 +118,24 @@ describe('legal compliance documentation and disclosures (issue 286)', () => {
     const emailSpecContent = readFileSync(join(root, 'docs', 'USER_EMAIL_INTEGRATION_SPEC.md'), 'utf8');
     expect(emailSpecContent).toContain('Legal, Regulatory & Google API Limited Use Compliance');
   });
+
+  it('verifies operating entity and compliance contact is Moldován Csaba Kft. (issue 288)', () => {
+    const privacyContent = readFileSync(join(root, 'docs', 'PRIVACY_POLICY.md'), 'utf8');
+    const termsContent = readFileSync(join(root, 'docs', 'TERMS_OF_SERVICE.md'), 'utf8');
+    const privacyPage = readFileSync(join(root, 'app', 'privacy', 'page.tsx'), 'utf8');
+    const termsPage = readFileSync(join(root, 'app', 'terms', 'page.tsx'), 'utf8');
+    const landingContent = readFileSync(join(root, 'content', 'landing.ts'), 'utf8');
+
+    expect(privacyContent).toContain('Moldován Csaba Kft.');
+    expect(privacyContent).toContain('moldovancsaba@gmail.com');
+    expect(termsContent).toContain('Moldován Csaba Kft.');
+    expect(termsContent).toContain('moldovancsaba@gmail.com');
+
+    expect(privacyPage).toContain('Moldován Csaba Kft.');
+    expect(privacyPage).toContain('moldovancsaba@gmail.com');
+    expect(termsPage).toContain('Moldován Csaba Kft.');
+    expect(termsPage).toContain('moldovancsaba@gmail.com');
+
+    expect(landingContent).toContain('Moldován Csaba Kft.');
+  });
 });

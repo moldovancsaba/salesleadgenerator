@@ -436,7 +436,7 @@ export const LANDING_CONTENT: LandingContent = {
   },
   footer: {
     tagline: "Sovereign sales intelligence and pipeline CRM for enterprise sales teams.",
-    copyright: "© DoneIsBetter Kft. All rights reserved.",
+    copyright: "© Moldován Csaba Kft. All rights reserved.",
     links: [
       { label: "Privacy Policy", href: "/privacy" },
       { label: "Terms of Service", href: "/terms" },

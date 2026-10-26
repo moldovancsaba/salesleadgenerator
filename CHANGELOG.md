@@ -1,5 +1,15 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.334
+
+### Legal & Compliance: Operating Entity and Contact Update to Moldován Csaba Kft.
+
+- **Operating Entity & Legal Compliance Updates (Issue #288, `app/privacy/page.tsx`, `app/terms/page.tsx`, `docs/PRIVACY_POLICY.md`, `docs/TERMS_OF_SERVICE.md`, `content/landing.ts`):**
+  - Updated platform operating entity, IP ownership, liability terms, indemnification clauses, and statutory privacy contact cards across public legal pages and canonical documentation to `Moldován Csaba Kft.` (Budapest, Hungary).
+  - Configured canonical legal and privacy inquiry contact email to `moldovancsaba@gmail.com`.
+  - Updated landing page copyright notice in `content/landing.ts` to `© Moldován Csaba Kft. All rights reserved.`.
+  - Preserved third-party SSO sub-processor infrastructure attribution (`sso.doneisbetter.com`) while distinguishing platform corporate ownership and operator liability.
+
 ## 2.4.333
 
 ### Decoupled Content Architecture & Comprehensive Product Landing Page

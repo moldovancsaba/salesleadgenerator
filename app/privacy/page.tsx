@@ -54,7 +54,7 @@ export default function PrivacyPolicyPage() {
           <Box>
             <Title order={3} size="h4" mb="xs">1. Introduction</Title>
             <Text size="sm" c="dimmed" lh={1.6}>
-              Sales Lead Generator (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) is a B2B sales intelligence and pipeline CRM platform operated by DoneIsBetter Kft. This Privacy Policy details our practices regarding the collection, use, processing, and protection of your data when using our web application, APIs, and integrated mailbox services (the &quot;Service&quot;).
+              Sales Lead Generator (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) is a B2B sales intelligence and pipeline CRM platform operated by Moldován Csaba Kft. This Privacy Policy details our practices regarding the collection, use, processing, and protection of your data when using our web application, APIs, and integrated mailbox services (the &quot;Service&quot;).
             </Text>
           </Box>
 
@@ -223,7 +223,7 @@ export default function PrivacyPolicyPage() {
               <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-7)' }}>
                 myaccount.google.com/permissions
               </a>.<br />
-              • <strong>Data Erasure Requests:</strong> To request deletion of all associated personal and activity data, email <code>privacy@doneisbetter.com</code>.
+              • <strong>Data Erasure Requests:</strong> To request deletion of all associated personal and activity data, email <code>moldovancsaba@gmail.com</code>.
             </Text>
           </Box>
 
@@ -234,10 +234,11 @@ export default function PrivacyPolicyPage() {
               Under GDPR, CCPA/CPRA, and relevant privacy laws, you have the right to access, rectify, port, or request erasure of your personal information.
             </Text>
             <Paper p="sm" withBorder radius="sm">
-              <Text size="sm" fw={600}>Privacy &amp; Data Protection Officer</Text>
-              <Text size="xs" c="dimmed">DoneIsBetter Kft. / SovereignSquad</Text>
-              <Text size="xs" c="dimmed">Email: privacy@doneisbetter.com</Text>
+              <Text size="sm" fw={600}>Legal &amp; Compliance Team</Text>
+              <Text size="xs" c="dimmed">Moldován Csaba Kft.</Text>
+              <Text size="xs" c="dimmed">Email: moldovancsaba@gmail.com</Text>
               <Text size="xs" c="dimmed">Website: https://salesleadgenerator.vercel.app</Text>
+              <Text size="xs" c="dimmed">Location: Budapest, Hungary</Text>
             </Paper>
           </Box>
 

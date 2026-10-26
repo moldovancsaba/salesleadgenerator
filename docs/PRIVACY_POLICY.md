@@ -1,19 +1,19 @@
 # Privacy Policy — Sales Lead Generator
 
-**Effective Date:** October 23, 2026  
-**Last Updated:** October 23, 2026  
-**Application Version:** 2.4.331  
+**Effective Date:** October 26, 2026  
+**Last Updated:** October 26, 2026  
+**Application Version:** 2.4.334  
 **Hosting / Production:** https://salesleadgenerator.vercel.app  
 
 ---
 
 ## 1. Introduction
 
-Sales Lead Generator ("we", "us", "our", or "SLG") is a sales intelligence and customer relationship management (CRM) platform designed to help commercial teams manage sales leads, track pipeline stages, coordinate business outreach, and streamline communications with organizational prospects.
+Sales Lead Generator ("we", "us", "our", or "SLG") is a sales intelligence and customer relationship management (CRM) platform operated by Moldován Csaba Kft., designed to help commercial teams manage sales leads, track pipeline stages, coordinate business outreach, and streamline communications with organizational prospects.
 
 This Privacy Policy explains how we collect, use, process, disclose, and safeguard your personal information when you use the Sales Lead Generator web application, APIs, and associated services (collectively, the "Service"). It also describes your rights regarding your data and explains how you can manage your privacy preferences.
 
-We take privacy, data protection, and transparency seriously. If you have questions about this policy or our data practices, please contact us at `privacy@doneisbetter.com`.
+We take privacy, data protection, and transparency seriously. If you have questions about this policy or our data practices, please contact us at `moldovancsaba@gmail.com`.
 
 ---
 
@@ -141,7 +141,7 @@ Depending on your location, you may have statutory rights regarding your persona
 - **Right to Data Portability**: You may request your data in a structured, commonly used, machine-readable format (e.g., CSV or JSON export).
 - **Non-Discrimination**: We will not discriminate against you for exercising any of your privacy rights.
 
-To exercise any of these rights, please contact our privacy team at `privacy@doneisbetter.com`. We respond to verified requests within thirty (30) days.
+To exercise any of these rights, please contact our privacy team at `moldovancsaba@gmail.com`. We respond to verified requests within thirty (30) days.
 
 ---
 
@@ -166,8 +166,8 @@ We may update this Privacy Policy from time to time to reflect changes in our le
 
 If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please reach out to:
 
-**Sales Lead Generator Data Protection & Privacy**  
-Email: `privacy@doneisbetter.com`  
-Legal entity: DoneIsBetter Kft. / SovereignSquad  
+**Legal & Compliance Team**  
+Legal entity: Moldován Csaba Kft.  
+Email: `moldovancsaba@gmail.com`  
 Website: https://salesleadgenerator.vercel.app  
 Address: Budapest, Hungary

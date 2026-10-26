@@ -54,7 +54,7 @@ export default function TermsOfServicePage() {
           <Box>
             <Title order={3} size="h4" mb="xs">1. Acceptance of Terms</Title>
             <Text size="sm" c="dimmed" lh={1.6}>
-              These Terms of Service (&quot;Terms&quot;) govern access to and use of Sales Lead Generator, including its software, APIs, and associated web interfaces (the &quot;Service&quot;), operated by DoneIsBetter Kft. (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;).
+              These Terms of Service (&quot;Terms&quot;) govern access to and use of Sales Lead Generator, including its software, APIs, and associated web interfaces (the &quot;Service&quot;), operated by Moldován Csaba Kft. (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;).
               By creating an account, accessing the application, or connecting an external account (including Google / Gmail), you agree to be bound by these Terms and our{' '}
               <Link href="/privacy" style={{ color: 'var(--mantine-color-indigo-6)', fontWeight: 500 }}>Privacy Policy</Link>.
             </Text>
@@ -138,7 +138,7 @@ export default function TermsOfServicePage() {
               THE SERVICE IS PROVIDED ON AN &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; BASIS. WE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. WE DO NOT GUARANTEE THAT EMAILS SENT THROUGH INTEGRATED MAILBOXES WILL BE UNINTERRUPTED, DELIVERED TO THE INBOX, OR FREE FROM RECIPIENT SPAM FILTER INTERCEPTION.
             </Text>
             <Text size="sm" c="dimmed" lh={1.6}>
-              IN NO EVENT SHALL DONEISBETTER KFT. OR ITS AFFILIATES BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES (INCLUDING LOST PROFITS OR DATA LOSS) ARISING FROM USE OF THE SERVICE.
+              IN NO EVENT SHALL MOLDOVÁN CSABA KFT. OR ITS AFFILIATES BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES (INCLUDING LOST PROFITS OR DATA LOSS) ARISING FROM USE OF THE SERVICE.
             </Text>
           </Box>
 
@@ -163,9 +163,10 @@ export default function TermsOfServicePage() {
             <Title order={3} size="h4" mb="xs">9. Contact Information</Title>
             <Paper p="sm" withBorder radius="sm">
               <Text size="sm" fw={600}>Legal &amp; Compliance Team</Text>
-              <Text size="xs" c="dimmed">DoneIsBetter Kft. / SovereignSquad</Text>
-              <Text size="xs" c="dimmed">Email: legal@doneisbetter.com</Text>
+              <Text size="xs" c="dimmed">Moldován Csaba Kft.</Text>
+              <Text size="xs" c="dimmed">Email: moldovancsaba@gmail.com</Text>
               <Text size="xs" c="dimmed">Website: https://salesleadgenerator.vercel.app</Text>
+              <Text size="xs" c="dimmed">Location: Budapest, Hungary</Text>
             </Paper>
           </Box>
 
