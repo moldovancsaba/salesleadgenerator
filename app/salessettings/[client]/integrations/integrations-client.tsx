@@ -267,6 +267,20 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
         {connections.find((c) => c.provider === 'google_calendar')?.status === 'active' && (
           <AvailabilitySettings brand={brand} />
         )}
+
+        <Box p="md" style={{ border: '1px solid var(--gds-border-card, #e2e8f0)', borderRadius: '8px', background: 'var(--gds-bg-card, #ffffff)' }}>
+          <Stack gap="xs">
+            <Title order={3} size="h4">LinkedIn Prospect Capture (Browser Extension)</Title>
+            <Text size="sm" c="dimmed">
+              Install the lightweight Chrome Extension from the repository (<code>extension/</code> folder) to capture prospective sports clubs, marketing directors, and federation leads into your <strong>{label}</strong> workspace in 1 click.
+            </Text>
+            <Group gap="sm" mt="xs">
+              <Button component="a" href="/admin/api-keys" variant="outline" size="xs">
+                Manage API Keys
+              </Button>
+            </Group>
+          </Stack>
+        </Box>
       </Stack>
 
       <AdminModal

@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.336
+
+### Prospecting: 1-Click LinkedIn Prospect Capture Chrome Extension & Ingestion API
+
+- **Dedicated LinkedIn Lead Ingestion Endpoint (Issue #290, `app/api/capture/route.ts`, `lib/capture.ts`):**
+  - Built `POST /api/capture` endpoint accepting authenticated prospect payloads from the browser extension via scoped API keys (`slg_...`) or session credentials.
+  - Implemented schema validation with `looseString`/`looseUrl` degradation and geographic resolution (`parseLinkedInLocation`) mapping location strings into city, region, and country.
+  - Automatic duplicate protection across `contacts.linkedin`, `linkedin_url`, contact emails, and company name fingerprints: existing records are enriched with updated roles, contact links, and timestamped capture notes without generating duplicate board cards.
+  - Full pipeline integration: automatically runs ticket size estimation, automation rule evaluation (`lead_created`), outbound webhooks (`lead.created`), and activity log recording.
+- **Manifest V3 LinkedIn Capture Chrome Extension (Issue #290, `extension/`):**
+  - Packaged standalone browser extension (`manifest.json`, `popup.html`, `popup.js`, `content.js`, `background.js`) conforming strictly to LinkedIn anti-bot safety policies (zero automated crawling, no background scraping; reader injects solely on explicit user click).
+  - Target workspace switcher allowing reps to direct prospect captures into `cogmap`, `seyu`, or `dvsc` with 1 click.
+  - Settings panel with automatic server URL and API key validation and persistent storage in Chrome extension local storage.
+  - Extension quick link card added in Sales Settings Integrations (`app/salessettings/[client]/integrations/integrations-client.tsx`).
+- **Automated Verification (Issue #290, `tests/lib/capture.test.ts`):**
+  - Unit tests covering capture schema validation, fallback defaults, invalid input rejection, and location string parsing.
+
 ## 2.4.335
 
 ### Tooling & Registry: GDS Migration from GitHub Packages to npmjs Registry (6.8.0)
