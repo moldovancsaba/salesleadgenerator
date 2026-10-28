@@ -41,12 +41,16 @@ import {
   IconBuilding,
   IconCoins,
   IconUser,
+  IconInbox,
+  IconMail,
+  IconArrowNarrowRight,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import type {
   TodayCadenceTask,
   TodayFollowUp,
   TodayDealAttention,
+  TodayInboundItem,
   TodayViewData,
 } from '@/lib/today';
 
@@ -232,6 +236,7 @@ export function TodayClient({ brand, label }: Props) {
     overdueFollowUps: 0,
     dueTodayFollowUps: 0,
     dealsNeedingAttention: 0,
+    inboundQueue: 0,
   };
 
   return (
@@ -365,6 +370,24 @@ export function TodayClient({ brand, label }: Props) {
               past close / inactive
             </Text>
           </Card>
+          <Card withBorder padding="sm" radius="md">
+            <Group justify="space-between" align="center">
+              <Text size="xs" c="dimmed" fw={600} tt="uppercase">
+                Inbound Queue
+              </Text>
+              {(counts.inboundQueue || 0) > 0 && (
+                <StatusBadge status="info" withIcon size="xs">
+                  Review
+                </StatusBadge>
+              )}
+            </Group>
+            <Title order={3} mt={4} c={(counts.inboundQueue || 0) > 0 ? 'blue' : undefined}>
+              {counts.inboundQueue || 0}
+            </Title>
+            <Text size="xs" c="dimmed">
+              forms & captures
+            </Text>
+          </Card>
         </SimpleGrid>
 
         {/* Filter tabs */}
@@ -373,6 +396,7 @@ export function TodayClient({ brand, label }: Props) {
           onChange={setTab}
           data={[
             { label: `All (${counts.total})`, value: 'all' },
+            { label: `Inbound (${counts.inboundQueue || 0})`, value: 'inbound' },
             { label: `Overdue (${counts.overdueFollowUps})`, value: 'overdue' },
             { label: `Due Today (${counts.dueTodayFollowUps})`, value: 'due_today' },
             { label: `Cadence Tasks (${counts.cadenceTasks})`, value: 'cadence' },
@@ -405,6 +429,87 @@ export function TodayClient({ brand, label }: Props) {
           </Paper>
         ) : (
           <Stack gap="md">
+            {/* 0. Inbound Queue */}
+            {(tab === 'all' || tab === 'inbound') && data && data.inboundQueue && data.inboundQueue.length > 0 && (
+              <Stack gap="xs">
+                <Text size="sm" fw={700} c="dimmed" tt="uppercase">
+                  Inbound & Extension Captures ({data.inboundQueue.length})
+                </Text>
+                {data.inboundQueue.map((item: TodayInboundItem) => (
+                  <Paper key={item.leadId} withBorder p="md" radius="md">
+                    <Group justify="space-between" align="center" wrap="wrap">
+                      <Group gap="sm" align="flex-start">
+                        <ActionIcon variant="light" color="blue" size="lg" radius="md">
+                          <IconInbox size={20} />
+                        </ActionIcon>
+                        <div>
+                          <Group gap="xs">
+                            <Link
+                              href={`/sales/${brand}?lead=${item.leadId}`}
+                              style={{ textDecoration: 'none', color: 'inherit' }}
+                            >
+                              <Text fw={600} size="sm" className="hover:underline">
+                                {item.entityName}
+                              </Text>
+                            </Link>
+                            <StatusBadge status="info" size="xs">
+                              {item.source === 'LINKEDIN_EXTENSION' ? 'LinkedIn Capture' : 'Inbound Form'}
+                            </StatusBadge>
+                            {item.buyingRole && (
+                              <LabelTag size="xs" tone="neutral" label={item.buyingRole} />
+                            )}
+                          </Group>
+                          <Group gap="xs" mt={2}>
+                            {item.contactName && (
+                              <Text size="xs" c="dimmed">
+                                <IconUser size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />
+                                {item.contactName} {item.contactTitle ? `· ${item.contactTitle}` : ''}
+                              </Text>
+                            )}
+                            {item.contactEmail && (
+                              <Text size="xs" c="dimmed">
+                                <IconMail size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />
+                                {item.contactEmail}
+                              </Text>
+                            )}
+                            {item.linkedinUrl && (
+                              <Text
+                                component="a"
+                                href={item.linkedinUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                size="xs"
+                                c="blue"
+                              >
+                                <IconBrandLinkedin size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />
+                                LinkedIn Profile
+                              </Text>
+                            )}
+                          </Group>
+                          {item.notes && (
+                            <Text size="xs" c="slate" mt={4} style={{ fontStyle: 'italic', maxWidth: '600px' }} lineClamp={2}>
+                              &ldquo;{item.notes}&rdquo;
+                            </Text>
+                          )}
+                        </div>
+                      </Group>
+                      <Group gap="xs">
+                        <Button
+                          component={Link}
+                          href={`/sales/${brand}?lead=${item.leadId}`}
+                          size="xs"
+                          variant="light"
+                          rightSection={<IconArrowNarrowRight size={14} />}
+                        >
+                          Review Lead
+                        </Button>
+                      </Group>
+                    </Group>
+                  </Paper>
+                ))}
+              </Stack>
+            )}
+
             {/* 1. Cadence Tasks */}
             {(tab === 'all' || tab === 'cadence') && data && data.cadenceTasks.length > 0 && (
               <Stack gap="xs">

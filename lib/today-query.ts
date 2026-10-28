@@ -214,6 +214,36 @@ export async function getTodayViewData(
 
   const limitedDeals = dealsNeedingAttention.slice(0, limit);
 
+  // 5. Inbound & Extension Captures Review Queue
+  // Leads in DISCOVERED column sourced from inbound form or LinkedIn extension
+  const inboundFilter = {
+    ...baseFilter,
+    kanbanColumn: 'DISCOVERED',
+    source: { $in: ['inbound', 'LINKEDIN_EXTENSION'] },
+  };
+  const inboundDocs = await col
+    .find(inboundFilter)
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .toArray();
+
+  const inboundQueue = inboundDocs.map((doc) => {
+    const primaryContact = Array.isArray(doc.contacts) && doc.contacts[0] ? doc.contacts[0] : null;
+    return {
+      leadId: doc._id.toString(),
+      entityName: doc.name || doc.entity_name || 'Unnamed Prospect',
+      source: doc.source || 'inbound',
+      contactName: primaryContact?.name,
+      contactTitle: primaryContact?.title,
+      contactEmail: primaryContact?.email,
+      contactPhone: primaryContact?.phone,
+      linkedinUrl: primaryContact?.linkedin || doc.linkedin_url,
+      buyingRole: primaryContact?.buyingRole,
+      createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : new Date().toISOString(),
+      notes: doc.notes,
+    };
+  });
+
   return {
     date: window.dateStr,
     timezone: window.timezone,
@@ -223,15 +253,18 @@ export async function getTodayViewData(
         cadenceTasks.length +
         overdueFollowUps.length +
         dueTodayFollowUps.length +
-        limitedDeals.length,
+        limitedDeals.length +
+        inboundQueue.length,
       cadenceTasks: cadenceTasks.length,
       overdueFollowUps: overdueFollowUps.length,
       dueTodayFollowUps: dueTodayFollowUps.length,
       dealsNeedingAttention: limitedDeals.length,
+      inboundQueue: inboundQueue.length,
     },
     cadenceTasks,
     overdueFollowUps,
     dueTodayFollowUps,
     dealsNeedingAttention: limitedDeals,
+    inboundQueue,
   };
 }

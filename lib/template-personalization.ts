@@ -6,6 +6,7 @@
 // to prevent outreach sends with blank or missing variables.
 
 import type { NormalizedContact } from './contacts';
+import { generateDomainAuditPitch } from './domain-audit-pitch';
 
 export const CANONICAL_TOKENS = {
   FIRST_NAME: 'first_name',
@@ -19,6 +20,7 @@ export const CANONICAL_TOKENS = {
   COMPANY_NAME: 'company_name',
   COMPANY_WEBSITE: 'company_website',
   INDUSTRY: 'industry',
+  DIGITAL_AUDIT_PITCH: 'digital_audit_pitch',
 } as const;
 
 export type CanonicalTokenKey = typeof CANONICAL_TOKENS[keyof typeof CANONICAL_TOKENS];
@@ -69,6 +71,12 @@ export const TOKEN_ALIASES: Record<string, CanonicalTokenKey> = {
   website: 'company_website',
   // Industry
   industry: 'industry',
+  // Digital Audit Pitch (Issue 293)
+  digital_audit_pitch: 'digital_audit_pitch',
+  digitalauditpitch: 'digital_audit_pitch',
+  'digital audit pitch': 'digital_audit_pitch',
+  audit_pitch: 'digital_audit_pitch',
+  auditpitch: 'digital_audit_pitch',
 };
 
 /**
@@ -133,6 +141,15 @@ export function buildPersonalizationContext(input: PersonalizationInput): Record
   context.phone = contact?.phone || '';
   context.linkedin_url = contact?.linkedin || '';
   context.job_title = contact?.title || contact?.role || '';
+
+  // Digital audit pitch hook if tech stack signals exist on lead
+  const signals = lead?.techSignals || lead?.techStackSignals;
+  if (signals && Array.isArray(signals) && signals.length > 0) {
+    const pitchSummary = generateDomainAuditPitch(entityName, signals, lead?.techSignalsScannedAt || lead?.techStackScannedAt);
+    context.digital_audit_pitch = pitchSummary.recommendedPitch;
+  } else if (!context.digital_audit_pitch) {
+    context.digital_audit_pitch = '';
+  }
 
   // 3. Populate aliases into context so exact lookups succeed on any alias
   for (const [alias, canonical] of Object.entries(TOKEN_ALIASES)) {

@@ -46,6 +46,7 @@ import { useIsCompactViewport } from './lib/use-is-compact-viewport';
 import { TOUR_SELECTOR } from './lib/tour/selectors';
 import { useAuth } from './components/AuthProvider';
 import { exportLeadsToCsv, exportLeadsToGoogleSheetsTsv, type CrmPreset } from '@/lib/crm-lead-exchange';
+import { generateDomainAuditPitch } from '@/lib/domain-audit-pitch';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -134,23 +135,61 @@ const TECH_SIGNAL_LABELS: Record<string, string> = {
 
 // Renders null (section omitted) when no scan has run yet — the issue's own
 // UX spec treats "not yet scanned" as absent, not as an empty/failed state.
-function techSignalsSection(lead: Lead) {
+function techSignalsSection(lead: Lead, onCopyPitch?: (text: string) => void) {
   if (!lead.techSignalsScanStatus) return null;
 
   if (lead.techSignalsScanStatus === 'ok' && (lead.techSignals?.length ?? 0) > 0) {
+    const pitchSummary = generateDomainAuditPitch(
+      lead.entity_name || 'Organization',
+      lead.techSignals || [],
+      lead.techSignalsScannedAt
+    );
+
     return (
-      <Group gap="xs" role="list" aria-label="Detected tech signals">
-        {lead.techSignals!.map((signal) => (
-          <Box key={signal} component="span" role="listitem">
-            <LabelTag
-              tone="info"
-              size="xs"
-              aria-label={TECH_SIGNAL_LABELS[signal] || signal}
-              label={TECH_SIGNAL_LABELS[signal] || signal}
-            />
+      <Stack gap="xs" mt={4}>
+        <Group gap="xs" role="list" aria-label="Detected tech signals">
+          {lead.techSignals!.map((signal) => (
+            <Box key={signal} component="span" role="listitem">
+              <LabelTag
+                tone="info"
+                size="xs"
+                aria-label={TECH_SIGNAL_LABELS[signal] || signal}
+                label={TECH_SIGNAL_LABELS[signal] || signal}
+              />
+            </Box>
+          ))}
+        </Group>
+
+        {pitchSummary.pitchAngles.length > 0 && (
+          <Box
+            p="xs"
+            style={{
+              borderRadius: '6px',
+              border: '1px solid var(--gds-border-card)',
+              background: 'var(--gds-bg-card)',
+            }}
+          >
+            <Group justify="space-between" align="center" mb={4}>
+              <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                Audit Pitch Talk Track
+              </Text>
+              {onCopyPitch && (
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  leftSection={<IconCopy size={12} />}
+                  onClick={() => onCopyPitch(pitchSummary.recommendedPitch)}
+                >
+                  Copy Hook
+                </Button>
+              )}
+            </Group>
+            <Text size="xs" c="slate">
+              {pitchSummary.recommendedPitch}
+            </Text>
           </Box>
-        ))}
-      </Group>
+        )}
+      </Stack>
     );
   }
 
@@ -1281,7 +1320,14 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
           {dealHealth.label}
         </StatusBadge>
       </Group>
-      {techSignalsSection(lead)}
+      {techSignalsSection(lead, (pitchText) => {
+        navigator.clipboard?.writeText(pitchText);
+        showNotification({
+          message: 'Copied digital audit pitch hook to clipboard',
+          color: 'teal',
+          autoClose: 3000,
+        });
+      })}
     </Stack>
   );
 

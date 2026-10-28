@@ -41,6 +41,20 @@ export type TodayDealAttention = {
   reason: 'past_close_date' | 'stale_stage';
 };
 
+export type TodayInboundItem = {
+  leadId: string;
+  entityName: string;
+  source: 'inbound' | 'LINKEDIN_EXTENSION' | string;
+  contactName?: string;
+  contactTitle?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  linkedinUrl?: string;
+  buyingRole?: string;
+  createdAt: string;
+  notes?: string;
+};
+
 export type TodayViewData = {
   date: string;
   timezone: string;
@@ -51,11 +65,13 @@ export type TodayViewData = {
     overdueFollowUps: number;
     dueTodayFollowUps: number;
     dealsNeedingAttention: number;
+    inboundQueue: number;
   };
   cadenceTasks: TodayCadenceTask[];
   overdueFollowUps: TodayFollowUp[];
   dueTodayFollowUps: TodayFollowUp[];
   dealsNeedingAttention: TodayDealAttention[];
+  inboundQueue: TodayInboundItem[];
 };
 
 /**

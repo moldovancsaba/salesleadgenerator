@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.337
+
+### Sales Enablement & Inbound Triage: Digital Audit Pitch Generator & Inbound Review Queue
+
+- **Inbound & Captured Leads Review Queue (Issue #292, `lib/today.ts`, `lib/today-query.ts`, `app/today/[brand]/today-client.tsx`, `tests/lib/inbound-queue.test.ts`):**
+  - Added dedicated Inbound Review Queue bucket aggregating newly ingested leads in `DISCOVERED` sourced from inbound web forms (`/forms/[brand]`, Issue #284) and browser extension captures (`extension/`, Issue #290).
+  - Expanded `TodayViewData.counts.inboundQueue` and added an interactive **Inbound Queue** KPI summary card and filter tab on `/today/[brand]`.
+  - Surfaced rich prospect cards showing lead entity name, source tag, contact title, email, direct LinkedIn profile link, and captured notes with 1-click **Review Lead** navigation.
+- **Domain & Digital Presence Audit Pitch Generator (Issue #293, `lib/domain-audit-pitch.ts`, `lib/template-personalization.ts`, `app/detail.tsx`, `tests/lib/domain-audit-pitch.test.ts`):**
+  - Created pure domain audit pitch engine (`generateDomainAuditPitch`) analyzing detected tech stack signals (Shopify, WordPress, Webflow, GTM, Google Analytics, Meta Pixel, Next.js, React, HubSpot) to generate tailored commercial conversation hooks across 5 categories: Matchday E-Commerce Monetization, Quantifiable Sponsor ROI Attribution, Zero-Party Fan Data Capture, High-Performance Fan Experience, and CRM Partner Sync.
+  - Added support for `{{digital_audit_pitch}}` merge variable in outreach templates and email personalization contexts (`buildPersonalizationContext`).
+  - Integrated Audit Pitch card directly into `LeadDetailModal` (`app/detail.tsx`) with 1-click **Copy Hook** clipboard action.
+- **Idea Bank Recording (Issue #291):**
+  - Documented Számlázz.hu E-Invoicing & Proforma (Díjbekérő) integration specification in repository roadmap and GitHub tracking.
+
 ## 2.4.336
 
 ### Prospecting: 1-Click LinkedIn Prospect Capture Chrome Extension & Ingestion API
