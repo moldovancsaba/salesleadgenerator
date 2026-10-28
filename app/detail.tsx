@@ -47,6 +47,7 @@ import { TOUR_SELECTOR } from './lib/tour/selectors';
 import { useAuth } from './components/AuthProvider';
 import { exportLeadsToCsv, exportLeadsToGoogleSheetsTsv, type CrmPreset } from '@/lib/crm-lead-exchange';
 import { generateDomainAuditPitch } from '@/lib/domain-audit-pitch';
+import { generatePreCallBriefing, type PreCallBriefing } from '@/lib/pre-call-briefing';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -515,6 +516,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
   const [quotesCanSend, setQuotesCanSend] = useState(false);
   const [quotesLoaded, setQuotesLoaded] = useState(false);
   const [quoteBusyId, setQuoteBusyId] = useState<string | null>(null);
+  const [briefingOpen, setBriefingOpen] = useState(false);
 
   // Deliberately narrowed to lead?._id (not the whole lead object) — quotes
   // only need reloading when the open lead or brand actually changes, never
@@ -1262,46 +1264,58 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
       <Group justify="space-between" align="center" wrap="wrap">
         <Title order={3}>{lead.entity_name}</Title>
 
-        <Menu shadow="md" width={240} position="bottom-end">
-          <Menu.Target>
-            <Button size="xs" variant="default" leftSection={<IconDownload size={14} />}>
-              Export Lead
-            </Button>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Label>Major CRM Systems</Menu.Label>
-            <Menu.Item
-              leftSection={<IconBrandGoogle size={14} color="var(--mantine-color-green-6)" />}
-              onClick={handleCopyLeadForGoogleSheets}
-            >
-              Copy for Google Sheets
-            </Menu.Item>
-            <Menu.Item
-              leftSection={<IconDownload size={14} />}
-              onClick={() => handleDownloadSingleLead('google_sheets')}
-            >
-              Download Google Sheets CSV
-            </Menu.Item>
-            <Menu.Item
-              leftSection={<IconDownload size={14} color="var(--mantine-color-orange-6)" />}
-              onClick={() => handleDownloadSingleLead('hubspot')}
-            >
-              Download HubSpot CSV
-            </Menu.Item>
-            <Menu.Item
-              leftSection={<IconDownload size={14} color="var(--mantine-color-blue-6)" />}
-              onClick={() => handleDownloadSingleLead('salesforce')}
-            >
-              Download Salesforce CSV
-            </Menu.Item>
-            <Menu.Item
-              leftSection={<IconDownload size={14} color="var(--mantine-color-teal-6)" />}
-              onClick={() => handleDownloadSingleLead('pipedrive')}
-            >
-              Download Pipedrive CSV
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
+        <Group gap="xs">
+          <Button
+            size="xs"
+            variant="light"
+            color="blue"
+            leftSection={<IconFileText size={14} />}
+            onClick={() => setBriefingOpen(true)}
+          >
+            Pre-Call Briefing
+          </Button>
+
+          <Menu shadow="md" width={240} position="bottom-end">
+            <Menu.Target>
+              <Button size="xs" variant="default" leftSection={<IconDownload size={14} />}>
+                Export Lead
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>Major CRM Systems</Menu.Label>
+              <Menu.Item
+                leftSection={<IconBrandGoogle size={14} color="var(--mantine-color-green-6)" />}
+                onClick={handleCopyLeadForGoogleSheets}
+              >
+                Copy for Google Sheets
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconDownload size={14} />}
+                onClick={() => handleDownloadSingleLead('google_sheets')}
+              >
+                Download Google Sheets CSV
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconDownload size={14} color="var(--mantine-color-orange-6)" />}
+                onClick={() => handleDownloadSingleLead('hubspot')}
+              >
+                Download HubSpot CSV
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconDownload size={14} color="var(--mantine-color-blue-6)" />}
+                onClick={() => handleDownloadSingleLead('salesforce')}
+              >
+                Download Salesforce CSV
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconDownload size={14} color="var(--mantine-color-teal-6)" />}
+                onClick={() => handleDownloadSingleLead('pipedrive')}
+              >
+                Download Pipedrive CSV
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </Group>
       </Group>
 
       <Group gap="xs">
@@ -2498,6 +2512,153 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
           </Group>
         </Stack>
       </Modal>
+
+      {/* Issue #294: 1-Click Pre-Call Meeting Briefing & Executive Cheat Sheet */}
+      {briefingOpen && (
+        <Modal
+          opened={briefingOpen}
+          onClose={() => setBriefingOpen(false)}
+          title={`Pre-Call Executive Briefing: ${lead.entity_name}`}
+          size="lg"
+          centered
+        >
+          {(() => {
+            const briefing = generatePreCallBriefing(lead, currency);
+            return (
+              <Stack gap="md">
+                <Box
+                  p="xs"
+                  style={{
+                    backgroundColor: 'var(--gds-bg-card)',
+                    border: '1px solid var(--gds-border-card)',
+                    borderRadius: 8,
+                  }}
+                >
+                  <Group justify="space-between" mb="xs">
+                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                      Executive Overview
+                    </Text>
+                    <Group gap="xs">
+                      <LabelTag tone="neutral" label={briefing.prospect.stage} />
+                      <LabelTag tone="neutral" label={`ICE ${briefing.prospect.iceScore}/30`} />
+                      <LabelTag tone="neutral" label={briefing.prospect.estimatedValue} />
+                    </Group>
+                  </Group>
+                  <Text size="sm" fw={600}>{briefing.prospect.entityName}</Text>
+                  <Text size="xs" c="dimmed">
+                    {briefing.prospect.sportOrIndustry} · {briefing.prospect.location}
+                  </Text>
+                  {briefing.prospect.decisionMaker && (
+                    <Box mt="xs" pt="xs" style={{ borderTop: '1px solid var(--gds-border-card)' }}>
+                      <Text size="xs" fw={600}>Primary Stakeholder:</Text>
+                      <Text size="xs">
+                        {briefing.prospect.decisionMaker.name}
+                        {briefing.prospect.decisionMaker.title ? ` (${briefing.prospect.decisionMaker.title})` : ''}
+                      </Text>
+                      {briefing.prospect.decisionMaker.email && (
+                        <Text size="xs" c="dimmed">{briefing.prospect.decisionMaker.email}</Text>
+                      )}
+                    </Box>
+                  )}
+                </Box>
+
+                <Box
+                  p="xs"
+                  style={{
+                    backgroundColor: 'var(--gds-bg-card)',
+                    border: '1px solid var(--gds-border-card)',
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={6}>
+                    Recommended Talk Track & Hook
+                  </Text>
+                  <Text size="sm" fs="italic">
+                    &ldquo;{briefing.domainPitch.recommendedPitch}&rdquo;
+                  </Text>
+                </Box>
+
+                <Box>
+                  <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={6}>
+                    High-Impact Discovery Questions
+                  </Text>
+                  <Stack gap="xs">
+                    {briefing.recommendedQuestions.map((q, idx) => (
+                      <Box
+                        key={idx}
+                        p="xs"
+                        style={{
+                          backgroundColor: 'var(--gds-bg-card)',
+                          border: '1px solid var(--gds-border-card)',
+                          borderRadius: 6,
+                        }}
+                      >
+                        <Text size="xs" fw={600} mb={2}>{idx + 1}. {q.question}</Text>
+                        <Text size="xs" c="dimmed">Objective: {q.rationale}</Text>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+
+                <Box>
+                  <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={6}>
+                    Anticipated Objections & Rebuttals
+                  </Text>
+                  <Stack gap="xs">
+                    {briefing.keyObjectionsCheatSheet.map((o, idx) => (
+                      <Box
+                        key={idx}
+                        p="xs"
+                        style={{
+                          backgroundColor: 'var(--gds-bg-card)',
+                          border: '1px solid var(--gds-border-card)',
+                          borderRadius: 6,
+                        }}
+                      >
+                        <Text size="xs" fw={600} mb={2}>&ldquo;{o.objection}&rdquo;</Text>
+                        <Text size="xs" c="dimmed">Rebuttal: {o.counterTrack}</Text>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+
+                {briefing.capturedContextNotes.length > 0 && (
+                  <Box>
+                    <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={6}>
+                      Captured Context Notes
+                    </Text>
+                    <Stack gap={4}>
+                      {briefing.capturedContextNotes.map((note, idx) => (
+                        <Text key={idx} size="xs" c="dimmed">• {note}</Text>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                <Group justify="flex-end" gap="xs" mt="sm">
+                  <Button variant="default" onClick={() => setBriefingOpen(false)}>
+                    Close
+                  </Button>
+                  <Button
+                    color="teal"
+                    leftSection={<IconCopy size={14} />}
+                    onClick={() => {
+                      navigator.clipboard?.writeText(briefing.markdownCheatSheet);
+                      showNotification({
+                        title: 'Briefing Copied',
+                        message: 'Full pre-call briefing copied to clipboard in markdown format.',
+                        color: 'teal',
+                      });
+                    }}
+                  >
+                    Copy Briefing
+                  </Button>
+                </Group>
+              </Stack>
+            );
+          })()}
+        </Modal>
+      )}
     </>
   );
 }

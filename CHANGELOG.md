@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.338
+
+### Sales Enablement & Cadence Automation: 1-Click Pre-Call Meeting Briefing & Cadence Meeting Interlock
+
+- **1-Click Pre-Call Executive Briefing Generator (Issue #294, `lib/pre-call-briefing.ts`, `app/detail.tsx`, `tests/lib/pre-call-briefing.test.ts`):**
+  - Implemented pure pre-call briefing engine (`generatePreCallBriefing`) compiling a synthesized meeting preparation dossier from entity firmographics, detected tech-stack commercial hooks, ICE scoring, Deal Health dimensions, tailored discovery questions, objection rebuttals, and prospect notes.
+  - Added dedicated **Pre-Call Briefing** action button in `LeadDetailModal` opening an executive cheat-sheet modal with 1-click **Copy Briefing** clipboard export in clean markdown format.
+  - Comprehensive unit test coverage across rich profiles and sparse leads (`tests/lib/pre-call-briefing.test.ts`).
+- **Cadence Auto-Stop on Scheduled Meeting (Issue #295, `app/lib/scheduling-store.ts`, `tests/lib/cadence-meeting-interlock.test.ts`):**
+  - Integrated automated cadence interlock in `bookSlot` (`app/lib/scheduling-store.ts`): booking a meeting slot via Google Calendar booking links automatically completes/clears any `activeCadence` on the lead, deletes pending Google Calendar task reminders, and logs a system audit record (`Cadence sequence stopped: meeting booked`).
+  - Added unit test suite verifying cadence cessation and reminder cleanup upon booking (`tests/lib/cadence-meeting-interlock.test.ts`).
+
 ## 2.4.337
 
 ### Sales Enablement & Inbound Triage: Digital Audit Pitch Generator & Inbound Review Queue

@@ -12,6 +12,7 @@ import type { IntegrationConnection } from '../../lib/integration-connections';
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes, type ActivityLogDocument } from './activity-log-store';
 import { getBrandConfig, type Brand } from './brand';
 import { tenantFilter } from '../../lib/tenant';
+import { deleteCalendarTaskReminder } from '../../lib/gcal-sync';
 
 // Meeting scheduler (issue #207) — built directly on issue #217's
 // third-party connection hub (its own §24 explicitly sanctions this
@@ -316,18 +317,52 @@ export async function bookSlot(db: Db, brand: Brand, tenantId: string, params: {
   if (params.leadId && ObjectId.isValid(params.leadId)) {
     const brandConfig = await getBrandConfig(brand);
     if (brandConfig) {
-      await db.collection(brandConfig.dbCollection).updateOne(
-        { _id: new ObjectId(params.leadId), ...tenantFilter(tenantId) },
-        {
-          $set: {
-            nextActionDueAt: params.slotStart,
-            nextActionNote: `Meeting scheduled for ${params.slotStart}${event.meetingUrl ? ` (${event.meetingUrl})` : ''}`,
-            updatedAt: new Date().toISOString(),
-          },
+      const leadObjId = new ObjectId(params.leadId);
+      try {
+        const existingLead = await db.collection(brandConfig.dbCollection).findOne({
+          _id: leadObjId,
+          ...tenantFilter(tenantId),
+        });
+
+        // Auto-stop active cadence and clean up pending reminders (Issue #295)
+        if (existingLead?.activeCadence) {
+          if (existingLead.activeCadence.taskStepId) {
+            await deleteCalendarTaskReminder(db, {
+              brand,
+              tenantId,
+              taskId: existingLead.activeCadence.taskStepId,
+            }).catch(() => {});
+          }
+
+          // Record cadence cancellation activity
+          const stopDoc: ActivityLogDocument = {
+            leadId: params.leadId,
+            tenantId,
+            brand,
+            type: 'system',
+            direction: null,
+            matchedContactKey: null,
+            source: 'calendar-sync',
+            subject: 'Cadence sequence stopped: meeting booked',
+            createdAt: new Date(),
+          } as ActivityLogDocument;
+          await db.collection(ACTIVITY_LOG_COLLECTION).insertOne(stopDoc as any).catch(() => {});
         }
-      ).catch((error) => {
-        console.error('[scheduling-store] lead write-back failed', error);
-      });
+
+        await db.collection(brandConfig.dbCollection).updateOne(
+          { _id: leadObjId, ...tenantFilter(tenantId) },
+          {
+            $set: {
+              activeCadence: null,
+              nextActionDueAt: params.slotStart,
+              nextActionNote: `Meeting scheduled for ${params.slotStart}${event.meetingUrl ? ` (${event.meetingUrl})` : ''}`,
+              updatedAt: new Date().toISOString(),
+            },
+          }
+        );
+      } catch (error) {
+        console.error('[scheduling-store] lead write-back or cadence auto-stop failed', error);
+      }
     }
   }
 
