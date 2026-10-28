@@ -1,7 +1,10 @@
 {
   "name": "slg-leads",
-  "version": "2.4.338",
+  "version": "2.4.339",
   "private": true,
+  "bin": {
+    "slg-mcp": "./bin/slg-mcp.js"
+  },
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",

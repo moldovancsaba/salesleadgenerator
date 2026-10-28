@@ -135,8 +135,12 @@ describe('Cadence Meeting Interlock (Issue 295)', () => {
   });
 
   it('stops active cadence, deletes task reminder, and logs activity when a meeting is booked', async () => {
-    const slotStart = '2026-10-28T09:00:00.000Z';
-    const slotEnd = '2026-10-28T09:30:00.000Z';
+    // Generate an unambiguously available slot in the future (tomorrow at 10:00 UTC)
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateStr = tomorrow.toISOString().slice(0, 10);
+    const slotStart = `${dateStr}T10:00:00.000Z`;
+    const slotEnd = `${dateStr}T10:30:00.000Z`;
 
     const result = await bookSlot(mockDb, 'cogmap', 'default', {
       slotStart,

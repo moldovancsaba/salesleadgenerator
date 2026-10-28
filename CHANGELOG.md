@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.339
+
+### Integrations & Agentic Protocols: Native Model Context Protocol (MCP) Server for Autonomous Agents
+
+- **Standards-Compliant MCP Server & Tools Registry (Issue #296, `lib/mcp/server.ts`, `tests/lib/mcp-server.test.ts`):**
+  - Implemented Model Context Protocol (MCP) JSON-RPC 2.0 tools server allowing autonomous agent runtimes (Paperclip, Claude Desktop, Cursor, and custom agent teams) to interface with Sales Lead Generator.
+  - Defined 6 core CRM tools:
+    - `slg_search_leads`: Flexible search across pipeline stages, country codes, tags, and entity names.
+    - `slg_get_lead`: Direct retrieval of full lead document with contacts and deal health.
+    - `slg_get_pre_call_briefing`: 1-click executive meeting cheat-sheet with discovery questions and objection rebuttals.
+    - `slg_capture_lead`: Autonomous prospect ingestion with automatic deduplication, contact merging, and ticket size estimation.
+    - `slg_update_lead_stage`: Programmatic stage transition across Kanban columns.
+    - `slg_list_pipeline_stages`: Pipeline stage guidance, exit criteria, and recommended talk tracks.
+- **HTTP Transport Endpoint (Issue #296, `app/api/mcp/route.ts`):**
+  - Created `POST /api/mcp` JSON-RPC endpoint supporting `tools/list` and `tools/call` with Scoped API Key authentication (`x-api-key` or `Authorization: Bearer slg_...`).
+  - Added `GET /api/mcp` endpoint providing schema documentation for agent auto-discovery.
+- **Standalone STDIO Executable & Agent Guide (Issue #296, `bin/slg-mcp.js`, `docs/MCP_SERVER_GUIDE.md`):**
+  - Packaged standalone STDIO MCP runner in `bin/slg-mcp.js` (executable as `slg-mcp`) connecting local autonomous agent orchestrators (like Paperclip CLI or Claude Desktop) over stdin/stdout.
+  - Published comprehensive setup guide with configuration snippets for Paperclip, Claude Desktop, and Cursor in `docs/MCP_SERVER_GUIDE.md`.
+
 ## 2.4.338
 
 ### Sales Enablement & Cadence Automation: 1-Click Pre-Call Meeting Briefing & Cadence Meeting Interlock
