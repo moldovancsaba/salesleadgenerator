@@ -4,6 +4,7 @@ import { getBrandConfig, resolveBrand } from '../../../lib/brand'
 import { getTenantId } from '../../../../lib/tenant'
 import { sanitizeProduct, PRODUCTS_COLLECTION } from '../../../lib/products'
 import type { Product } from '../../../lib/products'
+import { syncCatalogProductToSalesSettings } from '../../../../lib/product-catalog-sync'
 import { requireBrandAccessApi } from '../../../../lib/require-brand-access-api'
 
 // Issue #226: guarded by requireBrandAccessApi (SSO session with access to
@@ -72,6 +73,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const db = client.db();
     await ensureProductsIndex(db);
     await db.collection(PRODUCTS_COLLECTION).insertOne(product);
+
+    // Two-way synchronization: reconcile newly added catalog product into company_settings
+    void syncCatalogProductToSalesSettings(db, brand, tenantId, product, 'upsert')
+      .catch((err) => console.error('[POST /api/products] sync to sales-settings failed', { brand, tenantId, err }));
 
     return NextResponse.json({ product }, { status: 201 });
   } catch (error: any) {

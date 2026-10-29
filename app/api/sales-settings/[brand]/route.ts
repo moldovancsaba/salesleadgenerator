@@ -4,6 +4,7 @@ import { getBrandConfig, resolveBrand } from '@/app/lib/brand'
 import { getTenantId } from '@/lib/tenant'
 import { sanitizeSalesSettings, emptySalesSettings } from '@/app/lib/sales-settings'
 import { backfillTicketSizeCollection } from '@/lib/backfill-ticket-size'
+import { syncSalesSettingsProductsToCatalog } from '@/lib/product-catalog-sync'
 import { requireBrandAccessApi } from '@/lib/require-brand-access-api'
 
 const COLLECTION = 'company_settings'
@@ -85,6 +86,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       { $set: { ...sanitized, updatedAt } },
       { upsert: true }
     )
+
+    // Two-way synchronization: reconcile SalesSettings products into the Product Catalog
+    if (sanitized.products && sanitized.products.length > 0) {
+      void syncSalesSettingsProductsToCatalog(db, brand, tenantId, sanitized.products, sanitized.revenueTarget.currency || config?.currency || 'USD')
+        .catch((err) => console.error('[sales-settings PUT] sync to catalog failed', { brand, tenantId, err }))
+    }
 
     // Fire-and-forget ticket-size recompute across this brand's leads
     // (issue #82) — an operator correcting a wrong dealSize.largestWon or

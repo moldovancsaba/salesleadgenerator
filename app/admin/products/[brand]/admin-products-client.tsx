@@ -168,10 +168,11 @@ export function AdminProductsClient({ brand, label, defaultCurrency }: Props) {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Product Catalog</Title>
+              <StatusBadge status="success" size="xs">2-Way Sync</StatusBadge>
               <CountBadge value={products.length} size="md" srLabel="Product count" />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
-              Priced, reusable line items for <Text span fw={600}>{label}</Text> deals.
+              Priced, reusable line items for <Text span fw={600}>{label}</Text> deals. Synchronized bidirectionally with Sales Settings offerings.
             </Text>
           </div>
           <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openCreate}>Add product</Button>

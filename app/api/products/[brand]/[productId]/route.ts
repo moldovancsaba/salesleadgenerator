@@ -4,6 +4,7 @@ import { getBrandConfig, resolveBrand } from '../../../../lib/brand'
 import { getTenantId, tenantFilter } from '../../../../../lib/tenant'
 import { sanitizeProduct, PRODUCTS_COLLECTION } from '../../../../lib/products'
 import type { Product } from '../../../../lib/products'
+import { syncCatalogProductToSalesSettings } from '../../../../../lib/product-catalog-sync'
 import { requireBrandAccessApi } from '../../../../../lib/require-brand-access-api'
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ brand: string; productId: string }> }) {
@@ -35,6 +36,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     await db.collection(PRODUCTS_COLLECTION).updateOne({ brand, tenantId, id: productId }, { $set: product });
+
+    // Two-way synchronization: update product line in company_settings
+    void syncCatalogProductToSalesSettings(db, brand, tenantId, product, 'upsert')
+      .catch((err) => console.error('[PATCH /api/products] sync to sales-settings failed', { brand, tenantId, err }));
+
     return NextResponse.json({ product });
   } catch (error: any) {
     console.error('PATCH /api/products/[brand]/[productId] Error:', error)
@@ -76,6 +82,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     await db.collection(PRODUCTS_COLLECTION).deleteOne({ brand, tenantId, id: productId });
+
+    // Two-way synchronization: delete corresponding line from company_settings
+    void syncCatalogProductToSalesSettings(db, brand, tenantId, existing as unknown as Product, 'delete')
+      .catch((err) => console.error('[DELETE /api/products] sync to sales-settings failed', { brand, tenantId, err }));
+
     return new NextResponse(null, { status: 204 });
   } catch (error: any) {
     console.error('DELETE /api/products/[brand]/[productId] Error:', error)

@@ -666,6 +666,7 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
                   <div>
                     <Group gap="xs" align="center">
                       <Title order={4}>Product Catalog Synchronization</Title>
+                      <StatusBadge status="success" size="xs">2-Way Live Sync</StatusBadge>
                       <CountBadge
                         value={catalogProducts.length}
                         size="md"
@@ -673,7 +674,7 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
                       />
                     </Group>
                     <Text size="xs" c="dimmed" mt={2}>
-                      Sync real offerings from the centralized Product Catalog into this brand&apos;s estimation models to keep sales pitches and ticket sizing aligned.
+                      Bidirectional live synchronization: updates saved here automatically propagate to the central Product Catalog, and changes made in the Catalog immediately update sales offerings.
                     </Text>
                   </div>
 

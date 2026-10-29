@@ -1,5 +1,25 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.342
+
+### Catalog & Settings: 2-Way Synchronization Between Sales Settings Offerings and Product Catalog
+
+- **Bidirectional Product Reconciliation Engine (Issue #299, `lib/product-catalog-sync.ts`, `tests/lib/product-catalog-sync.test.ts`):**
+  - Eliminated the disconnect where Sales Settings offerings (`company_settings.products`) and the central Product Catalog (`/admin/products/[brand]`, `products` collection) drifted or required manual 1-way pulls.
+  - Implemented `syncSalesSettingsProductsToCatalog`:
+    - Automatically parses `ProductLine[]` offerings on Sales Settings save.
+    - Extracts primary pricing models and non-zero unit prices.
+    - Reconciles existing catalog documents matching by `id`, `sourceProductLineId`, or normalized name, updating price, pricing model, and description.
+    - Inserts newly introduced product lines as first-class catalog products.
+  - Implemented `syncCatalogProductToSalesSettings`:
+    - Reconciles mutations in the Product Catalog directly back into `company_settings.products`.
+    - Handles catalog product additions, price/model edits, and clean line-item removal on catalog deletion.
+- **API Lifecycle Integration (Issue #299, `app/api/sales-settings/[brand]/route.ts`, `app/api/products/[brand]/route.ts`, `app/api/products/[brand]/[productId]/route.ts`):**
+  - Integrated `syncSalesSettingsProductsToCatalog` into `PUT /api/sales-settings/[brand]` so saving company settings automatically keeps the Product Catalog synchronized.
+  - Integrated `syncCatalogProductToSalesSettings` into `POST /api/products/[brand]` and `PATCH /api/products/[brand]/[productId]` on upserts, and `DELETE /api/products/[brand]/[productId]` on deletion.
+- **UI State & Transparency (Issue #299, `app/salessettings/[client]/sales-settings-client.tsx`, `app/admin/products/[brand]/admin-products-client.tsx`):**
+  - Surfaced live "2-Way Live Sync" and "2-Way Sync" status badges with explicit messaging in both the Sales Settings product tab and the Product Catalog management view.
+
 ## 2.4.341
 
 ### Multi-Tenant Architecture & Directory Sync: Strict Padel Africa Directory Listings to Leads Sync
