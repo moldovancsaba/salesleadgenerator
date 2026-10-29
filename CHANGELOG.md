@@ -1,5 +1,24 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.341
+
+### Multi-Tenant Architecture & Directory Sync: Strict Padel Africa Directory Listings to Leads Sync
+
+- **Directory Listings Ingestion & Lead Transformation Engine (Issue #298, `lib/padel-listings-sync.ts`, `tests/lib/padel-listings-sync.test.ts`):**
+  - Enforced that for client `padel-africa`, sales leads originate strictly and exclusively from Padel Africa's directory listings (stored in `padel-africa` MongoDB instance managed by `management`).
+  - Built pure transformation engine (`mapListingToPadelLead`) mapping directory listings into compliant SLG leads:
+    - Entity name and verified website/source URL with fallback to public listing page.
+    - Full address and territory metadata (locality, administrative region, ISO 3166-1 alpha-2 country code).
+    - Phone number and direct venue manager contact generation (`court_operator` role).
+    - Commercial value proposition tailored to Padel Africa offerings (turnkey court installation, club management SaaS, WhatsApp player bookings, tournament sanctioning, pro shop supply).
+    - Dynamic ICE scoring and ICE score sorting based on listing completeness and phone/website presence.
+    - Deterministic SHA-1 fingerprinting and classification tags (`#sport:padel`, `#country:<code>`).
+    - Stamped `externalSource: { source: 'padel-africa-directory', listingId }`.
+- **Database Synchronization Execution (Issue #298, `scripts/sync-padel-listings.ts`):**
+  - Created idempotent sync script `scripts/sync-padel-listings.ts` connecting to Padel Africa's database (`padelafrica.6yaayde.mongodb.net/padel-africa`).
+  - Synchronized all 940 published padel venue and club listings across 42 African countries (including 227 in South Africa, 138 in Egypt, 80 in Morocco, 50 in Kenya, 46 in Tunisia, 36 in Côte d'Ivoire, 36 in Angola, 23 in Nigeria, 20 in Mauritius, 19 in Ghana) directly into `padel_africa_leads`.
+  - Created unique indexes on `externalSource.listingId` and `id`, plus query indexes on `kanbanColumn` and `country`.
+
 ## 2.4.340
 
 ### Multi-Tenant Architecture & Client Onboarding: Onboard Padel Africa Client and Configure Sales Settings
