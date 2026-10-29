@@ -45,18 +45,22 @@ describe('CURRENCY_CODE_OPTIONS / CURRENCY_CODES', () => {
 // this unit-test run) — same behavior otherwise, every assertion below is
 // unchanged from before the migration except for the added `await`.
 describe('resolveBrand', () => {
-  it('resolves all 3 known brand keys and their *sales aliases', async () => {
+  it('resolves all known brand keys and their *sales aliases', async () => {
     expect(await resolveBrand('cogmap')).toBe('cogmap');
     expect(await resolveBrand('cogmapsales')).toBe('cogmap');
     expect(await resolveBrand('seyu')).toBe('seyu');
     expect(await resolveBrand('seyusales')).toBe('seyu');
     expect(await resolveBrand('dvsc')).toBe('dvsc');
     expect(await resolveBrand('dvscsales')).toBe('dvsc');
+    expect(await resolveBrand('padel-africa')).toBe('padel-africa');
+    expect(await resolveBrand('padelafrica')).toBe('padel-africa');
+    expect(await resolveBrand('padelafricasales')).toBe('padel-africa');
   });
 
   it('is case-insensitive', async () => {
     expect(await resolveBrand('DVSC')).toBe('dvsc');
     expect(await resolveBrand('CogMap')).toBe('cogmap');
+    expect(await resolveBrand('Padel-Africa')).toBe('padel-africa');
   });
 
   it('still defaults to cogmap for a genuinely empty/absent value (distinct from an invalid one)', async () => {
@@ -77,15 +81,20 @@ describe('getBrandConfig / getAllBrandConfigs (issue 195)', () => {
     const config = await getBrandConfig('cogmap');
     expect(config?.label).toBe('CogMap');
     expect(config?.dbCollection).toBe('leads');
+
+    const padelConfig = await getBrandConfig('padel-africa');
+    expect(padelConfig?.label).toBe('Padel Africa');
+    expect(padelConfig?.currency).toBe('EUR');
+    expect(padelConfig?.dbCollection).toBe('padel_africa_leads');
   });
 
   it('getBrandConfig returns null for an unknown brand', async () => {
     expect(await getBrandConfig('not_a_real_brand')).toBeNull();
   });
 
-  it('getAllBrandConfigs returns exactly the 3 fallback brands when the collection is empty/unavailable', async () => {
+  it('getAllBrandConfigs returns exactly the fallback brands when the collection is empty/unavailable', async () => {
     const all = await getAllBrandConfigs();
-    expect(Object.keys(all).sort()).toEqual(['cogmap', 'dvsc', 'seyu']);
+    expect(Object.keys(all).sort()).toEqual(['cogmap', 'dvsc', 'padel-africa', 'seyu']);
   });
 });
 

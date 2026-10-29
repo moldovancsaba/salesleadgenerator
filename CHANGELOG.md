@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.340
+
+### Multi-Tenant Architecture & Client Onboarding: Onboard Padel Africa Client and Configure Sales Settings
+
+- **Padel Africa Brand Registry & Fallback Configuration (Issue #297, `app/lib/brand-constants.ts`, `tests/lib/brand.test.ts`):**
+  - Added `padel-africa` definition to `FALLBACK_BRAND_CONFIG` in `app/lib/brand-constants.ts` with brand label "Padel Africa", collection `padel_africa_leads`, currency `EUR`, aliases (`padel-africa`, `padelafrica`, `padelafricasales`), and `dealSizeBand` forecast model.
+  - Configured comprehensive brand vocabulary:
+    - `customerTypes`: `sports_clubs`, `academies`, `event_organisers`, `federations`, `resorts_hotels`, `indoor_arenas`, `municipal_complexes`.
+    - `buyerRoles`: `club`, `coach`, `federation`, `club_owner`, `general_manager`, `tournament_director`, `court_operator`.
+  - Configured `ownNameTerms`: `padel africa`, `padel-africa`, `padel`, `padel court`, `padel club`, `indoor court`, `outdoor court`, `court booking`, `padel tennis`.
+  - Updated unit tests in `tests/lib/brand.test.ts` to assert `padel-africa` alias resolution, case insensitivity, currency lookup, and fallback listings.
+- **Client Onboarding & Database Seeding (Issue #297, `scripts/onboard-padel-africa.ts`):**
+  - Created and executed migration script `scripts/onboard-padel-africa.ts`:
+    - Upserted `padel-africa` document in MongoDB `brands` collection and verified unique indices.
+    - Seeded comprehensive `company_settings` for `padel-africa` with deal sizes (`small: €5,000`, `medium: €18,000`, `large: €50,000`, `enterprise: €150,000`), regional multiplier mapping for African markets (ZA, EG, MA, KE, NG, TN, MU, EU), year-round seasonality, and €450k annual revenue target.
+    - Upserted first-class catalog products in `products` collection: Padel Club Operations SaaS (Monthly & Annual), Turnkey Panoramic Padel Court Supply & Installation, and African Circuit Tournament Sponsorship.
+    - Granted full `admin` role in `sso_user_access` for the platform owner (`moldovancsaba@gmail.com`) under `orgAccess['padel-africa']`.
+
 ## 2.4.339
 
 ### Integrations & Agentic Protocols: Native Model Context Protocol (MCP) Server for Autonomous Agents
