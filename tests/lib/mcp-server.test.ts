@@ -16,6 +16,28 @@ vi.mock('@/app/lib/lead-actions', () => ({
   }),
 }));
 
+vi.mock('@/app/lib/activity-log-store', () => ({
+  appendActivity: vi.fn().mockResolvedValue({ id: 'act-123' }),
+}));
+
+vi.mock('../../lib/management-engine-client', () => {
+  return {
+    ManagementEngineClient: class {
+      patchListing = vi.fn().mockResolvedValue({ ok: true, outcome: 'patched' });
+    },
+  };
+});
+
+vi.mock('../../lib/padel-sync-service', () => ({
+  syncPadelListingsToLeads: vi.fn().mockResolvedValue({
+    ok: true,
+    totalFound: 10,
+    inserted: 2,
+    updated: 8,
+    errors: [],
+  }),
+}));
+
 describe('MCP Server (Issue 296)', () => {
   let mockDb: any;
   let leadsCollection: any;
@@ -70,6 +92,7 @@ describe('MCP Server (Issue 296)', () => {
         return {
           findOne: vi.fn().mockResolvedValue(null),
           updateOne: vi.fn().mockResolvedValue({ modifiedCount: 1 }),
+          insertOne: vi.fn().mockResolvedValue({ insertedId: new ObjectId() }),
           find: vi.fn().mockReturnValue({
             sort: vi.fn().mockReturnThis(),
             limit: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([]) }),
@@ -161,5 +184,58 @@ describe('MCP Server (Issue 296)', () => {
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.stages.length).toBeGreaterThan(0);
     expect(parsed.stages.some((s: any) => s.key === 'DISCOVERED')).toBe(true);
+  });
+
+  it('slg_log_conversation appends conversation transcript to activity log', async () => {
+    const result = await executeMcpTool(mockDb, 'slg_log_conversation', {
+      brand: 'cogmap',
+      leadId: testLead._id.toString(),
+      type: 'whatsapp',
+      transcript: 'Customer: Hello, interested in Padel club software.\nRep: We have a turnkey SaaS package.',
+      subject: 'Inbound WhatsApp Inquiry',
+      direction: 'both',
+      takeaways: 'Send quote on Friday.',
+    });
+
+    expect(result.isError).toBeFalsy();
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.ok).toBe(true);
+    expect(typeof parsed.activityId).toBe('string');
+    expect(parsed.type).toBe('whatsapp');
+  });
+
+  it('slg_sync_to_management_listing patches directory listing for externalSource lead', async () => {
+    testLead.externalSource = {
+      source: 'padel-africa-directory',
+      listingId: 'l-padel-zaf-001',
+    };
+
+    const result = await executeMcpTool(mockDb, 'slg_sync_to_management_listing', {
+      brand: 'padel-africa',
+      leadId: testLead._id.toString(),
+      patch: {
+        phone: '+27110002222',
+        website: 'https://padelclub.africa',
+      },
+      reason: 'Verified direct club contact via WhatsApp outreach',
+    });
+
+    expect(result.isError).toBeFalsy();
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.listingId).toBe('l-padel-zaf-001');
+    expect(parsed.outcome).toBe('patched');
+  });
+
+  it('slg_pull_management_listings triggers delta sync for padel-africa', async () => {
+    const result = await executeMcpTool(mockDb, 'slg_pull_management_listings', {
+      brand: 'padel-africa',
+    });
+
+    expect(result.isError).toBeFalsy();
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.totalFound).toBe(10);
+    expect(parsed.inserted).toBe(2);
   });
 });

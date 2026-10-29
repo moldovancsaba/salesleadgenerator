@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.344
+
+### Integration & MCP: 2-Way Padel Africa Management Engine Sync and Omnichannel MCP Logging
+
+- **Two-Way Listing Patch-Back Client (Issue #301, `lib/management-engine-client.ts`, `tests/lib/management-engine-client.test.ts`):**
+  - Built `ManagementEngineClient` connecting SLG outbound to the `management` content engine (`https://padel-africa.doneisbetter.com/api/ingest`).
+  - Supports authenticated listing patches (`patchListing`) with automatic payload validation, `sourcePool: 'ingest'`, and audit justification reasoning.
+  - Allows verified telephone numbers, web domains, and venue details captured during sales outreach to flow back into the live public directory.
+- **Delta Ingestion Service & Synchronization API (Issue #301, `lib/padel-sync-service.ts`, `app/api/integrations/padel-africa/sync/route.ts`):**
+  - Created `syncPadelListingsToLeads` extracting published directory listings from the `padel-africa` database and idempotently upserting into `padel_africa_leads` while strictly preserving Kanban stage moves, custom notes, and user-assigned deal attributes.
+  - Created authenticated API endpoint `POST /api/integrations/padel-africa/sync` guarded by `requireApiKey` for automated cron or webhook synchronization.
+- **Model Context Protocol (MCP) Expansion for Autonomous SDR Agents (Issue #301, `lib/mcp/server.ts`, `tests/lib/mcp-server.test.ts`, `docs/MCP_SERVER_GUIDE.md`):**
+  - Added `slg_log_conversation`: Autonomous agents (e.g. Paperclip, SDR bots) can log full WhatsApp, iMessage, SMS, call, or email transcripts directly into the lead's activity timeline.
+  - Added `slg_sync_to_management_listing`: Autonomous agents can patch verified lead contact info directly back to the linked directory listing (`externalSource.listingId`).
+  - Added `slg_pull_management_listings`: Triggers an immediate delta sync of Padel Africa listings into leads on-demand.
+
 ## 2.4.343
 
 ### Omnichannel CRM: 1-Click WhatsApp & iMessage Launchers and Conversation Transcript Logger

@@ -191,6 +191,86 @@ export const MCP_TOOLS: McpToolDefinition[] = [
       required: ['brand'],
     },
   },
+  {
+    name: 'slg_log_conversation',
+    description: 'Log an omnichannel conversation transcript (WhatsApp, iMessage, SMS, call, or email) to a lead activity timeline.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        brand: {
+          type: 'string',
+          description: 'Workspace brand identifier (e.g. "padel-africa", "cogmap", "seyu").',
+        },
+        leadId: {
+          type: 'string',
+          description: 'Hex string ID of the lead record.',
+        },
+        type: {
+          type: 'string',
+          enum: ['whatsapp', 'imessage', 'sms', 'call', 'note', 'email_sent'],
+          description: 'Communication channel or activity type.',
+        },
+        transcript: {
+          type: 'string',
+          description: 'Full conversation transcript or message text.',
+        },
+        subject: {
+          type: 'string',
+          description: 'Conversation summary or topic headline.',
+        },
+        direction: {
+          type: 'string',
+          enum: ['inbound', 'outbound', 'both'],
+          description: 'Direction of communication.',
+        },
+        takeaways: {
+          type: 'string',
+          description: 'Key takeaways or agreed next steps.',
+        },
+      },
+      required: ['brand', 'leadId', 'type', 'transcript'],
+    },
+  },
+  {
+    name: 'slg_sync_to_management_listing',
+    description: 'Sync verified contact phone, website, or details back to the management engine directory listing (Padel Africa).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        brand: {
+          type: 'string',
+          description: 'Workspace brand identifier (e.g. "padel-africa").',
+        },
+        leadId: {
+          type: 'string',
+          description: 'Hex string ID of the lead record in SLG.',
+        },
+        patch: {
+          type: 'object',
+          description: 'Fields to update on the directory listing (phone, website, description, etc.).',
+        },
+        reason: {
+          type: 'string',
+          description: 'Audit justification reason for updating the directory listing.',
+        },
+      },
+      required: ['brand', 'leadId', 'patch'],
+    },
+  },
+  {
+    name: 'slg_pull_management_listings',
+    description: 'Trigger an immediate delta sync of published Padel Africa directory listings from management engine into SLG leads.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        brand: {
+          type: 'string',
+          description: 'Workspace brand identifier ("padel-africa").',
+        },
+      },
+      required: ['brand'],
+    },
+  },
 ];
 
 export async function executeMcpTool(
@@ -490,6 +570,144 @@ export async function executeMcpTool(
             {
               type: 'text',
               text: JSON.stringify({ brand, stages }, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'slg_log_conversation': {
+        const { brand, leadId, type, transcript, subject, direction, takeaways } = args;
+        const brandConfig = await (await import('@/app/lib/brand')).getBrandConfig(brand);
+        if (!brandConfig) {
+          return { content: [{ type: 'text', text: `Unknown brand: ${brand}` }], isError: true };
+        }
+
+        const now = new Date();
+        const activityDoc = {
+          leadId: String(leadId),
+          tenantId,
+          brand,
+          type: type as any,
+          direction: direction === 'inbound' || direction === 'outbound' ? direction : null,
+          matchedContactKey: null,
+          subject: subject ? String(subject).slice(0, 200) : `${type.toUpperCase()} conversation`,
+          bodyExcerpt: transcript ? (transcript.length <= 10000 ? transcript : `${transcript.slice(0, 10000)}…`) : undefined,
+          loggedBy: context.actorEmail || 'mcp-agent',
+          source: 'manual' as const,
+          createdAt: now,
+          ...(takeaways ? { takeaways: String(takeaways).slice(0, 2000) } : {}),
+        };
+
+        const insertRes = await db.collection('activityLog').insertOne(activityDoc);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ ok: true, activityId: insertRes.insertedId.toString(), leadId, type, brand }, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'slg_sync_to_management_listing': {
+        const { brand, leadId, patch, reason } = args;
+        const brandConfig = await (await import('@/app/lib/brand')).getBrandConfig(brand);
+        if (!brandConfig) {
+          return { content: [{ type: 'text', text: `Unknown brand: ${brand}` }], isError: true };
+        }
+        const collection = db.collection(brandConfig.dbCollection);
+
+        let query: any;
+        try {
+          query = { _id: new ObjectId(leadId) };
+        } catch {
+          query = { _id: leadId };
+        }
+
+        const leadDoc = await collection.findOne(query);
+        if (!leadDoc) {
+          return { content: [{ type: 'text', text: `Lead not found: ${leadId}` }], isError: true };
+        }
+
+        const listingId = leadDoc.externalSource?.listingId;
+        if (!listingId) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Lead ${leadId} has no externalSource.listingId — cannot patch to management engine`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const { ManagementEngineClient } = await import('../management-engine-client');
+        const client = new ManagementEngineClient();
+        const patchRes = await client.patchListing(listingId, patch, { reason });
+
+        if (!patchRes.ok) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Failed to patch listing ${listingId} in management engine: ${patchRes.error}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        // Also record an activity entry in SLG
+        await db.collection('activityLog').insertOne({
+          leadId: String(leadId),
+          tenantId,
+          brand,
+          type: 'note',
+          subject: `Directory listing synced to management engine (${listingId})`,
+          bodyExcerpt: JSON.stringify(patch, null, 2),
+          loggedBy: context.actorEmail || 'mcp-agent',
+          source: 'manual',
+          createdAt: new Date(),
+        }).catch(() => {});
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                { ok: true, listingId, leadId, outcome: patchRes.outcome, brand },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      case 'slg_pull_management_listings': {
+        const { brand } = args;
+        if (brand !== 'padel-africa') {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `slg_pull_management_listings is only applicable to brand "padel-africa" (received: "${brand}")`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const { syncPadelListingsToLeads } = await import('../padel-sync-service');
+        const syncResult = await syncPadelListingsToLeads(db);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(syncResult, null, 2),
             },
           ],
         };

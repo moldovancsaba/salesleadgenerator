@@ -98,3 +98,6 @@ Add the server definition to your `claude_desktop_config.json`:
 | `slg_capture_lead` | Ingest prospect with deduplication and ICE scoring | `brand`, `url`, `companyName`, `name`, `email` |
 | `slg_update_lead_stage` | Move lead between Kanban stages | `brand`, `leadId`, `stage`, `declineReason` |
 | `slg_list_pipeline_stages` | List configured stages, guidance, and talk tracks | `brand` |
+| `slg_log_conversation` | Log WhatsApp, iMessage, SMS, or call transcript to timeline | `brand`, `leadId`, `type`, `transcript`, `subject`, `direction` |
+| `slg_sync_to_management_listing` | Patch verified contact info back to management engine listing | `brand`, `leadId`, `patch`, `reason` |
+| `slg_pull_management_listings` | Trigger immediate delta sync of Padel Africa listings into leads | `brand` |
