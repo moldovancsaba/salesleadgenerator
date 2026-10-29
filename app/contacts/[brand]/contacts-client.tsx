@@ -9,6 +9,7 @@ import { showNotification } from '@mantine/notifications'
 import Link from 'next/link'
 import type { Brand } from '@/app/lib/brand'
 import { GoogleContactsWorkspaceModal } from '@/app/components/GoogleContactsWorkspaceModal'
+import { PhoneActions } from '@/app/components/PhoneActions'
 
 type BuyingRole = 'economic_buyer' | 'champion' | 'influencer' | 'blocker' | 'decision_maker' | 'unknown'
 
@@ -442,22 +443,16 @@ export function ContactsClient({ brand, label }: Props) {
               },
               {
                 key: 'phone',
-                header: 'Phone',
-                width: 160,
-                accessor: (row) => {
-                  if (!row.phone) return <Text size="sm" c="dimmed">—</Text>
-                  return (
-                    <Text
-                      component="a"
-                      href={`tel:${row.phone}`}
-                      size="sm"
-                      c="dimmed"
-                      style={{ textDecoration: 'none' }}
-                    >
-                      {row.phone}
-                    </Text>
-                  )
-                },
+                header: 'Phone / Chat',
+                width: 220,
+                accessor: (row) => (
+                  <PhoneActions
+                    phone={row.phone}
+                    contactName={row.name}
+                    leadId={row.leads?.[0]?.leadId}
+                    brand={brand}
+                  />
+                ),
               },
               {
                 key: 'linkedin',
@@ -533,7 +528,13 @@ export function ContactsClient({ brand, label }: Props) {
                     <Text component="a" href={`mailto:${row.email}`} size="xs" c="blue">{row.email}</Text>
                   )}
                   {row.phone && (
-                    <Text component="a" href={`tel:${row.phone}`} size="xs" c="dimmed">{row.phone}</Text>
+                    <PhoneActions
+                      phone={row.phone}
+                      contactName={row.name}
+                      leadId={row.leads?.[0]?.leadId}
+                      brand={brand}
+                      size="xs"
+                    />
                   )}
                 </Group>
               </Paper>

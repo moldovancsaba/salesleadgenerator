@@ -29,7 +29,7 @@ const DISPOSITION_LABEL: Record<CallDisposition, string> = {
 
 type ActivityEntry = {
   id: string
-  type: 'email-outbound' | 'email-inbound' | 'note' | 'system' | 'call' | 'meeting-scheduled'
+  type: 'email-outbound' | 'email-inbound' | 'note' | 'system' | 'call' | 'meeting-scheduled' | 'whatsapp' | 'imessage' | 'sms'
   direction: 'outbound' | 'inbound' | null
   subject?: string
   bodyExcerpt?: string
@@ -138,6 +138,9 @@ const TYPE_LABEL: Record<ActivityEntry['type'], string> = {
   system: 'System',
   call: 'Call',
   'meeting-scheduled': 'Meeting scheduled',
+  whatsapp: 'WhatsApp',
+  imessage: 'iMessage',
+  sms: 'SMS',
 }
 
 // Issue #140 — the first genuinely unified per-lead activity timeline in this
@@ -918,9 +921,19 @@ export function ActivityPanel({
               <Group justify="space-between" gap="xs" wrap="nowrap">
                 <Group gap={4}>
                   <LabelTag
-                    tone={entry.direction === 'inbound' ? 'success' : entry.type === 'call' ? 'warning' : 'info'}
+                    tone={
+                      entry.type === 'whatsapp'
+                        ? 'success'
+                        : entry.type === 'imessage' || entry.type === 'sms'
+                        ? 'info'
+                        : entry.direction === 'inbound'
+                        ? 'success'
+                        : entry.type === 'call'
+                        ? 'warning'
+                        : 'info'
+                    }
                     size="xs"
-                    label={TYPE_LABEL[entry.type]}
+                    label={TYPE_LABEL[entry.type] || entry.type}
                   />
                   {entry.source === 'gmail-sync' && (
                     <LabelTag tone="neutral" size="xs" label="Gmail" />

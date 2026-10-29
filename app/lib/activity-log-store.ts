@@ -21,7 +21,7 @@ export const ACTIVITY_LOG_COLLECTION = 'activityLog'
 // Issue #207 — 'meeting-scheduled'/'calendar-sync' record a real booked
 // Google Calendar event, written by app/lib/scheduling-store.ts's
 // bookSlot().
-export type ActivityEntryType = 'email-outbound' | 'email-inbound' | 'note' | 'system' | 'call' | 'meeting-scheduled'
+export type ActivityEntryType = 'email-outbound' | 'email-inbound' | 'note' | 'system' | 'call' | 'meeting-scheduled' | 'whatsapp' | 'imessage' | 'sms'
 export type ActivitySource = 'inbound-webhook' | 'manual' | 'outreach-log' | 'gmail-sync' | 'calendar-sync'
 
 // Closed set, chosen to cover the outcomes a rep needs to distinguish for

@@ -131,6 +131,7 @@ export async function POST(
 
     const body = await request.json().catch(() => ({} as any));
     const isNote = body.type === 'note';
+    const isMessage = body.type === 'whatsapp' || body.type === 'imessage' || body.type === 'sms';
 
     const config = (await getBrandConfig(brand))!;
     const tenantId = getTenantId(request);
@@ -203,6 +204,54 @@ export async function POST(
         id: insertResult.insertedId.toString(),
         leadId: id,
         type: 'note',
+        dealId: matchedDeal ? matchedDeal.id : undefined,
+        dealLabel: matchedDeal ? (matchedDeal.label || undefined) : undefined,
+        createdAt: now.toISOString(),
+      }, { status: 201 });
+    }
+
+    if (isMessage) {
+      const rawText = typeof body.text === 'string' ? body.text : (typeof body.transcript === 'string' ? body.transcript : (typeof body.notes === 'string' ? body.notes : ''));
+      const messageText = rawText.trim();
+      if (!messageText) {
+        return NextResponse.json({ error: 'Conversation text or transcript is required' }, { status: 400 });
+      }
+      if (messageText.length > 20000) {
+        return NextResponse.json({ error: 'Conversation transcript exceeds maximum length of 20,000 characters' }, { status: 400 });
+      }
+
+      const contactKeyParam = typeof body.contactKey === 'string' ? body.contactKey.trim() : null;
+      const direction = body.direction === 'inbound' || body.direction === 'outbound' ? body.direction : null;
+
+      const messageDoc: ActivityLogDocument = {
+        leadId: id,
+        tenantId,
+        brand,
+        type: body.type,
+        direction,
+        matchedContactKey: contactKeyParam,
+        subject: body.subject ? String(body.subject).slice(0, 200) : undefined,
+        bodyExcerpt: truncateBody(messageText, 10000),
+        loggedBy,
+        dealId: matchedDeal ? matchedDeal.id : undefined,
+        dealLabel: matchedDeal ? (matchedDeal.label || undefined) : undefined,
+        source: 'manual',
+        createdAt: now,
+      };
+
+      const insertResult = await db.collection(ACTIVITY_LOG_COLLECTION).insertOne(messageDoc);
+
+      try {
+        await db.collection(config.dbCollection).updateOne({ _id: lead._id }, { $set: { updatedAt: now } });
+      } catch (err) {
+        console.error('[activity POST] lead updatedAt touch failed', err);
+      }
+
+      return NextResponse.json({
+        id: insertResult.insertedId.toString(),
+        leadId: id,
+        type: body.type,
+        direction,
         dealId: matchedDeal ? matchedDeal.id : undefined,
         dealLabel: matchedDeal ? (matchedDeal.label || undefined) : undefined,
         createdAt: now.toISOString(),

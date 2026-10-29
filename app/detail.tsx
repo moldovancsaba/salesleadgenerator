@@ -19,6 +19,7 @@ import { sumDeals } from '@/lib/deals';
 import type { Deal } from '@/lib/deals';
 import { ContactsEditor, type ContactRow } from './components/ContactsEditor';
 import { GoogleContactsImport } from './components/GoogleContactsImport';
+import { PhoneActions } from './components/PhoneActions';
 import { ActivityPanel } from './components/ActivityPanel';
 import { CadencePanel } from './components/CadencePanel';
 import { SalesPathPlaybookBar } from './components/SalesPathPlaybookBar';
@@ -1805,7 +1806,15 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
                     {emailStatusBadge(contact.emailVerificationStatus)}
                   </Group>
                 )}
-                {contact.phone && <Text size="sm" c="dimmed" component="a" href={`tel:${contact.phone.trim()}`}>{contact.phone}</Text>}
+                {contact.phone && (
+                  <PhoneActions
+                    phone={contact.phone}
+                    contactName={contact.name}
+                    leadId={lead._id ? String(lead._id) : undefined}
+                    brand={brand}
+                    size="xs"
+                  />
+                )}
                 {contact.linkedin && <Text size="sm" c="blue">{contact.linkedin}</Text>}
               </Box>
             ))}

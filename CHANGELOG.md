@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.343
+
+### Omnichannel CRM: 1-Click WhatsApp & iMessage Launchers and Conversation Transcript Logger
+
+- **Phone Action Toolbar & Quick Launchers (Issue #300, `lib/messaging-urls.ts`, `app/components/PhoneActions.tsx`, `tests/lib/messaging-urls.test.ts`):**
+  - Added 1-click **WhatsApp** (`https://wa.me/<digits>`) and **iMessage / SMS** (`sms:<digits>`) deep-link actions next to phone numbers across all primary CRM views.
+  - Implemented telephone normalization utility (`normalizePhoneForMessaging`) to safely strip punctuation, spaces, and international prefix notations (`00`, `+`) for direct compatibility with WhatsApp universal links and macOS/iOS Messages dispatch.
+  - Reusable `<PhoneActions />` component integrates phone numbers, click-to-call (`tel:`), WhatsApp launcher, iMessage launcher, and conversation transcript logging with Mantine tooltips.
+- **Unified Conversation Transcript Logger (Issue #300, `app/components/LogConversationModal.tsx`, `app/api/leads/[id]/activity/route.ts`, `app/lib/activity-log-store.ts`):**
+  - Created `<LogConversationModal />` allowing sales representatives to log or paste full chat transcripts directly copied from WhatsApp or iMessage.
+  - Supports channel selection (`whatsapp`, `imessage`, `sms`), conversation direction (`Inbound`, `Outbound`, `Full Chat`), subject line, transcript content, and key takeaways notes.
+  - Validates and stores conversation transcripts up to 20,000 characters in the lead's activity history (`activityLog`).
+- **Activity Timeline & Global Views Integration (Issue #300, `app/components/ActivityPanel.tsx`, `app/contacts/[brand]/contacts-client.tsx`, `app/detail.tsx`):**
+  - Updated `ActivityPanel` to render dedicated badges and icon accents for `WhatsApp` (success green), `iMessage` (info blue), and `SMS`, with multi-line transcript formatting.
+  - Updated Contacts Directory table and mobile cards to render `<PhoneActions />` for every contact with a valid phone number.
+  - Updated Lead Detail modal contacts list to include `<PhoneActions />`, enabling instant communication and logging directly from the lead drawer.
+
 ## 2.4.342
 
 ### Catalog & Settings: 2-Way Synchronization Between Sales Settings Offerings and Product Catalog
