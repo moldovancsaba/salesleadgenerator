@@ -1810,6 +1810,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
                   <PhoneActions
                     phone={contact.phone}
                     contactName={contact.name}
+                    entityName={lead.entity_name}
                     leadId={lead._id ? String(lead._id) : undefined}
                     brand={brand}
                     size="xs"

@@ -195,6 +195,55 @@ Best,`,
     variables: ['entity_name', 'contact_name', 'value_proposition'],
     tags: ['sponsorship', 'corporate'],
   },
+  // --- Padel Africa Venue Outreach Templates (Issue #302) ---
+  {
+    id: 'padel-africa-saas-booking',
+    name: 'Padel Club — WhatsApp Player Booking & Court SaaS',
+    brand: 'padel-africa',
+    channel: 'email',
+    industry: 'Sports Facility',
+    subject: 'Automating court bookings & player retention at {entity_name}',
+    body: `Hi {contact_name},
+
+I’m reaching out from Padel Africa. We work with leading padel facilities across the continent to replace manual WhatsApp phone booking with automated WhatsApp bot bookings and court management software.
+
+For {entity_name}, our platform eliminates double-bookings, processes local mobile money and card payments, and fills off-peak court hours automatically.
+
+Would you be open to a 10-minute demo to see how clubs in your region are growing their court utilization?
+
+Best regards,`,
+    variables: ['entity_name', 'contact_name', 'country', 'region'],
+    tags: ['padel', 'saas', 'booking', 'whatsapp', 'automation'],
+  },
+  {
+    id: 'padel-africa-court-expansion',
+    name: 'Padel Club — Panoramic Court Installation & Pro Shop Wholesale',
+    brand: 'padel-africa',
+    channel: 'email',
+    industry: 'Sports Facility',
+    subject: 'Court expansion & equipment supply for {entity_name}',
+    body: `Hi {contact_name},
+
+As padel participation accelerates across Africa, clubs like {entity_name} have an incredible opportunity to expand court capacity and pro-shop margins.
+
+Padel Africa provides turnkey panoramic padel court construction, premium turf installation, and direct wholesale pricing on rackets, balls, and court accessories.
+
+Could we schedule a quick call this week to share our 2026 court specs and wholesale pricing catalog?
+
+Best regards,`,
+    variables: ['entity_name', 'contact_name', 'country'],
+    tags: ['padel', 'courts', 'installation', 'equipment', 'wholesale'],
+  },
+  {
+    id: 'padel-africa-whatsapp-quick',
+    name: 'Padel Club — WhatsApp Quick Outreach',
+    brand: 'padel-africa',
+    channel: 'linkedin',
+    industry: 'Sports Facility',
+    body: `Hi {contact_name}, noticed your courts at {entity_name}. We help padel operators across Africa automate player bookings via WhatsApp and boost court occupancy. Would love to share how clubs in your area are doing it!`,
+    variables: ['entity_name', 'contact_name'],
+    tags: ['padel', 'whatsapp', 'quick-connect'],
+  },
 ];
 
 export function getDefaultOutreachTemplates(brand?: string): OutreachTemplate[] {

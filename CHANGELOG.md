@@ -1,5 +1,21 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.345
+
+### E-Invoicing & Automation: Számlázz.hu E-Invoicing / Díjbekérő & Real-Time Management Engine Ingestion
+
+- **Számlázz.hu Proforma (Díjbekérő) Integration (Issue #291, `lib/szamlazz-agent.ts`, `lib/szamlazz-service.ts`, `app/api/quotes/[quoteId]/proforma/route.ts`):**
+  - Connected to Számlázz.hu XML Agent API (`https://www.szamlazz.hu/szamla/`) to automatically issue official Hungarian electronic proforma invoices (Díjbekérő) for signed quotes on behalf of Moldován Csaba Kft.
+  - Multi-currency line item reconciliation supporting HUF, EUR, and USD deals with 27% standard VAT or reverse-charge / tax-exempt handling.
+  - Generates compliant `action-xmlagentxmlfile` payloads (`<dijbekero>true</dijbekero>`) and records issued invoice numbers directly on the Quote document in MongoDB.
+  - Tested in `tests/lib/szamlazz-agent.test.ts` and `tests/lib/szamlazz-service.test.ts`.
+- **Management Engine Directory Listing Webhook (Issue #302, `app/api/webhooks/management-listing/route.ts`, `tests/lib/default-templates.test.ts`):**
+  - Built real-time webhook endpoint `POST /api/webhooks/management-listing` receiving published, updated, and quarantined listing events directly from the `management` content engine.
+  - Instant synchronization into `padel_africa_leads` with automatic stage and contact preservation.
+- **Padel Africa Omnichannel Outreach Templates (Issue #302, `app/lib/outreach/default-templates.ts`, `app/components/PhoneActions.tsx`, `app/detail.tsx`):**
+  - Added dedicated Padel Africa outreach templates covering WhatsApp bot player booking, turn-key court construction, and pro-shop wholesale equipment supply.
+  - Integrated pre-filled contextual WhatsApp and iMessage launchers in `<PhoneActions />` for 1-click sales engagement directly from the Contacts table and Lead Detail drawer.
+
 ## 2.4.344
 
 ### Integration & MCP: 2-Way Padel Africa Management Engine Sync and Omnichannel MCP Logging

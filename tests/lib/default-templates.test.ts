@@ -60,6 +60,18 @@ describe('default-templates', () => {
     expect(names).toContain('Corporate — LinkedIn Connect');
   });
 
+  it('provides specialized Padel Africa venue outreach templates', () => {
+    const templates = getDefaultOutreachTemplates('padel-africa');
+    expect(templates.length).toBeGreaterThan(0);
+    expect(templates.some((t) => t.id === 'padel-africa-saas-booking')).toBe(true);
+    expect(templates.some((t) => t.id === 'padel-africa-court-expansion')).toBe(true);
+    for (const t of templates) {
+      expect(t.brand).toBe('padel-africa');
+      expect(t.body).not.toContain('cognitive skills');
+      expect(t.body).not.toContain('selfies');
+    }
+  });
+
   it('returns all templates when no brand is provided', () => {
     const all = getDefaultOutreachTemplates();
     expect(all.length).toBe(DEFAULT_OUTREACH_TEMPLATES.length);

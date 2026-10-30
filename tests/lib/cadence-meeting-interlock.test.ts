@@ -135,10 +135,14 @@ describe('Cadence Meeting Interlock (Issue 295)', () => {
   });
 
   it('stops active cadence, deletes task reminder, and logs activity when a meeting is booked', async () => {
-    // Generate an unambiguously available slot in the future (tomorrow at 10:00 UTC)
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dateStr = tomorrow.toISOString().slice(0, 10);
+    // Generate an unambiguously available slot on the next business day (Monday at 10:00 UTC)
+    // to avoid weekend blackout slots in availability calculation
+    const nextBusinessDay = new Date();
+    // Advance at least 3 days to guarantee landing on next Monday/Tuesday
+    const day = nextBusinessDay.getDay(); // 0 is Sun, 5 is Fri, 6 is Sat
+    const daysToAdd = day === 5 ? 3 : (day === 6 ? 2 : 1);
+    nextBusinessDay.setDate(nextBusinessDay.getDate() + daysToAdd);
+    const dateStr = nextBusinessDay.toISOString().slice(0, 10);
     const slotStart = `${dateStr}T10:00:00.000Z`;
     const slotEnd = `${dateStr}T10:30:00.000Z`;
 

@@ -14,6 +14,7 @@ import { LogConversationModal } from './LogConversationModal'
 type Props = {
   phone?: string | null
   contactName?: string
+  entityName?: string
   leadId?: string
   brand: string
   size?: 'xs' | 'sm' | 'md'
@@ -24,6 +25,7 @@ type Props = {
 export function PhoneActions({
   phone,
   contactName,
+  entityName,
   leadId,
   brand,
   size = 'sm',
@@ -38,8 +40,11 @@ export function PhoneActions({
   }
 
   const cleanPhone = phone.trim()
-  const waUrl = buildWhatsAppUrl(cleanPhone)
-  const iMessageUrl = buildIMessageUrl(cleanPhone)
+  const defaultText = brand === 'padel-africa'
+    ? `Hi${contactName ? ` ${contactName}` : ''}, reaching out from Padel Africa regarding ${entityName || 'your padel club'}! We help clubs automate player bookings via WhatsApp and provide turnkey court supply.`
+    : undefined
+  const waUrl = buildWhatsAppUrl(cleanPhone, defaultText)
+  const iMessageUrl = buildIMessageUrl(cleanPhone, defaultText)
   const telUrl = `tel:${cleanPhone}`
 
   function openLogger(channel: 'whatsapp' | 'imessage' | 'sms') {
