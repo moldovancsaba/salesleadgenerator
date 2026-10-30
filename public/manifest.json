@@ -2,7 +2,7 @@
   "name": "Sales Lead Generator",
   "short_name": "Sales Leads",
   "description": "Sales lead generation, multi-pipeline CRM, and cadence outreach platform",
-  "start_url": "/sales/cogmap",
+  "start_url": "/today",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui", "window-controls-overlay"],
@@ -48,14 +48,14 @@
       "name": "Today's Queue",
       "short_name": "Today",
       "description": "View today's cadence tasks and due follow-ups",
-      "url": "/today/cogmap",
+      "url": "/today",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Pipelines",
       "short_name": "Pipelines",
       "description": "Interactive sales pipeline board",
-      "url": "/sales/cogmap",
+      "url": "/sales",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]

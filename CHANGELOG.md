@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.346
+
+### Security & Privacy: Public Landing Redaction & Authenticated Release Notes
+
+- **Zero Client Name Exposure on Public Surfaces (Issue #303, `content/landing.ts`, `app/page.tsx`, `app/manifest.ts`, `public/manifest.json`, `app/components/LogConversationModal.tsx`):**
+  - Sanitized marketing copy, landing pricing tier descriptions, and app manifest shortcuts so zero tenant or client names are exposed to unauthenticated visitors.
+  - Replaced hardcoded client workspace links in landing CTAs and manifest entry points with brand-neutral routes (`/today`, `/sales`).
+  - Removed example client strings from client-side modal placeholders.
+- **Access Control & Session Enforcement on What's New & Release Notes (Issue #303, `app/whats-new/[brand]/page.tsx`, `app/whats-new/page.tsx`, `app/api/release-notes/route.ts`):**
+  - Enforced server-side authentication (`requireBrandAccess(brand)`) on `/whats-new/[brand]`, preventing unauthenticated visitors from inspecting release notes detailing internal clients.
+  - Guarded `/whats-new` root redirection to ensure unauthenticated users are directed to `/api/auth/login`.
+  - Secured `GET /api/release-notes` to require an authenticated session (`sso_id_token`), returning `401 Unauthorized` for anonymous requests.
+  - Updated test suites in `tests/lib/release-notes-route.test.ts` and `tests/lib/pwa-manifest.test.ts`.
+
 ## 2.4.345
 
 ### E-Invoicing & Automation: Számlázz.hu E-Invoicing / Díjbekérő & Real-Time Management Engine Ingestion

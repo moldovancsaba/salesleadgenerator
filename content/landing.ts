@@ -148,7 +148,7 @@ export const LANDING_CONTENT: LandingContent = {
     },
     dashboardCta: {
       label: "Launch Sales Workspace",
-      href: "/sales/seyu",
+      href: "/today",
     },
     trustBadges: [
       "Strict Mailbox Privacy Guard",
@@ -353,7 +353,7 @@ export const LANDING_CONTENT: LandingContent = {
         tagline: "For scaling rights-holders, clubs, and multi-rep commercial teams.",
         highlighted: true,
         features: [
-          "Multiple brand workspaces (Seyu, DVSC, Cogmap)",
+          "Multiple brand & tenant workspaces",
           "Unlimited sales rep seats & assignable squads",
           "Unified 3-Pane Communication Center",
           "Automated outreach cadences & A/B testing",

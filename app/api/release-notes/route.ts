@@ -2,9 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getReleaseNotes, getReleaseNoteByVersion } from '@/lib/release-notes';
 import { filterReleaseNotes, ReleaseCategory } from '@/lib/release-notes-parser';
 import { APP_VERSION } from '@/lib/release-notes-dates';
+import { resolveSessionFromIdToken } from '@/lib/session';
 
 export async function GET(request: NextRequest) {
   try {
+    const idToken = request.cookies.get('sso_id_token')?.value;
+    const claims = await resolveSessionFromIdToken(idToken);
+    if (!claims?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const versionParam = searchParams.get('version');
 

@@ -22,8 +22,8 @@ describe('PWA manifest configuration', () => {
     expect(manifest.shortcuts.length).toBeGreaterThanOrEqual(2);
 
     const urls = manifest.shortcuts.map((s: { url: string }) => s.url);
-    expect(urls).toContain('/today/cogmap');
-    expect(urls).toContain('/sales/cogmap');
+    expect(urls).toContain('/today');
+    expect(urls).toContain('/sales');
   });
 
   it('verifies that all referenced icons exist in public directory', () => {

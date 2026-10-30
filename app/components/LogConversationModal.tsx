@@ -166,7 +166,7 @@ export function LogConversationModal({
         <Textarea
           label="Conversation Transcript (Paste from WhatsApp or iMessage)"
           placeholder="Paste copied chat messages here...
-[29/10/2026, 10:15] Rep: Hi, sharing the Padel Africa court SaaS quote.
+[29/10/2026, 10:15] Rep: Hi, sharing the requested quote and details.
 [29/10/2026, 10:18] Contact: Thanks, looks great. Can we book a call tomorrow?"
           value={transcript}
           onChange={(e) => setTranscript(e.currentTarget.value)}

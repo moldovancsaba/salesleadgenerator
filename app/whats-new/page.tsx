@@ -16,17 +16,25 @@ export default async function WhatsNewRedirectPage() {
     const cookieStore = await cookies();
     const idToken = cookieStore.get('sso_id_token')?.value;
     const claims = await resolveSessionFromIdToken(idToken);
-    if (claims?.email && isMongoConfigured()) {
+    if (!claims?.email) {
+      redirect('/api/auth/login');
+    }
+    if (isMongoConfigured()) {
       const client = await clientPromise;
       const db = client.db();
       const record = await getUserAccess(db, claims.sub);
       const accessible = getAccessibleBrands(claims.email as string, record?.orgAccess, allBrands);
       if (accessible.length > 0) {
         targetBrand = accessible[0];
+      } else {
+        redirect('/access-denied');
       }
     }
-  } catch {
-    // Fallback to default brand if session resolution fails
+  } catch (err: any) {
+    if (err?.digest?.startsWith('NEXT_REDIRECT')) {
+      throw err;
+    }
+    redirect('/api/auth/login');
   }
 
   redirect(`/whats-new/${targetBrand}`);

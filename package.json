@@ -1,6 +1,6 @@
 {
   "name": "slg-leads",
-  "version": "2.4.345",
+  "version": "2.4.346",
   "private": true,
   "bin": {
     "slg-mcp": "./bin/slg-mcp.js"

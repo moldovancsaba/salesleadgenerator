@@ -104,7 +104,7 @@ export default function LandingPage() {
               {!loading && user ? (
                 <Button
                   component={Link}
-                  href="/sales/seyu"
+                  href="/today"
                   size="xs"
                   color="indigo"
                   rightSection={<IconArrowRight size={14} />}
@@ -156,7 +156,7 @@ export default function LandingPage() {
               {!loading && user ? (
                 <Button
                   component={Link}
-                  href="/sales/seyu"
+                  href="/today"
                   size="md"
                   color="indigo"
                   rightSection={<IconArrowRight size={16} />}
