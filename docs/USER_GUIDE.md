@@ -1,7 +1,7 @@
 # User Guide — Sales Lead Generator
 
 **Version:** 2.4.330  
-**Application URL:** https://salesleadgenerator.vercel.app  
+**Application URL:** https://sales.haho.ai (Legacy: https://salesleadgenerator.vercel.app)  
 
 Welcome to **Sales Lead Generator**, an intelligent, multi-brand CRM and sales execution platform designed for B2B sports business, corporate partnerships, and outbound pipeline operations. This guide walks you through daily workflows, lead management, communication, and pipeline tools.
 

@@ -15,6 +15,7 @@ export function proxy(request: NextRequest) {
   const origin = request.headers.get('origin') || '';
 
   const allowedOrigins = [
+    'https://sales.haho.ai',
     'https://salesleadgenerator.vercel.app',
     'https://cog-map-ten.vercel.app',
     'http://localhost:3000',

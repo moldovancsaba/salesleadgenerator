@@ -18,7 +18,7 @@ Manifest V3 browser extension for 1-click prospect ingestion from LinkedIn direc
 
 1. Click the extension icon to open the popup.
 2. Under **Connection Settings**:
-   - **CRM Server URL**: e.g., `https://salesleadgenerator.vercel.app` (or `http://localhost:3000` for local testing).
+   - **CRM Server URL**: e.g., `https://sales.haho.ai` (or `http://localhost:3000` for local testing).
    - **API Key**: A scoped or admin API key generated from **Sales Settings → Integrations** or Admin API Keys (`slg_...`).
 3. Click **Save & Test Connection**. When verified, the status indicator turns green (`Connected`).
 

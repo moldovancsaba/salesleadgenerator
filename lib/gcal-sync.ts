@@ -132,7 +132,7 @@ export function formatEventDescription(params: {
     lines.push(`Instructions:\n${params.instructions.trim()}`);
   }
 
-  const baseUrl = (params.appUrl || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://leads.haho.ai').replace(/\/$/, '');
+  const baseUrl = (params.appUrl || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://sales.haho.ai').replace(/\/$/, '');
   lines.push('');
   lines.push(`Open in Rep Workbench:\n${baseUrl}/today/${params.brand}`);
 

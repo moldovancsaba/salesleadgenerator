@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.347
+
+### Infrastructure & Domain: Production Custom Domain sales.haho.ai
+
+- **Domain Configuration & CORS Support (Issue #304, `proxy.ts`, `README.md`, `app/privacy/page.tsx`, `app/terms/page.tsx`, `lib/gcal-sync.ts`):**
+  - Added primary custom domain `https://sales.haho.ai` to `allowedOrigins` in `proxy.ts`.
+  - Updated production URL references across Terms of Service, Privacy Policy, User Guide, and Extension popup defaults.
+  - Updated Google Calendar reminder deep-link base URL fallback to `https://sales.haho.ai`.
+
 ## 2.4.346
 
 ### Security & Privacy: Public Landing Redaction & Authenticated Release Notes

@@ -237,7 +237,7 @@ export default function PrivacyPolicyPage() {
               <Text size="sm" fw={600}>Legal &amp; Compliance Team</Text>
               <Text size="xs" c="dimmed">Moldován Csaba Kft.</Text>
               <Text size="xs" c="dimmed">Email: moldovancsaba@gmail.com</Text>
-              <Text size="xs" c="dimmed">Website: https://salesleadgenerator.vercel.app</Text>
+              <Text size="xs" c="dimmed">Website: https://sales.haho.ai</Text>
               <Text size="xs" c="dimmed">Location: Budapest, Hungary</Text>
             </Paper>
           </Box>

@@ -3,7 +3,7 @@
 **Effective Date:** October 26, 2026  
 **Last Updated:** October 26, 2026  
 **Application Version:** 2.4.334  
-**Website / Production:** https://salesleadgenerator.vercel.app  
+**Website / Production:** https://sales.haho.ai (Legacy: https://salesleadgenerator.vercel.app)  
 
 ---
 
