@@ -207,3 +207,5 @@ See `docs/OPERATOR_GUIDE.md` for workflow guidance and API examples.
 ## License
 
 MIT. See `LICENSE`.
+
+The [scoped source exchange API](docs/SOURCE_EXCHANGE.md) documents machine operation receipts, tenant/field grants and persisted source provenance. Client enrollment is a separate release gate.

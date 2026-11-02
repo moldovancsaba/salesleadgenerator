@@ -1,3 +1,4 @@
+import { legacyMachineWriteResponse } from './integrations/legacy';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isMongoConfigured, getClientPromise } from './mongodb';
 import { resolveSessionFromIdToken } from './session';
@@ -28,6 +29,7 @@ export async function requireBrandAccessApi(request: NextRequest, brand: Brand):
   // the session check below on this combined-auth path.
   if (hasValidApiKey(request)) {
     recordLegacyKeyUse(request);
+    if (isMongoConfigured()) { const db = (await getClientPromise()).db(); const denied = await legacyMachineWriteResponse(db, request, brand); if (denied) return denied; }
     return null;
   }
 
@@ -50,7 +52,7 @@ export async function requireBrandAccessApi(request: NextRequest, brand: Brand):
     const client = await getClientPromise();
     const db = client.db();
     const scopedResult = await verifyScopedApiKey(db, rawKey, brand, request.method);
-    if (scopedResult.authorized) return null;
+    if (scopedResult.authorized) return await legacyMachineWriteResponse(db, request, brand);
     if (scopedResult.matched) {
       return NextResponse.json(
         { error: scopedResult.status === 403 ? 'Forbidden' : 'Unauthorized' },
@@ -92,12 +94,13 @@ export async function requireMachineKeyApi(request: Request, brand: Brand): Prom
   const rawKey = request.headers.get('x-api-key');
   if (configuredKey && rawKey === configuredKey) {
     recordLegacyKeyUse(request);
+    if (isMongoConfigured()) { const db = (await getClientPromise()).db(); const denied = await legacyMachineWriteResponse(db, request, brand); if (denied) return denied; }
     return null;
   }
   if (rawKey && isMongoConfigured()) {
     const client = await getClientPromise();
     const result = await verifyScopedApiKey(client.db(), rawKey, brand, request.method);
-    if (result.authorized) return null;
+    if (result.authorized) return await legacyMachineWriteResponse(client.db(), request, brand);
     if (result.matched) {
       return NextResponse.json({ error: result.status === 403 ? 'Forbidden' : 'Unauthorized' }, { status: result.status });
     }
