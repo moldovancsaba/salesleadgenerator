@@ -46,7 +46,10 @@ export async function authorize(db:Db,request:Request,brand:string,write:boolean
   return row.id;
 }
 async function grant(db:Db,principal:string,brand:string,tenant:string,session?:import('mongodb').ClientSession){
-  const row=await db.collection(COLLECTIONS.grants).findOne({_id:principal,active:true} as never,{session});
+  const grants=db.collection(COLLECTIONS.grants);
+  const row=session
+    ? await grants.findOneAndUpdate({_id:principal,active:true} as never,{$inc:{operationSequence:1}},{session,returnDocument:'after'})
+    : await grants.findOne({_id:principal,active:true} as never);
   if(!row||!row.reviewRef||!Array.isArray(row.clients)||!row.clients.includes(brand)||!Array.isArray(row.tenants)||!row.tenants.includes(tenant))throw new OperationError('WRONG_WORKSPACE',403);
   return row;
 }
@@ -56,9 +59,13 @@ function idFilter(target:string,tenant:string){
 }
 export function withProvenance(patch:Record<string,unknown>,evidence:Evidence[],principal:string,current:Record<string,unknown>={}){
   const result={...patch};const top:FieldVerification[]=[];
-  const contacts=Array.isArray(patch.contacts)?dedupeContacts(patch.contacts):null;
+  const original=Array.isArray(current.contacts)?dedupeContacts(current.contacts):[];
+  const contacts=Array.isArray(patch.contacts)?dedupeContacts(patch.contacts).map(contact=>{
+    const prior=original.find(c=>contactKey(c)===contactKey(contact));
+    return {...contact,fieldVerifications:prior?.fieldVerifications||[]};
+  }):null;
   for(const e of evidence){
-    if(!['official','official_social','public','registration_system'].includes(e.method))throw new OperationError('INVALID_EVIDENCE_METHOD',422);
+    if(!['official','official_social','public','registration_system'].includes(e.method)&&!(e.method==='ai_generated'&&e.field==='value_proposition'&&!e.contactKey))throw new OperationError('INVALID_EVIDENCE_METHOD',422);
     const normalized=normalizeFieldVerifications([{field:e.field,sourceUrl:e.sourceUrl,verifiedAt:e.observedAt,method:e.method,verifiedBy:principal}]);
     if(normalized.length!==1)throw new OperationError('INVALID_EVIDENCE',422);
     if(e.contactKey){
@@ -73,7 +80,6 @@ export function withProvenance(patch:Record<string,unknown>,evidence:Evidence[],
   }
   if(Object.keys(patch).some(field=>field!=='contacts'&&!top.some(e=>e.field===field)))throw new OperationError('FIELD_EVIDENCE_REQUIRED',422);
   if(contacts){
-    const original=Array.isArray(current.contacts)?dedupeContacts(current.contacts):[];
     for(const contact of contacts){
       const prior=original.find(c=>contactKey(c)===contactKey(contact));
       for(const field of ['email','phone','linkedin','title','role'] as const){
@@ -91,7 +97,9 @@ export async function executeOperation(db:Db,client:MongoClient,principal:string
     const ledger=db.collection(COLLECTIONS.operations);const previous=await ledger.findOne({_id:id} as never,{session});
     if(previous){if(previous.hash!==hash)throw new OperationError('IDEMPOTENCY_BODY_MISMATCH',409);return previous.result;}
     const g=await grant(db,principal,op.clientId,op.tenantId,session);
-    const ownership=await db.collection(COLLECTIONS.ownership).findOne({_id:op.clientId+':'+op.tenantId,active:true} as never,{session});
+    const ownership=await db.collection(COLLECTIONS.ownership).findOneAndUpdate(
+      {_id:op.clientId+':'+op.tenantId,active:true,writer:principal,epoch:op.writerEpoch} as never,
+      {$inc:{operationSequence:1}},{session,returnDocument:'after'});
     if(!ownership||!ownership.reviewRef||ownership.writer!==principal||ownership.epoch!==op.writerEpoch)throw new OperationError('WRITER_EPOCH_REFUSED',403);
     if(!Array.isArray(g.fields)||Object.keys(op.patch).some(k=>!g.fields.includes(k)))throw new OperationError('FIELD_SCOPE_REFUSED',403);
     const leads=db.collection(brand.dbCollection);const existing=await leads.findOne(idFilter(op.targetId,op.tenantId),{session});
