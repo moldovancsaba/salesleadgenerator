@@ -1,7 +1,7 @@
 # Sales Lead Generator
 
-**Version:** 2.4.352  
-**Production:** https://sales.haho.ai (Legacy: https://salesleadgenerator.vercel.app)
+**Version:** 2.4.366  
+**Production:** https://sales.haho.ai (Legacy alias: salesleadgenerator.vercel.app)
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
 
@@ -10,7 +10,7 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 ## What This Repo Contains
 
 - Next.js 16 app with App Router and API routes
-- Native What's New & Release Notes Blog (`/whats-new/[brand]`, `app/components/AppNav.tsx`, `app/components/AppHeader.tsx`) presenting chronological release notes like a blog from newest to oldest with exact commit dates, categorized highlights distinguishing new features (What's New) from bug fixes (What's Fixed) and security/privacy protections, real-time search filtering, deep-linking version anchors, and 1-click header/sidebar navigation
+- Native What's New & Release Notes Blog (`/whats-new`, `app/components/AppNav.tsx`, `app/components/AppHeader.tsx`) presenting chronological release notes like a blog from newest to oldest with exact commit dates, categorized highlights distinguishing new features (What's New) from bug fixes (What's Fixed) and security/privacy protections, real-time search filtering, deep-linking version anchors, and 1-click header/sidebar navigation
 - Redesigned Modern Kanban Cards (`app/card.tsx`) with full-width wrapping organization titles, human-readable Title Case taxonomy formatting, prominent key decision-maker contact row with 1-click Quick Outreach (`IconMail`), stage-aware semantic decision buttons (Accept, Decline, Quick Email), high-visibility follow-up urgency status badges, untruncated owner avatar initials, commercial badges, de-duplicated staleness indicators, and quiet subtle action affordances (`Open ↗`)
 - Native 3-Pane Communication Center (`/inbox/[brand]`) with dynamic sender resolution, clean 2-line textual snippets (stripped of CSS `<style>` blocks and HTML tags), Lead/Contact/Deal availability status badges, 1-click conversion affordances, and full `To:` / `Cc:` recipient visibility
 - Internal Team Email Filtering & Personal Mailbox Attribution (`app/lib/inbox-store.ts`, `lib/email-contact-extractor.ts`) filtering purely internal colleague communications (staff syncs, weekly meetings) from CRM inbox views, and strictly attributing personal mailbox views to the active user's own email
@@ -23,7 +23,7 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 - Progressive Web App (PWA) with self-hosted offline shell fallback (`/offline`), app-shell caching, standalone manifest, and shortcuts
 - Mobile-first kanban board, table view, metrics dashboard, and search-learning panel
 - Multi-CRM Lead Import and Export (`/api/leads/export`, `/api/leads/import`, `LeadExportModal`, `LeadImportModal`) for **HubSpot**, **Salesforce**, **Pipedrive**, and **Google Sheets** with RFC 4180 parsing, UTF-8 BOM CSV downloads, and 1-click TSV clipboard copying
-- Modernized 5-Tab Sales Settings (`/salessettings/[client]`) with live central Product Catalog synchronization (`/admin/products/[brand]`), assignable brand sales team squad, default deal owner routing, deal sizing bands, and region multipliers
+- Modernized 5-Tab Sales Settings (`/salessettings/[client]`) with live central Product Catalog tab (`/salessettings/[client]?tab=products`), assignable brand sales team squad, default deal owner routing, deal sizing bands, and region multipliers
 - Multi-Google Account support for User Profiles, Gmail Outreach, and Contacts with per-account sync, test, disconnect, and default sender management (`/api/user/integrations`)
 - Google Contacts 1-click OAuth integration and batch lead import workspace modal (`/contacts/[brand]`, `/api/contacts/import-google`)
 - Interactive Report Templates Gallery and View Switcher (`/reports/[brand]`, `/api/reports/templates`, `/api/reports/seed`) with Bar, Line, and Data Table visualizations
@@ -31,7 +31,7 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 - Automated Scheduler Offline Recovery & Pacing Throttles (`lib/scheduler-recovery.ts`, `/api/admin/scheduler-recovery`) with downtime detection, slot redistribution, and cadence catch-up pacing
 - Pipeline Stage Management Modal (`PipelineManagerModal`, `/api/pipelines`) for creating custom pipelines, stages, win probabilities, and default pipeline customization
 - Today rep execution surface and unified daily action queue (`/today/[brand]`) with inline complete/snooze/call-log actions
-- Product catalog and CPQ quote generation (`/admin/products/[brand]`, `/api/quotes`) with multi-line PDF quotes, interactive public buyer quote portal (`/quotes/[quoteId]`), and self-service e-signature acceptance (`POST /api/quotes/[quoteId]/accept`)
+- Product catalog and CPQ quote generation (`/salessettings/[client]?tab=products`, `/api/quotes`) with multi-line PDF quotes, interactive public buyer quote portal (`/quotes/[quoteId]`), and self-service e-signature acceptance (`POST /api/quotes/[quoteId]/accept`)
 - Revenue intelligence & pipeline inspection (`/forecast/[brand]`, `/api/forecast/inspection`) with deal movement waterfalls (New, Advanced, Regressed, Slipped, Won, Lost), engagement-weighted Deal Health Score (0–100 across Kanban, Table, and Lead Detail), and multi-rep opportunity splits (`Deal.splits[]`) with split-adjusted quota attainment
 - Visual Sales Path stepper, interactive BANT/MEDDPICC/Sports Activation discovery playbooks (`SalesPathPlaybookBar`), and call/meeting transcript intelligence analyzer (`lib/transcript-intelligence.ts`) auto-detecting competitor Battlecards, action items, and buying signals
 - Sequences and outreach cadences with 50/50 step A/B testing (`variantTemplateId`) and variant lift analytics, manual task completion gating (`call`, `linkedin`, `general`), stop-on-reply, and last-mile suppression

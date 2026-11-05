@@ -3,7 +3,7 @@
 **Effective Date:** October 26, 2026  
 **Last Updated:** October 26, 2026  
 **Application Version:** 2.4.334  
-**Website / Production:** https://sales.haho.ai (Legacy: https://salesleadgenerator.vercel.app)  
+**Website / Production:** https://sales.haho.ai (Legacy: https://sales.haho.ai)  
 
 ---
 
@@ -11,7 +11,7 @@
 
 These Terms of Service ("Terms") govern your access to and use of the Sales Lead Generator web application, APIs, and associated services (the "Service"), operated by Moldován Csaba Kft. ("we", "us", or "our").
 
-By accessing or using the Service, or by connecting a third-party account (such as Google / Gmail), you agree to be bound by these Terms and our [Privacy Policy](https://salesleadgenerator.vercel.app/privacy). If you are using the Service on behalf of a company, organization, or other legal entity, you represent and warrant that you have the authority to bind that entity to these Terms. If you do not agree to these Terms, you must not access or use the Service.
+By accessing or using the Service, or by connecting a third-party account (such as Google / Gmail), you agree to be bound by these Terms and our [Privacy Policy](https://sales.haho.ai/privacy). If you are using the Service on behalf of a company, organization, or other legal entity, you represent and warrant that you have the authority to bind that entity to these Terms. If you do not agree to these Terms, you must not access or use the Service.
 
 ---
 
@@ -62,7 +62,7 @@ Violation of this Acceptable Use Policy may result in immediate suspension or te
 ## 6. Intellectual Property & Customer Data Ownership
 
 1. **Your Data**: As between you and us, you retain all rights, title, and interest in and to all data, contacts, communications, lead notes, and information uploaded or synchronized into your CRM workspace ("Customer Data"). We claim no ownership over your Customer Data.
-2. **License to Operate**: You grant us a non-exclusive, worldwide, royalty-free license to use, host, store, and process Customer Data solely as necessary to provide, maintain, and support the Service for you and your organization, in accordance with our [Privacy Policy](https://salesleadgenerator.vercel.app/privacy).
+2. **License to Operate**: You grant us a non-exclusive, worldwide, royalty-free license to use, host, store, and process Customer Data solely as necessary to provide, maintain, and support the Service for you and your organization, in accordance with our [Privacy Policy](https://sales.haho.ai/privacy).
 3. **Platform Intellectual Property**: The Service, including its software, architecture, user interfaces, documentation, visual design, and proprietary algorithms, is owned by Moldován Csaba Kft. and protected by copyright, trademark, and intellectual property laws. You may not copy, reverse engineer, modify, or create derivative works of the Service.
 
 ---
@@ -91,7 +91,7 @@ OUR TOTAL AGGREGATE LIABILITY ARISING FROM OR RELATED TO THESE TERMS OR THE SERV
 ## 10. Indemnification
 
 You agree to defend, indemnify, and hold harmless Moldován Csaba Kft., its affiliates, directors, officers, employees, and agents from and against any third-party claims, liabilities, damages, losses, and expenses (including reasonable attorney's fees) arising out of or in any way connected with:
-1. Your breach of these Terms or our [Privacy Policy](https://salesleadgenerator.vercel.app/privacy);
+1. Your breach of these Terms or our [Privacy Policy](https://sales.haho.ai/privacy);
 2. Your violation of any applicable law, rule, or regulation, including anti-spam regulations (CAN-SPAM, GDPR, PECR); or
 3. Your Customer Data or outreach communications sent through your connected accounts.
 
@@ -124,5 +124,5 @@ If you have questions regarding these Terms of Service, please contact:
 **Legal & Compliance Team**  
 Legal entity: Moldován Csaba Kft.  
 Email: `moldovancsaba@gmail.com`  
-Website: https://salesleadgenerator.vercel.app  
+Website: https://sales.haho.ai  
 Location: Budapest, Hungary

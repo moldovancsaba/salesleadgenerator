@@ -81,7 +81,7 @@ Operational EGM agents execute 4 core deal-acceleration tasks:
 ### Endpoint
 ```http
 PUT /api/leads/{id}?brand={tenant}
-Host: sales.haho.ai (or https://salesleadgenerator.vercel.app)
+Host: sales.haho.ai (or https://sales.haho.ai)
 Content-Type: application/json
 x-api-key: {SLG_API_KEY}
 ```

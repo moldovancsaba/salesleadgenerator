@@ -104,9 +104,7 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
 
   const copyReleaseLink = (version: string) => {
     const slug = `v${version.replace(/\./g, '-')}`;
-    const url = brand
-      ? `${window.location.origin}/whats-new/${brand}#${slug}`
-      : `${window.location.origin}/whats-new#${slug}`;
+    const url = `${window.location.origin}/whats-new#${slug}`;
     navigator.clipboard?.writeText(url).then(() => {
       setCopiedVersion(version);
       setTimeout(() => setCopiedVersion(null), 2000);

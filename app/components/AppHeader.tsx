@@ -132,7 +132,7 @@ function AppHeaderInner() {
         <Tooltip label={`What's New in v${APP_VERSION}`}>
           <Button
             component={Link}
-            href={`/whats-new/${activeBrand}`}
+            href="/whats-new"
             variant="light"
             color="indigo"
             size="compact-xs"

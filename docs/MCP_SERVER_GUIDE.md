@@ -40,7 +40,7 @@ In your Paperclip server or agent tool definitions:
 {
   "name": "sales-lead-generator",
   "type": "mcp",
-  "endpoint": "https://salesleadgenerator.vercel.app/api/mcp",
+  "endpoint": "https://sales.haho.ai/api/mcp",
   "headers": {
     "x-api-key": "slg_your_api_key_here"
   }
@@ -57,7 +57,7 @@ If running Paperclip locally with subprocess execution:
       "command": "node",
       "args": ["/path/to/salesleadgenerator/bin/slg-mcp.js"],
       "env": {
-        "SLG_API_URL": "https://salesleadgenerator.vercel.app",
+        "SLG_API_URL": "https://sales.haho.ai",
         "SLG_API_KEY": "slg_your_api_key_here"
       }
     }
@@ -78,7 +78,7 @@ Add the server definition to your `claude_desktop_config.json`:
       "command": "node",
       "args": ["/Users/Shared/Projects/salesleadgenerator/bin/slg-mcp.js"],
       "env": {
-        "SLG_API_URL": "https://salesleadgenerator.vercel.app",
+        "SLG_API_URL": "https://sales.haho.ai",
         "SLG_API_KEY": "slg_your_api_key_here"
       }
     }

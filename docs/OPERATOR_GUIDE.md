@@ -1,7 +1,7 @@
 # Operator Guide — Sales Lead Generator
 
 **Version:** 2.4.330
-**App:** https://salesleadgenerator.vercel.app
+**App:** https://sales.haho.ai
 
 ---
 
@@ -755,7 +755,7 @@ The app can be installed as a Progressive Web App (add-to-home-screen from your 
 
 ## API Integration
 
-Base URL: `https://salesleadgenerator.vercel.app`
+Base URL: `https://sales.haho.ai`
 
 **Auth:** every lead endpoint below (`GET`/`POST`/`PATCH /api/leads`, `GET /api/leads/columns`, `PATCH /api/leads/bulk`, `GET`/`DELETE /api/leads/[id]`) requires either an `x-api-key` header (shown below) or an authenticated browser session with access to the requested `brand`. There is no unauthenticated read path. The same session-or-key rule covers Sales Settings (`/api/sales-settings/[brand]`) and the product catalog (`/api/products/[brand]`) since 2.4.226 (issue #226; both were open before). `GET /api/outcome-logs` and `GET /api/outreach-logs` need `x-api-key`; nothing in the app calls them. Since 2.4.227 (issue #227) outreach send/log, templates, cadences, automation rules and battlecards also take the session-or-key rule; they need `?brand=` (for battlecards it is required, not defaulted). Before that their saves needed `x-api-key`, so they failed with 401 for every browser user. `POST /api/leads` previously required `x-api-key` exclusively (only the research agent ever called it); as of 2.4.96 it accepts a browser session too, so the in-app **Add Lead** button (see [Add Lead](#add-lead)) can call it directly — the `x-api-key` path is unchanged for existing callers. **`PUT /api/leads/[id]` is the one exception**: it requires an API key, never a session — it's the research agent's own enrichment path and has no in-app browser caller (corrected during the 2026-07-27 documentation audit; previously grouped in with the session-accepting endpoints above). It accepts the shared key or, since 2.4.232 (issue #220), a read-write scoped key for that brand from `/admin/api-keys`, so the research agent can move to per-brand keys. Every request that still uses the shared key is counted on `/admin/api-keys` under "Shared key usage".
 
@@ -763,13 +763,13 @@ The same dual `x-api-key`-or-brand-session contract also covers `GET /api/search
 
 ### Read Leads
 ```bash
-curl "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap&limit=100" \
+curl "https://sales.haho.ai/api/leads?brand=cogmap&limit=100" \
   -H "x-api-key: YOUR_API_KEY"
 ```
 
 ### Create Lead
 ```bash
-curl -X POST "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap" \
+curl -X POST "https://sales.haho.ai/api/leads?brand=cogmap" \
   -H "Content-Type: application/json" \
   -H "x-api-key: YOUR_API_KEY" \
   -d '{
@@ -793,7 +793,7 @@ curl -X POST "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap" \
 
 ### Action Lead
 ```bash
-curl -X PATCH "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap&id=<LEAD_ID>" \
+curl -X PATCH "https://sales.haho.ai/api/leads?brand=cogmap&id=<LEAD_ID>" \
   -H "Content-Type: application/json" \
   -H "x-api-key: YOUR_API_KEY" \
   -d '{"action":"ACCEPT"}'
@@ -802,7 +802,7 @@ curl -X PATCH "https://salesleadgenerator.vercel.app/api/leads?brand=cogmap&id=<
 
 ### Update Lead
 ```bash
-curl -X PUT "https://salesleadgenerator.vercel.app/api/leads/<LEAD_ID>?brand=cogmap" \
+curl -X PUT "https://sales.haho.ai/api/leads/<LEAD_ID>?brand=cogmap" \
   -H "Content-Type: application/json" \
   -H "x-api-key: YOUR_API_KEY" \
   -d '{"contacts": [{"name": "New Name", "isDecisionMaker": true}]}'
@@ -812,18 +812,18 @@ As of 2.4.109 this same call also accepts the controlled-taxonomy fields (`sport
 
 ### Lead Taxonomy
 ```bash
-curl "https://salesleadgenerator.vercel.app/api/lead-taxonomy"
+curl "https://sales.haho.ai/api/lead-taxonomy"
 ```
 No auth required. Returns the current controlled vocabularies (`sportCodes`, `orgTypeCodes`, `businessUnitCodes`, `genderCodes`, `demographicCodes`, `competitionLevelCodes`, `relationshipCodes`, `sportAliases`) as JSON — the same values `PUT /api/leads/[id]` validates the fields above against. This is what the enrichment agent's prompt (see `docs/LEAD_ENRICHMENT_GUIDE.md`) fetches before classifying a lead, so the values it writes are always current.
 
 ### Health Check
 ```bash
-curl "https://salesleadgenerator.vercel.app/api/health"
+curl "https://sales.haho.ai/api/health"
 ```
 
 ### Outreach Analytics
 ```bash
-curl "https://salesleadgenerator.vercel.app/api/outreach-templates?brand=cogmap&mode=analytics" \
+curl "https://sales.haho.ai/api/outreach-templates?brand=cogmap&mode=analytics" \
   -H "x-api-key: YOUR_API_KEY"
 ```
 
