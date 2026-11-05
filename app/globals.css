@@ -172,3 +172,40 @@ textarea {
   background-color: var(--mantine-color-gray-1, #f1f3f5) !important;
 }
 
+/* Mobile & Touch Viewport Ergonomics */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .mantine-Modal-content,
+  .mantine-Drawer-content {
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* Smooth horizontal touch scrolling without ugly scrollbars or clipping */
+.quick-filters-scroll {
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.quick-filters-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile touch targets floor */
+@media (max-width: 768px) {
+  .mantine-Button-root:not(.mantine-Button-compact) {
+    min-height: 38px;
+  }
+  .mantine-SegmentedControl-root {
+    width: 100%;
+  }
+  .mantine-SegmentedControl-control {
+    flex: 1;
+  }
+}
+
+

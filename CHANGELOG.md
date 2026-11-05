@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.352
+
+### UX & Usability Overhaul: Mobile Responsive Polish & Touch Ergonomics (Phase 5)
+
+- **Safe-Area Inset Support (Issue #309, `app/globals.css`, `tests/lib/mobile-responsive-polish.test.ts`):**
+  - Added native iOS and modern mobile `env(safe-area-inset-bottom)` support for drawer actions and modal content, preventing bottom navigation bar or swipe-indicator collisions.
+- **Touch-Optimized Scrolling & Button Hitboxes (Issue #309, `app/globals.css`, `app/sales/[brand]/sales-page-client.tsx`):**
+  - Added smooth horizontal touch scrolling container `.quick-filters-scroll` (`-webkit-overflow-scrolling: touch`) with hidden scrollbars for mobile quick filters.
+  - Enforced full-width responsive scaling for the SegmentedControl view switcher on screens below `768px`.
+  - Floored non-compact button heights to `38px` on mobile viewports for accessible, finger-friendly touch targets.
+
 ## 2.4.351
 
 ### UX & Usability Overhaul: View Switcher Ergonomics & Active Filter Chips (Phase 4)

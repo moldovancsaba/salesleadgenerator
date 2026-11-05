@@ -590,7 +590,7 @@ export function SalesPageClient({ brand, currency }: Props) {
           </Group>
 
           {(view === 'kanban' || view === 'table' || view === 'backlog') && (
-            <Group gap={6} mt="xs" pt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }} wrap="wrap">
+            <Group className="quick-filters-scroll" gap={6} mt="xs" pt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }} wrap="wrap">
               <Text size="xs" c="dimmed" fw={600} mr={4}>
                 Quick Filters:
               </Text>
