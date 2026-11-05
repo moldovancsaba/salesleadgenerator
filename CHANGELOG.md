@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.364
+
+### UX & Usability Overhaul: Integrations Health Status & Diagnostic Callout Alerts (Phase 2.5)
+
+- **Connection Health Indicators (Issue #322, `app/salessettings/[client]/integrations/integrations-client.tsx`, `tests/lib/integrations-ux.test.ts`):**
+  - Upgraded integration provider rows with explicit live health status (`Active` status badge accompanied by a green `Live` dot badge) and sync recency.
+- **Structured Diagnostic Test Alerts (Issue #322, `app/salessettings/[client]/integrations/integrations-client.tsx`, `tests/lib/integrations-ux.test.ts`):**
+  - Replaced plain text diagnostic strings with Mantine `Alert` callout boxes rendering distinct success (teal `IconCheck`) or error (red `IconAlertCircle`) states with full diagnostic error details.
+
 ## 2.4.363
 
 ### UX & Usability Overhaul: Contacts Quick-Filter Pills & Accounts Distribution Visualizer (Phase 2.4)

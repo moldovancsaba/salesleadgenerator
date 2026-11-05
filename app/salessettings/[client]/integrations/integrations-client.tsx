@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Box, Title, Text, Stack, Group, Button, TextInput } from '@mantine/core'
+import { Box, Title, Text, Stack, Group, Button, TextInput, Alert, Badge } from '@mantine/core'
+import { IconCheck, IconAlertCircle, IconPlugConnected } from '@tabler/icons-react'
 import { AdminDataTable, AdminFormStatus, AdminModal } from '@sovereignsquad/gds-admin/client'
 import { StatusBadge, CountBadge } from '@sovereignsquad/gds-core/client'
 import {
@@ -216,12 +217,19 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
               },
               {
                 key: 'status',
-                header: 'Status',
-                width: 140,
+                header: 'Status & Health',
+                width: 170,
                 accessor: (row) => {
                   const connection = row.connection
-                  if (!connection) return <Text size="sm" c="dimmed">—</Text>
-                  if (connection.status === 'active') return <StatusBadge status="success">Active</StatusBadge>
+                  if (!connection) return <Text size="sm" c="dimmed">Not configured</Text>
+                  if (connection.status === 'active') {
+                    return (
+                      <Group gap={6} align="center">
+                        <StatusBadge status="success">Active</StatusBadge>
+                        <Badge size="xs" variant="dot" color="teal">Live</Badge>
+                      </Group>
+                    )
+                  }
                   if (connection.status === 'revoked') return <StatusBadge status="neutral">Revoked</StatusBadge>
                   return <StatusBadge status="danger">{connection.status === 'expired' ? 'Expired' : 'Error'}</StatusBadge>
                 },
@@ -260,9 +268,23 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
           />
         )}
 
-        {Object.entries(testResult).map(([id, message]) => (
-          <Text key={id} size="xs" c="dimmed" role="status" aria-live="polite">{message}</Text>
-        ))}
+        {Object.entries(testResult).map(([id, message]) => {
+          const isSuccess = message.includes('verified');
+          return (
+            <Alert
+              key={id}
+              icon={isSuccess ? <IconCheck size={16} /> : <IconAlertCircle size={16} />}
+              title={isSuccess ? 'Integration Connection Verified' : 'Integration Verification Alert'}
+              color={isSuccess ? 'teal' : 'red'}
+              variant="light"
+              radius="md"
+              role="status"
+              aria-live="polite"
+            >
+              <Text size="sm">{message}</Text>
+            </Alert>
+          );
+        })}
 
         {connections.find((c) => c.provider === 'google_calendar')?.status === 'active' && (
           <AvailabilitySettings brand={brand} />
