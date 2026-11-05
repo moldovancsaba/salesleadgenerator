@@ -79,6 +79,7 @@ export function ContactsClient({ brand, label }: Props) {
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [crmStatusFilter, setCrmStatusFilter] = useState<string>('all')
+  const [phoneOnlyFilter, setPhoneOnlyFilter] = useState<boolean>(false)
   const [contacts, setContacts] = useState<ContactRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -158,7 +159,10 @@ export function ContactsClient({ brand, label }: Props) {
   }, [query, roleFilter, crmStatusFilter, loadContacts])
 
   const sortedContacts = useMemo(() => {
-    const list = [...contacts]
+    let list = [...contacts]
+    if (phoneOnlyFilter) {
+      list = list.filter((c) => Boolean(c.phone && c.phone.trim().length > 3));
+    }
     list.sort((a, b) => {
       let cmp = 0
       if (sort.key === 'name') {
@@ -181,7 +185,7 @@ export function ContactsClient({ brand, label }: Props) {
       return sort.direction === 'asc' ? cmp : -cmp
     })
     return list
-  }, [contacts, sort])
+  }, [contacts, phoneOnlyFilter, sort])
 
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
@@ -259,69 +263,121 @@ export function ContactsClient({ brand, label }: Props) {
 
         {/* High-Density Filter Toolbar */}
         <Paper withBorder p="xs" radius="md">
-          <Group gap="xs" wrap="wrap" align="center">
-            <TextInput
-              style={{ flex: 1, minWidth: 260 }}
-              size="xs"
-              value={query}
-              onChange={(event) => setQuery(event.currentTarget.value)}
-              placeholder="Search by name, company, title, email, phone…"
-              aria-label="Search contacts"
-              leftSection={<IconSearch size={14} />}
-              rightSection={
-                query ? (
-                  <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => setQuery('')} aria-label="Clear search">
-                    <IconX size={12} />
-                  </ActionIcon>
-                ) : null
-              }
-            />
-            <Select
-              size="xs"
-              w={160}
-              aria-label="Filter by buying role"
-              value={roleFilter}
-              onChange={(val) => setRoleFilter(val || 'all')}
-              data={[
-                { value: 'all', label: 'All Roles' },
-                { value: 'economic_buyer', label: 'Economic Buyer' },
-                { value: 'champion', label: 'Champion' },
-                { value: 'decision_maker', label: 'Decision Maker' },
-                { value: 'influencer', label: 'Influencer' },
-                { value: 'blocker', label: 'Blocker' },
-                { value: 'unknown', label: 'Unclassified' },
-              ]}
-            />
-            <Select
-              size="xs"
-              w={140}
-              aria-label="Filter by CRM status"
-              value={crmStatusFilter}
-              onChange={(val) => setCrmStatusFilter(val || 'all')}
-              data={[
-                { value: 'all', label: 'All Statuses' },
-                { value: 'prospect', label: 'Prospect' },
-                { value: 'lead', label: 'Lead' },
-                { value: 'active', label: 'Active' },
-                { value: 'customer', label: 'Customer' },
-                { value: 'inactive', label: 'Inactive' },
-              ]}
-            />
-            {(query || roleFilter !== 'all' || crmStatusFilter !== 'all') && (
+          <Stack gap="xs">
+            {/* Quick-Filter Pills Strip */}
+            <Group gap={6} wrap="wrap" align="center">
+              <Text size="xs" c="dimmed" fw={600}>Quick filters:</Text>
               <Button
-                variant="subtle"
-                color="gray"
-                size="xs"
+                size="compact-xs"
+                variant={roleFilter === 'all' && !phoneOnlyFilter && crmStatusFilter === 'all' ? 'filled' : 'subtle'}
+                color="blue"
                 onClick={() => {
-                  setQuery('')
-                  setRoleFilter('all')
-                  setCrmStatusFilter('all')
+                  setRoleFilter('all');
+                  setPhoneOnlyFilter(false);
+                  setCrmStatusFilter('all');
                 }}
               >
-                Reset
+                All Contacts
               </Button>
-            )}
-          </Group>
+              <Button
+                size="compact-xs"
+                variant={phoneOnlyFilter ? 'filled' : 'light'}
+                color="teal"
+                onClick={() => setPhoneOnlyFilter((prev) => !prev)}
+              >
+                📞 With Phone {phoneOnlyFilter ? '✓' : ''}
+              </Button>
+              <Button
+                size="compact-xs"
+                variant={roleFilter === 'decision_maker' ? 'filled' : 'light'}
+                color="indigo"
+                onClick={() => setRoleFilter((prev) => (prev === 'decision_maker' ? 'all' : 'decision_maker'))}
+              >
+                Decision Makers {roleFilter === 'decision_maker' ? '✓' : ''}
+              </Button>
+              <Button
+                size="compact-xs"
+                variant={roleFilter === 'champion' ? 'filled' : 'light'}
+                color="green"
+                onClick={() => setRoleFilter((prev) => (prev === 'champion' ? 'all' : 'champion'))}
+              >
+                Champions {roleFilter === 'champion' ? '✓' : ''}
+              </Button>
+              <Button
+                size="compact-xs"
+                variant={roleFilter === 'economic_buyer' ? 'filled' : 'light'}
+                color="blue"
+                onClick={() => setRoleFilter((prev) => (prev === 'economic_buyer' ? 'all' : 'economic_buyer'))}
+              >
+                Economic Buyers {roleFilter === 'economic_buyer' ? '✓' : ''}
+              </Button>
+            </Group>
+
+            <Group gap="xs" wrap="wrap" align="center">
+              <TextInput
+                style={{ flex: 1, minWidth: 260 }}
+                size="xs"
+                value={query}
+                onChange={(event) => setQuery(event.currentTarget.value)}
+                placeholder="Search by name, company, title, email, phone…"
+                aria-label="Search contacts"
+                leftSection={<IconSearch size={14} />}
+                rightSection={
+                  query ? (
+                    <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => setQuery('')} aria-label="Clear search">
+                      <IconX size={12} />
+                    </ActionIcon>
+                  ) : null
+                }
+              />
+              <Select
+                size="xs"
+                w={160}
+                aria-label="Filter by buying role"
+                value={roleFilter}
+                onChange={(val) => setRoleFilter(val || 'all')}
+                data={[
+                  { value: 'all', label: 'All Roles' },
+                  { value: 'economic_buyer', label: 'Economic Buyer' },
+                  { value: 'champion', label: 'Champion' },
+                  { value: 'decision_maker', label: 'Decision Maker' },
+                  { value: 'influencer', label: 'Influencer' },
+                  { value: 'blocker', label: 'Blocker' },
+                  { value: 'unknown', label: 'Unclassified' },
+                ]}
+              />
+              <Select
+                size="xs"
+                w={140}
+                aria-label="Filter by CRM status"
+                value={crmStatusFilter}
+                onChange={(val) => setCrmStatusFilter(val || 'all')}
+                data={[
+                  { value: 'all', label: 'All Statuses' },
+                  { value: 'prospect', label: 'Prospect' },
+                  { value: 'lead', label: 'Lead' },
+                  { value: 'active', label: 'Active' },
+                  { value: 'customer', label: 'Customer' },
+                  { value: 'inactive', label: 'Inactive' },
+                ]}
+              />
+              {(query || roleFilter !== 'all' || crmStatusFilter !== 'all' || phoneOnlyFilter) && (
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="xs"
+                  onClick={() => {
+                    setQuery('')
+                    setRoleFilter('all')
+                    setCrmStatusFilter('all')
+                    setPhoneOnlyFilter(false)
+                  }}
+                >
+                  Reset
+                </Button>
+              )}
+            </Group>
+          </Stack>
         </Paper>
 
         {error && <AdminFormStatus state="error" title="Couldn't load contacts" description={error} />}

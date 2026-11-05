@@ -1,5 +1,15 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.363
+
+### UX & Usability Overhaul: Contacts Quick-Filter Pills & Accounts Distribution Visualizer (Phase 2.4)
+
+- **Contacts 1-Click Discovery Pills (Issue #321, `app/contacts/[brand]/contacts-client.tsx`, `tests/lib/contacts-accounts-ux.test.ts`):**
+  - Surfaced instant quick-filter buttons (`All Contacts`, `📞 With Phone`, `Decision Makers`, `Champions`, `Economic Buyers`) directly above the search input.
+  - Enabled rapid discovery of prospects with dialable phone numbers or specific commercial buying authority with 1 click.
+- **Accounts Pipeline Distribution Bar (Issue #321, `app/accounts/[brand]/accounts-client.tsx`, `tests/lib/contacts-accounts-ux.test.ts`):**
+  - Replaced flat text value display in the Accounts rollup table with a visual proportional progress bar comparing in-flight pipeline value against closed-won revenue with hover tooltip percentages.
+
 ## 2.4.362
 
 ### UX & Usability Overhaul: Revenue Forecast Segmented Tabs (Phase 2.3)

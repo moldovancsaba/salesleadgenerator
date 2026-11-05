@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Container, Title, Text, Group, Stack, Loader, SimpleGrid, UnstyledButton, Button, Box, TextInput, ActionIcon, Paper } from '@mantine/core'
+import { Container, Title, Text, Group, Stack, Loader, SimpleGrid, UnstyledButton, Button, Box, TextInput, ActionIcon, Paper, Progress, Tooltip } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState, AdminDetailDrawer, AdminModal, InfoCard, type AdminDataTableSort } from '@sovereignsquad/gds-admin/client'
 import { StatusBadge, LabelTag, CountBadge } from '@sovereignsquad/gds-core/client'
 import { IconSearch, IconX, IconDownload } from '@tabler/icons-react'
@@ -365,15 +365,36 @@ export function AccountsClient({ brand, label, currency }: Props) {
               { key: 'leadCount', header: 'Leads', numeric: true, sortable: true, width: 100, accessor: (row) => row.leadCount },
               {
                 key: 'value',
-                header: 'Value',
+                header: 'Value & Pipeline Distribution',
                 sortable: true,
-                width: 240,
-                accessor: (row) => (
-                  <Text size="sm">
-                    {formatMoney(row.pipelineValueUsd, currency)} pipeline
-                    {row.wonValueUsd > 0 ? ` + ${formatMoney(row.wonValueUsd, 'USD')} won` : ''}
-                  </Text>
-                ),
+                width: 280,
+                accessor: (row) => {
+                  const total = (row.pipelineValueUsd || 0) + (row.wonValueUsd || 0);
+                  const wonPercent = total > 0 ? Math.round((row.wonValueUsd / total) * 100) : 0;
+                  const pipePercent = total > 0 ? 100 - wonPercent : 0;
+                  return (
+                    <Stack gap={4}>
+                      <Group justify="space-between" wrap="nowrap">
+                        <Text size="xs" fw={600}>
+                          {formatMoney(row.pipelineValueUsd, currency)}
+                        </Text>
+                        {row.wonValueUsd > 0 && (
+                          <Text size="xs" c="teal.7" fw={600}>
+                            {formatMoney(row.wonValueUsd, currency)} won
+                          </Text>
+                        )}
+                      </Group>
+                      {total > 0 && (
+                        <Tooltip label={`${pipePercent}% In-Flight Pipeline · ${wonPercent}% Closed Won`} withArrow position="top">
+                          <Progress.Root size="sm" radius="xl">
+                            <Progress.Section value={pipePercent} color="blue" />
+                            <Progress.Section value={wonPercent} color="teal" />
+                          </Progress.Root>
+                        </Tooltip>
+                      )}
+                    </Stack>
+                  );
+                },
               },
               {
                 key: 'activity',
