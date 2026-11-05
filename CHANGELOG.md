@@ -1,5 +1,12 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.367
+
+### Routing & Navigation Resilience: Smart Brand Resolution for Bare URLs
+
+- **Bare Workspace Route Handlers (Issue #325, `app/today/page.tsx`, `app/inbox/page.tsx`, `app/sales/page.tsx`, `app/contacts/page.tsx`, `app/accounts/page.tsx`, `app/forecast/page.tsx`, `app/reports/page.tsx`, `app/battlecards/page.tsx`, `app/automation/page.tsx`, `app/documents/page.tsx`, `app/salessettings/page.tsx`, `lib/resolve-user-brand.ts`, `tests/lib/bare-routes-redirect.test.ts`):**
+  - Added smart server-side redirect handlers for bare root paths (`/today`, `/inbox`, `/sales`, `/contacts`, `/accounts`, etc.) to automatically resolve the authenticated user's primary accessible organization from their session and redirect to the corresponding workspace (e.g. `/today` -> `/today/padel-africa`), completely eliminating the 404 page when visiting bare URLs.
+
 ## 2.4.366
 
 ### Documentation & UI Reconciliation: Canonical Domain, What's New Routing & Tenant Alignment
