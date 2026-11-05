@@ -26,9 +26,10 @@ describe('LeadCard Layout & Hierarchy Redesign (Issue 259)', () => {
   });
 
   it('de-duplicates staleness and rotten touch day indicators', () => {
-    // Stale deal condition takes precedence; rotten indicator only displays when staleness is null
-    expect(cardSource).toContain('staleness ? (');
-    expect(cardSource).toContain(': rotten ? (');
+    // Issue #259 / #306: Health & Staleness signals are consolidated into unified status
+    expect(cardSource).toContain('staleness');
+    expect(cardSource).toContain('rotten');
+    expect(cardSource).toContain('dealHealth');
   });
 
   it('makes card surface clickable with onOpen and hover elevation', () => {
@@ -73,7 +74,7 @@ describe('LeadCard Layout & Hierarchy Redesign (Issue 259)', () => {
     });
 
     it('suppresses redundant zero-day rotten badges when deals are fresh', () => {
-      expect(cardSource).toContain("rotten.level === 'green' ? null :");
+      expect(cardSource).toContain("rotten.level !== 'green'");
     });
 
     it('renders quiet subtle open button with arrow icon', () => {

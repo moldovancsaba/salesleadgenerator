@@ -111,14 +111,17 @@ textarea {
   transform: translateY(1px);
 }
 
-/* Kanban Card Action Buttons - ensure semantic teal & red colors win over GDS theme defaults */
+/* Kanban Card Action Buttons - ensure semantic teal & red colors win over GDS theme defaults with ergonomic touch targets */
 .card-action-accept {
   background-color: var(--mantine-color-teal-1, #e6fcf5) !important;
   border: 1px solid var(--mantine-color-teal-4, #63e6be) !important;
   color: var(--mantine-color-teal-9, #087f5b) !important;
   font-weight: 600 !important;
   box-shadow: none !important;
-  height: 26px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  font-size: 13px !important;
+  border-radius: 6px !important;
 }
 .card-action-accept:hover {
   background-color: var(--mantine-color-teal-2, #c3fae8) !important;
@@ -130,7 +133,10 @@ textarea {
   color: var(--mantine-color-red-7, #e03131) !important;
   font-weight: 500 !important;
   box-shadow: none !important;
-  height: 26px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  font-size: 13px !important;
+  border-radius: 6px !important;
 }
 .card-action-decline:hover {
   background-color: var(--mantine-color-red-0, #fff5f5) !important;
@@ -142,7 +148,10 @@ textarea {
   color: var(--mantine-color-indigo-8, #3b5bdb) !important;
   font-weight: 500 !important;
   box-shadow: none !important;
-  height: 26px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  font-size: 13px !important;
+  border-radius: 6px !important;
 }
 .card-action-email:hover {
   background-color: var(--mantine-color-indigo-1, #dbe4ff) !important;
@@ -154,7 +163,9 @@ textarea {
   color: var(--mantine-color-gray-6, #868e96) !important;
   box-shadow: none !important;
   font-weight: 500 !important;
-  height: 22px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  border-radius: 4px !important;
 }
 .card-action-open:hover {
   color: var(--mantine-color-dark-4, #25262b) !important;

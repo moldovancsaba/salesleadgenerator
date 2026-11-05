@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ActionIcon, Avatar, Box, Button, Group, Stack, Text } from '@mantine/core';
+import { ActionIcon, Avatar, Box, Button, Group, Stack, Text, Tooltip } from '@mantine/core';
 import { StatusBadge, LabelTag, CountBadge } from '@sovereignsquad/gds-core/client';
 import {
   IconChevronDown,
@@ -348,24 +348,48 @@ export function LeadCard({
               {quality}
             </StatusBadge>
           )}
+        </Group>
 
+        {/* Consolidated Deal Health & Urgency Indicator */}
+        <Group gap={6} wrap="wrap" align="center">
+          {/* Health & Stale Signals Consolidated */}
           {!isTerminalColumn && (
-            <StatusBadge
-              status={
-                dealHealth.tier === 'healthy'
-                  ? 'success'
-                  : dealHealth.tier === 'at_risk'
-                    ? 'warning'
-                    : 'danger'
-              }
-              size="xs"
-              aria-label={`Deal health: ${dealHealth.label}`}
+            <Tooltip
+              label={`Deal Health: ${dealHealth.score}/100 (${dealHealth.label})${
+                staleness
+                  ? ` · Stale for ${staleness.daysSince}d (threshold ${staleness.thresholdDays}d)`
+                  : rotten && rotten.level !== 'green'
+                    ? ` · Untouched for ${rotten.daysSince}d`
+                    : ''
+              }`}
+              withArrow
+              position="top"
             >
-              {`HP ${dealHealth.score}`}
-            </StatusBadge>
+              <Box style={{ display: 'inline-flex' }}>
+                <StatusBadge
+                  status={
+                    dealHealth.tier === 'healthy' && (!staleness || staleness.severity !== 'critical')
+                      ? 'success'
+                      : dealHealth.tier === 'at_risk' || (staleness && staleness.severity !== 'critical')
+                        ? 'warning'
+                        : 'danger'
+                  }
+                  size="xs"
+                  aria-label={`Deal health: ${dealHealth.label}`}
+                >
+                  {`HP ${dealHealth.score}${
+                    staleness
+                      ? ` · ${staleness.severity === 'critical' ? 'Critical' : 'Stale'} (${staleness.daysSince}d)`
+                      : rotten && rotten.level !== 'green'
+                        ? ` · ${rotten.daysSince}d`
+                        : ''
+                  }`}
+                </StatusBadge>
+              </Box>
+            </Tooltip>
           )}
 
-          {/* Urgency Alert & Follow-up Indicator */}
+          {/* Urgency Alert for Actions Overdue or Due Today */}
           {dueValid && dueDays !== null && dueDays <= 0 ? (
             <StatusBadge
               status={dueDays < 0 ? 'danger' : 'warning'}
@@ -377,8 +401,8 @@ export function LeadCard({
             </StatusBadge>
           ) : null}
 
-          {/* Stale / Urgency Indicator — de-duplicated so days are never displayed twice */}
-          {staleness ? (
+          {/* Fallback Stale Badge when Terminal or Health unavailable */}
+          {isTerminalColumn && staleness ? (
             <StatusBadge
               status={staleness.severity === 'critical' ? 'danger' : 'warning'}
               withIcon
@@ -387,16 +411,6 @@ export function LeadCard({
             >
               {`${staleness.severity === 'critical' ? 'Critical' : 'Stale'} · ${staleness.daysSince}d`}
             </StatusBadge>
-          ) : rotten ? (
-            rotten.level === 'green' ? null : (
-              <StatusBadge
-                status={rotten.level === 'red' ? 'danger' : 'warning'}
-                size="xs"
-                aria-label={`Last touched ${rotten.daysSince} days ago`}
-              >
-                {`${rotten.daysSince}d`}
-              </StatusBadge>
-            )
           ) : null}
         </Group>
 

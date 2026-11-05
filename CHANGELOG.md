@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.349
+
+### UX & Kanban Overhaul: Badge Rationalization, Action Ergonomics & Visual Quietness (Phases 1 & 2)
+
+- **Badge Noise Consolidation & Urgency Indicator (Issue #306, `app/card.tsx`, `tests/lib/card-layout.test.ts`):**
+  - Replaced the fragmented 7-badge cluster with a unified Deal Health & Urgency indicator combining Health Score, staleness, rotten touch counts, and critical flags.
+  - Enriched hover state with a Mantine `<Tooltip>` detailing the exact score breakdown and inactivity metrics without cognitive overload.
+  - Preserved commercial metric (`dealsTotal` / `ticketSize`) and geographical context tags in a clean primary row.
+- **Kanban Card Action Touch Target Ergonomics (Issue #306, `app/globals.css`):**
+  - Upgraded Kanban quick-action button touch targets (`.card-action-accept`, `.card-action-decline`, `.card-action-email`) to standard `36px` minimum height (up from `24px`) with enhanced font-weight, hitboxes, and border radius.
+  - Standardized `.card-action-open` detail drawer trigger to a distinct, quiet `28px` action.
+- **Test & Layout Regression Suite (Issue #306, `tests/lib/card-layout.test.ts`):**
+  - Updated card layout and hierarchy test assertions to reflect consolidated health and staleness indicator semantics.
+
 ## 2.4.348
 
 ### Client Workspace Onboarding: EGM Studio Brand & Sales Enablement
