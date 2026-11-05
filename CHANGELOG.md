@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.365
+
+### UX & Usability Overhaul: Kanban Card Information Architecture & Proportions (Phase 3.1)
+
+- **Responsive Button Proportions (Issue #323, `app/globals.css`, `tests/lib/kanban-card-ux.test.ts`):**
+  - Scaled card action buttons (`.card-action-accept`, `.card-action-decline`, `.card-action-email`) to a compact 28px height with 12px font size on desktop (`min-width: 768px`) to prevent them from dominating card vertical density, while preserving 36px touch targets on mobile viewports.
+- **Next Step Task Note Preview (Issue #323, `app/card.tsx`, `tests/lib/kanban-card-ux.test.ts`):**
+  - Rendered a 1-line truncated preview of `lead.nextActionNote` alongside due date urgency indicators, allowing reps to see what task is due without opening the detail drawer.
+- **Omnichannel Phone Call Action (Issue #323, `app/card.tsx`, `tests/lib/kanban-card-ux.test.ts`):**
+  - Added a 1-click `<ActionIcon>` call affordance (`IconPhone` with `tel:`) when the primary contact has a phone number.
+- **Pipeline Win Probability Indicator (Issue #323, `app/card.tsx`, `tests/lib/kanban-card-ux.test.ts`):**
+  - Surfaced win likelihood badge (e.g. `🎯 60%`) directly in the card tag row for active pipeline stages (`ENGAGED`, `PROPOSAL`).
+- **Quality Status Decluttering (Issue #323, `app/card.tsx`, `tests/lib/kanban-card-ux.test.ts`):**
+  - Restricted quality status badges (`DRAFT`, `CHECKED`, `VERIFIED`) to early triage stages (`DISCOVERED`, `QUALIFIED`, `ENGAGED`), hiding them in late pipeline stages (`PROPOSAL`, `WON`, `LOST`) to eliminate visual noise.
+
 ## 2.4.364
 
 ### UX & Usability Overhaul: Integrations Health Status & Diagnostic Callout Alerts (Phase 2.5)

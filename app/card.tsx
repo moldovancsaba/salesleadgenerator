@@ -149,14 +149,10 @@ export function LeadCard({
   const ice = getIceScore(lead);
   const region = lead.region || 'NA';
   const quality = lead.qualityStatus || 'DRAFT';
-  // Issue #115: DRAFT is only shown in DISCOVERED/QUALIFIED (auto-managed
-  // columns a lead hasn't been manually worked yet) — CHECKED/VERIFIED
-  // always render, in every column, unchanged. Uses lead.kanbanColumn
-  // directly rather than a separate `column` prop: it's the same field
-  // app/kanban.tsx's renderItem already trusts for staleness/nudge
-  // computation on this exact lead, so a second prop would just be a second
-  // name for the same value.
-  const showQualityBadge = quality !== 'DRAFT' || lead.kanbanColumn === 'DISCOVERED' || lead.kanbanColumn === 'QUALIFIED';
+  // Quality badge: only shown in triage & early pipeline (DISCOVERED, QUALIFIED, ENGAGED)
+  // In later columns (PROPOSAL, WON, LOST), it adds visual clutter without decision value.
+  const isEarlyStage = lead.kanbanColumn === 'DISCOVERED' || lead.kanbanColumn === 'QUALIFIED' || lead.kanbanColumn === 'ENGAGED';
+  const showQualityBadge = isEarlyStage && (quality !== 'DRAFT' || lead.kanbanColumn === 'DISCOVERED' || lead.kanbanColumn === 'QUALIFIED');
   const ticketSize = getTicketSize(lead);
   const ticketSizeLabel = ticketSizeCardLabel(ticketSize);
   const ticketSizeCaption = ticketSizeCardCaption(ticketSize);
@@ -190,6 +186,7 @@ export function LeadCard({
   const rawRole = primaryContact && typeof primaryContact.role === 'string' ? primaryContact.role.trim() : '';
   const contactTitle = rawTitle || rawRole || '';
   const primaryEmail = primaryContact?.email && typeof primaryContact.email === 'string' ? primaryContact.email.trim() : null;
+  const primaryPhone = primaryContact?.phone && typeof primaryContact.phone === 'string' ? primaryContact.phone.trim() : null;
 
   const rawOwner = typeof lead.assignedToEmail === 'string' && lead.assignedToEmail.trim()
     ? lead.assignedToEmail.split('@')[0]
@@ -286,36 +283,53 @@ export function LeadCard({
               </Text>
             )}
           </Group>
-          {primaryEmail ? (
-            <ActionIcon
-              size="xs"
-              variant="subtle"
-              color="indigo"
-              aria-label={`Email ${contactName}`}
-              title={`Email ${contactName} (${primaryEmail})`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onQuickEmail) onQuickEmail(lead);
-                else window.location.href = `mailto:${primaryEmail}`;
-              }}
-            >
-              <IconMail size={12} />
-            </ActionIcon>
-          ) : (
-            contactName === '—' && (
-              <Button
-                size="compact-xs"
+          <Group gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
+            {primaryPhone && (
+              <ActionIcon
+                size="xs"
                 variant="subtle"
-                color="gray"
+                color="teal"
+                aria-label={`Call ${contactName}`}
+                title={`Call ${contactName} (${primaryPhone})`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onOpen?.();
+                  window.location.href = `tel:${primaryPhone}`;
                 }}
               >
-                + Contact
-              </Button>
-            )
-          )}
+                <IconPhone size={12} />
+              </ActionIcon>
+            )}
+            {primaryEmail ? (
+              <ActionIcon
+                size="xs"
+                variant="subtle"
+                color="indigo"
+                aria-label={`Email ${contactName}`}
+                title={`Email ${contactName} (${primaryEmail})`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onQuickEmail) onQuickEmail(lead);
+                  else window.location.href = `mailto:${primaryEmail}`;
+                }}
+              >
+                <IconMail size={12} />
+              </ActionIcon>
+            ) : (
+              contactName === '—' && (
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  color="gray"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpen?.();
+                  }}
+                >
+                  + Contact
+                </Button>
+              )
+            )}
+          </Group>
         </Group>
 
         {/* Commercial Metric & Context Attribute Badges */}
@@ -338,6 +352,16 @@ export function LeadCard({
 
           {region && region !== 'NA' && (
             <LabelTag tone="neutral" size="sm" label={region} />
+          )}
+
+          {/* Win Probability indicator in active pipeline */}
+          {winProbability !== null && winProbability !== undefined && !isTerminalColumn && !isReviewColumn && (
+            <LabelTag
+              tone="neutral"
+              size="sm"
+              label={`🎯 ${Math.round(winProbability * 100)}%`}
+              aria-label={`Win probability: ${Math.round(winProbability * 100)}%`}
+            />
           )}
 
           {showQualityBadge && (
@@ -415,36 +439,45 @@ export function LeadCard({
         </Group>
 
         {/* Owner & Follow-up/Activity Meta */}
-        <Group
-          justify="space-between"
-          align="center"
-          wrap="nowrap"
-          pt={4}
-          style={{ borderTop: '1px solid var(--gds-border-card)' }}
-        >
-          <Group gap={6} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
-            <Avatar
-              size={18}
-              radius="xl"
-              color={ownerLabel === 'Unassigned' ? 'gray' : 'blue'}
-              style={{ fontSize: 9, fontWeight: 700, flexShrink: 0 }}
+        <Stack gap={2} pt={4} style={{ borderTop: '1px solid var(--gds-border-card)' }}>
+          <Group justify="space-between" align="center" wrap="nowrap">
+            <Group gap={6} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+              <Avatar
+                size={18}
+                radius="xl"
+                color={ownerLabel === 'Unassigned' ? 'gray' : 'blue'}
+                style={{ fontSize: 9, fontWeight: 700, flexShrink: 0 }}
+              >
+                {ownerInitials}
+              </Avatar>
+              <Text size="xs" fw={500} truncate title={`Owner: ${ownerLabel}`}>
+                {ownerLabel}
+              </Text>
+            </Group>
+            <Text
+              size="xs"
+              c={dueDays !== null && dueDays <= 0 ? (dueDays < 0 ? 'red' : 'orange') : 'dimmed'}
+              style={{ flexShrink: 0 }}
             >
-              {ownerInitials}
-            </Avatar>
-            <Text size="xs" fw={500} truncate title={`Owner: ${ownerLabel}`}>
-              {ownerLabel}
+              {dueValid && dueDays !== null
+                ? (dueDays < 0 ? `${Math.abs(dueDays)}d overdue` : dueDays === 0 ? 'Due today' : `Due in ${dueDays}d`)
+                : (updatedLabel || createdLabel || '')}
             </Text>
           </Group>
-          <Text
-            size="xs"
-            c={dueDays !== null && dueDays <= 0 ? (dueDays < 0 ? 'red' : 'orange') : 'dimmed'}
-            style={{ flexShrink: 0 }}
-          >
-            {dueValid && dueDays !== null
-              ? (dueDays < 0 ? `${Math.abs(dueDays)}d overdue` : dueDays === 0 ? 'Due today' : `Due in ${dueDays}d`)
-              : (updatedLabel || createdLabel || '')}
-          </Text>
-        </Group>
+
+          {/* Action Task Preview snippet if next action is set */}
+          {lead.nextActionNote && (
+            <Text
+              size="xs"
+              c="dimmed"
+              truncate
+              title={`Next action: ${lead.nextActionNote}`}
+              style={{ fontSize: '11px', paddingLeft: 24, marginTop: -2 }}
+            >
+              👉 {lead.nextActionNote}
+            </Text>
+          )}
+        </Stack>
 
         {/* Action Bar: Progressive Disclosure Toggle & Direct Open */}
         <Group justify="space-between" align="center" wrap="nowrap" pt={2} style={{ borderTop: '1px solid var(--gds-border-card)' }}>
