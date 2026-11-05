@@ -216,6 +216,25 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
   const isSalesBoard = effectiveBrand !== null && pathname === `/sales/${effectiveBrand}`;
   const currentView = searchParams.get('view') || 'kanban';
 
+  // Issue #312: Semantic Navigation Grouping state
+  // Auto-expand the section containing the active route
+  const isOutreachActive = pathname.includes('/outreach/') || pathname.includes('/documents/') || pathname.includes('/battlecards/');
+  const isAnalyticsActive = pathname.includes('/forecast/') || pathname.includes('/reports/');
+  const isSettingsActive = pathname.includes('/salessettings/') || pathname.includes('/admin/products/') || pathname.includes('/automation/');
+  const isAdminActive = pathname.startsWith('/admin/') && !pathname.includes('/admin/products/');
+
+  const [outreachOpen, setOutreachOpen] = useState(isOutreachActive);
+  const [analyticsOpen, setAnalyticsOpen] = useState(isAnalyticsActive);
+  const [settingsOpen, setSettingsOpen] = useState(isSettingsActive);
+  const [adminOpen, setAdminOpen] = useState(isAdminActive);
+
+  useEffect(() => {
+    if (isOutreachActive) setOutreachOpen(true);
+    if (isAnalyticsActive) setAnalyticsOpen(true);
+    if (isSettingsActive) setSettingsOpen(true);
+    if (isAdminActive) setAdminOpen(true);
+  }, [isOutreachActive, isAnalyticsActive, isSettingsActive, isAdminActive]);
+
   const router = useRouter();
 
   const handleLinkClick = () => {
@@ -370,94 +389,112 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
 
               <Divider my="xs" />
 
-              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-                Outreach & Content
-              </Text>
               <NavLink
-                component={Link}
-                href={`/outreach/cadences/${effectiveBrand}`}
-                label="Cadences"
-                leftSection={<IconRepeat size={18} />}
-                active={pathname === `/outreach/cadences/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href={`/outreach/templates/${effectiveBrand}`}
-                label="Outreach Templates"
+                label="Outreach & Content"
                 leftSection={<IconMail size={18} />}
-                active={pathname === `/outreach/templates/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href={`/documents/${effectiveBrand}`}
-                label="Documents"
-                leftSection={<IconFiles size={18} />}
-                active={pathname === `/documents/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href={`/battlecards/${effectiveBrand}`}
-                label="Battlecards"
-                leftSection={<IconCards size={18} />}
-                active={pathname === `/battlecards/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
+                opened={outreachOpen}
+                onChange={setOutreachOpen}
+                childrenOffset={12}
+                defaultOpened={outreachOpen}
+              >
+                <NavLink
+                  component={Link}
+                  href={`/outreach/cadences/${effectiveBrand}`}
+                  label="Cadences"
+                  leftSection={<IconRepeat size={18} />}
+                  active={pathname === `/outreach/cadences/${effectiveBrand}`}
+                  onClick={handleLinkClick}
+                />
+                <NavLink
+                  component={Link}
+                  href={`/outreach/templates/${effectiveBrand}`}
+                  label="Outreach Templates"
+                  leftSection={<IconMail size={18} />}
+                  active={pathname === `/outreach/templates/${effectiveBrand}`}
+                  onClick={handleLinkClick}
+                />
+                <NavLink
+                  component={Link}
+                  href={`/documents/${effectiveBrand}`}
+                  label="Documents"
+                  leftSection={<IconFiles size={18} />}
+                  active={pathname === `/documents/${effectiveBrand}`}
+                  onClick={handleLinkClick}
+                />
+                <NavLink
+                  component={Link}
+                  href={`/battlecards/${effectiveBrand}`}
+                  label="Battlecards"
+                  leftSection={<IconCards size={18} />}
+                  active={pathname === `/battlecards/${effectiveBrand}`}
+                  onClick={handleLinkClick}
+                />
+              </NavLink>
 
               <Divider my="xs" />
 
-              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-                Analytics
-              </Text>
               <NavLink
-                component={Link}
-                href={`/forecast/${effectiveBrand}`}
-                label="Forecast"
+                label="Analytics"
                 leftSection={<IconTrendingUp size={18} />}
-                active={pathname === `/forecast/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href={`/reports/${effectiveBrand}`}
-                label="Reports"
-                leftSection={<IconReportAnalytics size={18} />}
-                active={pathname === `/reports/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
+                opened={analyticsOpen}
+                onChange={setAnalyticsOpen}
+                childrenOffset={12}
+                defaultOpened={analyticsOpen}
+              >
+                <NavLink
+                  component={Link}
+                  href={`/forecast/${effectiveBrand}`}
+                  label="Forecast"
+                  leftSection={<IconTrendingUp size={18} />}
+                  active={pathname === `/forecast/${effectiveBrand}`}
+                  onClick={handleLinkClick}
+                />
+                <NavLink
+                  component={Link}
+                  href={`/reports/${effectiveBrand}`}
+                  label="Reports"
+                  leftSection={<IconReportAnalytics size={18} />}
+                  active={pathname === `/reports/${effectiveBrand}`}
+                  onClick={handleLinkClick}
+                />
+              </NavLink>
 
               <Divider my="xs" />
 
-              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-                Settings
-              </Text>
               <NavLink
-                component={Link}
-                href={`/salessettings/${effectiveBrand}`}
-                label="Sales Settings"
+                label="Settings"
                 leftSection={<IconSettings size={18} />}
-                active={pathname === `/salessettings/${effectiveBrand}`}
-                onClick={handleLinkClick}
-                data-tour={TOUR_SELECTOR.salesSettingsLink}
-              />
-              <NavLink
-                component={Link}
-                href={`/admin/products/${effectiveBrand}`}
-                label="Product Catalog"
-                leftSection={<IconShoppingCart size={18} />}
-                active={pathname === `/admin/products/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href={`/automation/${effectiveBrand}`}
-                label="Automation"
-                leftSection={<IconBolt size={18} />}
-                active={pathname === `/automation/${effectiveBrand}`}
-                onClick={handleLinkClick}
-              />
+                opened={settingsOpen}
+                onChange={setSettingsOpen}
+                childrenOffset={12}
+                defaultOpened={settingsOpen}
+              >
+                <NavLink
+                  component={Link}
+                  href={`/salessettings/${effectiveBrand}`}
+                  label="Sales Settings"
+                  leftSection={<IconSettings size={18} />}
+                  active={pathname === `/salessettings/${effectiveBrand}`}
+                  onClick={handleLinkClick}
+                  data-tour={TOUR_SELECTOR.salesSettingsLink}
+                />
+                <NavLink
+                  component={Link}
+                  href={`/admin/products/${effectiveBrand}`}
+                  label="Product Catalog"
+                  leftSection={<IconShoppingCart size={18} />}
+                  active={pathname === `/admin/products/${effectiveBrand}`}
+                  onClick={handleLinkClick}
+                />
+                <NavLink
+                  component={Link}
+                  href={`/automation/${effectiveBrand}`}
+                  label="Automation"
+                  leftSection={<IconBolt size={18} />}
+                  active={pathname === `/automation/${effectiveBrand}`}
+                  onClick={handleLinkClick}
+                />
+              </NavLink>
 
               <Divider my="xs" />
 
@@ -488,57 +525,63 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
           {isSuperAdmin && (
             <>
               <Divider my="xs" />
-              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-                Admin
-              </Text>
               <NavLink
-                component={Link}
-                href={`/admin/prompts/${effectiveBrand}`}
-                label="Prompt Editor"
-                leftSection={<IconEdit size={18} />}
-                active={pathname.startsWith('/admin/prompts')}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href="/admin/clients"
-                label="Clients"
-                leftSection={<IconBuilding size={18} />}
-                active={pathname === '/admin/clients'}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href="/admin/users"
-                label="Users & Access"
+                label="Admin"
                 leftSection={<IconShieldLock size={18} />}
-                active={pathname === '/admin/users'}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href="/admin/teams"
-                label="Teams"
-                leftSection={<IconUsersGroup size={18} />}
-                active={pathname === '/admin/teams'}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href="/admin/duplicates"
-                label="Duplicate Review"
-                leftSection={<IconCopyCheck size={18} />}
-                active={pathname === '/admin/duplicates'}
-                onClick={handleLinkClick}
-              />
-              <NavLink
-                component={Link}
-                href="/admin/api-keys"
-                label="API Keys"
-                leftSection={<IconKey size={18} />}
-                active={pathname === '/admin/api-keys'}
-                onClick={handleLinkClick}
-              />
+                opened={adminOpen}
+                onChange={setAdminOpen}
+                childrenOffset={12}
+                defaultOpened={adminOpen}
+              >
+                <NavLink
+                  component={Link}
+                  href={`/admin/prompts/${effectiveBrand}`}
+                  label="Prompt Editor"
+                  leftSection={<IconEdit size={18} />}
+                  active={pathname.startsWith('/admin/prompts')}
+                  onClick={handleLinkClick}
+                />
+                <NavLink
+                  component={Link}
+                  href="/admin/clients"
+                  label="Clients"
+                  leftSection={<IconBuilding size={18} />}
+                  active={pathname === '/admin/clients'}
+                  onClick={handleLinkClick}
+                />
+                <NavLink
+                  component={Link}
+                  href="/admin/users"
+                  label="Users & Access"
+                  leftSection={<IconShieldLock size={18} />}
+                  active={pathname === '/admin/users'}
+                  onClick={handleLinkClick}
+                />
+                <NavLink
+                  component={Link}
+                  href="/admin/teams"
+                  label="Teams"
+                  leftSection={<IconUsersGroup size={18} />}
+                  active={pathname === '/admin/teams'}
+                  onClick={handleLinkClick}
+                />
+                <NavLink
+                  component={Link}
+                  href="/admin/duplicates"
+                  label="Duplicate Review"
+                  leftSection={<IconCopyCheck size={18} />}
+                  active={pathname === '/admin/duplicates'}
+                  onClick={handleLinkClick}
+                />
+                <NavLink
+                  component={Link}
+                  href="/admin/api-keys"
+                  label="API Keys"
+                  leftSection={<IconKey size={18} />}
+                  active={pathname === '/admin/api-keys'}
+                  onClick={handleLinkClick}
+                />
+              </NavLink>
             </>
           )}
 

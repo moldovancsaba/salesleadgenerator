@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.354
+
+### UX & Usability Overhaul: Navigation Ergonomics & Semantic Grouping (Phase 1)
+
+- **Semantic Collapsible Navigation (Issue #312, `app/components/AppNav.tsx`, `tests/lib/navigation-grouping.test.ts`):**
+  - Reorganized the flat 18+ link sidebar into clean, structured sections:
+    - **Core Workspace** (always visible at top level): `Today`, `Inbox` (with real-time unread badges), `Pipeline`, `Contacts`, `Accounts`.
+    - **Outreach & Content** (collapsible accordion): `Cadences`, `Outreach Templates`, `Documents`, `Battlecards`.
+    - **Analytics** (collapsible accordion): `Forecast`, `Reports`.
+    - **Settings** (collapsible accordion): `Sales Settings`, `Product Catalog`, `Automation`.
+    - **Admin** (collapsible accordion for super admins): `Prompt Editor`, `Clients`, `Users & Access`, `Teams`, `Duplicate Review`, `API Keys`.
+  - Added smart auto-expansion: sections containing the currently active route automatically expand upon page load or URL transition.
+  - Added automated unit test suite in `tests/lib/navigation-grouping.test.ts`.
+
 ## 2.4.353
 
 ### Elephant Goldfish Model (EGM) Dual-Level Architecture & OpenClaw Operational Handover
