@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.359
+
+### Client-Independent What's New & Strict SemVer Descending Chronological Sorting
+
+- **Client-Independent Release Notes (Issue #317, `app/whats-new/page.tsx`, `app/whats-new/[brand]/whats-new-client.tsx`, `app/components/AppNav.tsx`, `app/components/AppHeader.tsx`):**
+  - Eliminated automatic brand redirection (`/whats-new` -> `/whats-new/padel-africa`): `/whats-new` now renders directly as a client-independent system changelog.
+  - Updated AppNav and AppHeader release note entry points to route directly to `/whats-new`.
+  - Added home-navigation button ("Back to Home" linking to `/`) when browsing client-independently, while retaining brand-scoped back-navigation when viewed under `/whats-new/[brand]`.
+- **Strict SemVer Descending Sorting & Dynamic Date Fallback (Issue #317, `lib/release-notes-parser.ts`, `lib/release-notes-dates.ts`):**
+  - Enforced strict SemVer descending order (`x.y.z` parsed numeric tuple comparison), ensuring newest releases always display first regardless of date edge cases.
+  - Replaced stale hardcoded `'2026-10-22'` fallback date with dynamic current date `new Date().toISOString().slice(0, 10)` for any unmapped releases.
+  - Added automated test suite in `tests/lib/whats-new-clean.test.ts`.
+
 ## 2.4.358
 
 ### UX & Usability Overhaul: Unify Product Catalog into Sales Settings Tab (Phase 5)

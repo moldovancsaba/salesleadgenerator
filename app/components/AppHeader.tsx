@@ -182,7 +182,7 @@ function AppHeaderInner() {
           <Indicator disabled={!hasNewRelease} size={8} color="indigo" offset={2}>
             <ActionIcon
               component={Link}
-              href={`/whats-new/${activeBrand}`}
+              href="/whats-new"
               variant={pathname.startsWith('/whats-new') ? 'filled' : 'default'}
               color="indigo"
               size="md"

@@ -104,7 +104,9 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
 
   const copyReleaseLink = (version: string) => {
     const slug = `v${version.replace(/\./g, '-')}`;
-    const url = `${window.location.origin}/whats-new/${brand}#${slug}`;
+    const url = brand
+      ? `${window.location.origin}/whats-new/${brand}#${slug}`
+      : `${window.location.origin}/whats-new#${slug}`;
     navigator.clipboard?.writeText(url).then(() => {
       setCopiedVersion(version);
       setTimeout(() => setCopiedVersion(null), 2000);
@@ -137,13 +139,13 @@ export function WhatsNewClient({ initialNotes, brand, label }: WhatsNewClientPro
               <Group gap="xs">
                 <Button
                   component={Link}
-                  href={`/sales/${brand}`}
+                  href={brand ? `/sales/${brand}` : '/'}
                   variant="subtle"
                   size="compact-xs"
                   color="gray"
                   leftSection={<IconArrowLeft size={14} />}
                 >
-                  Back to {label}
+                  {brand ? `Back to ${label}` : 'Back to Home'}
                 </Button>
                 <LabelTag tone="info" size="sm" label="Changelog & Updates" />
               </Group>

@@ -203,8 +203,8 @@ export function parseChangelog(
       title = `Release ${version}`;
     }
 
-    // Determine release date
-    const isoDate = dateOverrides[version] || (baseDate ? baseDate.toISOString().slice(0, 10) : '2026-10-22');
+    // Determine release date: dynamic current date default for any unmapped version
+    const isoDate = dateOverrides[version] || (baseDate ? baseDate.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
     const formattedDate = formatReleaseDate(isoDate);
     const relativeAge = computeRelativeAge(isoDate, baseDate);
 
@@ -271,8 +271,17 @@ export function parseChangelog(
     });
   }
 
-  // Ensure sorted by version or date descending (already in CHANGELOG.md descending order)
-  return releaseNotes;
+  // Strictly sort by SemVer version descending (newest to oldest)
+  return releaseNotes.sort((a, b) => {
+    const aParts = a.version.split('.').map((p) => parseInt(p, 10) || 0);
+    const bParts = b.version.split('.').map((p) => parseInt(p, 10) || 0);
+    for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+      const aVal = aParts[i] ?? 0;
+      const bVal = bParts[i] ?? 0;
+      if (bVal !== aVal) return bVal - aVal;
+    }
+    return 0;
+  });
 }
 
 export function filterReleaseNotes(

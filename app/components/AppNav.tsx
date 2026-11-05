@@ -503,7 +503,7 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
               </Text>
               <NavLink
                 component={Link}
-                href={`/whats-new/${effectiveBrand}`}
+                href="/whats-new"
                 label="What's New"
                 description={`Release Notes (v${APP_VERSION})`}
                 leftSection={<IconSparkles size={18} color="var(--mantine-color-indigo-6)" />}
