@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.350
+
+### UX & Usability Overhaul: Tabbed Architecture for Lead Detail Drawer (Phase 3)
+
+- **Mantine Tabs Navigation with GDS CountBadges (Issue #307, `app/detail.tsx`, `tests/lib/detail-tabbed.test.ts`):**
+  - Restructured the monolithic 2,600+ line endless vertical scrolling Lead Detail Drawer into 4 clearly organized tabs:
+    - **Overview**: ICE Score, Multi-Signal Deal Health breakdown, ticket size estimates, actual closed deal values, pipeline stage & assignment controls, lead details edit form, action checklist, follow-up scheduler, BANT/qualification checkboxes, value proposition, and feedback history.
+    - **Contacts**: Dedicated buying committee workspace with Google Contacts 1-click import, role badges (`Champion`, `Blocker`, `Economic Buyer`), contact editing, and omnichannel phone/WhatsApp/iMessage actions, badged with live contact count.
+    - **Deals & Quotes**: Opportunity management workspace with CPQ quote generator, PDF downloads, buyer e-signature portal link generator/copier, opportunity rep splits attribution, and catalog line items, badged with deal count.
+    - **Activity & Cadence**: Outreach cadence progress tracker, unified chronological activity timeline, 1-click email compose trigger, and booking link copy.
+  - Kept Sales Path Stepper & BANT/MEDDPICC Discovery Playbooks persistent at the top of the drawer across all tab views.
+- **Automated Regression Suite (Issue #307, `tests/lib/detail-tabbed.test.ts`):**
+  - Added unit test suite verifying tab imports, state management, tab count badges, structured panels, and tour selector preservation.
+
 ## 2.4.349
 
 ### UX & Kanban Overhaul: Badge Rationalization, Action Ergonomics & Visual Quietness (Phases 1 & 2)

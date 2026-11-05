@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Lead } from './types';
 import { AdminModal, AdminDetailDrawer, AdminTextarea, AdminSelect, InfoCard } from '@sovereignsquad/gds-admin/client';
 import { createGdsVocabularyPack, GdsIcons, StatusBadge, LabelTag, CountBadge } from '@sovereignsquad/gds-core/client';
-import { Stack, Group, Text, Progress, Button, Box, Title, SimpleGrid, NumberInput, TextInput, Select, Modal, Checkbox, ActionIcon, Divider, Menu } from '@mantine/core';
+import { Stack, Group, Text, Progress, Button, Box, Title, SimpleGrid, NumberInput, TextInput, Select, Modal, Checkbox, ActionIcon, Divider, Menu, Tabs } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { normalizeLead, ensureArrayField } from './lib/normalize-lead';
@@ -40,6 +40,10 @@ import {
   IconBrandGoogle,
   IconCopy,
   IconCheck,
+  IconBuilding,
+  IconUsers,
+  IconCoins,
+  IconHistory,
 } from '@tabler/icons-react';
 import { OutreachComposeModal } from './outreach/compose-modal';
 import { TABLET_LANDSCAPE_MAX } from './constants';
@@ -518,6 +522,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
   const [quotesLoaded, setQuotesLoaded] = useState(false);
   const [quoteBusyId, setQuoteBusyId] = useState<string | null>(null);
   const [briefingOpen, setBriefingOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<string | null>('overview');
 
   // Deliberately narrowed to lead?._id (not the whole lead object) — quotes
   // only need reloading when the open lead or brand actually changes, never
@@ -1366,7 +1371,41 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
         }}
       />
 
-      <Box>
+      <Tabs value={activeTab} onChange={setActiveTab} variant="outline" radius="md">
+        <Tabs.List mb="sm">
+          <Tabs.Tab value="overview" leftSection={<IconBuilding size={16} />}>
+            Overview
+          </Tabs.Tab>
+          <Tabs.Tab
+            value="contacts"
+            leftSection={<IconUsers size={16} />}
+            rightSection={
+              (lead.contacts?.length ?? 0) > 0 ? (
+                <CountBadge value={lead.contacts!.length} size="xs" />
+              ) : undefined
+            }
+          >
+            Contacts
+          </Tabs.Tab>
+          <Tabs.Tab
+            value="deals"
+            leftSection={<IconCoins size={16} />}
+            rightSection={
+              (lead.deals?.length ?? 0) > 0 ? (
+                <CountBadge value={lead.deals!.length} size="xs" />
+              ) : undefined
+            }
+          >
+            Deals & Quotes
+          </Tabs.Tab>
+          <Tabs.Tab value="activity" leftSection={<IconHistory size={16} />}>
+            Activity & Cadence
+          </Tabs.Tab>
+        </Tabs.List>
+
+        <Tabs.Panel value="overview">
+          <Stack gap="md">
+            <Box>
         <Group justify="space-between">
           <Text fw={600}>ICE Score</Text>
           <Text fw={700} size="lg">{iceScore} / {maxIce}</Text>
@@ -1741,7 +1780,146 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
         )}
       </Box>
 
+            <Divider />
+
+            <Stack gap="xs">
+        <Group justify="space-between" align="baseline">
+          <Text size="xs" c="dimmed" fw={600}>CHECKLIST</Text>
+          {!editingChecklist && (
+            <Button size="xs" variant="light" onClick={openEditChecklist} disabled={busy}>Edit</Button>
+          )}
+        </Group>
+        {!editingChecklist && (
+          <>
+            {(lead.checklist?.length ?? 0) === 0 && <Text size="sm" c="dimmed">No checklist items yet.</Text>}
+            {(lead.checklist || []).map((item) => (
+              <Group key={item.id} gap="xs">
+                <Checkbox size="xs" checked={item.done} readOnly aria-label={item.done ? 'Done' : 'Not done'} />
+                <Text size="sm" td={item.done ? 'line-through' : undefined} c={item.done ? 'dimmed' : undefined}>{item.text}</Text>
+              </Group>
+            ))}
+          </>
+        )}
+        {editingChecklist && (
+          <Stack gap="xs">
+            {checklistForm.map((item, i) => (
+              <Group key={i} gap="xs" wrap="nowrap">
+                <Checkbox size="xs" checked={item.done} onChange={(e) => { const v = e.currentTarget.checked; setChecklistForm((rows) => rows.map((r, idx) => idx === i ? { ...r, done: v } : r)); }} />
+                <TextInput size="xs" value={item.text} onChange={(e) => { const v = e.currentTarget.value; setChecklistForm((rows) => rows.map((r, idx) => idx === i ? { ...r, text: v } : r)); }} style={{ flex: 1 }} />
+                <ActionIcon size="sm" variant="subtle" color="red" aria-label="Remove item" onClick={() => setChecklistForm((rows) => rows.filter((_, idx) => idx !== i))}>
+                  <IconTrash size={14} />
+                </ActionIcon>
+              </Group>
+            ))}
+            <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} onClick={() => setChecklistForm((rows) => [...rows, { text: '', done: false }])}>
+              Add item
+            </Button>
+            <Group gap="xs">
+              <Button size="sm" onClick={handleSaveChecklist} loading={savingChecklist}>Save</Button>
+              <Button size="sm" variant="subtle" color="gray" onClick={() => setEditingChecklist(false)} disabled={savingChecklist}>Cancel</Button>
+            </Group>
+          </Stack>
+        )}
+      </Stack>
+
+      <Divider />
+
       <Stack gap="xs">
+        <Text size="xs" c="dimmed" fw={600}>FOLLOW-UP</Text>
+        <Text size="xs" c="dimmed">A scheduled reminder for this lead — distinct from the automatic suggestion below.</Text>
+        <Group align="flex-end" gap="xs">
+          <DateInput
+            size="xs"
+            label="Due date"
+            placeholder="No follow-up scheduled"
+            value={nextActionDueAt}
+            onChange={(v) => setNextActionDueAt(v ? new Date(v) : null)}
+            clearable
+            style={{ flex: 1 }}
+          />
+          <TextInput size="xs" label="Note" value={nextActionNote} onChange={(e) => setNextActionNote(e?.target?.value ?? e?.currentTarget?.value ?? '')} style={{ flex: 2 }} />
+        </Group>
+        <Group gap="xs">
+          <Button size="xs" variant="light" onClick={handleSaveNextAction} loading={savingNextAction}>Save follow-up</Button>
+          {lead.nextActionDueAt && (
+            <Button size="xs" variant="subtle" color="gray" onClick={handleClearNextAction} disabled={savingNextAction}>Clear</Button>
+          )}
+        </Group>
+      </Stack>
+
+      <Divider />
+
+      <Stack gap="xs">
+        <Text size="xs" c="dimmed" fw={600}>QUALIFICATION</Text>
+        <Text size="xs" c="dimmed">Informational only — not required to move this lead through the pipeline.</Text>
+        <Checkbox label="Budget confirmed" checked={qualBudgetConfirmed} onChange={(e) => setQualBudgetConfirmed(Boolean(e?.target?.checked ?? e?.currentTarget?.checked))} />
+        <TextInput size="xs" label="Budget notes" value={qualBudgetNotes} onChange={(e) => setQualBudgetNotes(e?.target?.value ?? e?.currentTarget?.value ?? '')} />
+        <Checkbox label="Buying authority confirmed" checked={qualAuthorityConfirmed} onChange={(e) => setQualAuthorityConfirmed(Boolean(e?.target?.checked ?? e?.currentTarget?.checked))} />
+        <TextInput size="xs" label="Need / pain point" value={qualNeedNotes} onChange={(e) => setQualNeedNotes(e?.target?.value ?? e?.currentTarget?.value ?? '')} />
+        <TextInput size="xs" label="Timeline estimate" placeholder="e.g. This quarter" value={qualTimeline} onChange={(e) => setQualTimeline(e?.target?.value ?? e?.currentTarget?.value ?? '')} />
+        <Group gap="xs">
+          <Button size="xs" variant="light" onClick={handleSaveQualification} loading={savingQualification}>Save qualification</Button>
+        </Group>
+      </Stack>
+
+            <Divider />
+
+            {((normalizedPro && normalizedPro.length > 0) || (normalizedCon && normalizedCon.length > 0)) && (
+        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+          {normalizedPro && normalizedPro.length > 0 && (
+            <Box>
+              <Text size="xs" c="green" fw={600} tt="uppercase">Pros</Text>
+              <Stack gap={4}>
+                {normalizedPro.map((pro, i) => (<Text size="sm" key={i}>• {pro}</Text>))}
+              </Stack>
+            </Box>
+          )}
+          {normalizedCon && normalizedCon.length > 0 && (
+            <Box>
+              <Text size="xs" c="red" fw={600} tt="uppercase">Cons</Text>
+              <Stack gap={4}>
+                {normalizedCon.map((con, i) => (<Text size="sm" key={i}>• {con}</Text>))}
+              </Stack>
+            </Box>
+          )}
+        </SimpleGrid>
+      )}
+
+      {lead.value_proposition && (
+        <Box>
+          <Text size="xs" c="blue" fw={600} tt="uppercase">Value Proposition</Text>
+          <Text size="sm">{lead.value_proposition}</Text>
+        </Box>
+      )}
+
+      {(lead.feedbackScore > 0 || lead.declineCount > 0 || lead.acceptanceCount > 0) && (
+        <Box>
+          <Text size="xs" fw={600} tt="uppercase">Feedback History</Text>
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
+            <Box>
+              <Text size="xs" c="dimmed">Feedback Score</Text>
+              <Text fw={700}>{lead.feedbackScore}</Text>
+            </Box>
+            <Box>
+              <Text size="xs" c="dimmed">Acceptances</Text>
+              <Text fw={700} c="green">{lead.acceptanceCount}</Text>
+            </Box>
+            <Box>
+              <Text size="xs" c="dimmed">Declines</Text>
+              <Text fw={700} c="red">{lead.declineCount}</Text>
+            </Box>
+          </SimpleGrid>
+          {lead.declinedAt && lead.declineReason && (
+            <Text size="xs" c="dimmed">Declined: {new Date(lead.declinedAt).toLocaleDateString()} ({lead.declineReason})</Text>
+          )}
+        </Box>
+      )}
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="contacts">
+          <Stack gap="xs">
+            <Stack gap="xs">
         <Group justify="space-between" align="baseline">
           <Text size="xs" c="dimmed" fw={600}>CONTACTS</Text>
           <Group gap="xs">
@@ -1831,10 +2009,12 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
           </Stack>
         )}
       </Stack>
+          </Stack>
+        </Tabs.Panel>
 
-      <Divider />
-
-      <Stack gap="xs">
+        <Tabs.Panel value="deals">
+          <Stack gap="xs">
+            <Stack gap="xs">
         <Group justify="space-between" align="baseline">
           <Text size="xs" c="dimmed" fw={600}>DEALS</Text>
           <Group gap="xs">
@@ -2247,92 +2427,12 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
           </Stack>
         )}
       </Stack>
-
-      <Divider />
-
-      <Stack gap="xs">
-        <Group justify="space-between" align="baseline">
-          <Text size="xs" c="dimmed" fw={600}>CHECKLIST</Text>
-          {!editingChecklist && (
-            <Button size="xs" variant="light" onClick={openEditChecklist} disabled={busy}>Edit</Button>
-          )}
-        </Group>
-        {!editingChecklist && (
-          <>
-            {(lead.checklist?.length ?? 0) === 0 && <Text size="sm" c="dimmed">No checklist items yet.</Text>}
-            {(lead.checklist || []).map((item) => (
-              <Group key={item.id} gap="xs">
-                <Checkbox size="xs" checked={item.done} readOnly aria-label={item.done ? 'Done' : 'Not done'} />
-                <Text size="sm" td={item.done ? 'line-through' : undefined} c={item.done ? 'dimmed' : undefined}>{item.text}</Text>
-              </Group>
-            ))}
-          </>
-        )}
-        {editingChecklist && (
-          <Stack gap="xs">
-            {checklistForm.map((item, i) => (
-              <Group key={i} gap="xs" wrap="nowrap">
-                <Checkbox size="xs" checked={item.done} onChange={(e) => { const v = e.currentTarget.checked; setChecklistForm((rows) => rows.map((r, idx) => idx === i ? { ...r, done: v } : r)); }} />
-                <TextInput size="xs" value={item.text} onChange={(e) => { const v = e.currentTarget.value; setChecklistForm((rows) => rows.map((r, idx) => idx === i ? { ...r, text: v } : r)); }} style={{ flex: 1 }} />
-                <ActionIcon size="sm" variant="subtle" color="red" aria-label="Remove item" onClick={() => setChecklistForm((rows) => rows.filter((_, idx) => idx !== i))}>
-                  <IconTrash size={14} />
-                </ActionIcon>
-              </Group>
-            ))}
-            <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} onClick={() => setChecklistForm((rows) => [...rows, { text: '', done: false }])}>
-              Add item
-            </Button>
-            <Group gap="xs">
-              <Button size="sm" onClick={handleSaveChecklist} loading={savingChecklist}>Save</Button>
-              <Button size="sm" variant="subtle" color="gray" onClick={() => setEditingChecklist(false)} disabled={savingChecklist}>Cancel</Button>
-            </Group>
           </Stack>
-        )}
-      </Stack>
+        </Tabs.Panel>
 
-      <Divider />
-
-      <Stack gap="xs">
-        <Text size="xs" c="dimmed" fw={600}>FOLLOW-UP</Text>
-        <Text size="xs" c="dimmed">A scheduled reminder for this lead — distinct from the automatic suggestion below.</Text>
-        <Group align="flex-end" gap="xs">
-          <DateInput
-            size="xs"
-            label="Due date"
-            placeholder="No follow-up scheduled"
-            value={nextActionDueAt}
-            onChange={(v) => setNextActionDueAt(v ? new Date(v) : null)}
-            clearable
-            style={{ flex: 1 }}
-          />
-          <TextInput size="xs" label="Note" value={nextActionNote} onChange={(e) => setNextActionNote(e?.target?.value ?? e?.currentTarget?.value ?? '')} style={{ flex: 2 }} />
-        </Group>
-        <Group gap="xs">
-          <Button size="xs" variant="light" onClick={handleSaveNextAction} loading={savingNextAction}>Save follow-up</Button>
-          {lead.nextActionDueAt && (
-            <Button size="xs" variant="subtle" color="gray" onClick={handleClearNextAction} disabled={savingNextAction}>Clear</Button>
-          )}
-        </Group>
-      </Stack>
-
-      <Divider />
-
-      <Stack gap="xs">
-        <Text size="xs" c="dimmed" fw={600}>QUALIFICATION</Text>
-        <Text size="xs" c="dimmed">Informational only — not required to move this lead through the pipeline.</Text>
-        <Checkbox label="Budget confirmed" checked={qualBudgetConfirmed} onChange={(e) => setQualBudgetConfirmed(Boolean(e?.target?.checked ?? e?.currentTarget?.checked))} />
-        <TextInput size="xs" label="Budget notes" value={qualBudgetNotes} onChange={(e) => setQualBudgetNotes(e?.target?.value ?? e?.currentTarget?.value ?? '')} />
-        <Checkbox label="Buying authority confirmed" checked={qualAuthorityConfirmed} onChange={(e) => setQualAuthorityConfirmed(Boolean(e?.target?.checked ?? e?.currentTarget?.checked))} />
-        <TextInput size="xs" label="Need / pain point" value={qualNeedNotes} onChange={(e) => setQualNeedNotes(e?.target?.value ?? e?.currentTarget?.value ?? '')} />
-        <TextInput size="xs" label="Timeline estimate" placeholder="e.g. This quarter" value={qualTimeline} onChange={(e) => setQualTimeline(e?.target?.value ?? e?.currentTarget?.value ?? '')} />
-        <Group gap="xs">
-          <Button size="xs" variant="light" onClick={handleSaveQualification} loading={savingQualification}>Save qualification</Button>
-        </Group>
-      </Stack>
-
-      <Divider />
-
-      <CadencePanel leadId={lead._id} brand={brand} activeCadence={lead.activeCadence} />
+        <Tabs.Panel value="activity">
+          <Stack gap="md">
+            <CadencePanel leadId={lead._id} brand={brand} activeCadence={lead.activeCadence} />
 
       <Divider />
 
@@ -2391,57 +2491,9 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
           showNotification({ message: 'Follow-up note updated', color: 'teal', autoClose: 3000 });
         }}
       />
-
-      {((normalizedPro && normalizedPro.length > 0) || (normalizedCon && normalizedCon.length > 0)) && (
-        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-          {normalizedPro && normalizedPro.length > 0 && (
-            <Box>
-              <Text size="xs" c="green" fw={600} tt="uppercase">Pros</Text>
-              <Stack gap={4}>
-                {normalizedPro.map((pro, i) => (<Text size="sm" key={i}>• {pro}</Text>))}
-              </Stack>
-            </Box>
-          )}
-          {normalizedCon && normalizedCon.length > 0 && (
-            <Box>
-              <Text size="xs" c="red" fw={600} tt="uppercase">Cons</Text>
-              <Stack gap={4}>
-                {normalizedCon.map((con, i) => (<Text size="sm" key={i}>• {con}</Text>))}
-              </Stack>
-            </Box>
-          )}
-        </SimpleGrid>
-      )}
-
-      {lead.value_proposition && (
-        <Box>
-          <Text size="xs" c="blue" fw={600} tt="uppercase">Value Proposition</Text>
-          <Text size="sm">{lead.value_proposition}</Text>
-        </Box>
-      )}
-
-      {(lead.feedbackScore > 0 || lead.declineCount > 0 || lead.acceptanceCount > 0) && (
-        <Box>
-          <Text size="xs" fw={600} tt="uppercase">Feedback History</Text>
-          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
-            <Box>
-              <Text size="xs" c="dimmed">Feedback Score</Text>
-              <Text fw={700}>{lead.feedbackScore}</Text>
-            </Box>
-            <Box>
-              <Text size="xs" c="dimmed">Acceptances</Text>
-              <Text fw={700} c="green">{lead.acceptanceCount}</Text>
-            </Box>
-            <Box>
-              <Text size="xs" c="dimmed">Declines</Text>
-              <Text fw={700} c="red">{lead.declineCount}</Text>
-            </Box>
-          </SimpleGrid>
-          {lead.declinedAt && lead.declineReason && (
-            <Text size="xs" c="dimmed">Declined: {new Date(lead.declinedAt).toLocaleDateString()} ({lead.declineReason})</Text>
-          )}
-        </Box>
-      )}
+          </Stack>
+        </Tabs.Panel>
+      </Tabs>
 
       <AdminTextarea
         name="annotation"
