@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-describe('LeadDetailModal Tabbed Architecture (Issue #307)', () => {
+describe('LeadDetailModal Tabbed Architecture (Issue 307)', () => {
   const detailFile = readFileSync(join(process.cwd(), 'app', 'detail.tsx'), 'utf8');
 
   it('imports and configures Mantine Tabs with semantic icons and count badges', () => {

@@ -22,9 +22,12 @@ describe('desktop and tablet navigation affordances', () => {
   it('includes inline view SegmentedControl switcher and Manage Pipelines trigger in sales page client', () => {
     const content = readFileSync(join(root, 'app', 'sales', '[brand]', 'sales-page-client.tsx'), 'utf8');
     expect(content).toContain('SegmentedControl');
-    expect(content).toContain("{ label: 'Board', value: 'kanban' }");
-    expect(content).toContain("{ label: 'Table', value: 'table' }");
-    expect(content).toContain("{ label: 'Metrics', value: 'metrics' }");
+    expect(content).toContain("value: 'kanban'");
+    expect(content).toContain("value: 'table'");
+    expect(content).toContain("value: 'metrics'");
+    expect(content).toContain('IconLayoutKanban');
+    expect(content).toContain('IconTable');
+    expect(content).toContain('IconChartBar');
     expect(content).not.toContain("{ label: 'Backlog', value: 'backlog' }");
     expect(content).toContain('Manage Pipelines');
     expect(content).toContain('<PipelineManagerModal');

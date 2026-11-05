@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Group, Text, Paper, Loader, Box, TextInput, UnstyledButton, ActionIcon, Tooltip, Select, SegmentedControl, Title, Button, Stack } from '@mantine/core';
-import { IconChecklist, IconX, IconPlus, IconSearch, IconSettings, IconDownload, IconUpload } from '@tabler/icons-react';
+import { IconChecklist, IconX, IconPlus, IconSearch, IconSettings, IconDownload, IconUpload, IconLayoutKanban, IconTable, IconChartBar } from '@tabler/icons-react';
 import { useCommandLauncher, CountBadge, LabelTag } from '@sovereignsquad/gds-core/client';
 import type { CommandDef } from '@sovereignsquad/gds-core/client';
 import type { Lead } from '@/app/types';
@@ -545,7 +545,8 @@ export function SalesPageClient({ brand, currency }: Props) {
             </Group>
 
             <SegmentedControl
-              size="xs"
+              size="sm"
+              radius="md"
               value={view === 'backlog' ? 'kanban' : view}
               onChange={(val) => {
                 const url = new URL(window.location.href);
@@ -557,9 +558,33 @@ export function SalesPageClient({ brand, currency }: Props) {
                 router.replace(`${url.pathname}${url.search}`);
               }}
               data={[
-                { label: 'Board', value: 'kanban' },
-                { label: 'Table', value: 'table' },
-                { label: 'Metrics', value: 'metrics' },
+                {
+                  label: (
+                    <Group gap={6} wrap="nowrap" align="center" style={{ minHeight: 28, padding: '0 4px' }}>
+                      <IconLayoutKanban size={16} />
+                      <span>Board</span>
+                    </Group>
+                  ),
+                  value: 'kanban',
+                },
+                {
+                  label: (
+                    <Group gap={6} wrap="nowrap" align="center" style={{ minHeight: 28, padding: '0 4px' }}>
+                      <IconTable size={16} />
+                      <span>Table</span>
+                    </Group>
+                  ),
+                  value: 'table',
+                },
+                {
+                  label: (
+                    <Group gap={6} wrap="nowrap" align="center" style={{ minHeight: 28, padding: '0 4px' }}>
+                      <IconChartBar size={16} />
+                      <span>Metrics</span>
+                    </Group>
+                  ),
+                  value: 'metrics',
+                },
               ]}
             />
           </Group>
@@ -587,6 +612,99 @@ export function SalesPageClient({ brand, currency }: Props) {
                   {pill.label}
                 </Button>
               ))}
+            </Group>
+          )}
+
+          {/* Active Filter Summary Chips */}
+          {(leadFilter.region || leadFilter.industry || (leadFilter.tags && leadFilter.tags.length > 0) || leadFilter.assignedTo || searchQuery.trim()) && (
+            <Group gap={6} mt="xs" pt="xs" style={{ borderTop: '1px dashed var(--mantine-color-default-border)' }} wrap="wrap" align="center">
+              <Text size="xs" fw={600} c="dimmed">
+                Active:
+              </Text>
+
+              {searchQuery.trim() && (
+                <Button
+                  size="compact-xs"
+                  variant="light"
+                  color="blue"
+                  radius="xl"
+                  rightSection={<IconX size={11} />}
+                  onClick={() => setSearchQuery('')}
+                  title="Clear search filter"
+                >
+                  Search: &ldquo;{searchQuery.trim()}&rdquo;
+                </Button>
+              )}
+
+              {leadFilter.region && (
+                <Button
+                  size="compact-xs"
+                  variant="light"
+                  color="indigo"
+                  radius="xl"
+                  rightSection={<IconX size={11} />}
+                  onClick={() => setLeadFilter((prev) => { const next = { ...prev }; delete next.region; return next; })}
+                  title="Remove region filter"
+                >
+                  Region: {leadFilter.region}
+                </Button>
+              )}
+
+              {leadFilter.industry && (
+                <Button
+                  size="compact-xs"
+                  variant="light"
+                  color="teal"
+                  radius="xl"
+                  rightSection={<IconX size={11} />}
+                  onClick={() => setLeadFilter((prev) => { const next = { ...prev }; delete next.industry; return next; })}
+                  title="Remove industry filter"
+                >
+                  Industry: {leadFilter.industry}
+                </Button>
+              )}
+
+              {leadFilter.assignedTo && (
+                <Button
+                  size="compact-xs"
+                  variant="light"
+                  color="violet"
+                  radius="xl"
+                  rightSection={<IconX size={11} />}
+                  onClick={() => setLeadFilter((prev) => { const next = { ...prev }; delete next.assignedTo; return next; })}
+                  title="Remove owner filter"
+                >
+                  Owner: {leadFilter.assignedTo === 'me' ? 'My Leads' : leadFilter.assignedTo === 'unassigned' ? 'Unassigned' : leadFilter.assignedTo}
+                </Button>
+              )}
+
+              {(leadFilter.tags || []).map((t) => (
+                <Button
+                  key={t}
+                  size="compact-xs"
+                  variant="light"
+                  color="cyan"
+                  radius="xl"
+                  rightSection={<IconX size={11} />}
+                  onClick={() => setLeadFilter((prev) => ({ ...prev, tags: (prev.tags || []).filter((tag) => tag !== t) }))}
+                  title={`Remove tag filter: ${t}`}
+                >
+                  Tag: {t}
+                </Button>
+              ))}
+
+              <Button
+                size="compact-xs"
+                variant="subtle"
+                color="red"
+                onClick={() => {
+                  setLeadFilter({});
+                  setSearchQuery('');
+                  setQuickPreset('all');
+                }}
+              >
+                Clear all
+              </Button>
             </Group>
           )}
         </Paper>

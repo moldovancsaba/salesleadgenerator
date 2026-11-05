@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.351
+
+### UX & Usability Overhaul: View Switcher Ergonomics & Active Filter Chips (Phase 4)
+
+- **Ergonomic Segmented View Switcher (Issue #308, `app/sales/[brand]/sales-page-client.tsx`, `tests/lib/desktop-tablet-nav.test.ts`):**
+  - Upgraded the Board/Table/Metrics view switcher with high-affordance Tabler icons (`IconLayoutKanban`, `IconTable`, `IconChartBar`).
+  - Enforced a comfortable `minHeight: 28px` tap target with rounded pill borders (`radius="md"`).
+- **Active Filter Summary Strip with 1-Click Clear All (Issue #308, `app/sales/[brand]/sales-page-client.tsx`, `tests/lib/view-switcher-filters.test.ts`):**
+  - Added a dedicated active filter summary row displaying individual dismissible chips for active Region, Industry, Owner, Tag, and Search query constraints.
+  - Added a 1-click `Clear all` button that cleanly resets all active filters, search text, and quick filter presets back to default state.
+
 ## 2.4.350
 
 ### UX & Usability Overhaul: Tabbed Architecture for Lead Detail Drawer (Phase 3)
