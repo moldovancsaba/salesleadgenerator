@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.355
+
+### UX & Usability Overhaul: Today Dashboard Velocity Actions & 1-Click Dispositions (Phase 2)
+
+- **1-Click Call Dispositions (Issue #313, `app/today/[brand]/today-client.tsx`, `tests/lib/today-velocity-actions.test.ts`):**
+  - Added inline action buttons (`Connected`, `Voicemail`) directly on cadence call task cards, logging dispositions in 1 click without opening the blocking modal dialog.
+  - Retained `Log Call…` for detailed custom notes, while offering sub-second logging for standard call outcomes.
+- **1-Click Snooze Actions on Follow-Up Cards (Issue #313, `app/today/[brand]/today-client.tsx`):**
+  - Added direct `+1d` (Tomorrow) and `+7d` (Next week) snooze buttons alongside the existing `Snooze…` menu for overdue and due-today tasks.
+  - Added automated test suite in `tests/lib/today-velocity-actions.test.ts`.
+
 ## 2.4.354
 
 ### UX & Usability Overhaul: Navigation Ergonomics & Semantic Grouping (Phase 1)

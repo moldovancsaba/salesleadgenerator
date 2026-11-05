@@ -230,6 +230,43 @@ export function TodayClient({ brand, label }: Props) {
     }
   };
 
+  // Issue #313: 1-click inline call disposition without blocking modal
+  const handleInlineCallDisposition = async (lead: {
+    id: string;
+    entityName: string;
+    contactName?: string;
+    contactKey?: string;
+  }, disposition: 'connected' | 'voicemail' | 'no-answer') => {
+    try {
+      setActionInProgress(`call-${lead.id}-${disposition}`);
+      const contactKey = lead.contactKey || lead.contactName || 'Primary Contact';
+      const dispositionLabels: Record<string, string> = {
+        connected: 'Connected / Spoke with prospect (Quick log)',
+        voicemail: 'Left Voicemail (Quick log)',
+        'no-answer': 'No Answer (Quick log)',
+      };
+      const res = await fetch(`/api/leads/${lead.id}/activity?brand=${brand}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contactKey,
+          disposition,
+          durationMinutes: disposition === 'connected' ? 3 : 1,
+          note: dispositionLabels[disposition] || 'Call logged via Today quick actions',
+        }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to log quick call');
+      }
+      await fetchTodayData();
+    } catch (err: any) {
+      alert(err?.message || 'Failed to log quick call');
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
   const counts = data?.counts ?? {
     total: 0,
     cadenceTasks: 0,
@@ -602,22 +639,62 @@ export function TodayClient({ brand, label }: Props) {
                           {syncedCalendarIds[`cadence-${task.leadId}-${task.stepIndex}`] ? 'Synced' : 'Sync Cal'}
                         </Button>
                         {task.channel === 'call' && (
-                          <Button
-                            size="xs"
-                            variant="light"
-                            color="teal"
-                            leftSection={<IconPhone size={14} />}
-                            onClick={() =>
-                              setCallModalLead({
-                                id: task.leadId,
-                                entityName: task.entityName,
-                                contactName: task.contactName,
-                                contactKey: task.contactKey,
-                              })
-                            }
-                          >
-                            Log Call
-                          </Button>
+                          <Group gap={4}>
+                            <Button
+                              size="xs"
+                              variant="subtle"
+                              color="teal"
+                              loading={actionInProgress === `call-${task.leadId}-connected`}
+                              onClick={() =>
+                                handleInlineCallDisposition(
+                                  {
+                                    id: task.leadId,
+                                    entityName: task.entityName,
+                                    contactName: task.contactName,
+                                    contactKey: task.contactKey,
+                                  },
+                                  'connected'
+                                )
+                              }
+                            >
+                              Connected
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="subtle"
+                              color="gray"
+                              loading={actionInProgress === `call-${task.leadId}-voicemail`}
+                              onClick={() =>
+                                handleInlineCallDisposition(
+                                  {
+                                    id: task.leadId,
+                                    entityName: task.entityName,
+                                    contactName: task.contactName,
+                                    contactKey: task.contactKey,
+                                  },
+                                  'voicemail'
+                                )
+                              }
+                            >
+                              Voicemail
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="light"
+                              color="teal"
+                              leftSection={<IconPhone size={14} />}
+                              onClick={() =>
+                                setCallModalLead({
+                                  id: task.leadId,
+                                  entityName: task.entityName,
+                                  contactName: task.contactName,
+                                  contactKey: task.contactKey,
+                                })
+                              }
+                            >
+                              Log Call…
+                            </Button>
+                          </Group>
                         )}
                         <Button
                           size="xs"
@@ -724,12 +801,30 @@ export function TodayClient({ brand, label }: Props) {
                             })
                           }
                         >
-                          Log Call
+                          Log Call…
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="gray"
+                          loading={actionInProgress === item.leadId}
+                          onClick={() => handleSnooze(item.leadId, '1d')}
+                        >
+                          +1d
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="gray"
+                          loading={actionInProgress === item.leadId}
+                          onClick={() => handleSnooze(item.leadId, '7d')}
+                        >
+                          +7d
                         </Button>
                         <Menu shadow="md" width={175}>
                           <Menu.Target>
                             <Button size="xs" variant="default" leftSection={<IconCalendarPlus size={14} />}>
-                              Snooze
+                              Snooze…
                             </Button>
                           </Menu.Target>
                           <Menu.Dropdown>
@@ -852,12 +947,30 @@ export function TodayClient({ brand, label }: Props) {
                             })
                           }
                         >
-                          Log Call
+                          Log Call…
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="gray"
+                          loading={actionInProgress === item.leadId}
+                          onClick={() => handleSnooze(item.leadId, '1d')}
+                        >
+                          +1d
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="gray"
+                          loading={actionInProgress === item.leadId}
+                          onClick={() => handleSnooze(item.leadId, '7d')}
+                        >
+                          +7d
                         </Button>
                         <Menu shadow="md" width={175}>
                           <Menu.Target>
                             <Button size="xs" variant="default" leftSection={<IconCalendarPlus size={14} />}>
-                              Snooze
+                              Snooze…
                             </Button>
                           </Menu.Target>
                           <Menu.Dropdown>
