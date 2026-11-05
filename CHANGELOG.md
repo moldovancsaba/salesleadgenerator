@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.356
+
+### UX & Usability Overhaul: Omnichannel Inbox Polish & Hover Quick-Action Strip (Phase 3)
+
+- **Unread Visual Accent Indicator (Issue #314, `app/inbox/[brand]/inbox-client.tsx`, `tests/lib/inbox-hover-actions.test.ts`):**
+  - Added a prominent 4px left accent border (`var(--gds-vibe-primary)`) on unread threads for clear contrast against read messages.
+  - Added soft indigo border selection styling for active threads.
+- **Hover Quick-Action Strip (Issue #314, `app/inbox/[brand]/inbox-client.tsx`):**
+  - Added smooth hover action icons on thread items allowing sales reps to toggle read status (`Mark as unread` / `Mark as read`) and archive (`Archive` / `Unarchive`) without needing to select or open the message pane.
+  - Added automated test suite in `tests/lib/inbox-hover-actions.test.ts`.
+
 ## 2.4.355
 
 ### UX & Usability Overhaul: Today Dashboard Velocity Actions & 1-Click Dispositions (Phase 2)

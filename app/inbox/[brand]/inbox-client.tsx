@@ -924,18 +924,24 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                     key={t.id}
                     p="sm"
                     onClick={() => setSelectedThreadId(t.id)}
+                    className="group"
                     style={{
                       cursor: 'pointer',
                       borderBottom: '1px solid var(--gds-border-card, var(--mantine-color-gray-2))',
+                      borderLeft: !t.isRead
+                        ? '4px solid var(--gds-vibe-primary, var(--mantine-color-indigo-6))'
+                        : isSelected
+                        ? '4px solid var(--mantine-color-indigo-3)'
+                        : '4px solid transparent',
                       backgroundColor: isSelected
                         ? 'color-mix(in srgb, var(--gds-vibe-primary, var(--mantine-color-indigo-6)) 8%, var(--gds-bg-card, var(--mantine-color-white)))'
                         : t.isRead
                         ? 'var(--gds-bg-card, var(--mantine-color-white))'
                         : 'var(--gds-bg-surface, var(--mantine-color-gray-0))',
-                      transition: 'background-color 150ms ease',
+                      transition: 'background-color 150ms ease, border-color 150ms ease',
                     }}
                   >
-                    {/* Header Row: Checkbox + Sender / Title + Timestamp */}
+                    {/* Header Row: Checkbox + Sender / Title + Timestamp + Hover Quick Actions */}
                     <Group justify="space-between" align="flex-start" wrap="nowrap" mb={2}>
                       <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
                         <Checkbox
@@ -968,9 +974,36 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                           />
                         )}
                       </Group>
-                      <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                        {formatRelativeTime(t.lastMessageAt)}
-                      </Text>
+                      <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
+                        {/* Hover Quick Action Strip */}
+                        <Group gap={2} wrap="nowrap" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Tooltip label={t.isRead ? 'Mark as unread' : 'Mark as read'}>
+                            <ActionIcon
+                              size="xs"
+                              variant="subtle"
+                              color="gray"
+                              onClick={(e) => handleToggleRead(t.id, t.isRead, e)}
+                              aria-label={t.isRead ? 'Mark as unread' : 'Mark as read'}
+                            >
+                              {t.isRead ? <IconMail size={13} /> : <IconMailOpened size={13} />}
+                            </ActionIcon>
+                          </Tooltip>
+                          <Tooltip label={t.isArchived ? 'Unarchive' : 'Archive'}>
+                            <ActionIcon
+                              size="xs"
+                              variant="subtle"
+                              color="gray"
+                              onClick={(e) => handleToggleArchive(t.id, t.isArchived, e)}
+                              aria-label={t.isArchived ? 'Unarchive thread' : 'Archive thread'}
+                            >
+                              <IconArchive size={13} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                        <Text size="xs" c="dimmed">
+                          {formatRelativeTime(t.lastMessageAt)}
+                        </Text>
+                      </Group>
                     </Group>
 
                     {/* Subject Line */}
@@ -1070,6 +1103,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                           variant="subtle"
                           color={t.isStarred ? 'yellow' : 'gray'}
                           onClick={(e) => handleToggleStar(t.id, t.isStarred, e)}
+                          aria-label={t.isStarred ? 'Unstar thread' : 'Star thread'}
                         >
                           {t.isStarred ? <IconStarFilled size={14} /> : <IconStar size={14} />}
                         </ActionIcon>
