@@ -13,7 +13,18 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 const SSO_BASE_URL = process.env.SSO_BASE_URL || 'https://sso.doneisbetter.com';
 const SSO_CLIENT_ID = process.env.SSO_CLIENT_ID || '';
 const SSO_CLIENT_SECRET = process.env.SSO_CLIENT_SECRET || '';
-const SSO_REDIRECT_URI = process.env.SSO_REDIRECT_URI || '';
+
+function getCanonicalRedirectUri(): string {
+  const raw = process.env.SSO_REDIRECT_URI || '';
+  if (!raw) return 'https://sales.haho.ai/api/oauth/callback';
+  const parts = raw.split(/[\r\n\s]+/).map((p) => p.trim()).filter(Boolean);
+  if (!parts.length) return 'https://sales.haho.ai/api/oauth/callback';
+  const haho = parts.find((p) => p.includes('sales.haho.ai/api/oauth/callback'));
+  if (haho) return haho;
+  return parts[0];
+}
+
+const SSO_REDIRECT_URI = getCanonicalRedirectUri();
 
 export function isSsoConfigured(): boolean {
   return Boolean(SSO_CLIENT_ID && SSO_CLIENT_SECRET && SSO_REDIRECT_URI);
