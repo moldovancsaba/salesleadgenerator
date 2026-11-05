@@ -244,6 +244,37 @@ Best regards,`,
     variables: ['entity_name', 'contact_name'],
     tags: ['padel', 'whatsapp', 'quick-connect'],
   },
+  // --- EGM Studio Outreach Templates ---
+  {
+    id: 'egm-interactive-production',
+    name: 'EGM Studio — Interactive Creative Production & Spatial Installations',
+    brand: 'egm',
+    channel: 'email',
+    subject: 'Interactive Experience Production & Creative Engineering for {entity_name}',
+    industry: 'Interactive & Experiential',
+    body: `Hi {contact_name},
+
+I’m reaching out from EGM Studio. We collaborate with leading creative agencies and global brands to engineer high-impact interactive installations, digital-physical activations, and real-time media experiences.
+
+Seeing your recent campaigns at {entity_name}, I wanted to share a few rapid prototypes and custom creative technology setups we’ve delivered for brand experiences.
+
+Would you be open for a brief 10-minute introduction call this week?
+
+Best regards,
+EGM Studio Commercial Team`,
+    variables: ['entity_name', 'contact_name'],
+    tags: ['egm', 'interactive', 'production', 'creative-tech', 'experiential'],
+  },
+  {
+    id: 'egm-quick-connect',
+    name: 'EGM Studio — Quick Connect Outreach',
+    brand: 'egm',
+    channel: 'linkedin',
+    industry: 'Creative Technology',
+    body: `Hi {contact_name}, loved your creative work at {entity_name}. At EGM Studio, we build custom interactive media, real-time spatial installations, and experiential prototypes for innovative brand campaigns. Would love to connect and share some of our latest project reels!`,
+    variables: ['entity_name', 'contact_name'],
+    tags: ['egm', 'quick-connect', 'creative-tech'],
+  },
 ];
 
 export function getDefaultOutreachTemplates(brand?: string): OutreachTemplate[] {

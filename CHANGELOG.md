@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.348
+
+### Client Workspace Onboarding: EGM Studio Brand & Sales Enablement
+
+- **Brand Configuration & Sales Vocabulary (Issue #305, `app/lib/brand-constants.ts`, `tests/lib/brand.test.ts`):**
+  - Added first-class tenant configuration for `egm` (EGM Studio) in `FALLBACK_BRAND_CONFIG`.
+  - Configured collection `egm_leads`, currency `EUR`, aliases (`egm`, `egmsales`, `egm-studio`), and protected brand vocabulary (`egm-studio`, `interactive studio`, `creative production`).
+  - Added tailored ICP customer types (`brands`, `agencies`, `event_organisers`, `corporations`, `studios`) and buyer roles (`marketing_director`, `creative_director`, `brand_manager`, `agency_lead`, `producer`).
+- **Omnichannel & Outreach Launchers (Issue #305, `app/components/PhoneActions.tsx`, `app/lib/outreach/default-templates.ts`, `tests/lib/default-templates.test.ts`):**
+  - Added pre-filled 1-click WhatsApp and iMessage outreach templates in `<PhoneActions />` for `egm`.
+  - Added dedicated email and LinkedIn outreach templates (`egm-interactive-production`, `egm-quick-connect`) with token interpolation.
+- **Database Provisioning Script (Issue #305, `scripts/onboard-egm.ts`):**
+  - Built repeatable onboarding script configuring `brands`, `company_settings`, CPQ catalog `products`, and owner admin SSO access.
+
 ## 2.4.347
 
 ### Infrastructure & Domain: Production Custom Domain sales.haho.ai

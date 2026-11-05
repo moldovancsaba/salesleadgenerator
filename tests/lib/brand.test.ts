@@ -55,12 +55,16 @@ describe('resolveBrand', () => {
     expect(await resolveBrand('padel-africa')).toBe('padel-africa');
     expect(await resolveBrand('padelafrica')).toBe('padel-africa');
     expect(await resolveBrand('padelafricasales')).toBe('padel-africa');
+    expect(await resolveBrand('egm')).toBe('egm');
+    expect(await resolveBrand('egmsales')).toBe('egm');
+    expect(await resolveBrand('egm-studio')).toBe('egm');
   });
 
   it('is case-insensitive', async () => {
     expect(await resolveBrand('DVSC')).toBe('dvsc');
     expect(await resolveBrand('CogMap')).toBe('cogmap');
     expect(await resolveBrand('Padel-Africa')).toBe('padel-africa');
+    expect(await resolveBrand('EGM')).toBe('egm');
   });
 
   it('still defaults to cogmap for a genuinely empty/absent value (distinct from an invalid one)', async () => {
@@ -94,7 +98,7 @@ describe('getBrandConfig / getAllBrandConfigs (issue 195)', () => {
 
   it('getAllBrandConfigs returns exactly the fallback brands when the collection is empty/unavailable', async () => {
     const all = await getAllBrandConfigs();
-    expect(Object.keys(all).sort()).toEqual(['cogmap', 'dvsc', 'padel-africa', 'seyu']);
+    expect(Object.keys(all).sort()).toEqual(['cogmap', 'dvsc', 'egm', 'padel-africa', 'seyu']);
   });
 });
 

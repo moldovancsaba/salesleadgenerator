@@ -188,4 +188,37 @@ export const FALLBACK_BRAND_CONFIG: Record<string, BrandConfig> = {
     },
     fromEmail: 'office@padel-africa.doneisbetter.com',
   },
+  egm: {
+    label: 'EGM',
+    dbCollection: 'egm_leads',
+    apiPrefix: '/api/leads',
+    currency: 'EUR',
+    aliases: ['egm', 'egmsales', 'egm-studio'],
+    ownNameTerms: [
+      'egm',
+      'egm-studio',
+      'studio',
+      'interactive studio',
+      'experience studio',
+      'creative production',
+    ],
+    forecastModel: 'dealSizeBand',
+    salesVocabulary: {
+      customerTypes: [
+        'brands',
+        'agencies',
+        'event_organisers',
+        'corporations',
+        'studios',
+      ],
+      buyerRoles: [
+        'marketing_director',
+        'creative_director',
+        'brand_manager',
+        'agency_lead',
+        'producer',
+      ],
+    },
+    fromEmail: 'office@egm.doneisbetter.com',
+  },
 };

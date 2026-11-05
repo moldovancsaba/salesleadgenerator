@@ -42,6 +42,8 @@ export function PhoneActions({
   const cleanPhone = phone.trim()
   const defaultText = brand === 'padel-africa'
     ? `Hi${contactName ? ` ${contactName}` : ''}, reaching out from Padel Africa regarding ${entityName || 'your padel club'}! We help clubs automate player bookings via WhatsApp and provide turnkey court supply.`
+    : brand === 'egm'
+    ? `Hi${contactName ? ` ${contactName}` : ''}, reaching out from EGM Studio regarding creative technology and experiential production for ${entityName || 'your brand'}!`
     : undefined
   const waUrl = buildWhatsAppUrl(cleanPhone, defaultText)
   const iMessageUrl = buildIMessageUrl(cleanPhone, defaultText)

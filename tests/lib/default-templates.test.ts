@@ -72,6 +72,19 @@ describe('default-templates', () => {
     }
   });
 
+  it('provides specialized EGM Studio outreach templates', () => {
+    const templates = getDefaultOutreachTemplates('egm');
+    expect(templates.length).toBeGreaterThan(0);
+    expect(templates.some((t) => t.id === 'egm-interactive-production')).toBe(true);
+    expect(templates.some((t) => t.id === 'egm-quick-connect')).toBe(true);
+    for (const t of templates) {
+      expect(t.brand).toBe('egm');
+      expect(t.body).not.toContain('cognitive skills');
+      expect(t.body).not.toContain('selfies');
+      expect(t.body).not.toContain('padel');
+    }
+  });
+
   it('returns all templates when no brand is provided', () => {
     const all = getDefaultOutreachTemplates();
     expect(all.length).toBe(DEFAULT_OUTREACH_TEMPLATES.length);
