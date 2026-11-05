@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.358
+
+### UX & Usability Overhaul: Unify Product Catalog into Sales Settings Tab (Phase 5)
+
+- **Consolidated Products & Pricing Tab (Issue #316, `app/salessettings/[client]/sales-settings-client.tsx`, `tests/lib/unified-product-catalog.test.ts`):**
+  - Integrated the Product Catalog directly into Sales Settings as the `Products & Pricing` tab (`/salessettings/[client]?tab=products`), complete with query parameter state restoration.
+  - Eliminated administrative fragmentation between offerings, deal sizing, and pricing models.
+- **Route Redirection & Navigation Update (Issue #316, `app/admin/products/[brand]/page.tsx`, `app/components/AppNav.tsx`):**
+  - Routed `/admin/products/[brand]` to seamlessly redirect to `/salessettings/[brand]?tab=products`.
+  - Updated sidebar navigation in `AppNav.tsx` to link directly to the consolidated tab.
+  - Added automated test suite in `tests/lib/unified-product-catalog.test.ts`.
+
 ## 2.4.357
 
 ### UX & Usability Overhaul: Saved Filter Quick-Switcher Toolbar Pills (Phase 4)

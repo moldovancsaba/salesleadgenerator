@@ -97,6 +97,10 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
     try {
       const params = new URLSearchParams(window.location.search)
       if (params.get('tenantId')) setTenantId(params.get('tenantId') || 'default')
+      const tabParam = params.get('tab')
+      if (tabParam && ['overview', 'products', 'deals', 'process', 'targets'].includes(tabParam)) {
+        setActiveTab(tabParam)
+      }
     } catch {}
   }, [])
 
@@ -687,16 +691,15 @@ export function SalesSettingsClient({ brand, label, currency, salesVocabulary }:
                       leftSection={<IconRefresh size={14} />}
                       loading={catalogLoading}
                     >
-                      Sync from Product Catalog
+                      Sync Catalog
                     </Button>
                     <Button
-                      component={Link}
-                      href={`/admin/products/${brand}`}
+                      onClick={addProduct}
                       variant="default"
                       size="xs"
-                      leftSection={<IconExternalLink size={14} />}
+                      leftSection={<IconPlus size={14} />}
                     >
-                      Open Catalog
+                      Add Offering
                     </Button>
                   </Group>
                 </Group>

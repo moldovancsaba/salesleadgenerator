@@ -474,16 +474,16 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
                   href={`/salessettings/${effectiveBrand}`}
                   label="Sales Settings"
                   leftSection={<IconSettings size={18} />}
-                  active={pathname === `/salessettings/${effectiveBrand}`}
+                  active={pathname === `/salessettings/${effectiveBrand}` && !pathname.includes('integrations')}
                   onClick={handleLinkClick}
                   data-tour={TOUR_SELECTOR.salesSettingsLink}
                 />
                 <NavLink
                   component={Link}
-                  href={`/admin/products/${effectiveBrand}`}
+                  href={`/salessettings/${effectiveBrand}?tab=products`}
                   label="Product Catalog"
                   leftSection={<IconShoppingCart size={18} />}
-                  active={pathname === `/admin/products/${effectiveBrand}`}
+                  active={pathname === `/salessettings/${effectiveBrand}` && searchParams.get('tab') === 'products'}
                   onClick={handleLinkClick}
                 />
                 <NavLink
