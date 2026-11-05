@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.361
+
+### UX & Usability Overhaul: Battlecards Real-Time Search & In-Call Rebuttal Copy (Phase 2.2)
+
+- **Real-Time Competitor Keyword & Tag Search (Issue #319, `app/battlecards/[brand]/battlecards-client.tsx`, `tests/lib/battlecards-ux.test.ts`):**
+  - Added a search input above the battlecards table with live filtering across competitor names, positioning summaries, tags, proof points, and objection questions/responses.
+  - Added match count indicator and 1-click clear search button.
+- **In-Call 1-Click Clipboard Rebuttal Copy (Issue #319, `app/battlecards/[brand]/battlecards-client.tsx`, `tests/lib/battlecards-ux.test.ts`):**
+  - Added 1-click copy action icons with instant toast notifications next to every proof point and objection rebuttal.
+  - Allows sales reps on live calls to copy precise commercial talk tracks and objection responses directly to their clipboard with zero manual text selection friction.
+
 ## 2.4.360
 
 ### UX & Usability Overhaul: Outreach Template Token Palette & Cadence Timeline Spine (Phase 2.1)

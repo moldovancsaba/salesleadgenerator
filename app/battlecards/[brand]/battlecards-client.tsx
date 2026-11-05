@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Box, Container, Title, Text, Button, Group, Stack, TextInput, TagsInput, Pill, ActionIcon, Paper } from '@mantine/core'
-import { IconPlus, IconTrash } from '@tabler/icons-react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
+import { Box, Container, Title, Text, Button, Group, Stack, TextInput, TagsInput, Pill, ActionIcon, Paper, Tooltip, Badge } from '@mantine/core'
+import { IconPlus, IconTrash, IconSearch, IconCopy, IconCheck, IconX } from '@tabler/icons-react'
 import { CountBadge, LabelTag } from '@sovereignsquad/gds-core/client'
 import { AdminTextInput, AdminTextarea, AdminDataTable, AdminFormStatus } from '@sovereignsquad/gds-admin/client'
+import { showNotification } from '@mantine/notifications'
 import type { Brand } from '@/app/lib/brand'
 
 type Objection = { objection: string; response: string }
@@ -66,6 +67,37 @@ export function BattlecardsClient({ brand, label }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+
+  const copyToClipboard = useCallback((text: string, key: string, labelText: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      showNotification({
+        title: 'Copied to clipboard',
+        message: `${labelText} copied for call reference`,
+        color: 'teal',
+        icon: <IconCheck size={16} />,
+      });
+      setTimeout(() => setCopiedKey(null), 2000);
+    }
+  }, []);
+
+  const filteredBattlecards = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return battlecards;
+    return battlecards.filter((bc) => {
+      const matchName = bc.competitorName.toLowerCase().includes(q);
+      const matchSummary = bc.positioningSummary.toLowerCase().includes(q);
+      const matchTags = (bc.tags || []).some((t) => t.toLowerCase().includes(q));
+      const matchProof = (bc.proofPoints || []).some((p) => p.toLowerCase().includes(q));
+      const matchObjections = (bc.objections || []).some(
+        (o) => o.objection.toLowerCase().includes(q) || o.response.toLowerCase().includes(q)
+      );
+      return matchName || matchSummary || matchTags || matchProof || matchObjections;
+    });
+  }, [battlecards, searchQuery]);
 
   const loadBattlecards = useCallback(async () => {
     setLoading(true)
@@ -338,18 +370,124 @@ export function BattlecardsClient({ brand, label }: Props) {
           </Stack>
         </Paper>
 
+        {/* Quick Search & In-Call Reference Bar */}
+        <Group justify="space-between" align="center" gap="sm">
+          <TextInput
+            placeholder="Search competitor, objection, talk-track, or tag... (e.g. Acme, pricing)"
+            leftSection={<IconSearch size={15} color="var(--mantine-color-dimmed)" />}
+            rightSection={
+              searchQuery ? (
+                <ActionIcon size="xs" variant="subtle" onClick={() => setSearchQuery('')} aria-label="Clear battlecard search">
+                  <IconX size={13} />
+                </ActionIcon>
+              ) : null
+            }
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.currentTarget.value)}
+            style={{ flex: 1, maxWidth: 500 }}
+            size="sm"
+          />
+          {searchQuery && (
+            <Badge variant="light" color="blue" size="md">
+              {filteredBattlecards.length} {filteredBattlecards.length === 1 ? 'match' : 'matches'}
+            </Badge>
+          )}
+        </Group>
+
         {loading ? (
           <AdminFormStatus state="loading" title="Loading battlecards" />
         ) : (
           <AdminDataTable<Battlecard>
-            rows={battlecards}
+            rows={filteredBattlecards}
             caption="Battlecards"
             columns={[
-              { key: 'competitorName', header: 'Competitor', rowHeader: true, width: 240 },
+              {
+                key: 'competitorName',
+                header: 'Competitor',
+                rowHeader: true,
+                width: 220,
+                accessor: (row) => (
+                  <Stack gap={2}>
+                    <Text fw={600} size="sm">{row.competitorName}</Text>
+                    <Text size="xs" c="dimmed" lineClamp={2}>{row.positioningSummary}</Text>
+                  </Stack>
+                ),
+              },
+              {
+                key: 'proofPoints',
+                header: 'Key Proof Points (Click to copy)',
+                width: 280,
+                accessor: (row) =>
+                  row.proofPoints && row.proofPoints.length > 0 ? (
+                    <Stack gap={4}>
+                      {row.proofPoints.map((point, idx) => {
+                        const key = `${row.id}_proof_${idx}`;
+                        const isCopied = copiedKey === key;
+                        return (
+                          <Group key={idx} gap={6} align="flex-start" wrap="nowrap">
+                            <Tooltip label={isCopied ? 'Copied!' : 'Copy proof point to clipboard'} withArrow position="top">
+                              <ActionIcon
+                                size="xs"
+                                variant={isCopied ? 'filled' : 'subtle'}
+                                color={isCopied ? 'teal' : 'gray'}
+                                onClick={() => copyToClipboard(point, key, 'Proof point')}
+                                aria-label="Copy proof point"
+                              >
+                                {isCopied ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                              </ActionIcon>
+                            </Tooltip>
+                            <Text size="xs" style={{ flex: 1 }}>{point}</Text>
+                          </Group>
+                        );
+                      })}
+                    </Stack>
+                  ) : <Text size="xs" c="dimmed">—</Text>,
+              },
+              {
+                key: 'objections',
+                header: 'Objections & Rebuttals (Click to copy)',
+                width: 320,
+                accessor: (row) =>
+                  row.objections && row.objections.length > 0 ? (
+                    <Stack gap={6}>
+                      {row.objections.map((obj, idx) => {
+                        const key = `${row.id}_obj_${idx}`;
+                        const isCopied = copiedKey === key;
+                        return (
+                          <Paper key={idx} withBorder p={6} radius="xs" bg="var(--mantine-color-gray-0)">
+                            <Group justify="space-between" align="flex-start" wrap="nowrap" gap={4}>
+                              <Text size="xs" fw={600} c="dark.4" style={{ flex: 1 }}>
+                                &ldquo;{obj.objection}&rdquo;
+                              </Text>
+                              {obj.response && (
+                                <Tooltip label={isCopied ? 'Copied!' : 'Copy rebuttal to clipboard'} withArrow position="left">
+                                  <ActionIcon
+                                    size="xs"
+                                    variant={isCopied ? 'filled' : 'light'}
+                                    color={isCopied ? 'teal' : 'blue'}
+                                    onClick={() => copyToClipboard(obj.response, key, 'Objection rebuttal')}
+                                    aria-label="Copy objection rebuttal"
+                                  >
+                                    {isCopied ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                                  </ActionIcon>
+                                </Tooltip>
+                              )}
+                            </Group>
+                            {obj.response && (
+                              <Text size="xs" c="dimmed" mt={2}>
+                                {obj.response}
+                              </Text>
+                            )}
+                          </Paper>
+                        );
+                      })}
+                    </Stack>
+                  ) : <Text size="xs" c="dimmed">0 objections</Text>,
+              },
               {
                 key: 'tags',
                 header: 'Tags',
-                width: 240,
+                width: 160,
                 accessor: (row) =>
                   row.tags && row.tags.length > 0 ? (
                     <Group gap={4}>
@@ -359,11 +497,10 @@ export function BattlecardsClient({ brand, label }: Props) {
                     </Group>
                   ) : '—',
               },
-              { key: 'objections', header: 'Objections', numeric: true, width: 120, accessor: (row) => row.objections.length },
               {
                 key: 'actions',
                 header: '',
-                width: 160,
+                width: 140,
                 align: 'end',
                 accessor: (row) => (
                   <Group gap="xs" justify="flex-end">
@@ -384,7 +521,13 @@ export function BattlecardsClient({ brand, label }: Props) {
                 ),
               },
             ]}
-            empty={<Text c="dimmed" size="sm">No battlecards yet. Create your first one above.</Text>}
+            empty={
+              searchQuery ? (
+                <Text c="dimmed" size="sm">No battlecards match &ldquo;{searchQuery}&rdquo;. Try another search term.</Text>
+              ) : (
+                <Text c="dimmed" size="sm">No battlecards yet. Create your first one above.</Text>
+              )
+            }
             getRowKey={(row) => row.id}
           />
         )}
