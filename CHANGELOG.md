@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.360
+
+### UX & Usability Overhaul: Outreach Template Token Palette & Cadence Timeline Spine (Phase 2.1)
+
+- **Outreach Template Variable Token Palette (Issue #318, `app/outreach/templates/[brand]/templates-client.tsx`, `tests/lib/outreach-ux-ergonomics.test.ts`):**
+  - Surfaced clickable variable token pills (`{{first_name}}`, `{{last_name}}`, `{{contact_name}}`, `{{company_name}}`, `{{job_title}}`, `{{industry}}`, `{{digital_audit_pitch}}`, `{{company_website}}`) directly above the template body textarea.
+  - Clicking any token inserts the merge variable at the current cursor selection position (in body or subject line) and preserves focus, preventing manual typing typos and syntax errors.
+- **Cadence Step Builder Timeline Spine & Cumulative Delays (Issue #318, `app/outreach/cadences/[brand]/cadences-client.tsx`, `tests/lib/outreach-ux-ergonomics.test.ts`):**
+  - Added cumulative sequence delay badges (`Day 0 (Immediate)`, `Day 3 (3d wait)`, `Day 7 (4d wait)`) dynamically computed across sequence steps.
+  - Added visual vertical timeline connectors between steps to give sales reps immediate clarity on overall campaign duration.
+
 ## 2.4.359
 
 ### Client-Independent What's New & Strict SemVer Descending Chronological Sorting

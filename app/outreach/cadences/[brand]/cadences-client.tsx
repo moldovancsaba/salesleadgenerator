@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Box, Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Select, Switch, ActionIcon, Paper, SimpleGrid, Tooltip, Collapse } from '@mantine/core'
+import { Box, Container, Title, Text, Button, Group, Stack, TextInput, NumberInput, Select, Switch, ActionIcon, Paper, SimpleGrid, Tooltip, Collapse, Badge } from '@mantine/core'
 import { IconPlus, IconTrash, IconInfoCircle, IconMailForward, IconEye, IconCursorText, IconArrowBackUp, IconAlertCircle, IconChevronDown, IconChevronUp } from '@tabler/icons-react'
 import { AdminTextInput, AdminDataTable, AdminFormStatus } from '@sovereignsquad/gds-admin/client'
 import { StatusBadge, LabelTag, CountBadge } from '@sovereignsquad/gds-core/client'
@@ -414,100 +414,124 @@ export function CadencesClient({ brand, label }: Props) {
               </Group>
 
               {form.steps.map((step, i) => {
+                const currentDay = form.steps.slice(0, i + 1).reduce((acc, s) => acc + (s.waitDaysAfterPrevious || 0), 0);
                 const stepTemplates = templates.filter((t) => t.channel === step.channel)
                 return (
-                  <Paper key={step.id} withBorder p="sm" radius="sm">
-                    <Stack gap={8}>
-                      <Group justify="space-between" align="flex-start" wrap="nowrap">
-                        <Text size="xs" c="dimmed" fw={600}>Step {i + 1}</Text>
-                        <ActionIcon
-                          color="red"
-                          variant="light"
-                          onClick={() => removeStep(i)}
-                          aria-label={`Remove step ${i + 1}`}
-                        >
-                          <IconTrash size={14} />
-                        </ActionIcon>
-                      </Group>
-                      <Group grow wrap="wrap">
-                        <Select
-                          label="Channel"
-                          data={CHANNEL_OPTIONS}
-                          value={step.channel}
-                          onChange={(value) => value && updateStep(i, 'channel', value as CadenceStepChannel)}
-                          allowDeselect={false}
-                        />
-                        <NumberInput
-                          label="Days after previous step"
-                          value={step.waitDaysAfterPrevious}
-                          onChange={(value) => updateStep(i, 'waitDaysAfterPrevious', typeof value === 'number' ? value : 0)}
-                          min={0}
-                          max={365}
-                        />
-                      </Group>
-                      {(step.channel === 'email' || step.channel === 'linkedin') && (
-                        <Group grow wrap="wrap" align="flex-start">
+                  <Box key={step.id} style={{ position: 'relative' }}>
+                    {/* Visual connector line between steps */}
+                    {i < form.steps.length - 1 && (
+                      <Box
+                        style={{
+                          position: 'absolute',
+                          left: 20,
+                          bottom: -12,
+                          width: 2,
+                          height: 16,
+                          backgroundColor: 'var(--mantine-color-blue-3)',
+                          zIndex: 1,
+                        }}
+                      />
+                    )}
+                    <Paper withBorder p="sm" radius="sm">
+                      <Stack gap={8}>
+                        <Group justify="space-between" align="center" wrap="nowrap">
+                          <Group gap="xs" align="center">
+                            <Badge size="sm" variant="filled" color="blue" radius="sm">
+                              Step {i + 1}
+                            </Badge>
+                            <Badge size="sm" variant="light" color={currentDay === 0 ? 'teal' : 'gray'} radius="sm">
+                              {currentDay === 0 ? 'Day 0 (Immediate)' : `Day ${currentDay} (${step.waitDaysAfterPrevious}d wait)`}
+                            </Badge>
+                          </Group>
+                          <ActionIcon
+                            color="red"
+                            variant="light"
+                            onClick={() => removeStep(i)}
+                            aria-label={`Remove step ${i + 1}`}
+                          >
+                            <IconTrash size={14} />
+                          </ActionIcon>
+                        </Group>
+                        <Group grow wrap="wrap">
                           <Select
-                            label={step.channel === 'email' ? 'Primary Template (Variant A)' : 'Template'}
-                            placeholder={stepTemplates.length ? 'Select a template' : 'No templates for this channel yet'}
-                            data={stepTemplates.map((t) => ({ value: t.id, label: t.name }))}
-                            value={step.templateId || null}
-                            onChange={(value) => updateStep(i, 'templateId', value || undefined)}
-                            required={step.channel === 'email'}
-                            description={step.channel === 'email' ? 'Required — an email step can\'t send without one' : undefined}
-                            clearable
+                            label="Channel"
+                            data={CHANNEL_OPTIONS}
+                            value={step.channel}
+                            onChange={(value) => value && updateStep(i, 'channel', value as CadenceStepChannel)}
+                            allowDeselect={false}
                           />
-                          {step.channel === 'email' && (
+                          <NumberInput
+                            label="Days after previous step"
+                            value={step.waitDaysAfterPrevious}
+                            onChange={(value) => updateStep(i, 'waitDaysAfterPrevious', typeof value === 'number' ? value : 0)}
+                            min={0}
+                            max={365}
+                          />
+                        </Group>
+                        {(step.channel === 'email' || step.channel === 'linkedin') && (
+                          <Group grow wrap="wrap" align="flex-start">
                             <Select
-                              label="Variant B Template (Optional 50/50 A/B Test)"
-                              placeholder="None — send Variant A to 100% of leads"
-                              data={stepTemplates
-                                .filter((t) => t.id !== step.templateId)
-                                .map((t) => ({ value: t.id, label: t.name }))}
-                              value={step.variantTemplateId || null}
-                              onChange={(value) => updateStep(i, 'variantTemplateId', value || undefined)}
-                              description="Deterministic 50/50 split across enrolled leads"
+                              label={step.channel === 'email' ? 'Primary Template (Variant A)' : 'Template'}
+                              placeholder={stepTemplates.length ? 'Select a template' : 'No templates for this channel yet'}
+                              data={stepTemplates.map((t) => ({ value: t.id, label: t.name }))}
+                              value={step.templateId || null}
+                              onChange={(value) => updateStep(i, 'templateId', value || undefined)}
+                              required={step.channel === 'email'}
+                              description={step.channel === 'email' ? 'Required — an email step can\'t send without one' : undefined}
                               clearable
                             />
-                          )}
-                        </Group>
-                      )}
-                      {step.channel === 'email' && editingId && (() => {
-                        const perf = variantPerf.find((p) => p.cadenceId === editingId && p.stepIndex === i)
-                        if (!perf || (perf.variantA.sent === 0 && perf.variantB.sent === 0)) return null
-                        return (
-                          <Paper withBorder p="xs" radius="sm" bg="var(--mantine-color-gray-0)">
-                            <Group justify="space-between" align="center" wrap="wrap" gap="xs">
-                              <Group gap="xs" align="center">
-                                <LabelTag tone="info" size="xs" label="A/B Split Performance" />
-                                <Text size="xs">
-                                  <strong>Variant A:</strong> {perf.variantA.sent} sent · {perf.variantA.openRate}% open · {perf.variantA.replyRate}% reply
-                                </Text>
-                                <Text size="xs" c="dimmed">|</Text>
-                                <Text size="xs">
-                                  <strong>Variant B:</strong> {perf.variantB.sent} sent · {perf.variantB.openRate}% open · {perf.variantB.replyRate}% reply
-                                </Text>
+                            {step.channel === 'email' && (
+                              <Select
+                                label="Variant B Template (Optional 50/50 A/B Test)"
+                                placeholder="None — send Variant A to 100% of leads"
+                                data={stepTemplates
+                                  .filter((t) => t.id !== step.templateId)
+                                  .map((t) => ({ value: t.id, label: t.name }))}
+                                value={step.variantTemplateId || null}
+                                onChange={(value) => updateStep(i, 'variantTemplateId', value || undefined)}
+                                description="Deterministic 50/50 split across enrolled leads"
+                                clearable
+                              />
+                            )}
+                          </Group>
+                        )}
+                        {step.channel === 'email' && editingId && (() => {
+                          const perf = variantPerf.find((p) => p.cadenceId === editingId && p.stepIndex === i)
+                          if (!perf || (perf.variantA.sent === 0 && perf.variantB.sent === 0)) return null
+                          return (
+                            <Paper withBorder p="xs" radius="sm" bg="var(--mantine-color-gray-0)">
+                              <Group justify="space-between" align="center" wrap="wrap" gap="xs">
+                                <Group gap="xs" align="center">
+                                  <LabelTag tone="info" size="xs" label="A/B Split Performance" />
+                                  <Text size="xs">
+                                    <strong>Variant A:</strong> {perf.variantA.sent} sent · {perf.variantA.openRate}% open · {perf.variantA.replyRate}% reply
+                                  </Text>
+                                  <Text size="xs" c="dimmed">|</Text>
+                                  <Text size="xs">
+                                    <strong>Variant B:</strong> {perf.variantB.sent} sent · {perf.variantB.openRate}% open · {perf.variantB.replyRate}% reply
+                                  </Text>
+                                </Group>
+                                {perf.winningVariant !== 'tie' && (
+                                  <StatusBadge status="success" size="xs">
+                                    Winner: Variant {perf.winningVariant} ({perf.replyLiftPts > 0 ? `+${perf.replyLiftPts}` : perf.replyLiftPts} pts reply lift)
+                                  </StatusBadge>
+                                )}
                               </Group>
-                              {perf.winningVariant !== 'tie' && (
-                                <StatusBadge status="success" size="xs">
-                                  Winner: Variant {perf.winningVariant} ({perf.replyLiftPts > 0 ? `+${perf.replyLiftPts}` : perf.replyLiftPts} pts reply lift)
-                                </StatusBadge>
-                              )}
-                            </Group>
-                          </Paper>
-                        )
-                      })()}
-                      {(step.channel === 'linkedin' || step.channel === 'call' || step.channel === 'general') && (
-                        <TextInput
-                          label="Reminder note"
-                          placeholder="Send a personalized connection request"
-                          value={step.reminderNote || ''}
-                          onChange={(e) => updateStep(i, 'reminderNote', e?.target?.value ?? e?.currentTarget?.value ?? '')}
-                          description="Shown as the lead's follow-up note when this step comes due"
-                        />
-                      )}
-                    </Stack>
-                  </Paper>
+                            </Paper>
+                          )
+                        })()}
+                        {(step.channel === 'linkedin' || step.channel === 'call' || step.channel === 'general') && (
+                          <TextInput
+                            label="Reminder note"
+                            placeholder="Send a personalized connection request"
+                            value={step.reminderNote || ''}
+                            onChange={(e) => updateStep(i, 'reminderNote', e?.target?.value ?? e?.currentTarget?.value ?? '')}
+                            description="Shown as the lead's follow-up note when this step comes due"
+                          />
+                        )}
+                      </Stack>
+                    </Paper>
+                  </Box>
                 )
               })}
               {form.steps.length === 0 && (

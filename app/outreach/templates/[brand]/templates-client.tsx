@@ -1,11 +1,22 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Box, Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput, TagsInput, Pill } from '@mantine/core'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Box, Container, Title, Text, Button, Group, Stack, Textarea, Select, Loader, Paper, TextInput, TagsInput, Pill, Tooltip, Badge } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { CountBadge, LabelTag } from '@sovereignsquad/gds-core/client'
-import { IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconPlus, IconTrash, IconVariable } from '@tabler/icons-react'
 import type { Brand } from '@/app/lib/brand'
+
+export const AVAILABLE_TEMPLATE_TOKENS = [
+  { token: '{{first_name}}', label: 'First Name', description: 'Contact given name' },
+  { token: '{{last_name}}', label: 'Last Name', description: 'Contact family name' },
+  { token: '{{contact_name}}', label: 'Full Name', description: 'Complete contact name' },
+  { token: '{{company_name}}', label: 'Company', description: 'Organization / entity name' },
+  { token: '{{job_title}}', label: 'Job Title', description: 'Professional title / buyer role' },
+  { token: '{{industry}}', label: 'Industry', description: 'Vertical / domain' },
+  { token: '{{digital_audit_pitch}}', label: 'Digital Audit Pitch', description: 'Automated domain tech-stack hook' },
+  { token: '{{company_website}}', label: 'Website', description: 'Domain / company URL' },
+] as const;
 
 type Template = {
   id: string
@@ -67,6 +78,42 @@ export function OutreachTemplatesClient({ brand, label }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [lastActiveInput, setLastActiveInput] = useState<'subject' | 'body'>('body')
+  const subjectInputRef = useRef<HTMLInputElement>(null)
+  const bodyTextareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const insertToken = useCallback((token: string) => {
+    if (lastActiveInput === 'subject' && form.channel === 'email') {
+      const input = subjectInputRef.current;
+      if (input) {
+        const start = input.selectionStart ?? form.subject?.length ?? 0;
+        const end = input.selectionEnd ?? form.subject?.length ?? 0;
+        const current = form.subject || '';
+        const updated = current.slice(0, start) + token + current.slice(end);
+        setForm((f) => ({ ...f, subject: updated }));
+        setTimeout(() => {
+          input.focus();
+          input.setSelectionRange(start + token.length, start + token.length);
+        }, 0);
+        return;
+      }
+    }
+
+    const textarea = bodyTextareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart ?? form.body.length;
+      const end = textarea.selectionEnd ?? form.body.length;
+      const current = form.body;
+      const updated = current.slice(0, start) + token + current.slice(end);
+      setForm((f) => ({ ...f, body: updated }));
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + token.length, start + token.length);
+      }, 0);
+    } else {
+      setForm((f) => ({ ...f, body: f.body ? `${f.body} ${token}` : token }));
+    }
+  }, [form.body, form.channel, form.subject, lastActiveInput]);
 
   const [analytics, setAnalytics] = useState<TemplateAnalytics[]>([])
   const [analyticsLoading, setAnalyticsLoading] = useState(true)
@@ -241,20 +288,62 @@ export function OutreachTemplatesClient({ brand, label }: Props) {
 
             {form.channel === 'email' && (
               <TextInput
+                ref={subjectInputRef}
                 label="Subject"
                 value={form.subject}
+                onFocus={() => setLastActiveInput('subject')}
                 onChange={(e) => { const v = e.currentTarget.value; setForm((f) => ({ ...f, subject: v })); }}
-                placeholder="Cognitive performance for {entity_name}"
+                placeholder="Cognitive performance for {{company_name}}"
               />
             )}
 
-            <Textarea
-              label="Body"
-              value={form.body}
-              onChange={(e) => { const v = e.currentTarget.value; setForm((f) => ({ ...f, body: v })); }}
-              minRows={5}
-              placeholder="Hi {contact_name}, ..."
-            />
+            <Stack gap={6}>
+              <Group justify="space-between" align="center">
+                <Text component="label" size="sm" fw={500}>
+                  Body
+                </Text>
+                <Group gap={4} align="center">
+                  <IconVariable size={13} color="var(--mantine-color-dimmed)" />
+                  <Text size="xs" c="dimmed">Click token to insert:</Text>
+                </Group>
+              </Group>
+
+              {/* Clickable token insert palette */}
+              <Group gap={6} wrap="wrap">
+                {AVAILABLE_TEMPLATE_TOKENS.map(({ token, label, description }) => (
+                  <Tooltip key={token} label={`${description} (${token})`} withArrow position="top">
+                    <Button
+                      variant="light"
+                      color="blue"
+                      size="compact-xs"
+                      radius="xl"
+                      styles={{
+                        root: {
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          padding: '2px 8px',
+                          fontFamily: 'monospace',
+                        },
+                      }}
+                      onClick={() => insertToken(token)}
+                      aria-label={`Insert token ${token}`}
+                    >
+                      {token}
+                    </Button>
+                  </Tooltip>
+                ))}
+              </Group>
+
+              <Textarea
+                ref={bodyTextareaRef}
+                value={form.body}
+                onFocus={() => setLastActiveInput('body')}
+                onChange={(e) => { const v = e.currentTarget.value; setForm((f) => ({ ...f, body: v })); }}
+                minRows={5}
+                placeholder="Hi {{first_name}}, ..."
+                aria-label="Template Body"
+              />
+            </Stack>
 
             <Group justify="space-between">
               <Text size="xs" c="dimmed">
