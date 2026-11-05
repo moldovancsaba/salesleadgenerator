@@ -1,5 +1,19 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.362
+
+### UX & Usability Overhaul: Revenue Forecast Segmented Tabs (Phase 2.3)
+
+- **Segmented Tab Control Architecture (Issue #320, `app/forecast/[brand]/forecast-client.tsx`, `tests/lib/forecast-segmented-tabs.test.ts`):**
+  - Divided the 1,150-line forecast view into 4 focused tabs:
+    1. `Overview & Quota` (Pipeline coverage, company pricing / pipeline tier breakdown, stage weights, quota attainment).
+    2. `Deal Movement Waterfall` (Inspection window pills, movement bucket cards, inspection table).
+    3. `Forecast Categories` (Category revenue cards, category weights, deal drill-down table).
+    4. `Stage Win Rates & Calibration` (Historical win rate calibration table, ticket size estimation accuracy).
+  - Preserves sticky KPI header, export action, and concentration risk warning across all tabs.
+- **URL Parameter Persistence (`?tab=`)**:
+  - Synced active tab state with the browser query parameter (`?tab=overview|waterfall|categories|winrates`) for bookmarking and deep linking without full-page reloads.
+
 ## 2.4.361
 
 ### UX & Usability Overhaul: Battlecards Real-Time Search & In-Call Rebuttal Copy (Phase 2.2)

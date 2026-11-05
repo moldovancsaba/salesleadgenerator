@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Box, Title, Text, Paper, SimpleGrid, Group, TextInput, NumberInput, Loader, Button, Stack } from '@mantine/core';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Box, Title, Text, Paper, SimpleGrid, Group, TextInput, NumberInput, Loader, Button, Stack, SegmentedControl } from '@mantine/core';
 import { StatusBadge, LabelTag, InlineAlert, MetricCard, MissingDataPrompt } from '@sovereignsquad/gds-core/client';
 import { AdminSelect, AdminDataTable, AdminResourceEmptyState, AdminFormStatus } from '@sovereignsquad/gds-admin/client';
 import { IconDownload } from '@tabler/icons-react';
@@ -161,6 +162,22 @@ export function ForecastClient({ brand, label }: Props) {
   const [quotaAmountInput, setQuotaAmountInput] = useState<number | ''>('');
   const [savingQuota, setSavingQuota] = useState(false);
   const [quotaSaveError, setQuotaSaveError] = useState<string | null>(null);
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") || "overview";
+  const [activeTab, setActiveTab] = useState<"overview" | "waterfall" | "categories" | "winrates">(
+    ["overview", "waterfall", "categories", "winrates"].includes(initialTab)
+      ? (initialTab as "overview" | "waterfall" | "categories" | "winrates")
+      : "overview"
+  );
+
+  const handleTabChange = useCallback((newTab: string) => {
+    setActiveTab(newTab as any);
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", newTab);
+    router.replace("?" + params.toString(), { scroll: false });
+  }, [router]);
 
   // Pipeline Inspection & Deal Movement Waterfall (issue #277)
   const [inspectionDays, setInspectionDays] = useState<InspectionWindowDays>(30);
@@ -463,7 +480,26 @@ export function ForecastClient({ brand, label }: Props) {
         </div>
       )}
 
-      <Paper withBorder p="md" radius="md" mb="lg">
+            {/* Segmented Tab Navigation Bar */}
+      <SegmentedControl
+        value={activeTab}
+        onChange={handleTabChange}
+        data={[
+          { label: "Overview & Quota", value: "overview" },
+          { label: `Deal Movement Waterfall (${inspectionDays}d)`, value: "waterfall" },
+          { label: "Forecast Categories", value: "categories" },
+          { label: "Stage Win Rates & Calibration", value: "winrates" },
+        ]}
+        fullWidth
+        mb="lg"
+        size="sm"
+        radius="md"
+        color="blue"
+      />
+      {/* TAB 1: OVERVIEW & QUOTA */}
+      {activeTab === "overview" && (
+        <Stack gap="lg">
+          <Paper withBorder p="md" radius="md" mb="lg">
         <Title order={4} mb="xs">Pipeline Coverage</Title>
         {!data.coverage ? (
           <MissingDataPrompt
@@ -486,8 +522,218 @@ export function ForecastClient({ brand, label }: Props) {
           </Stack>
         )}
       </Paper>
+          {isSeyu ? (
+        <Paper withBorder p="md" radius="md" mb="lg">
+          <Title order={4}>Pricing by Company</Title>
+          <Text size="xs" c="dimmed" mb="sm">Annualized value = max(annual fee, monthly × 12 + upfront).</Text>
+          {!data.byCompany || data.byCompany.length === 0 ? (
+            <Text c="dimmed">No company-specific pricing stored yet.</Text>
+          ) : (
+            <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} mt="sm">
+              {(data.byCompany || []).map((row) => (
+                <Paper key={row.company} withBorder p="sm" radius="sm">
+                  <Group justify="space-between">
+                    <Text fw={600}>{row.company}</Text>
+                    <LabelTag tone="neutral" size="xs" label={row.currency} />
+                  </Group>
+                  <Text size="xs" c="dimmed">{row.leads} leads</Text>
+                  <SimpleGrid cols={{ base: 2 }} spacing="xs" mt="xs">
+                    <Text size="xs">Upfront</Text>
+                    <Text size="xs" fw={600}>{row.upfrontEur.toLocaleString()}</Text>
+                    <Text size="xs">Monthly</Text>
+                    <Text size="xs" fw={600}>{row.monthlyEur.toLocaleString()}</Text>
+                    <Text size="xs">Annual fee</Text>
+                    <Text size="xs" fw={600}>{row.annualFeeEur.toLocaleString()}</Text>
+                    <Text size="xs">Revenue share</Text>
+                    <Text size="xs" fw={600}>{row.revenueSharePercent}%</Text>
+                    <Text size="xs">Discount</Text>
+                    <Text size="xs" fw={600}>{row.discountPercent}%</Text>
+                    <Text size="xs">Est. annual</Text>
+                    <Text size="xs" fw={700}>{row.estimatedAnnualValueEur.toLocaleString()}</Text>
+                  </SimpleGrid>
+                </Paper>
+              ))}
+            </SimpleGrid>
+          )}
+          <Group justify="space-between" mt="md">
+            <Text fw={700}>Total estimated annual value</Text>
+            <Text fw={700}>{((data.totalEstimatedAnnualValueEur || 0) as number).toLocaleString()}</Text>
+          </Group>
+        </Paper>
+      ) : (
+        <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} mb="lg">
+          <Paper withBorder p="md" radius="md">
+            <Title order={4}>Pipeline</Title>
+            {pipelineColumns.map((col) => {
+              const raw = data.pipeline![col];
+              if (!raw) return null;
+              return (
+                <Group key={col} justify="space-between" py={4} style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+                  <div>
+                    <Text fw={500}>{col}</Text>
+                    <Text size="xs" c="dimmed">{raw.leads} leads · {raw.participants} participants</Text>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <Text fw={700}>${raw.weightedRevenue.toLocaleString()}</Text>
+                    <Text size="xs" c="dimmed">{Math.round(raw.probability * 100)}% · raw ${raw.rawRevenue.toLocaleString()}</Text>
+                    {raw.concentrationRisk?.atRisk && (
+                      <StatusBadge
+                        status="warning"
+                        aria-label={`Concentration risk: ${Math.round(raw.concentrationRisk.percentOfTotal * 100)} percent of this column's raw value is in ${raw.concentrationRisk.topLeadName}`}
+                      >
+                        {Math.round(raw.concentrationRisk.percentOfTotal * 100)}% in {raw.concentrationRisk.topN === 1 ? '1 deal' : `${raw.concentrationRisk.topN} deals`}
+                      </StatusBadge>
+                    )}
+                  </div>
+                </Group>
+              );
+            })}
+            <Group justify="space-between" mt="sm">
+              <Text fw={700}>Total weighted</Text>
+              <Text fw={700}>${(data.totalWeightedRevenue || 0).toLocaleString()}</Text>
+            </Group>
+          </Paper>
 
-      <Paper withBorder p="md" radius="md" mb="lg">
+          <Paper withBorder p="md" radius="md">
+            <Title order={4}>By Tier</Title>
+            {Object.entries(data.byTier || {}).map(([tier, row]) => (
+              <Group key={tier} justify="space-between" py={4} style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+                <div>
+                  <Text fw={500} tt="capitalize">{tier}</Text>
+                  <Text size="xs" c="dimmed">{row.leads} leads · {row.participants} participants</Text>
+                </div>
+                <Text fw={700}>${row.revenue.toLocaleString()}</Text>
+              </Group>
+            ))}
+          </Paper>
+
+          <Paper withBorder p="md" radius="md">
+            <Title order={4}>By Model</Title>
+            {Object.entries(data.byModel || {}).map(([model, row]) => (
+              <Group key={model} justify="space-between" py={4} style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+                <div>
+                  <Text fw={500} tt="capitalize">{model.replace('_', ' ')}</Text>
+                  <Text size="xs" c="dimmed">{row.leads} leads</Text>
+                </div>
+                <Text fw={700}>${row.revenue.toLocaleString()}</Text>
+              </Group>
+            ))}
+            <Group justify="space-between" mt="sm">
+              <Text fw={700}>Total ARR</Text>
+              <Text fw={700}>${(data.totals?.revenue || 0).toLocaleString()}</Text>
+            </Group>
+            <Group justify="space-between">
+              <Text c="dimmed">Participants</Text>
+              <Text c="dimmed">{(data.totals?.participants || 0).toLocaleString()}</Text>
+            </Group>
+          </Paper>
+        </SimpleGrid>
+      )}
+          <Paper withBorder p="md" radius="md">
+        <Title order={4} mb="xs">Pipeline Weights</Title>
+        <Text size="xs" c="dimmed" mb="sm">Close probability per stage.</Text>
+        <SimpleGrid cols={{ base: 2, md: 3, lg: 6 }}>
+          {pipelineColumns.map((col) => (
+            <TextInput
+              key={col}
+              label={col}
+              value={String(Math.round((weights[col] ?? 0) * 100))}
+              onChange={(e) => {
+                const num = Number(e.target.value);
+                if (!Number.isNaN(num)) {
+                  setWeights((prev) => ({ ...prev, [col]: Math.max(0, Math.min(100, num)) / 100 }));
+                }
+              }}
+              type="number"
+              min={0}
+              max={100}
+            />
+          ))}
+        </SimpleGrid>
+        <Button mt="sm" size="xs" onClick={saveWeights} loading={saving}>
+          Save weights
+        </Button>
+      </Paper>
+          <Paper withBorder p="md" radius="md" mt="lg">
+        <Title order={4} mb="xs">Quota Attainment</Title>
+        <Text size="xs" c="dimmed" mb="sm">
+          Real closed-won revenue (assigned leads only) against a quota target for the selected period.
+        </Text>
+        <Group gap="xs" align="flex-end" mb="sm">
+          <AdminSelect
+            name="quotaPeriodType"
+            label="Period type"
+            data={PERIOD_TYPES.map((pt) => ({ value: pt, label: pt.charAt(0).toUpperCase() + pt.slice(1) }))}
+            value={quotaPeriodType}
+            onChange={(value: string | null) => {
+              if (!value) return;
+              const pt = value as PeriodType;
+              setQuotaPeriodType(pt);
+              setQuotaPeriod(pt === 'monthly' ? currentMonthPeriod() : pt === 'annual' ? String(new Date().getUTCFullYear()) : `${new Date().getUTCFullYear()}-Q${Math.floor(new Date().getUTCMonth() / 3) + 1}`);
+            }}
+          />
+          <TextInput
+            label="Period"
+            description={quotaPeriodType === 'monthly' ? 'YYYY-MM' : quotaPeriodType === 'quarterly' ? 'YYYY-QN' : 'YYYY'}
+            value={quotaPeriod}
+            onChange={(e) => setQuotaPeriod(e?.target?.value ?? e?.currentTarget?.value ?? '')}
+            error={!isValidPeriod(quotaPeriod, quotaPeriodType) ? 'Invalid period format' : undefined}
+          />
+          {callerRole === 'admin' && (
+            <AdminSelect
+              name="quotaUser"
+              label="Rep"
+              data={assignableUsers.map((u) => ({ value: u.ssoUserId, label: u.name ? `${u.name} (${u.email})` : u.email }))}
+              value={quotaUserId}
+              onChange={(value: string | null) => { if (value) setQuotaUserId(value); }}
+            />
+          )}
+        </Group>
+
+        {attainmentLoading && <Loader size="sm" />}
+        {attainmentError && <AdminFormStatus state="error" title="Couldn't load quota attainment" description={attainmentError} />}
+        {!attainmentLoading && !attainmentError && attainment && (
+          <SimpleGrid cols={{ base: 2, md: 4 }} mb="sm">
+            <div>
+              <Text size="xs" c="dimmed">Attained</Text>
+              <Text fw={700}>${attainment.attained.toLocaleString()}</Text>
+            </div>
+            <div>
+              <Text size="xs" c="dimmed">Quota</Text>
+              <Text fw={700}>{attainment.quotaAmount !== null ? `$${attainment.quotaAmount.toLocaleString()}` : 'Not set'}</Text>
+            </div>
+            <div>
+              <Text size="xs" c="dimmed">% to quota</Text>
+              <Text fw={700}>{attainment.attainmentPercent !== null ? `${attainment.attainmentPercent}%` : '—'}</Text>
+            </div>
+            <div>
+              <Text size="xs" c="dimmed">Deals closed</Text>
+              <Text fw={700}>{attainment.leadCount}</Text>
+            </div>
+          </SimpleGrid>
+        )}
+
+        {callerRole === 'admin' && (
+          <Group gap="xs" align="flex-end" mt="sm">
+            <NumberInput
+              label="Set quota amount"
+              value={quotaAmountInput}
+              onChange={(value) => setQuotaAmountInput(typeof value === 'number' ? value : '')}
+              min={0}
+            />
+            <Button size="xs" onClick={saveQuotaTarget} loading={savingQuota} disabled={quotaAmountInput === '' || !isValidPeriod(quotaPeriod, quotaPeriodType)}>
+              Save quota
+            </Button>
+          </Group>
+        )}
+        {quotaSaveError && <AdminFormStatus state="error" title="Quota save failed" description={quotaSaveError} />}
+      </Paper>
+        </Stack>
+      )}
+      {/* TAB 2: DEAL MOVEMENT WATERFALL */}
+      {activeTab === "waterfall" && (
+        <Box>
+          <Paper withBorder p="md" radius="md" mb="lg">
         <Group justify="space-between" align="flex-start" mb="sm" wrap="wrap">
           <div>
             <Title order={4}>Pipeline Inspection &amp; Deal Movement Waterfall</Title>
@@ -649,251 +895,12 @@ export function ForecastClient({ brand, label }: Props) {
           </Stack>
         )}
       </Paper>
-
-      <Paper withBorder p="md" radius="md" mb="lg">
-        <Group justify="space-between" align="flex-start" mb="xs" wrap="wrap">
-          <div>
-            <Title order={4}>Forecast Calibration</Title>
-            <Text size="xs" c="dimmed">
-              Calibrated rates use each stage&apos;s actual WON/LOST history (min. {calibrationSettings.minSampleSize} closed deals) instead of the hand-picked defaults below. A stage without enough closed deals always keeps its static rate, even in calibrated mode.
-            </Text>
-          </div>
-          <AdminSelect
-            name="calibration-mode"
-            label="Mode"
-            value={calibrationSettings.mode}
-            onChange={handleCalibrationModeChange}
-            data={[
-              { value: 'static', label: 'Static (hand-picked)' },
-              { value: 'calibrated', label: 'Calibrated (from outcomes)' },
-            ]}
-            disabled={savingCalibrationMode}
-            state={savingCalibrationMode ? 'loading' : 'idle'}
-            style={{ minWidth: 240 }}
-          />
-        </Group>
-
-        {winRatesError ? (
-          <AdminFormStatus state="error" title="Couldn't load calibration data" description={winRatesError} />
-        ) : winRatesLoading ? (
-          <AdminFormStatus state="loading" title="Loading calibration data" />
-        ) : !winRates || CALIBRATABLE_STAGES.every((stage) => (winRates.stages[stage]?.sampleSize ?? 0) === 0) ? (
-          <AdminResourceEmptyState
-            title="No closed deals yet"
-            description="Calibration needs at least one WON or LOST outcome per stage. Once leads close, this table fills in automatically."
-          />
-        ) : (
-          <>
-            <AdminDataTable<CalibrationRow>
-              rows={CALIBRATABLE_STAGES.filter((stage) => winRates.stages[stage]).map((stage) => ({
-                stage,
-                staticRate: weights[stage] ?? 0,
-                calibrated: winRates.stages[stage],
-                source: data.pipeline?.[stage]?.probabilitySource || 'static',
-              }))}
-              caption="Static vs. calibrated close probability per stage"
-              columns={[
-                { key: 'stage', header: 'Stage', rowHeader: true, width: 140 },
-                { key: 'staticRate', header: 'Static', numeric: true, width: 100, accessor: (row) => `${Math.round(row.staticRate * 100)}%` },
-                { key: 'calibratedRate', header: 'Calibrated', numeric: true, width: 120, accessor: (row) => `${Math.round(row.calibrated.rate * 100)}%` },
-                { key: 'sample', header: 'Sample (won/total)', numeric: true, width: 160, accessor: (row) => `${row.calibrated.wonCount}/${row.calibrated.sampleSize}` },
-                {
-                  key: 'confidence',
-                  header: 'Confidence',
-                  width: 160,
-                  accessor: (row) => (
-                    <StatusBadge
-                      status={row.calibrated.confidence === 'ok' ? 'success' : 'warning'}
-                      aria-label={
-                        row.calibrated.confidence === 'ok'
-                          ? `Sufficient sample size: ${row.calibrated.sampleSize} closed deals`
-                          : `Insufficient sample size: only ${row.calibrated.sampleSize} closed deals, needs ${calibrationSettings.minSampleSize}`
-                      }
-                    >
-                      {row.calibrated.confidence === 'ok' ? 'Sufficient data' : 'Insufficient data'}
-                    </StatusBadge>
-                  ),
-                },
-                { key: 'source', header: 'Used in forecast', width: 160, accessor: (row) => (row.source === 'calibrated' ? 'Calibrated' : 'Static') },
-              ]}
-              getRowKey={(row) => row.stage}
-            />
-            {winRates.computedAt && (
-              <Text size="xs" c="dimmed" mt="xs">Last computed {new Date(winRates.computedAt).toLocaleString()}</Text>
-            )}
-          </>
-        )}
-      </Paper>
-
-      <Paper withBorder p="md" radius="md" mb="lg">
-        <Title order={4}>Ticket-Size Calibration</Title>
-        <Text size="xs" c="dimmed" mb="xs">
-          Compares each closed-won lead&apos;s real contract value (captured in the detail drawer once a lead is WON) against what the ticket-size estimate predicted at the time — issue #79&apos;s engine ships with fixed placeholder assumptions precisely because this data doesn&apos;t exist yet; this table is what eventually replaces them with real figures.
-        </Text>
-
-        {ticketSizeCalibrationError ? (
-          <AdminFormStatus state="error" title="Couldn't load ticket-size calibration data" description={ticketSizeCalibrationError} />
-        ) : ticketSizeCalibrationLoading ? (
-          <AdminFormStatus state="loading" title="Loading ticket-size calibration data" />
-        ) : !ticketSizeCalibration || ticketSizeCalibration.groups.length === 0 ? (
-          <AdminResourceEmptyState
-            title="No calibration data yet"
-            description="Needs at least one WON lead with both a ticket-size estimate and a real captured deal value. Set the actual deal value in a WON lead's detail drawer to start building this up."
-          />
-        ) : (
-          <>
-            <AdminDataTable<TicketSizeCalibrationGroup>
-              rows={ticketSizeCalibration.groups}
-              caption="Estimate accuracy by size tier and method"
-              columns={[
-                { key: 'tier', header: 'Size Tier', rowHeader: true, width: 140 },
-                { key: 'method', header: 'Method', width: 180, accessor: (row) => (row.method === 'tier_band' ? 'Company-size tier' : 'Per-participant') },
-                { key: 'sample', header: 'Sample size', numeric: true, width: 120, accessor: (row) => row.sampleSize },
-                { key: 'meanError', header: 'Mean bias', numeric: true, width: 120, accessor: (row) => `${row.meanPercentError > 0 ? '+' : ''}${row.meanPercentError}%` },
-                { key: 'medianError', header: 'Median bias', numeric: true, width: 120, accessor: (row) => `${row.medianPercentError > 0 ? '+' : ''}${row.medianPercentError}%` },
-                {
-                  key: 'confidence',
-                  header: 'Confidence',
-                  width: 160,
-                  accessor: (row) => (
-                    <StatusBadge
-                      status={row.confidence === 'ok' ? 'success' : 'warning'}
-                      aria-label={
-                        row.confidence === 'ok'
-                          ? `Sufficient sample size: ${row.sampleSize} closed deals`
-                          : `Insufficient sample size: only ${row.sampleSize} closed deals, needs ${ticketSizeCalibration.minSampleSize}`
-                      }
-                    >
-                      {row.confidence === 'ok' ? 'Sufficient data' : 'Insufficient data'}
-                    </StatusBadge>
-                  ),
-                },
-              ]}
-              getRowKey={(row) => `${row.tier}:${row.method}`}
-            />
-            <Text size="xs" c="dimmed" mt="xs">
-              Positive bias = the model underestimates this group (real deals close bigger than predicted) — consider raising the corresponding Sales Settings deal-size band. Negative bias = the model overestimates.
-            </Text>
-            {(ticketSizeCalibration.wonWithoutEstimate > 0 || ticketSizeCalibration.wonWithoutActual > 0) && (
-              <Text size="xs" c="dimmed" mt="xs">
-                {ticketSizeCalibration.wonWithoutEstimate > 0 && `${ticketSizeCalibration.wonWithoutEstimate} WON lead(s) had no usable ticket-size estimate when closed. `}
-                {ticketSizeCalibration.wonWithoutActual > 0 && `${ticketSizeCalibration.wonWithoutActual} WON lead(s) have an estimate but no actual deal value captured yet.`}
-              </Text>
-            )}
-            <Text size="xs" c="dimmed" mt="xs">Last computed {new Date(ticketSizeCalibration.computedAt).toLocaleString()}</Text>
-          </>
-        )}
-      </Paper>
-
-      {isSeyu ? (
-        <Paper withBorder p="md" radius="md" mb="lg">
-          <Title order={4}>Pricing by Company</Title>
-          <Text size="xs" c="dimmed" mb="sm">Annualized value = max(annual fee, monthly × 12 + upfront).</Text>
-          {!data.byCompany || data.byCompany.length === 0 ? (
-            <Text c="dimmed">No company-specific pricing stored yet.</Text>
-          ) : (
-            <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} mt="sm">
-              {(data.byCompany || []).map((row) => (
-                <Paper key={row.company} withBorder p="sm" radius="sm">
-                  <Group justify="space-between">
-                    <Text fw={600}>{row.company}</Text>
-                    <LabelTag tone="neutral" size="xs" label={row.currency} />
-                  </Group>
-                  <Text size="xs" c="dimmed">{row.leads} leads</Text>
-                  <SimpleGrid cols={{ base: 2 }} spacing="xs" mt="xs">
-                    <Text size="xs">Upfront</Text>
-                    <Text size="xs" fw={600}>{row.upfrontEur.toLocaleString()}</Text>
-                    <Text size="xs">Monthly</Text>
-                    <Text size="xs" fw={600}>{row.monthlyEur.toLocaleString()}</Text>
-                    <Text size="xs">Annual fee</Text>
-                    <Text size="xs" fw={600}>{row.annualFeeEur.toLocaleString()}</Text>
-                    <Text size="xs">Revenue share</Text>
-                    <Text size="xs" fw={600}>{row.revenueSharePercent}%</Text>
-                    <Text size="xs">Discount</Text>
-                    <Text size="xs" fw={600}>{row.discountPercent}%</Text>
-                    <Text size="xs">Est. annual</Text>
-                    <Text size="xs" fw={700}>{row.estimatedAnnualValueEur.toLocaleString()}</Text>
-                  </SimpleGrid>
-                </Paper>
-              ))}
-            </SimpleGrid>
-          )}
-          <Group justify="space-between" mt="md">
-            <Text fw={700}>Total estimated annual value</Text>
-            <Text fw={700}>{((data.totalEstimatedAnnualValueEur || 0) as number).toLocaleString()}</Text>
-          </Group>
-        </Paper>
-      ) : (
-        <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} mb="lg">
-          <Paper withBorder p="md" radius="md">
-            <Title order={4}>Pipeline</Title>
-            {pipelineColumns.map((col) => {
-              const raw = data.pipeline![col];
-              if (!raw) return null;
-              return (
-                <Group key={col} justify="space-between" py={4} style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-                  <div>
-                    <Text fw={500}>{col}</Text>
-                    <Text size="xs" c="dimmed">{raw.leads} leads · {raw.participants} participants</Text>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <Text fw={700}>${raw.weightedRevenue.toLocaleString()}</Text>
-                    <Text size="xs" c="dimmed">{Math.round(raw.probability * 100)}% · raw ${raw.rawRevenue.toLocaleString()}</Text>
-                    {raw.concentrationRisk?.atRisk && (
-                      <StatusBadge
-                        status="warning"
-                        aria-label={`Concentration risk: ${Math.round(raw.concentrationRisk.percentOfTotal * 100)} percent of this column's raw value is in ${raw.concentrationRisk.topLeadName}`}
-                      >
-                        {Math.round(raw.concentrationRisk.percentOfTotal * 100)}% in {raw.concentrationRisk.topN === 1 ? '1 deal' : `${raw.concentrationRisk.topN} deals`}
-                      </StatusBadge>
-                    )}
-                  </div>
-                </Group>
-              );
-            })}
-            <Group justify="space-between" mt="sm">
-              <Text fw={700}>Total weighted</Text>
-              <Text fw={700}>${(data.totalWeightedRevenue || 0).toLocaleString()}</Text>
-            </Group>
-          </Paper>
-
-          <Paper withBorder p="md" radius="md">
-            <Title order={4}>By Tier</Title>
-            {Object.entries(data.byTier || {}).map(([tier, row]) => (
-              <Group key={tier} justify="space-between" py={4} style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-                <div>
-                  <Text fw={500} tt="capitalize">{tier}</Text>
-                  <Text size="xs" c="dimmed">{row.leads} leads · {row.participants} participants</Text>
-                </div>
-                <Text fw={700}>${row.revenue.toLocaleString()}</Text>
-              </Group>
-            ))}
-          </Paper>
-
-          <Paper withBorder p="md" radius="md">
-            <Title order={4}>By Model</Title>
-            {Object.entries(data.byModel || {}).map(([model, row]) => (
-              <Group key={model} justify="space-between" py={4} style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-                <div>
-                  <Text fw={500} tt="capitalize">{model.replace('_', ' ')}</Text>
-                  <Text size="xs" c="dimmed">{row.leads} leads</Text>
-                </div>
-                <Text fw={700}>${row.revenue.toLocaleString()}</Text>
-              </Group>
-            ))}
-            <Group justify="space-between" mt="sm">
-              <Text fw={700}>Total ARR</Text>
-              <Text fw={700}>${(data.totals?.revenue || 0).toLocaleString()}</Text>
-            </Group>
-            <Group justify="space-between">
-              <Text c="dimmed">Participants</Text>
-              <Text c="dimmed">{(data.totals?.participants || 0).toLocaleString()}</Text>
-            </Group>
-          </Paper>
-        </SimpleGrid>
+        </Box>
       )}
-
-      {data.byCategory && (
+      {/* TAB 3: FORECAST CATEGORIES */}
+      {activeTab === "categories" && (
+        <Box>
+          {data.byCategory && (
         <Paper withBorder p="md" radius="md" mb="lg">
           <Group justify="space-between" align="flex-start" mb="xs">
             <div>
@@ -1048,107 +1055,147 @@ export function ForecastClient({ brand, label }: Props) {
           )}
         </Paper>
       )}
-
-      <Paper withBorder p="md" radius="md">
-        <Title order={4} mb="xs">Pipeline Weights</Title>
-        <Text size="xs" c="dimmed" mb="sm">Close probability per stage.</Text>
-        <SimpleGrid cols={{ base: 2, md: 3, lg: 6 }}>
-          {pipelineColumns.map((col) => (
-            <TextInput
-              key={col}
-              label={col}
-              value={String(Math.round((weights[col] ?? 0) * 100))}
-              onChange={(e) => {
-                const num = Number(e.target.value);
-                if (!Number.isNaN(num)) {
-                  setWeights((prev) => ({ ...prev, [col]: Math.max(0, Math.min(100, num)) / 100 }));
-                }
-              }}
-              type="number"
-              min={0}
-              max={100}
-            />
-          ))}
-        </SimpleGrid>
-        <Button mt="sm" size="xs" onClick={saveWeights} loading={saving}>
-          Save weights
-        </Button>
-      </Paper>
-
-      <Paper withBorder p="md" radius="md" mt="lg">
-        <Title order={4} mb="xs">Quota Attainment</Title>
-        <Text size="xs" c="dimmed" mb="sm">
-          Real closed-won revenue (assigned leads only) against a quota target for the selected period.
-        </Text>
-        <Group gap="xs" align="flex-end" mb="sm">
+        </Box>
+      )}
+      {/* TAB 4: STAGE WIN RATES & CALIBRATION */}
+      {activeTab === "winrates" && (
+        <Stack gap="lg">
+          <Paper withBorder p="md" radius="md" mb="lg">
+        <Group justify="space-between" align="flex-start" mb="xs" wrap="wrap">
+          <div>
+            <Title order={4}>Forecast Calibration</Title>
+            <Text size="xs" c="dimmed">
+              Calibrated rates use each stage&apos;s actual WON/LOST history (min. {calibrationSettings.minSampleSize} closed deals) instead of the hand-picked defaults below. A stage without enough closed deals always keeps its static rate, even in calibrated mode.
+            </Text>
+          </div>
           <AdminSelect
-            name="quotaPeriodType"
-            label="Period type"
-            data={PERIOD_TYPES.map((pt) => ({ value: pt, label: pt.charAt(0).toUpperCase() + pt.slice(1) }))}
-            value={quotaPeriodType}
-            onChange={(value: string | null) => {
-              if (!value) return;
-              const pt = value as PeriodType;
-              setQuotaPeriodType(pt);
-              setQuotaPeriod(pt === 'monthly' ? currentMonthPeriod() : pt === 'annual' ? String(new Date().getUTCFullYear()) : `${new Date().getUTCFullYear()}-Q${Math.floor(new Date().getUTCMonth() / 3) + 1}`);
-            }}
+            name="calibration-mode"
+            label="Mode"
+            value={calibrationSettings.mode}
+            onChange={handleCalibrationModeChange}
+            data={[
+              { value: 'static', label: 'Static (hand-picked)' },
+              { value: 'calibrated', label: 'Calibrated (from outcomes)' },
+            ]}
+            disabled={savingCalibrationMode}
+            state={savingCalibrationMode ? 'loading' : 'idle'}
+            style={{ minWidth: 240 }}
           />
-          <TextInput
-            label="Period"
-            description={quotaPeriodType === 'monthly' ? 'YYYY-MM' : quotaPeriodType === 'quarterly' ? 'YYYY-QN' : 'YYYY'}
-            value={quotaPeriod}
-            onChange={(e) => setQuotaPeriod(e?.target?.value ?? e?.currentTarget?.value ?? '')}
-            error={!isValidPeriod(quotaPeriod, quotaPeriodType) ? 'Invalid period format' : undefined}
-          />
-          {callerRole === 'admin' && (
-            <AdminSelect
-              name="quotaUser"
-              label="Rep"
-              data={assignableUsers.map((u) => ({ value: u.ssoUserId, label: u.name ? `${u.name} (${u.email})` : u.email }))}
-              value={quotaUserId}
-              onChange={(value: string | null) => { if (value) setQuotaUserId(value); }}
-            />
-          )}
         </Group>
 
-        {attainmentLoading && <Loader size="sm" />}
-        {attainmentError && <AdminFormStatus state="error" title="Couldn't load quota attainment" description={attainmentError} />}
-        {!attainmentLoading && !attainmentError && attainment && (
-          <SimpleGrid cols={{ base: 2, md: 4 }} mb="sm">
-            <div>
-              <Text size="xs" c="dimmed">Attained</Text>
-              <Text fw={700}>${attainment.attained.toLocaleString()}</Text>
-            </div>
-            <div>
-              <Text size="xs" c="dimmed">Quota</Text>
-              <Text fw={700}>{attainment.quotaAmount !== null ? `$${attainment.quotaAmount.toLocaleString()}` : 'Not set'}</Text>
-            </div>
-            <div>
-              <Text size="xs" c="dimmed">% to quota</Text>
-              <Text fw={700}>{attainment.attainmentPercent !== null ? `${attainment.attainmentPercent}%` : '—'}</Text>
-            </div>
-            <div>
-              <Text size="xs" c="dimmed">Deals closed</Text>
-              <Text fw={700}>{attainment.leadCount}</Text>
-            </div>
-          </SimpleGrid>
-        )}
-
-        {callerRole === 'admin' && (
-          <Group gap="xs" align="flex-end" mt="sm">
-            <NumberInput
-              label="Set quota amount"
-              value={quotaAmountInput}
-              onChange={(value) => setQuotaAmountInput(typeof value === 'number' ? value : '')}
-              min={0}
+        {winRatesError ? (
+          <AdminFormStatus state="error" title="Couldn't load calibration data" description={winRatesError} />
+        ) : winRatesLoading ? (
+          <AdminFormStatus state="loading" title="Loading calibration data" />
+        ) : !winRates || CALIBRATABLE_STAGES.every((stage) => (winRates.stages[stage]?.sampleSize ?? 0) === 0) ? (
+          <AdminResourceEmptyState
+            title="No closed deals yet"
+            description="Calibration needs at least one WON or LOST outcome per stage. Once leads close, this table fills in automatically."
+          />
+        ) : (
+          <>
+            <AdminDataTable<CalibrationRow>
+              rows={CALIBRATABLE_STAGES.filter((stage) => winRates.stages[stage]).map((stage) => ({
+                stage,
+                staticRate: weights[stage] ?? 0,
+                calibrated: winRates.stages[stage],
+                source: data.pipeline?.[stage]?.probabilitySource || 'static',
+              }))}
+              caption="Static vs. calibrated close probability per stage"
+              columns={[
+                { key: 'stage', header: 'Stage', rowHeader: true, width: 140 },
+                { key: 'staticRate', header: 'Static', numeric: true, width: 100, accessor: (row) => `${Math.round(row.staticRate * 100)}%` },
+                { key: 'calibratedRate', header: 'Calibrated', numeric: true, width: 120, accessor: (row) => `${Math.round(row.calibrated.rate * 100)}%` },
+                { key: 'sample', header: 'Sample (won/total)', numeric: true, width: 160, accessor: (row) => `${row.calibrated.wonCount}/${row.calibrated.sampleSize}` },
+                {
+                  key: 'confidence',
+                  header: 'Confidence',
+                  width: 160,
+                  accessor: (row) => (
+                    <StatusBadge
+                      status={row.calibrated.confidence === 'ok' ? 'success' : 'warning'}
+                      aria-label={
+                        row.calibrated.confidence === 'ok'
+                          ? `Sufficient sample size: ${row.calibrated.sampleSize} closed deals`
+                          : `Insufficient sample size: only ${row.calibrated.sampleSize} closed deals, needs ${calibrationSettings.minSampleSize}`
+                      }
+                    >
+                      {row.calibrated.confidence === 'ok' ? 'Sufficient data' : 'Insufficient data'}
+                    </StatusBadge>
+                  ),
+                },
+                { key: 'source', header: 'Used in forecast', width: 160, accessor: (row) => (row.source === 'calibrated' ? 'Calibrated' : 'Static') },
+              ]}
+              getRowKey={(row) => row.stage}
             />
-            <Button size="xs" onClick={saveQuotaTarget} loading={savingQuota} disabled={quotaAmountInput === '' || !isValidPeriod(quotaPeriod, quotaPeriodType)}>
-              Save quota
-            </Button>
-          </Group>
+            {winRates.computedAt && (
+              <Text size="xs" c="dimmed" mt="xs">Last computed {new Date(winRates.computedAt).toLocaleString()}</Text>
+            )}
+          </>
         )}
-        {quotaSaveError && <AdminFormStatus state="error" title="Quota save failed" description={quotaSaveError} />}
       </Paper>
-    </Box>
+
+      <Paper withBorder p="md" radius="md" mb="lg">
+        <Title order={4}>Ticket-Size Calibration</Title>
+        <Text size="xs" c="dimmed" mb="xs">
+          Compares each closed-won lead&apos;s real contract value (captured in the detail drawer once a lead is WON) against what the ticket-size estimate predicted at the time — issue #79&apos;s engine ships with fixed placeholder assumptions precisely because this data doesn&apos;t exist yet; this table is what eventually replaces them with real figures.
+        </Text>
+
+        {ticketSizeCalibrationError ? (
+          <AdminFormStatus state="error" title="Couldn't load ticket-size calibration data" description={ticketSizeCalibrationError} />
+        ) : ticketSizeCalibrationLoading ? (
+          <AdminFormStatus state="loading" title="Loading ticket-size calibration data" />
+        ) : !ticketSizeCalibration || ticketSizeCalibration.groups.length === 0 ? (
+          <AdminResourceEmptyState
+            title="No calibration data yet"
+            description="Needs at least one WON lead with both a ticket-size estimate and a real captured deal value. Set the actual deal value in a WON lead's detail drawer to start building this up."
+          />
+        ) : (
+          <>
+            <AdminDataTable<TicketSizeCalibrationGroup>
+              rows={ticketSizeCalibration.groups}
+              caption="Estimate accuracy by size tier and method"
+              columns={[
+                { key: 'tier', header: 'Size Tier', rowHeader: true, width: 140 },
+                { key: 'method', header: 'Method', width: 180, accessor: (row) => (row.method === 'tier_band' ? 'Company-size tier' : 'Per-participant') },
+                { key: 'sample', header: 'Sample size', numeric: true, width: 120, accessor: (row) => row.sampleSize },
+                { key: 'meanError', header: 'Mean bias', numeric: true, width: 120, accessor: (row) => `${row.meanPercentError > 0 ? '+' : ''}${row.meanPercentError}%` },
+                { key: 'medianError', header: 'Median bias', numeric: true, width: 120, accessor: (row) => `${row.medianPercentError > 0 ? '+' : ''}${row.medianPercentError}%` },
+                {
+                  key: 'confidence',
+                  header: 'Confidence',
+                  width: 160,
+                  accessor: (row) => (
+                    <StatusBadge
+                      status={row.confidence === 'ok' ? 'success' : 'warning'}
+                      aria-label={
+                        row.confidence === 'ok'
+                          ? `Sufficient sample size: ${row.sampleSize} closed deals`
+                          : `Insufficient sample size: only ${row.sampleSize} closed deals, needs ${ticketSizeCalibration.minSampleSize}`
+                      }
+                    >
+                      {row.confidence === 'ok' ? 'Sufficient data' : 'Insufficient data'}
+                    </StatusBadge>
+                  ),
+                },
+              ]}
+              getRowKey={(row) => `${row.tier}:${row.method}`}
+            />
+            <Text size="xs" c="dimmed" mt="xs">
+              Positive bias = the model underestimates this group (real deals close bigger than predicted) — consider raising the corresponding Sales Settings deal-size band. Negative bias = the model overestimates.
+            </Text>
+            {(ticketSizeCalibration.wonWithoutEstimate > 0 || ticketSizeCalibration.wonWithoutActual > 0) && (
+              <Text size="xs" c="dimmed" mt="xs">
+                {ticketSizeCalibration.wonWithoutEstimate > 0 && `${ticketSizeCalibration.wonWithoutEstimate} WON lead(s) had no usable ticket-size estimate when closed. `}
+                {ticketSizeCalibration.wonWithoutActual > 0 && `${ticketSizeCalibration.wonWithoutActual} WON lead(s) have an estimate but no actual deal value captured yet.`}
+              </Text>
+            )}
+            <Text size="xs" c="dimmed" mt="xs">Last computed {new Date(ticketSizeCalibration.computedAt).toLocaleString()}</Text>
+          </>
+        )}
+      </Paper>
+        </Stack>
+      )}
+</Box>
   );
 }
