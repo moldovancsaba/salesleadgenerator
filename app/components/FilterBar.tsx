@@ -175,6 +175,15 @@ export function FilterBar({ brand, value, onChange }: Props) {
     if (found) onChange(found.filter)
   }, [savedFilters, onChange])
 
+  const isFilterActive = useCallback((filter: LeadFilter) => {
+    return (
+      (filter.region || undefined) === (value.region || undefined) &&
+      (filter.industry || undefined) === (value.industry || undefined) &&
+      (filter.assignedTo || undefined) === (value.assignedTo || undefined) &&
+      JSON.stringify(filter.tags || []) === JSON.stringify(value.tags || [])
+    )
+  }, [value])
+
   const deleteSaved = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/saved-filters/${id}?brand=${encodeURIComponent(brand)}`, { method: 'DELETE' })
@@ -209,7 +218,7 @@ export function FilterBar({ brand, value, onChange }: Props) {
   const hasActiveFilter = Boolean(value.region || (value.industry && value.industry.trim()) || (value.tags && value.tags.length > 0) || value.assignedTo)
 
   return (
-    <>
+    <Group gap={6} align="center" wrap="nowrap">
       <Indicator disabled={!hasActiveFilter} size={9} color="indigo" offset={3} withBorder>
         <ActionIcon
           variant="subtle"
@@ -220,6 +229,41 @@ export function FilterBar({ brand, value, onChange }: Props) {
           <IconFilter size={18} />
         </ActionIcon>
       </Indicator>
+
+      {/* Issue #315: Toolbar Quick Saved Filter Pills */}
+      {!loading && savedFilters.length > 0 && (
+        <Group gap={4} wrap="nowrap" visibleFrom="sm" style={{ overflowX: 'auto', maxWidth: 360 }}>
+          {savedFilters.slice(0, 4).map((f) => {
+            const active = isFilterActive(f.filter);
+            return (
+              <Pill
+                key={f._id}
+                size="sm"
+                style={{
+                  cursor: 'pointer',
+                  backgroundColor: active
+                    ? 'var(--gds-vibe-primary, var(--mantine-color-indigo-6))'
+                    : 'var(--gds-bg-surface, var(--mantine-color-gray-1))',
+                  color: active
+                    ? 'var(--mantine-color-white)'
+                    : 'inherit',
+                  fontWeight: active ? 600 : 500,
+                  transition: 'background-color 150ms ease, color 150ms ease',
+                }}
+                onClick={() => {
+                  if (active) {
+                    onChange({})
+                  } else {
+                    applySaved(f._id)
+                  }
+                }}
+              >
+                {f.name}
+              </Pill>
+            );
+          })}
+        </Group>
+      )}
 
       <Drawer opened={opened} onClose={() => setOpened(false)} title="Filters" position="right" size="xs" padding="md">
         <Stack gap="md">
@@ -379,6 +423,6 @@ export function FilterBar({ brand, value, onChange }: Props) {
           )}
         </Stack>
       </Drawer>
-    </>
+    </Group>
   )
 }

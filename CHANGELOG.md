@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.357
+
+### UX & Usability Overhaul: Saved Filter Quick-Switcher Toolbar Pills (Phase 4)
+
+- **Toolbar Saved Filter Pills (Issue #315, `app/components/FilterBar.tsx`, `tests/lib/filter-toolbar-pills.test.ts`):**
+  - Exposed the top saved filter presets directly on the main sales board toolbar alongside the filter drawer trigger.
+  - Enabled 1-click filter activation with active pill highlighting (`var(--gds-vibe-primary)`), giving sales reps instant board re-filtering without opening the blocking side drawer.
+  - Added 1-click toggle to reset back to all leads when clicking an already active preset pill.
+  - Retained the side drawer for deep filter configuration, tag selection, and saving new filters.
+  - Added automated test suite in `tests/lib/filter-toolbar-pills.test.ts`.
+
 ## 2.4.356
 
 ### UX & Usability Overhaul: Omnichannel Inbox Polish & Hover Quick-Action Strip (Phase 3)
