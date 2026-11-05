@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.353
+
+### Elephant Goldfish Model (EGM) Dual-Level Architecture & OpenClaw Operational Handover
+
+- **Level 1 Development EGM Operating Rules (Issue #310, `AGENTS.md`, `CLAUDE.md`):**
+  - Formalized §11 Elephant Goldfish Model (EGM) operating rules separating systemic governance from atomic execution.
+  - Elephant Mode: Retains deep architectural context, multi-tenant database contracts, schema definitions (`app/types.ts`), General Design System (GDS) tokens, zero-tolerance quality gates, and cross-project boundaries.
+  - Goldfish Mode: Executes atomic deliverables against dedicated GitHub issues with zero state pollution, writing concise, deterministic code, focused unit/integration tests, and clean commits.
+- **Level 2 Operational EGM Lead API Contract Verification (Issue #310, `tests/lib/egm-lead-contract.test.ts`):**
+  - Added full test suite verifying `PUT /api/leads/[id]` partial update contracts for `value_proposition`, `pro_for_organization` (string array), and `con_for_organization` (string array).
+  - Validated rejection of non-array pro/con fields, forbidden brand terms enforcement, and HTML-entity decode protections.
+- **Operational EGM Handover Specification (Issue #311, `docs/egm_handover.md`):**
+  - Produced comprehensive handover documentation for the OpenClaw autonomous agents team.
+  - Defined exact payload schemas, REST endpoints, response codes, grounding requirements (`fetched_page`), and provenance recording (`provledger.py`) for automated value proposition synthesis, pro/con extraction, and deal closing acceleration.
+
 ## 2.4.352
 
 ### UX & Usability Overhaul: Mobile Responsive Polish & Touch Ergonomics (Phase 5)

@@ -109,6 +109,18 @@ The AI coding assistant working in `salesleadgenerator` is a **software develope
 - Lead discovery, enrichment, and ongoing taxonomy population belong exclusively to the automated `researchandenrich` runtime (or deterministic, code-reviewed migration scripts when explicitly requested by the owner).
 - This rule permanently supersedes the historical `§9` manual agent-research loop in `docs/LEAD_TAXONOMY_MIGRATION_PLAN.md` (Issue #132). Never resume or execute that manual loop when looking for open work.
 
+## 11. Elephant Goldfish Model (EGM) Dual-Level Operation
+
+This repository operates strictly under the **Elephant Goldfish Model (EGM)** separating strategic systemic governance from atomic execution across two distinct levels:
+
+- **Level 1 — Development EGM (This Repository / Coding Assistant)**:
+  - **Elephant Mode**: Retains deep architectural context, multi-tenant database contracts, schema definitions (`app/types.ts`), General Design System (GDS) tokens, zero-tolerance quality gates, and cross-project boundaries. Conducts usability audits, architectural refactoring, and roadmap planning.
+  - **Goldfish Mode**: Executes atomic deliverables against dedicated GitHub issues with zero state pollution, writing concise, deterministic code, focused unit/integration tests, and clean commits.
+- **Level 2 — Operational EGM (Local OpenClaw & Autonomous Lead Agents)**:
+  - **Elephant Mode**: Maintains commercial intelligence, historical deal context, ICP criteria, battlecards, buyer roles, and provenance ledgers.
+  - **Goldfish Mode**: Operates autonomously on discrete lead records to verify websites, synthesize grounded value propositions, extract structured pros and cons (`pro_for_organization`, `con_for_organization`), and feed closing acceleration signals into SLG via documented APIs.
+  - Development sessions in this repository build and safeguard the APIs and contracts for Level 2, but do not execute Level 2 lead research manually (Rule 10). Technical specifications for OpenClaw agents are governed by `docs/egm_handover.md`.
+
 ## Next.js App Router: two `page.tsx` resolving to the same route fails silently
 
 A production outage in a sibling project (the `management` engine repo, 2026-08-20) traced back to this:
