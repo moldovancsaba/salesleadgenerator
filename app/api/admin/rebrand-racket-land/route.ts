@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
-import { requireApiKey } from '@/lib/api-auth';
+import { requireCronOrApiKey } from '@/lib/api-auth';
 import { FALLBACK_BRAND_CONFIG } from '@/app/lib/brand-constants';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +10,7 @@ const BRAND_SLUG = 'racket-land';
 const LEGACY_SLUG = 'padel-africa';
 
 export async function POST(request: Request) {
-  const authError = requireApiKey(request);
+  const authError = requireCronOrApiKey(request);
   if (authError) return authError;
 
   if (!isMongoConfigured()) {
