@@ -7,12 +7,19 @@ export type InboundFormInput = {
   websiteUrl?: unknown;
   country?: unknown;
   contactName?: unknown;
+  firstName?: unknown;
+  lastName?: unknown;
   contactTitle?: unknown;
   contactEmail?: unknown;
   contactPhone?: unknown;
+  postCode?: unknown;
+  dateOfBirth?: unknown;
+  consentPdc?: unknown;
+  consentMrVegas?: unknown;
   sportOrSector?: unknown;
   organizationSize?: unknown;
   message?: unknown;
+  campaign?: unknown;
   // Honeypot anti-spam field — must remain empty for legitimate human submissions
   companyFaxHoneypot?: unknown;
 };
@@ -23,12 +30,19 @@ export type ValidatedInboundFormSubmission = {
   country: string;
   region: string;
   contactName: string;
+  firstName?: string;
+  lastName?: string;
   contactTitle: string;
   contactEmail: string;
   contactPhone: string;
+  postCode?: string;
+  dateOfBirth?: string;
+  consentPdc?: boolean;
+  consentMrVegas?: boolean;
   sportOrSector: string;
   organizationSize: 'Small' | 'Medium' | 'Large' | 'Enterprise' | '';
   message: string;
+  campaign?: string;
   honeypotTriggered: boolean;
 };
 
@@ -152,25 +166,41 @@ export function validateInboundFormSubmission(
   }
 
   const honeypot = typeof input.companyFaxHoneypot === 'string' ? input.companyFaxHoneypot.trim() : '';
-  const entityName = typeof input.entityName === 'string' ? input.entityName.trim().slice(0, 200) : '';
-  const contactName = typeof input.contactName === 'string' ? input.contactName.trim().slice(0, 140) : '';
+  const rawFirstName = typeof input.firstName === 'string' ? input.firstName.trim().slice(0, 70) : '';
+  const rawLastName = typeof input.lastName === 'string' ? input.lastName.trim().slice(0, 70) : '';
+  let contactName = typeof input.contactName === 'string' ? input.contactName.trim().slice(0, 140) : '';
+  if (!contactName && (rawFirstName || rawLastName)) {
+    contactName = `${rawFirstName} ${rawLastName}`.trim();
+  }
+
+  let entityName = typeof input.entityName === 'string' ? input.entityName.trim().slice(0, 200) : '';
+  // Fall back to contactName only if raw entityName was completely undefined/omitted (e.g. from individual contest landing page)
+  if (input.entityName === undefined && contactName) {
+    entityName = `${contactName} (Individual)`;
+  }
+
   const contactEmail = typeof input.contactEmail === 'string' ? input.contactEmail.trim().toLowerCase().slice(0, 180) : '';
   const contactTitle = typeof input.contactTitle === 'string' ? input.contactTitle.trim().slice(0, 140) : '';
   const contactPhone = typeof input.contactPhone === 'string' ? input.contactPhone.trim().slice(0, 60) : '';
   const rawWebsite = typeof input.websiteUrl === 'string' ? input.websiteUrl.trim().slice(0, 300) : '';
   const rawCountry = typeof input.country === 'string' ? input.country.trim() : '';
+  const postCode = typeof input.postCode === 'string' ? input.postCode.trim().slice(0, 30) : '';
+  const dateOfBirth = typeof input.dateOfBirth === 'string' ? input.dateOfBirth.trim().slice(0, 30) : '';
+  const consentPdc = input.consentPdc === true || input.consentPdc === 'true' || input.consentPdc === '1' || input.consentPdc === 1;
+  const consentMrVegas = input.consentMrVegas === true || input.consentMrVegas === 'true' || input.consentMrVegas === '1' || input.consentMrVegas === 1;
   const sportOrSector = typeof input.sportOrSector === 'string' ? input.sportOrSector.trim().slice(0, 120) : '';
   const rawSize = typeof input.organizationSize === 'string' ? input.organizationSize.trim() : '';
   const message = typeof input.message === 'string' ? input.message.trim().slice(0, 2000) : '';
+  const campaign = typeof input.campaign === 'string' ? input.campaign.trim().slice(0, 100) : '';
 
   if (!entityName) {
-    return { ok: false, error: 'Organization or club name is required' };
+    return { ok: false, error: 'Organization or contact name is required' };
   }
   if (!contactName) {
     return { ok: false, error: 'Your full name is required' };
   }
   if (!contactEmail || !EMAIL_RE.test(contactEmail)) {
-    return { ok: false, error: 'A valid business email address is required' };
+    return { ok: false, error: 'A valid email address is required' };
   }
 
   const websiteUrl = normalizeWebsiteUrl(rawWebsite, contactEmail);
@@ -188,12 +218,19 @@ export function validateInboundFormSubmission(
       country,
       region,
       contactName,
-      contactTitle: contactTitle || 'Inbound Inquiry Contact',
+      ...(rawFirstName ? { firstName: rawFirstName } : {}),
+      ...(rawLastName ? { lastName: rawLastName } : {}),
+      contactTitle: contactTitle || 'Lead Contact',
       contactEmail,
       contactPhone,
+      ...(postCode ? { postCode } : {}),
+      ...(dateOfBirth ? { dateOfBirth } : {}),
+      ...(consentPdc !== undefined ? { consentPdc } : {}),
+      ...(consentMrVegas !== undefined ? { consentMrVegas } : {}),
       sportOrSector,
       organizationSize,
       message,
+      ...(campaign ? { campaign } : {}),
       honeypotTriggered: honeypot.length > 0,
     },
   };
@@ -224,13 +261,25 @@ export function buildInboundLeadRecord(params: {
 
   const contact = {
     name: submission.contactName,
-    title: submission.contactTitle || 'Inbound Inquiry Contact',
+    title: submission.contactTitle || 'Lead Contact',
     email: submission.contactEmail,
     ...(submission.contactPhone ? { phone: submission.contactPhone } : {}),
     isDecisionMaker: true,
     buyingRole: 'champion' as const,
     lastVerifiedAt: nowIso,
   };
+
+  const extraNotes: string[] = [];
+  if (submission.postCode) extraNotes.push(`Post Code: ${submission.postCode}`);
+  if (submission.dateOfBirth) extraNotes.push(`DOB: ${submission.dateOfBirth}`);
+  if (submission.consentPdc !== undefined) extraNotes.push(`PDC Email Opt-in: ${submission.consentPdc ? 'Yes' : 'No'}`);
+  if (submission.consentMrVegas !== undefined) extraNotes.push(`Mr Vegas Promo Opt-in: ${submission.consentMrVegas ? 'Yes' : 'No'}`);
+  if (submission.campaign) extraNotes.push(`Campaign: ${submission.campaign}`);
+  const extraNotesStr = extraNotes.length > 0 ? ` [${extraNotes.join(' | ')}]` : '';
+
+  const fullNote = submission.message
+    ? `[Inbound Form ${nowIso.slice(0, 10)}] ${submission.contactName} (${submission.contactEmail}): ${submission.message}${extraNotesStr}`
+    : `[Inbound Form ${nowIso.slice(0, 10)}] Submitted by ${submission.contactName} (${submission.contactEmail}).${extraNotesStr}`;
 
   return {
     id: now.getTime(),
@@ -240,31 +289,36 @@ export function buildInboundLeadRecord(params: {
     url: submission.websiteUrl,
     contacts: [contact],
     contactEmails: [submission.contactEmail],
-    address: '',
+    address: submission.postCode || '',
     general_contact: submission.contactEmail,
     size: submission.organizationSize,
-    industry: submission.sportOrSector || 'Inbound Web Inquiry',
+    industry: submission.sportOrSector || (submission.campaign ? `Campaign: ${submission.campaign}` : 'Inbound Web Inquiry'),
     sport_or_sector: submission.sportOrSector || '',
     level_league: '',
-    pros: submission.message ? [`Inbound inquiry: ${submission.message.slice(0, 240)}`] : ['Inbound web inquiry'],
+    pros: submission.message ? [`Inbound inquiry: ${submission.message.slice(0, 240)}`] : ['Inbound web lead collector inquiry'],
     cons: [],
-    value_proposition: submission.message || `Inbound web form inquiry from ${submission.contactName} (${submission.entityName}).`,
+    value_proposition: submission.message || `Inbound inquiry from ${submission.contactName} (${submission.entityName}).${extraNotesStr}`,
     recommended_tier: '',
     estimated_participants: 0,
     estimated_annual_revenue_usd: 0,
     revenue_model: '',
-    product_fit_notes: submission.message || '',
+    product_fit_notes: submission.message || (submission.campaign ? `Acquired via ${submission.campaign}` : ''),
     pricingByCompany: {},
     ...(ticketSizeEstimate ? { ticketSizeEstimate } : {}),
     ...(assignedTo ? { assignedTo } : {}),
     status: 'new',
-    notes: submission.message
-      ? `[Inbound Form ${nowIso.slice(0, 10)}] ${submission.contactName} (${submission.contactEmail}): ${submission.message}`
-      : `[Inbound Form ${nowIso.slice(0, 10)}] Submitted by ${submission.contactName} (${submission.contactEmail}).`,
-    tags: [],
+    notes: fullNote,
+    tags: submission.campaign ? [submission.campaign] : [],
     deals: [],
     checklist: [],
-    source: 'inbound',
+    source: submission.campaign ? `landing_${submission.campaign}` : 'inbound',
+    campaign: submission.campaign,
+    extraFields: {
+      postCode: submission.postCode,
+      dateOfBirth: submission.dateOfBirth,
+      consentPdc: submission.consentPdc,
+      consentMrVegas: submission.consentMrVegas,
+    },
     fieldVerifications: [],
     kanbanColumn: 'DISCOVERED',
     sortOrder,
@@ -278,7 +332,7 @@ export function buildInboundLeadRecord(params: {
     declineCount: 0,
     acceptanceCount: 0,
     nextActionDueAt: nowIso,
-    nextActionNote: `Respond to inbound inquiry from ${submission.contactName}`,
+    nextActionNote: `Respond to lead inquiry from ${submission.contactName}`,
     createdAt: now,
     updatedAt: now,
   };

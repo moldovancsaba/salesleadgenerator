@@ -16,7 +16,7 @@ Last synced: 2026-11-06. Delivered and closed in v2.4.368: #327 ([Rebranding]: R
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
-*(None currently in progress)*
+| [#328](https://github.com/moldovancsaba/salesleadgenerator/issues/328) | feat(landing): client landing page lead collector & Vegas Grand Slam campaign | P1 | High-converting Lead Collector Landing Page system with Mr Vegas Grand Slam of Darts campaign and Vegas client workspace onboarding. |
 
 ## Ready (unblocked, unstarted)
 

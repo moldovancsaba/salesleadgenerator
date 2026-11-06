@@ -61,6 +61,10 @@ describe('resolveBrand', () => {
     expect(await resolveBrand('egm')).toBe('egm');
     expect(await resolveBrand('egmsales')).toBe('egm');
     expect(await resolveBrand('egm-studio')).toBe('egm');
+    expect(await resolveBrand('vegas')).toBe('vegas');
+    expect(await resolveBrand('mrvegas')).toBe('vegas');
+    expect(await resolveBrand('mr-vegas')).toBe('vegas');
+    expect(await resolveBrand('vegassales')).toBe('vegas');
   });
 
   it('is case-insensitive', async () => {
@@ -70,6 +74,8 @@ describe('resolveBrand', () => {
     expect(await resolveBrand('Racket-Land')).toBe('racket-land');
     expect(await resolveBrand('Racket.Land')).toBe('racket-land');
     expect(await resolveBrand('EGM')).toBe('egm');
+    expect(await resolveBrand('Vegas')).toBe('vegas');
+    expect(await resolveBrand('MrVegas')).toBe('vegas');
   });
 
   it('still defaults to cogmap for a genuinely empty/absent value (distinct from an invalid one)', async () => {
@@ -103,7 +109,7 @@ describe('getBrandConfig / getAllBrandConfigs (issue 195)', () => {
 
   it('getAllBrandConfigs returns exactly the fallback brands when the collection is empty/unavailable', async () => {
     const all = await getAllBrandConfigs();
-    expect(Object.keys(all).sort()).toEqual(['cogmap', 'dvsc', 'egm', 'racket-land', 'seyu']);
+    expect(Object.keys(all).sort()).toEqual(['cogmap', 'dvsc', 'egm', 'racket-land', 'seyu', 'vegas']);
   });
 });
 
