@@ -8,9 +8,10 @@ import { getBrandConfig } from './brand';
 const VALID_SIZE_TIERS: TicketSizeTier[] = ['Small', 'Medium', 'Large', 'Enterprise'];
 
 function toProductInputs(products: ProductLine[]): TicketSizeProductInput[] {
+  if (!Array.isArray(products)) return [];
   return products.map((p) => ({
-    customerSize: p.customerSize,
-    perUnitRate: p.pricing.perUserTypical ?? p.pricing.perUserPrice,
+    customerSize: p?.customerSize,
+    perUnitRate: p?.pricing?.perUserTypical ?? p?.pricing?.perUserPrice,
   }));
 }
 
