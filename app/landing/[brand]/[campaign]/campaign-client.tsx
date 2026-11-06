@@ -139,13 +139,14 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
             overflow: 'hidden',
           }}
         >
-          {/* Header Banner - Full Width Image Container */}
-          <Box style={{ position: 'relative', width: '100%', aspectRatio: '16/9', backgroundColor: '#000' }}>
+          {/* Header Banner - Full Width Image Container without cropping */}
+          <Box style={{ position: 'relative', width: '100%', aspectRatio: '1248/562', backgroundColor: '#000' }}>
             <Image
               src="https://i.emlfiles.com/cmpimg/2/1/3/3/3/2/files/imagecache/25939/w1248_1861178_ga-ticket-giveaway-mrv.jpg"
               alt="Mr Vegas Grand Slam of Darts Ticket Giveaway"
               fill
-              style={{ objectFit: 'cover' }}
+              sizes="(max-width: 640px) 100vw, 640px"
+              style={{ objectFit: 'contain' }}
               priority
               unoptimized
             />
@@ -253,115 +254,108 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                     style={{ display: 'none' }}
                   />
 
-                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                    <TextInput
-                      label={<Text size="sm" fw={600} c="gray.3">First Name</Text>}
-                      placeholder="e.g. John"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      required
-                      size="md"
-                      styles={{
-                        input: {
-                          backgroundColor: '#161922',
-                          borderColor: 'rgba(255, 255, 255, 0.15)',
-                          color: '#fff',
-                        },
-                      }}
-                    />
-
-                    <TextInput
-                      label={<Text size="sm" fw={600} c="gray.3">Last Name</Text>}
-                      placeholder="e.g. Smith"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      required
-                      size="md"
-                      styles={{
-                        input: {
-                          backgroundColor: '#161922',
-                          borderColor: 'rgba(255, 255, 255, 0.15)',
-                          color: '#fff',
-                        },
-                      }}
-                    />
-                  </SimpleGrid>
-
-                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                    <Select
-                      label={<Text size="sm" fw={600} c="gray.3">Country</Text>}
-                      data={countrySelectData}
-                      value={country}
-                      onChange={setCountry}
-                      searchable
-                      required
-                      size="md"
-                      styles={{
-                        input: {
-                          backgroundColor: '#161922',
-                          borderColor: 'rgba(255, 255, 255, 0.15)',
-                          color: '#fff',
-                        },
-                        dropdown: {
-                          backgroundColor: '#161922',
-                          borderColor: 'rgba(255, 255, 255, 0.2)',
-                        },
-                      }}
-                    />
-
-                    <TextInput
-                      label={<Text size="sm" fw={600} c="gray.3">Post Code</Text>}
-                      placeholder="e.g. WV6 9NW"
-                      value={postCode}
-                      onChange={(e) => setPostCode(e.target.value)}
-                      required
-                      size="md"
-                      styles={{
-                        input: {
-                          backgroundColor: '#161922',
-                          borderColor: 'rgba(255, 255, 255, 0.15)',
-                          color: '#fff',
-                        },
-                      }}
-                    />
-                  </SimpleGrid>
-
-                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                    <TextInput
-                      label={<Text size="sm" fw={600} c="gray.3">Date of Birth</Text>}
-                      description={<Text size="xs" c="dimmed">YYYY-MM-DD (18+ only)</Text>}
-                      placeholder="e.g. 1995-04-20"
-                      value={dateOfBirth}
-                      onChange={(e) => setDateOfBirth(e.target.value)}
-                      required
-                      size="md"
-                      styles={{
-                        input: {
-                          backgroundColor: '#161922',
-                          borderColor: 'rgba(255, 255, 255, 0.15)',
-                          color: '#fff',
-                        },
-                      }}
-                    />
-
-                    <TextInput
-                      label={<Text size="sm" fw={600} c="gray.3">Phone Number</Text>}
-                      placeholder="+44 7123 456789"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      size="md"
-                      styles={{
-                        input: {
-                          backgroundColor: '#161922',
-                          borderColor: 'rgba(255, 255, 255, 0.15)',
-                          color: '#fff',
-                        },
-                      }}
-                    />
-                  </SimpleGrid>
+                  <TextInput
+                    label={<Text size="sm" fw={600} c="gray.3">First Name *</Text>}
+                    placeholder="e.g. John"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                    size="md"
+                    styles={{
+                      input: {
+                        backgroundColor: '#161922',
+                        borderColor: 'rgba(255, 255, 255, 0.15)',
+                        color: '#fff',
+                      },
+                    }}
+                  />
 
                   <TextInput
-                    label={<Text size="sm" fw={600} c="gray.3">Contact Email</Text>}
+                    label={<Text size="sm" fw={600} c="gray.3">Last Name</Text>}
+                    placeholder="e.g. Smith"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    size="md"
+                    styles={{
+                      input: {
+                        backgroundColor: '#161922',
+                        borderColor: 'rgba(255, 255, 255, 0.15)',
+                        color: '#fff',
+                      },
+                    }}
+                  />
+
+                  <Select
+                    label={<Text size="sm" fw={600} c="gray.3">Country *</Text>}
+                    data={countrySelectData}
+                    value={country}
+                    onChange={setCountry}
+                    searchable
+                    required
+                    size="md"
+                    styles={{
+                      input: {
+                        backgroundColor: '#161922',
+                        borderColor: 'rgba(255, 255, 255, 0.15)',
+                        color: '#fff',
+                      },
+                      dropdown: {
+                        backgroundColor: '#161922',
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                      },
+                    }}
+                  />
+
+                  <TextInput
+                    label={<Text size="sm" fw={600} c="gray.3">Post Code *</Text>}
+                    placeholder="e.g. WV6 9NW"
+                    value={postCode}
+                    onChange={(e) => setPostCode(e.target.value)}
+                    required
+                    size="md"
+                    styles={{
+                      input: {
+                        backgroundColor: '#161922',
+                        borderColor: 'rgba(255, 255, 255, 0.15)',
+                        color: '#fff',
+                      },
+                    }}
+                  />
+
+                  <TextInput
+                    label={<Text size="sm" fw={600} c="gray.3">Date of Birth (please select from the calendar) *</Text>}
+                    description={<Text size="xs" c="dimmed">YYYY-MM-DD (18+ only)</Text>}
+                    placeholder="YYYY-MM-DD"
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
+                    required
+                    size="md"
+                    styles={{
+                      input: {
+                        backgroundColor: '#161922',
+                        borderColor: 'rgba(255, 255, 255, 0.15)',
+                        color: '#fff',
+                      },
+                    }}
+                  />
+
+                  <TextInput
+                    label={<Text size="sm" fw={600} c="gray.3">Phone Number</Text>}
+                    placeholder="+44 7123 456789"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    size="md"
+                    styles={{
+                      input: {
+                        backgroundColor: '#161922',
+                        borderColor: 'rgba(255, 255, 255, 0.15)',
+                        color: '#fff',
+                      },
+                    }}
+                  />
+
+                  <TextInput
+                    label={<Text size="sm" fw={600} c="gray.3">Contact Email *</Text>}
                     placeholder="john.smith@example.com"
                     type="email"
                     value={email}
