@@ -16,7 +16,7 @@ Last synced: 2026-11-06. Delivered and closed in v2.4.368: #327 ([Rebranding]: R
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
-| [#328](https://github.com/moldovancsaba/salesleadgenerator/issues/328) | feat(landing): client landing page lead collector & Vegas Grand Slam campaign | P1 | High-converting Lead Collector Landing Page system with Mr Vegas Grand Slam of Darts campaign and Vegas client workspace onboarding. |
+*(None currently in progress)*
 
 ## Ready (unblocked, unstarted)
 
@@ -40,6 +40,7 @@ Last synced: 2026-11-06. Delivered and closed in v2.4.368: #327 ([Rebranding]: R
 
 | # | Title | Resolution |
 |---|---|---|
+| [#328](https://github.com/moldovancsaba/salesleadgenerator/issues/328) | feat(landing): client landing page lead collector & Vegas Grand Slam campaign | Fixed 2.4.369, shipped to `main`. Built bespoke Lead Collector Landing Page system with Mr Vegas Grand Slam of Darts campaign (`/landing/vegas/grand-slam-of-darts`). Onboarded client "Vegas" (`vegas`, Mr Vegas) in brand constants, company sales settings, catalog products, and user SSO access. Extended inbound form submission to capture campaign tags, post codes, dates of birth, PDC & Mr Vegas opt-ins, and honeypot bot trap with auto-deduplication. Tested in `tests/lib/landing-page-collector.test.ts`. |
 | [#327](https://github.com/moldovancsaba/salesleadgenerator/issues/327) | [Rebranding]: Rebrand padel-africa to racket.land across brand registry, sales settings, and outreach | Fixed 2.4.368, shipped to `main`. Rebranded padel-africa to Racket.land (`racket-land` slug, `https://racket.land`), updated brand registry and aliases, converted catalog to pure digital services (Directory Listing Showcase, Court Booking & Venue Operations SaaS, Tournament & League Management Platform, Federation Digital Rating & Membership Infrastructure), updated outreach templates and webhooks, while preserving backward compatibility. Tests in `tests/lib/brand.test.ts` and `tests/lib/padel-listings-sync.test.ts`. |
 | [#325](https://github.com/moldovancsaba/salesleadgenerator/issues/325) | [Navigation & Routing]: Smart primary organization resolver for bare workspace routes /today, /inbox, /sales, etc. | Fixed 2.4.367, shipped to `main`. Added smart root route handlers across all 11 workspace sections (/today, /inbox, /sales, /contacts, etc.) to resolve the user's primary accessible brand and redirect, eliminating 404s on bare URLs. Tests in `tests/lib/bare-routes-redirect.test.ts`. |
 | [#324](https://github.com/moldovancsaba/salesleadgenerator/issues/324) | [Docs & UI Reconciliation]: Standardize Canonical Domain, Unified What's New Routing, and Tenant Documentation | Fixed 2.4.366, shipped to `main`. Unified What's New links in AppHeader and release share generator, replaced legacy domain with `sales.haho.ai` across user guides/policies, harmonized product catalog routes, and documented all 5 tenants. Tests in `tests/lib/docs-ui-consistency.test.ts`. |
