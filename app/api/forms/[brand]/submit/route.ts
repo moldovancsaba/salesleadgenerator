@@ -213,6 +213,6 @@ export async function POST(
     );
   } catch (error: any) {
     console.error('[API:forms/submit] POST error:', error);
-    return NextResponse.json({ error: 'Failed to submit inquiry' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to submit inquiry' }, { status: 500 });
   }
 }
