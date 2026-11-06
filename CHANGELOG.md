@@ -1,5 +1,22 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.368
+
+### Rebranding: Padel Africa to Racket.land Digital Services
+
+- **Tenant Rebrand & Domain Alignment (Issue #327, `app/lib/brand-constants.ts`, `app/lib/brand.ts`, `tests/lib/brand.test.ts`):**
+  - Rebranded tenant `padel-africa` to **Racket.land** (`racket-land` slug with `https://racket.land` canonical web domain).
+  - Maintained complete backward compatibility for existing `padel-africa` bookmark routes, historical collections (`padel_africa_leads`), and API alias resolution.
+- **Sales Offerings & Pure Digital Services (Issue #327, `scripts/rebrand-racket-land.ts`, `docs/USER_GUIDE.md`):**
+  - Updated catalog offerings and sales settings for Racket.land to reflect pure digital services across venues, federations, and organizations providing activities around racket sports (tennis, padel, pickleball, squash, badminton, etc.):
+    - Directory Listing Showcase (`https://racket.land`)
+    - Court Booking & Venue Operations SaaS
+    - Tournament & League Management Platform
+    - Federation Digital Rating & Membership Infrastructure
+- **Outreach & Webhook Synchronization (Issue #327, `app/lib/outreach/default-templates.ts`, `app/components/PhoneActions.tsx`, `lib/padel-listings-sync.ts`, `app/api/webhooks/management-listing/route.ts`, `lib/mcp/server.ts`):**
+  - Added dedicated outreach email and LinkedIn templates for Racket.land directory showcases, booking SaaS, and tournament management.
+  - Updated default call talk tracks and webhook handlers to ingest racket sports listings and generate canonical `https://racket.land/listing/...` URLs.
+
 ## 2.4.367
 
 ### Routing & Navigation Resilience: Smart Brand Resolution for Bare URLs

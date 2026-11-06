@@ -688,12 +688,12 @@ export async function executeMcpTool(
 
       case 'slg_pull_management_listings': {
         const { brand } = args;
-        if (brand !== 'padel-africa') {
+        if (brand !== 'racket-land' && brand !== 'padel-africa') {
           return {
             content: [
               {
                 type: 'text',
-                text: `slg_pull_management_listings is only applicable to brand "padel-africa" (received: "${brand}")`,
+                text: `slg_pull_management_listings is only applicable to brand "racket-land" or "padel-africa" (received: "${brand}")`,
               },
             ],
             isError: true,

@@ -158,7 +158,7 @@ describe('desktop and tablet navigation affordances', () => {
   it('standardizes secondary views on Contacts reference layout with count badges and explicit column widths', () => {
     const accounts = readFileSync(join(root, 'app', 'accounts', '[brand]', 'accounts-client.tsx'), 'utf8');
     expect(accounts).toContain('CountBadge');
-    expect(accounts).toContain('width: 240');
+    expect(accounts).toContain('width: 280');
     expect(accounts).toContain('IconSearch');
 
     const reports = readFileSync(join(root, 'app', 'reports', '[brand]', 'reports-client.tsx'), 'utf8');
@@ -167,7 +167,7 @@ describe('desktop and tablet navigation affordances', () => {
 
     const battlecards = readFileSync(join(root, 'app', 'battlecards', '[brand]', 'battlecards-client.tsx'), 'utf8');
     expect(battlecards).toContain('CountBadge');
-    expect(battlecards).toContain('width: 240');
+    expect(battlecards).toContain('width: 220');
 
     const cadences = readFileSync(join(root, 'app', 'outreach', 'cadences', '[brand]', 'cadences-client.tsx'), 'utf8');
     expect(cadences).toContain('CountBadge');

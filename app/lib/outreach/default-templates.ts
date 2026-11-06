@@ -195,54 +195,127 @@ Best,`,
     variables: ['entity_name', 'contact_name', 'value_proposition'],
     tags: ['sponsorship', 'corporate'],
   },
-  // --- Padel Africa Venue Outreach Templates (Issue #302) ---
+  // --- Racket.land Digital Services & Venue Directory Outreach Templates ---
+  {
+    id: 'racket-land-directory-showcase',
+    name: 'Racket Venue — Directory Listing & Digital Showcase',
+    brand: 'racket-land',
+    channel: 'email',
+    industry: 'Racket Sports Venue',
+    subject: 'Showcasing {entity_name} on Racket.land directory',
+    body: `Hi {contact_name},
+
+I’m reaching out from Racket.land (https://racket.land), the premier global directory and digital platform for racket sports venues (tennis, padel, pickleball, and squash).
+
+We’ve featured {entity_name} in our venue index to help local players discover your courts, leagues, and coaching programs. Our digital showcase provides online verification, player reviews, and direct booking links.
+
+Would you be open to a quick call to ensure your venue profile, court details, and booking links are fully up to date?
+
+Best regards,
+Racket.land Team`,
+    variables: ['entity_name', 'contact_name', 'country', 'region'],
+    tags: ['racket', 'directory', 'listing', 'digital-services'],
+  },
+  {
+    id: 'racket-land-saas-booking',
+    name: 'Racket Club — Digital Court Booking & Venue Operations SaaS',
+    brand: 'racket-land',
+    channel: 'email',
+    industry: 'Racket Sports Venue',
+    subject: 'Streamlining online court reservations & player retention at {entity_name}',
+    body: `Hi {contact_name},
+
+I’m reaching out from Racket.land (https://racket.land). We provide dedicated digital infrastructure and online court management software for tennis, padel, and pickleball clubs.
+
+For {entity_name}, our digital platform automates player court bookings, processes online payments, manages memberships, and boosts off-peak court occupancy without transaction friction.
+
+Would you be open to a 10-minute demo to see how modern racket venues are growing member engagement with our digital tools?
+
+Best regards,
+Racket.land Partnerships Team`,
+    variables: ['entity_name', 'contact_name', 'country'],
+    tags: ['racket', 'saas', 'booking', 'digital-services', 'tennis', 'padel', 'pickleball'],
+  },
+  {
+    id: 'racket-land-federation-tournaments',
+    name: 'Federation & Organizer — Digital Tournament & Rating Infrastructure',
+    brand: 'racket-land',
+    channel: 'email',
+    industry: 'Federation & Association',
+    subject: 'Digital tournament & player rating platform for {entity_name}',
+    body: `Hi {contact_name},
+
+Racket.land provides modern digital infrastructure for racket sports federations, leagues, and tournament organizers across tennis, padel, and pickleball.
+
+Our digital platform powers automated tournament brackets, live scoring, sanctioned player rankings, and venue scheduling across affiliated clubs.
+
+I’d love to share how we can support {entity_name} in digitizing your competitive circuits and member services.
+
+Best regards,
+Racket.land Federation Services`,
+    variables: ['entity_name', 'contact_name'],
+    tags: ['federation', 'tournaments', 'digital-infrastructure', 'ratings'],
+  },
+  {
+    id: 'racket-land-quick-connect',
+    name: 'Racket Venue — Quick Digital Connect',
+    brand: 'racket-land',
+    channel: 'linkedin',
+    industry: 'Racket Sports Facility',
+    body: `Hi {contact_name}, noticed your courts at {entity_name}. At Racket.land (https://racket.land), we help tennis, padel, and pickleball venues boost court bookings and player discovery with modern digital tools. Would love to connect!`,
+    variables: ['entity_name', 'contact_name'],
+    tags: ['racket', 'quick-connect', 'digital-services'],
+  },
+  // Backward compatibility templates for padel-africa slug
   {
     id: 'padel-africa-saas-booking',
-    name: 'Padel Club — WhatsApp Player Booking & Court SaaS',
+    name: 'Racket.land — Court Booking & Digital Services',
     brand: 'padel-africa',
     channel: 'email',
     industry: 'Sports Facility',
     subject: 'Automating court bookings & player retention at {entity_name}',
     body: `Hi {contact_name},
 
-I’m reaching out from Padel Africa. We work with leading padel facilities across the continent to replace manual WhatsApp phone booking with automated WhatsApp bot bookings and court management software.
+I’m reaching out from Racket.land (https://racket.land). We work with racket sports venues and padel clubs to provide online court reservations, digital venue showcase, and club management software.
 
-For {entity_name}, our platform eliminates double-bookings, processes local mobile money and card payments, and fills off-peak court hours automatically.
+For {entity_name}, our platform eliminates double-bookings, processes online payments, and fills off-peak court hours automatically.
 
-Would you be open to a 10-minute demo to see how clubs in your region are growing their court utilization?
+Would you be open to a 10-minute demo to see how clubs in your region are growing court utilization with Racket.land?
 
-Best regards,`,
+Best regards,
+Racket.land Team`,
     variables: ['entity_name', 'contact_name', 'country', 'region'],
-    tags: ['padel', 'saas', 'booking', 'whatsapp', 'automation'],
+    tags: ['racket', 'saas', 'booking', 'digital'],
   },
   {
     id: 'padel-africa-court-expansion',
-    name: 'Padel Club — Panoramic Court Installation & Pro Shop Wholesale',
+    name: 'Racket.land — Venue Digital Directory & Listing Showcase',
     brand: 'padel-africa',
     channel: 'email',
     industry: 'Sports Facility',
-    subject: 'Court expansion & equipment supply for {entity_name}',
+    subject: 'Featuring {entity_name} on Racket.land directory',
     body: `Hi {contact_name},
 
-As padel participation accelerates across Africa, clubs like {entity_name} have an incredible opportunity to expand court capacity and pro-shop margins.
+We feature premier racket sports venues on Racket.land (https://racket.land) to connect clubs like {entity_name} with active tennis, padel, and pickleball players.
 
-Padel Africa provides turnkey panoramic padel court construction, premium turf installation, and direct wholesale pricing on rackets, balls, and court accessories.
+Our digital listing showcase provides player discovery, direct booking integration, and tournament promotion.
 
-Could we schedule a quick call this week to share our 2026 court specs and wholesale pricing catalog?
+Could we schedule a quick call this week to review your venue listing?
 
-Best regards,`,
+Best regards,
+Racket.land Team`,
     variables: ['entity_name', 'contact_name', 'country'],
-    tags: ['padel', 'courts', 'installation', 'equipment', 'wholesale'],
+    tags: ['racket', 'directory', 'digital-services'],
   },
   {
     id: 'padel-africa-whatsapp-quick',
-    name: 'Padel Club — WhatsApp Quick Outreach',
+    name: 'Racket.land — Quick Outreach',
     brand: 'padel-africa',
     channel: 'linkedin',
     industry: 'Sports Facility',
-    body: `Hi {contact_name}, noticed your courts at {entity_name}. We help padel operators across Africa automate player bookings via WhatsApp and boost court occupancy. Would love to share how clubs in your area are doing it!`,
+    body: `Hi {contact_name}, noticed your courts at {entity_name}. At Racket.land (https://racket.land), we help racket venues boost court occupancy and player discovery with modern digital services. Would love to connect!`,
     variables: ['entity_name', 'contact_name'],
-    tags: ['padel', 'whatsapp', 'quick-connect'],
+    tags: ['racket', 'quick-connect'],
   },
   // --- EGM Studio Outreach Templates ---
   {

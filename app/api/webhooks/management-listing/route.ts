@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       listing: PadelListing;
     };
 
-    if (vertical && vertical !== 'padel-africa') {
+    if (vertical && vertical !== 'padel-africa' && vertical !== 'racket-land' && vertical !== 'racket.land') {
       return NextResponse.json({ ok: true, ignored: true, reason: `Ignored vertical: ${vertical}` });
     }
 

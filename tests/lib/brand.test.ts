@@ -55,6 +55,9 @@ describe('resolveBrand', () => {
     expect(await resolveBrand('padel-africa')).toBe('padel-africa');
     expect(await resolveBrand('padelafrica')).toBe('padel-africa');
     expect(await resolveBrand('padelafricasales')).toBe('padel-africa');
+    expect(await resolveBrand('racket-land')).toBe('racket-land');
+    expect(await resolveBrand('racket.land')).toBe('racket-land');
+    expect(await resolveBrand('racketland')).toBe('racket-land');
     expect(await resolveBrand('egm')).toBe('egm');
     expect(await resolveBrand('egmsales')).toBe('egm');
     expect(await resolveBrand('egm-studio')).toBe('egm');
@@ -64,6 +67,8 @@ describe('resolveBrand', () => {
     expect(await resolveBrand('DVSC')).toBe('dvsc');
     expect(await resolveBrand('CogMap')).toBe('cogmap');
     expect(await resolveBrand('Padel-Africa')).toBe('padel-africa');
+    expect(await resolveBrand('Racket-Land')).toBe('racket-land');
+    expect(await resolveBrand('Racket.Land')).toBe('racket-land');
     expect(await resolveBrand('EGM')).toBe('egm');
   });
 
@@ -87,9 +92,14 @@ describe('getBrandConfig / getAllBrandConfigs (issue 195)', () => {
     expect(config?.dbCollection).toBe('leads');
 
     const padelConfig = await getBrandConfig('padel-africa');
-    expect(padelConfig?.label).toBe('Padel Africa');
+    expect(padelConfig?.label).toBe('Racket.land');
     expect(padelConfig?.currency).toBe('EUR');
     expect(padelConfig?.dbCollection).toBe('padel_africa_leads');
+
+    const racketConfig = await getBrandConfig('racket-land');
+    expect(racketConfig?.label).toBe('Racket.land');
+    expect(racketConfig?.currency).toBe('EUR');
+    expect(racketConfig?.dbCollection).toBe('padel_africa_leads');
   });
 
   it('getBrandConfig returns null for an unknown brand', async () => {
@@ -98,7 +108,7 @@ describe('getBrandConfig / getAllBrandConfigs (issue 195)', () => {
 
   it('getAllBrandConfigs returns exactly the fallback brands when the collection is empty/unavailable', async () => {
     const all = await getAllBrandConfigs();
-    expect(Object.keys(all).sort()).toEqual(['cogmap', 'dvsc', 'egm', 'padel-africa', 'seyu']);
+    expect(Object.keys(all).sort()).toEqual(['cogmap', 'dvsc', 'egm', 'padel-africa', 'racket-land', 'seyu']);
   });
 });
 

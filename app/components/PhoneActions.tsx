@@ -40,8 +40,8 @@ export function PhoneActions({
   }
 
   const cleanPhone = phone.trim()
-  const defaultText = brand === 'padel-africa'
-    ? `Hi${contactName ? ` ${contactName}` : ''}, reaching out from Padel Africa regarding ${entityName || 'your padel club'}! We help clubs automate player bookings via WhatsApp and provide turnkey court supply.`
+  const defaultText = brand === 'racket-land' || brand === 'padel-africa'
+    ? `Hi${contactName ? ` ${contactName}` : ''}, reaching out from Racket.land (https://racket.land) regarding ${entityName || 'your racket sports venue'}! We provide digital services, venue directory listings, and online court booking solutions for tennis, padel, and pickleball clubs.`
     : brand === 'egm'
     ? `Hi${contactName ? ` ${contactName}` : ''}, reaching out from EGM Studio regarding creative technology and experiential production for ${entityName || 'your brand'}!`
     : undefined

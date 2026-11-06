@@ -135,18 +135,18 @@ export function mapListingToPadelLead(listing: PadelListing, options?: { nextId?
     if (listing.source?.sourceUrl && listing.source.sourceUrl.startsWith('http')) {
       rawUrl = listing.source.sourceUrl.trim();
     } else {
-      rawUrl = `https://padel-africa.doneisbetter.com/listing/${encodeURIComponent(listing.id)}`;
+      rawUrl = `https://racket.land/listing/${encodeURIComponent(listing.id)}`;
     }
   }
 
   const phone = (listing.phone || '').trim();
   const generalContact = phone ? `Phone: ${phone}` : 'Directory Listing';
 
-  // Value proposition tailored to Padel Africa offerings
+  // Value proposition tailored to Racket.land digital offerings
   const desc = (listing.description || '').trim();
   const valueProposition = desc
-    ? `${desc} Padel Africa provides end-to-end court booking SaaS, tournament integration, pro shop wholesale supply, and turnkey panoramic court installation.`
-    : `${entityName} is a premier padel venue in ${locality ? locality + ', ' : ''}${country}. Padel Africa provides turnkey club management SaaS, WhatsApp player bookings, tournament sanctioning, and equipment supply.`;
+    ? `${desc} Racket.land provides digital venue directory listings, online court booking SaaS, tournament management, and member platforms across tennis, padel, and pickleball.`
+    : `${entityName} is a premier racket sports venue in ${locality ? locality + ', ' : ''}${country}. Racket.land provides online court booking SaaS, venue directory promotion, tournament brackets, and digital membership solutions.`;
 
   // ICE Scoring based on listing fidelity
   let impact = 6;

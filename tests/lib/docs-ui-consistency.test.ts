@@ -24,7 +24,7 @@ describe('Docs and UI Affordance Consistency (Issue #324)', () => {
     expect(guideSrc).toContain('CogMap');
     expect(guideSrc).toContain('Seyu');
     expect(guideSrc).toContain('DVSC');
-    expect(guideSrc).toContain('Padel Africa');
+    expect(guideSrc).toContain('Racket.land');
     expect(guideSrc).toContain('EGM');
     expect(guideSrc).toContain('/salessettings/[client]?tab=products');
   });
@@ -34,6 +34,6 @@ describe('Docs and UI Affordance Consistency (Issue #324)', () => {
     const readmeSrc = fs.readFileSync(readmePath, 'utf8');
     expect(readmeSrc).toContain('https://sales.haho.ai');
     expect(readmeSrc).toContain('`/whats-new`');
-    expect(readmeSrc).toContain('**Version:** 2.4.366');
+    expect(readmeSrc).toContain('**Version:** 2.4.368');
   });
 });

@@ -1,6 +1,6 @@
 # User Guide — Sales Lead Generator
 
-**Version:** 2.4.366  
+**Version:** 2.4.368  
 **Application URL:** https://sales.haho.ai (Legacy alias: salesleadgenerator.vercel.app)  
 
 Welcome to **Sales Lead Generator**, an intelligent, multi-brand CRM and sales execution platform designed for B2B sports business, corporate partnerships, and outbound pipeline operations. This guide walks you through daily workflows, lead management, communication, and pipeline tools.
@@ -35,13 +35,13 @@ Sales Lead Generator uses DoneIsBetter Single Sign-On (SSO). Click **Sign in** t
 - **CogMap**: Cognitive mapping and sports analytics solutions.
 - **Seyu**: Fan engagement, digital activations, and stadium technology.
 - **DVSC**: Club partnerships, academy scouting, and team operations.
-- **Padel Africa**: Padel club directory, SaaS court booking, and facility operations across Africa.
+- **Racket.land (formerly Padel Africa)**: Digital listing showcase, SaaS online court booking, and tournament/federation management across racket sports (tennis, padel, pickleball, squash, etc.) at `https://racket.land`.
 - **EGM (Elephant Goldfish Model)**: Strategic revenue operations, ICP targeting, and sales acceleration studio.
 
 ### Navigation Layout
 - **Desktop & Tablet (`>= 768px`)**: A docked, collapsible sidebar navigation sits on the left edge, grouped into **Core CRM** (`Today`, `Inbox`, `Pipeline`, `Contacts`, `Accounts`), **Outreach & Content** (`Cadences`, `Outreach Templates`, `Documents`, `Battlecards`), **Analytics** (`Forecast`, `Reports`), **Settings** (`Sales Settings`, `Product Catalog`, `Automation`), and **Help & Updates** (`What's New`, `Take the tour`). When the sidebar is collapsed, horizontal navigation links appear in the top header bar.
 - **Mobile (`< 768px`)**: Tap the hamburger menu (☰) in the top bar to open the navigation drawer.
-- **Version Indicator & What's New**: The live application version badge (`v2.4.366`) is displayed in the top header next to the application title and in the navigation sidebar, linking directly to the client-independent **What's New & Release Notes** blog (`/whats-new`).
+- **Version Indicator & What's New**: The live application version badge (`v2.4.368`) is displayed in the top header next to the application title and in the navigation sidebar, linking directly to the client-independent **What's New & Release Notes** blog (`/whats-new`).
 - **Brand Switcher**: If you have access to multiple brands, use the **Organization** dropdown at the top of the sidebar (or in the top header when the sidebar is collapsed) to switch workspaces instantly without duplicate controls.
 - **Full-Width Workspace**: All tables, boards, and inboxes expand to 100% display width for maximum data scannability.
 

@@ -64,7 +64,7 @@ describe('padel-listings-sync', () => {
       source: undefined,
     };
     const lead = mapListingToPadelLead(listingWithoutUrl);
-    expect(lead.url).toBe('https://padel-africa.doneisbetter.com/listing/l-openclaw-clan7-clan7.club');
+    expect(lead.url).toBe('https://racket.land/listing/l-openclaw-clan7-clan7.club');
   });
 
   it('passes SLG lead validation rules without forbidden terms for padel-africa', async () => {

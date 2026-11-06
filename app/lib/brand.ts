@@ -77,6 +77,8 @@ export async function resolveBrand(value: string | undefined | null): Promise<Br
   const normalized = String(value || '').toLowerCase();
   if (!normalized) return 'cogmap';
   const all = await getAllBrandConfigs();
+  // Exact slug match takes precedence over alias matches
+  if (all[normalized]) return normalized as Brand;
   for (const [slug, config] of Object.entries(all)) {
     if (config.aliases.includes(normalized)) return slug;
   }
@@ -92,8 +94,13 @@ export async function getForbiddenTermsFor(brand: string): Promise<string[]> {
   const normalized = String(brand || '').toLowerCase();
   const all = await getAllBrandConfigs();
   const terms = new Set<string>();
+  
+  // padel-africa and racket-land represent the same vertical/ecosystem
+  const isRacketVertical = (b: string) => b === 'padel-africa' || b === 'racket-land';
+
   for (const [slug, config] of Object.entries(all)) {
     if (slug === normalized) continue;
+    if (isRacketVertical(normalized) && isRacketVertical(slug)) continue;
     for (const term of config.ownNameTerms) terms.add(term);
   }
   return Array.from(terms);
