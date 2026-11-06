@@ -118,318 +118,248 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
     <Box
       style={{
         minHeight: '100vh',
-        backgroundColor: '#0a0b0e',
+        backgroundColor: '#07080a',
         color: '#f3f4f6',
         fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(0, 168, 98, 0.15) 0%, rgba(10, 11, 14, 0.95) 70%)',
-        paddingBottom: 64,
+        backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(0, 135, 78, 0.18) 0%, rgba(7, 8, 10, 0.98) 75%)',
+        padding: '32px 16px 64px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
       }}
     >
-      {/* Top Header Bar */}
-      <Box
-        style={{
-          borderBottom: '1px solid rgba(255, 215, 0, 0.2)',
-          backgroundColor: 'rgba(12, 13, 16, 0.85)',
-          backdropFilter: 'blur(12px)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 40,
-        }}
-      >
-        <Container size="md" py="sm">
-          <Group justify="space-between" align="center">
-            <Group gap="xs">
-              <Box
-                style={{
-                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%)',
-                  borderRadius: 8,
-                  padding: '4px 10px',
-                  boxShadow: '0 2px 10px rgba(245, 158, 11, 0.3)',
-                }}
-              >
-                <Text fw={900} size="sm" c="#000" style={{ letterSpacing: '0.05em' }}>
-                  MR VEGAS
-                </Text>
-              </Box>
-              <Text size="xs" c="dimmed" fw={600} tt="uppercase" style={{ letterSpacing: '0.08em' }}>
-                Official Title Sponsor
-              </Text>
-            </Group>
-
-            <Badge
-              variant="outline"
-              color="yellow"
-              size="lg"
-              leftSection={<IconTrophy size={14} color="#f59e0b" />}
-              style={{ borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24', textTransform: 'none' }}
-            >
-              Grand Slam of Darts
-            </Badge>
-          </Group>
-        </Container>
-      </Box>
-
-      {/* Hero Section */}
-      <Container size="md" pt="xl">
-        <Box
+      <Box style={{ width: '100%', maxWidth: 640 }}>
+        {/* Main Card with Single Seamless Frame */}
+        <Paper
+          radius="xl"
           style={{
-            borderRadius: 16,
+            backgroundColor: '#0f1117',
+            border: '1px solid rgba(255, 215, 0, 0.2)',
+            boxShadow: '0 24px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 168, 98, 0.12)',
             overflow: 'hidden',
-            border: '1px solid rgba(245, 158, 11, 0.25)',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 168, 98, 0.1)',
-            marginBottom: 32,
-            position: 'relative',
-            backgroundColor: '#12141a',
           }}
         >
-          {/* Hero Banner Media */}
-          <Box style={{ position: 'relative', width: '100%', height: 260, backgroundColor: '#090a0d' }}>
+          {/* Header Banner - Full Width Image Container */}
+          <Box style={{ position: 'relative', width: '100%', aspectRatio: '16/9', backgroundColor: '#000' }}>
             <Image
               src="https://i.emlfiles.com/cmpimg/2/1/3/3/3/2/files/imagecache/25939/w1248_1861178_ga-ticket-giveaway-mrv.jpg"
               alt="Mr Vegas Grand Slam of Darts Ticket Giveaway"
               fill
-              style={{ objectFit: 'cover', opacity: 0.85 }}
+              style={{ objectFit: 'cover' }}
               priority
               unoptimized
             />
-            <Box
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'linear-gradient(to top, #12141a 0%, rgba(18, 20, 26, 0.4) 60%, rgba(0, 0, 0, 0.2) 100%)',
-              }}
-            />
           </Box>
 
-          {/* Tournament Overview Content */}
-          <Box p={{ base: 'md', sm: 'xl' }}>
-            <Group gap="xs" mb="xs">
-              <Badge color="green" variant="filled" size="md">
-                FREE ENTRY TICKET GIVEAWAY
-              </Badge>
-              <Badge color="dark" variant="outline" size="md" c="gray.4">
-                PDC Major Event
-              </Badge>
-            </Group>
+          {/* Card Body */}
+          <Box p={{ base: 'lg', sm: 'xl' }}>
+            {/* Event Intro Copy */}
+            <Stack gap="xs" mb="xl">
+              <Text size="md" fw={700} c="#fbbf24" style={{ lineHeight: 1.4 }}>
+                Title sponsors of Grand Slam of Darts Mr Vegas are delighted to offer tickets to this year’s event.
+              </Text>
 
-            <Title
-              order={1}
-              size="h2"
-              fw={900}
-              style={{
-                color: '#ffffff',
-                lineHeight: 1.2,
-                letterSpacing: '-0.02em',
-                marginBottom: 12,
-              }}
-            >
-              Win Tickets to the Mr Vegas Grand Slam of Darts!
-            </Title>
+              <Text size="sm" c="gray.3" style={{ lineHeight: 1.6 }}>
+                Located at <strong>WV Active Aldersley</strong> between <strong>14th – 22nd November</strong>, the Mr Vegas Grand Slam of Darts promises to be another enthralling tournament where the top players in the world battle it out for the <strong>Eric Bristow Trophy</strong>.
+              </Text>
 
-            <Text size="md" c="gray.3" style={{ lineHeight: 1.6, maxWidth: 680 }} mb="md">
-              Title sponsors <strong>Mr Vegas</strong> are delighted to offer general admission tickets to this year’s prestigious tournament.
-              Witness the world’s elite darts champions battle it out live on stage for the iconic <strong>Eric Bristow Trophy</strong>.
-            </Text>
+              <Text size="sm" c="gray.3" style={{ lineHeight: 1.6 }}>
+                Simply complete the free to enter entry form for your chance to win tickets to this year&apos;s event!
+              </Text>
 
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" mb="xs">
-              <Group gap="xs" align="center">
+              <Text size="sm" fw={600} c="#10b981">
+                We look forward to seeing the lucky winners at this year&apos;s Mr Vegas Grand Slam of Darts!
+              </Text>
+            </Stack>
+
+            <Divider mb="xl" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+
+            {/* Form or Confirmation */}
+            {submitted ? (
+              <Stack align="center" gap="md" py="xl" style={{ textAlign: 'center' }}>
                 <Box
                   style={{
-                    backgroundColor: 'rgba(0, 168, 98, 0.15)',
-                    padding: 8,
-                    borderRadius: 8,
-                    border: '1px solid rgba(0, 168, 98, 0.3)',
+                    width: 68,
+                    height: 68,
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(0, 168, 98, 0.2)',
+                    border: '2px solid #10b981',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     color: '#10b981',
                   }}
                 >
-                  <IconMapPin size={18} />
+                  <IconCheck size={36} stroke={2.5} />
                 </Box>
-                <div>
-                  <Text size="xs" c="dimmed" fw={600} tt="uppercase">
-                    Venue
-                  </Text>
-                  <Text size="sm" fw={700} c="white">
-                    WV Active Aldersley, Wolverhampton
-                  </Text>
-                </div>
-              </Group>
 
-              <Group gap="xs" align="center">
-                <Box
-                  style={{
-                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                    padding: 8,
-                    borderRadius: 8,
-                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                    color: '#fbbf24',
+                <Title order={2} size="h2" fw={900} c="#10b981">
+                  Thank You for Entering!
+                </Title>
+
+                <Text size="md" c="gray.3" style={{ maxWidth: 480, lineHeight: 1.6 }}>
+                  Ensure you&apos;re following us across <strong>Facebook, Twitter, Instagram, TikTok and YouTube</strong> to stay up to date with all of the latest PDC news and competitions.
+                </Text>
+
+                <Text size="lg" fw={800} c="#fbbf24" mt="xs">
+                  Good Luck.
+                </Text>
+
+                <Button
+                  variant="outline"
+                  color="yellow"
+                  size="md"
+                  mt="md"
+                  onClick={() => {
+                    setSubmitted(false);
+                    setFirstName('');
+                    setLastName('');
+                    setEmail('');
+                    setPhone('');
                   }}
                 >
-                  <IconCalendarEvent size={18} />
-                </Box>
-                <div>
-                  <Text size="xs" c="dimmed" fw={600} tt="uppercase">
-                    Tournament Dates
-                  </Text>
-                  <Text size="sm" fw={700} c="white">
-                    14th – 22nd November
-                  </Text>
-                </div>
-              </Group>
-            </SimpleGrid>
-          </Box>
-        </Box>
+                  Submit Another Entry
+                </Button>
+              </Stack>
+            ) : (
+              <form onSubmit={handleSubmit}>
+                <Stack gap="lg">
+                  {error && (
+                    <Paper
+                      p="sm"
+                      radius="md"
+                      style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                      }}
+                    >
+                      <Group gap="xs" align="center">
+                        <IconAlertCircle size={18} color="#ef4444" />
+                        <Text size="sm" c="#f87171" fw={600}>
+                          {error}
+                        </Text>
+                      </Group>
+                    </Paper>
+                  )}
 
-        {/* Form Container or Success State */}
-        <Paper
-          radius="lg"
-          p={{ base: 'lg', sm: 'xl' }}
-          style={{
-            backgroundColor: '#12141a',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.6)',
-          }}
-        >
-          {submitted ? (
-            <Stack align="center" gap="md" py="xl" style={{ textAlign: 'center' }}>
-              <Box
-                style={{
-                  width: 68,
-                  height: 68,
-                  borderRadius: '50%',
-                  backgroundColor: 'rgba(0, 168, 98, 0.2)',
-                  border: '2px solid #10b981',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#10b981',
-                }}
-              >
-                <IconCheck size={36} stroke={2.5} />
-              </Box>
-
-              <Title order={2} size="h2" fw={900} c="#10b981">
-                Thank You for Entering!
-              </Title>
-
-              <Text size="md" c="gray.3" style={{ maxWidth: 540, lineHeight: 1.6 }}>
-                Your entry has been received and registered into the official <strong>Mr Vegas Grand Slam of Darts</strong> draw.
-                Winners will be contacted via email and SMS prior to tournament week.
-              </Text>
-
-              <Paper
-                p="md"
-                radius="md"
-                style={{
-                  backgroundColor: 'rgba(245, 158, 11, 0.08)',
-                  border: '1px solid rgba(245, 158, 11, 0.25)',
-                  maxWidth: 540,
-                }}
-              >
-                <Text size="sm" fw={700} c="#fbbf24" mb={4}>
-                  Stay Connected & Good Luck!
-                </Text>
-                <Text size="xs" c="gray.4">
-                  Follow Mr Vegas and the PDC across Instagram, X, TikTok, and YouTube for live player walk-ons, behind-the-scenes footage, and exclusive giveaways.
-                </Text>
-              </Paper>
-
-              <Button
-                variant="outline"
-                color="yellow"
-                size="md"
-                mt="sm"
-                onClick={() => {
-                  setSubmitted(false);
-                  setFirstName('');
-                  setLastName('');
-                  setEmail('');
-                  setPhone('');
-                }}
-              >
-                Submit Another Entry
-              </Button>
-            </Stack>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <Stack gap="lg">
-                <div>
-                  <Group justify="space-between" align="baseline">
-                    <Title order={2} size="h3" fw={800} c="white">
-                      Enter the Ticket Giveaway
-                    </Title>
-                    <Text size="xs" c="dimmed">
-                      All fields required unless noted
-                    </Text>
-                  </Group>
-                  <Text size="sm" c="gray.4" mt={4}>
-                    Fill in your details below for your chance to win tickets to this year&apos;s Grand Slam of Darts.
-                  </Text>
-                </div>
-
-                {error && (
-                  <Paper
-                    p="sm"
-                    radius="md"
-                    style={{
-                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                      border: '1px solid rgba(239, 68, 68, 0.4)',
-                    }}
-                  >
-                    <Group gap="xs" align="center">
-                      <IconAlertCircle size={18} color="#ef4444" />
-                      <Text size="sm" c="#f87171" fw={600}>
-                        {error}
-                      </Text>
-                    </Group>
-                  </Paper>
-                )}
-
-                {/* Honeypot field for bot suppression */}
-                <input
-                  type="text"
-                  name="companyFaxHoneypot"
-                  value={companyFaxHoneypot}
-                  onChange={(e) => setCompanyFaxHoneypot(e.target.value)}
-                  tabIndex={-1}
-                  autoComplete="off"
-                  style={{ display: 'none' }}
-                />
-
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                  <TextInput
-                    label={<Text size="sm" fw={600} c="gray.3">First Name</Text>}
-                    placeholder="e.g. John"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    required
-                    size="md"
-                    styles={{
-                      input: {
-                        backgroundColor: '#1b1d24',
-                        borderColor: 'rgba(255, 255, 255, 0.15)',
-                        color: '#fff',
-                      },
-                    }}
+                  {/* Honeypot field for bot suppression */}
+                  <input
+                    type="text"
+                    name="companyFaxHoneypot"
+                    value={companyFaxHoneypot}
+                    onChange={(e) => setCompanyFaxHoneypot(e.target.value)}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    style={{ display: 'none' }}
                   />
 
-                  <TextInput
-                    label={<Text size="sm" fw={600} c="gray.3">Last Name</Text>}
-                    placeholder="e.g. Smith"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    required
-                    size="md"
-                    styles={{
-                      input: {
-                        backgroundColor: '#1b1d24',
-                        borderColor: 'rgba(255, 255, 255, 0.15)',
-                        color: '#fff',
-                      },
-                    }}
-                  />
-                </SimpleGrid>
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                    <TextInput
+                      label={<Text size="sm" fw={600} c="gray.3">First Name</Text>}
+                      placeholder="e.g. John"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                      size="md"
+                      styles={{
+                        input: {
+                          backgroundColor: '#161922',
+                          borderColor: 'rgba(255, 255, 255, 0.15)',
+                          color: '#fff',
+                        },
+                      }}
+                    />
 
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                    <TextInput
+                      label={<Text size="sm" fw={600} c="gray.3">Last Name</Text>}
+                      placeholder="e.g. Smith"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                      size="md"
+                      styles={{
+                        input: {
+                          backgroundColor: '#161922',
+                          borderColor: 'rgba(255, 255, 255, 0.15)',
+                          color: '#fff',
+                        },
+                      }}
+                    />
+                  </SimpleGrid>
+
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                    <Select
+                      label={<Text size="sm" fw={600} c="gray.3">Country</Text>}
+                      data={countrySelectData}
+                      value={country}
+                      onChange={setCountry}
+                      searchable
+                      required
+                      size="md"
+                      styles={{
+                        input: {
+                          backgroundColor: '#161922',
+                          borderColor: 'rgba(255, 255, 255, 0.15)',
+                          color: '#fff',
+                        },
+                        dropdown: {
+                          backgroundColor: '#161922',
+                          borderColor: 'rgba(255, 255, 255, 0.2)',
+                        },
+                      }}
+                    />
+
+                    <TextInput
+                      label={<Text size="sm" fw={600} c="gray.3">Post Code</Text>}
+                      placeholder="e.g. WV6 9NW"
+                      value={postCode}
+                      onChange={(e) => setPostCode(e.target.value)}
+                      required
+                      size="md"
+                      styles={{
+                        input: {
+                          backgroundColor: '#161922',
+                          borderColor: 'rgba(255, 255, 255, 0.15)',
+                          color: '#fff',
+                        },
+                      }}
+                    />
+                  </SimpleGrid>
+
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                    <TextInput
+                      label={<Text size="sm" fw={600} c="gray.3">Date of Birth</Text>}
+                      description={<Text size="xs" c="dimmed">YYYY-MM-DD (18+ only)</Text>}
+                      placeholder="e.g. 1995-04-20"
+                      value={dateOfBirth}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      required
+                      size="md"
+                      styles={{
+                        input: {
+                          backgroundColor: '#161922',
+                          borderColor: 'rgba(255, 255, 255, 0.15)',
+                          color: '#fff',
+                        },
+                      }}
+                    />
+
+                    <TextInput
+                      label={<Text size="sm" fw={600} c="gray.3">Phone Number</Text>}
+                      placeholder="+44 7123 456789"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      size="md"
+                      styles={{
+                        input: {
+                          backgroundColor: '#161922',
+                          borderColor: 'rgba(255, 255, 255, 0.15)',
+                          color: '#fff',
+                        },
+                      }}
+                    />
+                  </SimpleGrid>
+
                   <TextInput
                     label={<Text size="sm" fw={600} c="gray.3">Contact Email</Text>}
                     placeholder="john.smith@example.com"
@@ -440,171 +370,84 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                     size="md"
                     styles={{
                       input: {
-                        backgroundColor: '#1b1d24',
+                        backgroundColor: '#161922',
                         borderColor: 'rgba(255, 255, 255, 0.15)',
                         color: '#fff',
                       },
                     }}
                   />
 
-                  <TextInput
-                    label={<Text size="sm" fw={600} c="gray.3">Phone Number</Text>}
-                    placeholder="+44 7123 456789"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    size="md"
-                    styles={{
-                      input: {
-                        backgroundColor: '#1b1d24',
-                        borderColor: 'rgba(255, 255, 255, 0.15)',
-                        color: '#fff',
-                      },
-                    }}
-                  />
-                </SimpleGrid>
+                  <Divider my="xs" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
 
-                <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-                  <Select
-                    label={<Text size="sm" fw={600} c="gray.3">Country</Text>}
-                    data={countrySelectData}
-                    value={country}
-                    onChange={setCountry}
-                    searchable
-                    required
-                    size="md"
-                    styles={{
-                      input: {
-                        backgroundColor: '#1b1d24',
-                        borderColor: 'rgba(255, 255, 255, 0.15)',
-                        color: '#fff',
-                      },
-                      dropdown: {
-                        backgroundColor: '#1b1d24',
-                        borderColor: 'rgba(255, 255, 255, 0.2)',
-                      },
-                    }}
-                  />
-
-                  <TextInput
-                    label={<Text size="sm" fw={600} c="gray.3">Post Code</Text>}
-                    placeholder="e.g. WV6 9NW"
-                    value={postCode}
-                    onChange={(e) => setPostCode(e.target.value)}
-                    required
-                    size="md"
-                    styles={{
-                      input: {
-                        backgroundColor: '#1b1d24',
-                        borderColor: 'rgba(255, 255, 255, 0.15)',
-                        color: '#fff',
-                      },
-                    }}
-                  />
-
-                  <TextInput
-                    label={<Text size="sm" fw={600} c="gray.3">Date of Birth</Text>}
-                    placeholder="YYYY-MM-DD"
-                    value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
-                    required
-                    size="md"
-                    styles={{
-                      input: {
-                        backgroundColor: '#1b1d24',
-                        borderColor: 'rgba(255, 255, 255, 0.15)',
-                        color: '#fff',
-                      },
-                    }}
-                  />
-                </SimpleGrid>
-
-                <Divider my="xs" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
-
-                {/* Consent & Permissions */}
-                <Stack gap="sm">
-                  <Text size="sm" fw={700} c="#fbbf24">
-                    Marketing & Communication Preferences
-                  </Text>
-
-                  <Checkbox
-                    label={
-                      <Text size="xs" c="gray.3">
-                        Yes, I&apos;d like to receive emails from the PDC regarding news, priority ticket access, and future events.
-                      </Text>
-                    }
-                    checked={consentPdc}
-                    onChange={(e) => setConsentPdc(e.currentTarget.checked)}
-                    color="green"
-                  />
-
-                  <Box>
-                    <Text size="xs" c="gray.3" mb={6}>
-                      Can Mr Vegas contact you with marketing and promotional offers?
+                  {/* Consent & Permissions */}
+                  <Stack gap="sm">
+                    <Text size="xs" fw={700} c="#fbbf24">
+                      Can we contact you about PDC news, priority ticket information, marketing and promotional offers?
                     </Text>
-                    <Radio.Group value={consentMrVegas} onChange={setConsentMrVegas}>
-                      <Group gap="xl">
-                        <Radio value="yes" label={<Text size="xs" c="gray.3">Yes</Text>} color="green" />
-                        <Radio value="no" label={<Text size="xs" c="gray.3">No</Text>} color="gray" />
-                      </Group>
-                    </Radio.Group>
-                  </Box>
 
-                  <Text size="xs" c="dimmed" style={{ lineHeight: 1.5 }} mt={4}>
-                    By entering you agree to share your personal details with Mr Vegas and the PDC. Your data will be processed strictly in accordance with their privacy policies.
-                    You must be 18+ to enter. Terms and conditions apply.
-                  </Text>
-                </Stack>
+                    <Checkbox
+                      label={
+                        <Text size="xs" c="gray.3">
+                          Yes, I&apos;d like to receive emails from the PDC
+                        </Text>
+                      }
+                      checked={consentPdc}
+                      onChange={(e) => setConsentPdc(e.currentTarget.checked)}
+                      color="green"
+                    />
 
-                <Button
-                  type="submit"
-                  size="xl"
-                  loading={submitting}
-                  style={{
-                    background: 'linear-gradient(135deg, #00a862 0%, #00874e 100%)',
-                    boxShadow: '0 4px 20px rgba(0, 168, 98, 0.4)',
-                    color: '#ffffff',
-                    fontWeight: 800,
-                    fontSize: 18,
-                    letterSpacing: '0.03em',
-                    textTransform: 'uppercase',
-                  }}
-                  rightSection={<IconArrowRight size={20} />}
-                >
-                  Submit Free Entry
-                </Button>
+                    <Box mt="xs">
+                      <Text size="xs" fw={700} c="#fbbf24" mb={6}>
+                        Can Mr Vegas contact you with marketing and promotional offers?
+                      </Text>
+                      <Radio.Group value={consentMrVegas} onChange={setConsentMrVegas}>
+                        <Group gap="xl">
+                          <Radio value="yes" label={<Text size="xs" c="gray.3">Yes</Text>} color="green" />
+                          <Radio value="no" label={<Text size="xs" c="gray.3">No</Text>} color="gray" />
+                        </Group>
+                      </Radio.Group>
+                    </Box>
 
-                <Group justify="center" gap="lg" mt="xs">
-                  <Group gap={6} align="center">
-                    <IconLock size={14} color="#9ca3af" />
-                    <Text size="xs" c="dimmed">
-                      SSL Encrypted & GDPR Compliant
+                    <Text size="xs" c="dimmed" style={{ lineHeight: 1.5 }} mt={4}>
+                      By entering you are agreeing to share your personal data with Mr Vegas. You are agreeing to receive marketing communications. Data will be processed in accordance with its privacy policy.
+                    </Text>
+                  </Stack>
+
+                  <Button
+                    type="submit"
+                    size="xl"
+                    loading={submitting}
+                    style={{
+                      background: 'linear-gradient(135deg, #00a862 0%, #00874e 100%)',
+                      boxShadow: '0 4px 20px rgba(0, 168, 98, 0.4)',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: 18,
+                      letterSpacing: '0.03em',
+                      textTransform: 'uppercase',
+                      marginTop: 8,
+                    }}
+                    rightSection={<IconArrowRight size={20} />}
+                  >
+                    Submit Entry
+                  </Button>
+
+                  <Group justify="center" gap="md" mt="xs">
+                    <Text
+                      size="xs"
+                      c="dimmed"
+                      style={{ textDecoration: 'underline', cursor: 'pointer' }}
+                      onClick={() => setTermsOpen(true)}
+                    >
+                      Please click HERE to see the full terms &amp; conditions.
                     </Text>
                   </Group>
-
-                  <Text
-                    size="xs"
-                    c="dimmed"
-                    style={{ textDecoration: 'underline', cursor: 'pointer' }}
-                    onClick={() => setTermsOpen(true)}
-                  >
-                    Terms & Conditions
-                  </Text>
-                </Group>
-              </Stack>
-            </form>
-          )}
+                </Stack>
+              </form>
+            )}
+          </Box>
         </Paper>
-
-        {/* Footer info */}
-        <Box mt="xl" style={{ textAlign: 'center' }}>
-          <Text size="xs" c="dimmed">
-            © 2026 Mr Vegas & Professional Darts Corporation. Official Title Sponsorship Activation.
-          </Text>
-          <Text size="xs" c="dimmed" mt={4}>
-            Please gamble responsibly. 18+ only. BeGambleAware.org
-          </Text>
-        </Box>
-      </Container>
+      </Box>
 
       {/* Terms & Conditions Modal */}
       <Modal
