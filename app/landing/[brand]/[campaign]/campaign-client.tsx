@@ -255,7 +255,7 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   />
 
                   <TextInput
-                    label={<Text size="sm" fw={600} c="gray.3">First Name *</Text>}
+                    label={<Text size="sm" fw={600} c="gray.3">First Name</Text>}
                     placeholder="e.g. John"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
@@ -286,7 +286,7 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   />
 
                   <Select
-                    label={<Text size="sm" fw={600} c="gray.3">Country *</Text>}
+                    label={<Text size="sm" fw={600} c="gray.3">Country</Text>}
                     data={countrySelectData}
                     value={country}
                     onChange={setCountry}
@@ -307,7 +307,7 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   />
 
                   <TextInput
-                    label={<Text size="sm" fw={600} c="gray.3">Post Code *</Text>}
+                    label={<Text size="sm" fw={600} c="gray.3">Post Code</Text>}
                     placeholder="e.g. WV6 9NW"
                     value={postCode}
                     onChange={(e) => setPostCode(e.target.value)}
@@ -323,7 +323,7 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   />
 
                   <TextInput
-                    label={<Text size="sm" fw={600} c="gray.3">Date of Birth (please select from the calendar) *</Text>}
+                    label={<Text size="sm" fw={600} c="gray.3">Date of Birth (please select from the calendar)</Text>}
                     description={<Text size="xs" c="dimmed">YYYY-MM-DD (18+ only)</Text>}
                     placeholder="YYYY-MM-DD"
                     value={dateOfBirth}
@@ -355,7 +355,7 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   />
 
                   <TextInput
-                    label={<Text size="sm" fw={600} c="gray.3">Contact Email *</Text>}
+                    label={<Text size="sm" fw={600} c="gray.3">Contact Email</Text>}
                     placeholder="john.smith@example.com"
                     type="email"
                     value={email}
