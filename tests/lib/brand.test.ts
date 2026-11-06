@@ -52,9 +52,9 @@ describe('resolveBrand', () => {
     expect(await resolveBrand('seyusales')).toBe('seyu');
     expect(await resolveBrand('dvsc')).toBe('dvsc');
     expect(await resolveBrand('dvscsales')).toBe('dvsc');
-    expect(await resolveBrand('padel-africa')).toBe('padel-africa');
-    expect(await resolveBrand('padelafrica')).toBe('padel-africa');
-    expect(await resolveBrand('padelafricasales')).toBe('padel-africa');
+    expect(await resolveBrand('padel-africa')).toBe('racket-land');
+    expect(await resolveBrand('padelafrica')).toBe('racket-land');
+    expect(await resolveBrand('padelafricasales')).toBe('racket-land');
     expect(await resolveBrand('racket-land')).toBe('racket-land');
     expect(await resolveBrand('racket.land')).toBe('racket-land');
     expect(await resolveBrand('racketland')).toBe('racket-land');
@@ -66,7 +66,7 @@ describe('resolveBrand', () => {
   it('is case-insensitive', async () => {
     expect(await resolveBrand('DVSC')).toBe('dvsc');
     expect(await resolveBrand('CogMap')).toBe('cogmap');
-    expect(await resolveBrand('Padel-Africa')).toBe('padel-africa');
+    expect(await resolveBrand('Padel-Africa')).toBe('racket-land');
     expect(await resolveBrand('Racket-Land')).toBe('racket-land');
     expect(await resolveBrand('Racket.Land')).toBe('racket-land');
     expect(await resolveBrand('EGM')).toBe('egm');
@@ -91,11 +91,6 @@ describe('getBrandConfig / getAllBrandConfigs (issue 195)', () => {
     expect(config?.label).toBe('CogMap');
     expect(config?.dbCollection).toBe('leads');
 
-    const padelConfig = await getBrandConfig('padel-africa');
-    expect(padelConfig?.label).toBe('Racket.land');
-    expect(padelConfig?.currency).toBe('EUR');
-    expect(padelConfig?.dbCollection).toBe('padel_africa_leads');
-
     const racketConfig = await getBrandConfig('racket-land');
     expect(racketConfig?.label).toBe('Racket.land');
     expect(racketConfig?.currency).toBe('EUR');
@@ -108,7 +103,7 @@ describe('getBrandConfig / getAllBrandConfigs (issue 195)', () => {
 
   it('getAllBrandConfigs returns exactly the fallback brands when the collection is empty/unavailable', async () => {
     const all = await getAllBrandConfigs();
-    expect(Object.keys(all).sort()).toEqual(['cogmap', 'dvsc', 'egm', 'padel-africa', 'racket-land', 'seyu']);
+    expect(Object.keys(all).sort()).toEqual(['cogmap', 'dvsc', 'egm', 'racket-land', 'seyu']);
   });
 });
 
