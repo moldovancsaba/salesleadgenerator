@@ -10,8 +10,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Public customer-facing calendar booking page (/schedule/[brand]),
   // public commercial proposal quote portal (/quotes/[quoteId]),
-  // and public landing page (/) hide the internal authenticated app chrome entirely.
-  if (pathname.startsWith('/schedule/') || pathname.startsWith('/quotes/') || pathname === '/') {
+  // public inbound forms (/forms/[brand]),
+  // public campaign landing pages (/landing/[brand]/...),
+  // and public marketing page (/) hide the internal authenticated app chrome entirely.
+  if (
+    pathname?.startsWith('/schedule/') ||
+    pathname?.startsWith('/quotes/') ||
+    pathname?.startsWith('/forms/') ||
+    pathname?.startsWith('/landing/') ||
+    pathname === '/'
+  ) {
     return <>{children}</>;
   }
 

@@ -111,7 +111,13 @@ export function AppNavSidebar() {
   const pathname = usePathname();
   const { sidebarOpen, setSidebarOpen, isDesktopOrTablet } = useNav();
 
-  if (pathname?.startsWith('/schedule/') || pathname?.startsWith('/quotes/') || pathname?.startsWith('/forms/')) return null;
+  if (
+    pathname?.startsWith('/schedule/') ||
+    pathname?.startsWith('/quotes/') ||
+    pathname?.startsWith('/forms/') ||
+    pathname?.startsWith('/landing/') ||
+    pathname === '/'
+  ) return null;
   if (!sidebarOpen || !isDesktopOrTablet) return null;
 
   return (
