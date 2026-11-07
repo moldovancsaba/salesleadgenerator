@@ -144,10 +144,23 @@ textarea {
   flex: 1 1 auto !important;
   display: flex !important;
   flex-direction: column !important;
+  min-height: 0 !important;
 }
 
-[data-gds-kanban-column] [data-gds-kanban-column-body] > .mantine-Stack-root {
+[data-gds-kanban-column] [data-gds-kanban-column-body] > .mantine-Stack-root,
+[data-gds-kanban-column] [data-gds-kanban-column-body] > .m_6d731127 {
   flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  min-height: 0 !important;
+}
+
+[data-gds-kanban-column] [data-gds-kanban-drop-zone] {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
 }
 
 [data-gds-kanban-column="BACKLOG"] {
