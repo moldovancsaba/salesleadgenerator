@@ -109,10 +109,20 @@ textarea {
   min-height: 100% !important;
 }
 
-[data-tour="kanban-board"] [data-gds-kanban-orientation] .mantine-Group-root {
+/* Target ONLY the columns row Group inside the ScrollArea viewport, NEVER inner Groups like headers or card content */
+[data-tour="kanban-board"] [data-scrollarea-viewport] > div > .m_4081bf90,
+[data-tour="kanban-board"] [data-offset-scrollbars] > div > .m_4081bf90,
+[data-tour="kanban-board"] [data-scrollarea-viewport] > div > .mantine-Group-root,
+[data-tour="kanban-board"] [data-offset-scrollbars] > div > .mantine-Group-root {
   flex: 1 1 auto !important;
   align-items: stretch !important;
   min-height: 100% !important;
+}
+
+[data-tour="kanban-board"] [data-gds-kanban-column-header] {
+  flex: 0 0 auto !important;
+  min-height: auto !important;
+  align-items: center !important;
 }
 
 [data-tour="kanban-board"] [data-orientation="horizontal"] {
