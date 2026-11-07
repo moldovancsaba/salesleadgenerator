@@ -66,13 +66,88 @@ textarea {
      Expands to 100% width with cards arranged in a responsive multi-column grid
      (minmax 320px, 1fr) across the viewport to eliminate empty wasted space.
   3. Collapsed columns cleanly shrink to width: auto.
+  4. Fill viewport vertical space:
+     Ensure the board wrapper, Mantine ScrollArea, and columns stretch to fill
+     the viewport height so that the horizontal scrollbar is pinned cleanly at
+     the bottom of the board/viewport, rather than floating halfway up the screen
+     when columns are short or empty.
 */
+[data-tour="kanban-board"] {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: calc(100dvh - 220px) !important;
+}
+
+[data-tour="kanban-board"] > [data-gds-kanban-orientation] {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 100% !important;
+}
+
+[data-tour="kanban-board"] .m_d57069b5,
+[data-tour="kanban-board"] [data-gds-kanban-orientation] > div:not([data-gds-kanban-column]) {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 100% !important;
+}
+
+[data-tour="kanban-board"] .m_c0783ff9,
+[data-tour="kanban-board"] [data-offset-scrollbars] {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 100% !important;
+}
+
+[data-tour="kanban-board"] .m_f8f631dd {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 100% !important;
+}
+
+[data-tour="kanban-board"] [data-gds-kanban-orientation] .mantine-Group-root {
+  flex: 1 1 auto !important;
+  align-items: stretch !important;
+  min-height: 100% !important;
+}
+
+[data-tour="kanban-board"] [data-orientation="horizontal"] {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 10 !important;
+}
+
 [data-gds-kanban-column]:not([data-gds-kanban-column="BACKLOG"]):not([data-gds-kanban-column-collapsed="true"]) {
   width: 320px !important;
   min-width: 320px !important;
   max-width: 320px !important;
   flex: 0 0 320px !important;
   box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: calc(100dvh - 260px) !important;
+}
+
+[data-gds-kanban-column] > .mantine-Stack-root {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+[data-gds-kanban-column] [data-gds-kanban-column-body] {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+[data-gds-kanban-column] [data-gds-kanban-column-body] > .mantine-Stack-root {
+  flex: 1 1 auto !important;
 }
 
 [data-gds-kanban-column="BACKLOG"] {

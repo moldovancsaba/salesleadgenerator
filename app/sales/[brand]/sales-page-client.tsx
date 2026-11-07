@@ -391,8 +391,8 @@ export function SalesPageClient({ brand, currency }: Props) {
   }, [isFinePointer, accessibleBrands, brandLabels, brand, visibleLeads, router])
 
   return (
-    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
-      <Stack gap="md">
+    <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
         {/* Compact Application Header matching Contacts reference */}
         <Group justify="space-between" align="center" wrap="wrap" gap="sm">
           <div>
@@ -709,7 +709,7 @@ export function SalesPageClient({ brand, currency }: Props) {
           )}
         </Paper>
 
-        <Box style={{ flex: 1, minWidth: 0 }}>
+        <Box style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           {view === 'kanban' && (
             <ErrorBoundary
               fallback={
