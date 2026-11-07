@@ -9,7 +9,7 @@ import {
   IconMenu2, IconLayoutKanban, IconTable, IconChartBar, IconSearch, IconTrendingUp,
   IconCards, IconMail, IconSettings, IconLogin, IconLogout, IconShieldLock, IconCopyCheck, IconEdit,
   IconAddressBook, IconRepeat, IconBuilding, IconBuildings, IconCompass, IconUsersGroup, IconBolt, IconShoppingCart, IconReportAnalytics, IconKey,
-  IconCalendarTime, IconChevronLeft, IconFiles, IconInbox, IconSparkles,
+  IconCalendarTime, IconChevronLeft, IconFiles, IconInbox, IconSparkles, IconForms,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand';
 import { useAuth } from './AuthProvider';
@@ -39,6 +39,8 @@ function currentBrandFromPath(pathname: string, knownBrands: string[]): Brand | 
   if (battlecardsMatch && knownBrandSet.has(battlecardsMatch[1])) return battlecardsMatch[1] as Brand;
   const templatesMatch = pathname.match(/^\/outreach\/templates\/([^/]+)/);
   if (templatesMatch && knownBrandSet.has(templatesMatch[1])) return templatesMatch[1] as Brand;
+  const landingPagesMatch = pathname.match(/^\/outreach\/landing-pages\/([^/]+)/);
+  if (landingPagesMatch && knownBrandSet.has(landingPagesMatch[1])) return landingPagesMatch[1] as Brand;
   const cadencesMatch = pathname.match(/^\/outreach\/cadences\/([^/]+)/);
   if (cadencesMatch && knownBrandSet.has(cadencesMatch[1])) return cadencesMatch[1] as Brand;
   const automationMatch = pathname.match(/^\/automation\/([^/]+)/);
@@ -417,6 +419,14 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
                   label="Outreach Templates"
                   leftSection={<IconMail size={18} />}
                   active={pathname === `/outreach/templates/${effectiveBrand}`}
+                  onClick={handleLinkClick}
+                />
+                <NavLink
+                  component={Link}
+                  href={`/outreach/landing-pages/${effectiveBrand}`}
+                  label="Landing Pages"
+                  leftSection={<IconForms size={18} />}
+                  active={pathname === `/outreach/landing-pages/${effectiveBrand}`}
                   onClick={handleLinkClick}
                 />
                 <NavLink

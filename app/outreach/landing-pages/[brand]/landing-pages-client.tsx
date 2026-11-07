@@ -1,0 +1,913 @@
+'use client';
+
+import { useEffect, useState, useTransition } from 'react';
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Card,
+  Checkbox,
+  Container,
+  Divider,
+  Drawer,
+  Group,
+  Loader,
+  Paper,
+  Radio,
+  ScrollArea,
+  SegmentedControl,
+  Select,
+  SimpleGrid,
+  Stack,
+  Switch,
+  Table,
+  Tabs,
+  Text,
+  TextInput,
+  Textarea,
+  Title,
+  Tooltip,
+} from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import {
+  IconPlus,
+  IconExternalLink,
+  IconCopy,
+  IconEdit,
+  IconTrash,
+  IconCheck,
+  IconDeviceFloppy,
+  IconEye,
+  IconTemplate,
+  IconAdjustments,
+  IconForms,
+  IconPalette,
+  IconSparkles,
+  IconArrowUp,
+  IconArrowDown,
+} from '@tabler/icons-react';
+import {
+  LandingPageRecord,
+  LandingFormFieldConfig,
+  LandingPageDesignConfig,
+  SLG_LEAD_PROPERTIES,
+  THEME_PRESETS,
+  LeadPropertyKey,
+  DEFAULT_VEGAS_CAMPAIGN,
+} from '@/lib/landing-page-schema';
+
+export function LandingPagesClient({
+  brand,
+  brandLabel,
+}: {
+  brand: string;
+  brandLabel: string;
+}) {
+  const [pages, setPages] = useState<LandingPageRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingPage, setEditingPage] = useState<LandingPageRecord | null>(null);
+  const [activeTab, setActiveTab] = useState<string | null>('content');
+
+  // Load pages
+  const loadPages = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/landing-pages?brand=${encodeURIComponent(brand)}`);
+      const data = await res.json();
+      if (res.ok && Array.isArray(data.pages)) {
+        setPages(data.pages);
+      } else {
+        setPages([]);
+      }
+    } catch {
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to load landing pages',
+        color: 'red',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    const fetchPages = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/landing-pages?brand=${encodeURIComponent(brand)}`);
+        const data = await res.json();
+        if (active) {
+          if (res.ok && Array.isArray(data.pages)) {
+            setPages(data.pages);
+          } else {
+            setPages([]);
+          }
+        }
+      } catch {
+        if (active) {
+          notifications.show({
+            title: 'Error',
+            message: 'Failed to load landing pages',
+            color: 'red',
+          });
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchPages();
+    return () => {
+      active = false;
+    };
+  }, [brand]);
+
+  const handleOpenCreate = () => {
+    const newPage: LandingPageRecord = {
+      brand,
+      tenantId: 'default',
+      slug: `campaign-${Date.now().toString().slice(-4)}`,
+      title: `${brandLabel} Inbound Lead Campaign`,
+      description: `Official registration and lead collector for ${brandLabel}`,
+      published: true,
+      heroHeadline: `Discover ${brandLabel} Solutions`,
+      heroSubheadline: 'Fill in your details below to connect with our team and receive priority access.',
+      bodyBullets: ['Instant verification', 'Customized executive briefing'],
+      ctaButtonText: 'Register Now',
+      fields: [
+        {
+          id: `f_${Date.now()}_1`,
+          leadProperty: 'contact_first_name',
+          label: 'First Name',
+          placeholder: 'e.g. Alex',
+          type: 'text',
+          required: true,
+        },
+        {
+          id: `f_${Date.now()}_2`,
+          leadProperty: 'contact_last_name',
+          label: 'Last Name',
+          placeholder: 'e.g. Morgan',
+          type: 'text',
+          required: false,
+        },
+        {
+          id: `f_${Date.now()}_3`,
+          leadProperty: 'contact_email',
+          label: 'Work Email',
+          placeholder: 'alex@company.com',
+          type: 'email',
+          required: true,
+        },
+        {
+          id: `f_${Date.now()}_4`,
+          leadProperty: 'entity_name',
+          label: 'Company / Club Name',
+          placeholder: 'e.g. Apex Sports',
+          type: 'text',
+          required: true,
+        },
+        {
+          id: `f_${Date.now()}_5`,
+          leadProperty: 'country',
+          label: 'Country',
+          type: 'select',
+          required: true,
+        },
+      ],
+      design: THEME_PRESETS.indigo_tech,
+      successTitle: 'Thank You for Registering!',
+      successMessage: 'Our sales team has received your inquiry and will reach out shortly.',
+      viewsCount: 0,
+      submissionsCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setEditingPage(newPage);
+    setActiveTab('content');
+    setEditorOpen(true);
+  };
+
+  const handleOpenEdit = (p: LandingPageRecord) => {
+    setEditingPage(JSON.parse(JSON.stringify(p)));
+    setActiveTab('content');
+    setEditorOpen(true);
+  };
+
+  const handleDelete = async (id?: string) => {
+    if (!id) return;
+    if (!confirm('Are you sure you want to delete this landing page?')) return;
+    try {
+      const res = await fetch(`/api/landing-pages/${id}?brand=${encodeURIComponent(brand)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to delete');
+      notifications.show({
+        title: 'Deleted',
+        message: 'Landing page deleted successfully',
+        color: 'green',
+      });
+      await loadPages();
+    } catch (e: any) {
+      notifications.show({
+        title: 'Error',
+        message: e.message || 'Could not delete page',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleSavePage = async () => {
+    if (!editingPage) return;
+    if (!editingPage.title.trim()) {
+      notifications.show({ title: 'Validation', message: 'Page title is required', color: 'red' });
+      return;
+    }
+    if (!editingPage.slug.trim()) {
+      notifications.show({ title: 'Validation', message: 'Page URL slug is required', color: 'red' });
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const url = editingPage.id
+        ? `/api/landing-pages/${editingPage.id}?brand=${encodeURIComponent(brand)}`
+        : `/api/landing-pages?brand=${encodeURIComponent(brand)}`;
+      const method = editingPage.id ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingPage),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save landing page');
+      }
+
+      notifications.show({
+        title: 'Saved',
+        message: 'Landing page published instantly to MongoDB without rebuild!',
+        color: 'green',
+      });
+
+      setEditorOpen(false);
+      await loadPages();
+    } catch (err: any) {
+      notifications.show({
+        title: 'Error',
+        message: err.message || 'Failed to save page',
+        color: 'red',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddField = (propertyKey: LeadPropertyKey) => {
+    if (!editingPage) return;
+    const propMeta = SLG_LEAD_PROPERTIES.find((p) => p.key === propertyKey);
+    const newField: LandingFormFieldConfig = {
+      id: `f_${Date.now()}`,
+      leadProperty: propertyKey,
+      label: propMeta?.label || propertyKey,
+      type: propMeta?.defaultType || 'text',
+      required: propertyKey === 'contact_email' || propertyKey === 'contact_first_name',
+      placeholder: `e.g. Enter ${propMeta?.label || propertyKey}`,
+    };
+    setEditingPage({
+      ...editingPage,
+      fields: [...editingPage.fields, newField],
+    });
+  };
+
+  const handleRemoveField = (fieldId: string) => {
+    if (!editingPage) return;
+    setEditingPage({
+      ...editingPage,
+      fields: editingPage.fields.filter((f) => f.id !== fieldId),
+    });
+  };
+
+  const handleMoveField = (index: number, direction: 'up' | 'down') => {
+    if (!editingPage) return;
+    const newFields = [...editingPage.fields];
+    const targetIdx = direction === 'up' ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= newFields.length) return;
+    const temp = newFields[index];
+    newFields[index] = newFields[targetIdx];
+    newFields[targetIdx] = temp;
+    setEditingPage({
+      ...editingPage,
+      fields: newFields,
+    });
+  };
+
+  const copyUrl = (slug: string) => {
+    const full = `${window.location.origin}/landing/${brand}/${slug}`;
+    navigator.clipboard.writeText(full);
+    notifications.show({
+      title: 'Copied',
+      message: 'Landing page URL copied to clipboard',
+      color: 'green',
+    });
+  };
+
+  return (
+    <Container size="xl" py="lg">
+      <Stack gap="lg">
+        {/* Header */}
+        <Group justify="space-between" align="center" wrap="wrap">
+          <Box>
+            <Title order={2} size="h2" fw={800}>
+              Landing Page Lead Collectors
+            </Title>
+            <Text size="sm" c="dimmed">
+              Create and customize client landing pages with custom form fields mapped directly to SLG Lead properties. Updates are instant with zero Vercel rebuilds.
+            </Text>
+          </Box>
+          <Button
+            leftSection={<IconPlus size={18} />}
+            color="indigo"
+            size="md"
+            onClick={handleOpenCreate}
+          >
+            Create Landing Page
+          </Button>
+        </Group>
+
+        {/* List of Landing Pages */}
+        {loading ? (
+          <Group justify="center" py="xl">
+            <Loader size="md" />
+          </Group>
+        ) : pages.length === 0 ? (
+          <Paper p="xl" radius="md" withBorder style={{ textAlign: 'center' }}>
+            <Stack align="center" gap="sm">
+              <IconForms size={48} color="#94a3b8" />
+              <Title order={4}>No Landing Pages Yet</Title>
+              <Text size="sm" c="dimmed" style={{ maxWidth: 450 }}>
+                Build your first landing page lead collector for <strong>{brandLabel}</strong>. Choose from verified themes and customize form fields mapped to your CRM.
+              </Text>
+              <Button leftSection={<IconPlus size={18} />} onClick={handleOpenCreate} mt="sm">
+                Build First Page
+              </Button>
+            </Stack>
+          </Paper>
+        ) : (
+          <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="lg">
+            {pages.map((p) => {
+              const liveUrl = `/landing/${brand}/${p.slug}`;
+              return (
+                <Card key={p.id || p.slug} shadow="sm" radius="md" withBorder p="lg">
+                  <Stack gap="sm" justify="space-between" style={{ height: '100%' }}>
+                    <Box>
+                      <Group justify="space-between" align="flex-start" mb="xs">
+                        <Badge color={p.published ? 'green' : 'gray'} variant="light">
+                          {p.published ? 'Live' : 'Draft'}
+                        </Badge>
+                        <Badge variant="outline" color="yellow">
+                          {p.design?.themePreset || 'dark_emerald'}
+                        </Badge>
+                      </Group>
+
+                      <Title order={4} lineClamp={1}>
+                        {p.title}
+                      </Title>
+                      <Text size="xs" c="dimmed" ff="monospace" mt={2} lineClamp={1}>
+                        /landing/{brand}/{p.slug}
+                      </Text>
+                      {p.heroHeadline && (
+                        <Text size="sm" c="gray.6" mt="xs" lineClamp={2}>
+                          {p.heroHeadline}
+                        </Text>
+                      )}
+                    </Box>
+
+                    <Box>
+                      <Divider my="xs" />
+                      <Group justify="space-between" mb="sm">
+                        <Text size="xs" c="dimmed">
+                          Fields: <strong>{p.fields?.length || 0}</strong>
+                        </Text>
+                        <Group gap="xs">
+                          <Text size="xs" c="dimmed">
+                            Views: <strong>{p.viewsCount || 0}</strong>
+                          </Text>
+                          <Text size="xs" c="green" fw={700}>
+                            Leads: {p.submissionsCount || 0}
+                          </Text>
+                        </Group>
+                      </Group>
+
+                      <Group gap="xs" grow>
+                        <Button
+                          variant="light"
+                          size="xs"
+                          leftSection={<IconEdit size={14} />}
+                          onClick={() => handleOpenEdit(p)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="subtle"
+                          size="xs"
+                          leftSection={<IconCopy size={14} />}
+                          onClick={() => copyUrl(p.slug)}
+                        >
+                          Copy
+                        </Button>
+                        <ActionIcon
+                          variant="subtle"
+                          color="blue"
+                          size="md"
+                          component="a"
+                          href={liveUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open live landing page"
+                        >
+                          <IconExternalLink size={16} />
+                        </ActionIcon>
+                        {p.id && (
+                          <ActionIcon
+                            variant="subtle"
+                            color="red"
+                            size="md"
+                            onClick={() => handleDelete(p.id)}
+                            title="Delete landing page"
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        )}
+                      </Group>
+                    </Box>
+                  </Stack>
+                </Card>
+              );
+            })}
+          </SimpleGrid>
+        )}
+      </Stack>
+
+      {/* Editor Drawer / Modal */}
+      <Drawer
+        opened={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        title={
+          <Group gap="xs">
+            <IconForms size={20} color="#6366f1" />
+            <Text fw={700} size="md">
+              {editingPage?.id ? 'Edit Landing Page' : 'Create New Landing Page'}
+            </Text>
+          </Group>
+        }
+        position="right"
+        size="xl"
+      >
+        {editingPage && (
+          <Stack gap="md" pb="xl">
+            <Tabs value={activeTab} onChange={setActiveTab}>
+              <Tabs.List>
+                <Tabs.Tab value="content" leftSection={<IconEdit size={16} />}>
+                  Content & Copy
+                </Tabs.Tab>
+                <Tabs.Tab value="fields" leftSection={<IconAdjustments size={16} />}>
+                  Form Fields ({editingPage.fields.length})
+                </Tabs.Tab>
+                <Tabs.Tab value="design" leftSection={<IconPalette size={16} />}>
+                  Theme & Style
+                </Tabs.Tab>
+                <Tabs.Tab value="settings" leftSection={<IconTemplate size={16} />}>
+                  URL & Legal
+                </Tabs.Tab>
+              </Tabs.List>
+
+              {/* Tab 1: Content */}
+              <Tabs.Panel value="content" pt="md">
+                <Stack gap="md">
+                  <TextInput
+                    label="Page Title"
+                    required
+                    placeholder="e.g. Free VIP Ticket Giveaway"
+                    value={editingPage.title}
+                    onChange={(e) => setEditingPage({ ...editingPage, title: e.target.value })}
+                  />
+
+                  <TextInput
+                    label="Hero Banner Image URL"
+                    placeholder="https://.../banner.jpg"
+                    description="High-resolution banner displayed at the top of the luxury card"
+                    value={editingPage.heroBannerUrl || ''}
+                    onChange={(e) => setEditingPage({ ...editingPage, heroBannerUrl: e.target.value })}
+                  />
+
+                  <Textarea
+                    label="Hero Headline"
+                    placeholder="e.g. Title sponsors are delighted to offer general admission tickets..."
+                    minRows={2}
+                    value={editingPage.heroHeadline || ''}
+                    onChange={(e) => setEditingPage({ ...editingPage, heroHeadline: e.target.value })}
+                  />
+
+                  <Textarea
+                    label="Event & Subheadline Briefing"
+                    placeholder="e.g. Located at WV Active Aldersley between 14th – 22nd November..."
+                    minRows={3}
+                    value={editingPage.heroSubheadline || ''}
+                    onChange={(e) => setEditingPage({ ...editingPage, heroSubheadline: e.target.value })}
+                  />
+
+                  <Textarea
+                    label="Bullet Points / Callouts (one per line)"
+                    placeholder="Simply complete the form below...&#10;We look forward to seeing the lucky winners!"
+                    minRows={3}
+                    value={(editingPage.bodyBullets || []).join('\n')}
+                    onChange={(e) =>
+                      setEditingPage({
+                        ...editingPage,
+                        bodyBullets: e.target.value.split('\n'),
+                      })
+                    }
+                  />
+
+                  <TextInput
+                    label="CTA Button Text"
+                    placeholder="e.g. Submit Entry"
+                    value={editingPage.ctaButtonText || 'Submit Entry'}
+                    onChange={(e) => setEditingPage({ ...editingPage, ctaButtonText: e.target.value })}
+                  />
+
+                  <Divider my="xs" />
+
+                  <Title order={5}>Success State</Title>
+                  <TextInput
+                    label="Success Title"
+                    placeholder="e.g. Thank You for Entering!"
+                    value={editingPage.successTitle || ''}
+                    onChange={(e) => setEditingPage({ ...editingPage, successTitle: e.target.value })}
+                  />
+                  <Textarea
+                    label="Success Message"
+                    placeholder="e.g. Ensure you're following us across social channels..."
+                    minRows={2}
+                    value={editingPage.successMessage || ''}
+                    onChange={(e) => setEditingPage({ ...editingPage, successMessage: e.target.value })}
+                  />
+                </Stack>
+              </Tabs.Panel>
+
+              {/* Tab 2: Fields Mapped to Lead Properties */}
+              <Tabs.Panel value="fields" pt="md">
+                <Stack gap="md">
+                  <Box>
+                    <Text size="sm" fw={700} mb={4}>
+                      Lead Property Field Selector
+                    </Text>
+                    <Text size="xs" c="dimmed" mb="sm">
+                      Choose any SLG Lead property to add to the landing page form. All submissions are automatically parsed and structured into the client CRM pipeline.
+                    </Text>
+
+                    <Select
+                      placeholder="Select a Lead property to add as a field..."
+                      data={SLG_LEAD_PROPERTIES.map((p) => ({
+                        value: p.key,
+                        label: `${p.label} (${p.category} -> ${p.key})`,
+                      }))}
+                      onChange={(val) => {
+                        if (val) handleAddField(val as LeadPropertyKey);
+                      }}
+                      searchable
+                      clearable
+                    />
+                  </Box>
+
+                  <Divider my="xs" />
+
+                  <Title order={5}>Configured Form Fields ({editingPage.fields.length})</Title>
+
+                  <Stack gap="sm">
+                    {editingPage.fields.map((f, idx) => {
+                      const propMeta = SLG_LEAD_PROPERTIES.find((p) => p.key === f.leadProperty);
+
+                      return (
+                        <Paper key={f.id} p="sm" radius="md" withBorder>
+                          <Group justify="space-between" align="center" mb="xs">
+                            <Group gap="xs">
+                              <Badge color="indigo" size="sm">
+                                {f.leadProperty}
+                              </Badge>
+                              <Badge variant="outline" size="sm">
+                                {f.type}
+                              </Badge>
+                              {propMeta && (
+                                <Text size="xs" c="dimmed">
+                                  {propMeta.category}
+                                </Text>
+                              )}
+                            </Group>
+
+                            <Group gap={4}>
+                              <ActionIcon
+                                variant="subtle"
+                                size="sm"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveField(idx, 'up')}
+                              >
+                                <IconArrowUp size={14} />
+                              </ActionIcon>
+                              <ActionIcon
+                                variant="subtle"
+                                size="sm"
+                                disabled={idx === editingPage.fields.length - 1}
+                                onClick={() => handleMoveField(idx, 'down')}
+                              >
+                                <IconArrowDown size={14} />
+                              </ActionIcon>
+                              <ActionIcon
+                                variant="subtle"
+                                color="red"
+                                size="sm"
+                                onClick={() => handleRemoveField(f.id)}
+                              >
+                                <IconTrash size={14} />
+                              </ActionIcon>
+                            </Group>
+                          </Group>
+
+                          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                            <TextInput
+                              label="Display Label"
+                              size="xs"
+                              value={f.label}
+                              onChange={(e) => {
+                                const newFields = [...editingPage.fields];
+                                newFields[idx].label = e.target.value;
+                                setEditingPage({ ...editingPage, fields: newFields });
+                              }}
+                            />
+                            <TextInput
+                              label="Placeholder"
+                              size="xs"
+                              value={f.placeholder || ''}
+                              onChange={(e) => {
+                                const newFields = [...editingPage.fields];
+                                newFields[idx].placeholder = e.target.value;
+                                setEditingPage({ ...editingPage, fields: newFields });
+                              }}
+                            />
+                          </SimpleGrid>
+
+                          <Group justify="space-between" align="center" mt="xs">
+                            <Select
+                              label="Input Type"
+                              size="xs"
+                              style={{ width: 140 }}
+                              data={[
+                                { value: 'text', label: 'Text' },
+                                { value: 'email', label: 'Email' },
+                                { value: 'tel', label: 'Phone' },
+                                { value: 'url', label: 'URL' },
+                                { value: 'date', label: 'Date' },
+                                { value: 'select', label: 'Select' },
+                                { value: 'textarea', label: 'Textarea' },
+                                { value: 'checkbox', label: 'Checkbox' },
+                                { value: 'radio', label: 'Radio' },
+                              ]}
+                              value={f.type}
+                              onChange={(val) => {
+                                if (val) {
+                                  const newFields = [...editingPage.fields];
+                                  newFields[idx].type = val as any;
+                                  setEditingPage({ ...editingPage, fields: newFields });
+                                }
+                              }}
+                            />
+
+                            <Checkbox
+                              label="Required Field"
+                              size="xs"
+                              checked={f.required}
+                              onChange={(e) => {
+                                const newFields = [...editingPage.fields];
+                                newFields[idx].required = e.currentTarget.checked;
+                                setEditingPage({ ...editingPage, fields: newFields });
+                              }}
+                            />
+                          </Group>
+
+                          {f.type === 'radio' && (
+                            <TextInput
+                              label="Radio Options (comma-separated)"
+                              size="xs"
+                              mt="xs"
+                              value={(f.options || ['Yes', 'No']).join(', ')}
+                              onChange={(e) => {
+                                const newFields = [...editingPage.fields];
+                                newFields[idx].options = e.target.value.split(',').map((s) => s.trim());
+                                setEditingPage({ ...editingPage, fields: newFields });
+                              }}
+                            />
+                          )}
+                        </Paper>
+                      );
+                    })}
+                  </Stack>
+                </Stack>
+              </Tabs.Panel>
+
+              {/* Tab 3: Design & Themes */}
+              <Tabs.Panel value="design" pt="md">
+                <Stack gap="md">
+                  <Box>
+                    <Text size="sm" fw={700} mb="xs">
+                      Theme Presets
+                    </Text>
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                      {Object.entries(THEME_PRESETS).map(([key, preset]) => {
+                        const isSelected = editingPage.design?.themePreset === key;
+                        return (
+                          <Paper
+                            key={key}
+                            p="sm"
+                            radius="md"
+                            withBorder
+                            style={{
+                              cursor: 'pointer',
+                              borderColor: isSelected ? '#6366f1' : undefined,
+                              backgroundColor: preset.cardBackgroundColor,
+                              color: preset.textColor,
+                            }}
+                            onClick={() =>
+                              setEditingPage({
+                                ...editingPage,
+                                design: preset,
+                              })
+                            }
+                          >
+                            <Group justify="space-between">
+                              <Text size="sm" fw={700} c={preset.accentColor}>
+                                {key.replace('_', ' ').toUpperCase()}
+                              </Text>
+                              <Box
+                                style={{
+                                  width: 18,
+                                  height: 18,
+                                  borderRadius: '50%',
+                                  backgroundColor: preset.primaryColor,
+                                }}
+                              />
+                            </Group>
+                          </Paper>
+                        );
+                      })}
+                    </SimpleGrid>
+                  </Box>
+
+                  <Divider my="xs" />
+
+                  <Title order={5}>Custom Color Palette</Title>
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                    <TextInput
+                      label="Primary Brand Color"
+                      value={editingPage.design?.primaryColor || '#00a862'}
+                      onChange={(e) =>
+                        setEditingPage({
+                          ...editingPage,
+                          design: {
+                            ...editingPage.design,
+                            primaryColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <TextInput
+                      label="Accent / Gold Color"
+                      value={editingPage.design?.accentColor || '#fbbf24'}
+                      onChange={(e) =>
+                        setEditingPage({
+                          ...editingPage,
+                          design: {
+                            ...editingPage.design,
+                            accentColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <TextInput
+                      label="Background Color"
+                      value={editingPage.design?.backgroundColor || '#07080a'}
+                      onChange={(e) =>
+                        setEditingPage({
+                          ...editingPage,
+                          design: {
+                            ...editingPage.design,
+                            backgroundColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <TextInput
+                      label="Card Color"
+                      value={editingPage.design?.cardBackgroundColor || '#0f1117'}
+                      onChange={(e) =>
+                        setEditingPage({
+                          ...editingPage,
+                          design: {
+                            ...editingPage.design,
+                            cardBackgroundColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </SimpleGrid>
+                </Stack>
+              </Tabs.Panel>
+
+              {/* Tab 4: URL, Publish, & Legal */}
+              <Tabs.Panel value="settings" pt="md">
+                <Stack gap="md">
+                  <TextInput
+                    label="URL Slug"
+                    required
+                    description={`Live path: /landing/${brand}/${editingPage.slug}`}
+                    placeholder="e.g. spring-giveaway-2026"
+                    value={editingPage.slug}
+                    onChange={(e) =>
+                      setEditingPage({
+                        ...editingPage,
+                        slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '-'),
+                      })
+                    }
+                  />
+
+                  <Switch
+                    label="Publish to Live Web (Immediate)"
+                    description="When enabled, the landing page is instantly accessible to prospects"
+                    checked={editingPage.published}
+                    onChange={(e) =>
+                      setEditingPage({
+                        ...editingPage,
+                        published: e.currentTarget.checked,
+                      })
+                    }
+                  />
+
+                  <Divider my="xs" />
+
+                  <Textarea
+                    label="Footer Legal Disclaimer"
+                    placeholder="By entering you are agreeing to share your personal data..."
+                    minRows={2}
+                    value={editingPage.footerDisclaimer || ''}
+                    onChange={(e) =>
+                      setEditingPage({
+                        ...editingPage,
+                        footerDisclaimer: e.target.value,
+                      })
+                    }
+                  />
+
+                  <Textarea
+                    label="Terms & Conditions (Modal Text)"
+                    placeholder="1. Promoter details...&#10;2. Eligibility requirements (18+)..."
+                    minRows={4}
+                    value={editingPage.termsHtml || ''}
+                    onChange={(e) =>
+                      setEditingPage({
+                        ...editingPage,
+                        termsHtml: e.target.value,
+                      })
+                    }
+                  />
+                </Stack>
+              </Tabs.Panel>
+            </Tabs>
+
+            <Divider my="sm" />
+
+            <Group justify="flex-end" gap="sm">
+              <Button variant="default" onClick={() => setEditorOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                color="indigo"
+                leftSection={<IconDeviceFloppy size={18} />}
+                loading={saving}
+                onClick={handleSavePage}
+              >
+                Save &amp; Publish Instantly
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Drawer>
+    </Container>
+  );
+}

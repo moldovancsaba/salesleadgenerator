@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { resolveBrand, getBrandConfig } from '@/app/lib/brand';
-import { LandingCampaignClient } from './campaign-client';
+import { getLandingPageBySlug, incrementLandingPageView } from '@/lib/landing-page-store';
+import { DynamicLandingClient } from './dynamic-landing-client';
+
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
   params,
@@ -13,10 +16,11 @@ export async function generateMetadata({
   if (!brand) return { title: 'Not Found' };
   const config = await getBrandConfig(brand);
 
-  if (brand === 'vegas' || campaignParam.includes('darts') || campaignParam.includes('grand-slam')) {
+  const page = await getLandingPageBySlug(brand, campaignParam);
+  if (page) {
     return {
-      title: 'Win Tickets to the Grand Slam of Darts | Mr Vegas Giveaway',
-      description: 'Enter the official Mr Vegas Grand Slam of Darts ticket giveaway. Top players battle it out at WV Active Aldersley for the Eric Bristow Trophy.',
+      title: `${page.title} | ${config?.label ?? brand}`,
+      description: page.description || page.heroSubheadline || `Official registration and inquiry portal for ${config?.label ?? brand}.`,
     };
   }
 
@@ -39,12 +43,21 @@ export default async function LandingCampaignPage({
   const config = await getBrandConfig(brand);
   const search = await searchParams;
 
+  const page = await getLandingPageBySlug(brand, campaignParam);
+  if (!page) {
+    notFound();
+  }
+
+  // Increment view metric asynchronously
+  incrementLandingPageView(brand, campaignParam).catch(() => {});
+
   const utmSource = typeof search.utm_source === 'string' ? search.utm_source : '';
   const utmMedium = typeof search.utm_medium === 'string' ? search.utm_medium : '';
   const utmCampaign = typeof search.utm_campaign === 'string' ? search.utm_campaign : '';
 
   return (
-    <LandingCampaignClient
+    <DynamicLandingClient
+      page={page}
       brand={brand}
       brandLabel={config?.label ?? brand}
       campaignSlug={campaignParam}

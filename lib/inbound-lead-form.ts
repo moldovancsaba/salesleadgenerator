@@ -13,13 +13,18 @@ export type InboundFormInput = {
   contactEmail?: unknown;
   contactPhone?: unknown;
   postCode?: unknown;
+  city?: unknown;
+  address?: unknown;
   dateOfBirth?: unknown;
   consentPdc?: unknown;
   consentMrVegas?: unknown;
   sportOrSector?: unknown;
+  industry?: unknown;
   organizationSize?: unknown;
   message?: unknown;
   campaign?: unknown;
+  // Dynamic mapped fields dictionary for landing page builder customization
+  dynamicFields?: Record<string, unknown>;
   // Honeypot anti-spam field — must remain empty for legitimate human submissions
   companyFaxHoneypot?: unknown;
 };
@@ -36,13 +41,17 @@ export type ValidatedInboundFormSubmission = {
   contactEmail: string;
   contactPhone: string;
   postCode?: string;
+  city?: string;
+  address?: string;
   dateOfBirth?: string;
   consentPdc?: boolean;
   consentMrVegas?: boolean;
   sportOrSector: string;
+  industry?: string;
   organizationSize: 'Small' | 'Medium' | 'Large' | 'Enterprise' | '';
   message: string;
   campaign?: string;
+  dynamicFields?: Record<string, unknown>;
   honeypotTriggered: boolean;
 };
 
@@ -185,13 +194,17 @@ export function validateInboundFormSubmission(
   const rawWebsite = typeof input.websiteUrl === 'string' ? input.websiteUrl.trim().slice(0, 300) : '';
   const rawCountry = typeof input.country === 'string' ? input.country.trim() : '';
   const postCode = typeof input.postCode === 'string' ? input.postCode.trim().slice(0, 30) : '';
+  const city = typeof input.city === 'string' ? input.city.trim().slice(0, 80) : '';
+  const address = typeof input.address === 'string' ? input.address.trim().slice(0, 200) : '';
   const dateOfBirth = typeof input.dateOfBirth === 'string' ? input.dateOfBirth.trim().slice(0, 30) : '';
   const consentPdc = input.consentPdc === true || input.consentPdc === 'true' || input.consentPdc === '1' || input.consentPdc === 1;
   const consentMrVegas = input.consentMrVegas === true || input.consentMrVegas === 'true' || input.consentMrVegas === '1' || input.consentMrVegas === 1;
   const sportOrSector = typeof input.sportOrSector === 'string' ? input.sportOrSector.trim().slice(0, 120) : '';
+  const industry = typeof input.industry === 'string' ? input.industry.trim().slice(0, 120) : '';
   const rawSize = typeof input.organizationSize === 'string' ? input.organizationSize.trim() : '';
   const message = typeof input.message === 'string' ? input.message.trim().slice(0, 2000) : '';
   const campaign = typeof input.campaign === 'string' ? input.campaign.trim().slice(0, 100) : '';
+  const dynamicFields = input.dynamicFields && typeof input.dynamicFields === 'object' ? (input.dynamicFields as Record<string, unknown>) : undefined;
 
   if (!entityName) {
     return { ok: false, error: 'Organization or contact name is required' };
@@ -224,13 +237,17 @@ export function validateInboundFormSubmission(
       contactEmail,
       contactPhone,
       ...(postCode ? { postCode } : {}),
+      ...(city ? { city } : {}),
+      ...(address ? { address } : {}),
       ...(dateOfBirth ? { dateOfBirth } : {}),
       ...(consentPdc !== undefined ? { consentPdc } : {}),
       ...(consentMrVegas !== undefined ? { consentMrVegas } : {}),
       sportOrSector,
+      ...(industry ? { industry } : {}),
       organizationSize,
       message,
       ...(campaign ? { campaign } : {}),
+      ...(dynamicFields ? { dynamicFields } : {}),
       honeypotTriggered: honeypot.length > 0,
     },
   };
@@ -271,10 +288,19 @@ export function buildInboundLeadRecord(params: {
 
   const extraNotes: string[] = [];
   if (submission.postCode) extraNotes.push(`Post Code: ${submission.postCode}`);
+  if (submission.city) extraNotes.push(`City: ${submission.city}`);
+  if (submission.address) extraNotes.push(`Address: ${submission.address}`);
   if (submission.dateOfBirth) extraNotes.push(`DOB: ${submission.dateOfBirth}`);
   if (submission.consentPdc !== undefined) extraNotes.push(`PDC Email Opt-in: ${submission.consentPdc ? 'Yes' : 'No'}`);
   if (submission.consentMrVegas !== undefined) extraNotes.push(`Mr Vegas Promo Opt-in: ${submission.consentMrVegas ? 'Yes' : 'No'}`);
   if (submission.campaign) extraNotes.push(`Campaign: ${submission.campaign}`);
+  if (submission.dynamicFields) {
+    for (const [key, val] of Object.entries(submission.dynamicFields)) {
+      if (val !== undefined && val !== null && val !== '') {
+        extraNotes.push(`${key}: ${val}`);
+      }
+    }
+  }
   const extraNotesStr = extraNotes.length > 0 ? ` [${extraNotes.join(' | ')}]` : '';
 
   const fullNote = submission.message
@@ -289,10 +315,11 @@ export function buildInboundLeadRecord(params: {
     url: submission.websiteUrl,
     contacts: [contact],
     contactEmails: [submission.contactEmail],
-    address: submission.postCode || '',
+    address: submission.address || submission.postCode || '',
+    cityName: submission.city || '',
     general_contact: submission.contactEmail,
     size: submission.organizationSize,
-    industry: submission.sportOrSector || (submission.campaign ? `Campaign: ${submission.campaign}` : 'Inbound Web Inquiry'),
+    industry: submission.industry || submission.sportOrSector || (submission.campaign ? `Campaign: ${submission.campaign}` : 'Inbound Web Inquiry'),
     sport_or_sector: submission.sportOrSector || '',
     level_league: '',
     pros: submission.message ? [`Inbound inquiry: ${submission.message.slice(0, 240)}`] : ['Inbound web lead collector inquiry'],
@@ -315,9 +342,12 @@ export function buildInboundLeadRecord(params: {
     campaign: submission.campaign,
     extraFields: {
       postCode: submission.postCode,
+      city: submission.city,
+      address: submission.address,
       dateOfBirth: submission.dateOfBirth,
       consentPdc: submission.consentPdc,
       consentMrVegas: submission.consentMrVegas,
+      dynamicFields: submission.dynamicFields,
     },
     fieldVerifications: [],
     kanbanColumn: 'DISCOVERED',
