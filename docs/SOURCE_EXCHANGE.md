@@ -30,3 +30,23 @@ The response contains schemaVersion, application, exact requested scope, the aut
 The endpoint uses only read-only integration metadata and database hello queries, each with a three-second server limit. It does not reserve an operation, update a key's last-used timestamp, grant access or mutate lead content. Responses are `private, no-store`. writesAuthorized is an advisory current snapshot; actual effects always repeat the grant/epoch checks transactionally. Missing grants do not prevent inspection of the caller's own identity. Invalid scope returns 422, authentication refusal returns 401/403 and storage failures return 503 with no private error text. Callers must bound HTTP timeouts and keep unavailable observations NOT CHECKED.
 
 Release and verify this read endpoint before using its principal metadata to prepare a separately reviewed workspace grant. Rollback removes only the route/code through the ordinary release process; preserve authority documents and all receipts. No environment variable, migration, frontend, research task, customer record or notification schedule is added.
+
+## Initial writer authority commissioning (Issue #326)
+
+`POST /api/integrations/v1/authority` commissions an initial workspace writer grant and ownership fence for the Paperclip exchange. The route is default-off and disabled (`503 AUTHORITY_CHANNEL_DISABLED`) unless both `SLG_AUTHORITY_PROVISIONING_TOKEN` (64-character hex) and `SLG_AUTHORITY_MANIFEST_SHA256` (comma-separated list of at most three SHA-256 hashes) are configured.
+
+### Authentication & Authorization
+- Requests require `Authorization: Bearer <secret>`. Scoped API keys (`x-api-key`) and browser requests (`Origin` header) are refused (401/403).
+- The `Idempotency-Key` header must match `provisioningId` (UUID).
+- The base64-encoded manifest is hashed; its SHA-256 digest must match an approved entry in `SLG_AUTHORITY_MANIFEST_SHA256`.
+
+### Commissioning Constraints
+- Manifests must bind exactly one valid client (`cogmap`, `seyu`, or `dvsc`), one explicit tenant, an existing active scoped writer key with `read-write` scope, core lead fields, `writerEpoch: 1`, `legacyFenced: true`, and the exact deployment commit SHA.
+- Transactionally executes with `snapshot` reads and `majority` writes:
+  1. Checks writer key is valid and not revoked.
+  2. Ensures initial authority is absent (no prior grant, ownership record, or existing operations).
+  3. Inserts grant, ownership, and immutable receipt atomically.
+- Existing authority cannot be overwritten, extended, or revived.
+
+### Recovery
+`GET /api/integrations/v1/authority?provisioningId=<uuid>&manifestSha256=<sha256>` looks up immutable receipt metadata and checks if current authority matches the initial receipt. No lead data or secret credentials are ever exposed.

@@ -1,5 +1,31 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.371
+
+### Integration: Commission initial writer authority through an exact-reviewed owner channel
+
+- **Owner-Operator Authority Commissioning (Issue #326, `app/api/integrations/v1/authority/route.ts`, `lib/integrations/authority.ts`, `tests/lib/integrations/authority.test.ts`, `tests/lib/integrations/authority-route.test.ts`):**
+  - Added dedicated destination-owned initial writer authority commissioning endpoint (`POST/GET /api/integrations/v1/authority`) for the Paperclip / OpenClaw exchange.
+  - Endpoint remains default-off and refuses browser `Origin` and scoped machine keys before storage access (`503 AUTHORITY_CHANNEL_DISABLED`).
+  - Requires separate owner token (`SLG_AUTHORITY_PROVISIONING_TOKEN`) and an allowlist of at most three SHA-256 reviewed manifest digests (`SLG_AUTHORITY_MANIFEST_SHA256`).
+  - Idempotently and transactionally verifies that writer keys exist and initial authority is absent, fencing legacy writes and recording immutable receipt metadata in `integration_authority_operations`.
+  - Added `docs/SOURCE_EXCHANGE.md` specification and environment variable documentation in `.env.example`.
+
+## 2.4.370
+
+### Visual Landing Page Editor & Property-Aligned Lead Collector
+
+- **Zero-Vercel-Rebuild Dynamic Landing Pages (Issue #329, `app/outreach/landing-pages/[brand]`, `app/landing/[brand]/[campaign]`, `lib/landing-page-store.ts`, `lib/landing-page-schema.ts`):**
+  - Built visual landing page editor allowing users to create, preview, and update campaigns per workspace without redeploying code.
+  - Aligned custom campaign form fields directly to SLG Lead properties.
+
+## 2.4.369
+
+### Client Onboarding & Grand Slam Campaign Collector
+
+- **Mr Vegas Grand Slam Campaign (Issue #328, `app/landing/[brand]/[campaign]`):**
+  - Deployed ticket giveaway lead capture with bot honeypot protection, date of birth verification, and opt-ins.
+
 ## 2.4.368
 
 ### Rebranding: Padel Africa to Racket.land Digital Services

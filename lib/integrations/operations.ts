@@ -14,7 +14,7 @@ import type { BrandConfig } from '@/app/lib/brand-constants';
 export class OperationError extends Error { constructor(public code: string,public status: number){super(code);} }
 export type Evidence = {field:string;sourceUrl:string;observedAt:string;method:string;contactKey?:string};
 export type Operation = {operationId:string;clientId:string;tenantId:string;writerEpoch:number;action:'create'|'update';entityType:'lead';targetId:string;expectedRevision:string|null;patch:Record<string,unknown>;evidence:Evidence[]};
-const CORE_FIELDS=new Set(['entity_name','url','region','country','address','general_contact','size','industry','sport_or_sector','level_league','value_proposition','notes','tags','contacts','sportCode','orgTypeCode','businessUnitCode','genderCode','demographicCodes','competitionLevelCode','cityName','parentOrgId','relationship','classificationConfidence','classificationEvidence']);
+export const CORE_FIELDS: ReadonlySet<string> = new Set(['entity_name','url','region','country','address','general_contact','size','industry','sport_or_sector','level_league','value_proposition','notes','tags','contacts','sportCode','orgTypeCode','businessUnitCode','genderCode','demographicCodes','competitionLevelCode','cityName','parentOrgId','relationship','classificationConfidence','classificationEvidence']);
 const COLLECTIONS={grants:'integration_writer_grants',ownership:'integration_ownership',operations:'integration_operations',identities:'integration_identities'};
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 function object(v:unknown):v is Record<string,unknown>{return !!v&&typeof v==='object'&&!Array.isArray(v);}
