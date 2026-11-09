@@ -30,12 +30,12 @@ export function isAppleWalletConfigured(): boolean {
 import crypto from 'crypto';
 
 export async function createAppleWalletPass(data: AttendeeCardData): Promise<Buffer> {
-  const passTypeIdentifier = process.env.APPLE_PASS_TYPE_IDENTIFIER || 'pass.com.mrvegas.eventpass';
-  const teamIdentifier = process.env.APPLE_TEAM_IDENTIFIER || 'TEAMID123';
-  const signerCert = process.env.APPLE_SIGNER_CERT ? Buffer.from(process.env.APPLE_SIGNER_CERT, 'base64').toString('utf8') : '';
-  const signerKey = process.env.APPLE_SIGNER_KEY ? Buffer.from(process.env.APPLE_SIGNER_KEY, 'base64').toString('utf8') : '';
-  const wwdrCert = process.env.APPLE_WWDR_CERT ? Buffer.from(process.env.APPLE_WWDR_CERT, 'base64').toString('utf8') : '';
-  const signerKeyPassphrase = process.env.APPLE_SIGNER_KEY_PASSPHRASE || process.env.APPLE_SIGNER_KEY_PASSWORD || '';
+  const passTypeIdentifier = (process.env.APPLE_PASS_TYPE_IDENTIFIER || 'pass.com.mrvegas.eventpass').trim();
+  const teamIdentifier = (process.env.APPLE_TEAM_IDENTIFIER || 'TEAMID123').trim();
+  const signerCert = process.env.APPLE_SIGNER_CERT ? Buffer.from(process.env.APPLE_SIGNER_CERT.trim(), 'base64').toString('utf8').trim() : '';
+  const signerKey = process.env.APPLE_SIGNER_KEY ? Buffer.from(process.env.APPLE_SIGNER_KEY.trim(), 'base64').toString('utf8').trim() : '';
+  const wwdrCert = process.env.APPLE_WWDR_CERT ? Buffer.from(process.env.APPLE_WWDR_CERT.trim(), 'base64').toString('utf8').trim() : '';
+  const signerKeyPassphrase = (process.env.APPLE_SIGNER_KEY_PASSPHRASE || process.env.APPLE_SIGNER_KEY_PASSWORD || '').trim();
 
   const vCard = buildVCardString(data);
 
@@ -88,12 +88,12 @@ export async function createAppleWalletPass(data: AttendeeCardData): Promise<Buf
   ticketType.secondaryFields.push({
     key: 'event',
     label: 'EVENT',
-    value: data.eventName,
+    value: data.eventName || 'Mr Vegas Grand Slam of Darts',
   });
   ticketType.auxiliaryFields.push({
     key: 'venue',
     label: 'VENUE',
-    value: data.venue || 'WV Active Aldersley',
+    value: data.venue || 'WV Active Aldersley, Wolverhampton',
   });
   if (data.eventDate) {
     ticketType.auxiliaryFields.push({
