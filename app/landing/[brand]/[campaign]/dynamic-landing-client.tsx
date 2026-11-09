@@ -55,11 +55,6 @@ export function DynamicLandingClient({
         init[f.id] = '';
       }
     });
-    // Default country to United Kingdom / GB if present
-    const countryField = page.fields.find((f) => f.leadProperty === 'country');
-    if (countryField && !init[countryField.id]) {
-      init[countryField.id] = 'GB';
-    }
     return init;
   });
 
@@ -204,10 +199,12 @@ export function DynamicLandingClient({
             <Select
               key={field.id}
               label={<Text size="sm" fw={600} c="gray.3">{field.label}</Text>}
+              placeholder="Select or type country..."
               data={countrySelectData}
-              value={val ?? 'GB'}
+              value={val || null}
               onChange={(value) => handleFieldChange(field.id, value)}
               searchable
+              clearable
               required={field.required}
               size="md"
               classNames={{

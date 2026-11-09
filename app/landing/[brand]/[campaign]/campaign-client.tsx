@@ -50,7 +50,7 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
   // Form State
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [country, setCountry] = useState<string | null>('GB');
+  const [country, setCountry] = useState<string | null>(null);
   const [postCode, setPostCode] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [phone, setPhone] = useState('');
@@ -83,7 +83,7 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
         contactName: `${firstName} ${lastName}`.trim(),
         contactEmail: email,
         contactPhone: phone,
-        country: country || 'GB',
+        country: country || '',
         postCode,
         dateOfBirth,
         consentPdc,
@@ -288,10 +288,12 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
 
                   <Select
                     label={<Text size="sm" fw={600} c="gray.3">Country</Text>}
+                    placeholder="Select or type country..."
                     data={countrySelectData}
                     value={country}
                     onChange={setCountry}
                     searchable
+                    clearable
                     required
                     size="md"
                     classNames={{
