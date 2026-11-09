@@ -316,4 +316,49 @@ textarea {
   }
 }
 
+/* Landing Page Dark Theme Select / Combobox Dropdown & Options */
+.landing-select-dropdown,
+.mantine-Select-dropdown:has(.landing-select-option) {
+  background-color: #161922 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+
+.landing-select-option,
+.mantine-Select-option:has(span) {
+  /* High contrast option item text */
+}
+
+.landing-select-option,
+.landing-select-dropdown .mantine-Select-option,
+.landing-select-dropdown [data-combobox-option] {
+  color: #f3f4f6 !important;
+  font-size: 0.95rem !important;
+}
+
+.landing-select-option[data-combobox-active],
+.landing-select-option[data-combobox-selected],
+.landing-select-dropdown [data-combobox-option][data-combobox-active],
+.landing-select-dropdown [data-combobox-option][data-combobox-selected],
+.landing-select-dropdown [data-combobox-option][data-checked='true'] {
+  background-color: rgba(0, 168, 98, 0.22) !important;
+  color: #34d399 !important;
+  font-weight: 600 !important;
+}
+
+@media (hover: hover) {
+  .landing-select-option:hover,
+  .landing-select-dropdown [data-combobox-option]:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+  }
+}
+
+.landing-select-dropdown .mantine-Select-empty,
+.landing-select-dropdown [data-combobox-empty] {
+  color: #9ca3af !important;
+  padding: 12px !important;
+  text-align: center !important;
+}
+
 

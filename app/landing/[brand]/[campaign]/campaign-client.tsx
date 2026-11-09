@@ -293,6 +293,17 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                     searchable
                     required
                     size="md"
+                    classNames={{
+                      dropdown: 'landing-select-dropdown',
+                      option: 'landing-select-option',
+                    }}
+                    comboboxProps={{
+                      withinPortal: true,
+                      classNames: {
+                        dropdown: 'landing-select-dropdown',
+                        option: 'landing-select-option',
+                      },
+                    }}
                     styles={{
                       input: {
                         backgroundColor: '#161922',
@@ -302,6 +313,10 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                       dropdown: {
                         backgroundColor: '#161922',
                         borderColor: 'rgba(255, 255, 255, 0.2)',
+                        color: '#ffffff',
+                      },
+                      option: {
+                        color: '#f3f4f6',
                       },
                     }}
                   />

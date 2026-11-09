@@ -209,6 +209,17 @@ export function DynamicLandingClient({
               searchable
               required={field.required}
               size="md"
+              classNames={{
+                dropdown: 'landing-select-dropdown',
+                option: 'landing-select-option',
+              }}
+              comboboxProps={{
+                withinPortal: true,
+                classNames: {
+                  dropdown: 'landing-select-dropdown',
+                  option: 'landing-select-option',
+                },
+              }}
               styles={{
                 input: {
                   backgroundColor: '#161922',
@@ -218,6 +229,10 @@ export function DynamicLandingClient({
                 dropdown: {
                   backgroundColor: '#161922',
                   borderColor: 'rgba(255, 255, 255, 0.2)',
+                  color: '#ffffff',
+                },
+                option: {
+                  color: '#f3f4f6',
                 },
               }}
             />
@@ -235,6 +250,17 @@ export function DynamicLandingClient({
               onChange={(value) => handleFieldChange(field.id, value)}
               required={field.required}
               size="md"
+              classNames={{
+                dropdown: 'landing-select-dropdown',
+                option: 'landing-select-option',
+              }}
+              comboboxProps={{
+                withinPortal: true,
+                classNames: {
+                  dropdown: 'landing-select-dropdown',
+                  option: 'landing-select-option',
+                },
+              }}
               styles={{
                 input: {
                   backgroundColor: '#161922',
@@ -244,6 +270,10 @@ export function DynamicLandingClient({
                 dropdown: {
                   backgroundColor: '#161922',
                   borderColor: 'rgba(255, 255, 255, 0.2)',
+                  color: '#ffffff',
+                },
+                option: {
+                  color: '#f3f4f6',
                 },
               }}
             />
@@ -259,6 +289,17 @@ export function DynamicLandingClient({
             onChange={(value) => handleFieldChange(field.id, value)}
             required={field.required}
             size="md"
+            classNames={{
+              dropdown: 'landing-select-dropdown',
+              option: 'landing-select-option',
+            }}
+            comboboxProps={{
+              withinPortal: true,
+              classNames: {
+                dropdown: 'landing-select-dropdown',
+                option: 'landing-select-option',
+              },
+            }}
             styles={{
               input: {
                 backgroundColor: '#161922',
@@ -268,6 +309,10 @@ export function DynamicLandingClient({
               dropdown: {
                 backgroundColor: '#161922',
                 borderColor: 'rgba(255, 255, 255, 0.2)',
+                color: '#ffffff',
+              },
+              option: {
+                color: '#f3f4f6',
               },
             }}
           />
