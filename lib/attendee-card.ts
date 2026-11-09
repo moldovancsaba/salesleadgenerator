@@ -26,18 +26,13 @@ export function buildVCardString(data: AttendeeCardData): string {
   ];
 
   if (data.email) {
-    parts.push(`EMAIL;TYPE=INTERNET:${data.email}`);
+    parts.push(`EMAIL:${data.email}`);
   }
   if (data.phone) {
-    parts.push(`TEL;TYPE=CELL:${data.phone}`);
+    parts.push(`TEL:${data.phone}`);
   }
-  if (data.country || data.postCode) {
-    parts.push(`ADR;TYPE=HOME:;;;${data.postCode || ''};;${data.country || ''}`);
-  }
-  if (data.eventName) {
-    parts.push(`ORG:${data.brandLabel || 'Event Organizer'}`);
-    parts.push(`TITLE:${data.ticketType || 'Event Attendee'}`);
-    parts.push(`NOTE:Registered for ${data.eventName}${data.venue ? ' at ' + data.venue : ''}`);
+  if (data.eventName || data.brandLabel) {
+    parts.push(`ORG:${data.brandLabel || 'Mr Vegas'}`);
   }
   parts.push('END:VCARD');
   return parts.join('\r\n');
@@ -83,10 +78,10 @@ export async function generateAttendeeBadgePng(data: AttendeeCardData): Promise<
   const vCard = buildVCardString(data);
   const qrDataUrl = await QRCode.toDataURL(vCard, {
     margin: 1,
-    width: 320,
-    errorCorrectionLevel: 'M',
+    width: 640,
+    errorCorrectionLevel: 'L',
     color: {
-      dark: '#0f172a',
+      dark: '#000000',
       light: '#ffffff',
     },
   });
@@ -113,135 +108,79 @@ export async function generateAttendeeBadgePng(data: AttendeeCardData): Promise<
   ctx.save();
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
   ctx.lineWidth = 2;
-  roundRect(ctx, 30, 30, width - 60, height - 60, 28);
+  roundRect(ctx, 24, 24, width - 48, height - 48, 24);
   ctx.stroke();
   ctx.restore();
 
   // Accent Corner Ornaments
   ctx.fillStyle = '#00a862';
-  ctx.fillRect(30, 30, 80, 4);
-  ctx.fillRect(30, 30, 4, 80);
-  ctx.fillRect(width - 110, height - 34, 80, 4);
-  ctx.fillRect(width - 34, height - 110, 4, 80);
+  ctx.fillRect(24, 24, 80, 4);
+  ctx.fillRect(24, 24, 4, 80);
+  ctx.fillRect(width - 104, height - 28, 80, 4);
+  ctx.fillRect(width - 28, height - 104, 4, 80);
 
-  // 3. Header: Brand & Event Badge
-  let currentY = 90;
+  // 3. Compact Header
+  let currentY = 55;
 
-  // Top pill badge
-  ctx.save();
-  ctx.fillStyle = 'rgba(0, 168, 98, 0.15)';
-  ctx.strokeStyle = '#00a862';
-  ctx.lineWidth = 1.5;
-  roundRect(ctx, width / 2 - 130, currentY, 260, 38, 19);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = '#34d399';
-  ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillStyle = '#f59e0b';
+  ctx.font = '900 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('OFFICIAL EVENT PASS', width / 2, currentY + 19);
-  ctx.restore();
+  ctx.fillText(data.brandLabel?.toUpperCase() || 'MR VEGAS', width / 2, currentY);
 
-  currentY += 80;
+  currentY += 32;
 
-  // Optional Logo Image
-  if (data.logoUrl) {
-    try {
-      const img = await loadImage(data.logoUrl);
-      const maxW = 380;
-      const maxH = 100;
-      const ratio = Math.min(maxW / img.width, maxH / img.height);
-      const imgW = img.width * ratio;
-      const imgH = img.height * ratio;
-      ctx.drawImage(img, (width - imgW) / 2, currentY, imgW, imgH);
-      currentY += imgH + 25;
-    } catch {
-      // Fallback to text banner if remote image fails
-      ctx.fillStyle = '#f59e0b';
-      ctx.font = '900 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(data.brandLabel?.toUpperCase() || 'MR VEGAS', width / 2, currentY + 20);
-      currentY += 50;
-    }
-  } else {
-    ctx.fillStyle = '#f59e0b';
-    ctx.font = '900 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(data.brandLabel?.toUpperCase() || 'MR VEGAS', width / 2, currentY + 20);
-    currentY += 50;
-  }
-
-  // Event Name
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.textAlign = 'center';
-  wrapText(ctx, data.eventName, width / 2, currentY, 680, 34);
-  currentY += 70;
+  ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText(data.eventName || 'Grand Slam of Darts', width / 2, currentY);
 
-  // Divider Line
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(80, currentY);
-  ctx.lineTo(width - 80, currentY);
-  ctx.stroke();
-
-  currentY += 40;
+  currentY += 45;
 
   // 4. Attendee Name (Prominent & Clear)
-  ctx.fillStyle = '#9ca3af';
-  ctx.font = '600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('ATTENDEE NAME', width / 2, currentY);
+  ctx.fillStyle = '#34d399';
+  ctx.font = '800 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('EVENT PASS ATTENDEE', width / 2, currentY);
 
-  currentY += 38;
+  currentY += 36;
   ctx.fillStyle = '#ffffff';
-  ctx.font = '900 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.font = '900 38px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText(data.name || 'Guest Attendee', width / 2, currentY);
 
-  currentY += 50;
+  currentY += 35;
 
-  // 5. White Container Card for QR Code
-  const qrBoxSize = 340;
+  // 5. MAXIMIZED White Container Card for QR Code (fills maximum width/height)
+  const qrBoxSize = 640;
   const qrBoxX = (width - qrBoxSize) / 2;
   ctx.save();
   ctx.fillStyle = '#ffffff';
-  ctx.shadowColor = 'rgba(0, 168, 98, 0.35)';
-  ctx.shadowBlur = 30;
-  ctx.shadowOffsetY = 10;
-  roundRect(ctx, qrBoxX, currentY, qrBoxSize, qrBoxSize, 24);
+  ctx.shadowColor = 'rgba(0, 168, 98, 0.4)';
+  ctx.shadowBlur = 35;
+  ctx.shadowOffsetY = 8;
+  roundRect(ctx, qrBoxX, currentY, qrBoxSize, qrBoxSize, 28);
   ctx.fill();
   ctx.restore();
 
-  // Draw QR code onto white container
+  // Draw QR code onto white container edge-to-edge
   const qrImg = await loadImage(qrDataUrl);
-  ctx.drawImage(qrImg, qrBoxX + 20, currentY + 20, qrBoxSize - 40, qrBoxSize - 40);
+  ctx.drawImage(qrImg, qrBoxX + 16, currentY + 16, qrBoxSize - 32, qrBoxSize - 32);
 
   currentY += qrBoxSize + 40;
 
   // 6. Hostess Scanning Instructions
   ctx.fillStyle = '#34d399';
-  ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('SCAN WITH CAMERA FOR CONTACT CARD', width / 2, currentY);
 
-  currentY += 30;
+  currentY += 28;
   ctx.fillStyle = '#9ca3af';
-  ctx.font = '500 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('Hostess can scan this pass directly into phone contacts (vCard).', width / 2, currentY);
+  ctx.font = '500 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('Hostess can scan this QR code directly into pipeline (vCard)', width / 2, currentY);
 
   // 7. Footer: Venue & Date
-  const footerY = height - 70;
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(80, footerY - 25);
-  ctx.lineTo(width - 80, footerY - 25);
-  ctx.stroke();
-
+  const footerY = height - 45;
   const details = [data.venue, data.eventDate || 'WV Active Aldersley, Wolverhampton'].filter(Boolean).join(' • ');
   ctx.fillStyle = '#64748b';
-  ctx.font = '500 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.font = '500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText(details, width / 2, footerY);
 
   return canvas.toDataURL('image/png');
