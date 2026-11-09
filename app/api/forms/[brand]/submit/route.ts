@@ -203,39 +203,38 @@ export async function POST(
       console.error('[API:forms/submit] activityLog write failed', err);
     }
 
-    // Trigger branded confirmation email with Apple Wallet, Google Wallet & badge links (non-blocking)
+    // Trigger branded confirmation email with Apple Wallet, Google Wallet & badge links
     if (submission.contactEmail) {
-      import('../../../../../lib/landing-confirmation-email')
-        .then(async ({ sendLandingConfirmationEmail }) => {
-          let campaignTitle: string | undefined;
-          if (submission.campaign) {
-            try {
-              const { getLandingPageBySlug } = await import('../../../../../lib/landing-page-store');
-              const page = await getLandingPageBySlug(brand, submission.campaign);
-              if (page?.title) {
-                campaignTitle = page.title;
-              }
-            } catch {
-              // Non-fatal
+      try {
+        const { sendLandingConfirmationEmail } = await import('../../../../../lib/landing-confirmation-email');
+        let campaignTitle: string | undefined;
+        if (submission.campaign) {
+          try {
+            const { getLandingPageBySlug } = await import('../../../../../lib/landing-page-store');
+            const page = await getLandingPageBySlug(brand, submission.campaign);
+            if (page?.title) {
+              campaignTitle = page.title;
             }
+          } catch {
+            // Non-fatal
           }
+        }
 
-          return sendLandingConfirmationEmail({
-            brand,
-            brandLabel: config.label,
-            campaign: submission.campaign,
-            campaignTitle: campaignTitle || config.label || 'Event Entry Confirmation',
-            recipientEmail: submission.contactEmail,
-            recipientName: submission.contactName,
-            phone: submission.contactPhone,
-            country: submission.country,
-            postCode: submission.postCode,
-            fromEmail: config.fromEmail,
-          });
-        })
-        .catch((err) => {
-          console.error('[API:forms/submit] confirmation email dispatch failed:', err);
+        await sendLandingConfirmationEmail({
+          brand,
+          brandLabel: config.label,
+          campaign: submission.campaign,
+          campaignTitle: campaignTitle || config.label || 'Event Entry Confirmation',
+          recipientEmail: submission.contactEmail,
+          recipientName: submission.contactName,
+          phone: submission.contactPhone,
+          country: submission.country,
+          postCode: submission.postCode,
+          fromEmail: config.fromEmail,
         });
+      } catch (err) {
+        console.error('[API:forms/submit] confirmation email dispatch failed:', err);
+      }
     }
 
     return NextResponse.json(

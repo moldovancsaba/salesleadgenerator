@@ -1,6 +1,11 @@
 import { Resend } from 'resend';
-import { resolveOutboundFromAddress } from './outreach-send';
 import { createGoogleWalletSaveUrl } from './google-wallet';
+
+export function resolveLandingFromAddress(brand: string, fromEmail?: string): string {
+  if (fromEmail) return fromEmail;
+  const domain = process.env.RESEND_OUTBOUND_DOMAIN || 'haho.ai';
+  return `${brand}@${domain}`;
+}
 
 export interface LandingConfirmationEmailOptions {
   brand: string;
@@ -99,7 +104,7 @@ export async function sendLandingConfirmationEmail(
   }) || badgeImageUrl;
 
   // 4. Resolve sender
-  const fromAddress = resolveOutboundFromAddress(brand, fromEmail);
+  const fromAddress = resolveLandingFromAddress(brand, fromEmail);
   const subject = `Entry Confirmed: ${campaignTitle} — Your Event Pass`;
 
   const html = `<!DOCTYPE html>
