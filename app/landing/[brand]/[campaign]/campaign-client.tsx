@@ -464,6 +464,9 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   />
 
                   <TextInput
+                    id="firstName"
+                    name="firstName"
+                    autoComplete="given-name"
                     label={<Text size="sm" fw={600} c="gray.3">First Name</Text>}
                     placeholder="e.g. John"
                     value={firstName}
@@ -480,6 +483,9 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   />
 
                   <TextInput
+                    id="lastName"
+                    name="lastName"
+                    autoComplete="family-name"
                     label={<Text size="sm" fw={600} c="gray.3">Last Name</Text>}
                     placeholder="e.g. Smith"
                     value={lastName}
@@ -533,6 +539,9 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   />
 
                   <TextInput
+                    id="postalCode"
+                    name="postalCode"
+                    autoComplete="postal-code"
                     label={<Text size="sm" fw={600} c="gray.3">Post Code</Text>}
                     placeholder="e.g. WV6 9NW"
                     value={postCode}
@@ -549,6 +558,9 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   />
 
                   <TextInput
+                    id="bday"
+                    name="bday"
+                    autoComplete="bday"
                     label={<Text size="sm" fw={600} c="gray.3">Date of Birth (please select from the calendar)</Text>}
                     description={<Text size="xs" c="dimmed">YYYY-MM-DD (18+ only)</Text>}
                     placeholder="YYYY-MM-DD"
@@ -566,6 +578,9 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   />
 
                   <TextInput
+                    id="tel"
+                    name="tel"
+                    autoComplete="tel"
                     label={<Text size="sm" fw={600} c="gray.3">Phone Number</Text>}
                     placeholder="+44 7123 456789"
                     value={phone}
@@ -581,6 +596,9 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   />
 
                   <TextInput
+                    id="email"
+                    name="email"
+                    autoComplete="email"
                     label={<Text size="sm" fw={600} c="gray.3">Contact Email</Text>}
                     placeholder="john.smith@example.com"
                     type="email"

@@ -194,10 +194,34 @@ export function DynamicLandingClient({
       case 'email':
       case 'tel':
       case 'url':
-      case 'date':
+      case 'date': {
+        const autoCompleteValue =
+          field.leadProperty === 'contact_first_name' ? 'given-name'
+          : field.leadProperty === 'contact_last_name' ? 'family-name'
+          : field.leadProperty === 'contact_email' || field.type === 'email' ? 'email'
+          : field.leadProperty === 'contact_phone' || field.type === 'tel' ? 'tel'
+          : field.leadProperty === 'post_code' ? 'postal-code'
+          : field.leadProperty === 'date_of_birth' || field.type === 'date' ? 'bday'
+          : field.leadProperty === 'city' ? 'address-level2'
+          : field.leadProperty === 'address' ? 'street-address'
+          : field.leadProperty === 'entity_name' ? 'organization'
+          : undefined;
+
+        const fieldName =
+          field.leadProperty === 'contact_first_name' ? 'firstName'
+          : field.leadProperty === 'contact_last_name' ? 'lastName'
+          : field.leadProperty === 'contact_email' ? 'email'
+          : field.leadProperty === 'contact_phone' ? 'tel'
+          : field.leadProperty === 'post_code' ? 'postalCode'
+          : field.leadProperty === 'date_of_birth' ? 'bday'
+          : field.id;
+
         return (
           <TextInput
             key={field.id}
+            id={fieldName}
+            name={fieldName}
+            autoComplete={autoCompleteValue}
             label={<Text size="sm" fw={600} c="gray.3">{field.label}</Text>}
             placeholder={field.placeholder}
             type={field.type}
@@ -215,6 +239,7 @@ export function DynamicLandingClient({
             }}
           />
         );
+      }
 
       case 'textarea':
         return (
