@@ -1,3 +1,5 @@
+import path from 'path';
+import fs from 'fs';
 import { PKPass, PassType } from 'passkit-generator';
 import { buildVCardString, AttendeeCardData } from './attendee-card';
 
@@ -35,8 +37,22 @@ export async function createAppleWalletPass(data: AttendeeCardData): Promise<Buf
 
   const vCard = buildVCardString(data);
 
+  // Bundle pass icons if available
+  const buffers: Record<string, Buffer> = {};
+  try {
+    const iconPath = path.join(process.cwd(), 'public/passes/icon.png');
+    if (fs.existsSync(iconPath)) {
+      buffers['icon.png'] = fs.readFileSync(iconPath);
+      buffers['icon@2x.png'] = fs.readFileSync(path.join(process.cwd(), 'public/passes/icon@2x.png'));
+      buffers['logo.png'] = fs.readFileSync(path.join(process.cwd(), 'public/passes/logo.png'));
+      buffers['logo@2x.png'] = fs.readFileSync(path.join(process.cwd(), 'public/passes/logo@2x.png'));
+    }
+  } catch {
+    // Non-fatal if asset files are loaded in different execution context
+  }
+
   const pass = new PKPass(
-    {},
+    buffers,
     {
       signerCert,
       signerKey,
