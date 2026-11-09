@@ -27,6 +27,13 @@ yarn-error.log*
 .env
 
 # vercel
+# certificates & wallet secrets
+certs/
+*.p12
+*.cer
+*.key
+*.csr
+
 .vercel
 
 # typescript
