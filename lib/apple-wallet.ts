@@ -192,20 +192,21 @@ export async function createAppleWalletPass(
     label: 'EVENT',
     value: data.eventName || 'Official Event Entry',
   });
-  ticketType.auxiliaryFields.push({
-    key: 'venue',
-    label: 'VENUE',
-    value: data.venue || 'Event Venue',
-  });
-  if (data.eventDate) {
-    ticketType.auxiliaryFields.push({
-      key: 'date',
-      label: 'DATE',
-      value: data.eventDate,
-    });
-  }
+
+  // Note: auxiliaryFields (venue/date) are intentionally moved to backFields so the front of the pass
+  // dedicates maximum vertical height and breathing room to render the QR code as large as possible.
 
   ticketType.backFields.push(
+    {
+      key: 'venue',
+      label: 'VENUE',
+      value: data.venue || 'Event Venue',
+    },
+    {
+      key: 'date',
+      label: 'DATE',
+      value: data.eventDate || 'November 2026',
+    },
     {
       key: 'organizer',
       label: 'ORGANIZER',
@@ -234,7 +235,7 @@ export async function createAppleWalletPass(
     format: 'PKBarcodeFormatQR',
     message: vCard,
     messageEncoding: 'utf-8',
-    altText: data.name,
+    altText: data.name || 'Tap QR code to zoom',
   });
 
   return pass.getAsBuffer();
