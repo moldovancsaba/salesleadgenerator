@@ -370,6 +370,8 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                                 phone,
                                 country: COUNTRY_OPTIONS.find((c) => c.code === country)?.name || country || '',
                                 postCode,
+                                brand,
+                                campaign: campaignSlug,
                                 brandLabel: 'Mr Vegas',
                               }),
                             });
@@ -409,6 +411,23 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                         }}
                       >
                         Add to Apple Wallet (.pkpass)
+                      </Button>
+
+                      <Button
+                        component="a"
+                        href={`/api/badge?name=${encodeURIComponent(`${firstName} ${lastName}`.trim() || 'Attendee')}&email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}&brand=${encodeURIComponent(brand)}&campaign=${encodeURIComponent(campaignSlug)}`}
+                        target="_blank"
+                        size="md"
+                        fullWidth
+                        leftSection={<IconWallet size={18} color="#93c5fd" />}
+                        style={{
+                          backgroundColor: '#1e293b',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          color: '#ffffff',
+                          fontWeight: 700,
+                        }}
+                      >
+                        Add to Google Wallet / View Pass
                       </Button>
                     </Stack>
                   </Box>
