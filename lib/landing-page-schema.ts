@@ -220,7 +220,6 @@ export const DEFAULT_VEGAS_CAMPAIGN: LandingPageRecord = {
       id: 'f_pdc_consent',
       leadProperty: 'custom_consent_checkbox',
       label: "Yes, I'd like to receive emails from the PDC",
-      description: 'Can we contact you about PDC news, priority ticket information, marketing and promotional offers?',
       type: 'checkbox',
       required: false,
     },

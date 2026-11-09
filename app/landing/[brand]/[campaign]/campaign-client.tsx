@@ -391,10 +391,6 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
 
                   {/* Consent & Permissions */}
                   <Stack gap="sm">
-                    <Text size="xs" fw={700} c="#fbbf24">
-                      Can we contact you about PDC news, priority ticket information, marketing and promotional offers?
-                    </Text>
-
                     <Checkbox
                       label={
                         <Text size="xs" c="gray.3">
