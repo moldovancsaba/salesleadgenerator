@@ -37,6 +37,7 @@
     "mongodb": "^6.20.0",
     "mongoose": "^9.8.0",
     "next": "^16.3.6",
+    "passkit-generator": "^3.7.0",
     "postcss": "^8.5.23",
     "postcss-preset-mantine": "^1.18.0",
     "postcss-simple-vars": "^7.0.1",

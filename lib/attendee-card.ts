@@ -44,6 +44,38 @@ export function buildVCardString(data: AttendeeCardData): string {
 }
 
 /**
+ * Returns a downloadable vCard Data URI for saving directly to phone contacts.
+ */
+export function buildVCardDataUri(data: AttendeeCardData): string {
+  const vCard = buildVCardString(data);
+  return `data:text/vcard;charset=utf-8,${encodeURIComponent(vCard)}`;
+}
+
+/**
+ * Builds an iCalendar (.ics) string for adding the event and pass to Apple Calendar / Google Calendar.
+ */
+export function buildCalendarIcsDataUri(data: AttendeeCardData): string {
+  const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const icsLines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Sales Lead Generator//Event Pass//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:pass-${Date.now()}@salesleadgenerator`,
+    `DTSTAMP:${now}`,
+    `SUMMARY:${data.eventName || 'Event Entry Pass'}`,
+    `DESCRIPTION:${data.brandLabel || 'Mr Vegas'} Entry Pass for ${data.name || 'Attendee'}. Venue: ${data.venue || 'WV Active Aldersley'}`,
+    `LOCATION:${data.venue || 'WV Active Aldersley, Wolverhampton'}`,
+    'STATUS:CONFIRMED',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ];
+  return `data:text/calendar;charset=utf-8,${encodeURIComponent(icsLines.join('\r\n'))}`;
+}
+
+/**
  * Generates an event attendee contact badge PNG image via client-side canvas.
  * Dimensions: 800 x 1200 px (standard high-res portrait ratio for easy saving to phone gallery).
  */

@@ -25,9 +25,16 @@ import {
   IconArrowRight,
   IconDownload,
   IconQrcode,
+  IconWallet,
+  IconUserPlus,
+  IconCalendarEvent,
 } from '@tabler/icons-react';
 import { COUNTRY_OPTIONS } from '@/lib/country-list';
-import { generateAttendeeBadgePng } from '@/lib/attendee-card';
+import {
+  generateAttendeeBadgePng,
+  buildVCardDataUri,
+  buildCalendarIcsDataUri,
+} from '@/lib/attendee-card';
 import {
   LandingPageRecord,
   LandingFormFieldConfig,
@@ -539,22 +546,142 @@ export function DynamicLandingClient({
                       />
                     </Box>
 
-                    <Button
-                      component="a"
-                      href={passImageUrl}
-                      download={`event-pass-${campaignSlug || 'attendee'}.png`}
-                      size="md"
-                      mt="md"
-                      fullWidth
-                      leftSection={<IconDownload size={18} />}
-                      style={{
-                        background: `linear-gradient(135deg, ${design.primaryColor} 0%, ${design.primaryColor}cc 100%)`,
-                        color: '#ffffff',
-                        fontWeight: 700,
-                      }}
-                    >
-                      Save Pass to Photos / Images
-                    </Button>
+                    <Stack gap="xs" mt="md" style={{ width: '100%' }}>
+                      <Button
+                        component="a"
+                        href={passImageUrl}
+                        download={`event-pass-${campaignSlug || 'attendee'}.png`}
+                        size="md"
+                        fullWidth
+                        leftSection={<IconDownload size={18} />}
+                        style={{
+                          background: `linear-gradient(135deg, ${design.primaryColor} 0%, ${design.primaryColor}cc 100%)`,
+                          color: '#ffffff',
+                          fontWeight: 700,
+                        }}
+                      >
+                        Save Pass to Photos / Images
+                      </Button>
+
+                      <Button
+                        component="a"
+                        href={buildVCardDataUri({
+                          name:
+                            `${formValues[page.fields.find((f) => f.leadProperty === 'contact_first_name')?.id || ''] || ''} ${formValues[page.fields.find((f) => f.leadProperty === 'contact_last_name')?.id || ''] || ''}`.trim() ||
+                            formValues[page.fields.find((f) => f.leadProperty === 'entity_name')?.id || ''] ||
+                            'Event Attendee',
+                          eventName: page.title || `${brandLabel} Event`,
+                          email: formValues[page.fields.find((f) => f.leadProperty === 'contact_email')?.id || ''] || '',
+                          phone: formValues[page.fields.find((f) => f.leadProperty === 'contact_phone')?.id || ''] || '',
+                          country:
+                            COUNTRY_OPTIONS.find(
+                              (c) => c.code === formValues[page.fields.find((f) => f.leadProperty === 'country')?.id || '']
+                            )?.name || '',
+                          postCode: formValues[page.fields.find((f) => f.leadProperty === 'post_code')?.id || ''] || '',
+                          brandLabel,
+                          ticketType: 'Official Event Entry Pass',
+                        })}
+                        download={`event-pass-${campaignSlug || 'attendee'}.vcf`}
+                        variant="default"
+                        size="md"
+                        fullWidth
+                        leftSection={<IconUserPlus size={18} color="#34d399" />}
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                          borderColor: 'rgba(255, 255, 255, 0.15)',
+                          color: '#ffffff',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Save Contact Card to Phone
+                      </Button>
+
+                      <Button
+                        component="a"
+                        href={buildCalendarIcsDataUri({
+                          name:
+                            `${formValues[page.fields.find((f) => f.leadProperty === 'contact_first_name')?.id || ''] || ''} ${formValues[page.fields.find((f) => f.leadProperty === 'contact_last_name')?.id || ''] || ''}`.trim() ||
+                            'Event Attendee',
+                          eventName: page.title || `${brandLabel} Event`,
+                          venue: 'WV Active Aldersley, Wolverhampton',
+                          brandLabel,
+                        })}
+                        download="event-schedule.ics"
+                        variant="default"
+                        size="md"
+                        fullWidth
+                        leftSection={<IconCalendarEvent size={18} color="#fbbf24" />}
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                          borderColor: 'rgba(255, 255, 255, 0.15)',
+                          color: '#ffffff',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Add Event to Calendar
+                      </Button>
+
+                      <Button
+                        onClick={async () => {
+                          try {
+                            const firstName = formValues[page.fields.find((f) => f.leadProperty === 'contact_first_name')?.id || ''] || '';
+                            const lastName = formValues[page.fields.find((f) => f.leadProperty === 'contact_last_name')?.id || ''] || '';
+                            const entityName = formValues[page.fields.find((f) => f.leadProperty === 'entity_name')?.id || ''] || '';
+                            const res = await fetch('/api/wallet/pass', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                name: `${firstName} ${lastName}`.trim() || entityName || 'Event Attendee',
+                                eventName: page.title || `${brandLabel} Event`,
+                                venue: 'WV Active Aldersley, Wolverhampton',
+                                email: formValues[page.fields.find((f) => f.leadProperty === 'contact_email')?.id || ''] || '',
+                                phone: formValues[page.fields.find((f) => f.leadProperty === 'contact_phone')?.id || ''] || '',
+                                country:
+                                  COUNTRY_OPTIONS.find(
+                                    (c) => c.code === formValues[page.fields.find((f) => f.leadProperty === 'country')?.id || '']
+                                  )?.name || '',
+                                postCode: formValues[page.fields.find((f) => f.leadProperty === 'post_code')?.id || ''] || '',
+                                brandLabel,
+                              }),
+                            });
+
+                            if (!res.ok) {
+                              const data = await res.json().catch(() => ({}));
+                              if (res.status === 501) {
+                                alert(
+                                  'Apple Wallet pass endpoint is installed. To generate live signed .pkpass files on your domain, upload your Apple Developer Pass Type ID certificate and private key.'
+                                );
+                                return;
+                              }
+                              throw new Error(data.error || 'Failed to download Apple Wallet pass');
+                            }
+
+                            const blob = await res.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `event-pass-${campaignSlug || 'attendee'}.pkpass`;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            window.URL.revokeObjectURL(url);
+                          } catch (err: any) {
+                            alert(err?.message || 'Could not download pass.');
+                          }
+                        }}
+                        size="md"
+                        fullWidth
+                        leftSection={<IconWallet size={18} color="#ffffff" />}
+                        style={{
+                          backgroundColor: '#000000',
+                          border: '1px solid rgba(255, 255, 255, 0.25)',
+                          color: '#ffffff',
+                          fontWeight: 700,
+                        }}
+                      >
+                        Add to Apple Wallet (.pkpass)
+                      </Button>
+                    </Stack>
                   </Box>
                 )}
 

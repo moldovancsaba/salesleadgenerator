@@ -32,9 +32,15 @@ import {
   IconArrowRight,
   IconDownload,
   IconQrcode,
+  IconWallet,
+  IconUserPlus,
 } from '@tabler/icons-react';
 import { COUNTRY_OPTIONS } from '@/lib/country-list';
-import { generateAttendeeBadgePng } from '@/lib/attendee-card';
+import {
+  generateAttendeeBadgePng,
+  buildVCardDataUri,
+  buildCalendarIcsDataUri,
+} from '@/lib/attendee-card';
 
 interface Props {
   brand: string;
@@ -283,22 +289,128 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                       />
                     </Box>
 
-                    <Button
-                      component="a"
-                      href={passImageUrl}
-                      download={`event-pass-${firstName || 'attendee'}.png`}
-                      size="md"
-                      mt="md"
-                      fullWidth
-                      leftSection={<IconDownload size={18} />}
-                      style={{
-                        background: 'linear-gradient(135deg, #00a862 0%, #00874e 100%)',
-                        color: '#ffffff',
-                        fontWeight: 700,
-                      }}
-                    >
-                      Save Pass to Photos / Images
-                    </Button>
+                    <Stack gap="xs" mt="md" style={{ width: '100%' }}>
+                      <Button
+                        component="a"
+                        href={passImageUrl}
+                        download={`event-pass-${firstName || 'attendee'}.png`}
+                        size="md"
+                        fullWidth
+                        leftSection={<IconDownload size={18} />}
+                        style={{
+                          background: 'linear-gradient(135deg, #00a862 0%, #00874e 100%)',
+                          color: '#ffffff',
+                          fontWeight: 700,
+                        }}
+                      >
+                        Save Pass to Photos / Images
+                      </Button>
+
+                      <Button
+                        component="a"
+                        href={buildVCardDataUri({
+                          name: `${firstName} ${lastName}`.trim() || 'Event Attendee',
+                          eventName: 'Mr Vegas Grand Slam of Darts',
+                          email,
+                          phone,
+                          country: COUNTRY_OPTIONS.find((c) => c.code === country)?.name || country || '',
+                          postCode,
+                          brandLabel: 'Mr Vegas',
+                          ticketType: 'Grand Slam Ticket Giveaway Entry',
+                        })}
+                        download={`event-pass-${firstName || 'attendee'}.vcf`}
+                        variant="default"
+                        size="md"
+                        fullWidth
+                        leftSection={<IconUserPlus size={18} color="#34d399" />}
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                          borderColor: 'rgba(255, 255, 255, 0.15)',
+                          color: '#ffffff',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Save Contact Card to Phone
+                      </Button>
+
+                      <Button
+                        component="a"
+                        href={buildCalendarIcsDataUri({
+                          name: `${firstName} ${lastName}`.trim() || 'Event Attendee',
+                          eventName: 'Mr Vegas Grand Slam of Darts',
+                          venue: 'WV Active Aldersley, Wolverhampton',
+                          brandLabel: 'Mr Vegas',
+                        })}
+                        download="event-schedule.ics"
+                        variant="default"
+                        size="md"
+                        fullWidth
+                        leftSection={<IconCalendarEvent size={18} color="#fbbf24" />}
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                          borderColor: 'rgba(255, 255, 255, 0.15)',
+                          color: '#ffffff',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Add Event to Calendar
+                      </Button>
+
+                      <Button
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/api/wallet/pass', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                name: `${firstName} ${lastName}`.trim() || 'Event Attendee',
+                                eventName: 'Mr Vegas Grand Slam of Darts',
+                                venue: 'WV Active Aldersley, Wolverhampton',
+                                email,
+                                phone,
+                                country: COUNTRY_OPTIONS.find((c) => c.code === country)?.name || country || '',
+                                postCode,
+                                brandLabel: 'Mr Vegas',
+                              }),
+                            });
+
+                            if (!res.ok) {
+                              const data = await res.json().catch(() => ({}));
+                              if (res.status === 501) {
+                                alert(
+                                  'Apple Wallet pass endpoint is installed. To generate live signed .pkpass files on your domain, upload your Apple Developer Pass Type ID certificate and private key.'
+                                );
+                                return;
+                              }
+                              throw new Error(data.error || 'Failed to download Apple Wallet pass');
+                            }
+
+                            const blob = await res.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `event-pass-${firstName || 'attendee'}.pkpass`;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            window.URL.revokeObjectURL(url);
+                          } catch (err: any) {
+                            alert(err?.message || 'Could not download pass.');
+                          }
+                        }}
+                        size="md"
+                        fullWidth
+                        leftSection={<IconWallet size={18} color="#ffffff" />}
+                        style={{
+                          backgroundColor: '#000000',
+                          border: '1px solid rgba(255, 255, 255, 0.25)',
+                          color: '#ffffff',
+                          fontWeight: 700,
+                        }}
+                      >
+                        Add to Apple Wallet (.pkpass)
+                      </Button>
+                    </Stack>
                   </Box>
                 )}
 
