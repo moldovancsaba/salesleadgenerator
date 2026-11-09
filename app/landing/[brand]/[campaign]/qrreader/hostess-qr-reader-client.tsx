@@ -8,8 +8,8 @@ import {
   IconAlertCircle,
   IconLock,
   IconRefresh,
-  IconArrowRight,
   IconX,
+  IconSparkles,
 } from '@tabler/icons-react';
 import { DEFAULT_HOSTESS_PASSWORD } from '@/lib/hostess-scan';
 
@@ -26,7 +26,7 @@ export function HostessQrReaderClient({
 }: HostessQrReaderProps) {
   const [password, setPassword] = useState(DEFAULT_HOSTESS_PASSWORD);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [successAttendee, setSuccessAttendee] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -34,7 +34,7 @@ export function HostessQrReaderClient({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameId = useRef<number | null>(null);
-  const activeStreamRef = useRef<MediaStream | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const isHandlingScanRef = useRef(false);
   const processScannedPayloadRef = useRef<(data: string) => Promise<void>>(async () => {});
 
@@ -62,28 +62,42 @@ export function HostessQrReaderClient({
       cancelAnimationFrame(animationFrameId.current);
       animationFrameId.current = null;
     }
-    if (activeStreamRef.current) {
-      activeStreamRef.current.getTracks().forEach((track) => track.stop());
-      activeStreamRef.current = null;
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => {
+        track.stop();
+      });
+      mediaStreamRef.current = null;
     }
-    setIsCameraOpen(false);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
   }
 
   async function startCamera() {
+    // Ensure any existing stream is cleanly killed first
+    stopCamera();
+
     setErrorMessage(null);
-    setIsCameraOpen(true);
+    setIsCameraActive(true);
     isHandlingScanRef.current = false;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
         audio: false,
       });
-      activeStreamRef.current = stream;
+
+      mediaStreamRef.current = stream;
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('webkit-playsinline', 'true');
         await videoRef.current.play();
 
         function tick() {
@@ -150,14 +164,14 @@ export function HostessQrReaderClient({
         throw new Error(data?.error || 'Failed to record hostess scan');
       }
 
-      // Close camera immediately
+      // Close camera immediately to release hardware
       stopCamera();
 
-      // Show full-screen success visual feedback
+      // Show native full-screen success visual feedback
       const attendeeName = data.lead?.name || 'Attendee';
       setSuccessAttendee(attendeeName);
 
-      // Auto redirect back to main [Scan QR Code] button after 2.5 seconds
+      // Auto-reset back to clean scan home after 2.5s
       setTimeout(() => {
         setSuccessAttendee(null);
         setIsProcessing(false);
@@ -168,7 +182,7 @@ export function HostessQrReaderClient({
       setIsProcessing(false);
       // Resume scanning on error
       isHandlingScanRef.current = false;
-      if (videoRef.current && isCameraOpen) {
+      if (videoRef.current && isCameraActive) {
         animationFrameId.current = requestAnimationFrame(() => {});
       }
     }
@@ -185,41 +199,41 @@ export function HostessQrReaderClient({
     };
   }, []);
 
-  // 1. Password Screen
+  // 1. Password Screen (PWA Style)
   if (!isAuthenticated) {
     return (
-      <main className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-2xl">
-          <div className="flex items-center justify-center w-14 h-14 mx-auto mb-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400">
-            <IconLock size={28} />
+      <main className="min-h-screen bg-[#0d1117] text-white flex flex-col justify-center items-center p-6 select-none">
+        <div className="w-full max-w-sm bg-[#161b22] border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur">
+          <div className="flex items-center justify-center w-16 h-16 mx-auto mb-5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400">
+            <IconLock size={32} />
           </div>
-          <h1 className="text-xl font-bold text-center text-white mb-1">
+          <h1 className="text-2xl font-black text-center text-white tracking-tight mb-1">
             Hostess Check-in
           </h1>
-          <p className="text-xs text-center text-neutral-400 mb-6">
-            {campaignTitle || 'Grand Slam of Darts'}
+          <p className="text-xs text-center text-neutral-400 mb-8 font-medium">
+            {campaignTitle || 'Mr Vegas Grand Slam of Darts'}
           </p>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-neutral-300 mb-1">
-                Hostess Password
+              <label className="block text-[11px] font-bold text-neutral-300 uppercase tracking-wider mb-2">
+                On-Screen Password
               </label>
               <input
                 type="text"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-700 rounded-lg text-white font-mono text-sm focus:outline-none focus:border-emerald-500"
+                className="w-full px-4 py-3.5 bg-black/50 border border-white/15 rounded-xl text-white font-mono text-sm focus:outline-none focus:border-emerald-500 transition-colors"
                 placeholder="Enter password"
                 autoFocus
               />
-              <p className="text-[11px] text-neutral-500 mt-1.5">
-                Passcode preset: <code className="text-emerald-400 font-mono select-all">{DEFAULT_HOSTESS_PASSWORD}</code>
+              <p className="text-[11px] text-neutral-500 mt-2">
+                Preset: <code className="text-emerald-400 font-mono select-all font-bold">{DEFAULT_HOSTESS_PASSWORD}</code>
               </p>
             </div>
 
             {errorMessage && (
-              <div className="p-3 bg-red-950/40 border border-red-800/60 rounded-lg text-xs text-red-300 flex items-center gap-2">
+              <div className="p-3 bg-red-950/50 border border-red-700/50 rounded-xl text-xs text-red-200 flex items-center gap-2">
                 <IconAlertCircle size={16} className="shrink-0" />
                 <span>{errorMessage}</span>
               </div>
@@ -227,10 +241,9 @@ export function HostessQrReaderClient({
 
             <button
               type="submit"
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+              className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-neutral-950 font-black rounded-xl text-sm uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20"
             >
-              <span>Unlock</span>
-              <IconArrowRight size={16} />
+              Unlock Scanner
             </button>
           </form>
         </div>
@@ -238,114 +251,123 @@ export function HostessQrReaderClient({
     );
   }
 
-  // 2. Full-Screen Success Feedback Overlay ("successful, thank you bye")
+  // 2. Full-Screen Visual Feedback ("successful, thank you bye")
   if (successAttendee) {
     return (
-      <main className="fixed inset-0 z-50 bg-emerald-600 text-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in-95">
-        <div className="w-24 h-24 rounded-full bg-white text-emerald-600 flex items-center justify-center mb-6 shadow-2xl animate-bounce">
-          <IconCheck size={56} strokeWidth={3} />
+      <main className="fixed inset-0 z-50 bg-[#00a862] text-white flex flex-col items-center justify-center p-6 text-center select-none animate-in fade-in zoom-in-95">
+        <div className="w-28 h-28 rounded-full bg-white text-[#00a862] flex items-center justify-center mb-6 shadow-2xl animate-bounce">
+          <IconCheck size={68} strokeWidth={3.5} />
         </div>
-        <h2 className="text-3xl font-black uppercase tracking-wider mb-2">
+        <h1 className="text-4xl font-black uppercase tracking-wider mb-2">
           successful
-        </h2>
-        <p className="text-xl font-bold text-emerald-100 mb-4">
+        </h1>
+        <p className="text-2xl font-bold text-emerald-100 mb-6">
           thank you bye
         </p>
-        <div className="px-4 py-2 bg-emerald-700/60 rounded-full text-sm font-medium text-white shadow-inner">
-          ✓ {successAttendee} · Moved to Engaged
+        <div className="px-5 py-2.5 bg-black/20 backdrop-blur rounded-full text-sm font-semibold text-white shadow-inner flex items-center gap-2">
+          <IconSparkles size={16} />
+          <span>{successAttendee} · Moved to Engaged</span>
         </div>
       </main>
     );
   }
 
-  // 3. Main Hostess Screen with Clean [Scan QR Code] Button
+  // 3. Native PWA Hostess Dashboard Screen
   return (
-    <main className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col justify-between p-6">
-      {/* Header */}
-      <header className="text-center pt-6">
-        <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-2">
-          Hostess Station
-        </span>
-        <h1 className="text-2xl font-bold text-white">
+    <main className="min-h-screen bg-[#0d1117] text-white flex flex-col justify-between p-6 select-none font-sans">
+      {/* PWA Top Header */}
+      <header className="text-center pt-8">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-bold tracking-wider uppercase mb-3">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>Hostess Station</span>
+        </div>
+        <h1 className="text-2xl font-black tracking-tight text-white">
           {campaignTitle || 'Grand Slam of Darts'}
         </h1>
-        <p className="text-xs text-neutral-400 mt-1">
-          Scan attendee contact cards to automatically move them to Engaged
+        <p className="text-xs text-neutral-400 mt-1.5">
+          Scan attendee contact cards to auto-advance to Engaged
         </p>
       </header>
 
-      {/* Center Action Area */}
-      <div className="flex flex-col items-center justify-center my-auto py-8">
+      {/* Center Action: The Single [Scan QR Code] Hero Button */}
+      <div className="flex flex-col items-center justify-center my-auto py-10 w-full max-w-sm mx-auto">
         {errorMessage && (
-          <div className="mb-6 p-4 bg-red-950/40 border border-red-800/60 rounded-xl text-xs text-red-300 max-w-sm text-center flex items-center gap-2">
+          <div className="mb-6 p-4 bg-red-950/50 border border-red-700/50 rounded-2xl text-xs text-red-200 text-center flex items-center gap-2 w-full">
             <IconAlertCircle size={18} className="shrink-0 text-red-400" />
             <span>{errorMessage}</span>
           </div>
         )}
 
-        {/* The single [Scan QR Code] Button */}
         <button
           type="button"
           onClick={startCamera}
-          className="w-full max-w-xs py-5 px-6 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black text-lg uppercase tracking-wider rounded-2xl shadow-xl shadow-emerald-500/20 active:scale-95 transition-transform flex items-center justify-center gap-3"
+          className="w-full py-6 px-8 bg-gradient-to-r from-emerald-500 to-emerald-400 active:scale-95 text-neutral-950 font-black text-xl uppercase tracking-wider rounded-3xl shadow-2xl shadow-emerald-500/30 transition-transform flex items-center justify-center gap-3.5 border-2 border-emerald-300/30"
         >
-          <IconCamera size={26} strokeWidth={2.5} />
+          <IconCamera size={32} strokeWidth={2.5} />
           <span>Scan QR Code</span>
         </button>
       </div>
 
-      {/* Footer */}
-      <footer className="text-center text-[11px] text-neutral-600 pb-2">
-        Sales Lead Generator · Grand Slam Hostess Portal
+      {/* PWA Bottom Status */}
+      <footer className="text-center text-[11px] text-neutral-500 pb-4">
+        Sales Lead Generator · Official Check-in PWA
       </footer>
 
-      {/* Camera Fullscreen Modal */}
-      {isCameraOpen && (
-        <div className="fixed inset-0 z-40 bg-black flex flex-col">
-          {/* Top Bar with Close button */}
-          <div className="p-4 flex items-center justify-between text-white bg-black/60 backdrop-blur z-50">
-            <span className="text-sm font-bold flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Scanning QR Code...
-            </span>
+      {/* FULLSCREEN ISOLATED CAMERA MODAL (Strictly 1 Single Viewport) */}
+      {isCameraActive && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between">
+          {/* Top Bar with Cancel Button */}
+          <div className="p-5 flex items-center justify-between text-white bg-gradient-to-b from-black/80 to-transparent z-20">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="text-sm font-bold tracking-wide">Aim at Attendee QR Code</span>
+            </div>
             <button
               type="button"
               onClick={stopCamera}
-              className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-full text-white"
+              className="w-10 h-10 rounded-full bg-white/20 active:bg-white/30 text-white flex items-center justify-center backdrop-blur transition-colors"
             >
-              <IconX size={20} />
+              <IconX size={22} />
             </button>
           </div>
 
-          {/* Camera Viewport */}
-          <div className="relative flex-1 flex items-center justify-center bg-black overflow-hidden">
+          {/* Singular Camera Video Layer (Covering middle square) */}
+          <div className="relative flex-1 flex items-center justify-center overflow-hidden">
             <video
               ref={videoRef}
-              className="w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
               muted
               playsInline
+              webkit-playsinline="true"
             />
             <canvas ref={canvasRef} className="hidden" />
 
-            {/* Target Reticle */}
-            <div className="absolute w-64 h-64 border-2 border-emerald-400 rounded-2xl pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] flex flex-col justify-between p-2">
+            {/* Glowing Reticle Target */}
+            <div className="relative w-72 h-72 rounded-3xl border-2 border-emerald-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] flex flex-col justify-between p-3 pointer-events-none">
               <div className="flex justify-between">
-                <span className="w-6 h-6 border-t-4 border-l-4 border-emerald-400 -mt-1 -ml-1 rounded-tl" />
-                <span className="w-6 h-6 border-t-4 border-r-4 border-emerald-400 -mt-1 -mr-1 rounded-tr" />
+                <span className="w-8 h-8 border-t-4 border-l-4 border-emerald-400 -mt-1.5 -ml-1.5 rounded-tl-xl" />
+                <span className="w-8 h-8 border-t-4 border-r-4 border-emerald-400 -mt-1.5 -mr-1.5 rounded-tr-xl" />
               </div>
               <div className="flex justify-between">
-                <span className="w-6 h-6 border-b-4 border-l-4 border-emerald-400 -mb-1 -ml-1 rounded-bl" />
-                <span className="w-6 h-6 border-b-4 border-r-4 border-emerald-400 -mb-1 -mr-1 rounded-br" />
+                <span className="w-8 h-8 border-b-4 border-l-4 border-emerald-400 -mb-1.5 -ml-1.5 rounded-bl-xl" />
+                <span className="w-8 h-8 border-b-4 border-r-4 border-emerald-400 -mb-1.5 -mr-1.5 rounded-br-xl" />
               </div>
             </div>
 
-            {/* Processing Spinner */}
+            {/* Loading Spinner during Lead Update */}
             {isProcessing && (
-              <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-50">
-                <IconRefresh className="animate-spin text-emerald-400" size={44} />
-                <p className="text-base font-bold text-white">Recording Check-in...</p>
+              <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center gap-3 z-30">
+                <IconRefresh className="animate-spin text-emerald-400" size={50} />
+                <p className="text-lg font-black text-white uppercase tracking-wider">Moving to Engaged...</p>
               </div>
             )}
+          </div>
+
+          {/* Bottom Bar Info */}
+          <div className="p-6 bg-gradient-to-t from-black/80 to-transparent text-center z-20">
+            <p className="text-xs text-neutral-300 font-medium">
+              Position the QR code inside the box to check in
+            </p>
           </div>
         </div>
       )}
