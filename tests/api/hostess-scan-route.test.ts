@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { POST, DEFAULT_HOSTESS_PASSWORD } from '../../app/api/landing/[brand]/[campaign]/hostess-scan/route';
+import { POST } from '../../app/api/landing/[brand]/[campaign]/hostess-scan/route';
+import { DEFAULT_HOSTESS_PASSWORD } from '../../lib/hostess-scan';
 
 vi.mock('@/lib/mongodb', () => {
   return {

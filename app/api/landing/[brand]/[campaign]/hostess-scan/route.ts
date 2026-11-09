@@ -1,14 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
 import { resolveBrand, getBrandConfig } from '@/app/lib/brand';
-import { parseVCardString } from '@/lib/hostess-scan';
+import { parseVCardString, DEFAULT_HOSTESS_PASSWORD } from '@/lib/hostess-scan';
 import { buildFingerprint } from '@/lib/fingerprint';
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes } from '@/app/lib/activity-log-store';
 import { executeLeadAction } from '@/app/lib/lead-actions';
 
 export const dynamic = 'force-dynamic';
-
-export const DEFAULT_HOSTESS_PASSWORD = 'iamthevegashostess2026';
 
 export async function POST(
   request: NextRequest,

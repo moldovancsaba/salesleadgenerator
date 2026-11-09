@@ -1,3 +1,5 @@
+export const DEFAULT_HOSTESS_PASSWORD = 'iamthevegashostess2026';
+
 export interface ParsedVCardContact {
   name?: string;
   email?: string;
