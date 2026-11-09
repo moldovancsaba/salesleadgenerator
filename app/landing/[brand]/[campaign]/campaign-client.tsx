@@ -19,6 +19,7 @@ import {
   Badge,
   Divider,
   Modal,
+  Anchor,
 } from '@mantine/core';
 import {
   IconTrophy,
@@ -418,7 +419,18 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                     </Box>
 
                     <Text size="xs" c="dimmed" style={{ lineHeight: 1.5 }} mt={4}>
-                      By entering you are agreeing to share your personal data with Mr Vegas. You are agreeing to receive marketing communications. Data will be processed in accordance with its privacy policy.
+                      By entering you are agreeing to share your personal data with Mr Vegas. You are agreeing to receive marketing communications. Data will be processed in accordance with its{' '}
+                      <Anchor
+                        href="https://r1.marketing-pages.com/p/500W-DNU/mrvegastcs"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        c="#34d399"
+                        underline="always"
+                        size="xs"
+                      >
+                        privacy policy (PP)
+                      </Anchor>
+                      .
                     </Text>
                   </Stack>
 
@@ -448,8 +460,19 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                       style={{ textDecoration: 'underline', cursor: 'pointer' }}
                       onClick={() => setTermsOpen(true)}
                     >
-                      Please click HERE to see the full terms &amp; conditions.
+                      Please click HERE to see terms &amp; conditions
                     </Text>
+                    <Text size="xs" c="dimmed">|</Text>
+                    <Anchor
+                      href="https://r1.marketing-pages.com/p/500W-DNU/mrvegastcs"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      size="xs"
+                      c="gray.4"
+                      underline="always"
+                    >
+                      Full GTC &amp; Privacy Policy (External)
+                    </Anchor>
                   </Group>
                 </Stack>
               </form>
@@ -472,19 +495,32 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
       >
         <Stack gap="sm">
           <Text size="xs" c="gray.3" style={{ lineHeight: 1.6 }}>
-            1. The promoter of this ticket giveaway is Mr Vegas in partnership with the Professional Darts Corporation (PDC).
+            1. The promoter of this ticket giveaway is The Professional Darts Corporation Ltd (PDC) in partnership with Mr Vegas.
           </Text>
           <Text size="xs" c="gray.3" style={{ lineHeight: 1.6 }}>
-            2. Entrants must be aged 18 years or over at the time of entry. Proof of age and identity may be required.
+            2. Entrants must be UK residents aged 18 years or over at the time of entry. Proof of age and identity may be required.
           </Text>
           <Text size="xs" c="gray.3" style={{ lineHeight: 1.6 }}>
-            3. Each valid entry is entered into the prize draw for general admission tickets to the Mr Vegas Grand Slam of Darts at WV Active Aldersley.
+            3. Each valid entry is entered into the prize draw for 4x Pairs of General Admission Tickets to the 2026 Mr Vegas Grand Slam of Darts at WV Active Aldersley.
           </Text>
           <Text size="xs" c="gray.3" style={{ lineHeight: 1.6 }}>
             4. Prizes are non-transferable, non-refundable, and no cash alternative is offered.
           </Text>
           <Text size="xs" c="gray.3" style={{ lineHeight: 1.6 }}>
-            5. Winners will be notified via email or phone prior to the event date.
+            5. Winners will be selected at random and notified via email within 48 hours following the draw.
+          </Text>
+          <Divider my="xs" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+          <Text size="xs" c="dimmed">
+            For full General Terms &amp; Conditions (GTC) and Privacy Policy (PP), visit:{' '}
+            <Anchor
+              href="https://r1.marketing-pages.com/p/500W-DNU/mrvegastcs"
+              target="_blank"
+              rel="noopener noreferrer"
+              c="#34d399"
+              underline="always"
+            >
+              https://r1.marketing-pages.com/p/500W-DNU/mrvegastcs
+            </Anchor>
           </Text>
         </Stack>
       </Modal>
