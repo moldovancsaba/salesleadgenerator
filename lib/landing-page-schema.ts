@@ -41,6 +41,26 @@ export interface LandingPageDesignConfig {
   textColor: string;
 }
 
+export interface LandingPageBlocksConfig {
+  showHeroBanner: boolean;
+  showHeroCopy: boolean;
+  showBullets: boolean;
+  showDigitalPasses: boolean; // Apple Wallet, Google Wallet, contact card & badge downloads
+  showCalendarInvite: boolean; // .ics calendar add
+  showTermsModal: boolean;
+  showFooterDisclaimer: boolean;
+}
+
+export const DEFAULT_BLOCKS_CONFIG: LandingPageBlocksConfig = {
+  showHeroBanner: true,
+  showHeroCopy: true,
+  showBullets: true,
+  showDigitalPasses: true,
+  showCalendarInvite: true,
+  showTermsModal: true,
+  showFooterDisclaimer: true,
+};
+
 export interface LandingPageRecord {
   id?: string;
   _id?: string;
@@ -50,6 +70,8 @@ export interface LandingPageRecord {
   title: string;
   description?: string;
   published: boolean;
+  // Modular blocks configuration (enable/show or disable/hide)
+  blocks?: LandingPageBlocksConfig;
   // Hero section
   heroBannerUrl?: string;
   heroHeadline?: string;
@@ -158,6 +180,7 @@ export const DEFAULT_VEGAS_CAMPAIGN: LandingPageRecord = {
     "We look forward to seeing the lucky winners at this year's Mr Vegas Grand Slam of Darts!",
   ],
   ctaButtonText: 'Submit Entry',
+  blocks: DEFAULT_BLOCKS_CONFIG,
   design: THEME_PRESETS.dark_emerald,
   fields: [
     {

@@ -449,8 +449,8 @@ export function DynamicLandingClient({
             overflow: 'hidden',
           }}
         >
-          {/* Header Banner */}
-          {page.heroBannerUrl && (
+          {/* Header Banner Block */}
+          {page.blocks?.showHeroBanner !== false && page.heroBannerUrl && (
             <Box style={{ position: 'relative', width: '100%', aspectRatio: '1248/562', backgroundColor: '#000' }}>
               <Image
                 src={page.heroBannerUrl}
@@ -466,26 +466,34 @@ export function DynamicLandingClient({
 
           {/* Card Body */}
           <Box p={{ base: 'lg', sm: 'xl' }}>
-            {/* Event Intro Copy */}
-            {(page.heroHeadline || page.heroSubheadline || (page.bodyBullets && page.bodyBullets.length > 0)) && (
+            {/* Event Intro Copy Block */}
+            {((page.blocks?.showHeroCopy !== false && (page.heroHeadline || page.heroSubheadline)) ||
+              (page.blocks?.showBullets !== false && page.bodyBullets && page.bodyBullets.length > 0)) && (
               <Stack gap="xs" mb="xl">
-                {page.heroHeadline && (
+                {page.blocks?.showHeroCopy !== false && page.heroHeadline && (
                   <Text size="md" fw={700} c={design.accentColor} style={{ lineHeight: 1.4 }}>
                     {page.heroHeadline}
                   </Text>
                 )}
 
-                {page.heroSubheadline && (
+                {page.blocks?.showHeroCopy !== false && page.heroSubheadline && (
                   <Text size="sm" c="gray.3" style={{ lineHeight: 1.6 }}>
                     {page.heroSubheadline}
                   </Text>
                 )}
 
-                {page.bodyBullets?.map((bullet, idx) => (
-                  <Text key={idx} size="sm" c={idx === page.bodyBullets!.length - 1 ? '#10b981' : 'gray.3'} fw={idx === page.bodyBullets!.length - 1 ? 600 : 400} style={{ lineHeight: 1.6 }}>
-                    {bullet}
-                  </Text>
-                ))}
+                {page.blocks?.showBullets !== false &&
+                  page.bodyBullets?.map((bullet, idx) => (
+                    <Text
+                      key={idx}
+                      size="sm"
+                      c={idx === page.bodyBullets!.length - 1 ? '#10b981' : 'gray.3'}
+                      fw={idx === page.bodyBullets!.length - 1 ? 600 : 400}
+                      style={{ lineHeight: 1.6 }}
+                    >
+                      {bullet}
+                    </Text>
+                  ))}
               </Stack>
             )}
 
@@ -522,8 +530,8 @@ export function DynamicLandingClient({
                   Good Luck.
                 </Text>
 
-                {/* Attendee QR Contact Card Pass */}
-                {passImageUrl && (
+                {/* Attendee QR Contact Card Pass Block */}
+                {page.blocks?.showDigitalPasses !== false && passImageUrl && (
                   <Box
                     mt="lg"
                     p="md"
@@ -621,30 +629,32 @@ export function DynamicLandingClient({
                         Save Contact Card to Phone
                       </Button>
 
-                      <Button
-                        component="a"
-                        href={buildCalendarIcsDataUri({
-                          name:
-                            `${formValues[page.fields.find((f) => f.leadProperty === 'contact_first_name')?.id || ''] || ''} ${formValues[page.fields.find((f) => f.leadProperty === 'contact_last_name')?.id || ''] || ''}`.trim() ||
-                            'Event Attendee',
-                          eventName: page.title || `${brandLabel} Event`,
-                          venue: 'WV Active Aldersley, Wolverhampton',
-                          brandLabel,
-                        })}
-                        download="event-schedule.ics"
-                        variant="default"
-                        size="md"
-                        fullWidth
-                        leftSection={<IconCalendarEvent size={18} color="#fbbf24" />}
-                        style={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                          borderColor: 'rgba(255, 255, 255, 0.15)',
-                          color: '#ffffff',
-                          fontWeight: 600,
-                        }}
-                      >
-                        Add Event to Calendar
-                      </Button>
+                      {page.blocks?.showCalendarInvite !== false && (
+                        <Button
+                          component="a"
+                          href={buildCalendarIcsDataUri({
+                            name:
+                              `${formValues[page.fields.find((f) => f.leadProperty === 'contact_first_name')?.id || ''] || ''} ${formValues[page.fields.find((f) => f.leadProperty === 'contact_last_name')?.id || ''] || ''}`.trim() ||
+                              'Event Attendee',
+                            eventName: page.title || `${brandLabel} Event`,
+                            venue: 'WV Active Aldersley, Wolverhampton',
+                            brandLabel,
+                          })}
+                          download="event-schedule.ics"
+                          variant="default"
+                          size="md"
+                          fullWidth
+                          leftSection={<IconCalendarEvent size={18} color="#fbbf24" />}
+                          style={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                            borderColor: 'rgba(255, 255, 255, 0.15)',
+                            color: '#ffffff',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Add Event to Calendar
+                        </Button>
+                      )}
 
                       <Button
                         onClick={async () => {
@@ -666,6 +676,8 @@ export function DynamicLandingClient({
                                     (c) => c.code === formValues[page.fields.find((f) => f.leadProperty === 'country')?.id || '']
                                   )?.name || '',
                                 postCode: formValues[page.fields.find((f) => f.leadProperty === 'post_code')?.id || ''] || '',
+                                brand,
+                                campaign: campaignSlug,
                                 brandLabel,
                               }),
                             });
@@ -705,6 +717,23 @@ export function DynamicLandingClient({
                         }}
                       >
                         Add to Apple Wallet (.pkpass)
+                      </Button>
+
+                      <Button
+                        component="a"
+                        href={`/api/badge?name=${encodeURIComponent(`${formValues[page.fields.find((f) => f.leadProperty === 'contact_first_name')?.id || ''] || ''} ${formValues[page.fields.find((f) => f.leadProperty === 'contact_last_name')?.id || ''] || ''}`.trim() || 'Attendee')}&email=${encodeURIComponent(formValues[page.fields.find((f) => f.leadProperty === 'contact_email')?.id || ''] || '')}&phone=${encodeURIComponent(formValues[page.fields.find((f) => f.leadProperty === 'contact_phone')?.id || ''] || '')}&brand=${encodeURIComponent(brand)}&campaign=${encodeURIComponent(campaignSlug)}`}
+                        target="_blank"
+                        size="md"
+                        fullWidth
+                        leftSection={<IconWallet size={18} color="#93c5fd" />}
+                        style={{
+                          backgroundColor: '#1e293b',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          color: '#ffffff',
+                          fontWeight: 700,
+                        }}
+                      >
+                        Add to Google Wallet / View Pass
                       </Button>
                     </Stack>
                   </Box>
@@ -758,7 +787,7 @@ export function DynamicLandingClient({
                   {/* Render Fields */}
                   {page.fields.map(renderField)}
 
-                  {page.footerDisclaimer && (
+                  {page.blocks?.showFooterDisclaimer !== false && page.footerDisclaimer && (
                     <Text size="xs" c="dimmed" style={{ lineHeight: 1.5 }} mt={4}>
                       {page.footerDisclaimer.includes('privacy policy') ? (
                         <>
@@ -800,7 +829,7 @@ export function DynamicLandingClient({
                     {page.ctaButtonText || 'Submit Entry'}
                   </Button>
 
-                  {page.termsHtml && (
+                  {page.blocks?.showTermsModal !== false && page.termsHtml && (
                     <Group justify="center" gap="md" mt="xs">
                       <Text
                         size="xs"

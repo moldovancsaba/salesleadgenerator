@@ -13,6 +13,7 @@
 ## Detailed Documentation
 
 - `docs/USER_GUIDE.md` — canonical end-user user guide for sales reps and account executives across all CRM surfaces
+- `docs/LANDING_PAGE_BUILDER_GUIDE.md` — guide for creating modular lead collector landing pages with digital goods (Apple & Google Wallet)
 - `docs/PRIVACY_POLICY.md` — canonical privacy policy with Google API User Data Policy & Limited Use compliance
 - `docs/TERMS_OF_SERVICE.md` — canonical terms of service, mailbox integration authorization, and anti-spam terms
 - `docs/ARCHITECTURE.md` — system context, request flows, data model, module map, auth, deployment

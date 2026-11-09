@@ -46,11 +46,15 @@ import {
   IconSparkles,
   IconArrowUp,
   IconArrowDown,
+  IconComponents,
+  IconWallet,
 } from '@tabler/icons-react';
 import {
   LandingPageRecord,
   LandingFormFieldConfig,
   LandingPageDesignConfig,
+  LandingPageBlocksConfig,
+  DEFAULT_BLOCKS_CONFIG,
   SLG_LEAD_PROPERTIES,
   THEME_PRESETS,
   LeadPropertyKey,
@@ -189,13 +193,32 @@ export function LandingPagesClient({
       updatedAt: new Date().toISOString(),
     };
     setEditingPage(newPage);
-    setActiveTab('content');
+    setActiveTab('blocks');
     setEditorOpen(true);
+  };
+
+  const handleCreateFromTemplate = (templateType: 'event_pass' | 'lead_magnet') => {
+    if (templateType === 'event_pass') {
+      const template = JSON.parse(JSON.stringify(DEFAULT_VEGAS_CAMPAIGN)) as LandingPageRecord;
+      delete template.id;
+      delete template._id;
+      template.brand = brand;
+      template.slug = `vip-event-pass-${Date.now().toString().slice(-4)}`;
+      template.title = `${brandLabel} VIP Event Pass & Entry`;
+      template.heroHeadline = `Official ${brandLabel} VIP Event Pass Registration`;
+      template.heroSubheadline = `Complete the registration form to receive your official digital pass, contact card, and fast-track entry pass.`;
+      template.blocks = DEFAULT_BLOCKS_CONFIG;
+      setEditingPage(template);
+      setActiveTab('blocks');
+      setEditorOpen(true);
+    } else {
+      handleOpenCreate();
+    }
   };
 
   const handleOpenEdit = (p: LandingPageRecord) => {
     setEditingPage(JSON.parse(JSON.stringify(p)));
-    setActiveTab('content');
+    setActiveTab('blocks');
     setEditorOpen(true);
   };
 
@@ -332,14 +355,25 @@ export function LandingPagesClient({
               Create and customize client landing pages with custom form fields mapped directly to SLG Lead properties. Updates are instant with zero Vercel rebuilds.
             </Text>
           </Box>
-          <Button
-            leftSection={<IconPlus size={18} />}
-            color="indigo"
-            size="md"
-            onClick={handleOpenCreate}
-          >
-            Create Landing Page
-          </Button>
+          <Group gap="xs">
+            <Button
+              leftSection={<IconWallet size={18} />}
+              variant="light"
+              color="teal"
+              size="md"
+              onClick={() => handleCreateFromTemplate('event_pass')}
+            >
+              VIP Pass Template
+            </Button>
+            <Button
+              leftSection={<IconPlus size={18} />}
+              color="indigo"
+              size="md"
+              onClick={handleOpenCreate}
+            >
+              Create Blank Page
+            </Button>
+          </Group>
         </Group>
 
         {/* List of Landing Pages */}
@@ -475,19 +509,224 @@ export function LandingPagesClient({
           <Stack gap="md" pb="xl">
             <Tabs value={activeTab} onChange={setActiveTab}>
               <Tabs.List>
+                <Tabs.Tab value="blocks" leftSection={<IconComponents size={16} />}>
+                  Blocks &amp; Modules
+                </Tabs.Tab>
                 <Tabs.Tab value="content" leftSection={<IconEdit size={16} />}>
-                  Content & Copy
+                  Content &amp; Copy
                 </Tabs.Tab>
                 <Tabs.Tab value="fields" leftSection={<IconAdjustments size={16} />}>
                   Form Fields ({editingPage.fields.length})
                 </Tabs.Tab>
                 <Tabs.Tab value="design" leftSection={<IconPalette size={16} />}>
-                  Theme & Style
+                  Theme &amp; Style
                 </Tabs.Tab>
                 <Tabs.Tab value="settings" leftSection={<IconTemplate size={16} />}>
-                  URL & Legal
+                  URL &amp; Legal
                 </Tabs.Tab>
               </Tabs.List>
+
+              {/* Tab 0: Modular Blocks (Enable/Show & Disable/Hide) */}
+              <Tabs.Panel value="blocks" pt="md">
+                <Stack gap="md">
+                  <Box>
+                    <Text size="sm" fw={700}>
+                      Modular Landing Page Blocks
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Toggle specific sections on or off to create the exact layout for your campaign — from simple 1-field lead magnets to rich VIP event passes with digital wallet goods.
+                    </Text>
+                  </Box>
+
+                  <Paper p="md" radius="md" withBorder>
+                    <Stack gap="md">
+                      <Group justify="space-between" align="center">
+                        <Box style={{ maxWidth: 380 }}>
+                          <Text size="sm" fw={600}>
+                            Hero Banner Image
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Display high-resolution campaign banner graphic at the top of the card.
+                          </Text>
+                        </Box>
+                        <Switch
+                          size="md"
+                          checked={editingPage.blocks?.showHeroBanner !== false}
+                          onChange={(e) =>
+                            setEditingPage({
+                              ...editingPage,
+                              blocks: {
+                                ...(editingPage.blocks || DEFAULT_BLOCKS_CONFIG),
+                                showHeroBanner: e.currentTarget.checked,
+                              },
+                            })
+                          }
+                        />
+                      </Group>
+
+                      <Divider />
+
+                      <Group justify="space-between" align="center">
+                        <Box style={{ maxWidth: 380 }}>
+                          <Text size="sm" fw={600}>
+                            Hero Headline &amp; Subheadline
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Display the introductory promo text, date range, and venue overview.
+                          </Text>
+                        </Box>
+                        <Switch
+                          size="md"
+                          checked={editingPage.blocks?.showHeroCopy !== false}
+                          onChange={(e) =>
+                            setEditingPage({
+                              ...editingPage,
+                              blocks: {
+                                ...(editingPage.blocks || DEFAULT_BLOCKS_CONFIG),
+                                showHeroCopy: e.currentTarget.checked,
+                              },
+                            })
+                          }
+                        />
+                      </Group>
+
+                      <Divider />
+
+                      <Group justify="space-between" align="center">
+                        <Box style={{ maxWidth: 380 }}>
+                          <Text size="sm" fw={600}>
+                            Benefits &amp; Callout Bullets
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Show highlights, entry requirements, or prize draw details.
+                          </Text>
+                        </Box>
+                        <Switch
+                          size="md"
+                          checked={editingPage.blocks?.showBullets !== false}
+                          onChange={(e) =>
+                            setEditingPage({
+                              ...editingPage,
+                              blocks: {
+                                ...(editingPage.blocks || DEFAULT_BLOCKS_CONFIG),
+                                showBullets: e.currentTarget.checked,
+                              },
+                            })
+                          }
+                        />
+                      </Group>
+
+                      <Divider />
+
+                      <Group justify="space-between" align="center">
+                        <Box style={{ maxWidth: 380 }}>
+                          <Group gap={6} align="center">
+                            <IconWallet size={16} color="#34d399" />
+                            <Text size="sm" fw={600}>
+                              Digital Goods: Apple &amp; Google Wallet Passes
+                            </Text>
+                          </Group>
+                          <Text size="xs" c="dimmed">
+                            Upon submission, generate QR code pass, Apple Wallet (.pkpass), and Google Wallet download buttons.
+                          </Text>
+                        </Box>
+                        <Switch
+                          size="md"
+                          color="green"
+                          checked={editingPage.blocks?.showDigitalPasses !== false}
+                          onChange={(e) =>
+                            setEditingPage({
+                              ...editingPage,
+                              blocks: {
+                                ...(editingPage.blocks || DEFAULT_BLOCKS_CONFIG),
+                                showDigitalPasses: e.currentTarget.checked,
+                              },
+                            })
+                          }
+                        />
+                      </Group>
+
+                      <Divider />
+
+                      <Group justify="space-between" align="center">
+                        <Box style={{ maxWidth: 380 }}>
+                          <Text size="sm" fw={600}>
+                            Event Calendar Invite (.ics)
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Allow attendees to save event dates directly to Apple/Google/Outlook Calendar.
+                          </Text>
+                        </Box>
+                        <Switch
+                          size="md"
+                          checked={editingPage.blocks?.showCalendarInvite !== false}
+                          onChange={(e) =>
+                            setEditingPage({
+                              ...editingPage,
+                              blocks: {
+                                ...(editingPage.blocks || DEFAULT_BLOCKS_CONFIG),
+                                showCalendarInvite: e.currentTarget.checked,
+                              },
+                            })
+                          }
+                        />
+                      </Group>
+
+                      <Divider />
+
+                      <Group justify="space-between" align="center">
+                        <Box style={{ maxWidth: 380 }}>
+                          <Text size="sm" fw={600}>
+                            Footer Privacy Disclaimer
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Show legal data processing notice and privacy policy links below the submit button.
+                          </Text>
+                        </Box>
+                        <Switch
+                          size="md"
+                          checked={editingPage.blocks?.showFooterDisclaimer !== false}
+                          onChange={(e) =>
+                            setEditingPage({
+                              ...editingPage,
+                              blocks: {
+                                ...(editingPage.blocks || DEFAULT_BLOCKS_CONFIG),
+                                showFooterDisclaimer: e.currentTarget.checked,
+                              },
+                            })
+                          }
+                        />
+                      </Group>
+
+                      <Divider />
+
+                      <Group justify="space-between" align="center">
+                        <Box style={{ maxWidth: 380 }}>
+                          <Text size="sm" fw={600}>
+                            Terms &amp; Conditions Modal Link
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Show clickable link that opens competition terms and full GTC.
+                          </Text>
+                        </Box>
+                        <Switch
+                          size="md"
+                          checked={editingPage.blocks?.showTermsModal !== false}
+                          onChange={(e) =>
+                            setEditingPage({
+                              ...editingPage,
+                              blocks: {
+                                ...(editingPage.blocks || DEFAULT_BLOCKS_CONFIG),
+                                showTermsModal: e.currentTarget.checked,
+                              },
+                            })
+                          }
+                        />
+                      </Group>
+                    </Stack>
+                  </Paper>
+                </Stack>
+              </Tabs.Panel>
 
               {/* Tab 1: Content */}
               <Tabs.Panel value="content" pt="md">
