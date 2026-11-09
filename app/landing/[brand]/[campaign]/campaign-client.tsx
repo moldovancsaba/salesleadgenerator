@@ -30,8 +30,11 @@ import {
   IconAlertCircle,
   IconLock,
   IconArrowRight,
+  IconDownload,
+  IconQrcode,
 } from '@tabler/icons-react';
 import { COUNTRY_OPTIONS } from '@/lib/country-list';
+import { generateAttendeeBadgePng } from '@/lib/attendee-card';
 
 interface Props {
   brand: string;
@@ -64,6 +67,8 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+  const [passImageUrl, setPassImageUrl] = useState<string | null>(null);
+  const [generatingPass, setGeneratingPass] = useState(false);
 
   // Country select options
   const countrySelectData = COUNTRY_OPTIONS.map((c) => ({
@@ -108,6 +113,28 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
       }
 
       setSubmitted(true);
+
+      // Automatically generate attendee QR contact badge PNG
+      try {
+        setGeneratingPass(true);
+        const countryLabel = COUNTRY_OPTIONS.find((c) => c.code === country)?.name || country || '';
+        const badgePng = await generateAttendeeBadgePng({
+          name: `${firstName} ${lastName}`.trim() || 'Event Attendee',
+          eventName: 'Mr Vegas Grand Slam of Darts',
+          venue: 'WV Active Aldersley, Wolverhampton',
+          email,
+          phone,
+          country: countryLabel,
+          postCode,
+          brandLabel: 'Mr Vegas',
+          ticketType: 'Grand Slam Ticket Giveaway Entry',
+        });
+        setPassImageUrl(badgePng);
+      } catch (err) {
+        console.warn('Failed to generate attendee badge PNG:', err);
+      } finally {
+        setGeneratingPass(false);
+      }
     } catch (err: any) {
       setError(err?.message || 'An unexpected error occurred. Please try again.');
     } finally {
@@ -207,6 +234,74 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   Good Luck.
                 </Text>
 
+                {/* Attendee QR Contact Card Pass */}
+                {passImageUrl && (
+                  <Box
+                    mt="lg"
+                    p="md"
+                    style={{
+                      width: '100%',
+                      maxWidth: 420,
+                      backgroundColor: '#0d1117',
+                      borderRadius: 16,
+                      border: '1px solid rgba(0, 168, 98, 0.4)',
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Group gap="xs" align="center" mb="xs">
+                      <IconQrcode size={20} color="#34d399" />
+                      <Text size="sm" fw={700} c="#34d399">
+                        Your Event Contact Pass
+                      </Text>
+                    </Group>
+                    <Text size="xs" c="dimmed" mb="md" style={{ maxWidth: 360 }}>
+                      A hostess at the event can scan this QR code directly into their phone contacts (vCard).
+                    </Text>
+
+                    <Box
+                      style={{
+                        position: 'relative',
+                        width: '100%',
+                        borderRadius: 12,
+                        overflow: 'hidden',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={passImageUrl}
+                        alt="Event Attendee Pass"
+                        style={{
+                          width: '100%',
+                          height: 'auto',
+                          display: 'block',
+                          objectFit: 'contain',
+                        }}
+                      />
+                    </Box>
+
+                    <Button
+                      component="a"
+                      href={passImageUrl}
+                      download={`event-pass-${firstName || 'attendee'}.png`}
+                      size="md"
+                      mt="md"
+                      fullWidth
+                      leftSection={<IconDownload size={18} />}
+                      style={{
+                        background: 'linear-gradient(135deg, #00a862 0%, #00874e 100%)',
+                        color: '#ffffff',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Save Pass to Photos / Images
+                    </Button>
+                  </Box>
+                )}
+
                 <Button
                   variant="outline"
                   color="yellow"
@@ -214,6 +309,7 @@ export function LandingCampaignClient({ brand, brandLabel, campaignSlug, utm }: 
                   mt="md"
                   onClick={() => {
                     setSubmitted(false);
+                    setPassImageUrl(null);
                     setFirstName('');
                     setLastName('');
                     setEmail('');

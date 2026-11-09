@@ -23,8 +23,11 @@ import {
   IconAlertCircle,
   IconCheck,
   IconArrowRight,
+  IconDownload,
+  IconQrcode,
 } from '@tabler/icons-react';
 import { COUNTRY_OPTIONS } from '@/lib/country-list';
+import { generateAttendeeBadgePng } from '@/lib/attendee-card';
 import {
   LandingPageRecord,
   LandingFormFieldConfig,
@@ -63,6 +66,8 @@ export function DynamicLandingClient({
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [termsOpen, setTermsOpen] = useState(false);
+  const [passImageUrl, setPassImageUrl] = useState<string | null>(null);
+  const [generatingPass, setGeneratingPass] = useState(false);
 
   const design = page.design || THEME_PRESETS.dark_emerald;
 
@@ -135,6 +140,38 @@ export function DynamicLandingClient({
       }
 
       setSubmitted(true);
+
+      // Automatically generate attendee QR contact badge PNG
+      try {
+        setGeneratingPass(true);
+        // Find attendee name from formValues
+        const firstName = formValues[page.fields.find((f) => f.leadProperty === 'contact_first_name')?.id || ''] || '';
+        const lastName = formValues[page.fields.find((f) => f.leadProperty === 'contact_last_name')?.id || ''] || '';
+        const entityName = formValues[page.fields.find((f) => f.leadProperty === 'entity_name')?.id || ''] || '';
+        const contactName = `${firstName} ${lastName}`.trim() || entityName;
+        const email = formValues[page.fields.find((f) => f.leadProperty === 'contact_email')?.id || ''] || '';
+        const phone = formValues[page.fields.find((f) => f.leadProperty === 'contact_phone')?.id || ''] || '';
+        const countryCode = formValues[page.fields.find((f) => f.leadProperty === 'country')?.id || ''] || '';
+        const countryName = COUNTRY_OPTIONS.find((c) => c.code === countryCode)?.name || countryCode;
+        const postCode = formValues[page.fields.find((f) => f.leadProperty === 'post_code')?.id || ''] || '';
+
+        const badgePng = await generateAttendeeBadgePng({
+          name: contactName || 'Event Attendee',
+          eventName: page.title || `${brandLabel} Event`,
+          venue: 'WV Active Aldersley, Wolverhampton',
+          email,
+          phone,
+          country: countryName,
+          postCode,
+          brandLabel,
+          ticketType: 'Official Event Entry Pass',
+        });
+        setPassImageUrl(badgePng);
+      } catch (err) {
+        console.warn('Failed to generate attendee badge PNG:', err);
+      } finally {
+        setGeneratingPass(false);
+      }
     } catch (err: any) {
       setError(err?.message || 'Something went wrong. Please check your information and try again.');
     } finally {
@@ -453,6 +490,74 @@ export function DynamicLandingClient({
                   Good Luck.
                 </Text>
 
+                {/* Attendee QR Contact Card Pass */}
+                {passImageUrl && (
+                  <Box
+                    mt="lg"
+                    p="md"
+                    style={{
+                      width: '100%',
+                      maxWidth: 420,
+                      backgroundColor: '#0d1117',
+                      borderRadius: 16,
+                      border: `1px solid ${design.primaryColor}66`,
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Group gap="xs" align="center" mb="xs">
+                      <IconQrcode size={20} color={design.primaryColor} />
+                      <Text size="sm" fw={700} c={design.primaryColor}>
+                        Your Event Contact Pass
+                      </Text>
+                    </Group>
+                    <Text size="xs" c="dimmed" mb="md" style={{ maxWidth: 360 }}>
+                      A hostess at the event can scan this QR code directly into their phone contacts (vCard).
+                    </Text>
+
+                    <Box
+                      style={{
+                        position: 'relative',
+                        width: '100%',
+                        borderRadius: 12,
+                        overflow: 'hidden',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={passImageUrl}
+                        alt="Event Attendee Pass"
+                        style={{
+                          width: '100%',
+                          height: 'auto',
+                          display: 'block',
+                          objectFit: 'contain',
+                        }}
+                      />
+                    </Box>
+
+                    <Button
+                      component="a"
+                      href={passImageUrl}
+                      download={`event-pass-${campaignSlug || 'attendee'}.png`}
+                      size="md"
+                      mt="md"
+                      fullWidth
+                      leftSection={<IconDownload size={18} />}
+                      style={{
+                        background: `linear-gradient(135deg, ${design.primaryColor} 0%, ${design.primaryColor}cc 100%)`,
+                        color: '#ffffff',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Save Pass to Photos / Images
+                    </Button>
+                  </Box>
+                )}
+
                 <Button
                   variant="outline"
                   color="yellow"
@@ -460,6 +565,7 @@ export function DynamicLandingClient({
                   mt="md"
                   onClick={() => {
                     setSubmitted(false);
+                    setPassImageUrl(null);
                   }}
                 >
                   Submit Another Entry
