@@ -27,6 +27,8 @@ export function isAppleWalletConfigured(): boolean {
 /**
  * Creates an Apple Wallet (.pkpass) buffer for an event attendee pass.
  */
+import crypto from 'crypto';
+
 export async function createAppleWalletPass(data: AttendeeCardData): Promise<Buffer> {
   const passTypeIdentifier = process.env.APPLE_PASS_TYPE_IDENTIFIER || 'pass.com.mrvegas.eventpass';
   const teamIdentifier = process.env.APPLE_TEAM_IDENTIFIER || 'TEAMID123';
@@ -36,6 +38,10 @@ export async function createAppleWalletPass(data: AttendeeCardData): Promise<Buf
   const signerKeyPassphrase = process.env.APPLE_SIGNER_KEY_PASSPHRASE || process.env.APPLE_SIGNER_KEY_PASSWORD || '';
 
   const vCard = buildVCardString(data);
+
+  // Generate a deterministic serial number based on attendee email or name
+  const seed = (data.email || data.name || Date.now().toString()).trim().toLowerCase();
+  const serialNumber = `VEGAS-${crypto.createHash('sha256').update(seed).digest('hex').slice(0, 16).toUpperCase()}`;
 
   // Bundle pass icons if available
   const buffers: Record<string, Buffer> = {};
@@ -62,6 +68,7 @@ export async function createAppleWalletPass(data: AttendeeCardData): Promise<Buf
     {
       formatVersion: 1,
       passTypeIdentifier,
+      serialNumber,
       teamIdentifier,
       organizationName: data.brandLabel || 'Mr Vegas',
       description: `${data.eventName} Event Pass`,
