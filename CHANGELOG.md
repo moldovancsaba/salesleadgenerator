@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.375
+
+### Vegas page for the event: lead collection only, no attendee pass
+
+- **Attendee pass switch (Issue #337, `lib/landing-page-schema.ts` `landingPassesEnabled`, `app/landing/[brand]/[campaign]/dynamic-landing-client.tsx`, `app/api/forms/[brand]/submit/route.ts`):**
+  - The Vegas campaign now ships with the digital pass and the calendar entry switched off, at the client's request for the event. After submitting, a visitor sees only the thank-you message: no badge or QR code, no wallet, contact card or calendar save. The browser no longer builds the badge image, and no confirmation email is sent (the email only carries the pass). The lead is still validated, saved and added to the pipeline as before.
+  - The switch is the page's existing `showDigitalPasses` block; the editor's **Blocks & Modules** tab turns it back on. A stored page record keeps its own setting: the live Vegas record has to be changed in the editor, the code default only applies to a page with no stored record.
+  - Tests: the page default, the switch helper, and the submit route (no email with the pass off, email sent with it on).
+
 ## 2.4.374
 
 ### Fixed: the landing page failed to hydrate on every load

@@ -4,6 +4,8 @@ import {
   DEFAULT_VEGAS_CAMPAIGN,
   normalizeBannerAspectRatio,
   normalizeScannerConfig,
+  landingPassesEnabled,
+  DEFAULT_BLOCKS_CONFIG,
   toPublicLandingPage,
   toPublicScannerConfig,
 } from '@/lib/landing-page-schema';
@@ -107,5 +109,23 @@ describe('check-in scanner config', () => {
       accessCode: DEFAULT_HOSTESS_PASSWORD,
       showAccessCodeHint: true,
     });
+  });
+});
+
+describe('attendee pass switch', () => {
+  it('is on for a page that never set it, and off when the block switch is off', () => {
+    expect(landingPassesEnabled(undefined)).toBe(true);
+    expect(landingPassesEnabled(null)).toBe(true);
+    expect(landingPassesEnabled({})).toBe(true);
+    expect(landingPassesEnabled({ blocks: DEFAULT_BLOCKS_CONFIG })).toBe(true);
+    expect(landingPassesEnabled({ blocks: { ...DEFAULT_BLOCKS_CONFIG, showDigitalPasses: false } })).toBe(false);
+  });
+
+  it('is off on the Vegas default: no QR badge, wallet, contact card, calendar entry or pass email, only lead collection', () => {
+    expect(landingPassesEnabled(DEFAULT_VEGAS_CAMPAIGN)).toBe(false);
+    expect(DEFAULT_VEGAS_CAMPAIGN.blocks?.showDigitalPasses).toBe(false);
+    expect(DEFAULT_VEGAS_CAMPAIGN.blocks?.showCalendarInvite).toBe(false);
+    expect(DEFAULT_VEGAS_CAMPAIGN.blocks?.showHeroBanner).toBe(true);
+    expect(DEFAULT_VEGAS_CAMPAIGN.fields.length).toBeGreaterThan(0);
   });
 });

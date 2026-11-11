@@ -40,6 +40,7 @@ Last synced: 2026-11-06. Delivered and closed in v2.4.368: #327 ([Rebranding]: R
 
 | # | Title | Resolution |
 |---|---|---|
+| [#337](https://github.com/moldovancsaba/salesleadgenerator/issues/337) | feat(landing): Vegas for the event: lead collection only, attendee pass off | Shipped to `main` in 2.4.375: pass, QR, wallet, calendar and pass email off for the Vegas default and for any page with the switch off. The live Vegas record has its own setting and is changed in the editor. |
 | [#336](https://github.com/moldovancsaba/salesleadgenerator/issues/336) | feat(landing): check-in scanner as an SLG-wide module for any landing page | Shipped to `main`: per-page scanner and event settings, server-side access code, forward-only moves, editor tab. Checked on a phone by the owner on 2026-11-11: works. |
 | [#335](https://github.com/moldovancsaba/salesleadgenerator/issues/335) | fix(hostess): the QR reader ships unstyled and loses scans; rebuild its UI and scanning flow | Shipped to `main`: Mantine layout, continuous scanning, badge validation, repeat-scan result. Checked on a phone by the owner on 2026-11-11: works. |
 | [#334](https://github.com/moldovancsaba/salesleadgenerator/issues/334) | fix(landing): Vegas Grand Slam page: Bullseye Challenge copy, logo-only header, remove invalid terms link and PDC tick box | Shipped to `main`: code default and generic client updated; the live page uses the code default. Checked live on 2026-11-11. |

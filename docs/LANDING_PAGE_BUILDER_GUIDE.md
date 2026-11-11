@@ -25,7 +25,7 @@ Every landing page consists of modular blocks that admins can **enable (show)** 
 | `showHeroBanner` | **Hero Banner Image** | Top-level high-res visual banner (aspect ratio 1248x562) with responsive object containment. |
 | `showHeroCopy` | **Headline & Subheadline** | Introductory copy describing the event, dates, venue, or offer overview. |
 | `showBullets` | **Callouts / Bullets** | Highlight key benefits, eligibility rules, or competition instructions. |
-| `showDigitalPasses` | **Digital Passes (Apple & Google Wallet)** | Generates live vCard contact QR code, `.pkpass` download for Apple Wallet, and save-to-wallet link for Google Wallet upon submission. |
+| `showDigitalPasses` | **Digital Passes (Apple & Google Wallet)** | Generates live vCard contact QR code, `.pkpass` download for Apple Wallet, and save-to-wallet link for Google Wallet upon submission. | **Off means a lead-collection-only page:** no badge, QR code, wallet, contact card or calendar entry after submission, and no confirmation email (the email only carries the pass). The lead is still saved and added to the pipeline.
 | `showCalendarInvite` | **Calendar Invite (.ics)** | Generates an iCalendar file for 1-click addition to Apple/Google/Outlook Calendar. |
 | `showFooterDisclaimer`| **Footer Legal Disclaimer** | Renders privacy consent text and link to the relevant tenant's Privacy Policy. |
 | `showTermsModal` | **Terms & Conditions Modal** | Clickable link opening full terms and competition rules in a responsive dialog. |

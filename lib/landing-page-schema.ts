@@ -93,6 +93,14 @@ export function normalizeEventDetails(value: unknown): LandingPageEventDetails |
   return { ...(name ? { name } : {}), ...(venue ? { venue } : {}), ...(date ? { date } : {}) };
 }
 
+/**
+ * Whether a page hands visitors an attendee pass (badge with QR code, wallet, contact card, calendar) and sends the
+ * confirmation email that carries it. The `showDigitalPasses` block switch decides; a page that never set it keeps the pass.
+ */
+export function landingPassesEnabled(page: { blocks?: Partial<LandingPageBlocksConfig> } | null | undefined): boolean {
+  return page?.blocks?.showDigitalPasses !== false;
+}
+
 /** Columns a check-in scan may move a lead to, in pipeline order. */
 export const SCANNER_TARGET_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON'] as const;
 export type ScannerTargetColumn = (typeof SCANNER_TARGET_COLUMNS)[number];
@@ -314,7 +322,7 @@ export const DEFAULT_VEGAS_CAMPAIGN: LandingPageRecord = {
     'Good Luck!',
   ],
   ctaButtonText: 'Submit Entry',
-  blocks: { ...DEFAULT_BLOCKS_CONFIG, showTermsModal: false },
+  blocks: { ...DEFAULT_BLOCKS_CONFIG, showTermsModal: false, showDigitalPasses: false, showCalendarInvite: false },
   event: {
     name: 'Mr Vegas Grand Slam of Darts',
     venue: 'WV Active Aldersley, Wolverhampton',

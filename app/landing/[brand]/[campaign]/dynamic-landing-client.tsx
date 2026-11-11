@@ -44,6 +44,7 @@ import {
 import {
   PublicLandingPageRecord,
   LandingFormFieldConfig,
+  landingPassesEnabled,
   THEME_PRESETS,
 } from '@/lib/landing-page-schema';
 
@@ -157,7 +158,8 @@ export function DynamicLandingClient({
 
       setSubmitted(true);
 
-      // Automatically generate attendee QR contact badge PNG
+      // The attendee pass (QR badge, wallet, contact card) is built only for a page that shows it.
+      if (!landingPassesEnabled(page)) return;
       try {
         setGeneratingPass(true);
         // Find attendee name from formValues

@@ -203,17 +203,21 @@ export async function POST(
       console.error('[API:forms/submit] activityLog write failed', err);
     }
 
-    // Trigger branded confirmation email with Apple Wallet, Google Wallet & badge links
+    // Trigger branded confirmation email with Apple Wallet, Google Wallet & badge links.
+    // A page that has its attendee pass switched off sends no email: the email only exists to carry the pass.
     if (submission.contactEmail) {
       try {
         const { sendLandingConfirmationEmail } = await import('../../../../../lib/landing-confirmation-email');
         let campaignTitle: string | undefined;
         let venue: string | undefined;
         let eventDate: string | undefined;
+        let passesEnabled = true;
         if (submission.campaign) {
           try {
             const { getLandingPageBySlug } = await import('../../../../../lib/landing-page-store');
+            const { landingPassesEnabled } = await import('../../../../../lib/landing-page-schema');
             const page = await getLandingPageBySlug(brand, submission.campaign);
+            passesEnabled = landingPassesEnabled(page);
             campaignTitle = page?.event?.name || page?.title || undefined;
             venue = page?.event?.venue;
             eventDate = page?.event?.date;
@@ -222,20 +226,22 @@ export async function POST(
           }
         }
 
-        await sendLandingConfirmationEmail({
-          brand,
-          brandLabel: config.label,
-          campaign: submission.campaign,
-          campaignTitle: campaignTitle || config.label || 'Event Entry Confirmation',
-          recipientEmail: submission.contactEmail,
-          recipientName: submission.contactName,
-          phone: submission.contactPhone,
-          country: submission.country,
-          postCode: submission.postCode,
-          venue,
-          eventDate,
-          fromEmail: config.fromEmail,
-        });
+        if (passesEnabled) {
+          await sendLandingConfirmationEmail({
+            brand,
+            brandLabel: config.label,
+            campaign: submission.campaign,
+            campaignTitle: campaignTitle || config.label || 'Event Entry Confirmation',
+            recipientEmail: submission.contactEmail,
+            recipientName: submission.contactName,
+            phone: submission.contactPhone,
+            country: submission.country,
+            postCode: submission.postCode,
+            venue,
+            eventDate,
+            fromEmail: config.fromEmail,
+          });
+        }
       } catch (err) {
         console.error('[API:forms/submit] confirmation email dispatch failed:', err);
       }
