@@ -1,5 +1,13 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.373
+
+### Fixed: the page would not scroll with a trackpad or mouse wheel in Safari
+
+- **Global scroll styles (`app/globals.css`, `tests/lib/global-scroll-css.test.ts`):**
+  - Root cause: `html, body` carried `overscroll-behavior: none`. In WebKit (Safari), that rule stops wheel and trackpad scrolling as soon as a script adds a non-passive `wheel` listener to the document. Mantine's `ScrollArea` does exactly that inside the Select and Combobox dropdowns, so the Vegas landing page (country selector) could not be scrolled in Safari on macOS, while keyboard scrolling still worked. Chromium is unaffected, which is why every earlier check passed. Reproduced in WebKit on the live page and on a minimal page of three lines of CSS and script; pages without a Mantine dropdown scrolled normally.
+  - The rule is now `overscroll-behavior-x: none` (horizontal only). A test fails if `html` or `body` sets vertical overscroll behaviour to `none` or `contain` again.
+
 ## 2.4.372
 
 ### Check-in scanner for any landing page

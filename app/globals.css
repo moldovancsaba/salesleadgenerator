@@ -1,7 +1,13 @@
 html,
 body {
   -webkit-text-size-adjust: 100%;
-  overscroll-behavior: none;
+  /*
+    Horizontal only. `overscroll-behavior: none` (both axes) on html or body stops wheel and trackpad
+    scrolling in WebKit (Safari) as soon as any script adds a non-passive `wheel` listener to the document,
+    which Mantine's ScrollArea does (the Select and Combobox dropdowns). Chromium is unaffected, so it
+    passed every check made there. Keep the vertical axis at its default.
+  */
+  overscroll-behavior-x: none;
   /*
     Safety net against any single element (a fixed-width control, an
     unwrapped long text run, etc.) pushing the page wider than the
