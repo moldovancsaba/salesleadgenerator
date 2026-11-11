@@ -747,6 +747,14 @@ export function LandingPagesClient({
                     onChange={(e) => setEditingPage({ ...editingPage, heroBannerUrl: e.target.value })}
                   />
 
+                  <TextInput
+                    label="Hero Banner Proportions (width/height)"
+                    placeholder="1248/562"
+                    description="Use the image's own width/height so the whole image shows, for example 1200/1181 for a square image. Leave empty for the wide email banner."
+                    value={editingPage.heroBannerAspectRatio || ''}
+                    onChange={(e) => setEditingPage({ ...editingPage, heroBannerAspectRatio: e.target.value })}
+                  />
+
                   <Textarea
                     label="Hero Headline"
                     placeholder="e.g. Title sponsors are delighted to offer general admission tickets..."

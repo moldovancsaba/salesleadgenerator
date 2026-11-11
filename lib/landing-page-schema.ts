@@ -51,6 +51,13 @@ export interface LandingPageBlocksConfig {
   showFooterDisclaimer: boolean;
 }
 
+/** A banner proportion such as `1200/1181`; anything else is dropped so a bad value cannot break the layout. */
+export function normalizeBannerAspectRatio(value: unknown): string | undefined {
+  const match = typeof value === 'string' ? value.trim().match(/^(\d{1,5})\s*\/\s*(\d{1,5})$/) : null;
+  if (!match || Number(match[1]) === 0 || Number(match[2]) === 0) return undefined;
+  return `${Number(match[1])}/${Number(match[2])}`;
+}
+
 export const DEFAULT_BLOCKS_CONFIG: LandingPageBlocksConfig = {
   showHeroBanner: true,
   showHeroCopy: true,
@@ -74,6 +81,8 @@ export interface LandingPageRecord {
   blocks?: LandingPageBlocksConfig;
   // Hero section
   heroBannerUrl?: string;
+  /** Width over height of the banner image, so the whole image is shown. Defaults to the 1248/562 email banner. */
+  heroBannerAspectRatio?: string;
   heroHeadline?: string;
   heroSubheadline?: string;
   bodyBullets?: string[];
@@ -172,7 +181,8 @@ export const DEFAULT_VEGAS_CAMPAIGN: LandingPageRecord = {
   title: 'Win Tickets to the Mr Vegas Grand Slam of Darts',
   description: 'Enter the official Mr Vegas Grand Slam of Darts ticket giveaway. Top players battle it out at WV Active Aldersley for the Eric Bristow Trophy.',
   published: true,
-  heroBannerUrl: '/landing/vegas/mr-vegas-logo.jpg',
+  heroBannerUrl: '/landing/vegas/mr-vegas-grand-slam.jpg',
+  heroBannerAspectRatio: '1200/1181',
   heroHeadline: 'Hi Darts Fans,',
   heroSubheadline: 'Welcome to The Mr Vegas Grand Slam of Darts!',
   bodyBullets: [

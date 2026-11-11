@@ -451,7 +451,7 @@ export function DynamicLandingClient({
         >
           {/* Header Banner Block */}
           {page.blocks?.showHeroBanner !== false && page.heroBannerUrl && (
-            <Box style={{ position: 'relative', width: '100%', aspectRatio: '1248/562', backgroundColor: '#000' }}>
+            <Box style={{ position: 'relative', width: '100%', aspectRatio: page.heroBannerAspectRatio || '1248/562', backgroundColor: '#000' }}>
               <Image
                 src={page.heroBannerUrl}
                 alt={page.title}

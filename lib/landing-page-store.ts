@@ -4,6 +4,7 @@ import {
   LandingPageRecord,
   DEFAULT_VEGAS_CAMPAIGN,
   THEME_PRESETS,
+  normalizeBannerAspectRatio,
 } from './landing-page-schema';
 
 export const LANDING_PAGES_COLLECTION = 'landing_pages';
@@ -76,6 +77,7 @@ export async function getLandingPagesForBrand(
       showFooterDisclaimer: true,
     },
     heroBannerUrl: d.heroBannerUrl,
+    heroBannerAspectRatio: normalizeBannerAspectRatio(d.heroBannerAspectRatio),
     heroHeadline: d.heroHeadline,
     heroSubheadline: d.heroSubheadline,
     bodyBullets: d.bodyBullets || [],
@@ -140,6 +142,7 @@ export async function getLandingPageBySlug(
       showFooterDisclaimer: true,
     },
     heroBannerUrl: doc.heroBannerUrl,
+    heroBannerAspectRatio: normalizeBannerAspectRatio(doc.heroBannerAspectRatio),
     heroHeadline: doc.heroHeadline,
     heroSubheadline: doc.heroSubheadline,
     bodyBullets: doc.bodyBullets || [],
@@ -219,6 +222,7 @@ export async function saveLandingPage(
     description: record.description?.trim() || '',
     published: record.published !== false,
     heroBannerUrl: record.heroBannerUrl?.trim() || '',
+    heroBannerAspectRatio: normalizeBannerAspectRatio(record.heroBannerAspectRatio),
     heroHeadline: record.heroHeadline?.trim() || '',
     heroSubheadline: record.heroSubheadline?.trim() || '',
     bodyBullets: Array.isArray(record.bodyBullets) ? record.bodyBullets.filter(Boolean) : [],
