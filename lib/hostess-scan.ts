@@ -1,3 +1,11 @@
+/**
+ * Check-in scan helpers that are safe to import from client components: vCard parsing, badge recognition,
+ * pipeline-order rule for a check-in, and the sentence shown for a failed scan. The access-code check and the
+ * wrong-code brake need Node crypto and live in `lib/hostess-scan-server.ts`.
+ *
+ * `DEFAULT_HOSTESS_PASSWORD` is the access code of the Vegas page's own scanner settings (`DEFAULT_VEGAS_CAMPAIGN`);
+ * any other page sets its own code in the editor.
+ */
 export const DEFAULT_HOSTESS_PASSWORD = 'iamthevegashostess2026';
 
 export interface ParsedVCardContact {

@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * Check-in reader for event staff. Screens: unlock (access code verified by the server with `verifyOnly`),
+ * station (count of check-ins on this phone), and a full-screen camera that stays open between scans.
+ * Each scan posts the QR content to `/api/landing/[brand]/[campaign]/hostess-scan`; the result (checked in,
+ * already checked in, not checked in) covers the camera and clears itself or on tap. The same code is ignored for
+ * a few seconds so a badge held in view is not scanned twice. Styling is Mantine and inline styles: Tailwind is not
+ * installed in this app.
+ */
+
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import { ActionIcon, Box, Button, Paper, Stack, Text, TextInput } from '@mantine/core';

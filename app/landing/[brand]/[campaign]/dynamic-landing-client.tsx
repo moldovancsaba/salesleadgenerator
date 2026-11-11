@@ -1,5 +1,11 @@
 'use client';
 
+/**
+ * Renders a stored landing page for visitors: hero image (at the page's own proportions), copy, form built from
+ * the page's `fields`, and the success state with the attendee pass. Receives `PublicLandingPageRecord`, which has
+ * no scanner settings. Nothing here names a campaign: event name, venue and date come from the page's `event`.
+ */
+
 import { useState } from 'react';
 import Image from 'next/image';
 import {

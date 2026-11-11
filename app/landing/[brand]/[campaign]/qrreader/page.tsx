@@ -25,6 +25,7 @@ export async function generateMetadata({
   };
 }
 
+/** Reader for a page whose scanner is on; any other page is not found. Only the public part of the scanner settings reaches the browser. */
 export default async function HostessQrReaderPage({
   params,
 }: {

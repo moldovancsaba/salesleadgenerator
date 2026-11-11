@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.368  
+**Version:** 2.4.372  
 **Production:** https://sales.haho.ai (Legacy alias: salesleadgenerator.vercel.app)
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -131,6 +131,7 @@ This README is the single source of truth for documentation paths and descriptio
 |------|-------------|
 | `README.md` | Onboarding, quick start, and documentation index |
 | `docs/USER_GUIDE.md` | Canonical end-user user guide for sales reps and account executives across all CRM surfaces |
+| `docs/LANDING_PAGE_BUILDER_GUIDE.md` | Building lead-collector landing pages: blocks, form fields, attendee pass (badge, wallet, calendar), event details, and the per-page check-in scanner for event staff |
 | `AGENTS.md` / `CLAUDE.md` | Mandatory operating rules for any AI coding assistant working in this repo (quality gate, issue-driven workflow, DoD, branch/push authorization). `AGENTS.md` is canonical; `CLAUDE.md` is an identical copy |
 | `HANDOVER.md` | Current handover for the next agent: state, commands, open work, traps, first-hour checklist (dated) |
 | `CHANGELOG.md` | Version history, shipped features, and known limitations |

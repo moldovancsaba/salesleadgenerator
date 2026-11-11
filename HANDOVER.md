@@ -1,5 +1,5 @@
 # HANDOVER: Sales Lead Generator
-Date: 2026-10-22. Owner: moldovancsaba. Board: https://github.com/users/moldovancsaba/projects/56. Repo: https://github.com/moldovancsaba/salesleadgenerator. Production: https://salesleadgenerator.vercel.app.
+Date: 2026-11-11. Owner: moldovancsaba. Board: https://github.com/users/moldovancsaba/projects/56. Repo: https://github.com/moldovancsaba/salesleadgenerator. Production: https://salesleadgenerator.vercel.app.
 
 The previous handover (session of 2026-10-05, v2.4.247) recorded baseline operations, branch hygiene, and initial pipeline fixes.
 
@@ -7,10 +7,10 @@ The previous handover (session of 2026-10-05, v2.4.247) recorded baseline operat
 A Next.js 16 sales-intelligence app: a kanban board, table view, metrics, outreach, cadences, quotes, multi-CRM lead exchange (HubSpot, Salesforce, Pipedrive, Google Sheets), and an admin area for sports-organization leads, one workspace per brand (`cogmap`, `seyu`, `dvsc`; brands are runtime-editable in the database, issue #195). Sales teams use it; an automated external research agent (`researchandenrich` runtime) discovers and enriches leads and writes them through this app's API. Per `AGENTS.md` Rule 10 (2026-10-16), coding assistants are strictly developers, never manual lead-research or content-enrichment operators.
 
 ## State today
-- **Version 2.4.342** (`package.json`, `APP_VERSION` in `lib/release-notes-dates.ts`, package name `slg-leads`). Main branch is active and verified.
+- **Version 2.4.372** (`package.json`, `package-lock.json`, `APP_VERSION` and `RELEASE_DATES` in `lib/release-notes-dates.ts`, package name `slg-leads`). Main branch is active and verified. A release cut changes all of those plus the `## <version>` heading in `CHANGELOG.md`, which the in-app What's New page reads. The delivered-work list below stops at 2.4.342; `CHANGELOG.md` has 2.4.343 to 2.4.372. The latest work is the landing page, attendee pass and check-in scanner module: `docs/ARCHITECTURE.md` section "Landing pages, event pass and check-in scanner" and `docs/LANDING_PAGE_BUILDER_GUIDE.md` section 5.
 - **Deploys on Vercel** (production URL above). `vercel.json` holds cron entries (`Authorization: Bearer` with `CRON_SECRET`).
 - **Database**: MongoDB Atlas. Database `cogmap` holds core business collections (`leads`, `accounts`, `company_settings`, `products`, `activityLog`, `inbox_thread_states`, `integration_connections`, `sso_user_access`, `report_definitions`, `webhooks`, `scheduler_state`, `api_keys`, `brands`, `padel_africa_leads`).
-- **Quality gate** (verified clean): `npx tsc --noEmit` reports 0 errors, `npm run lint` reports 0 errors and 0 warnings, `npm run audit:gds-style` exits 0, `npm run test:smoke` passes 5/5, and `npx vitest run` passes 100%.
+- **Quality gate** (`AGENTS.md` Rule 1): `npx tsc --noEmit` reports 0 errors, `npm run lint` reports 0 errors and 0 warnings, `npm run test:smoke` passes, and `npx vitest run` passes 100%. `npm run audit:gds-style` is NOT clean: it reports `forbidden-color` errors (raw colour literals) in the landing, wallet, badge and confirmation-email code and in several `tests/lib/*-ux.test.ts` files, all present before the 2.4.372 work and not part of Rule 1's gate; it was last clean at 2.4.342. Fixing them means moving the colours into the theme or token files.
 - **Recent Deliverables Shipped (v2.4.270 – v2.4.342)**:
   - **2-Way Synchronization Between Sales Settings and Product Catalog (2.4.342, #299)**: Implemented bidirectional synchronization engine (`lib/product-catalog-sync.ts`) connecting Sales Settings offerings (`company_settings.products`) and the central Product Catalog (`products` collection). Automatically updates or adds catalog products when saving Sales Settings, and automatically propagates catalog additions, price edits, and deletions back into company settings. Tests in `tests/lib/product-catalog-sync.test.ts`.
   - **Padel Africa Directory Listings to Leads Sync (2.4.341, #298)**: Enforced that for client `padel-africa`, sales leads originate strictly and exclusively from Padel Africa's directory listings (stored in `padel-africa` MongoDB instance managed by `management`). Built pure transformation engine (`lib/padel-listings-sync.ts`) mapping directory listings into compliant SLG leads with valid country codes, telephone contacts, ICE score, and Padel Africa value proposition. Synchronized 940 active published listings across 42 African countries directly into `padel_africa_leads` with unique indexing on `externalSource.listingId`. Tests in `tests/lib/padel-listings-sync.test.ts`.
@@ -88,6 +88,7 @@ npm run audit:gds-style
 Deploy: Vercel production deployment triggered on direct push to `main` (authorized per `AGENTS.md` Rule 6).
 
 ## In flight
+- **Vegas page is frozen until after the event (owner, 2026-11-11: "keep Vegas now as it is", "we will clean after the event").** Do not change the Vegas page, its scanner settings or its access code before then. Post-event clean-up list: (1) change the Vegas access code in the editor and turn off the on-screen code (the current code is in `DEFAULT_VEGAS_CAMPAIGN` in this public repository and is shown on the reader's unlock screen by the page's own opt-in); (2) the page title and description still say "Win Tickets" and "ticket giveaway" while the page runs the Bullseye Challenge; (3) the footer says "privacy policy" with no link until the client supplies a valid URL; (4) the form's consent fields and notes in `lib/inbound-lead-form.ts` still carry the Vegas names `consentPdc` and `consentMrVegas`: make them page-defined to finish the neutral module; (5) the camera, light and wake-lock behaviour of the reader was checked on one phone only.
 Tracked via `roadmap.md` (repo root) and GitHub issues:
 - All open issues (`#132`, `#137`, `#165`, `#202`, `#220`) have been delivered, verified, and closed as of v2.4.329 (0 open issues remaining). Ongoing automated lead discovery and enrichment run via the external `researchandenrich` worker runtime using brand-scoped API keys (`research-agent-cogmap`, `research-agent-seyu`, `research-agent-dvsc`), and operator duplicate merges continue via `/admin/duplicates`.
 
@@ -100,6 +101,12 @@ Tracked via `roadmap.md` (repo root) and GitHub issues:
 - **`CRON_SECRET`**: Required for Vercel Cron scheduled jobs (`Authorization: Bearer`).
 - **`researchandenrich` is shared** (`AGENTS.md` Rule 9): Touch only for `cogmap`/`seyu`/`dvsc` fixes, never another app's tenant.
 
+- **A landing page field must be added in three places in `lib/landing-page-store.ts`** (default mapping, database-to-record mapping, and the sanitiser in `saveLandingPage`); a field missing from one is silently dropped (the block toggles were dropped on save for months).
+- **Never pass a whole server record to a client component.** Landing pages go through `toPublicLandingPage`, the reader through `toPublicScannerConfig`; `tests/lib/landing-page-vegas-default.test.ts` asserts the access code is absent from the visitor page data. After any change to what a page sends, fetch the live HTML and search it for the secret.
+- **Tailwind is not installed.** Class names such as `min-h-screen` or `bg-[#0d1117]` produce no CSS here; style with Mantine components and inline styles (the reader shipped unstyled for this reason).
+- **Local preview traps:** a service worker (`public/sw.js`, cache `slg-shell-v2`) keeps old JavaScript on `localhost`; unregister it and clear the cache before judging a change, and delete `.next` after a long dev session. `npm run build` reaches MongoDB while prerendering; on a Mac whose DNS is Tailscale's resolver Node fails the Atlas SRV lookup (`EBADRESP`), so run the build with `NODE_OPTIONS="--require <file calling dns.setServers(['1.1.1.1','8.8.8.8'])>"`. `dig` working does not prove Node can resolve it.
+- **The reader needs a camera, so only its states are testable in a desktop browser** (unlock, station, camera error). Scan results, the light button and wake lock need a real phone.
+
 ## Where things live
 - `README.md`: Onboarding, env table, API overview, documentation index.
 - `CHANGELOG.md`: Per-version release notes and bugfix root causes.
@@ -107,6 +114,7 @@ Tracked via `roadmap.md` (repo root) and GitHub issues:
 - `docs/INDEX.md`: Structural navigation index.
 - `docs/ARCHITECTURE.md`: System-level architecture, data models, auth, and request flows.
 - `docs/LLD.md`: Low-level design, complete API route inventory, module catalog, and component hierarchy.
-- `docs/OPERATOR_GUIDE.md`: Task-oriented walkthrough for daily sales and admin operations.
+- `docs/OPERATOR_GUIDE.md`: Task-oriented walkthrough for daily sales and admin operations (including landing pages and event check-in).
+- `docs/LANDING_PAGE_BUILDER_GUIDE.md`: Building landing pages, the attendee pass and the per-page check-in scanner.
 - `docs/STACK_AND_DEPENDENCIES.md`: Dependency inventory, runtime specifications, and security audits.
 - `docs/ISSUE_MANAGEMENT.md`: GitHub issue creation rules, label taxonomy, and structural conventions.

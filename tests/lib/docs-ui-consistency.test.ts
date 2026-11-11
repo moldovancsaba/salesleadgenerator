@@ -34,6 +34,7 @@ describe('Docs and UI Affordance Consistency (Issue #324)', () => {
     const readmeSrc = fs.readFileSync(readmePath, 'utf8');
     expect(readmeSrc).toContain('https://sales.haho.ai');
     expect(readmeSrc).toContain('`/whats-new`');
-    expect(readmeSrc).toContain('**Version:** 2.4.368');
+    const { version } = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8'));
+    expect(readmeSrc).toContain(`**Version:** ${version}`);
   });
 });

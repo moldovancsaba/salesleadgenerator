@@ -31,6 +31,7 @@
 - [Sales Settings (Company Setup)](#sales-settings-company-setup)
 - [Meeting Scheduler](#meeting-scheduler)
 - [Document Library](#document-library)
+- [Landing Pages and Event Check-in](#landing-pages-and-event-check-in)
 - [Outreach](#outreach)
 - [Forecast](#forecast)
 - [Metrics Dashboard](#metrics-dashboard)
@@ -515,6 +516,14 @@ The Document Library (`/documents/[brand]`, reached from the sidebar) provides c
 - **Upload & Management**: Upload files up to 25MB (PDF, DOCX, XLSX, PPTX, images).
 - **Outreach Attachment Picker**: When composing outbound emails in `OutreachComposeModal`, tap **Attach from Library** (`DocumentLibraryPickerModal`) to attach approved collateral directly to outbound emails without local file searching.
 - **Fail-Closed Protection**: Deleting a document validates that it is not actively referenced by any running outreach cadence, preventing missing attachments in scheduled sequences.
+
+## Landing Pages and Event Check-in
+
+A landing page collects leads through a form and gives each visitor an attendee pass (badge image, contact card, calendar entry, Apple and Google wallet). Build and edit pages under **Outreach, Landing pages**; the step-by-step guide is `docs/LANDING_PAGE_BUILDER_GUIDE.md`.
+
+**Check-in at the event.** In the page editor, **Pass & check-in** turns the scanner on, sets what a scan does (move the lead to Qualified, Engaged and so on; tags; walk-ins) and the access code staff type. Give the staff the scanner link (`/landing/[brand]/[campaign]/qrreader`, copy it from the tab). Staff tap **Start scanning** and scan each pass: green means checked in, amber means the person was scanned before, red means not checked in and says why. The lead moves on your board at once and shows a check-in note.
+
+**If something goes wrong:** "not found" at the scanner link means the scanner is off for that page; "no access code is set" means save a code in the tab; a QR code that is not an attendee pass (a link on a poster) is refused and creates nothing; a lead already at Proposal or Won is not moved back. Event name, venue and date in the same tab are what the pass and confirmation email show.
 
 ## Outreach
 

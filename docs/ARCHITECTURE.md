@@ -334,6 +334,36 @@ Since 2.4.227 (issue #227) every outreach, template, cadence, automation-rule an
 
 ---
 
+### Landing pages, event pass and check-in scanner (2.4.372, issues #328-#336)
+
+A landing page is a stored campaign (collection `landing_pages`, keyed by brand, tenant and slug) that collects leads through a configurable form, hands the visitor an attendee pass, and, when its scanner is on, lets event staff check attendees in by scanning that pass. Everything that differs between campaigns is a field on the page record; no campaign is named in shared code.
+
+**Record** (`LandingPageRecord`, `lib/landing-page-schema.ts`): content (`title`, `heroHeadline`, `heroSubheadline`, `bodyBullets`, `heroBannerUrl`, `heroBannerAspectRatio`), `fields` (form fields mapped to lead properties), `blocks` (which sections show), `design`, legal text (`termsHtml`, `footerDisclaimer`), `successTitle`/`successMessage`, `event` (`name`, `venue`, `date`: printed on the pass, calendar entry, wallet passes and confirmation email; the name falls back to the title), and `scanner` (below). A stored record overrides the code default; `DEFAULT_VEGAS_CAMPAIGN` is served only when no record exists (and seeded into the database when the Vegas page list is first opened). `lib/landing-page-store.ts` maps every record through explicit field lists on read and on write, so a new field must be added in all three mappers.
+
+**Visitor flow:** `GET /landing/[brand]/[campaign]` loads the record, passes `toPublicLandingPage(record)` (the record without `scanner`) to `DynamicLandingClient`, and counts the view. A submission posts to `POST /api/forms/[brand]/submit`, which creates or updates the lead (column `DISCOVERED`), fires automation and webhook events, and sends the confirmation email with the pass links (`lib/landing-confirmation-email.ts`; event name, venue and date come from the page's `event`). The pass is a badge image (`/api/badge`, `lib/attendee-card.ts`), a vCard, a calendar entry, and Apple and Google wallet passes (`/api/wallet/pass`, `lib/apple-wallet.ts`, `lib/google-wallet.ts`). The badge QR code is a vCard with the attendee's name, email and phone.
+
+**Check-in scanner:** `LandingPageScannerConfig`:
+
+| Field | Meaning |
+| --- | --- |
+| `enabled` | Off unless explicitly `true`. A page without it has no reader: `/landing/[brand]/[campaign]/qrreader` answers not found. |
+| `targetColumn` | `DISCOVERED`, `QUALIFIED`, `ENGAGED`, `PROPOSAL` or `WON`. A scan moves a lead forward only (`checkInAdvancesColumn`); a lead already further along stays, a parked or lost lead moves up. |
+| `tags` | Added to the lead (at most 8). |
+| `createUnknownLeads` | A scan with no matching lead creates a walk-in in `targetColumn`; when off the scan answers `ATTENDEE_NOT_FOUND`. |
+| `successHeadline`, `successMessage` | Wording on the green result screen. |
+| `accessCode` | What staff type to unlock. Server only. Saving with the scanner on and no code is refused. |
+| `showAccessCodeHint` | Prefill and print the code on the unlock screen; anyone who opens the reader link can then read it. |
+
+`POST /api/landing/[brand]/[campaign]/hostess-scan` is the only write path. Order of checks: brand, page and scanner enabled (404 `SCANNER_DISABLED`), access code present (page code, else `HOSTESS_SCAN_PASSWORD`, else 503 `ACCESS_CODE_NOT_SET`), wrong-code brake (429 after eight wrong codes from one caller in five minutes, per server instance), constant-time code comparison (401), then `verifyOnly` (200, used by the unlock screen) or the scan: the QR content must be an attendee badge (`isAttendeeBadge`, else 422 `NOT_AN_ATTENDEE_BADGE`); the lead is found by email, then phone, then exact name; tags and a check-in note are added; the column move goes through `executeLeadAction` (`COLUMN_MOVE`) so outcome logs, automation rules and webhooks fire; an activity-log entry `HOSTESS_CARD_ACCEPTED` is written. The response carries `alreadyCheckedIn` (the lead was scanned before), `movedTo` and the lead summary. Existing field names (`hostessContacted`, `hostessContactedAt`, source `hostess_scan_<campaign>`) are kept so earlier data and reports stay valid.
+
+**What the browser may see:** the visitor page gets no scanner data. The reader page gets `PublicScannerConfig` (target column, result wording, and the code only when `showAccessCodeHint`). The editor, which is behind sign-in, sees the full record. `lib/hostess-scan-server.ts` (Node crypto, never imported by a client component) holds the code comparison and the brake; `lib/hostess-scan.ts` holds the client-safe helpers.
+
+**Reader screen** (`app/landing/[brand]/[campaign]/qrreader/hostess-qr-reader-client.tsx`): unlock screen, station screen (count of check-ins on this phone, last name), full-screen camera. The camera stays open between scans and decoding runs on a scaled frame (`jsqr`, about seven times a second). Each result (green checked in, amber already checked in, red not checked in with the reason) covers the camera and clears itself or on tap; the same code is ignored for six seconds so a badge held in view is not scanned twice. A rejected code returns to the unlock screen. The screen is styled with Mantine and inline styles: Tailwind is not installed in this app, so utility class names produce no CSS.
+
+**Editor** (`app/outreach/landing-pages/[brand]/landing-pages-client.tsx`): the **Pass & check-in** tab edits `event` and `scanner` and shows the reader link. The "event pass" template copies the Vegas default but resets copy, banner, terms, event details and scanner so a new brand does not inherit them.
+
+**Known limits:** leads are matched by contact details, so two campaigns of one brand share leads; the wrong-code brake is per server instance; the sign-up form's consent fields and notes in the shared lead builder (`lib/inbound-lead-form.ts`) still carry the Vegas names `consentPdc` and `consentMrVegas`.
+
 ## Data Model
 
 ### Lead

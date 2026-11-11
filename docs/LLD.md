@@ -269,6 +269,18 @@ Every route imports `NextResponse`/`NextRequest` from `next/server`. The **Auth*
 | `app/api/calendar/sync-task/route.ts` | POST, DELETE | `requireBrandAccessApi` | Manual sync, re-sync, or removal of Google Calendar task reminder events via `deriveCalendarEventId` |
 | `app/api/calendar/sync-settings/route.ts` | GET, PUT | `requireBrandAccessApi` | Read/update brand-scoped Google Calendar task reminder sync preferences and event durations |
 
+### Landing pages, wallet passes and check-in (issues #328-#336)
+
+| Route | Methods | Auth | Purpose |
+|---|---|---|---|
+| `app/landing/[brand]/[campaign]/page.tsx` | GET (page) | public | Renders a published landing page for visitors: loads the record, passes `toPublicLandingPage(record)` (no scanner data) to `DynamicLandingClient`, counts the view. |
+| `app/landing/[brand]/[campaign]/qrreader/page.tsx` | GET (page) | public page, access code to use | Check-in reader. Not found unless the page's scanner is on; passes `toPublicScannerConfig` (never the code, except when the page opts in to showing it). |
+| `app/api/landing/[brand]/[campaign]/hostess-scan/route.ts` | POST | per-page access code (`scanner.accessCode`, else `HOSTESS_SCAN_PASSWORD`), constant-time compare, brake on wrong codes | `verifyOnly` checks a code; otherwise records a scan: finds the lead, tags it, moves it forward to the page's target column through `executeLeadAction`, or creates a walk-in. Answers 404 `SCANNER_DISABLED`/`ATTENDEE_NOT_FOUND`, 503 `ACCESS_CODE_NOT_SET`, 401, 422 `NOT_AN_ATTENDEE_BADGE`, 429. |
+| `app/api/landing-pages/route.ts`, `app/api/landing-pages/[id]/route.ts` | GET, POST, PUT, DELETE | `requireBrandAccessApi` | Landing page CRUD for the editor; the full record including `scanner.accessCode`. |
+| `app/api/forms/[brand]/submit/route.ts` | POST | public (honeypot, dedupe) | Landing form submission: creates or updates the lead in `DISCOVERED`, fires automation and webhooks, sends the confirmation email with the pass (event name, venue and date from the page's `event`). |
+| `app/api/badge/route.ts` | GET | public | Attendee badge image with the vCard QR code; event name, venue and date from query parameters (no campaign defaults). |
+| `app/api/wallet/pass/route.ts` | POST | public | Apple (`.pkpass`) and Google wallet passes for an attendee. |
+
 ---
 
 ## 3. `lib/*.ts` — Shared Library Modules
@@ -388,6 +400,16 @@ Framework-agnostic domain/business logic — pure functions and Mongo document s
 - `lib/saved-filters-store.ts` — server-persisted saved filters (issue #214): `SavedFilterRecord`, `SavedFilterListItem`, `listSavedFiltersForCaller`, `getSavedFilterById`, `upsertSavedFilter`, `setSavedFilterSharing`, `deleteSavedFilter`, `importLocalFilters`, plus pure `validateSavedFilterUpsert`/`pickOldestForEviction`
 - `lib/backfill-title-normalization.ts` — one-time migration for `normalizeTitle`
 
+**Landing pages, passes and check-in** (issues #328-#336)
+- `lib/landing-page-schema.ts` — `LandingPageRecord`, `LandingPageScannerConfig`, `LandingPageEventDetails`, `DEFAULT_SCANNER_CONFIG`, `SCANNER_TARGET_COLUMNS`, `normalizeScannerConfig`, `normalizeEventDetails`, `normalizeBannerAspectRatio`, `toPublicLandingPage` (record without `scanner`), `toPublicScannerConfig` (what the reader page may know), `DEFAULT_VEGAS_CAMPAIGN`
+- `lib/landing-page-store.ts` — `getLandingPagesForBrand`, `getLandingPageBySlug`, `saveLandingPage` (refuses an enabled scanner with no access code; maps every field explicitly on read and write), `deleteLandingPage`, view counting
+- `lib/hostess-scan.ts` — client-safe: `parseVCardString`, `isAttendeeBadge`, `scanFailureMessage`, `checkInAdvancesColumn`, `columnLabel`, `DEFAULT_HOSTESS_PASSWORD`
+- `lib/hostess-scan-server.ts` — server-only (Node crypto): `scannerAccessCode`, `accessCodeMatches` (constant time), `accessCodeLockedOut`/`recordAccessCodeFailure`/`clearAccessCodeFailures` (per-instance brake)
+- `lib/attendee-card.ts` — `AttendeeCardData`, `buildVCardString`, `buildVCardDataUri`, `buildCalendarIcsDataUri`, `generateAttendeeBadgePng`; carries no campaign defaults
+- `lib/apple-wallet.ts`, `lib/google-wallet.ts` — wallet pass builders (brand styling per brand; event fields from the request)
+- `lib/landing-confirmation-email.ts` — `sendLandingConfirmationEmail`: confirmation email with pass links; venue and date shown only when the page has them
+- `lib/inbound-lead-form.ts` — `validateInboundFormSubmission`, `buildInboundLeadRecord` (form leads); an absent `consentPdc` stays absent
+
 ---
 
 ## 4. `app/lib/*.ts` — App-Internal Lib Modules
@@ -456,6 +478,9 @@ The concrete pattern that distinguishes the two layers: `lib/cadences.ts` has th
 - `app/privacy/page.tsx` — `PrivacyPolicyPage` — public legal privacy policy with Google API User Data Policy & Limited Use compliance (issue #286)
 - `app/terms/page.tsx` — `TermsOfServicePage` — public legal terms of service, mailbox integration authorization, and anti-spam terms (issue #286)
 - `app/error.tsx` — `GlobalError` (Next.js error boundary page)
+- `app/landing/[brand]/[campaign]/dynamic-landing-client.tsx` — `DynamicLandingClient` — renders a stored landing page (hero image at its own proportions, copy, form, success state with the attendee pass); receives `PublicLandingPageRecord`
+- `app/landing/[brand]/[campaign]/qrreader/hostess-qr-reader-client.tsx` — `HostessQrReaderClient` — check-in reader: unlock, station, camera with continuous scanning and result overlays
+- `app/outreach/landing-pages/[brand]/landing-pages-client.tsx` — landing page editor (tabs: blocks, content, form fields, **Pass & check-in**, theme, URL and legal)
 
 ### 5.2 `app/components/*.tsx`
 

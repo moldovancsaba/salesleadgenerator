@@ -1,3 +1,9 @@
+/**
+ * Landing page record and the settings that make a page campaign-specific: content, form fields, block toggles,
+ * event details (printed on the attendee pass) and the check-in scanner. Shared code reads these fields and names
+ * no campaign. `toPublicLandingPage` and `toPublicScannerConfig` are the only forms a browser may receive: the
+ * scanner's access code never leaves the server except when a page opts in to showing it on the reader.
+ */
 import type { CurrencyCode } from '@/app/lib/brand';
 import { DEFAULT_HOSTESS_PASSWORD } from './hostess-scan';
 

@@ -1,3 +1,8 @@
+/**
+ * Persistence for landing pages (collection `landing_pages`). Records are mapped field by field on read and on
+ * write: a field added to `LandingPageRecord` must be added to all three mappers here or it is dropped silently.
+ * With no database, or no stored record, the Vegas default campaign is served for the Vegas page only.
+ */
 import { Db, ObjectId } from 'mongodb';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
 import {

@@ -1,3 +1,8 @@
+/**
+ * Attendee pass content shared by the badge image, vCard, calendar entry, wallet passes and confirmation email.
+ * The badge QR code is the vCard built here; the check-in scanner reads it back. Event name, venue and date come
+ * from the landing page's `event` settings; this module carries no campaign defaults.
+ */
 import QRCode from 'qrcode';
 
 export interface AttendeeCardData {

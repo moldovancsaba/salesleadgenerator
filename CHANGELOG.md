@@ -1,15 +1,20 @@
 # Changelog — Sales Lead Generator
 
-## Unreleased
+## 2.4.372
 
 ### Check-in scanner for any landing page
 
 - **Per-page scanner and event details (Issue #336, `lib/landing-page-schema.ts`, `lib/landing-page-store.ts`, `app/api/landing/[brand]/[campaign]/hostess-scan/route.ts`, `lib/hostess-scan.ts`, `lib/hostess-scan-server.ts`, `app/outreach/landing-pages/[brand]/landing-pages-client.tsx`):**
   - The QR reader is no longer tied to the Vegas page. A landing page turns it on in the editor (**Pass & check-in** tab) and chooses the column a scan moves the lead to, the tags added, whether a walk-in creates a lead, the result wording and an access code. A page without the scanner has no reader.
-  - The access code is stored on the server, checked on every scan with a constant-time comparison and a brake on repeated wrong codes, and removed from the page data sent to browsers unless the page opts in to showing it. The shared `HOSTESS_SCAN_PASSWORD` is the fallback; with neither the scanner stays closed.
+  - The access code is stored on the server and checked on every scan with a constant-time comparison and a brake on repeated wrong codes. A visitor's page data carries no scanner settings at all; the reader page receives only the public part (result wording, target column) and the code itself only when the page opts in to showing it on the unlock screen. The shared `HOSTESS_SCAN_PASSWORD` is the fallback; with neither the scanner stays closed.
   - A scan only moves a lead forward (a lead already at Proposal or Won stays), and a walk-in is built from the scan alone, with no Vegas country, sport or source wording.
   - Event name, venue and date are page settings used by the pass, calendar entry, wallet passes and confirmation email; the "WV Active Aldersley", "November 2026" and "Mr Vegas" defaults are gone from the shared pass code.
   - The editor now saves a page's block toggles (they were dropped on save before). The unused Vegas-only `campaign-client.tsx` is removed. The Vegas page keeps its behaviour through its own scanner and event settings.
+
+### Security: access code kept out of visitor page data
+
+- **Landing page data sent to browsers (Issue #336, `lib/landing-page-schema.ts` `toPublicLandingPage`):**
+  - The first deploy of the check-in scanner sent the scanner's public settings, including the opted-in on-screen code, with every landing page. It was found by checking the live page data within hours and fixed the same day: the visitor page now receives no scanner settings, and a test asserts the access code is absent from it.
 
 ### Hostess QR reader: working layout and a faster scanning flow
 
@@ -26,6 +31,10 @@
   - Removed the "receive emails from the PDC" tick box from the default Vegas campaign. A form that does not ask for it records no PDC opt-in note (previously an absent value was stored as "No").
   - Removed the invalid terms and conditions link everywhere in the generic landing client (footer privacy wording, "Full GTC & Privacy Policy (External)" and the terms modal footer). The default campaign no longer carries the ticket giveaway terms text and hides the terms modal; the footer disclaimer is plain text until a valid privacy policy URL is supplied.
   - A stored campaign record overrides the code default: the live record is edited in the landing page editor.
+
+### Documentation
+
+- Updated `docs/ARCHITECTURE.md` (landing pages, event pass and check-in scanner), `docs/LLD.md` (routes, modules and components), `docs/LANDING_PAGE_BUILDER_GUIDE.md`, `docs/OPERATOR_GUIDE.md`, `docs/LESSONS_LEARNED.md` and `HANDOVER.md`; added module headers to the reader, the landing client and the scan helpers.
 
 ## 2.4.371
 

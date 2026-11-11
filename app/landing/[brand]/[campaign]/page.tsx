@@ -58,6 +58,7 @@ export default async function LandingCampaignPage({
 
   return (
     <DynamicLandingClient
+      // Visitors receive the page without its scanner settings (access code).
       page={toPublicLandingPage(page)}
       brand={brand}
       brandLabel={config?.label ?? brand}

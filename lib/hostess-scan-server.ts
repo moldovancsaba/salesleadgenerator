@@ -1,3 +1,7 @@
+/**
+ * Server-only half of the check-in scanner's access control: which code a page accepts, a constant-time comparison,
+ * and a per-instance brake on repeated wrong codes. Never import this from a client component (Node crypto).
+ */
 import { timingSafeEqual } from 'node:crypto';
 
 /**
