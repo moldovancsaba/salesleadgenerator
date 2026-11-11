@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { resolveBrand, getBrandConfig } from '@/app/lib/brand';
 import { getLandingPageBySlug, incrementLandingPageView } from '@/lib/landing-page-store';
+import { toPublicLandingPage } from '@/lib/landing-page-schema';
 import { DynamicLandingClient } from './dynamic-landing-client';
 
 export const dynamic = 'force-dynamic';
@@ -57,7 +58,7 @@ export default async function LandingCampaignPage({
 
   return (
     <DynamicLandingClient
-      page={page}
+      page={toPublicLandingPage(page)}
       brand={brand}
       brandLabel={config?.label ?? brand}
       campaignSlug={campaignParam}

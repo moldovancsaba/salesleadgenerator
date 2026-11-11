@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_VEGAS_CAMPAIGN, normalizeBannerAspectRatio } from '@/lib/landing-page-schema';
+import {
+  DEFAULT_SCANNER_CONFIG,
+  DEFAULT_VEGAS_CAMPAIGN,
+  normalizeBannerAspectRatio,
+  normalizeScannerConfig,
+  toPublicLandingPage,
+  toPublicScannerConfig,
+} from '@/lib/landing-page-schema';
+import { DEFAULT_HOSTESS_PASSWORD } from '@/lib/hostess-scan';
 
 describe('Vegas Grand Slam of Darts default landing page', () => {
   it('opens with the Bullseye Challenge welcome copy', () => {
@@ -35,5 +43,64 @@ describe('normalizeBannerAspectRatio', () => {
     expect(normalizeBannerAspectRatio('wide')).toBeUndefined();
     expect(normalizeBannerAspectRatio('1/1; position:fixed')).toBeUndefined();
     expect(normalizeBannerAspectRatio(undefined)).toBeUndefined();
+  });
+});
+
+describe('check-in scanner config', () => {
+  it('starts off, with safe defaults, for a page that never configured it', () => {
+    const scanner = normalizeScannerConfig(undefined);
+    expect(scanner).toMatchObject({ enabled: false, targetColumn: 'ENGAGED', createUnknownLeads: true, showAccessCodeHint: false });
+    expect(scanner.accessCode).toBeUndefined();
+    expect(DEFAULT_SCANNER_CONFIG.enabled).toBe(false);
+  });
+
+  it('turns on only for an explicit true and keeps a valid column', () => {
+    expect(normalizeScannerConfig({ enabled: 'yes' }).enabled).toBe(false);
+    expect(normalizeScannerConfig({ enabled: true, targetColumn: 'QUALIFIED' })).toMatchObject({ enabled: true, targetColumn: 'QUALIFIED' });
+    expect(normalizeScannerConfig({ targetColumn: 'LOST' }).targetColumn).toBe('ENGAGED');
+    expect(normalizeScannerConfig({ targetColumn: 'not-a-column' }).targetColumn).toBe('ENGAGED');
+  });
+
+  it('cleans tags, trims the code and limits text', () => {
+    const scanner = normalizeScannerConfig({
+      tags: ' Expo 2027 , expo-2027,, VIP!! ,' + 'x'.repeat(60),
+      accessCode: '  door-code  ',
+      successHeadline: 'h'.repeat(100),
+      successMessage: '   ',
+    });
+    expect(scanner.tags.slice(0, 2)).toEqual(['expo-2027', 'vip']);
+    expect(scanner.tags.every((tag) => tag.length <= 40)).toBe(true);
+    expect(scanner.accessCode).toBe('door-code');
+    expect(scanner.successHeadline).toHaveLength(60);
+    expect(scanner.successMessage).toBe(DEFAULT_SCANNER_CONFIG.successMessage);
+    expect(normalizeScannerConfig({ tags: Array.from({ length: 20 }, (_, i) => `t${i}`) }).tags).toHaveLength(8);
+  });
+
+  it('never sends the access code to the browser unless the page shows it on the unlock screen', () => {
+    const hidden = toPublicScannerConfig({ ...DEFAULT_SCANNER_CONFIG, enabled: true, accessCode: 'secret-code' });
+    expect(hidden.accessCodeHint).toBeNull();
+    expect(JSON.stringify(hidden)).not.toContain('secret-code');
+    const shown = toPublicScannerConfig({ ...DEFAULT_SCANNER_CONFIG, enabled: true, accessCode: 'secret-code', showAccessCodeHint: true });
+    expect(shown.accessCodeHint).toBe('secret-code');
+  });
+
+  it('removes the access code from a page record before it reaches a client component', () => {
+    const page = { ...DEFAULT_VEGAS_CAMPAIGN, scanner: { ...DEFAULT_SCANNER_CONFIG, enabled: true, accessCode: 'secret-code' } };
+    const publicPage = toPublicLandingPage(page);
+    expect(JSON.stringify(publicPage)).not.toContain('secret-code');
+    expect(publicPage.scanner?.enabled).toBe(true);
+  });
+
+  it('keeps the Vegas page working exactly as before', () => {
+    expect(DEFAULT_VEGAS_CAMPAIGN.scanner).toMatchObject({
+      enabled: true,
+      targetColumn: 'ENGAGED',
+      tags: ['hostess-contacted', 'card-accepted'],
+      createUnknownLeads: true,
+      successHeadline: 'successful',
+      successMessage: 'thank you bye',
+      accessCode: DEFAULT_HOSTESS_PASSWORD,
+      showAccessCodeHint: true,
+    });
   });
 });

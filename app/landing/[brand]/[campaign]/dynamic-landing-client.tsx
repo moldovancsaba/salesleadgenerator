@@ -36,7 +36,7 @@ import {
   buildCalendarIcsDataUri,
 } from '@/lib/attendee-card';
 import {
-  LandingPageRecord,
+  PublicLandingPageRecord,
   LandingFormFieldConfig,
   THEME_PRESETS,
 } from '@/lib/landing-page-schema';
@@ -48,12 +48,15 @@ export function DynamicLandingClient({
   campaignSlug,
   utm,
 }: {
-  page: LandingPageRecord;
+  page: PublicLandingPageRecord;
   brand: string;
   brandLabel: string;
   campaignSlug: string;
   utm?: { source?: string; medium?: string; campaign?: string };
 }) {
+  const eventName = page.event?.name || page.title || `${brandLabel} Event`;
+  const venue = page.event?.venue || undefined;
+  const eventDate = page.event?.date || undefined;
   const [formValues, setFormValues] = useState<Record<string, any>>(() => {
     const init: Record<string, any> = {};
     page.fields.forEach((f) => {
@@ -164,8 +167,9 @@ export function DynamicLandingClient({
 
         const badgePng = await generateAttendeeBadgePng({
           name: contactName || 'Event Attendee',
-          eventName: page.title || `${brandLabel} Event`,
-          venue: 'WV Active Aldersley, Wolverhampton',
+          eventName,
+          eventDate,
+          venue,
           email,
           phone,
           country: countryName,
@@ -603,7 +607,8 @@ export function DynamicLandingClient({
                             `${formValues[page.fields.find((f) => f.leadProperty === 'contact_first_name')?.id || ''] || ''} ${formValues[page.fields.find((f) => f.leadProperty === 'contact_last_name')?.id || ''] || ''}`.trim() ||
                             formValues[page.fields.find((f) => f.leadProperty === 'entity_name')?.id || ''] ||
                             'Event Attendee',
-                          eventName: page.title || `${brandLabel} Event`,
+                          eventName,
+          eventDate,
                           email: formValues[page.fields.find((f) => f.leadProperty === 'contact_email')?.id || ''] || '',
                           phone: formValues[page.fields.find((f) => f.leadProperty === 'contact_phone')?.id || ''] || '',
                           country:
@@ -636,8 +641,9 @@ export function DynamicLandingClient({
                             name:
                               `${formValues[page.fields.find((f) => f.leadProperty === 'contact_first_name')?.id || ''] || ''} ${formValues[page.fields.find((f) => f.leadProperty === 'contact_last_name')?.id || ''] || ''}`.trim() ||
                               'Event Attendee',
-                            eventName: page.title || `${brandLabel} Event`,
-                            venue: 'WV Active Aldersley, Wolverhampton',
+                            eventName,
+          eventDate,
+                            venue,
                             brandLabel,
                           })}
                           download="event-schedule.ics"
@@ -667,8 +673,9 @@ export function DynamicLandingClient({
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
                                 name: `${firstName} ${lastName}`.trim() || entityName || 'Event Attendee',
-                                eventName: page.title || `${brandLabel} Event`,
-                                venue: 'WV Active Aldersley, Wolverhampton',
+                                eventName,
+          eventDate,
+                                venue,
                                 email: formValues[page.fields.find((f) => f.leadProperty === 'contact_email')?.id || ''] || '',
                                 phone: formValues[page.fields.find((f) => f.leadProperty === 'contact_phone')?.id || ''] || '',
                                 country:

@@ -62,11 +62,26 @@ When the **Digital Passes** block is enabled:
 
 ---
 
-## 5. Hostess QR Code Scanning
+## 5. Check-in scanner (any landing page)
 
-For events with on-site hostesses:
-- Open the dedicated PWA scanner at `/landing/[brand]/[campaign]/qrreader`.
-- Enter the hostess password (`iamthevegashostess2026`).
-- Tap **Start scanning**. The camera stays open: scan one badge after another. The light button appears on devices that support it, and the screen stays awake while scanning.
-- Each result covers the camera and clears by itself: green **successful** (the lead is advanced to the **"Engaged"** column with timestamped notes), amber **already checked in** (the attendee was scanned before), red **not checked in** with the reason (not an attendee badge, no connection, service unavailable).
-- A QR code that is not an attendee badge, such as a link on a poster, creates no lead.
+Any landing page can feed the qualifier workflow from the event floor. The attendee pass the page gives each visitor carries a QR code; staff scan it with a phone and the matching lead moves forward in the pipeline.
+
+**Turn it on:** open the page in the editor, go to **Pass &amp; check-in**, switch on **the check-in scanner**, set an **access code** and save. The staff link is `/landing/[brand]/[campaign]/qrreader` (the tab has copy and open buttons). A page without the scanner switched on has no reader: the link answers "not found".
+
+| Setting | What it does |
+| --- | --- |
+| A scan moves the lead to | Discovered, Qualified, Engaged, Proposal or Won. A lead already further along stays where it is; a parked or lost lead moves up. The move runs through the normal lead action, so outcome logs, automation rules and webhooks fire as for a manual move. |
+| Tags added on check-in | Up to 8 tags added to the lead, for reports and automation rules. |
+| A scan with no matching lead creates one | A walk-in becomes a lead in the target column, tagged with the campaign. Switch off to refuse unknown badges ("No attendee matches this badge"). |
+| Result headline and line | The words on the green result screen. |
+| Access code | What staff type to unlock the reader. Stored on the server, checked on every scan, never sent to visitors. Eight wrong codes from one place lock it for five minutes. If a page has no code, the deployment's `HOSTESS_SCAN_PASSWORD` is used; with neither, the scanner stays closed. |
+| Show the access code on the unlock screen | Prefills and prints the code on the unlock screen. Anyone who opens the link can then read it, so use it only when the link is shared with staff alone. |
+
+**Event pass details** (same tab): event name, venue and date appear on the attendee pass, the calendar entry, the wallet passes and the confirmation email. Empty fields are left off; the event name falls back to the page title.
+
+**What staff see:** after unlocking they tap **Start scanning**; the camera stays open for the next badge. Each result covers the camera and clears by itself or on tap: green (checked in; the lead's column is shown), amber **already checked in** (scanned before), red **not checked in** with the reason (not an attendee badge, no matching attendee, no connection, service unavailable). A QR code that is not an attendee badge, such as a link on a poster, creates no lead. The screen stays awake while scanning, and a light button appears on devices that support it.
+
+**How a scan finds the lead:** the badge QR is a vCard with the attendee's name, email and phone. The scanner matches on email, then phone, then exact name, within the brand's leads.
+
+**Known limits:** the matching is by contact details, so two campaigns of one brand share leads (a person who entered both is one lead). The wrong-code brake counts per server instance. Camera access needs a secure connection and the browser's permission.
+

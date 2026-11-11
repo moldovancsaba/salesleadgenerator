@@ -5,6 +5,8 @@ import {
   DEFAULT_VEGAS_CAMPAIGN,
   THEME_PRESETS,
   normalizeBannerAspectRatio,
+  normalizeScannerConfig,
+  normalizeEventDetails,
 } from './landing-page-schema';
 
 export const LANDING_PAGES_COLLECTION = 'landing_pages';
@@ -78,6 +80,8 @@ export async function getLandingPagesForBrand(
     },
     heroBannerUrl: d.heroBannerUrl,
     heroBannerAspectRatio: normalizeBannerAspectRatio(d.heroBannerAspectRatio),
+    scanner: d.scanner ? normalizeScannerConfig(d.scanner) : undefined,
+    event: normalizeEventDetails(d.event),
     heroHeadline: d.heroHeadline,
     heroSubheadline: d.heroSubheadline,
     bodyBullets: d.bodyBullets || [],
@@ -143,6 +147,8 @@ export async function getLandingPageBySlug(
     },
     heroBannerUrl: doc.heroBannerUrl,
     heroBannerAspectRatio: normalizeBannerAspectRatio(doc.heroBannerAspectRatio),
+    scanner: doc.scanner ? normalizeScannerConfig(doc.scanner) : undefined,
+    event: normalizeEventDetails(doc.event),
     heroHeadline: doc.heroHeadline,
     heroSubheadline: doc.heroSubheadline,
     bodyBullets: doc.bodyBullets || [],
@@ -214,6 +220,11 @@ export async function saveLandingPage(
     throw new Error('Landing page slug is required');
   }
 
+  const scannerToSave = record.scanner ? normalizeScannerConfig(record.scanner) : undefined;
+  if (scannerToSave?.enabled && !scannerToSave.accessCode) {
+    throw new Error('Set an access code to turn the check-in scanner on');
+  }
+
   const docToSave = {
     brand: record.brand,
     tenantId: record.tenantId || 'default',
@@ -223,6 +234,9 @@ export async function saveLandingPage(
     published: record.published !== false,
     heroBannerUrl: record.heroBannerUrl?.trim() || '',
     heroBannerAspectRatio: normalizeBannerAspectRatio(record.heroBannerAspectRatio),
+    ...(record.blocks ? { blocks: record.blocks } : {}),
+    ...(record.scanner ? { scanner: scannerToSave } : {}),
+    event: normalizeEventDetails(record.event),
     heroHeadline: record.heroHeadline?.trim() || '',
     heroSubheadline: record.heroSubheadline?.trim() || '',
     bodyBullets: Array.isArray(record.bodyBullets) ? record.bodyBullets.filter(Boolean) : [],

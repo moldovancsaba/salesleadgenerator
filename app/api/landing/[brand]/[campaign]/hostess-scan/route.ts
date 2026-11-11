@@ -1,13 +1,28 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
 import { resolveBrand, getBrandConfig } from '@/app/lib/brand';
-import { parseVCardString, isAttendeeBadge, DEFAULT_HOSTESS_PASSWORD } from '@/lib/hostess-scan';
+import { parseVCardString, isAttendeeBadge, checkInAdvancesColumn } from '@/lib/hostess-scan';
+import {
+  accessCodeLockedOut,
+  accessCodeMatches,
+  clearAccessCodeFailures,
+  recordAccessCodeFailure,
+  scannerAccessCode,
+} from '@/lib/hostess-scan-server';
+import { normalizeScannerConfig } from '@/lib/landing-page-schema';
+import { getLandingPageBySlug } from '@/lib/landing-page-store';
+import { inferIsoCountryFromUrlOrEmail, inferRegionFromCountry, normalizeWebsiteUrl } from '@/lib/inbound-lead-form';
 import { buildFingerprint } from '@/lib/fingerprint';
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes } from '@/app/lib/activity-log-store';
 import { executeLeadAction } from '@/app/lib/lead-actions';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Check-in scan for any landing page that has its scanner turned on.
+ * The page's scanner config decides everything that differs between campaigns: the access code, the column a
+ * scan moves the lead to, the tags added, whether a walk-in creates a lead, and the result screen's wording.
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ brand: string; campaign: string }> }
@@ -24,12 +39,42 @@ export async function POST(
       return NextResponse.json({ error: 'Brand configuration not found' }, { status: 404 });
     }
 
-    const body = await request.json().catch(() => ({}));
-    const { password, qrContent, hostessNote } = body;
+    const page = await getLandingPageBySlug(brand, campaignParam);
+    const scanner = page?.scanner ? normalizeScannerConfig(page.scanner) : null;
+    if (!page || !scanner?.enabled) {
+      return NextResponse.json(
+        { error: 'The check-in scanner is not turned on for this page', code: 'SCANNER_DISABLED' },
+        { status: 404 }
+      );
+    }
 
-    const expectedPassword = process.env.HOSTESS_SCAN_PASSWORD || DEFAULT_HOSTESS_PASSWORD;
-    if (!password || password !== expectedPassword) {
-      return NextResponse.json({ error: 'Invalid hostess password' }, { status: 401 });
+    const expectedCode = scannerAccessCode(scanner.accessCode);
+    if (!expectedCode) {
+      return NextResponse.json(
+        { error: 'No access code is set for this scanner', code: 'ACCESS_CODE_NOT_SET' },
+        { status: 503 }
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const { password, qrContent, hostessNote, verifyOnly } = body;
+
+    const caller = (request.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
+    const attemptKey = `${brand}:${campaignParam}:${caller}`;
+    if (accessCodeLockedOut(attemptKey)) {
+      return NextResponse.json(
+        { error: 'Too many wrong codes. Wait a few minutes and try again.', code: 'TOO_MANY_ATTEMPTS' },
+        { status: 429 }
+      );
+    }
+    if (!accessCodeMatches(expectedCode, password)) {
+      recordAccessCodeFailure(attemptKey);
+      return NextResponse.json({ error: 'Invalid access code' }, { status: 401 });
+    }
+    clearAccessCodeFailures(attemptKey);
+
+    if (verifyOnly === true) {
+      return NextResponse.json({ ok: true });
     }
 
     if (!qrContent || typeof qrContent !== 'string' || !qrContent.trim()) {
@@ -82,20 +127,27 @@ export async function POST(
       });
     }
 
-    const hostessTimestamp = `[Hostess Scanned ${nowIso.replace('T', ' ').slice(0, 19)}] Accepted card at event.`;
-    const fullHostessNote = hostessNote ? `${hostessTimestamp} Note: ${hostessNote}` : hostessTimestamp;
+    if (!existingLead && !scanner.createUnknownLeads) {
+      return NextResponse.json(
+        { error: 'No attendee matches this badge', code: 'ATTENDEE_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
+    const checkInTimestamp = `[Check-in ${nowIso.replace('T', ' ').slice(0, 19)}] Scanned at ${campaignParam}.`;
+    const fullNote = hostessNote ? `${checkInTimestamp} Note: ${hostessNote}` : checkInTimestamp;
 
     let leadRecord: any = null;
     const alreadyCheckedIn = Boolean(existingLead?.hostessContacted);
+    let movedTo: string = scanner.targetColumn;
 
     if (existingLead) {
       const currentTags: string[] = Array.isArray(existingLead.tags) ? existingLead.tags : [];
-      const updatedTags = Array.from(new Set([...currentTags, 'hostess-contacted', 'card-accepted']));
+      const updatedTags = Array.from(new Set([...currentTags, ...scanner.tags]));
 
       const currentNotes = typeof existingLead.notes === 'string' ? existingLead.notes : '';
-      const updatedNotes = currentNotes ? `${currentNotes}\n${fullHostessNote}` : fullHostessNote;
+      const updatedNotes = currentNotes ? `${currentNotes}\n${fullNote}` : fullNote;
 
-      // Update lead properties & tags
       await collection.updateOne(
         { _id: existingLead._id },
         {
@@ -109,30 +161,36 @@ export async function POST(
         }
       );
 
-      // Advance lead to ENGAGED column via executeLeadAction to ensure outcomelogs and hooks fire
-      const actionResult = await executeLeadAction({
-        brand,
-        tenantId,
-        leadId: String(existingLead._id),
-        action: 'COLUMN_MOVE',
-        payload: { kanbanColumn: 'ENGAGED', sortOrder: Date.now() },
-        actorId: 'hostess-app',
-        actorEmail: 'hostess@sales.haho.ai',
-      });
-
-      leadRecord = actionResult.lead || (await collection.findOne({ _id: existingLead._id }));
+      // Move forward through executeLeadAction so outcome logs and hooks fire; a lead already further along stays put.
+      if (checkInAdvancesColumn(existingLead.kanbanColumn, scanner.targetColumn)) {
+        const actionResult = await executeLeadAction({
+          brand,
+          tenantId,
+          leadId: String(existingLead._id),
+          action: 'COLUMN_MOVE',
+          payload: { kanbanColumn: scanner.targetColumn, sortOrder: Date.now() },
+          actorId: 'hostess-app',
+          actorEmail: 'hostess@sales.haho.ai',
+        });
+        leadRecord = actionResult.lead || (await collection.findOne({ _id: existingLead._id })) || existingLead;
+      } else {
+        movedTo = existingLead.kanbanColumn;
+        leadRecord = (await collection.findOne({ _id: existingLead._id })) || existingLead;
+      }
     } else {
-      // Create new lead directly in ENGAGED column
-      const fingerprint = buildFingerprint(name, email ? `https://${email.split('@')[1]}` : 'https://event.local', 'UK');
-      const count = await collection.countDocuments({ kanbanColumn: 'ENGAGED', tenantId });
+      // Walk-in: create the lead directly in the page's target column
+      const url = normalizeWebsiteUrl('', email || '');
+      const country = inferIsoCountryFromUrlOrEmail(url, email || '', '');
+      const fingerprint = buildFingerprint(name, url, country);
+      const count = await collection.countDocuments({ kanbanColumn: scanner.targetColumn, tenantId });
 
       const newLead = {
         id: now.getTime(),
         tenantId,
-        region: 'UK',
-        country: 'GB',
+        region: inferRegionFromCountry(country),
+        country,
         entity_name: name,
-        url: email ? `https://${email.split('@')[1]}` : 'https://mrvegas.event',
+        url,
         contacts: [
           {
             name,
@@ -150,23 +208,23 @@ export async function POST(
         general_contact: email || '',
         size: 'Small',
         industry: `Campaign: ${campaignParam}`,
-        sport_or_sector: 'Darts & Sports Entertainment',
+        sport_or_sector: '',
         level_league: '',
-        pros: ['Scanned and engaged by hostess at event'],
+        pros: [`Checked in at ${campaignParam}`],
         cons: [],
-        value_proposition: `Attended ${campaignParam} event. Handed contact card to hostess.`,
+        value_proposition: `Checked in at ${campaignParam}.`,
         recommended_tier: '',
         estimated_participants: 0,
         estimated_annual_revenue_usd: 0,
         revenue_model: '',
-        product_fit_notes: `Scanned on-site during ${campaignParam}`,
+        product_fit_notes: `Scanned on site at ${campaignParam}`,
         pricingByCompany: {},
         status: 'new',
-        kanbanColumn: 'ENGAGED',
+        kanbanColumn: scanner.targetColumn,
         sortOrder: count * 100,
         fingerprint,
-        notes: fullHostessNote,
-        tags: [campaignParam, 'hostess-contacted', 'card-accepted'],
+        notes: fullNote,
+        tags: Array.from(new Set([campaignParam, ...scanner.tags])),
         deals: [],
         checklist: [],
         source: `hostess_scan_${campaignParam}`,
@@ -196,7 +254,7 @@ export async function POST(
           attendeeName: name,
           attendeeEmail: email,
           attendeePhone: phone,
-          movedTo: 'ENGAGED',
+          movedTo,
         },
         timestamp: now,
       });
@@ -206,19 +264,20 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: `Attendee ${name} accepted and moved to ENGAGED.`,
+      message: `Attendee ${name} checked in (${movedTo}).`,
       alreadyCheckedIn,
+      movedTo,
       lead: {
         id: leadRecord._id,
         name,
         email,
         phone,
-        kanbanColumn: 'ENGAGED',
+        kanbanColumn: movedTo,
         tags: leadRecord.tags,
       },
     });
   } catch (err: any) {
     console.error('[Hostess Scan API Error]:', err);
-    return NextResponse.json({ error: err.message || 'Failed to process hostess scan' }, { status: 500 });
+    return NextResponse.json({ error: err.message || 'Failed to process the scan' }, { status: 500 });
   }
 }

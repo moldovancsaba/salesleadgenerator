@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseVCardString, isAttendeeBadge, scanFailureMessage } from '../../lib/hostess-scan';
+import { parseVCardString, isAttendeeBadge, scanFailureMessage, checkInAdvancesColumn, columnLabel } from '../../lib/hostess-scan';
+import { accessCodeLockedOut, accessCodeMatches, clearAccessCodeFailures, recordAccessCodeFailure, scannerAccessCode } from '../../lib/hostess-scan-server';
 
 describe('parseVCardString', () => {
   it('parses standard vCard with FN, EMAIL, and TEL', () => {
@@ -58,8 +59,57 @@ describe('scanFailureMessage', () => {
   it('names the cause in words a hostess can act on', () => {
     expect(scanFailureMessage(0)).toMatch(/connection/i);
     expect(scanFailureMessage(422)).toMatch(/not an attendee badge/i);
+    expect(scanFailureMessage(404)).toMatch(/no attendee matches/i);
     expect(scanFailureMessage(503)).toMatch(/unavailable/i);
     expect(scanFailureMessage(500)).toMatch(/our side/i);
     expect(scanFailureMessage(409, 'Custom server text')).toBe('Custom server text');
+  });
+});
+
+describe('checkInAdvancesColumn', () => {
+  it('moves a lead forward, never back, and lifts parked or lost leads', () => {
+    expect(checkInAdvancesColumn('DISCOVERED', 'ENGAGED')).toBe(true);
+    expect(checkInAdvancesColumn('QUALIFIED', 'ENGAGED')).toBe(true);
+    expect(checkInAdvancesColumn('ENGAGED', 'ENGAGED')).toBe(false);
+    expect(checkInAdvancesColumn('PROPOSAL', 'ENGAGED')).toBe(false);
+    expect(checkInAdvancesColumn('WON', 'QUALIFIED')).toBe(false);
+    expect(checkInAdvancesColumn('LOST', 'ENGAGED')).toBe(true);
+    expect(checkInAdvancesColumn('BACKLOG', 'QUALIFIED')).toBe(true);
+    expect(checkInAdvancesColumn(undefined, 'DISCOVERED')).toBe(true);
+  });
+
+  it('names columns the way people read them', () => {
+    expect(columnLabel('ENGAGED')).toBe('Engaged');
+    expect(columnLabel('PROPOSAL')).toBe('Proposal');
+  });
+});
+
+describe('scanner access code', () => {
+  it('uses the page code, else the shared deployment code, else none', () => {
+    expect(scannerAccessCode('page-code', { HOSTESS_SCAN_PASSWORD: 'shared' })).toBe('page-code');
+    expect(scannerAccessCode('  ', { HOSTESS_SCAN_PASSWORD: ' shared ' })).toBe('shared');
+    expect(scannerAccessCode(undefined, {})).toBeNull();
+  });
+
+  it('compares codes exactly and treats a missing guess as wrong', () => {
+    expect(accessCodeMatches('door-code', 'door-code')).toBe(true);
+    expect(accessCodeMatches('door-code', ' door-code ')).toBe(true);
+    expect(accessCodeMatches('door-code', 'door-cod')).toBe(false);
+    expect(accessCodeMatches('door-code', 'DOOR-CODE')).toBe(false);
+    expect(accessCodeMatches('door-code', undefined)).toBe(false);
+    expect(accessCodeMatches('door-code', '')).toBe(false);
+  });
+
+  it('locks out after eight wrong codes and lets a caller back in after the window', () => {
+    const key = 'brand:page:198.51.100.1';
+    const start = 1_000_000;
+    for (let i = 0; i < 7; i++) recordAccessCodeFailure(key, start + i);
+    expect(accessCodeLockedOut(key, start + 10)).toBe(false);
+    recordAccessCodeFailure(key, start + 8);
+    expect(accessCodeLockedOut(key, start + 10)).toBe(true);
+    expect(accessCodeLockedOut(key, start + 6 * 60 * 1000)).toBe(false);
+    recordAccessCodeFailure(key, start + 6 * 60 * 1000 + 1);
+    clearAccessCodeFailures(key);
+    expect(accessCodeLockedOut(key, start + 6 * 60 * 1000 + 2)).toBe(false);
   });
 });

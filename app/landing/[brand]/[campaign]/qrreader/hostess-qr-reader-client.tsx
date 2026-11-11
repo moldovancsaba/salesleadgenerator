@@ -14,17 +14,19 @@ import {
   IconUserCheck,
   IconX,
 } from '@tabler/icons-react';
-import { DEFAULT_HOSTESS_PASSWORD, scanFailureMessage } from '@/lib/hostess-scan';
+import { columnLabel, scanFailureMessage } from '@/lib/hostess-scan';
+import type { PublicScannerConfig } from '@/lib/landing-page-schema';
 
 interface HostessQrReaderProps {
   brand: string;
   campaign: string;
   campaignTitle?: string;
+  scanner: PublicScannerConfig;
 }
 
 type ScanResult =
-  | { kind: 'success'; name: string }
-  | { kind: 'repeat'; name: string }
+  | { kind: 'success'; name: string; column: string }
+  | { kind: 'repeat'; name: string; column: string }
   | { kind: 'error'; message: string };
 
 type CameraState = 'off' | 'starting' | 'on';
@@ -46,11 +48,13 @@ const COLORS = {
 
 const FULL_HEIGHT = '100dvh';
 
-export function HostessQrReaderClient({ brand, campaign, campaignTitle }: HostessQrReaderProps) {
-  const title = campaignTitle || 'Mr Vegas Grand Slam of Darts';
+export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner }: HostessQrReaderProps) {
+  const title = campaignTitle || campaign;
+  const targetLabel = columnLabel(scanner.targetColumn);
   const sessionKey = `hostess_auth_${brand}_${campaign}`;
 
-  const [password, setPassword] = useState(DEFAULT_HOSTESS_PASSWORD);
+  const [password, setPassword] = useState(scanner.accessCodeHint ?? '');
+  const [checkingCode, setCheckingCode] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [cameraState, setCameraState] = useState<CameraState>('off');
@@ -76,26 +80,68 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle }: Hostes
     passwordRef.current = password;
   }, [password]);
 
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem(sessionKey) === DEFAULT_HOSTESS_PASSWORD) setIsAuthenticated(true);
-    } catch {
-      // Private browsing can block storage; the password screen still works.
-    }
-  }, [sessionKey]);
-
-  function handleLogin(event: React.FormEvent) {
-    event.preventDefault();
-    if (password.trim() === DEFAULT_HOSTESS_PASSWORD) {
-      setIsAuthenticated(true);
-      setLoginError(null);
+  const verifyCode = useCallback(
+    async (code: string): Promise<{ ok: boolean; message?: string }> => {
       try {
-        sessionStorage.setItem(sessionKey, password.trim());
+        const res = await fetch(`/api/landing/${brand}/${campaign}/hostess-scan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: code, verifyOnly: true }),
+        });
+        if (res.ok) return { ok: true };
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) return { ok: false, message: 'That access code is not right.' };
+        return { ok: false, message: data?.error || 'The code could not be checked. Try again.' };
       } catch {
-        // Not saving the session is harmless.
+        return { ok: false, message: scanFailureMessage(0) };
       }
-    } else {
-      setLoginError('That password is not right. Use the password shown under the box.');
+    },
+    [brand, campaign]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = sessionStorage.getItem(sessionKey);
+        if (!saved) return;
+        const check = await verifyCode(saved);
+        if (cancelled) return;
+        if (check.ok) {
+          setPassword(saved);
+          setIsAuthenticated(true);
+        } else {
+          sessionStorage.removeItem(sessionKey);
+        }
+      } catch {
+        // Private browsing can block storage; the unlock screen still works.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionKey, verifyCode]);
+
+  async function handleLogin(event: React.FormEvent) {
+    event.preventDefault();
+    const code = password.trim();
+    if (!code) {
+      setLoginError('Enter the access code.');
+      return;
+    }
+    setCheckingCode(true);
+    const check = await verifyCode(code);
+    setCheckingCode(false);
+    if (!check.ok) {
+      setLoginError(check.message ?? 'That access code is not right.');
+      return;
+    }
+    setLoginError(null);
+    setIsAuthenticated(true);
+    try {
+      sessionStorage.setItem(sessionKey, code);
+    } catch {
+      // Not saving the session is harmless.
     }
   }
 
@@ -165,7 +211,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle }: Hostes
           }
           stopCamera();
           setIsAuthenticated(false);
-          setLoginError('The password was not accepted. Enter it again to keep scanning.');
+          setLoginError('The access code was not accepted. Enter it again to keep scanning.');
           return;
         }
         if (!res.ok) {
@@ -174,11 +220,12 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle }: Hostes
         }
         const name: string = data.lead?.name || 'Attendee';
         setLastName(name);
+        const column: string = data.movedTo || scanner.targetColumn;
         if (data.alreadyCheckedIn) {
-          showResult({ kind: 'repeat', name });
+          showResult({ kind: 'repeat', name, column });
         } else {
           setSessionCount((count) => count + 1);
-          showResult({ kind: 'success', name });
+          showResult({ kind: 'success', name, column });
         }
       } catch {
         showResult({ kind: 'error', message: scanFailureMessage(0) });
@@ -186,7 +233,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle }: Hostes
         setProcessing(false);
       }
     },
-    [brand, campaign, sessionKey, showResult, stopCamera]
+    [brand, campaign, scanner.targetColumn, sessionKey, showResult, stopCamera]
   );
 
   const handleDetected = useCallback(
@@ -344,7 +391,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle }: Hostes
                 <IconLock size={32} />
               </Box>
               <Text component="h1" fw={800} size="xl" ta="center" m={0}>
-                Hostess check-in
+                Check-in
               </Text>
               <Text size="sm" c="dimmed" ta="center">
                 {title}
@@ -354,10 +401,10 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle }: Hostes
             <form onSubmit={handleLogin}>
               <Stack gap="md">
                 <TextInput
-                  label="Hostess password"
+                  label="Access code"
                   value={password}
                   onChange={(event) => setPassword(event.currentTarget.value)}
-                  placeholder="Enter password"
+                  placeholder="Enter the access code"
                   size="md"
                   autoComplete="off"
                   autoCapitalize="none"
@@ -376,9 +423,13 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle }: Hostes
                     error: { marginTop: 8 },
                   }}
                   description={
-                    <>
-                      Preset: <code style={{ color: COLORS.accent, fontWeight: 700 }}>{DEFAULT_HOSTESS_PASSWORD}</code>
-                    </>
+                    scanner.accessCodeHint ? (
+                      <>
+                        Code: <code style={{ color: COLORS.accent, fontWeight: 700 }}>{scanner.accessCodeHint}</code>
+                      </>
+                    ) : (
+                      'Ask the event organiser for the code.'
+                    )
                   }
                 />
                 <Button
@@ -386,6 +437,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle }: Hostes
                   size="lg"
                   radius="md"
                   fullWidth
+                  loading={checkingCode}
                   style={{ backgroundColor: COLORS.green, fontWeight: 800 }}
                 >
                   Unlock scanner
@@ -420,7 +472,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle }: Hostes
           }}
         >
           <span style={{ width: 8, height: 8, borderRadius: 999, background: COLORS.accent }} />
-          Hostess station
+          Check-in station
         </Box>
         <Text component="h1" fw={800} size="xl" m={0}>
           {title}
@@ -483,7 +535,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle }: Hostes
           {startError ? 'Try again' : 'Start scanning'}
         </Button>
         <Text size="xs" c="dimmed" ta="center">
-          Each scan moves the attendee to Engaged. The camera stays open for the next person.
+          Each scan moves the attendee to {targetLabel}. The camera stays open for the next person.
         </Text>
       </Stack>
 
@@ -652,13 +704,13 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle }: Hostes
               {result.kind === 'success' && (
                 <>
                   <Text fw={900} c="white" tt="uppercase" style={{ fontSize: 36, letterSpacing: '0.04em' }}>
-                    successful
+                    {scanner.successHeadline}
                   </Text>
                   <Text fw={700} size="xl" c="green.0">
-                    thank you bye
+                    {scanner.successMessage}
                   </Text>
                   <Text fw={600} c="white" style={{ background: 'rgba(0,0,0,0.2)', padding: '8px 18px', borderRadius: 999 }}>
-                    {result.name} · Moved to Engaged
+                    {result.name} · {columnLabel(result.column)}
                   </Text>
                 </>
               )}
@@ -668,7 +720,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle }: Hostes
                     already checked in
                   </Text>
                   <Text fw={600} c="white" style={{ background: 'rgba(0,0,0,0.2)', padding: '8px 18px', borderRadius: 999 }}>
-                    {result.name}
+                    {result.name} · {columnLabel(result.column)}
                   </Text>
                 </>
               )}

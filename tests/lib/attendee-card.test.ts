@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildVCardString, AttendeeCardData } from '@/lib/attendee-card';
+import { buildVCardString, buildCalendarIcsDataUri, AttendeeCardData } from '@/lib/attendee-card';
 
 describe('attendee-card vCard builder', () => {
   it('generates standard vCard 3.0 string with name, email, phone and location', () => {
@@ -34,5 +34,23 @@ describe('attendee-card vCard builder', () => {
     expect(vCard).not.toContain('EMAIL');
     expect(vCard).not.toContain('TEL');
     expect(vCard).toContain('END:VCARD');
+  });
+});
+
+describe('attendee pass for any campaign', () => {
+  const ics = (data: AttendeeCardData) => decodeURIComponent(buildCalendarIcsDataUri(data).split(',')[1]);
+
+  it('names the organisation after the event when the brand label is missing, never after another client', () => {
+    const vCard = buildVCardString({ name: 'Jane Doe', email: 'jane@example.com', eventName: 'Spring Expo 2027' });
+    expect(vCard).toContain('ORG:Spring Expo 2027');
+    expect(vCard).not.toMatch(/vegas/i);
+  });
+
+  it('writes the venue into the calendar entry only when the page has one', () => {
+    const withVenue = ics({ name: 'Jane', eventName: 'Spring Expo', brandLabel: 'Acme', venue: 'Hall 4, Expo Centre' });
+    expect(withVenue).toContain('LOCATION:Hall 4, Expo Centre');
+    const without = ics({ name: 'Jane', eventName: 'Spring Expo', brandLabel: 'Acme' });
+    expect(without).not.toContain('LOCATION:');
+    expect(without).not.toMatch(/aldersley|wolverhampton|vegas/i);
   });
 });

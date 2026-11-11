@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { resolveBrand, getBrandConfig } from '@/app/lib/brand';
 import { getLandingPageBySlug } from '@/lib/landing-page-store';
+import { toPublicScannerConfig } from '@/lib/landing-page-schema';
 import { HostessQrReaderClient } from './hostess-qr-reader-client';
 
 export const dynamic = 'force-dynamic';
@@ -18,8 +19,9 @@ export async function generateMetadata({
 
   const page = await getLandingPageBySlug(brand, campaignParam);
   return {
-    title: `Hostess QR Reader | ${page?.title || campaignParam} | ${config?.label ?? brand}`,
-    description: 'Dedicated hostess attendee badge QR scanner and CRM check-in portal.',
+    title: `Check-in | ${page?.title || campaignParam} | ${config?.label ?? brand}`,
+    description: 'Check-in scanner for event staff.',
+    robots: { index: false, follow: false },
   };
 }
 
@@ -33,12 +35,14 @@ export default async function HostessQrReaderPage({
   if (!brand) notFound();
 
   const page = await getLandingPageBySlug(brand, campaignParam);
+  if (!page?.scanner?.enabled) notFound();
 
   return (
     <HostessQrReaderClient
       brand={brand}
       campaign={campaignParam}
-      campaignTitle={page?.title || 'Mr Vegas Grand Slam of Darts'}
+      campaignTitle={page.title}
+      scanner={toPublicScannerConfig(page.scanner)}
     />
   );
 }

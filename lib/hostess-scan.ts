@@ -107,8 +107,32 @@ export function isAttendeeBadge(parsed: ParsedVCardContact): boolean {
 export function scanFailureMessage(status: number, serverError?: string): string {
   if (status === 0) return 'No connection. Check the network, then scan again.';
   if (status === 422) return 'This QR code is not an attendee badge. Ask the guest to open the badge from their confirmation email.';
+  if (status === 404) return 'No attendee matches this badge. Check the guest list.';
   if (status === 400) return 'The QR code could not be read. Hold the phone steady and scan again.';
   if (status === 503) return 'Check-in is unavailable right now. Wait a moment, then scan again.';
   if (status >= 500) return 'Something went wrong on our side. Scan the badge again.';
   return serverError || 'The scan was not accepted. Scan the badge again.';
+}
+
+/** Pipeline order used to decide whether a check-in moves a lead forward. A lead the team parked or lost ranks below the pipeline. */
+const PIPELINE_RANK: Record<string, number> = { DISCOVERED: 0, QUALIFIED: 1, ENGAGED: 2, PROPOSAL: 3, WON: 4 };
+
+/** True when a check-in should move a lead from `current` to `target`: only forward, never back from a later stage. */
+export function checkInAdvancesColumn(current: string | undefined, target: string): boolean {
+  const from = current && current in PIPELINE_RANK ? PIPELINE_RANK[current] : -1;
+  const to = target in PIPELINE_RANK ? PIPELINE_RANK[target] : -1;
+  return to > from;
+}
+
+const COLUMN_LABELS: Record<string, string> = {
+  DISCOVERED: 'Discovered',
+  QUALIFIED: 'Qualified',
+  ENGAGED: 'Engaged',
+  PROPOSAL: 'Proposal',
+  WON: 'Won',
+};
+
+/** The pipeline column as a person reads it. */
+export function columnLabel(column: string): string {
+  return COLUMN_LABELS[column] ?? column;
 }

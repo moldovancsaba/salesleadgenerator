@@ -208,13 +208,15 @@ export async function POST(
       try {
         const { sendLandingConfirmationEmail } = await import('../../../../../lib/landing-confirmation-email');
         let campaignTitle: string | undefined;
+        let venue: string | undefined;
+        let eventDate: string | undefined;
         if (submission.campaign) {
           try {
             const { getLandingPageBySlug } = await import('../../../../../lib/landing-page-store');
             const page = await getLandingPageBySlug(brand, submission.campaign);
-            if (page?.title) {
-              campaignTitle = page.title;
-            }
+            campaignTitle = page?.event?.name || page?.title || undefined;
+            venue = page?.event?.venue;
+            eventDate = page?.event?.date;
           } catch {
             // Non-fatal
           }
@@ -230,6 +232,8 @@ export async function POST(
           phone: submission.contactPhone,
           country: submission.country,
           postCode: submission.postCode,
+          venue,
+          eventDate,
           fromEmail: config.fromEmail,
         });
       } catch (err) {

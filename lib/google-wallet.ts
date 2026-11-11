@@ -135,7 +135,7 @@ export function createGoogleWalletSaveUrl(
             {
               id: 'event_date',
               header: 'DATE',
-              body: data.eventDate || 'November 2026',
+              body: data.eventDate || 'Date to be confirmed',
             },
             {
               id: 'venue',

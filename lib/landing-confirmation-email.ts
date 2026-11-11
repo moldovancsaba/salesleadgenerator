@@ -51,8 +51,8 @@ export async function sendLandingConfirmationEmail(
     phone,
     country,
     postCode,
-    venue = 'WV Active Aldersley, Wolverhampton',
-    eventDate = 'November 2026',
+    venue = '',
+    eventDate = '',
     fromEmail,
   } = options;
 
@@ -152,8 +152,8 @@ export async function sendLandingConfirmationEmail(
                       ${escapeHtml(recipientName)} (${escapeHtml(recipientEmail)})
                     </div>
                     <div style="font-size: 13px; color: #9ca3af;">
-                      <strong>Venue:</strong> ${escapeHtml(venue)}<br>
-                      <strong>Date:</strong> ${escapeHtml(eventDate)}
+                      ${venue ? `<strong>Venue:</strong> ${escapeHtml(venue)}<br>` : ''}
+                      ${eventDate ? `<strong>Date:</strong> ${escapeHtml(eventDate)}` : ''}
                     </div>
                   </td>
                 </tr>

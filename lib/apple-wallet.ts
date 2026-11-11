@@ -205,7 +205,7 @@ export async function createAppleWalletPass(
     {
       key: 'date',
       label: 'DATE',
-      value: data.eventDate || 'November 2026',
+      value: data.eventDate || 'Date to be confirmed',
     },
     {
       key: 'organizer',

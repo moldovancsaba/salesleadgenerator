@@ -48,6 +48,7 @@ import {
   IconArrowDown,
   IconComponents,
   IconWallet,
+  IconQrcode,
 } from '@tabler/icons-react';
 import {
   LandingPageRecord,
@@ -55,11 +56,14 @@ import {
   LandingPageDesignConfig,
   LandingPageBlocksConfig,
   DEFAULT_BLOCKS_CONFIG,
+  DEFAULT_SCANNER_CONFIG,
+  SCANNER_TARGET_COLUMNS,
   SLG_LEAD_PROPERTIES,
   THEME_PRESETS,
   LeadPropertyKey,
   DEFAULT_VEGAS_CAMPAIGN,
 } from '@/lib/landing-page-schema';
+import { columnLabel } from '@/lib/hostess-scan';
 
 export function LandingPagesClient({
   brand,
@@ -208,6 +212,13 @@ export function LandingPagesClient({
       template.heroHeadline = `Official ${brandLabel} VIP Event Pass Registration`;
       template.heroSubheadline = `Complete the registration form to receive your official digital pass, contact card, and fast-track entry pass.`;
       template.blocks = DEFAULT_BLOCKS_CONFIG;
+      template.heroBannerUrl = '';
+      template.heroBannerAspectRatio = undefined;
+      template.bodyBullets = [];
+      template.footerDisclaimer = '';
+      template.termsHtml = '';
+      template.scanner = { ...DEFAULT_SCANNER_CONFIG, enabled: true };
+      template.event = undefined;
       setEditingPage(template);
       setActiveTab('blocks');
       setEditorOpen(true);
@@ -246,6 +257,15 @@ export function LandingPagesClient({
   };
 
   const handleSavePage = async () => {
+    if (editingPage?.scanner?.enabled && !editingPage.scanner.accessCode?.trim()) {
+      notifications.show({
+        title: 'Access code needed',
+        message: 'Set an access code in the Check-in scanner tab to turn the scanner on.',
+        color: 'orange',
+      });
+      setActiveTab('checkin');
+      return;
+    }
     if (!editingPage) return;
     if (!editingPage.title.trim()) {
       notifications.show({ title: 'Validation', message: 'Page title is required', color: 'red' });
@@ -517,6 +537,9 @@ export function LandingPagesClient({
                 </Tabs.Tab>
                 <Tabs.Tab value="fields" leftSection={<IconAdjustments size={16} />}>
                   Form Fields ({editingPage.fields.length})
+                </Tabs.Tab>
+                <Tabs.Tab value="checkin" leftSection={<IconQrcode size={16} />}>
+                  Pass &amp; check-in
                 </Tabs.Tab>
                 <Tabs.Tab value="design" leftSection={<IconPalette size={16} />}>
                   Theme &amp; Style
@@ -970,6 +993,177 @@ export function LandingPagesClient({
               </Tabs.Panel>
 
               {/* Tab 3: Design & Themes */}
+              {/* Tab: Check-in scanner (QR reader for event staff) */}
+              <Tabs.Panel value="checkin" pt="md">
+                {(() => {
+                  const scanner = editingPage.scanner ?? DEFAULT_SCANNER_CONFIG;
+                  const setScanner = (patch: Partial<typeof scanner>) =>
+                    setEditingPage({ ...editingPage, scanner: { ...scanner, ...patch } });
+                  const readerPath = `/landing/${brand}/${editingPage.slug}/qrreader`;
+                  return (
+                    <Stack gap="md">
+                      <Paper p="md" radius="md" withBorder>
+                        <Stack gap="md">
+                          <Box>
+                            <Text size="sm" fw={700}>
+                              Event pass details
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              Printed on the attendee pass, the calendar entry and the confirmation email. Leave a field empty to leave
+                              it off.
+                            </Text>
+                          </Box>
+                          <TextInput
+                            label="Event name"
+                            description="Defaults to the page title."
+                            value={editingPage.event?.name ?? ''}
+                            maxLength={120}
+                            onChange={(e) => setEditingPage({ ...editingPage, event: { ...editingPage.event, name: e.currentTarget.value } })}
+                          />
+                          <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                            <TextInput
+                              label="Venue"
+                              value={editingPage.event?.venue ?? ''}
+                              maxLength={160}
+                              onChange={(e) => setEditingPage({ ...editingPage, event: { ...editingPage.event, venue: e.currentTarget.value } })}
+                            />
+                            <TextInput
+                              label="Date"
+                              placeholder="e.g. 14 - 22 November 2026"
+                              value={editingPage.event?.date ?? ''}
+                              maxLength={80}
+                              onChange={(e) => setEditingPage({ ...editingPage, event: { ...editingPage.event, date: e.currentTarget.value } })}
+                            />
+                          </SimpleGrid>
+                        </Stack>
+                      </Paper>
+
+                      <Box>
+                        <Text size="sm" fw={700}>
+                          Check-in scanner
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Staff scan the QR code on the attendee pass with a phone. The matching lead moves to the column you choose, so
+                          any landing page can feed the qualifier workflow.
+                        </Text>
+                      </Box>
+
+                      <Paper p="md" radius="md" withBorder>
+                        <Stack gap="md">
+                          <Switch
+                            label="Turn the check-in scanner on for this page"
+                            checked={scanner.enabled}
+                            onChange={(e) => setScanner({ enabled: e.currentTarget.checked })}
+                          />
+
+                          <Select
+                            label="A scan moves the lead to"
+                            description="A lead already further along the pipeline stays where it is."
+                            data={SCANNER_TARGET_COLUMNS.map((column) => ({ value: column, label: columnLabel(column) }))}
+                            value={scanner.targetColumn}
+                            allowDeselect={false}
+                            onChange={(value) => value && setScanner({ targetColumn: value as typeof scanner.targetColumn })}
+                          />
+
+                          <TextInput
+                            key={`${editingPage.id ?? 'new'}-tags`}
+                            label="Tags added on check-in"
+                            description="Comma separated, up to 8."
+                            defaultValue={scanner.tags.join(', ')}
+                            onBlur={(e) => setScanner({ tags: e.currentTarget.value.split(',') })}
+                          />
+
+                          <Switch
+                            label="A scan with no matching lead creates one (walk-in)"
+                            checked={scanner.createUnknownLeads}
+                            onChange={(e) => setScanner({ createUnknownLeads: e.currentTarget.checked })}
+                          />
+
+                          <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                            <TextInput
+                              label="Result headline"
+                              description="Large text on the green screen."
+                              value={scanner.successHeadline}
+                              maxLength={60}
+                              onChange={(e) => setScanner({ successHeadline: e.currentTarget.value })}
+                            />
+                            <TextInput
+                              label="Result line"
+                              description="Smaller line under it."
+                              value={scanner.successMessage}
+                              maxLength={80}
+                              onChange={(e) => setScanner({ successMessage: e.currentTarget.value })}
+                            />
+                          </SimpleGrid>
+
+                          <TextInput
+                            label="Access code"
+                            description="Staff type this to unlock the scanner. It is stored on the server and never sent to visitors."
+                            required={scanner.enabled}
+                            error={scanner.enabled && !scanner.accessCode ? 'Set a code to turn the scanner on' : undefined}
+                            value={scanner.accessCode ?? ''}
+                            maxLength={80}
+                            autoComplete="off"
+                            onChange={(e) => setScanner({ accessCode: e.currentTarget.value })}
+                          />
+
+                          <Switch
+                            label="Show the access code on the unlock screen"
+                            description="Anyone who opens the scanner link can read it. Leave off unless the link is only shared with staff."
+                            checked={scanner.showAccessCodeHint}
+                            onChange={(e) => setScanner({ showAccessCodeHint: e.currentTarget.checked })}
+                          />
+                        </Stack>
+                      </Paper>
+
+                      <Paper p="md" radius="md" withBorder>
+                        <Group justify="space-between" align="center" wrap="nowrap">
+                          <Box style={{ minWidth: 0 }}>
+                            <Text size="sm" fw={600}>
+                              Scanner link for staff
+                            </Text>
+                            <Text size="xs" c="dimmed" style={{ wordBreak: 'break-all' }}>
+                              {readerPath}
+                            </Text>
+                            {!editingPage.id && (
+                              <Text size="xs" c="orange">
+                                Save the page first; the link works once the page is saved with the scanner on.
+                              </Text>
+                            )}
+                          </Box>
+                          <Group gap="xs" wrap="nowrap">
+                            <Tooltip label="Copy link">
+                              <ActionIcon
+                                variant="light"
+                                aria-label="Copy the scanner link"
+                                onClick={() => {
+                                  navigator.clipboard?.writeText(`${window.location.origin}${readerPath}`);
+                                  notifications.show({ message: 'Scanner link copied', color: 'green' });
+                                }}
+                              >
+                                <IconCopy size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                            <Tooltip label="Open scanner">
+                              <ActionIcon
+                                variant="light"
+                                component="a"
+                                href={readerPath}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="Open the scanner"
+                              >
+                                <IconExternalLink size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          </Group>
+                        </Group>
+                      </Paper>
+                    </Stack>
+                  );
+                })()}
+              </Tabs.Panel>
+
               <Tabs.Panel value="design" pt="md">
                 <Stack gap="md">
                   <Box>

@@ -32,7 +32,7 @@ export function buildVCardString(data: AttendeeCardData): string {
     parts.push(`TEL:${data.phone}`);
   }
   if (data.eventName || data.brandLabel) {
-    parts.push(`ORG:${data.brandLabel || 'Mr Vegas'}`);
+    parts.push(`ORG:${data.brandLabel || data.eventName}`);
   }
   parts.push('END:VCARD');
   return parts.join('\r\n');
@@ -61,8 +61,8 @@ export function buildCalendarIcsDataUri(data: AttendeeCardData): string {
     `UID:pass-${Date.now()}@salesleadgenerator`,
     `DTSTAMP:${now}`,
     `SUMMARY:${data.eventName || 'Event Entry Pass'}`,
-    `DESCRIPTION:${data.brandLabel || 'Mr Vegas'} Entry Pass for ${data.name || 'Attendee'}. Venue: ${data.venue || 'WV Active Aldersley'}`,
-    `LOCATION:${data.venue || 'WV Active Aldersley, Wolverhampton'}`,
+    `DESCRIPTION:${data.brandLabel || data.eventName || 'Event'} Entry Pass for ${data.name || 'Attendee'}.${data.venue ? ` Venue: ${data.venue}` : ''}`,
+    ...(data.venue ? [`LOCATION:${data.venue}`] : []),
     'STATUS:CONFIRMED',
     'END:VEVENT',
     'END:VCALENDAR',
@@ -125,13 +125,13 @@ export async function generateAttendeeBadgePng(data: AttendeeCardData): Promise<
   ctx.fillStyle = '#f59e0b';
   ctx.font = '900 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(data.brandLabel?.toUpperCase() || 'MR VEGAS', width / 2, currentY);
+  ctx.fillText((data.brandLabel || data.eventName || 'EVENT').toUpperCase(), width / 2, currentY);
 
   currentY += 32;
 
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText(data.eventName || 'Grand Slam of Darts', width / 2, currentY);
+  ctx.fillText(data.eventName || 'Event pass', width / 2, currentY);
 
   currentY += 45;
 
@@ -178,7 +178,7 @@ export async function generateAttendeeBadgePng(data: AttendeeCardData): Promise<
 
   // 7. Footer: Venue & Date
   const footerY = height - 45;
-  const details = [data.venue, data.eventDate || 'WV Active Aldersley, Wolverhampton'].filter(Boolean).join(' • ');
+  const details = [data.venue, data.eventDate].filter(Boolean).join(' • ');
   ctx.fillStyle = '#64748b';
   ctx.font = '500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText(details, width / 2, footerY);

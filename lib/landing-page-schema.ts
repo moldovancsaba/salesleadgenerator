@@ -1,4 +1,5 @@
 import type { CurrencyCode } from '@/app/lib/brand';
+import { DEFAULT_HOSTESS_PASSWORD } from './hostess-scan';
 
 export type LeadPropertyKey =
   | 'entity_name'
@@ -68,6 +69,117 @@ export const DEFAULT_BLOCKS_CONFIG: LandingPageBlocksConfig = {
   showFooterDisclaimer: true,
 };
 
+/** What the attendee pass, calendar entry and confirmation email say about the event. */
+export interface LandingPageEventDetails {
+  name?: string;
+  venue?: string;
+  date?: string;
+}
+
+/** Event details reduced to short plain text; empty values are dropped so the pass falls back to the page title. */
+export function normalizeEventDetails(value: unknown): LandingPageEventDetails | undefined {
+  const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const pick = (input: unknown, max: number) => (typeof input === 'string' ? input.trim().slice(0, max) : '');
+  const name = pick(raw.name, 120);
+  const venue = pick(raw.venue, 160);
+  const date = pick(raw.date, 80);
+  if (!name && !venue && !date) return undefined;
+  return { ...(name ? { name } : {}), ...(venue ? { venue } : {}), ...(date ? { date } : {}) };
+}
+
+/** Columns a check-in scan may move a lead to, in pipeline order. */
+export const SCANNER_TARGET_COLUMNS = ['DISCOVERED', 'QUALIFIED', 'ENGAGED', 'PROPOSAL', 'WON'] as const;
+export type ScannerTargetColumn = (typeof SCANNER_TARGET_COLUMNS)[number];
+
+/**
+ * Check-in scanner of a landing page. Any landing page can turn it on: the page's attendee pass carries a QR code,
+ * and the scanner at `/landing/[brand]/[campaign]/qrreader` moves the matching lead to `targetColumn`.
+ */
+export interface LandingPageScannerConfig {
+  enabled: boolean;
+  /** The column a scan moves the lead to. A lead already further along the pipeline stays where it is. */
+  targetColumn: ScannerTargetColumn;
+  /** Tags added to the lead on check-in. */
+  tags: string[];
+  /** A scan that matches no lead creates one (a walk-in) in `targetColumn`. */
+  createUnknownLeads: boolean;
+  /** Headline and line shown on the green result screen. */
+  successHeadline: string;
+  successMessage: string;
+  /** What staff type to unlock the scanner. Server only: never sent to the browser. */
+  accessCode?: string;
+  /** Show the access code on the unlock screen. Anyone who opens the reader page can then read it. */
+  showAccessCodeHint: boolean;
+}
+
+export const DEFAULT_SCANNER_CONFIG: LandingPageScannerConfig = {
+  enabled: false,
+  targetColumn: 'ENGAGED',
+  tags: ['checked-in'],
+  createUnknownLeads: true,
+  successHeadline: 'Checked in',
+  successMessage: 'Welcome',
+  showAccessCodeHint: false,
+};
+
+function cleanText(value: unknown, fallback: string, max: number): string {
+  const text = typeof value === 'string' ? value.trim().slice(0, max) : '';
+  return text || fallback;
+}
+
+/** A stored or submitted scanner config, reduced to values the scanner can trust. */
+export function normalizeScannerConfig(value: unknown): LandingPageScannerConfig {
+  const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const column = SCANNER_TARGET_COLUMNS.find((c) => c === raw.targetColumn) ?? DEFAULT_SCANNER_CONFIG.targetColumn;
+  const rawTags = Array.isArray(raw.tags) ? raw.tags : typeof raw.tags === 'string' ? raw.tags.split(',') : DEFAULT_SCANNER_CONFIG.tags;
+  const tags = Array.from(
+    new Set(
+      rawTags
+        .map((tag) => (typeof tag === 'string' ? tag.trim().toLowerCase().replace(/[^a-z0-9-_ ]/g, '').replace(/\s+/g, '-').slice(0, 40) : ''))
+        .filter(Boolean)
+    )
+  ).slice(0, 8);
+  const accessCode = typeof raw.accessCode === 'string' ? raw.accessCode.trim().slice(0, 80) : '';
+  return {
+    enabled: raw.enabled === true,
+    targetColumn: column,
+    tags,
+    createUnknownLeads: raw.createUnknownLeads !== false,
+    successHeadline: cleanText(raw.successHeadline, DEFAULT_SCANNER_CONFIG.successHeadline, 60),
+    successMessage: cleanText(raw.successMessage, DEFAULT_SCANNER_CONFIG.successMessage, 80),
+    ...(accessCode ? { accessCode } : {}),
+    showAccessCodeHint: raw.showAccessCodeHint === true,
+  };
+}
+
+/** What the browser may know about a page's scanner. The access code is included only when the page opts in to showing it. */
+export interface PublicScannerConfig {
+  enabled: boolean;
+  targetColumn: ScannerTargetColumn;
+  successHeadline: string;
+  successMessage: string;
+  accessCodeHint: string | null;
+}
+
+export type PublicLandingPageRecord = Omit<LandingPageRecord, 'scanner'> & { scanner?: PublicScannerConfig };
+
+export function toPublicScannerConfig(config: LandingPageScannerConfig | undefined): PublicScannerConfig {
+  const scanner = normalizeScannerConfig(config);
+  return {
+    enabled: scanner.enabled,
+    targetColumn: scanner.targetColumn,
+    successHeadline: scanner.successHeadline,
+    successMessage: scanner.successMessage,
+    accessCodeHint: scanner.showAccessCodeHint && scanner.accessCode ? scanner.accessCode : null,
+  };
+}
+
+/** The page record as a browser may see it: the scanner's access code is removed. */
+export function toPublicLandingPage(page: LandingPageRecord): PublicLandingPageRecord {
+  const { scanner, ...rest } = page;
+  return scanner ? { ...rest, scanner: toPublicScannerConfig(scanner) } : rest;
+}
+
 export interface LandingPageRecord {
   id?: string;
   _id?: string;
@@ -79,6 +191,10 @@ export interface LandingPageRecord {
   published: boolean;
   // Modular blocks configuration (enable/show or disable/hide)
   blocks?: LandingPageBlocksConfig;
+  // Event details printed on the pass, calendar entry and confirmation email
+  event?: LandingPageEventDetails;
+  // Check-in scanner (QR reader for staff)
+  scanner?: LandingPageScannerConfig;
   // Hero section
   heroBannerUrl?: string;
   /** Width over height of the banner image, so the whole image is shown. Defaults to the 1248/562 email banner. */
@@ -192,6 +308,21 @@ export const DEFAULT_VEGAS_CAMPAIGN: LandingPageRecord = {
   ],
   ctaButtonText: 'Submit Entry',
   blocks: { ...DEFAULT_BLOCKS_CONFIG, showTermsModal: false },
+  event: {
+    name: 'Mr Vegas Grand Slam of Darts',
+    venue: 'WV Active Aldersley, Wolverhampton',
+    date: 'November 2026',
+  },
+  scanner: {
+    enabled: true,
+    targetColumn: 'ENGAGED',
+    tags: ['hostess-contacted', 'card-accepted'],
+    createUnknownLeads: true,
+    successHeadline: 'successful',
+    successMessage: 'thank you bye',
+    accessCode: DEFAULT_HOSTESS_PASSWORD,
+    showAccessCodeHint: true,
+  },
   design: THEME_PRESETS.dark_emerald,
   fields: [
     {

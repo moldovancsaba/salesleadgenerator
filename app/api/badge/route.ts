@@ -7,11 +7,11 @@ import { getLandingPageBySlug } from '@/lib/landing-page-store';
 export const dynamic = 'force-dynamic';
 
 function getSvgBadge(data: AttendeeCardData, qrSvg: string): string {
-  const brandTitle = (data.brandLabel || 'MR VEGAS').toUpperCase();
-  const eventName = data.eventName || 'Grand Slam of Darts';
+  const brandTitle = (data.brandLabel || data.eventName || 'EVENT').toUpperCase();
+  const eventName = data.eventName || 'Event pass';
   const attendeeName = data.name || 'Event Attendee';
-  const venue = data.venue || 'WV Active Aldersley, Wolverhampton';
-  const eventDate = data.eventDate || 'November 2026';
+  const venue = data.venue || '';
+  const eventDate = data.eventDate || '';
 
   // Embed the QR SVG cleanly
   // qrSvg starts with <svg ...>, extract inner content or embed as nested svg
@@ -75,7 +75,7 @@ function getSvgBadge(data: AttendeeCardData, qrSvg: string): string {
 
   <!-- Footer Info -->
   <text x="400" y="1150" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="500" font-size="13" fill="#64748b">
-    ${escapeXml(venue)} • ${escapeXml(eventDate)}
+    ${escapeXml([venue, eventDate].filter(Boolean).join(' • '))}
   </text>
 </svg>`;
 }
@@ -98,8 +98,8 @@ export async function GET(req: NextRequest) {
     const brand = searchParams.get('brand') || undefined;
     const campaign = searchParams.get('campaign') || undefined;
     const eventName = searchParams.get('eventName') || 'Official Event Pass';
-    const venue = searchParams.get('venue') || 'WV Active Aldersley, Wolverhampton';
-    const eventDate = searchParams.get('eventDate') || 'November 2026';
+    const venue = searchParams.get('venue') || '';
+    const eventDate = searchParams.get('eventDate') || '';
 
     let brandLabel = searchParams.get('brandLabel') || undefined;
 
@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
       eventName,
       venue,
       eventDate,
-      brandLabel: brandLabel || 'Mr Vegas',
+      brandLabel: brandLabel || undefined,
     };
 
     const vCard = buildVCardString(attendeeData);
