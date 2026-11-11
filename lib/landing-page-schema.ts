@@ -251,45 +251,6 @@ export const DEFAULT_VEGAS_CAMPAIGN: LandingPageRecord = {
     },
   ],
   footerDisclaimer: 'By entering you are agreeing to share your personal data with Mr Vegas. You are agreeing to receive marketing communications. Data will be processed in accordance with its privacy policy.',
-  termsHtml: `1. The promoter
-1.1 The promoter is The Professional Darts Corporation Ltd, company number 03473679, whose registered office is at Mascalls, Mascalls Lane, Brentwood, Essex, England CM14 5LJ (the "PDC").
-
-2. The Prize Draw
-2.1 The Prize Draw is free to enter and winners will be selected at random from valid entries received by the PDC.
-
-3. How to enter
-3.1 The period when you can submit your entry to the Prize Draw will run from 1200 GMT on Monday 26th October until the closing time of Tuesday 10th November at 1200 GMT inclusive.
-3.2 Your entry must be received by the PDC by no later than the Closing Time. All entries received after the Closing Time are invalid.
-3.3 To enter the Prize Draw, you must complete the competition registration form and submit your contact details.
-3.4 No purchase is necessary.
-3.5 The PDC do not accept responsibility for entries that are lost, mislaid, damaged or delayed, regardless of cause.
-3.6 By submitting your entry to the Prize Draw, you agree to be bound by these terms and conditions.
-
-4. Eligibility
-4.1 The Prize Draw is only open to UK residents aged 18 years or over.
-4.2 By entering the Prize Draw, you confirm that you are eligible to do so and to claim any Prize that you win.
-4.3 There is a limit of one entry to the Prize Draw per person.
-
-5. The Prize
-5.1 The prizes are: 4x Pairs of General Admission Tickets to the 2026 Mr Vegas Grand Slam of Darts, for every session of the event.
-5.2 The PDC reserves the right to replace any Prize with an alternative if the original Prize is not available.
-5.3 Prizes are not transferable, exchangeable or negotiable. There is no cash alternative to any Prize.
-5.4 To claim a Prize, the winner must respond to the PDC's direct email and provide all requested information within 48 hours.
-
-6. Winners
-6.1 The PDC's decision is final and no correspondence or discussion will be entered into.
-6.2 All qualifying entrant email addresses will be entered into a random prize draw selector.
-6.3 The PDC will contact the winner by email as soon as reasonably practicable.
-
-7. Claiming a Prize
-7.1 If you win the Prize, you will have 48 hours after the PDC sends you an email to claim your Prize.
-7.2 Winners and accompanying individuals must be 18+. Proof of age and identity may be required.
-
-8. Limitation of liability
-As far as permitted by law, the PDC, Mr Vegas, their agents and distributors are not in any circumstances liable for any loss, damage, personal injury or death occurring as a result of taking up the Prize, except where caused by negligence.
-
-9. Data protection and publicity
-9.1 Personal information will be processed as set out in the terms and privacy policies. Full Terms & Conditions and Privacy Policy can be accessed at https://r1.marketing-pages.com/p/500W-DNU/mrvegastcs and https://www.pdc.tv/privacy-policy.`,
   successTitle: 'Thank You for Entering!',
   successMessage: "Ensure you're following us across Facebook, Twitter, Instagram, TikTok and YouTube to stay up to date with all of the latest PDC news and competitions.",
   viewsCount: 0,

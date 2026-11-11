@@ -7,7 +7,7 @@
 - **Landing page copy, logo and form (Issue #334, `lib/landing-page-schema.ts`, `app/landing/[brand]/[campaign]/dynamic-landing-client.tsx`, `lib/inbound-lead-form.ts`, `public/landing/vegas/mr-vegas-logo.jpg`):**
   - The Vegas campaign opens with the Bullseye Challenge welcome text and shows only the Mr Vegas logo at the top.
   - Removed the "receive emails from the PDC" tick box from the default Vegas campaign. A form that does not ask for it records no PDC opt-in note (previously an absent value was stored as "No").
-  - Removed the invalid terms and conditions link everywhere in the generic landing client (footer privacy wording, "Full GTC & Privacy Policy (External)" and the terms modal footer). The default campaign hides the terms modal; the footer disclaimer is plain text until a valid privacy policy URL is supplied.
+  - Removed the invalid terms and conditions link everywhere in the generic landing client (footer privacy wording, "Full GTC & Privacy Policy (External)" and the terms modal footer). The default campaign no longer carries the ticket giveaway terms text and hides the terms modal; the footer disclaimer is plain text until a valid privacy policy URL is supplied.
   - A stored campaign record overrides the code default: the live record is edited in the landing page editor.
 
 ## 2.4.371

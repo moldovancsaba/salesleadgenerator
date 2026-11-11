@@ -21,5 +21,7 @@ describe('Vegas Grand Slam of Darts default landing page', () => {
     expect(labels.some((label) => label.includes('pdc'))).toBe(false);
     expect(DEFAULT_VEGAS_CAMPAIGN.fields.some((field) => field.leadProperty === 'custom_consent_checkbox')).toBe(false);
     expect(DEFAULT_VEGAS_CAMPAIGN.blocks?.showTermsModal).toBe(false);
+    expect(DEFAULT_VEGAS_CAMPAIGN.termsHtml).toBeUndefined();
+    expect(JSON.stringify(DEFAULT_VEGAS_CAMPAIGN)).not.toContain('mrvegastcs');
   });
 });
