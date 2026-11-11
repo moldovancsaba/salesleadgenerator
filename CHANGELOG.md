@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Hostess QR reader: working layout and a faster scanning flow
+
+- **Hostess reader (Issue #335, `app/landing/[brand]/[campaign]/qrreader/hostess-qr-reader-client.tsx`, `app/api/landing/[brand]/[campaign]/hostess-scan/route.ts`, `lib/hostess-scan.ts`):**
+  - The screen was written with Tailwind class names but the app has no Tailwind, so it shipped unstyled. It is rebuilt with Mantine: unlock screen, station screen with a count of check-ins on the phone, full-screen scanner with a reticle, light button where supported.
+  - The camera stays open between scans. Results (successful, already checked in, not checked in) appear over the camera and clear themselves. A failed scan used to leave the loop stopped with the message hidden; it now says what went wrong and keeps scanning.
+  - A QR code that is not an attendee badge (`isAttendeeBadge`) is refused with 422 and creates no lead. The API returns `alreadyCheckedIn` so a repeat scan is shown as such.
+  - Decoding runs on a scaled frame about seven times a second, and the screen stays awake while scanning.
+
 ### Vegas Grand Slam of Darts sign-up page: client feedback
 
 - **Landing page copy, logo and form (Issue #334, `lib/landing-page-schema.ts`, `app/landing/[brand]/[campaign]/dynamic-landing-client.tsx`, `lib/inbound-lead-form.ts`, `public/landing/vegas/mr-vegas-grand-slam.jpg`):**

@@ -1,17 +1,20 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
+import { ActionIcon, Box, Button, Paper, Stack, Text, TextInput } from '@mantine/core';
 import {
+  IconAlertCircle,
+  IconBolt,
+  IconBoltOff,
   IconCamera,
   IconCheck,
-  IconAlertCircle,
   IconLock,
   IconRefresh,
+  IconUserCheck,
   IconX,
-  IconSparkles,
 } from '@tabler/icons-react';
-import { DEFAULT_HOSTESS_PASSWORD } from '@/lib/hostess-scan';
+import { DEFAULT_HOSTESS_PASSWORD, scanFailureMessage } from '@/lib/hostess-scan';
 
 interface HostessQrReaderProps {
   brand: string;
@@ -19,358 +22,673 @@ interface HostessQrReaderProps {
   campaignTitle?: string;
 }
 
-export function HostessQrReaderClient({
-  brand,
-  campaign,
-  campaignTitle,
-}: HostessQrReaderProps) {
+type ScanResult =
+  | { kind: 'success'; name: string }
+  | { kind: 'repeat'; name: string }
+  | { kind: 'error'; message: string };
+
+type CameraState = 'off' | 'starting' | 'on';
+
+const SCAN_INTERVAL_MS = 140;
+const MAX_DECODE_WIDTH = 640;
+const SAME_CODE_IGNORE_MS = 6000;
+const RESULT_MS = { success: 1800, repeat: 2400, error: 3200 } as const;
+
+const COLORS = {
+  page: '#0d1117',
+  card: '#161b22',
+  green: '#00a862',
+  accent: '#34d399',
+  amber: '#d97706',
+  red: '#b91c1c',
+  muted: '#9ca3af',
+};
+
+const FULL_HEIGHT = '100dvh';
+
+export function HostessQrReaderClient({ brand, campaign, campaignTitle }: HostessQrReaderProps) {
+  const title = campaignTitle || 'Mr Vegas Grand Slam of Darts';
+  const sessionKey = `hostess_auth_${brand}_${campaign}`;
+
   const [password, setPassword] = useState(DEFAULT_HOSTESS_PASSWORD);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [successAttendee, setSuccessAttendee] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [cameraState, setCameraState] = useState<CameraState>('off');
+  const [startError, setStartError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [result, setResult] = useState<ScanResult | null>(null);
+  const [torchAvailable, setTorchAvailable] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [sessionCount, setSessionCount] = useState(0);
+  const [lastName, setLastName] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameId = useRef<number | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const isHandlingScanRef = useRef(false);
-  const processScannedPayloadRef = useRef<(data: string) => Promise<void>>(async () => {});
-
-  // Check saved session auth
+  const streamRef = useRef<MediaStream | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const lastTickRef = useRef(0);
+  const pausedRef = useRef(false);
+  const lastScanRef = useRef<{ data: string; at: number } | null>(null);
+  const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const passwordRef = useRef(password);
   useEffect(() => {
-    const saved = sessionStorage.getItem(`hostess_auth_${brand}_${campaign}`);
-    if (saved === DEFAULT_HOSTESS_PASSWORD) {
-      setIsAuthenticated(true);
-    }
-  }, [brand, campaign]);
+    passwordRef.current = password;
+  }, [password]);
 
-  function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(sessionKey) === DEFAULT_HOSTESS_PASSWORD) setIsAuthenticated(true);
+    } catch {
+      // Private browsing can block storage; the password screen still works.
+    }
+  }, [sessionKey]);
+
+  function handleLogin(event: React.FormEvent) {
+    event.preventDefault();
     if (password.trim() === DEFAULT_HOSTESS_PASSWORD) {
       setIsAuthenticated(true);
-      sessionStorage.setItem(`hostess_auth_${brand}_${campaign}`, password.trim());
-      setErrorMessage(null);
+      setLoginError(null);
+      try {
+        sessionStorage.setItem(sessionKey, password.trim());
+      } catch {
+        // Not saving the session is harmless.
+      }
     } else {
-      setErrorMessage('Incorrect password. Please use the on-screen password.');
+      setLoginError('That password is not right. Use the password shown under the box.');
     }
   }
 
-  function stopCamera() {
-    if (animationFrameId.current) {
-      cancelAnimationFrame(animationFrameId.current);
-      animationFrameId.current = null;
+  const releaseWakeLock = useCallback(() => {
+    wakeLockRef.current?.release().catch(() => {});
+    wakeLockRef.current = null;
+  }, []);
+
+  const stopCamera = useCallback(() => {
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
     }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => {
-        track.stop();
-      });
-      mediaStreamRef.current = null;
+    if (resultTimerRef.current) {
+      clearTimeout(resultTimerRef.current);
+      resultTimerRef.current = null;
     }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    releaseWakeLock();
+    pausedRef.current = false;
+    setCameraState('off');
+    setProcessing(false);
+    setResult(null);
+    setTorchAvailable(false);
+    setTorchOn(false);
+  }, [releaseWakeLock]);
+
+  const showResult = useCallback((next: ScanResult) => {
+    setResult(next);
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(next.kind === 'success' ? [120] : next.kind === 'repeat' ? [60, 60, 60] : [260]);
     }
-    setIsCameraActive(false);
+    if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
+    resultTimerRef.current = setTimeout(() => {
+      resultTimerRef.current = null;
+      setResult(null);
+      pausedRef.current = false;
+    }, RESULT_MS[next.kind]);
+  }, []);
+
+  function dismissResult() {
+    if (resultTimerRef.current) {
+      clearTimeout(resultTimerRef.current);
+      resultTimerRef.current = null;
+    }
+    setResult(null);
+    pausedRef.current = false;
+  }
+
+  const submitScan = useCallback(
+    async (rawQrData: string) => {
+      setProcessing(true);
+      try {
+        const res = await fetch(`/api/landing/${brand}/${campaign}/hostess-scan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: passwordRef.current, qrContent: rawQrData }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          try {
+            sessionStorage.removeItem(sessionKey);
+          } catch {
+            // Nothing to clear.
+          }
+          stopCamera();
+          setIsAuthenticated(false);
+          setLoginError('The password was not accepted. Enter it again to keep scanning.');
+          return;
+        }
+        if (!res.ok) {
+          showResult({ kind: 'error', message: scanFailureMessage(res.status, data?.error) });
+          return;
+        }
+        const name: string = data.lead?.name || 'Attendee';
+        setLastName(name);
+        if (data.alreadyCheckedIn) {
+          showResult({ kind: 'repeat', name });
+        } else {
+          setSessionCount((count) => count + 1);
+          showResult({ kind: 'success', name });
+        }
+      } catch {
+        showResult({ kind: 'error', message: scanFailureMessage(0) });
+      } finally {
+        setProcessing(false);
+      }
+    },
+    [brand, campaign, sessionKey, showResult, stopCamera]
+  );
+
+  const handleDetected = useCallback(
+    (data: string) => {
+      const now = Date.now();
+      const last = lastScanRef.current;
+      if (last && last.data === data && now - last.at < SAME_CODE_IGNORE_MS) return;
+      lastScanRef.current = { data, at: now };
+      pausedRef.current = true;
+      void submitScan(data);
+    },
+    [submitScan]
+  );
+
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) wakeLockRef.current = await navigator.wakeLock.request('screen');
+    } catch {
+      // Keeping the screen awake is a comfort, not a requirement.
+    }
   }
 
   async function startCamera() {
-    // Ensure any existing stream is cleanly killed first
     stopCamera();
+    setStartError(null);
+    setCameraState('starting');
+    lastScanRef.current = null;
 
-    setErrorMessage(null);
-    setIsCameraActive(true);
-    isHandlingScanRef.current = false;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setStartError('This browser cannot open the camera. Open the page in Safari or Chrome.');
+      setCameraState('off');
+      return;
+    }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
+      streamRef.current = stream;
 
-      mediaStreamRef.current = stream;
+      const capabilities = (stream.getVideoTracks()[0]?.getCapabilities?.() ?? {}) as MediaTrackCapabilities & {
+        torch?: boolean;
+      };
+      setTorchAvailable(Boolean(capabilities.torch));
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.setAttribute('webkit-playsinline', 'true');
-        await videoRef.current.play();
-
-        function tick() {
-          if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-            const video = videoRef.current;
-            const canvas = canvasRef.current;
-            if (canvas) {
-              const ctx = canvas.getContext('2d', { willReadFrequently: true });
-              if (ctx) {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                  inversionAttempts: 'attemptBoth',
-                });
-
-                if (code && code.data && !isHandlingScanRef.current) {
-                  isHandlingScanRef.current = true;
-                  processScannedPayloadRef.current(code.data);
-                  return;
-                }
-              }
-            }
-          }
-          animationFrameId.current = requestAnimationFrame(tick);
-        }
-
-        animationFrameId.current = requestAnimationFrame(tick);
+      const video = videoRef.current;
+      if (!video) {
+        stopCamera();
+        return;
       }
-    } catch (err: any) {
-      console.error('Camera error:', err);
+      video.srcObject = stream;
+      video.setAttribute('playsinline', 'true');
+      await video.play();
+      setCameraState('on');
+      void requestWakeLock();
+
+      const tick = (time: number) => {
+        frameRef.current = requestAnimationFrame(tick);
+        if (pausedRef.current || time - lastTickRef.current < SCAN_INTERVAL_MS) return;
+        lastTickRef.current = time;
+        const current = videoRef.current;
+        const canvas = canvasRef.current;
+        if (!current || !canvas || !current.videoWidth || current.readyState < current.HAVE_ENOUGH_DATA) return;
+        const scale = Math.min(1, MAX_DECODE_WIDTH / current.videoWidth);
+        const width = Math.round(current.videoWidth * scale);
+        const height = Math.round(current.videoHeight * scale);
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context) return;
+        context.drawImage(current, 0, 0, width, height);
+        const image = context.getImageData(0, 0, width, height);
+        const code = jsQR(image.data, width, height, { inversionAttempts: 'attemptBoth' });
+        if (code?.data) handleDetected(code.data);
+      };
+      frameRef.current = requestAnimationFrame(tick);
+    } catch (error) {
+      const name = error instanceof DOMException ? error.name : '';
       stopCamera();
-      setErrorMessage(
-        err.name === 'NotAllowedError'
-          ? 'Camera permission denied. Please allow camera permissions in Safari.'
-          : 'Could not access camera. Please ensure no other app is using it.'
+      setStartError(
+        name === 'NotAllowedError'
+          ? 'The camera is blocked. Allow camera access for this page in the browser settings, then try again.'
+          : 'The camera could not start. Close other apps that use it, then try again.'
       );
     }
   }
 
-  async function processScannedPayload(rawQrData: string) {
-    setIsProcessing(true);
-    setErrorMessage(null);
-
-    // Immediate tactile feedback
-    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate([150, 80, 150]);
-    }
-
+  async function toggleTorch() {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const next = !torchOn;
     try {
-      const res = await fetch(`/api/landing/${brand}/${campaign}/hostess-scan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          password,
-          qrContent: rawQrData,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || 'Failed to record hostess scan');
-      }
-
-      // Close camera immediately to release hardware
-      stopCamera();
-
-      // Show native full-screen success visual feedback
-      const attendeeName = data.lead?.name || 'Attendee';
-      setSuccessAttendee(attendeeName);
-
-      // Auto-reset back to clean scan home after 2.5s
-      setTimeout(() => {
-        setSuccessAttendee(null);
-        setIsProcessing(false);
-        isHandlingScanRef.current = false;
-      }, 2500);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Error processing QR code');
-      setIsProcessing(false);
-      // Resume scanning on error
-      isHandlingScanRef.current = false;
-      if (videoRef.current && isCameraActive) {
-        animationFrameId.current = requestAnimationFrame(() => {});
-      }
+      await track.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] });
+      setTorchOn(next);
+    } catch {
+      setTorchAvailable(false);
     }
   }
 
   useEffect(() => {
-    processScannedPayloadRef.current = processScannedPayload;
-  });
-
-  // Cleanup on unmount
-  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) stopCamera();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
       stopCamera();
     };
-  }, []);
+  }, [stopCamera]);
 
-  // 1. Password Screen (PWA Style)
+  const pageStyle: React.CSSProperties = {
+    minHeight: FULL_HEIGHT,
+    backgroundColor: COLORS.page,
+    color: '#fff',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: 'calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 20px)',
+    userSelect: 'none',
+    WebkitTapHighlightColor: 'transparent',
+  };
+
   if (!isAuthenticated) {
     return (
-      <main className="min-h-screen bg-[#0d1117] text-white flex flex-col justify-center items-center p-6 select-none">
-        <div className="w-full max-w-sm bg-[#161b22] border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur">
-          <div className="flex items-center justify-center w-16 h-16 mx-auto mb-5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400">
-            <IconLock size={32} />
-          </div>
-          <h1 className="text-2xl font-black text-center text-white tracking-tight mb-1">
-            Hostess Check-in
-          </h1>
-          <p className="text-xs text-center text-neutral-400 mb-8 font-medium">
-            {campaignTitle || 'Mr Vegas Grand Slam of Darts'}
-          </p>
+      <Box component="main" style={{ ...pageStyle, justifyContent: 'center' }}>
+        <Paper
+          radius="xl"
+          p="xl"
+          style={{
+            width: '100%',
+            maxWidth: 400,
+            backgroundColor: COLORS.card,
+            border: '1px solid rgba(255,255,255,0.1)',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
+          }}
+        >
+          <Stack gap="lg">
+            <Stack gap={6} align="center">
+              <Box
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 18,
+                  background: 'rgba(16,185,129,0.12)',
+                  border: '1px solid rgba(16,185,129,0.3)',
+                  color: COLORS.accent,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <IconLock size={32} />
+              </Box>
+              <Text component="h1" fw={800} size="xl" ta="center" m={0}>
+                Hostess check-in
+              </Text>
+              <Text size="sm" c="dimmed" ta="center">
+                {title}
+              </Text>
+            </Stack>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block text-[11px] font-bold text-neutral-300 uppercase tracking-wider mb-2">
-                On-Screen Password
-              </label>
-              <input
-                type="text"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3.5 bg-black/50 border border-white/15 rounded-xl text-white font-mono text-sm focus:outline-none focus:border-emerald-500 transition-colors"
-                placeholder="Enter password"
-                autoFocus
-              />
-              <p className="text-[11px] text-neutral-500 mt-2">
-                Preset: <code className="text-emerald-400 font-mono select-all font-bold">{DEFAULT_HOSTESS_PASSWORD}</code>
-              </p>
-            </div>
-
-            {errorMessage && (
-              <div className="p-3 bg-red-950/50 border border-red-700/50 rounded-xl text-xs text-red-200 flex items-center gap-2">
-                <IconAlertCircle size={16} className="shrink-0" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-neutral-950 font-black rounded-xl text-sm uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20"
-            >
-              Unlock Scanner
-            </button>
-          </form>
-        </div>
-      </main>
+            <form onSubmit={handleLogin}>
+              <Stack gap="md">
+                <TextInput
+                  label="Hostess password"
+                  value={password}
+                  onChange={(event) => setPassword(event.currentTarget.value)}
+                  placeholder="Enter password"
+                  size="md"
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  error={loginError}
+                  styles={{
+                    label: { color: '#e5e7eb', fontWeight: 700, marginBottom: 4 },
+                    description: { color: COLORS.muted, marginBottom: 8 },
+                    input: {
+                      backgroundColor: '#0b0f14',
+                      borderColor: 'rgba(255,255,255,0.18)',
+                      color: '#fff',
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                    },
+                    error: { marginTop: 8 },
+                  }}
+                  description={
+                    <>
+                      Preset: <code style={{ color: COLORS.accent, fontWeight: 700 }}>{DEFAULT_HOSTESS_PASSWORD}</code>
+                    </>
+                  }
+                />
+                <Button
+                  type="submit"
+                  size="lg"
+                  radius="md"
+                  fullWidth
+                  style={{ backgroundColor: COLORS.green, fontWeight: 800 }}
+                >
+                  Unlock scanner
+                </Button>
+              </Stack>
+            </form>
+          </Stack>
+        </Paper>
+      </Box>
     );
   }
 
-  // 2. Full-Screen Visual Feedback ("successful, thank you bye")
-  if (successAttendee) {
-    return (
-      <main className="fixed inset-0 z-50 bg-[#00a862] text-white flex flex-col items-center justify-center p-6 text-center select-none animate-in fade-in zoom-in-95">
-        <div className="w-28 h-28 rounded-full bg-white text-[#00a862] flex items-center justify-center mb-6 shadow-2xl animate-bounce">
-          <IconCheck size={68} strokeWidth={3.5} />
-        </div>
-        <h1 className="text-4xl font-black uppercase tracking-wider mb-2">
-          successful
-        </h1>
-        <p className="text-2xl font-bold text-emerald-100 mb-6">
-          thank you bye
-        </p>
-        <div className="px-5 py-2.5 bg-black/20 backdrop-blur rounded-full text-sm font-semibold text-white shadow-inner flex items-center gap-2">
-          <IconSparkles size={16} />
-          <span>{successAttendee} · Moved to Engaged</span>
-        </div>
-      </main>
-    );
-  }
+  const cameraOpen = cameraState !== 'off';
 
-  // 3. Native PWA Hostess Dashboard Screen
   return (
-    <main className="min-h-screen bg-[#0d1117] text-white flex flex-col justify-between p-6 select-none font-sans">
-      {/* PWA Top Header */}
-      <header className="text-center pt-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-bold tracking-wider uppercase mb-3">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Hostess Station</span>
-        </div>
-        <h1 className="text-2xl font-black tracking-tight text-white">
-          {campaignTitle || 'Grand Slam of Darts'}
-        </h1>
-        <p className="text-xs text-neutral-400 mt-1.5">
-          Scan attendee contact cards to auto-advance to Engaged
-        </p>
-      </header>
+    <Box component="main" style={pageStyle}>
+      <Stack gap={6} align="center" ta="center" mt="md" style={{ width: '100%', maxWidth: 420 }}>
+        <Box
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '5px 12px',
+            borderRadius: 999,
+            background: 'rgba(16,185,129,0.12)',
+            border: '1px solid rgba(16,185,129,0.3)',
+            color: COLORS.accent,
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          }}
+        >
+          <span style={{ width: 8, height: 8, borderRadius: 999, background: COLORS.accent }} />
+          Hostess station
+        </Box>
+        <Text component="h1" fw={800} size="xl" m={0}>
+          {title}
+        </Text>
+        <Text size="sm" c="dimmed">
+          Scan an attendee&apos;s badge QR code to check them in.
+        </Text>
+      </Stack>
 
-      {/* Center Action: The Single [Scan QR Code] Hero Button */}
-      <div className="flex flex-col items-center justify-center my-auto py-10 w-full max-w-sm mx-auto">
-        {errorMessage && (
-          <div className="mb-6 p-4 bg-red-950/50 border border-red-700/50 rounded-2xl text-xs text-red-200 text-center flex items-center gap-2 w-full">
-            <IconAlertCircle size={18} className="shrink-0 text-red-400" />
-            <span>{errorMessage}</span>
-          </div>
+      <Stack gap="lg" align="stretch" justify="center" style={{ flex: 1, width: '100%', maxWidth: 420 }}>
+        {startError && (
+          <Paper
+            p="md"
+            radius="lg"
+            role="alert"
+            style={{ background: 'rgba(127,29,29,0.35)', border: '1px solid rgba(248,113,113,0.4)' }}
+          >
+            <Box style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <IconAlertCircle size={20} color="#f87171" style={{ flexShrink: 0, marginTop: 1 }} />
+              <Text size="sm" c="red.2">
+                {startError}
+              </Text>
+            </Box>
+          </Paper>
         )}
 
-        <button
+        <Paper
+          p="lg"
+          radius="lg"
+          style={{ backgroundColor: COLORS.card, border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}
+        >
+          <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
+            Checked in on this phone
+          </Text>
+          <Text fw={900} style={{ fontSize: 48, lineHeight: 1.1 }}>
+            {sessionCount}
+          </Text>
+          <Text size="sm" c="dimmed" mih={20}>
+            {lastName ? `Last: ${lastName}` : 'No one scanned yet'}
+          </Text>
+        </Paper>
+
+        <Button
           type="button"
           onClick={startCamera}
-          className="w-full py-6 px-8 bg-gradient-to-r from-emerald-500 to-emerald-400 active:scale-95 text-neutral-950 font-black text-xl uppercase tracking-wider rounded-3xl shadow-2xl shadow-emerald-500/30 transition-transform flex items-center justify-center gap-3.5 border-2 border-emerald-300/30"
+          size="xl"
+          radius="xl"
+          fullWidth
+          h={76}
+          leftSection={<IconCamera size={30} />}
+          style={{
+            background: `linear-gradient(135deg, ${COLORS.green} 0%, #10b981 100%)`,
+            fontSize: 20,
+            fontWeight: 900,
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+            boxShadow: '0 12px 32px rgba(0,168,98,0.35)',
+          }}
         >
-          <IconCamera size={32} strokeWidth={2.5} />
-          <span>Scan QR Code</span>
-        </button>
-      </div>
+          {startError ? 'Try again' : 'Start scanning'}
+        </Button>
+        <Text size="xs" c="dimmed" ta="center">
+          Each scan moves the attendee to Engaged. The camera stays open for the next person.
+        </Text>
+      </Stack>
 
-      {/* PWA Bottom Status */}
-      <footer className="text-center text-[11px] text-neutral-500 pb-4">
-        Sales Lead Generator · Official Check-in PWA
-      </footer>
+      {cameraOpen && (
+        <Box
+          role="dialog"
+          aria-label="Badge scanner"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            height: FULL_HEIGHT,
+            backgroundColor: '#000',
+            overflow: 'hidden',
+          }}
+        >
+          <video
+            ref={videoRef}
+            muted
+            playsInline
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* FULLSCREEN ISOLATED CAMERA MODAL (Strictly 1 Single Viewport) */}
-      {isCameraActive && (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between">
-          {/* Top Bar with Cancel Button */}
-          <div className="p-5 flex items-center justify-between text-white bg-gradient-to-b from-black/80 to-transparent z-20">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-sm font-bold tracking-wide">Aim at Attendee QR Code</span>
-            </div>
-            <button
-              type="button"
-              onClick={stopCamera}
-              className="w-10 h-10 rounded-full bg-white/20 active:bg-white/30 text-white flex items-center justify-center backdrop-blur transition-colors"
-            >
-              <IconX size={22} />
-            </button>
-          </div>
-
-          {/* Singular Camera Video Layer (Covering middle square) */}
-          <div className="relative flex-1 flex items-center justify-center overflow-hidden">
-            <video
-              ref={videoRef}
-              className="absolute inset-0 w-full h-full object-cover"
-              muted
-              playsInline
-              webkit-playsinline="true"
+          <Box
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+            }}
+          >
+            <Box
+              style={{
+                width: 'min(72vw, 320px)',
+                aspectRatio: '1 / 1',
+                borderRadius: 28,
+                border: `3px solid ${COLORS.accent}`,
+                boxShadow: '0 0 0 100vmax rgba(0,0,0,0.55)',
+              }}
             />
-            <canvas ref={canvasRef} className="hidden" />
+          </Box>
 
-            {/* Glowing Reticle Target */}
-            <div className="relative w-72 h-72 rounded-3xl border-2 border-emerald-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] flex flex-col justify-between p-3 pointer-events-none">
-              <div className="flex justify-between">
-                <span className="w-8 h-8 border-t-4 border-l-4 border-emerald-400 -mt-1.5 -ml-1.5 rounded-tl-xl" />
-                <span className="w-8 h-8 border-t-4 border-r-4 border-emerald-400 -mt-1.5 -mr-1.5 rounded-tr-xl" />
-              </div>
-              <div className="flex justify-between">
-                <span className="w-8 h-8 border-b-4 border-l-4 border-emerald-400 -mb-1.5 -ml-1.5 rounded-bl-xl" />
-                <span className="w-8 h-8 border-b-4 border-r-4 border-emerald-400 -mb-1.5 -mr-1.5 rounded-br-xl" />
-              </div>
-            </div>
+          <Box
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              padding: 'calc(env(safe-area-inset-top) + 14px) 16px 28px',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.75), transparent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}
+          >
+            <Text fw={700} size="md" c="white">
+              {cameraState === 'starting' ? 'Starting camera…' : 'Aim at the badge QR code'}
+            </Text>
+            <Box style={{ display: 'flex', gap: 10 }}>
+              {torchAvailable && (
+                <ActionIcon
+                  size={48}
+                  radius="xl"
+                  variant="filled"
+                  color={torchOn ? 'yellow' : 'dark'}
+                  onClick={toggleTorch}
+                  aria-label={torchOn ? 'Turn the light off' : 'Turn the light on'}
+                  aria-pressed={torchOn}
+                >
+                  {torchOn ? <IconBolt size={24} /> : <IconBoltOff size={24} />}
+                </ActionIcon>
+              )}
+              <ActionIcon
+                size={48}
+                radius="xl"
+                variant="filled"
+                color="dark"
+                onClick={stopCamera}
+                aria-label="Close the scanner"
+              >
+                <IconX size={24} />
+              </ActionIcon>
+            </Box>
+          </Box>
 
-            {/* Loading Spinner during Lead Update */}
-            {isProcessing && (
-              <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center gap-3 z-30">
-                <IconRefresh className="animate-spin text-emerald-400" size={50} />
-                <p className="text-lg font-black text-white uppercase tracking-wider">Moving to Engaged...</p>
-              </div>
-            )}
-          </div>
+          <Box
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              padding: '28px 16px calc(env(safe-area-inset-bottom) + 20px)',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.75), transparent)',
+              textAlign: 'center',
+            }}
+          >
+            <Text size="sm" c="gray.3">
+              Hold the phone steady. {sessionCount > 0 ? `${sessionCount} checked in so far.` : ''}
+            </Text>
+          </Box>
 
-          {/* Bottom Bar Info */}
-          <div className="p-6 bg-gradient-to-t from-black/80 to-transparent text-center z-20">
-            <p className="text-xs text-neutral-300 font-medium">
-              Position the QR code inside the box to check in
-            </p>
-          </div>
-        </div>
+          {processing && !result && (
+            <Box
+              role="status"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(0,0,0,0.7)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 14,
+              }}
+            >
+              <IconRefresh size={48} color={COLORS.accent} style={{ animation: 'spin 1s linear infinite' }} />
+              <Text fw={800} size="lg" c="white">
+                Checking in…
+              </Text>
+              <style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style>
+            </Box>
+          )}
+
+          {result && (
+            <Box
+              role="status"
+              aria-live="assertive"
+              onClick={dismissResult}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundColor:
+                  result.kind === 'success' ? COLORS.green : result.kind === 'repeat' ? COLORS.amber : COLORS.red,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                padding: 28,
+                gap: 12,
+              }}
+            >
+              <Box
+                style={{
+                  width: 112,
+                  height: 112,
+                  borderRadius: 999,
+                  background: '#fff',
+                  color:
+                    result.kind === 'success' ? COLORS.green : result.kind === 'repeat' ? COLORS.amber : COLORS.red,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 8,
+                }}
+              >
+                {result.kind === 'success' && <IconCheck size={68} strokeWidth={3.5} />}
+                {result.kind === 'repeat' && <IconUserCheck size={64} strokeWidth={2.5} />}
+                {result.kind === 'error' && <IconAlertCircle size={68} strokeWidth={2.5} />}
+              </Box>
+
+              {result.kind === 'success' && (
+                <>
+                  <Text fw={900} c="white" tt="uppercase" style={{ fontSize: 36, letterSpacing: '0.04em' }}>
+                    successful
+                  </Text>
+                  <Text fw={700} size="xl" c="green.0">
+                    thank you bye
+                  </Text>
+                  <Text fw={600} c="white" style={{ background: 'rgba(0,0,0,0.2)', padding: '8px 18px', borderRadius: 999 }}>
+                    {result.name} · Moved to Engaged
+                  </Text>
+                </>
+              )}
+              {result.kind === 'repeat' && (
+                <>
+                  <Text fw={900} c="white" tt="uppercase" style={{ fontSize: 32, letterSpacing: '0.04em' }}>
+                    already checked in
+                  </Text>
+                  <Text fw={600} c="white" style={{ background: 'rgba(0,0,0,0.2)', padding: '8px 18px', borderRadius: 999 }}>
+                    {result.name}
+                  </Text>
+                </>
+              )}
+              {result.kind === 'error' && (
+                <>
+                  <Text fw={900} c="white" tt="uppercase" style={{ fontSize: 30, letterSpacing: '0.04em' }}>
+                    not checked in
+                  </Text>
+                  <Text size="lg" c="white" maw={320}>
+                    {result.message}
+                  </Text>
+                </>
+              )}
+              <Text size="xs" c="white" style={{ opacity: 0.75, marginTop: 8 }}>
+                Tap to scan the next badge
+              </Text>
+            </Box>
+          )}
+        </Box>
       )}
-    </main>
+    </Box>
   );
 }

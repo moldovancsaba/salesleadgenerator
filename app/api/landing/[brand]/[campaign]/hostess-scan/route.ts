@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
 import { resolveBrand, getBrandConfig } from '@/app/lib/brand';
-import { parseVCardString, DEFAULT_HOSTESS_PASSWORD } from '@/lib/hostess-scan';
+import { parseVCardString, isAttendeeBadge, DEFAULT_HOSTESS_PASSWORD } from '@/lib/hostess-scan';
 import { buildFingerprint } from '@/lib/fingerprint';
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes } from '@/app/lib/activity-log-store';
 import { executeLeadAction } from '@/app/lib/lead-actions';
@@ -40,6 +40,10 @@ export async function POST(
     const email = parsed.email?.trim().toLowerCase();
     const phone = parsed.phone?.trim();
     const name = parsed.name?.trim() || 'Event Attendee';
+
+    if (!isAttendeeBadge(parsed)) {
+      return NextResponse.json({ error: 'This QR code is not an attendee badge', code: 'NOT_AN_ATTENDEE_BADGE' }, { status: 422 });
+    }
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database unavailable' }, { status: 503 });
@@ -82,6 +86,7 @@ export async function POST(
     const fullHostessNote = hostessNote ? `${hostessTimestamp} Note: ${hostessNote}` : hostessTimestamp;
 
     let leadRecord: any = null;
+    const alreadyCheckedIn = Boolean(existingLead?.hostessContacted);
 
     if (existingLead) {
       const currentTags: string[] = Array.isArray(existingLead.tags) ? existingLead.tags : [];
@@ -202,6 +207,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: `Attendee ${name} accepted and moved to ENGAGED.`,
+      alreadyCheckedIn,
       lead: {
         id: leadRecord._id,
         name,

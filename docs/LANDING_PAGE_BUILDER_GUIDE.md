@@ -67,5 +67,6 @@ When the **Digital Passes** block is enabled:
 For events with on-site hostesses:
 - Open the dedicated PWA scanner at `/landing/[brand]/[campaign]/qrreader`.
 - Enter the hostess password (`iamthevegashostess2026`).
-- Scan any attendee's badge or wallet pass.
-- The lead is automatically advanced to the **"Engaged"** column in the CRM pipeline with timestamped notes.
+- Tap **Start scanning**. The camera stays open: scan one badge after another. The light button appears on devices that support it, and the screen stays awake while scanning.
+- Each result covers the camera and clears by itself: green **successful** (the lead is advanced to the **"Engaged"** column with timestamped notes), amber **already checked in** (the attendee was scanned before), red **not checked in** with the reason (not an attendee badge, no connection, service unavailable).
+- A QR code that is not an attendee badge, such as a link on a poster, creates no lead.

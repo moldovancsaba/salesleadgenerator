@@ -90,3 +90,25 @@ export function parseVCardString(raw: string): ParsedVCardContact {
   result.name = trimmed;
   return result;
 }
+
+/**
+ * True when a scanned QR code is an attendee badge: it carries an email or a phone number, or it is a
+ * structured card (vCard or JSON) with a name. Any other text, a link on a poster for example, is not a badge
+ * and must not create a lead.
+ */
+export function isAttendeeBadge(parsed: ParsedVCardContact): boolean {
+  if (parsed.email || parsed.phone) return true;
+  const raw = parsed.raw.trim();
+  const structured = raw.toUpperCase().includes('BEGIN:VCARD') || (raw.startsWith('{') && raw.endsWith('}'));
+  return structured && Boolean(parsed.name?.trim());
+}
+
+/** The sentence a hostess reads when a scan did not check anyone in. `status` 0 means the request never arrived. */
+export function scanFailureMessage(status: number, serverError?: string): string {
+  if (status === 0) return 'No connection. Check the network, then scan again.';
+  if (status === 422) return 'This QR code is not an attendee badge. Ask the guest to open the badge from their confirmation email.';
+  if (status === 400) return 'The QR code could not be read. Hold the phone steady and scan again.';
+  if (status === 503) return 'Check-in is unavailable right now. Wait a moment, then scan again.';
+  if (status >= 500) return 'Something went wrong on our side. Scan the badge again.';
+  return serverError || 'The scan was not accepted. Scan the badge again.';
+}
