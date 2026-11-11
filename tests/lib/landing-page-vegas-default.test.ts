@@ -84,11 +84,16 @@ describe('check-in scanner config', () => {
     expect(shown.accessCodeHint).toBe('secret-code');
   });
 
-  it('removes the access code from a page record before it reaches a client component', () => {
-    const page = { ...DEFAULT_VEGAS_CAMPAIGN, scanner: { ...DEFAULT_SCANNER_CONFIG, enabled: true, accessCode: 'secret-code' } };
+  it('sends a visitor no scanner settings at all, even when the page shows the code on the reader', () => {
+    const page = { ...DEFAULT_VEGAS_CAMPAIGN, scanner: { ...DEFAULT_SCANNER_CONFIG, enabled: true, accessCode: 'secret-code', showAccessCodeHint: true } };
     const publicPage = toPublicLandingPage(page);
     expect(JSON.stringify(publicPage)).not.toContain('secret-code');
-    expect(publicPage.scanner?.enabled).toBe(true);
+    expect('scanner' in publicPage).toBe(false);
+    expect(publicPage.title).toBe(DEFAULT_VEGAS_CAMPAIGN.title);
+  });
+
+  it('keeps the Vegas landing page free of the hostess access code', () => {
+    expect(JSON.stringify(toPublicLandingPage(DEFAULT_VEGAS_CAMPAIGN))).not.toContain(DEFAULT_HOSTESS_PASSWORD);
   });
 
   it('keeps the Vegas page working exactly as before', () => {

@@ -161,7 +161,8 @@ export interface PublicScannerConfig {
   accessCodeHint: string | null;
 }
 
-export type PublicLandingPageRecord = Omit<LandingPageRecord, 'scanner'> & { scanner?: PublicScannerConfig };
+/** The landing page as a visitor's browser receives it: no scanner settings at all. */
+export type PublicLandingPageRecord = Omit<LandingPageRecord, 'scanner'>;
 
 export function toPublicScannerConfig(config: LandingPageScannerConfig | undefined): PublicScannerConfig {
   const scanner = normalizeScannerConfig(config);
@@ -174,10 +175,10 @@ export function toPublicScannerConfig(config: LandingPageScannerConfig | undefin
   };
 }
 
-/** The page record as a browser may see it: the scanner's access code is removed. */
+/** The page record as a visitor's browser may see it: the scanner settings, including the access code, are removed. */
 export function toPublicLandingPage(page: LandingPageRecord): PublicLandingPageRecord {
-  const { scanner, ...rest } = page;
-  return scanner ? { ...rest, scanner: toPublicScannerConfig(scanner) } : rest;
+  const { scanner: _scanner, ...rest } = page;
+  return rest;
 }
 
 export interface LandingPageRecord {
