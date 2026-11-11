@@ -238,7 +238,8 @@ export function DynamicLandingClient({
             value={val ?? ''}
             onChange={(e) => handleFieldChange(field.id, e.target.value)}
             required={field.required}
-            description={field.description ? <Text size="xs" c="dimmed">{field.description}</Text> : null}
+            // A span: Mantine renders the description inside a <p>, and a <p> inside a <p> is invalid HTML, which breaks hydration.
+            description={field.description ? <Text component="span" size="xs" c="dimmed">{field.description}</Text> : null}
             size="md"
             styles={{
               input: {

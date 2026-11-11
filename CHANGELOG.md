@@ -1,5 +1,12 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.374
+
+### Fixed: the landing page failed to hydrate on every load
+
+- **Field description markup (`app/landing/[brand]/[campaign]/dynamic-landing-client.tsx`, `tests/lib/landing-page-markup.test.tsx`):**
+  - A form field's description was rendered as a paragraph inside the paragraph Mantine puts around it (the Date of Birth hint). A paragraph inside a paragraph is invalid HTML: the browser closes the outer one early, the server markup then differs from what React builds, and React threw error 418 and rebuilt the whole page in the browser on every load. The description is now a span. A test renders the Vegas page and fails on any paragraph inside a paragraph. Checked in Chromium and WebKit: no hydration error on the fixed build, the error present on the build before.
+
 ## 2.4.373
 
 ### Fixed: the page would not scroll with a trackpad or mouse wheel in Safari
