@@ -789,24 +789,7 @@ export function DynamicLandingClient({
 
                   {page.blocks?.showFooterDisclaimer !== false && page.footerDisclaimer && (
                     <Text size="xs" c="dimmed" style={{ lineHeight: 1.5 }} mt={4}>
-                      {page.footerDisclaimer.includes('privacy policy') ? (
-                        <>
-                          {page.footerDisclaimer.replace(/privacy policy\.?/i, '').trim()}{' '}
-                          <Anchor
-                            href="https://r1.marketing-pages.com/p/500W-DNU/mrvegastcs"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            c="#34d399"
-                            underline="always"
-                            size="xs"
-                          >
-                            privacy policy (PP)
-                          </Anchor>
-                          .
-                        </>
-                      ) : (
-                        page.footerDisclaimer
-                      )}
+                      {page.footerDisclaimer}
                     </Text>
                   )}
 
@@ -839,17 +822,6 @@ export function DynamicLandingClient({
                       >
                         Please click HERE to see terms &amp; conditions
                       </Text>
-                      <Text size="xs" c="dimmed">|</Text>
-                      <Anchor
-                        href="https://r1.marketing-pages.com/p/500W-DNU/mrvegastcs"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        size="xs"
-                        c="gray.4"
-                        underline="always"
-                      >
-                        Full GTC &amp; Privacy Policy (External)
-                      </Anchor>
                     </Group>
                   )}
                 </Stack>
@@ -878,19 +850,6 @@ export function DynamicLandingClient({
                 {line}
               </Text>
             ))}
-            <Divider my="xs" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
-            <Text size="xs" c="dimmed">
-              For complete official General Terms &amp; Conditions (GTC) and Privacy Policy (PP), visit:{' '}
-              <Anchor
-                href="https://r1.marketing-pages.com/p/500W-DNU/mrvegastcs"
-                target="_blank"
-                rel="noopener noreferrer"
-                c="#34d399"
-                underline="always"
-              >
-                https://r1.marketing-pages.com/p/500W-DNU/mrvegastcs
-              </Anchor>
-            </Text>
           </Stack>
         </Modal>
       )}

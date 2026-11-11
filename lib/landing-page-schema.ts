@@ -172,15 +172,16 @@ export const DEFAULT_VEGAS_CAMPAIGN: LandingPageRecord = {
   title: 'Win Tickets to the Mr Vegas Grand Slam of Darts',
   description: 'Enter the official Mr Vegas Grand Slam of Darts ticket giveaway. Top players battle it out at WV Active Aldersley for the Eric Bristow Trophy.',
   published: true,
-  heroBannerUrl: 'https://i.emlfiles.com/cmpimg/2/1/3/3/3/2/files/imagecache/25939/w1248_1861178_ga-ticket-giveaway-mrv.jpg',
-  heroHeadline: 'Title sponsors of Grand Slam of Darts Mr Vegas are delighted to offer tickets to this year’s event.',
-  heroSubheadline: 'Located at WV Active Aldersley between 14th – 22nd November, the Mr Vegas Grand Slam of Darts promises to be another enthralling tournament where the top players in the world battle it out for the Eric Bristow Trophy.',
+  heroBannerUrl: '/landing/vegas/mr-vegas-logo.jpg',
+  heroHeadline: 'Hi Darts Fans,',
+  heroSubheadline: 'Welcome to The Mr Vegas Grand Slam of Darts!',
   bodyBullets: [
-    "Simply complete the free to enter entry form for your chance to win tickets to this year's event!",
-    "We look forward to seeing the lucky winners at this year's Mr Vegas Grand Slam of Darts!",
+    'Register your details to play The Mr Vegas Bullseye Challenge.',
+    'Simply hit a Bullseye from 3 darts to win a drinks token and then go into free prize draw to win a signed dart board by the players and a bonus courtesy of Mr Vegas.',
+    'Good Luck!',
   ],
   ctaButtonText: 'Submit Entry',
-  blocks: DEFAULT_BLOCKS_CONFIG,
+  blocks: { ...DEFAULT_BLOCKS_CONFIG, showTermsModal: false },
   design: THEME_PRESETS.dark_emerald,
   fields: [
     {
@@ -238,13 +239,6 @@ export const DEFAULT_VEGAS_CAMPAIGN: LandingPageRecord = {
       placeholder: 'john.smith@example.com',
       type: 'email',
       required: true,
-    },
-    {
-      id: 'f_pdc_consent',
-      leadProperty: 'custom_consent_checkbox',
-      label: "Yes, I'd like to receive emails from the PDC",
-      type: 'checkbox',
-      required: false,
     },
     {
       id: 'f_vegas_consent',

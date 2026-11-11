@@ -197,7 +197,9 @@ export function validateInboundFormSubmission(
   const city = typeof input.city === 'string' ? input.city.trim().slice(0, 80) : '';
   const address = typeof input.address === 'string' ? input.address.trim().slice(0, 200) : '';
   const dateOfBirth = typeof input.dateOfBirth === 'string' ? input.dateOfBirth.trim().slice(0, 30) : '';
-  const consentPdc = input.consentPdc === true || input.consentPdc === 'true' || input.consentPdc === '1' || input.consentPdc === 1;
+  const consentPdc = input.consentPdc === undefined
+    ? undefined
+    : input.consentPdc === true || input.consentPdc === 'true' || input.consentPdc === '1' || input.consentPdc === 1;
   const consentMrVegas = input.consentMrVegas === true || input.consentMrVegas === 'true' || input.consentMrVegas === '1' || input.consentMrVegas === 1;
   const sportOrSector = typeof input.sportOrSector === 'string' ? input.sportOrSector.trim().slice(0, 120) : '';
   const industry = typeof input.industry === 'string' ? input.industry.trim().slice(0, 120) : '';

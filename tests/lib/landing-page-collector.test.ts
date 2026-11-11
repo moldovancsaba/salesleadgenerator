@@ -16,6 +16,21 @@ describe('Landing Page Lead Collector & Vegas Client', () => {
     expect(config?.dbCollection).toBe('vegas_leads');
   });
 
+  it('leaves the PDC opt-in out entirely when the form does not ask for it', () => {
+    const res = validateInboundFormSubmission({
+      firstName: 'Luke',
+      lastName: 'Humphries',
+      contactEmail: 'luke@darts-champ.co.uk',
+      country: 'GB',
+      postCode: 'WV6 9NW',
+      dateOfBirth: '1995-02-11',
+      campaign: 'grand-slam-of-darts',
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.consentPdc).toBeUndefined();
+  });
+
   it('validates landing campaign submission with tournament giveaway fields', () => {
     const input = {
       firstName: 'Luke',
