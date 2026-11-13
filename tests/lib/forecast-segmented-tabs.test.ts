@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-describe('Revenue Forecast Segmented Tabs (Issue #320)', () => {
+describe('Revenue Forecast Segmented Tabs (Issue 320)', () => {
   const validTabs = ['overview', 'waterfall', 'categories', 'winrates'] as const;
 
   it('validates active tab selection against allowed values', () => {

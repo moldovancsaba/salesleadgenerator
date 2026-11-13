@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
-describe('Docs and UI Affordance Consistency (Issue #324)', () => {
+describe('Docs and UI Affordance Consistency (Issue 324)', () => {
   it('AppHeader links version badge directly to /whats-new without brand nesting', () => {
     const headerPath = path.resolve(process.cwd(), 'app/components/AppHeader.tsx');
     const headerSrc = fs.readFileSync(headerPath, 'utf8');

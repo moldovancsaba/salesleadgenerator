@@ -67,11 +67,11 @@ describe('auth gate', () => {
 });
 
 describe('GET /api/admin/clients — list', () => {
-  it('returns the fallback 3 brands when the collection is empty', async () => {
+  it('returns the six fallback brands when the collection is empty', async () => {
     const res = await GET(req('/api/admin/clients'));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.brands.map((b: any) => b.slug).sort()).toEqual(['cogmap', 'dvsc', 'seyu']);
+    expect(body.brands.map((b: any) => b.slug).sort()).toEqual(['cogmap', 'dvsc', 'egm', 'racket-land', 'seyu', 'vegas']);
   });
 
   it('reflects a newly created brand', async () => {

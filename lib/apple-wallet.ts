@@ -1,3 +1,4 @@
+import { EVENT_PASS_COLORS } from '@/lib/theme/event-pass-colors';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -49,45 +50,45 @@ function resolveBrandTheme(brand?: string, brandLabel?: string): {
 
   if (norm === 'vegas' || (brandLabel || '').toLowerCase().includes('vegas')) {
     return {
-      backgroundColor: 'rgb(13, 17, 23)',
-      foregroundColor: 'rgb(255, 255, 255)',
-      labelColor: 'rgb(52, 211, 153)', // emerald green
+      backgroundColor: EVENT_PASS_COLORS.walletVegasBackground,
+      foregroundColor: EVENT_PASS_COLORS.walletForeground,
+      labelColor: EVENT_PASS_COLORS.walletVegasLabel, // emerald green
       displayName: 'Mr Vegas',
     };
   }
 
   if (norm.includes('racket') || norm.includes('padel')) {
     return {
-      backgroundColor: 'rgb(15, 23, 42)',
-      foregroundColor: 'rgb(255, 255, 255)',
-      labelColor: 'rgb(56, 189, 248)', // sky blue
+      backgroundColor: EVENT_PASS_COLORS.walletRacketBackground,
+      foregroundColor: EVENT_PASS_COLORS.walletForeground,
+      labelColor: EVENT_PASS_COLORS.walletRacketLabel, // sky blue
       displayName: brandLabel || 'Racket.land',
     };
   }
 
   if (norm === 'seyu') {
     return {
-      backgroundColor: 'rgb(24, 24, 27)',
-      foregroundColor: 'rgb(255, 255, 255)',
-      labelColor: 'rgb(251, 191, 36)', // gold/amber
+      backgroundColor: EVENT_PASS_COLORS.walletSeyuBackground,
+      foregroundColor: EVENT_PASS_COLORS.walletForeground,
+      labelColor: EVENT_PASS_COLORS.walletSeyuLabel, // gold/amber
       displayName: brandLabel || 'Seyu',
     };
   }
 
   if (norm === 'cogmap') {
     return {
-      backgroundColor: 'rgb(17, 24, 39)',
-      foregroundColor: 'rgb(255, 255, 255)',
-      labelColor: 'rgb(129, 140, 248)', // indigo
+      backgroundColor: EVENT_PASS_COLORS.walletCogmapBackground,
+      foregroundColor: EVENT_PASS_COLORS.walletForeground,
+      labelColor: EVENT_PASS_COLORS.walletCogmapLabel, // indigo
       displayName: brandLabel || 'Cogmap',
     };
   }
 
   // Universal Haho.ai default theme
   return {
-    backgroundColor: 'rgb(10, 15, 29)',
-    foregroundColor: 'rgb(255, 255, 255)',
-    labelColor: 'rgb(16, 185, 129)', // haho emerald
+    backgroundColor: EVENT_PASS_COLORS.walletDefaultBackground,
+    foregroundColor: EVENT_PASS_COLORS.walletForeground,
+    labelColor: EVENT_PASS_COLORS.walletDefaultLabel, // haho emerald
     displayName: brandLabel || 'Haho.ai Events',
   };
 }

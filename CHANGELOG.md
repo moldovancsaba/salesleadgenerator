@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.377
+
+### Fixed: integration fixture isolation and event palette ownership
+
+- **Brand registry integration fixtures (Issue 338):** Updated empty-registry expectations to the six existing fallback clients, retaining populated-registry authority and access-control coverage.
+- **Inbound webhook test isolation (Issue 339):** Clear documents between scenarios in the disposable test database while preserving indexes. The preceding routed-reply scenario harvested its unknown representative address into lead contacts, so the next scenario matched that sender as inbound. The CC-copy case passes in isolation, and the full and shuffled suites now exercise independent scenarios. Production email routing is unchanged.
+- **Event surface styling (Issue 340):** Centralized the unchanged form/scanner/editor, badge, confirmation email and Apple Wallet colors in `lib/theme/event-pass-colors.ts`; moved the five unchanged campaign presets to `lib/theme/landing-page-presets.ts`. SVG, canvas, email and Wallet consumers receive concrete colors without loading a client theme runtime. Removed ambiguous hash-prefixed issue numbers from seven test titles and used the named palette in the existing preset assertion. Apostrophe escaping uses the equivalent decimal HTML entity without a leading zero.
+- **Verification:** Typecheck, lint, default unit suite, all 617 integration tests, smoke, production build and both GDS checks pass. Before/after verification preserves SVG bytes, canvas/QR drawing arguments, all five presets, six wallet theme selections and the confirmation email payload (allowing only the equivalent apostrophe entity). Details and rollback are in `docs/VALIDATION_REMEDIATION_2026-11-13.md`.
+
 ## 2.4.376
 
 ### Vegas Bullseye Challenge: promotion and thank-you wording

@@ -1,6 +1,6 @@
 # Roadmap — Sales Lead Generator
 
-**13 November 2026 validation update:** three pre-existing failures are tracked as Ready in #338–#340 below. Version 2.4.376 aligns Vegas copy with the already-saved live record; prior completion counts in the historical snapshot are not the current open-issue count.
+**13 November 2026 validation update:** #338–#340 are resolved in 2.4.377: all 617 integration tests and the GDS audit now pass, alongside the standard gate. Version 2.4.376 aligned the Vegas defaults with the saved live record. Earlier completion counts below are historical.
 
 **Why this file exists:** GitHub's Projects (v2) board for this repo cannot be read or written from this session — its only API is GraphQL, and this session's GitHub credentials are restricted to a pinned set of PR-review operations (verified directly: a live authenticated GraphQL call was rejected by the session's own proxy, not by GitHub). Classic Projects (the old REST-based board) is gone from GitHub entirely — sunset 2024, fully removed mid-2025 (confirmed live: `GET /repos/.../projects` returns a real `404` from GitHub itself). This file is the substitute: every real open issue, grouped by status, kept in sync by hand whenever an issue's state changes. It is not a replacement for the issues themselves — every row here is a real GitHub issue, this is just a single-page view of all of them.
 
@@ -24,9 +24,7 @@ Last synced: 2026-11-06. Delivered and closed in v2.4.368: #327 ([Rebranding]: R
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
-| [338](https://github.com/moldovancsaba/salesleadgenerator/issues/338) | test: align empty-registry integration expectations with six fallback brands | p3 | Pre-existing on main 833ca0f; reproduced while validating 2.4.376. See Vegas context validation notes. |
-| [339](https://github.com/moldovancsaba/salesleadgenerator/issues/339) | fix: classify representative outreach CC copies as outbound | p2 | Pre-existing on main 833ca0f; reproduced while validating 2.4.376. See Vegas context validation notes. |
-| [340](https://github.com/moldovancsaba/salesleadgenerator/issues/340) | chore: clear existing forbidden-color style audit findings | p3 | Pre-existing on main 833ca0f; reproduced while validating 2.4.376. See Vegas context validation notes. |
+*(None currently open)*
 
 ## Blocked
 
@@ -44,6 +42,9 @@ Last synced: 2026-11-06. Delivered and closed in v2.4.368: #327 ([Rebranding]: R
 
 | # | Title | Resolution |
 |---|---|---|
+| [#338](https://github.com/moldovancsaba/salesleadgenerator/issues/338) | test: align empty-registry integration expectations with six fallback brands | Fixed in 2.4.377: both empty-registry expectations cover the six existing clients; populated-registry authority preserved. |
+| [#339](https://github.com/moldovancsaba/salesleadgenerator/issues/339) | test: isolate inbound webhook scenarios from harvested contacts | Fixed in 2.4.377: disposable DB documents cleared between scenarios, indexes retained; all 23 webhook tests pass in full and shuffled order. No production routing change. |
+| [#340](https://github.com/moldovancsaba/salesleadgenerator/issues/340) | chore: clear existing forbidden-color style audit findings | Fixed in 2.4.377: concrete event colors/presets moved to lib/theme, seven test-title false positives and the preset assertion corrected; audit passes without exemptions; rendering preserved. |
 | [#337](https://github.com/moldovancsaba/salesleadgenerator/issues/337) | feat(landing): Vegas for the event: lead collection only, attendee pass off | Shipped to `main` in 2.4.375: pass, QR, wallet, calendar and pass email off for the Vegas default and for any page with the switch off. The live Vegas record has its own setting and is changed in the editor. |
 | [#336](https://github.com/moldovancsaba/salesleadgenerator/issues/336) | feat(landing): check-in scanner as an SLG-wide module for any landing page | Shipped to `main`: per-page scanner and event settings, server-side access code, forward-only moves, editor tab. Checked on a phone by the owner on 2026-11-11: works. |
 | [#335](https://github.com/moldovancsaba/salesleadgenerator/issues/335) | fix(hostess): the QR reader ships unstyled and loses scans; rebuild its UI and scanning flow | Shipped to `main`: Mantine layout, continuous scanning, badge validation, repeat-scan result. Checked on a phone by the owner on 2026-11-11: works. |

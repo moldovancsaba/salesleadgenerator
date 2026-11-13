@@ -9,6 +9,7 @@
  * installed in this app.
  */
 
+import { EVENT_PASS_COLORS } from '@/lib/theme/event-pass-colors';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import { ActionIcon, Box, Button, Paper, Stack, Text, TextInput } from '@mantine/core';
@@ -46,13 +47,13 @@ const SAME_CODE_IGNORE_MS = 6000;
 const RESULT_MS = { success: 1800, repeat: 2400, error: 3200 } as const;
 
 const COLORS = {
-  page: '#0d1117',
-  card: '#161b22',
-  green: '#00a862',
-  accent: '#34d399',
-  amber: '#d97706',
-  red: '#b91c1c',
-  muted: '#9ca3af',
+  page: EVENT_PASS_COLORS.page,
+  card: EVENT_PASS_COLORS.card,
+  green: EVENT_PASS_COLORS.primary,
+  accent: EVENT_PASS_COLORS.accent,
+  amber: EVENT_PASS_COLORS.warning,
+  red: EVENT_PASS_COLORS.danger,
+  muted: EVENT_PASS_COLORS.textMuted,
 };
 
 const FULL_HEIGHT = '100dvh';
@@ -359,7 +360,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
   const pageStyle: React.CSSProperties = {
     minHeight: FULL_HEIGHT,
     backgroundColor: COLORS.page,
-    color: '#fff',
+    color: EVENT_PASS_COLORS.cssWhite,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -378,8 +379,8 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
             width: '100%',
             maxWidth: 400,
             backgroundColor: COLORS.card,
-            border: '1px solid rgba(255,255,255,0.1)',
-            boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
+            border: `1px solid ${EVENT_PASS_COLORS.scannerBorder}`,
+            boxShadow: `0 24px 60px ${EVENT_PASS_COLORS.scannerShadow}`,
           }}
         >
           <Stack gap="lg">
@@ -389,8 +390,8 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
                   width: 64,
                   height: 64,
                   borderRadius: 18,
-                  background: 'rgba(16,185,129,0.12)',
-                  border: '1px solid rgba(16,185,129,0.3)',
+                  background: EVENT_PASS_COLORS.scannerSuccessSurface,
+                  border: `1px solid ${EVENT_PASS_COLORS.scannerSuccessBorder}`,
                   color: COLORS.accent,
                   display: 'flex',
                   alignItems: 'center',
@@ -421,12 +422,12 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
                   spellCheck={false}
                   error={loginError}
                   styles={{
-                    label: { color: '#e5e7eb', fontWeight: 700, marginBottom: 4 },
+                    label: { color: EVENT_PASS_COLORS.scannerLabel, fontWeight: 700, marginBottom: 4 },
                     description: { color: COLORS.muted, marginBottom: 8 },
                     input: {
-                      backgroundColor: '#0b0f14',
-                      borderColor: 'rgba(255,255,255,0.18)',
-                      color: '#fff',
+                      backgroundColor: EVENT_PASS_COLORS.scannerInput,
+                      borderColor: EVENT_PASS_COLORS.scannerInputBorder,
+                      color: EVENT_PASS_COLORS.cssWhite,
                       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
                     },
                     error: { marginTop: 8 },
@@ -471,8 +472,8 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
             gap: 8,
             padding: '5px 12px',
             borderRadius: 999,
-            background: 'rgba(16,185,129,0.12)',
-            border: '1px solid rgba(16,185,129,0.3)',
+            background: EVENT_PASS_COLORS.scannerSuccessSurface,
+            border: `1px solid ${EVENT_PASS_COLORS.scannerSuccessBorder}`,
             color: COLORS.accent,
             fontSize: 11,
             fontWeight: 800,
@@ -497,10 +498,10 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
             p="md"
             radius="lg"
             role="alert"
-            style={{ background: 'rgba(127,29,29,0.35)', border: '1px solid rgba(248,113,113,0.4)' }}
+            style={{ background: EVENT_PASS_COLORS.scannerErrorSurface, border: `1px solid ${EVENT_PASS_COLORS.scannerErrorBorder}` }}
           >
             <Box style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-              <IconAlertCircle size={20} color="#f87171" style={{ flexShrink: 0, marginTop: 1 }} />
+              <IconAlertCircle size={20} color={EVENT_PASS_COLORS.errorText} style={{ flexShrink: 0, marginTop: 1 }} />
               <Text size="sm" c="red.2">
                 {startError}
               </Text>
@@ -511,7 +512,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
         <Paper
           p="lg"
           radius="lg"
-          style={{ backgroundColor: COLORS.card, border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}
+          style={{ backgroundColor: COLORS.card, border: `1px solid ${EVENT_PASS_COLORS.scannerCardBorder}`, textAlign: 'center' }}
         >
           <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
             Checked in on this phone
@@ -533,12 +534,12 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
           h={76}
           leftSection={<IconCamera size={30} />}
           style={{
-            background: `linear-gradient(135deg, ${COLORS.green} 0%, #10b981 100%)`,
+            background: `linear-gradient(135deg, ${COLORS.green} 0%, ${EVENT_PASS_COLORS.success} 100%)`,
             fontSize: 20,
             fontWeight: 900,
             textTransform: 'uppercase',
             letterSpacing: '0.04em',
-            boxShadow: '0 12px 32px rgba(0,168,98,0.35)',
+            boxShadow: `0 12px 32px ${EVENT_PASS_COLORS.scannerButtonShadow}`,
           }}
         >
           {startError ? 'Try again' : 'Start scanning'}
@@ -557,7 +558,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
             inset: 0,
             zIndex: 1000,
             height: FULL_HEIGHT,
-            backgroundColor: '#000',
+            backgroundColor: EVENT_PASS_COLORS.cssBlack,
             overflow: 'hidden',
           }}
         >
@@ -585,7 +586,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
                 aspectRatio: '1 / 1',
                 borderRadius: 28,
                 border: `3px solid ${COLORS.accent}`,
-                boxShadow: '0 0 0 100vmax rgba(0,0,0,0.55)',
+                boxShadow: `0 0 0 100vmax ${EVENT_PASS_COLORS.cameraMask}`,
               }}
             />
           </Box>
@@ -597,7 +598,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
               left: 0,
               right: 0,
               padding: 'calc(env(safe-area-inset-top) + 14px) 16px 28px',
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.75), transparent)',
+              background: `linear-gradient(to bottom, ${EVENT_PASS_COLORS.cameraGradient}, transparent)`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -641,7 +642,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
               left: 0,
               right: 0,
               padding: '28px 16px calc(env(safe-area-inset-bottom) + 20px)',
-              background: 'linear-gradient(to top, rgba(0,0,0,0.75), transparent)',
+              background: `linear-gradient(to top, ${EVENT_PASS_COLORS.cameraGradient}, transparent)`,
               textAlign: 'center',
             }}
           >
@@ -656,7 +657,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
               style={{
                 position: 'absolute',
                 inset: 0,
-                background: 'rgba(0,0,0,0.7)',
+                background: EVENT_PASS_COLORS.cameraControl,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -696,7 +697,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
                   width: 112,
                   height: 112,
                   borderRadius: 999,
-                  background: '#fff',
+                  background: EVENT_PASS_COLORS.cssWhite,
                   color:
                     result.kind === 'success' ? COLORS.green : result.kind === 'repeat' ? COLORS.amber : COLORS.red,
                   display: 'flex',
@@ -718,7 +719,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
                   <Text fw={700} size="xl" c="green.0">
                     {scanner.successMessage}
                   </Text>
-                  <Text fw={600} c="white" style={{ background: 'rgba(0,0,0,0.2)', padding: '8px 18px', borderRadius: 999 }}>
+                  <Text fw={600} c="white" style={{ background: EVENT_PASS_COLORS.resultLabel, padding: '8px 18px', borderRadius: 999 }}>
                     {result.name} · {columnLabel(result.column)}
                   </Text>
                 </>
@@ -728,7 +729,7 @@ export function HostessQrReaderClient({ brand, campaign, campaignTitle, scanner 
                   <Text fw={900} c="white" tt="uppercase" style={{ fontSize: 32, letterSpacing: '0.04em' }}>
                     already checked in
                   </Text>
-                  <Text fw={600} c="white" style={{ background: 'rgba(0,0,0,0.2)', padding: '8px 18px', borderRadius: 999 }}>
+                  <Text fw={600} c="white" style={{ background: EVENT_PASS_COLORS.resultLabel, padding: '8px 18px', borderRadius: 999 }}>
                     {result.name} · {columnLabel(result.column)}
                   </Text>
                 </>

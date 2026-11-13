@@ -1,3 +1,4 @@
+import { EVENT_PASS_COLORS } from '@/lib/theme/event-pass-colors';
 import { Resend } from 'resend';
 import { createGoogleWalletSaveUrl } from './google-wallet';
 
@@ -114,18 +115,18 @@ export async function sendLandingConfirmationEmail(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(subject)}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #0d1117; color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0d1117; width: 100%;">
+<body style="margin: 0; padding: 0; background-color: ${EVENT_PASS_COLORS.page}; color: ${EVENT_PASS_COLORS.text}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: ${EVENT_PASS_COLORS.page}; width: 100%;">
     <tr>
       <td align="center" style="padding: 40px 16px;">
-        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #161b22; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);">
+        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: ${EVENT_PASS_COLORS.card}; border: 1px solid ${EVENT_PASS_COLORS.borderFrame}; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px ${EVENT_PASS_COLORS.shadowEmail};">
           <!-- Header Banner -->
           <tr>
-            <td style="padding: 32px 32px 24px 32px; background: linear-gradient(135deg, #090d16 0%, #161b22 100%); border-bottom: 1px solid rgba(255, 255, 255, 0.08); text-align: center;">
-              <div style="font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #f59e0b; text-transform: uppercase; margin-bottom: 8px;">
+            <td style="padding: 32px 32px 24px 32px; background: linear-gradient(135deg, ${EVENT_PASS_COLORS.gradientEnd} 0%, ${EVENT_PASS_COLORS.card} 100%); border-bottom: 1px solid ${EVENT_PASS_COLORS.borderEmail}; text-align: center;">
+              <div style="font-size: 13px; font-weight: 800; letter-spacing: 2px; color: ${EVENT_PASS_COLORS.amber}; text-transform: uppercase; margin-bottom: 8px;">
                 ${escapeHtml(brandLabel)}
               </div>
-              <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #ffffff; line-height: 1.3;">
+              <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: ${EVENT_PASS_COLORS.white}; line-height: 1.3;">
                 ${escapeHtml(campaignTitle)}
               </h1>
             </td>
@@ -134,24 +135,24 @@ export async function sendLandingConfirmationEmail(
           <!-- Body Content -->
           <tr>
             <td style="padding: 32px;">
-              <p style="margin: 0 0 16px 0; font-size: 17px; line-height: 1.5; color: #ffffff;">
+              <p style="margin: 0 0 16px 0; font-size: 17px; line-height: 1.5; color: ${EVENT_PASS_COLORS.white};">
                 Hello <strong>${escapeHtml(recipientName)}</strong>,
               </p>
-              <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: #9ca3af;">
+              <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: ${EVENT_PASS_COLORS.textMuted};">
                 Thank you for your submission! Your entry has been recorded. Below you will find your official attendee pass and direct links to save it to your phone for instant check-in.
               </p>
 
               <!-- Event Details Box -->
-              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 28px; background-color: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 28px; background-color: ${EVENT_PASS_COLORS.surfaceEmail}; border: 1px solid ${EVENT_PASS_COLORS.borderEmail}; border-radius: 12px;">
                 <tr>
                   <td style="padding: 16px 20px;">
-                    <div style="font-size: 12px; font-weight: 700; color: #34d399; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+                    <div style="font-size: 12px; font-weight: 700; color: ${EVENT_PASS_COLORS.accent}; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
                       Attendee Details
                     </div>
-                    <div style="font-size: 15px; font-weight: 600; color: #f3f4f6; margin-bottom: 8px;">
+                    <div style="font-size: 15px; font-weight: 600; color: ${EVENT_PASS_COLORS.text}; margin-bottom: 8px;">
                       ${escapeHtml(recipientName)} (${escapeHtml(recipientEmail)})
                     </div>
-                    <div style="font-size: 13px; color: #9ca3af;">
+                    <div style="font-size: 13px; color: ${EVENT_PASS_COLORS.textMuted};">
                       ${venue ? `<strong>Venue:</strong> ${escapeHtml(venue)}<br>` : ''}
                       ${eventDate ? `<strong>Date:</strong> ${escapeHtml(eventDate)}` : ''}
                     </div>
@@ -162,9 +163,9 @@ export async function sendLandingConfirmationEmail(
               <!-- Badge Preview Image -->
               <div style="text-align: center; margin-bottom: 28px;">
                 <a href="${escapeHtml(badgeImageUrl)}" target="_blank" style="text-decoration: none; display: inline-block;">
-                  <img src="${escapeHtml(badgeImageUrl)}" alt="Attendee Event Badge QR Code" width="280" style="width: 280px; max-width: 100%; height: auto; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);" />
+                  <img src="${escapeHtml(badgeImageUrl)}" alt="Attendee Event Badge QR Code" width="280" style="width: 280px; max-width: 100%; height: auto; border-radius: 12px; border: 1px solid ${EVENT_PASS_COLORS.borderControl}; box-shadow: 0 10px 25px ${EVENT_PASS_COLORS.shadowBadge};" />
                 </a>
-                <div style="font-size: 12px; color: #6b7280; margin-top: 8px;">
+                <div style="font-size: 12px; color: ${EVENT_PASS_COLORS.textEmailMuted}; margin-top: 8px;">
                   Tap the badge image to view or download full resolution
                 </div>
               </div>
@@ -174,7 +175,7 @@ export async function sendLandingConfirmationEmail(
                 <!-- Apple Wallet Button -->
                 <tr>
                   <td align="center" style="padding-bottom: 12px;">
-                    <a href="${escapeHtml(appleWalletUrl)}" style="display: block; width: 100%; max-width: 320px; box-sizing: border-box; background-color: #000000; color: #ffffff; text-align: center; padding: 14px 20px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none; border: 1px solid rgba(255, 255, 255, 0.25);">
+                    <a href="${escapeHtml(appleWalletUrl)}" style="display: block; width: 100%; max-width: 320px; box-sizing: border-box; background-color: ${EVENT_PASS_COLORS.black}; color: ${EVENT_PASS_COLORS.white}; text-align: center; padding: 14px 20px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none; border: 1px solid ${EVENT_PASS_COLORS.borderWallet};">
                        Add to Apple Wallet (.pkpass)
                     </a>
                   </td>
@@ -183,7 +184,7 @@ export async function sendLandingConfirmationEmail(
                 <!-- Google Wallet Button -->
                 <tr>
                   <td align="center" style="padding-bottom: 12px;">
-                    <a href="${escapeHtml(googleWalletUrl)}" style="display: block; width: 100%; max-width: 320px; box-sizing: border-box; background-color: #1f2937; color: #ffffff; text-align: center; padding: 14px 20px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none; border: 1px solid rgba(255, 255, 255, 0.15);">
+                    <a href="${escapeHtml(googleWalletUrl)}" style="display: block; width: 100%; max-width: 320px; box-sizing: border-box; background-color: ${EVENT_PASS_COLORS.emailWalletButton}; color: ${EVENT_PASS_COLORS.white}; text-align: center; padding: 14px 20px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none; border: 1px solid ${EVENT_PASS_COLORS.borderControl};">
                       Save to Google Wallet
                     </a>
                   </td>
@@ -192,14 +193,14 @@ export async function sendLandingConfirmationEmail(
                 <!-- Save Badge PNG Button -->
                 <tr>
                   <td align="center">
-                    <a href="${escapeHtml(badgeImageUrl)}" download="event-badge.svg" style="display: block; width: 100%; max-width: 320px; box-sizing: border-box; background-color: #00a862; color: #ffffff; text-align: center; padding: 14px 20px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none;">
+                    <a href="${escapeHtml(badgeImageUrl)}" download="event-badge.svg" style="display: block; width: 100%; max-width: 320px; box-sizing: border-box; background-color: ${EVENT_PASS_COLORS.primary}; color: ${EVENT_PASS_COLORS.white}; text-align: center; padding: 14px 20px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none;">
                       Save Event Badge Image
                     </a>
                   </td>
                 </tr>
               </table>
 
-              <p style="margin: 32px 0 0 0; font-size: 13px; line-height: 1.6; color: #6b7280; text-align: center;">
+              <p style="margin: 32px 0 0 0; font-size: 13px; line-height: 1.6; color: ${EVENT_PASS_COLORS.textEmailMuted}; text-align: center;">
                 Show your pass or badge QR code to the hostess at the entrance for direct verification and fast-track entry.
               </p>
             </td>
@@ -207,7 +208,7 @@ export async function sendLandingConfirmationEmail(
 
           <!-- Footer -->
           <tr>
-            <td style="padding: 24px 32px; background-color: #0d1117; border-top: 1px solid rgba(255, 255, 255, 0.08); text-align: center; font-size: 12px; color: #4b5563;">
+            <td style="padding: 24px 32px; background-color: ${EVENT_PASS_COLORS.page}; border-top: 1px solid ${EVENT_PASS_COLORS.borderEmail}; text-align: center; font-size: 12px; color: ${EVENT_PASS_COLORS.textEmailFooter};">
               © ${new Date().getFullYear()} ${escapeHtml(brandLabel)}. All rights reserved.
             </td>
           </tr>
@@ -240,5 +241,5 @@ function escapeHtml(unsafe: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/'/g, '&#39;');
 }

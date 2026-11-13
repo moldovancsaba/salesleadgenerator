@@ -35,8 +35,16 @@ afterAll(async () => {
   await stopTestMongo(mongod);
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.restoreAllMocks();
+  // Participant harvesting mutates lead contacts. Keep each scenario independent:
+  // the routed-reply test otherwise leaves its representative as a lead contact,
+  // making the following CC-copy test match the sender and classify it as inbound.
+  // Delete documents rather than dropping collections so cached index guards stay valid.
+  const client = await (await import('../../lib/mongodb')).default;
+  const db = client.db();
+  const collections = await db.listCollections({}, { nameOnly: true }).toArray();
+  await Promise.all(collections.map(({ name }) => db.collection(name).deleteMany({})));
 });
 
 function signedRequest(body: any, secret = TEST_SECRET) {

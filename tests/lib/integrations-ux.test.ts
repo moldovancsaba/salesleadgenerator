@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-describe('Integrations Hub Health Status & Diagnostics (Issue #322)', () => {
+describe('Integrations Hub Health Status & Diagnostics (Issue 322)', () => {
   it('formats verification messages as pass or fail correctly', () => {
     const successMsg = 'Connection verified.';
     const failMsg = 'Verification failed: invalid OAuth token';

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
-describe('Kanban Card UX & Information Architecture (Issue #323)', () => {
+describe('Kanban Card UX & Information Architecture (Issue 323)', () => {
   const cardPath = path.resolve(process.cwd(), 'app/card.tsx');
   const cardSource = fs.readFileSync(cardPath, 'utf8');
 

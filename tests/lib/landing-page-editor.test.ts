@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { EVENT_PASS_COLORS } from '@/lib/theme/event-pass-colors';
 import {
   SLG_LEAD_PROPERTIES,
   THEME_PRESETS,
@@ -27,7 +28,7 @@ describe('Landing Page Editor & SLG Lead Property Alignment', () => {
     expect(THEME_PRESETS.dark_emerald).toBeDefined();
     expect(THEME_PRESETS.gold_luxury).toBeDefined();
     expect(THEME_PRESETS.indigo_tech).toBeDefined();
-    expect(THEME_PRESETS.dark_emerald.primaryColor).toBe('#00a862');
+    expect(THEME_PRESETS.dark_emerald.primaryColor).toBe(EVENT_PASS_COLORS.primary);
   });
 
   it('validates submission with customized dynamic lead properties', () => {

@@ -1,3 +1,4 @@
+import { EVENT_PASS_COLORS } from '@/lib/theme/event-pass-colors';
 import { NextRequest, NextResponse } from 'next/server';
 import QRCode from 'qrcode';
 import { buildVCardString, AttendeeCardData } from '@/lib/attendee-card';
@@ -20,12 +21,12 @@ function getSvgBadge(data: AttendeeCardData, qrSvg: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" width="800" height="1200">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0d1117" />
-      <stop offset="50%" stop-color="#161b22" />
-      <stop offset="100%" stop-color="#090d16" />
+      <stop offset="0%" stop-color="${EVENT_PASS_COLORS.page}" />
+      <stop offset="50%" stop-color="${EVENT_PASS_COLORS.card}" />
+      <stop offset="100%" stop-color="${EVENT_PASS_COLORS.gradientEnd}" />
     </linearGradient>
     <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="12" stdDeviation="24" flood-color="#00a862" flood-opacity="0.35" />
+      <feDropShadow dx="0" dy="12" stdDeviation="24" flood-color="${EVENT_PASS_COLORS.primary}" flood-opacity="0.35" />
     </filter>
   </defs>
 
@@ -33,30 +34,30 @@ function getSvgBadge(data: AttendeeCardData, qrSvg: string): string {
   <rect width="800" height="1200" fill="url(#bgGrad)" />
 
   <!-- Outer Card Frame -->
-  <rect x="24" y="24" width="752" height="1152" rx="24" fill="none" stroke="rgba(255, 255, 255, 0.12)" stroke-width="2" />
+  <rect x="24" y="24" width="752" height="1152" rx="24" fill="none" stroke="${EVENT_PASS_COLORS.borderFrame}" stroke-width="2" />
 
   <!-- Accent Corners -->
-  <path d="M 24 104 L 24 24 L 104 24" fill="none" stroke="#00a862" stroke-width="4" />
-  <path d="M 776 1096 L 776 1176 L 696 1176" fill="none" stroke="#00a862" stroke-width="4" />
+  <path d="M 24 104 L 24 24 L 104 24" fill="none" stroke="${EVENT_PASS_COLORS.primary}" stroke-width="4" />
+  <path d="M 776 1096 L 776 1176 L 696 1176" fill="none" stroke="${EVENT_PASS_COLORS.primary}" stroke-width="4" />
 
   <!-- Brand & Event Header -->
-  <text x="400" y="75" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="900" font-size="24" fill="#f59e0b" letter-spacing="1">
+  <text x="400" y="75" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="900" font-size="24" fill="${EVENT_PASS_COLORS.amber}" letter-spacing="1">
     ${escapeXml(brandTitle)}
   </text>
-  <text x="400" y="112" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="bold" font-size="22" fill="#ffffff">
+  <text x="400" y="112" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="bold" font-size="22" fill="${EVENT_PASS_COLORS.white}">
     ${escapeXml(eventName)}
   </text>
 
   <!-- Attendee Details -->
-  <text x="400" y="165" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="800" font-size="14" fill="#34d399" letter-spacing="2">
+  <text x="400" y="165" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="800" font-size="14" fill="${EVENT_PASS_COLORS.accent}" letter-spacing="2">
     EVENT PASS ATTENDEE
   </text>
-  <text x="400" y="210" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="900" font-size="38" fill="#ffffff">
+  <text x="400" y="210" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="900" font-size="38" fill="${EVENT_PASS_COLORS.white}">
     ${escapeXml(attendeeName)}
   </text>
 
   <!-- Maximized QR Container Box -->
-  <rect x="80" y="250" width="640" height="640" rx="28" fill="#ffffff" filter="url(#cardShadow)" />
+  <rect x="80" y="250" width="640" height="640" rx="28" fill="${EVENT_PASS_COLORS.white}" filter="url(#cardShadow)" />
 
   <!-- QR Code Placement -->
   <g transform="translate(100, 270)">
@@ -66,15 +67,15 @@ function getSvgBadge(data: AttendeeCardData, qrSvg: string): string {
   </g>
 
   <!-- Instruction Text -->
-  <text x="400" y="945" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="bold" font-size="20" fill="#34d399">
+  <text x="400" y="945" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="bold" font-size="20" fill="${EVENT_PASS_COLORS.accent}">
     SCAN WITH CAMERA FOR CONTACT CARD
   </text>
-  <text x="400" y="980" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="500" font-size="15" fill="#9ca3af">
+  <text x="400" y="980" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="500" font-size="15" fill="${EVENT_PASS_COLORS.textMuted}">
     Hostess can scan this QR code directly into pipeline (vCard)
   </text>
 
   <!-- Footer Info -->
-  <text x="400" y="1150" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="500" font-size="13" fill="#64748b">
+  <text x="400" y="1150" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-weight="500" font-size="13" fill="${EVENT_PASS_COLORS.textSubtle}">
     ${escapeXml([venue, eventDate].filter(Boolean).join(' • '))}
   </text>
 </svg>`;
@@ -136,8 +137,8 @@ export async function GET(req: NextRequest) {
       width: 600,
       errorCorrectionLevel: 'L',
       color: {
-        dark: '#000000',
-        light: '#ffffff',
+        dark: EVENT_PASS_COLORS.black,
+        light: EVENT_PASS_COLORS.white,
       },
     });
 

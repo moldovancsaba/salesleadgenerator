@@ -6,6 +6,7 @@
  * no scanner settings. Nothing here names a campaign: event name, venue and date come from the page's `event`.
  */
 
+import { EVENT_PASS_COLORS } from '@/lib/theme/event-pass-colors';
 import { useState } from 'react';
 import Image from 'next/image';
 import {
@@ -245,9 +246,9 @@ export function DynamicLandingClient({
             size="md"
             styles={{
               input: {
-                backgroundColor: '#161922',
-                borderColor: 'rgba(255, 255, 255, 0.15)',
-                color: '#fff',
+                backgroundColor: EVENT_PASS_COLORS.input,
+                borderColor: EVENT_PASS_COLORS.borderControl,
+                color: EVENT_PASS_COLORS.cssWhite,
               },
             }}
           />
@@ -267,9 +268,9 @@ export function DynamicLandingClient({
             size="md"
             styles={{
               input: {
-                backgroundColor: '#161922',
-                borderColor: 'rgba(255, 255, 255, 0.15)',
-                color: '#fff',
+                backgroundColor: EVENT_PASS_COLORS.input,
+                borderColor: EVENT_PASS_COLORS.borderControl,
+                color: EVENT_PASS_COLORS.cssWhite,
               },
             }}
           />
@@ -302,17 +303,17 @@ export function DynamicLandingClient({
               }}
               styles={{
                 input: {
-                  backgroundColor: '#161922',
-                  borderColor: 'rgba(255, 255, 255, 0.15)',
-                  color: '#fff',
+                  backgroundColor: EVENT_PASS_COLORS.input,
+                  borderColor: EVENT_PASS_COLORS.borderControl,
+                  color: EVENT_PASS_COLORS.cssWhite,
                 },
                 dropdown: {
-                  backgroundColor: '#161922',
-                  borderColor: 'rgba(255, 255, 255, 0.2)',
-                  color: '#ffffff',
+                  backgroundColor: EVENT_PASS_COLORS.input,
+                  borderColor: EVENT_PASS_COLORS.borderDropdown,
+                  color: EVENT_PASS_COLORS.white,
                 },
                 option: {
-                  color: '#f3f4f6',
+                  color: EVENT_PASS_COLORS.text,
                 },
               }}
             />
@@ -343,17 +344,17 @@ export function DynamicLandingClient({
               }}
               styles={{
                 input: {
-                  backgroundColor: '#161922',
-                  borderColor: 'rgba(255, 255, 255, 0.15)',
-                  color: '#fff',
+                  backgroundColor: EVENT_PASS_COLORS.input,
+                  borderColor: EVENT_PASS_COLORS.borderControl,
+                  color: EVENT_PASS_COLORS.cssWhite,
                 },
                 dropdown: {
-                  backgroundColor: '#161922',
-                  borderColor: 'rgba(255, 255, 255, 0.2)',
-                  color: '#ffffff',
+                  backgroundColor: EVENT_PASS_COLORS.input,
+                  borderColor: EVENT_PASS_COLORS.borderDropdown,
+                  color: EVENT_PASS_COLORS.white,
                 },
                 option: {
-                  color: '#f3f4f6',
+                  color: EVENT_PASS_COLORS.text,
                 },
               }}
             />
@@ -382,17 +383,17 @@ export function DynamicLandingClient({
             }}
             styles={{
               input: {
-                backgroundColor: '#161922',
-                borderColor: 'rgba(255, 255, 255, 0.15)',
-                color: '#fff',
+                backgroundColor: EVENT_PASS_COLORS.input,
+                borderColor: EVENT_PASS_COLORS.borderControl,
+                color: EVENT_PASS_COLORS.cssWhite,
               },
               dropdown: {
-                backgroundColor: '#161922',
-                borderColor: 'rgba(255, 255, 255, 0.2)',
-                color: '#ffffff',
+                backgroundColor: EVENT_PASS_COLORS.input,
+                borderColor: EVENT_PASS_COLORS.borderDropdown,
+                color: EVENT_PASS_COLORS.white,
               },
               option: {
-                color: '#f3f4f6',
+                color: EVENT_PASS_COLORS.text,
               },
             }}
           />
@@ -458,13 +459,13 @@ export function DynamicLandingClient({
           style={{
             backgroundColor: design.cardBackgroundColor,
             border: `1px solid ${design.accentColor}33`,
-            boxShadow: `0 24px 60px rgba(0, 0, 0, 0.8), 0 0 40px ${design.primaryColor}1a`,
+            boxShadow: `0 24px 60px ${EVENT_PASS_COLORS.shadowPage}, 0 0 40px ${design.primaryColor}1a`,
             overflow: 'hidden',
           }}
         >
           {/* Header Banner Block */}
           {page.blocks?.showHeroBanner !== false && page.heroBannerUrl && (
-            <Box style={{ position: 'relative', width: '100%', aspectRatio: page.heroBannerAspectRatio || '1248/562', backgroundColor: '#000' }}>
+            <Box style={{ position: 'relative', width: '100%', aspectRatio: page.heroBannerAspectRatio || '1248/562', backgroundColor: EVENT_PASS_COLORS.cssBlack }}>
               <Image
                 src={page.heroBannerUrl}
                 alt={page.title}
@@ -500,7 +501,7 @@ export function DynamicLandingClient({
                     <Text
                       key={idx}
                       size="sm"
-                      c={idx === page.bodyBullets!.length - 1 ? '#10b981' : 'gray.3'}
+                      c={idx === page.bodyBullets!.length - 1 ? EVENT_PASS_COLORS.success : 'gray.3'}
                       fw={idx === page.bodyBullets!.length - 1 ? 600 : 400}
                       style={{ lineHeight: 1.6 }}
                     >
@@ -510,7 +511,7 @@ export function DynamicLandingClient({
               </Stack>
             )}
 
-            <Divider mb="xl" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+            <Divider mb="xl" style={{ borderColor: EVENT_PASS_COLORS.borderDivider }} />
 
             {/* Form or Confirmation */}
             {submitted ? (
@@ -551,10 +552,10 @@ export function DynamicLandingClient({
                     style={{
                       width: '100%',
                       maxWidth: 420,
-                      backgroundColor: '#0d1117',
+                      backgroundColor: EVENT_PASS_COLORS.page,
                       borderRadius: 16,
                       border: `1px solid ${design.primaryColor}66`,
-                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
+                      boxShadow: `0 8px 32px ${EVENT_PASS_COLORS.shadowCard}`,
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
@@ -576,7 +577,7 @@ export function DynamicLandingClient({
                         width: '100%',
                         borderRadius: 12,
                         overflow: 'hidden',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        border: `1px solid ${EVENT_PASS_COLORS.borderDivider}`,
                       }}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -602,7 +603,7 @@ export function DynamicLandingClient({
                         leftSection={<IconDownload size={18} />}
                         style={{
                           background: `linear-gradient(135deg, ${design.primaryColor} 0%, ${design.primaryColor}cc 100%)`,
-                          color: '#ffffff',
+                          color: EVENT_PASS_COLORS.white,
                           fontWeight: 700,
                         }}
                       >
@@ -632,11 +633,11 @@ export function DynamicLandingClient({
                         variant="default"
                         size="md"
                         fullWidth
-                        leftSection={<IconUserPlus size={18} color="#34d399" />}
+                        leftSection={<IconUserPlus size={18} color={EVENT_PASS_COLORS.accent} />}
                         style={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                          borderColor: 'rgba(255, 255, 255, 0.15)',
-                          color: '#ffffff',
+                          backgroundColor: EVENT_PASS_COLORS.surfaceHover,
+                          borderColor: EVENT_PASS_COLORS.borderControl,
+                          color: EVENT_PASS_COLORS.white,
                           fontWeight: 600,
                         }}
                       >
@@ -659,11 +660,11 @@ export function DynamicLandingClient({
                           variant="default"
                           size="md"
                           fullWidth
-                          leftSection={<IconCalendarEvent size={18} color="#fbbf24" />}
+                          leftSection={<IconCalendarEvent size={18} color={EVENT_PASS_COLORS.gold} />}
                           style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                            borderColor: 'rgba(255, 255, 255, 0.15)',
-                            color: '#ffffff',
+                            backgroundColor: EVENT_PASS_COLORS.surfaceHover,
+                            borderColor: EVENT_PASS_COLORS.borderControl,
+                            color: EVENT_PASS_COLORS.white,
                             fontWeight: 600,
                           }}
                         >
@@ -724,11 +725,11 @@ export function DynamicLandingClient({
                         }}
                         size="md"
                         fullWidth
-                        leftSection={<IconWallet size={18} color="#ffffff" />}
+                        leftSection={<IconWallet size={18} color={EVENT_PASS_COLORS.white} />}
                         style={{
-                          backgroundColor: '#000000',
-                          border: '1px solid rgba(255, 255, 255, 0.25)',
-                          color: '#ffffff',
+                          backgroundColor: EVENT_PASS_COLORS.black,
+                          border: `1px solid ${EVENT_PASS_COLORS.borderWallet}`,
+                          color: EVENT_PASS_COLORS.white,
                           fontWeight: 700,
                         }}
                       >
@@ -741,11 +742,11 @@ export function DynamicLandingClient({
                         target="_blank"
                         size="md"
                         fullWidth
-                        leftSection={<IconWallet size={18} color="#93c5fd" />}
+                        leftSection={<IconWallet size={18} color={EVENT_PASS_COLORS.walletLink} />}
                         style={{
-                          backgroundColor: '#1e293b',
-                          border: '1px solid rgba(255, 255, 255, 0.15)',
-                          color: '#ffffff',
+                          backgroundColor: EVENT_PASS_COLORS.walletButton,
+                          border: `1px solid ${EVENT_PASS_COLORS.borderControl}`,
+                          color: EVENT_PASS_COLORS.white,
                           fontWeight: 700,
                         }}
                       >
@@ -776,13 +777,13 @@ export function DynamicLandingClient({
                       p="sm"
                       radius="md"
                       style={{
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        backgroundColor: EVENT_PASS_COLORS.errorSurface,
+                        border: `1px solid ${EVENT_PASS_COLORS.errorBorder}`,
                       }}
                     >
                       <Group gap="xs" align="center">
-                        <IconAlertCircle size={18} color="#ef4444" />
-                        <Text size="sm" c="#f87171" fw={600}>
+                        <IconAlertCircle size={18} color={EVENT_PASS_COLORS.error} />
+                        <Text size="sm" c={EVENT_PASS_COLORS.errorText} fw={600}>
                           {error}
                         </Text>
                       </Group>
@@ -816,7 +817,7 @@ export function DynamicLandingClient({
                     style={{
                       background: `linear-gradient(135deg, ${design.primaryColor} 0%, ${design.primaryColor}cc 100%)`,
                       boxShadow: `0 4px 20px ${design.primaryColor}66`,
-                      color: '#ffffff',
+                      color: EVENT_PASS_COLORS.white,
                       fontWeight: 800,
                       fontSize: 18,
                       letterSpacing: '0.03em',
@@ -856,8 +857,8 @@ export function DynamicLandingClient({
           centered
           size="lg"
           styles={{
-            content: { backgroundColor: '#181a20', color: '#f3f4f6' },
-            header: { backgroundColor: '#181a20', color: '#f3f4f6' },
+            content: { backgroundColor: EVENT_PASS_COLORS.modal, color: EVENT_PASS_COLORS.text },
+            header: { backgroundColor: EVENT_PASS_COLORS.modal, color: EVENT_PASS_COLORS.text },
           }}
         >
           <Stack gap="sm">

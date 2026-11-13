@@ -207,3 +207,8 @@ Tracked independently from the copy update:
 - `tests/lib/kanban-card-ux.test.ts`
 - `tests/lib/landing-page-editor.test.ts`
 - `tests/lib/outreach-ux-ergonomics.test.ts`
+
+
+## Resolution — 2.4.377
+
+The three integration failures and 16 style findings reported above are resolved in issues 338–340. All 617 integration tests and both GDS checks now pass, alongside the standard quality gate. The webhook failure came from shared test data, not a demonstrated production routing defect. See [the remediation record](VALIDATION_REMEDIATION_2026-11-13.md) for diagnosis, rendering comparisons, complete check results and rollback. The earlier findings and counts remain above as a historical baseline.

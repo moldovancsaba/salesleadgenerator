@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-describe('Contacts & Accounts UX Ergonomics (Issue #321)', () => {
+describe('Contacts & Accounts UX Ergonomics (Issue 321)', () => {
   type Contact = {
     name: string;
     phone: string;

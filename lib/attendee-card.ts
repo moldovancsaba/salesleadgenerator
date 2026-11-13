@@ -3,6 +3,7 @@
  * The badge QR code is the vCard built here; the check-in scanner reads it back. Event name, venue and date come
  * from the landing page's `event` settings; this module carries no campaign defaults.
  */
+import { EVENT_PASS_COLORS } from '@/lib/theme/event-pass-colors';
 import QRCode from 'qrcode';
 
 export interface AttendeeCardData {
@@ -86,8 +87,8 @@ export async function generateAttendeeBadgePng(data: AttendeeCardData): Promise<
     width: 640,
     errorCorrectionLevel: 'L',
     color: {
-      dark: '#000000',
-      light: '#ffffff',
+      dark: EVENT_PASS_COLORS.black,
+      light: EVENT_PASS_COLORS.white,
     },
   });
 
@@ -103,22 +104,22 @@ export async function generateAttendeeBadgePng(data: AttendeeCardData): Promise<
 
   // 1. Dark Premium Gradient Background
   const bgGrad = ctx.createLinearGradient(0, 0, width, height);
-  bgGrad.addColorStop(0, '#0d1117');
-  bgGrad.addColorStop(0.5, '#161b22');
-  bgGrad.addColorStop(1, '#090d16');
+  bgGrad.addColorStop(0, EVENT_PASS_COLORS.page);
+  bgGrad.addColorStop(0.5, EVENT_PASS_COLORS.card);
+  bgGrad.addColorStop(1, EVENT_PASS_COLORS.gradientEnd);
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, width, height);
 
   // 2. Border Card Frame
   ctx.save();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.strokeStyle = EVENT_PASS_COLORS.borderFrame;
   ctx.lineWidth = 2;
   roundRect(ctx, 24, 24, width - 48, height - 48, 24);
   ctx.stroke();
   ctx.restore();
 
   // Accent Corner Ornaments
-  ctx.fillStyle = '#00a862';
+  ctx.fillStyle = EVENT_PASS_COLORS.primary;
   ctx.fillRect(24, 24, 80, 4);
   ctx.fillRect(24, 24, 4, 80);
   ctx.fillRect(width - 104, height - 28, 80, 4);
@@ -127,26 +128,26 @@ export async function generateAttendeeBadgePng(data: AttendeeCardData): Promise<
   // 3. Compact Header
   let currentY = 55;
 
-  ctx.fillStyle = '#f59e0b';
+  ctx.fillStyle = EVENT_PASS_COLORS.amber;
   ctx.font = '900 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText((data.brandLabel || data.eventName || 'EVENT').toUpperCase(), width / 2, currentY);
 
   currentY += 32;
 
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = EVENT_PASS_COLORS.white;
   ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText(data.eventName || 'Event pass', width / 2, currentY);
 
   currentY += 45;
 
   // 4. Attendee Name (Prominent & Clear)
-  ctx.fillStyle = '#34d399';
+  ctx.fillStyle = EVENT_PASS_COLORS.accent;
   ctx.font = '800 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText('EVENT PASS ATTENDEE', width / 2, currentY);
 
   currentY += 36;
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = EVENT_PASS_COLORS.white;
   ctx.font = '900 38px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText(data.name || 'Guest Attendee', width / 2, currentY);
 
@@ -156,8 +157,8 @@ export async function generateAttendeeBadgePng(data: AttendeeCardData): Promise<
   const qrBoxSize = 640;
   const qrBoxX = (width - qrBoxSize) / 2;
   ctx.save();
-  ctx.fillStyle = '#ffffff';
-  ctx.shadowColor = 'rgba(0, 168, 98, 0.4)';
+  ctx.fillStyle = EVENT_PASS_COLORS.white;
+  ctx.shadowColor = EVENT_PASS_COLORS.qrGlow;
   ctx.shadowBlur = 35;
   ctx.shadowOffsetY = 8;
   roundRect(ctx, qrBoxX, currentY, qrBoxSize, qrBoxSize, 28);
@@ -171,20 +172,20 @@ export async function generateAttendeeBadgePng(data: AttendeeCardData): Promise<
   currentY += qrBoxSize + 40;
 
   // 6. Hostess Scanning Instructions
-  ctx.fillStyle = '#34d399';
+  ctx.fillStyle = EVENT_PASS_COLORS.accent;
   ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('SCAN WITH CAMERA FOR CONTACT CARD', width / 2, currentY);
 
   currentY += 28;
-  ctx.fillStyle = '#9ca3af';
+  ctx.fillStyle = EVENT_PASS_COLORS.textMuted;
   ctx.font = '500 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText('Hostess can scan this QR code directly into pipeline (vCard)', width / 2, currentY);
 
   // 7. Footer: Venue & Date
   const footerY = height - 45;
   const details = [data.venue, data.eventDate].filter(Boolean).join(' • ');
-  ctx.fillStyle = '#64748b';
+  ctx.fillStyle = EVENT_PASS_COLORS.textSubtle;
   ctx.font = '500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText(details, width / 2, footerY);
 

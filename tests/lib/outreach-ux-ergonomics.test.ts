@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { AVAILABLE_TEMPLATE_TOKENS } from '@/app/outreach/templates/[brand]/templates-client';
 
-describe('Outreach Templates & Cadences Ergonomics (Issue #318)', () => {
+describe('Outreach Templates & Cadences Ergonomics (Issue 318)', () => {
   it('exposes standard template tokens for 1-click insertion', () => {
     const tokens = AVAILABLE_TEMPLATE_TOKENS.map((t) => t.token);
     expect(tokens).toContain('{{first_name}}');

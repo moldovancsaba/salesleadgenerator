@@ -1,5 +1,6 @@
 'use client';
 
+import { EVENT_PASS_COLORS } from '@/lib/theme/event-pass-colors';
 import { useEffect, useState, useTransition } from 'react';
 import {
   ActionIcon,
@@ -404,7 +405,7 @@ export function LandingPagesClient({
         ) : pages.length === 0 ? (
           <Paper p="xl" radius="md" withBorder style={{ textAlign: 'center' }}>
             <Stack align="center" gap="sm">
-              <IconForms size={48} color="#94a3b8" />
+              <IconForms size={48} color={EVENT_PASS_COLORS.editorMuted} />
               <Title order={4}>No Landing Pages Yet</Title>
               <Text size="sm" c="dimmed" style={{ maxWidth: 450 }}>
                 Build your first landing page lead collector for <strong>{brandLabel}</strong>. Choose from verified themes and customize form fields mapped to your CRM.
@@ -516,7 +517,7 @@ export function LandingPagesClient({
         onClose={() => setEditorOpen(false)}
         title={
           <Group gap="xs">
-            <IconForms size={20} color="#6366f1" />
+            <IconForms size={20} color={EVENT_PASS_COLORS.editorSelection} />
             <Text fw={700} size="md">
               {editingPage?.id ? 'Edit Landing Page' : 'Create New Landing Page'}
             </Text>
@@ -644,7 +645,7 @@ export function LandingPagesClient({
                       <Group justify="space-between" align="center">
                         <Box style={{ maxWidth: 380 }}>
                           <Group gap={6} align="center">
-                            <IconWallet size={16} color="#34d399" />
+                            <IconWallet size={16} color={EVENT_PASS_COLORS.accent} />
                             <Text size="sm" fw={600}>
                               Digital Goods: Apple &amp; Google Wallet Passes
                             </Text>
@@ -1181,7 +1182,7 @@ export function LandingPagesClient({
                             withBorder
                             style={{
                               cursor: 'pointer',
-                              borderColor: isSelected ? '#6366f1' : undefined,
+                              borderColor: isSelected ? EVENT_PASS_COLORS.editorSelection : undefined,
                               backgroundColor: preset.cardBackgroundColor,
                               color: preset.textColor,
                             }}
@@ -1217,7 +1218,7 @@ export function LandingPagesClient({
                   <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
                     <TextInput
                       label="Primary Brand Color"
-                      value={editingPage.design?.primaryColor || '#00a862'}
+                      value={editingPage.design?.primaryColor || EVENT_PASS_COLORS.primary}
                       onChange={(e) =>
                         setEditingPage({
                           ...editingPage,
@@ -1230,7 +1231,7 @@ export function LandingPagesClient({
                     />
                     <TextInput
                       label="Accent / Gold Color"
-                      value={editingPage.design?.accentColor || '#fbbf24'}
+                      value={editingPage.design?.accentColor || EVENT_PASS_COLORS.gold}
                       onChange={(e) =>
                         setEditingPage({
                           ...editingPage,
@@ -1243,7 +1244,7 @@ export function LandingPagesClient({
                     />
                     <TextInput
                       label="Background Color"
-                      value={editingPage.design?.backgroundColor || '#07080a'}
+                      value={editingPage.design?.backgroundColor || EVENT_PASS_COLORS.emeraldPage}
                       onChange={(e) =>
                         setEditingPage({
                           ...editingPage,
@@ -1256,7 +1257,7 @@ export function LandingPagesClient({
                     />
                     <TextInput
                       label="Card Color"
-                      value={editingPage.design?.cardBackgroundColor || '#0f1117'}
+                      value={editingPage.design?.cardBackgroundColor || EVENT_PASS_COLORS.emeraldCard}
                       onChange={(e) =>
                         setEditingPage({
                           ...editingPage,

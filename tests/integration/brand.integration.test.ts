@@ -57,9 +57,9 @@ function testBrandRecord(overrides: Partial<Parameters<typeof createBrand>[0]> =
 }
 
 describe('brands collection empty/unavailable — fallback behavior', () => {
-  it('getAllBrandConfigs returns the 3 fallback brands when the collection is genuinely empty', async () => {
+  it('getAllBrandConfigs returns the six fallback brands when the collection is genuinely empty', async () => {
     const all = await getAllBrandConfigs();
-    expect(Object.keys(all).sort()).toEqual(['cogmap', 'dvsc', 'seyu']);
+    expect(Object.keys(all).sort()).toEqual(['cogmap', 'dvsc', 'egm', 'racket-land', 'seyu', 'vegas']);
   });
 
   it('getBrandConfig returns the fallback entry for a known brand', async () => {

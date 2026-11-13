@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.376
+**Version:** 2.4.377
 
 **Production:** https://sales.haho.ai (Legacy alias: salesleadgenerator.vercel.app)
 

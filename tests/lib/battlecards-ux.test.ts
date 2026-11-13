@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-describe('Battlecards Real-Time Search & In-Call Rebuttal Copy (Issue #319)', () => {
+describe('Battlecards Real-Time Search & In-Call Rebuttal Copy (Issue 319)', () => {
   type Objection = { objection: string; response: string };
   type Battlecard = {
     id: string;
