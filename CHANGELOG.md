@@ -1,5 +1,15 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.376
+
+### Vegas Bullseye Challenge: promotion and thank-you wording
+
+- **Updated Vegas campaign defaults (`lib/landing-page-schema.ts`):**
+  - Updated `DEFAULT_VEGAS_CAMPAIGN` to match the client-approved live campaign: the drinks token is provided by the Mr Vegas Team managing the fan zone game, everyone who plays enters the free prize draw, and participation is for people aged 18 and over.
+  - The result screen now says “Thank you for entering!” and “Have a brilliant night at The Mr Vegas Grand Slam of Darts and look out for an email from us very soon.” This changes display copy only; it does not enable a confirmation email or introduce age validation.
+  - The saved production campaign was updated through the authenticated editor on 13 November 2026 at 09:45 Europe/Budapest (`updatedAt: 2026-11-13T08:45:09.668Z`). Public production HTML was checked for the exact promotion, age notice and result text. Form fields, scanner settings and block switches were preserved; digital passes remain off. No test lead was submitted.
+  - Updated the existing default-copy regression assertion. Live change details, evidence and rollback notes are recorded in `docs/VEGAS_CONTEXT_2026-11-13.md` and `docs/vegas-copy-update-2026-11-13.json`.
+
 ## 2.4.375
 
 ### Vegas page for the event: lead collection only, no attendee pass

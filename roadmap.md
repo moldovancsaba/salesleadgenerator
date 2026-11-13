@@ -1,5 +1,7 @@
 # Roadmap — Sales Lead Generator
 
+**13 November 2026 validation update:** three pre-existing failures are tracked as Ready in #338–#340 below. Version 2.4.376 aligns Vegas copy with the already-saved live record; prior completion counts in the historical snapshot are not the current open-issue count.
+
 **Why this file exists:** GitHub's Projects (v2) board for this repo cannot be read or written from this session — its only API is GraphQL, and this session's GitHub credentials are restricted to a pinned set of PR-review operations (verified directly: a live authenticated GraphQL call was rejected by the session's own proxy, not by GitHub). Classic Projects (the old REST-based board) is gone from GitHub entirely — sunset 2024, fully removed mid-2025 (confirmed live: `GET /repos/.../projects` returns a real `404` from GitHub itself). This file is the substitute: every real open issue, grouped by status, kept in sync by hand whenever an issue's state changes. It is not a replacement for the issues themselves — every row here is a real GitHub issue, this is just a single-page view of all of them.
 
 **Keeping this in sync:** whenever an issue opens, closes, or changes status/priority, update its row here in the same change. If this file and GitHub ever disagree, GitHub is the source of truth — fix this file, not the other way around.
@@ -22,7 +24,9 @@ Last synced: 2026-11-06. Delivered and closed in v2.4.368: #327 ([Rebranding]: R
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
-*(None currently open)*
+| [338](https://github.com/moldovancsaba/salesleadgenerator/issues/338) | test: align empty-registry integration expectations with six fallback brands | p3 | Pre-existing on main 833ca0f; reproduced while validating 2.4.376. See Vegas context validation notes. |
+| [339](https://github.com/moldovancsaba/salesleadgenerator/issues/339) | fix: classify representative outreach CC copies as outbound | p2 | Pre-existing on main 833ca0f; reproduced while validating 2.4.376. See Vegas context validation notes. |
+| [340](https://github.com/moldovancsaba/salesleadgenerator/issues/340) | chore: clear existing forbidden-color style audit findings | p3 | Pre-existing on main 833ca0f; reproduced while validating 2.4.376. See Vegas context validation notes. |
 
 ## Blocked
 

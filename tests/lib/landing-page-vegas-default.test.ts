@@ -17,7 +17,8 @@ describe('Vegas Grand Slam of Darts default landing page', () => {
     expect(DEFAULT_VEGAS_CAMPAIGN.heroSubheadline).toBe('Welcome to The Mr Vegas Grand Slam of Darts!');
     expect(DEFAULT_VEGAS_CAMPAIGN.bodyBullets).toEqual([
       'Register your details to play The Mr Vegas Bullseye Challenge.',
-      'Simply hit a Bullseye from 3 darts to win a drinks token and then go into free prize draw to win a signed dart board by the players and a bonus courtesy of Mr Vegas.',
+      'Simply hit a Bullseye from 3 darts to win a drinks token from one of Mr Vegas Team managing the promotion fan zone game and then everyone who plays will be automatically entered into a free prize draw to win a signed dart board by the players and a bonus courtesy of Mr Vegas.',
+      'You must be 18 and over to participate in the Mr Vegas Bullseye Challenge.',
       'Good Luck!',
     ]);
   });

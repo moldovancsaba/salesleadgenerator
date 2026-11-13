@@ -1,6 +1,7 @@
 # Sales Lead Generator
 
-**Version:** 2.4.375  
+**Version:** 2.4.376
+
 **Production:** https://sales.haho.ai (Legacy alias: salesleadgenerator.vercel.app)
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
