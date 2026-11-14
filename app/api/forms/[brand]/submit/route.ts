@@ -231,7 +231,7 @@ export async function POST(
 
         const customEmailEnabled = confirmationEmail?.enabled === true;
         if (customEmailEnabled || passesEnabled) {
-          await sendLandingConfirmationEmail({
+          const emailResult = await sendLandingConfirmationEmail({
             brand,
             brandLabel: config.label,
             campaign: submission.campaign,
@@ -246,6 +246,9 @@ export async function POST(
             fromEmail: config.fromEmail,
             confirmationEmail: customEmailEnabled ? confirmationEmail : undefined,
           });
+          if (!emailResult.sent) {
+            console.error('[API:forms/submit] confirmation email not sent:', emailResult.error);
+          }
         }
       } catch (err) {
         console.error('[API:forms/submit] confirmation email dispatch failed:', err);

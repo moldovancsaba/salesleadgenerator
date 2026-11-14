@@ -1,4 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const resendSendMock = vi.fn();
+
+vi.mock('resend', () => ({
+  Resend: class MockResend {
+    emails = {
+      send: resendSendMock,
+    };
+  },
+}));
+
 import { sendLandingConfirmationEmail } from '@/lib/landing-confirmation-email';
 import { createGoogleWalletSaveUrl, isGoogleWalletConfigured } from '@/lib/google-wallet';
 
@@ -7,6 +18,7 @@ describe('Landing Confirmation Email & Passes', () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    resendSendMock.mockReset();
   });
 
   describe('sendLandingConfirmationEmail', () => {
@@ -37,6 +49,54 @@ describe('Landing Confirmation Email & Passes', () => {
 
       expect(result.sent).toBe(false);
       expect(result.error).toBe('Invalid recipient email');
+    });
+
+    it('falls back to the verified brand@outbound domain when custom fromEmail domain is rejected by Resend', async () => {
+      process.env.RESEND_API_KEY = 're_test_123';
+      delete process.env.RESEND_OUTBOUND_DOMAIN;
+      resendSendMock
+        .mockResolvedValueOnce({
+          data: null,
+          error: { name: 'validation_error', message: 'The mrvegas.com domain is not verified.' },
+        })
+        .mockResolvedValueOnce({
+          data: { id: 're_msg_fallback' },
+          error: null,
+        });
+
+      const result = await sendLandingConfirmationEmail({
+        brand: 'vegas',
+        recipientEmail: 'fan@example.com',
+        recipientName: 'Csaba Moldovan',
+        fromEmail: 'office@mrvegas.com',
+      });
+
+      expect(result).toEqual({ sent: true, messageId: 're_msg_fallback' });
+      expect(resendSendMock).toHaveBeenCalledTimes(2);
+      expect(resendSendMock).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ from: 'office@mrvegas.com' })
+      );
+      expect(resendSendMock).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ from: 'vegas@haho.ai', replyTo: 'office@mrvegas.com' })
+      );
+    });
+
+    it('returns sent: false when Resend returns an API error on the fallback sender', async () => {
+      process.env.RESEND_API_KEY = 're_test_123';
+      resendSendMock.mockResolvedValueOnce({
+        data: null,
+        error: { name: 'validation_error', message: 'Domain not verified' },
+      });
+
+      const result = await sendLandingConfirmationEmail({
+        brand: 'vegas',
+        recipientEmail: 'fan@example.com',
+        recipientName: 'Csaba Moldovan',
+      });
+
+      expect(result).toEqual({ sent: false, error: 'Domain not verified' });
     });
   });
 

@@ -336,19 +336,55 @@ export async function sendLandingConfirmationEmail(
     return { sent: false, error: 'Invalid recipient email' };
   }
 
-  const fromAddress = resolveLandingFromAddress(options.brand, options.fromEmail);
+  const primaryFrom = resolveLandingFromAddress(options.brand, options.fromEmail);
+  const fallbackFrom = resolveLandingFromAddress(options.brand);
   const { subject, html } = buildLandingConfirmationEmailContent(options);
 
   try {
     const resend = new Resend(apiKey);
-    const data = await resend.emails.send({
-      from: fromAddress,
+    const firstAttempt = await resend.emails.send({
+      from: primaryFrom,
       to: options.recipientEmail,
       subject,
       html,
     });
 
-    return { sent: true, messageId: data.data?.id };
+    if (!firstAttempt.error) {
+      return { sent: true, messageId: firstAttempt.data?.id };
+    }
+
+    console.warn(
+      `[landing-confirmation-email] Primary sender (${primaryFrom}) rejected by Resend: ${firstAttempt.error.message || firstAttempt.error.name}`
+    );
+
+    if (primaryFrom !== fallbackFrom) {
+      const replyTo = options.fromEmail?.includes('@') ? options.fromEmail.trim() : undefined;
+      const retryAttempt = await resend.emails.send({
+        from: fallbackFrom,
+        to: options.recipientEmail,
+        subject,
+        html,
+        ...(replyTo ? { replyTo } : {}),
+      });
+
+      if (!retryAttempt.error) {
+        return { sent: true, messageId: retryAttempt.data?.id };
+      }
+
+      console.error(
+        `[landing-confirmation-email] Fallback sender (${fallbackFrom}) rejected by Resend:`,
+        retryAttempt.error
+      );
+      return {
+        sent: false,
+        error: retryAttempt.error.message || retryAttempt.error.name || 'Failed to dispatch email',
+      };
+    }
+
+    return {
+      sent: false,
+      error: firstAttempt.error.message || firstAttempt.error.name || 'Failed to dispatch email',
+    };
   } catch (err: any) {
     console.error('[landing-confirmation-email] Failed to send email via Resend:', err);
     return { sent: false, error: err?.message || 'Failed to dispatch email' };

@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.379
+
+### Fixed: silent Resend sender-domain rejection on landing confirmation emails
+
+- **Automatic verified-domain fallback & Resend error surfacing (`lib/landing-confirmation-email.ts`, `app/api/forms/[brand]/submit/route.ts`):**
+  - Resend's SDK returns `{ data: null, error }` rather than throwing when a brand's configured `fromEmail` domain (such as `office@mrvegas.com`) is not verified for sending on Resend (only `haho.ai`, `direct.haho.ai`, and `leads.haho.ai` are sending-verified).
+  - `sendLandingConfirmationEmail` now checks `firstAttempt.error`, automatically retries with the verified `brand@RESEND_OUTBOUND_DOMAIN` address (`vegas@haho.ai` with `replyTo` preserved for the brand `fromEmail`), logs any Resend error, and returns `{ sent: false, error }` if delivery still fails instead of reporting `{ sent: true }`.
+  - Added unit tests in `tests/lib/landing-confirmation-email.test.ts` covering unverified-domain fallback and Resend API error propagation.
+
 ## 2.4.378
 
 ### Configurable post-submit confirmation emails & Vegas Fan Zone promotional offer
