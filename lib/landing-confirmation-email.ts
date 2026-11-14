@@ -1,11 +1,47 @@
 import { EVENT_PASS_COLORS } from '@/lib/theme/event-pass-colors';
 import { Resend } from 'resend';
 import { createGoogleWalletSaveUrl } from './google-wallet';
+import { LandingPageConfirmationEmailConfig } from './landing-page-schema';
 
 export function resolveLandingFromAddress(brand: string, fromEmail?: string): string {
   if (fromEmail) return fromEmail;
   const domain = process.env.RESEND_OUTBOUND_DOMAIN || 'haho.ai';
   return `${brand}@${domain}`;
+}
+
+export function resolveLandingBaseUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.APP_URL ||
+    process.env.NEXTAUTH_URL ||
+    'https://sales.haho.ai'
+  ).replace(/\/$/, '');
+}
+
+function resolveEmailAssetUrl(url: string | undefined, baseUrl: string): string | undefined {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+    return `${baseUrl}${trimmed}`;
+  }
+  return trimmed;
+}
+
+function formatEmailCopyHtml(text: string): string {
+  const paragraphs = text
+    .replace(/\r\n/g, '\n')
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return paragraphs
+    .map(
+      (paragraph) =>
+        `<p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.65; color: ${EVENT_PASS_COLORS.promoEmailInk};">${escapeHtml(
+          paragraph
+        ).replace(/\n/g, '<br />')}</p>`
+    )
+    .join('\n');
 }
 
 export interface LandingConfirmationEmailOptions {
@@ -21,6 +57,7 @@ export interface LandingConfirmationEmailOptions {
   venue?: string;
   eventDate?: string;
   fromEmail?: string;
+  confirmationEmail?: LandingPageConfirmationEmailConfig;
 }
 
 export interface LandingConfirmationEmailResult {
@@ -29,17 +66,87 @@ export interface LandingConfirmationEmailResult {
   error?: string;
 }
 
+function buildCustomConfirmationEmail(
+  options: LandingConfirmationEmailOptions,
+  config: LandingPageConfirmationEmailConfig,
+  baseUrl: string
+): { subject: string; html: string } {
+  const safeName = options.recipientName?.trim() || 'Guest';
+  const greetingPrefix = config.greetingPrefix?.trim() || 'Dear';
+  const subject =
+    config.subject?.trim() ||
+    options.campaignTitle ||
+    `${options.brandLabel || 'Event'} Confirmation`;
+
+  const ctaImageSrc = resolveEmailAssetUrl(config.ctaImageUrl, baseUrl);
+  const ctaHref = config.ctaLinkUrl?.trim();
+  const ctaAlt = config.ctaImageAlt?.trim() || subject;
+  const signatureImageSrc = resolveEmailAssetUrl(config.signatureImageUrl, baseUrl);
+  const signatureAlt = config.signatureImageAlt?.trim() || options.brandLabel || subject;
+
+  const ctaImgHtml = ctaImageSrc
+    ? `<img src="${escapeHtml(ctaImageSrc)}" alt="${escapeHtml(
+        ctaAlt
+      )}" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; border-radius: 8px;" />`
+    : '';
+
+  const ctaBlockHtml = ctaImgHtml
+    ? ctaHref
+      ? `<div style="margin: 20px 0;"><a href="${escapeHtml(
+          ctaHref
+        )}" target="_blank" rel="noopener noreferrer" style="display: block; text-decoration: none; border: 0;">${ctaImgHtml}</a></div>`
+      : `<div style="margin: 20px 0;">${ctaImgHtml}</div>`
+    : '';
+
+  const signatureBlockHtml = signatureImageSrc
+    ? `<div style="margin: 16px 0 0 0;"><img src="${escapeHtml(signatureImageSrc)}" alt="${escapeHtml(
+        signatureAlt
+      )}" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; border-radius: 6px;" /></div>`
+    : '';
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: ${EVENT_PASS_COLORS.text}; color: ${EVENT_PASS_COLORS.promoEmailInk}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: ${EVENT_PASS_COLORS.text}; width: 100%;">
+    <tr>
+      <td align="center" style="padding: 28px 16px;">
+        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 620px; background-color: ${EVENT_PASS_COLORS.white}; border: 1px solid ${EVENT_PASS_COLORS.scannerLabel}; border-radius: 12px; overflow: hidden;">
+          <tr>
+            <td style="padding: 28px 28px 28px 28px;">
+              <p style="margin: 0 0 14px 0; font-size: 15px; line-height: 1.65; color: ${EVENT_PASS_COLORS.promoEmailInk};">${escapeHtml(
+                `${greetingPrefix} ${safeName},`
+              )}</p>
+              ${config.bodyBeforeCta ? formatEmailCopyHtml(config.bodyBeforeCta) : ''}
+              ${ctaBlockHtml}
+              ${config.bodyAfterCta ? formatEmailCopyHtml(config.bodyAfterCta) : ''}
+              ${signatureBlockHtml}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  return { subject, html };
+}
+
 /**
- * Builds and dispatches a responsive confirmation email with Apple Wallet,
- * Google Wallet, and event badge download links.
+ * Builds the confirmation email subject and HTML body for either a custom promotional email
+ * configuration or the standard attendee pass/wallet email.
  */
-export async function sendLandingConfirmationEmail(
+export function buildLandingConfirmationEmailContent(
   options: LandingConfirmationEmailOptions
-): Promise<LandingConfirmationEmailResult> {
-  const apiKey = (process.env.RESEND_API_KEY || '').trim();
-  if (!apiKey) {
-    console.warn('[landing-confirmation-email] RESEND_API_KEY is not configured; skipping email dispatch.');
-    return { sent: false, error: 'RESEND_API_KEY not configured' };
+): { subject: string; html: string } {
+  const baseUrl = resolveLandingBaseUrl();
+  if (options.confirmationEmail?.enabled) {
+    return buildCustomConfirmationEmail(options, options.confirmationEmail, baseUrl);
   }
 
   const {
@@ -54,14 +161,7 @@ export async function sendLandingConfirmationEmail(
     postCode,
     venue = '',
     eventDate = '',
-    fromEmail,
   } = options;
-
-  if (!recipientEmail || !recipientEmail.includes('@')) {
-    return { sent: false, error: 'Invalid recipient email' };
-  }
-
-  const baseUrl = (process.env.NEXTAUTH_URL || 'https://sales.haho.ai').replace(/\/$/, '');
 
   // 1. Build Apple Wallet download URL
   const applePassParams = new URLSearchParams({
@@ -104,8 +204,6 @@ export async function sendLandingConfirmationEmail(
     brandLabel,
   }) || badgeImageUrl;
 
-  // 4. Resolve sender
-  const fromAddress = resolveLandingFromAddress(brand, fromEmail);
   const subject = `Entry Confirmed: ${campaignTitle} — Your Event Pass`;
 
   const html = `<!DOCTYPE html>
@@ -219,11 +317,33 @@ export async function sendLandingConfirmationEmail(
 </body>
 </html>`;
 
+  return { subject, html };
+}
+
+/**
+ * Builds and dispatches a responsive confirmation email via Resend.
+ */
+export async function sendLandingConfirmationEmail(
+  options: LandingConfirmationEmailOptions
+): Promise<LandingConfirmationEmailResult> {
+  const apiKey = (process.env.RESEND_API_KEY || '').trim();
+  if (!apiKey) {
+    console.warn('[landing-confirmation-email] RESEND_API_KEY is not configured; skipping email dispatch.');
+    return { sent: false, error: 'RESEND_API_KEY not configured' };
+  }
+
+  if (!options.recipientEmail || !options.recipientEmail.includes('@')) {
+    return { sent: false, error: 'Invalid recipient email' };
+  }
+
+  const fromAddress = resolveLandingFromAddress(options.brand, options.fromEmail);
+  const { subject, html } = buildLandingConfirmationEmailContent(options);
+
   try {
     const resend = new Resend(apiKey);
     const data = await resend.emails.send({
       from: fromAddress,
-      to: recipientEmail,
+      to: options.recipientEmail,
       subject,
       html,
     });

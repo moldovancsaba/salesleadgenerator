@@ -7,12 +7,29 @@ import { Db, ObjectId } from 'mongodb';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
 import {
   LandingPageRecord,
+  LandingPageConfirmationEmailConfig,
   DEFAULT_VEGAS_CAMPAIGN,
   THEME_PRESETS,
   normalizeBannerAspectRatio,
   normalizeScannerConfig,
   normalizeEventDetails,
+  normalizeConfirmationEmailConfig,
 } from './landing-page-schema';
+
+export function resolveStoredConfirmationEmail(doc: Record<string, unknown> & {
+  brand?: unknown;
+  slug?: unknown;
+  confirmationEmail?: unknown;
+}): LandingPageConfirmationEmailConfig | undefined {
+  const normalized = normalizeConfirmationEmailConfig(
+    doc.confirmationEmail as Partial<LandingPageConfirmationEmailConfig> | undefined
+  );
+  if (normalized) return normalized;
+  if (doc.brand === DEFAULT_VEGAS_CAMPAIGN.brand && doc.slug === DEFAULT_VEGAS_CAMPAIGN.slug) {
+    return DEFAULT_VEGAS_CAMPAIGN.confirmationEmail;
+  }
+  return undefined;
+}
 
 export const LANDING_PAGES_COLLECTION = 'landing_pages';
 
@@ -86,6 +103,7 @@ export async function getLandingPagesForBrand(
     heroBannerUrl: d.heroBannerUrl,
     heroBannerAspectRatio: normalizeBannerAspectRatio(d.heroBannerAspectRatio),
     scanner: d.scanner ? normalizeScannerConfig(d.scanner) : undefined,
+    confirmationEmail: resolveStoredConfirmationEmail(d),
     event: normalizeEventDetails(d.event),
     heroHeadline: d.heroHeadline,
     heroSubheadline: d.heroSubheadline,
@@ -153,6 +171,7 @@ export async function getLandingPageBySlug(
     heroBannerUrl: doc.heroBannerUrl,
     heroBannerAspectRatio: normalizeBannerAspectRatio(doc.heroBannerAspectRatio),
     scanner: doc.scanner ? normalizeScannerConfig(doc.scanner) : undefined,
+    confirmationEmail: resolveStoredConfirmationEmail(doc),
     event: normalizeEventDetails(doc.event),
     heroHeadline: doc.heroHeadline,
     heroSubheadline: doc.heroSubheadline,
@@ -241,6 +260,9 @@ export async function saveLandingPage(
     heroBannerAspectRatio: normalizeBannerAspectRatio(record.heroBannerAspectRatio),
     ...(record.blocks ? { blocks: record.blocks } : {}),
     ...(record.scanner ? { scanner: scannerToSave } : {}),
+    ...(record.confirmationEmail
+      ? { confirmationEmail: normalizeConfirmationEmailConfig(record.confirmationEmail) }
+      : {}),
     event: normalizeEventDetails(record.event),
     heroHeadline: record.heroHeadline?.trim() || '',
     heroSubheadline: record.heroSubheadline?.trim() || '',

@@ -55,9 +55,26 @@ beforeEach(() => {
   mockDb = { collection: vi.fn(() => collection) };
 });
 
-describe('POST /api/forms/[brand]/submit: attendee pass email', () => {
-  it('collects the lead and sends no pass email when the page has its pass switched off (Vegas)', async () => {
+describe('POST /api/forms/[brand]/submit: confirmation & pass email', () => {
+  it('collects the lead and sends the Vegas promotional confirmation email when custom email is enabled and pass is off', async () => {
     page = DEFAULT_VEGAS_CAMPAIGN;
+    const res = await submit();
+    expect(res.status).toBe(201);
+    expect((await res.json()).submitted).toBe(true);
+    expect(mockDb.collection().insertOne).toHaveBeenCalled();
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        confirmationEmail: DEFAULT_VEGAS_CAMPAIGN.confirmationEmail,
+      })
+    );
+  });
+
+  it('collects the lead and sends no email when both the pass and custom confirmation email are switched off', async () => {
+    page = {
+      ...DEFAULT_VEGAS_CAMPAIGN,
+      confirmationEmail: { ...DEFAULT_VEGAS_CAMPAIGN.confirmationEmail, enabled: false },
+    };
     const res = await submit();
     expect(res.status).toBe(201);
     expect((await res.json()).submitted).toBe(true);
@@ -65,11 +82,20 @@ describe('POST /api/forms/[brand]/submit: attendee pass email', () => {
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
-  it('still sends the pass email for a page that shows the pass', async () => {
-    page = { ...DEFAULT_VEGAS_CAMPAIGN, blocks: { ...DEFAULT_BLOCKS_CONFIG } };
+  it('still sends the pass email for a page that shows the pass and has no custom confirmation email', async () => {
+    page = {
+      ...DEFAULT_VEGAS_CAMPAIGN,
+      blocks: { ...DEFAULT_BLOCKS_CONFIG },
+      confirmationEmail: undefined,
+    };
     const res = await submit();
     expect(res.status).toBe(201);
     expect(mockDb.collection().insertOne).toHaveBeenCalled();
     expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        confirmationEmail: undefined,
+      })
+    );
   });
 });

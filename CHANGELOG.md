@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.378
+
+### Configurable post-submit confirmation emails & Vegas Fan Zone promotional offer
+
+- **Schema-driven custom confirmation emails (Issue #341, `lib/landing-page-schema.ts` `LandingPageConfirmationEmailConfig`, `lib/landing-page-store.ts`, `lib/landing-confirmation-email.ts` `buildLandingConfirmationEmailContent`, `app/api/forms/[brand]/submit/route.ts`):**
+  - Landing pages now support a `confirmationEmail` configuration (editable under **Content & Copy -> Post-Submit Confirmation Email** in `/outreach/landing-pages/[brand]`) with custom subject, greeting prefix (`Dear ${name},`), intro copy, clickable promotional CTA banner image (`ctaImageUrl` -> `ctaLinkUrl`), closing copy, and signature banner image.
+  - `toPublicLandingPage` strips `confirmationEmail` so email template config stays server-side, while `normalizeConfirmationEmailConfig` validates/sanitizes text and URLs and resolves relative `/landing/...` assets against the public site origin for email clients.
+  - Lead-only pages without `confirmationEmail.enabled` and with `showDigitalPasses: false` still send no confirmation email; pages with `showDigitalPasses: true` continue receiving the wallet/badge email unless a custom email is enabled.
+- **Vegas Grand Slam of Darts confirmation email:**
+  - Added the Mr Vegas promotional offer banner (`public/landing/vegas/mr-vegas-offer-banner.jpg`, linking to `https://trk.affiliates.mrvegas.com/o/lN42Wk?lpage=Y3LTFJ&site_id=7015407`) and Grand Slam of Darts signature image (`public/landing/vegas/mr-vegas-grand-slam-signature.jpg`) on `DEFAULT_VEGAS_CAMPAIGN.confirmationEmail` while keeping `showDigitalPasses: false`.
+  - Stored `vegas` / `grand-slam-of-darts` MongoDB records missing `confirmationEmail` automatically fall back to `DEFAULT_VEGAS_CAMPAIGN.confirmationEmail` unless explicitly disabled in the editor.
+
 ## 2.4.377
 
 ### Fixed: integration fixture isolation and event palette ownership

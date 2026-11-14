@@ -42,6 +42,7 @@ Last synced: 2026-11-06. Delivered and closed in v2.4.368: #327 ([Rebranding]: R
 
 | # | Title | Resolution |
 |---|---|---|
+| [#341](https://github.com/moldovancsaba/salesleadgenerator/issues/341) | feat(landing): configurable promotional confirmation emails and Vegas Grand Slam of Darts submit email | Shipped to `main` in 2.4.378: added per-page `confirmationEmail` config, editor UI controls, Fan Zone promotional offer email & static assets in `public/landing/vegas/`, and legacy Vegas DB record fallback while keeping `showDigitalPasses: false`. |
 | [#338](https://github.com/moldovancsaba/salesleadgenerator/issues/338) | test: align empty-registry integration expectations with six fallback brands | Fixed in 2.4.377: both empty-registry expectations cover the six existing clients; populated-registry authority preserved. |
 | [#339](https://github.com/moldovancsaba/salesleadgenerator/issues/339) | test: isolate inbound webhook scenarios from harvested contacts | Fixed in 2.4.377: disposable DB documents cleared between scenarios, indexes retained; all 23 webhook tests pass in full and shuffled order. No production routing change. |
 | [#340](https://github.com/moldovancsaba/salesleadgenerator/issues/340) | chore: clear existing forbidden-color style audit findings | Fixed in 2.4.377: concrete event colors/presets moved to lib/theme, seven test-title false positives and the preset assertion corrected; audit passes without exemptions; rendering preserved. |

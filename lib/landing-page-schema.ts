@@ -176,8 +176,94 @@ export interface PublicScannerConfig {
   accessCodeHint: string | null;
 }
 
-/** The landing page as a visitor's browser receives it: no scanner settings at all. */
-export type PublicLandingPageRecord = Omit<LandingPageRecord, 'scanner'>;
+export interface LandingPageConfirmationEmailConfig {
+  /** Send this custom confirmation email on submit (independent of showDigitalPasses). */
+  enabled: boolean;
+  /** Email subject line. */
+  subject?: string;
+  /** Opening salutation prefix rendered before `${recipientName},` (default: "Dear"). */
+  greetingPrefix?: string;
+  /** Copy rendered between the salutation and the promotional CTA banner (supports line breaks). */
+  bodyBeforeCta?: string;
+  /** Image URL (relative `/landing/...` or https://) for the clickable promotional banner. */
+  ctaImageUrl?: string;
+  /** Destination HTTP(S) URL opened when clicking the promotional banner image. */
+  ctaLinkUrl?: string;
+  /** Accessible alt text for the promotional banner image. */
+  ctaImageAlt?: string;
+  /** Copy rendered below the promotional banner (supports line breaks). */
+  bodyAfterCta?: string;
+  /** Footer signature image URL (relative `/landing/...` or https://). */
+  signatureImageUrl?: string;
+  /** Accessible alt text for the footer signature image. */
+  signatureImageAlt?: string;
+}
+
+function sanitizeConfirmationUrl(raw: unknown, allowRelative: boolean): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  if (allowRelative && trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+    return trimmed.slice(0, 1000);
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return trimmed.slice(0, 1000);
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+function sanitizeConfirmationText(raw: unknown, maxLength: number): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const normalized = raw.replace(/\r\n/g, '\n').trim();
+  if (!normalized) return undefined;
+  return normalized.slice(0, maxLength);
+}
+
+/**
+ * Normalizes a persisted or admin-edited confirmation email configuration, stripping invalid/unsafe URLs.
+ * Returns `undefined` when no configuration object was supplied.
+ */
+export function normalizeConfirmationEmailConfig(
+  raw: Partial<LandingPageConfirmationEmailConfig> | null | undefined
+): LandingPageConfirmationEmailConfig | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  return {
+    enabled: raw.enabled === true,
+    ...(sanitizeConfirmationText(raw.subject, 250) ? { subject: sanitizeConfirmationText(raw.subject, 250) } : {}),
+    ...(sanitizeConfirmationText(raw.greetingPrefix, 60)
+      ? { greetingPrefix: sanitizeConfirmationText(raw.greetingPrefix, 60) }
+      : {}),
+    ...(sanitizeConfirmationText(raw.bodyBeforeCta, 4000)
+      ? { bodyBeforeCta: sanitizeConfirmationText(raw.bodyBeforeCta, 4000) }
+      : {}),
+    ...(sanitizeConfirmationUrl(raw.ctaImageUrl, true)
+      ? { ctaImageUrl: sanitizeConfirmationUrl(raw.ctaImageUrl, true) }
+      : {}),
+    ...(sanitizeConfirmationUrl(raw.ctaLinkUrl, false)
+      ? { ctaLinkUrl: sanitizeConfirmationUrl(raw.ctaLinkUrl, false) }
+      : {}),
+    ...(sanitizeConfirmationText(raw.ctaImageAlt, 250)
+      ? { ctaImageAlt: sanitizeConfirmationText(raw.ctaImageAlt, 250) }
+      : {}),
+    ...(sanitizeConfirmationText(raw.bodyAfterCta, 4000)
+      ? { bodyAfterCta: sanitizeConfirmationText(raw.bodyAfterCta, 4000) }
+      : {}),
+    ...(sanitizeConfirmationUrl(raw.signatureImageUrl, true)
+      ? { signatureImageUrl: sanitizeConfirmationUrl(raw.signatureImageUrl, true) }
+      : {}),
+    ...(sanitizeConfirmationText(raw.signatureImageAlt, 250)
+      ? { signatureImageAlt: sanitizeConfirmationText(raw.signatureImageAlt, 250) }
+      : {}),
+  };
+}
+
+/** The landing page as a visitor's browser receives it: no scanner or admin email config. */
+export type PublicLandingPageRecord = Omit<LandingPageRecord, 'scanner' | 'confirmationEmail'>;
 
 export function toPublicScannerConfig(config: LandingPageScannerConfig | undefined): PublicScannerConfig {
   const scanner = normalizeScannerConfig(config);
@@ -190,9 +276,9 @@ export function toPublicScannerConfig(config: LandingPageScannerConfig | undefin
   };
 }
 
-/** The page record as a visitor's browser may see it: the scanner settings, including the access code, are removed. */
+/** The page record as a visitor's browser may see it: scanner settings and email template config are removed. */
 export function toPublicLandingPage(page: LandingPageRecord): PublicLandingPageRecord {
-  const { scanner: _scanner, ...rest } = page;
+  const { scanner: _scanner, confirmationEmail: _confirmationEmail, ...rest } = page;
   return rest;
 }
 
@@ -211,6 +297,8 @@ export interface LandingPageRecord {
   event?: LandingPageEventDetails;
   // Check-in scanner (QR reader for staff)
   scanner?: LandingPageScannerConfig;
+  // Post-submit promotional / custom confirmation email
+  confirmationEmail?: LandingPageConfirmationEmailConfig;
   // Hero section
   heroBannerUrl?: string;
   /** Width over height of the banner image, so the whole image is shown. Defaults to the 1248/562 email banner. */
@@ -288,6 +376,20 @@ export const DEFAULT_VEGAS_CAMPAIGN: LandingPageRecord = {
     name: 'Mr Vegas Grand Slam of Darts',
     venue: 'WV Active Aldersley, Wolverhampton',
     date: 'November 2026',
+  },
+  confirmationEmail: {
+    enabled: true,
+    subject: 'Thank you for attending The Mr Vegas Grand Slam of Darts',
+    greetingPrefix: 'Dear',
+    bodyBeforeCta:
+      'Thank you for attending The Mr Vegas Grand Slam of Darts and taking part in the fan zone activities courtesy of the sponsor Mr Vegas who have shared their latest promotional offer here for you;',
+    ctaImageUrl: '/landing/vegas/mr-vegas-offer-banner.jpg',
+    ctaLinkUrl: 'https://trk.affiliates.mrvegas.com/o/lN42Wk?lpage=Y3LTFJ&site_id=7015407',
+    ctaImageAlt: 'Mr Vegas — 100% up to £50 Play Now promotional offer',
+    bodyAfterCta:
+      'We hope you had the best time at Mr Vegas Grand Slam of Darts!\nAll the best;\nMr Vegas Grand Slam of Darts',
+    signatureImageUrl: '/landing/vegas/mr-vegas-grand-slam-signature.jpg',
+    signatureImageAlt: 'Mr Vegas — Grand Slam of Darts',
   },
   scanner: {
     enabled: true,

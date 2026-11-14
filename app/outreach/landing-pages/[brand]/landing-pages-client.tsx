@@ -56,6 +56,7 @@ import {
   LandingFormFieldConfig,
   LandingPageDesignConfig,
   LandingPageBlocksConfig,
+  LandingPageConfirmationEmailConfig,
   DEFAULT_BLOCKS_CONFIG,
   DEFAULT_SCANNER_CONFIG,
   SCANNER_TARGET_COLUMNS,
@@ -220,6 +221,7 @@ export function LandingPagesClient({
       template.termsHtml = '';
       template.scanner = { ...DEFAULT_SCANNER_CONFIG, enabled: true };
       template.event = undefined;
+      template.confirmationEmail = undefined;
       setEditingPage(template);
       setActiveTab('blocks');
       setEditorOpen(true);
@@ -831,6 +833,131 @@ export function LandingPagesClient({
                     value={editingPage.successMessage || ''}
                     onChange={(e) => setEditingPage({ ...editingPage, successMessage: e.target.value })}
                   />
+
+                  <Divider my="xs" />
+
+                  <Title order={5}>Post-Submit Confirmation Email</Title>
+                  <Text size="xs" c="dimmed">
+                    Send a branded promotional or thank-you email via Resend after form submission, even when Digital Passes are turned off.
+                  </Text>
+                  <Switch
+                    label="Send custom confirmation email on submit"
+                    checked={editingPage.confirmationEmail?.enabled === true}
+                    onChange={(e) =>
+                      setEditingPage({
+                        ...editingPage,
+                        confirmationEmail: {
+                          ...(editingPage.confirmationEmail || { enabled: false }),
+                          enabled: e.currentTarget.checked,
+                        },
+                      })
+                    }
+                  />
+                  {editingPage.confirmationEmail?.enabled && (
+                    <Stack gap="sm">
+                      <TextInput
+                        label="Email Subject"
+                        placeholder="e.g. Thank you for attending The Mr Vegas Grand Slam of Darts"
+                        value={editingPage.confirmationEmail.subject || ''}
+                        onChange={(e) =>
+                          setEditingPage({
+                            ...editingPage,
+                            confirmationEmail: {
+                              ...(editingPage.confirmationEmail as LandingPageConfirmationEmailConfig),
+                              subject: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                      <TextInput
+                        label="Greeting Prefix"
+                        description="Rendered before the lead's name, e.g. 'Dear Csaba Moldovan,'"
+                        placeholder="Dear"
+                        value={editingPage.confirmationEmail.greetingPrefix || ''}
+                        onChange={(e) =>
+                          setEditingPage({
+                            ...editingPage,
+                            confirmationEmail: {
+                              ...(editingPage.confirmationEmail as LandingPageConfirmationEmailConfig),
+                              greetingPrefix: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                      <Textarea
+                        label="Intro Message (Above Offer Image)"
+                        minRows={3}
+                        value={editingPage.confirmationEmail.bodyBeforeCta || ''}
+                        onChange={(e) =>
+                          setEditingPage({
+                            ...editingPage,
+                            confirmationEmail: {
+                              ...(editingPage.confirmationEmail as LandingPageConfirmationEmailConfig),
+                              bodyBeforeCta: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                      <TextInput
+                        label="CTA Offer Image URL"
+                        description="Relative `/landing/...` path or full `https://` image URL"
+                        placeholder="/landing/vegas/mr-vegas-offer-banner.jpg"
+                        value={editingPage.confirmationEmail.ctaImageUrl || ''}
+                        onChange={(e) =>
+                          setEditingPage({
+                            ...editingPage,
+                            confirmationEmail: {
+                              ...(editingPage.confirmationEmail as LandingPageConfirmationEmailConfig),
+                              ctaImageUrl: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                      <TextInput
+                        label="CTA Image Destination URL"
+                        placeholder="https://trk.affiliates.mrvegas.com/..."
+                        value={editingPage.confirmationEmail.ctaLinkUrl || ''}
+                        onChange={(e) =>
+                          setEditingPage({
+                            ...editingPage,
+                            confirmationEmail: {
+                              ...(editingPage.confirmationEmail as LandingPageConfirmationEmailConfig),
+                              ctaLinkUrl: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                      <Textarea
+                        label="Closing Message (Below Offer Image)"
+                        minRows={3}
+                        value={editingPage.confirmationEmail.bodyAfterCta || ''}
+                        onChange={(e) =>
+                          setEditingPage({
+                            ...editingPage,
+                            confirmationEmail: {
+                              ...(editingPage.confirmationEmail as LandingPageConfirmationEmailConfig),
+                              bodyAfterCta: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                      <TextInput
+                        label="Signature Image URL"
+                        description="Relative `/landing/...` path or full `https://` image URL"
+                        placeholder="/landing/vegas/mr-vegas-grand-slam-signature.jpg"
+                        value={editingPage.confirmationEmail.signatureImageUrl || ''}
+                        onChange={(e) =>
+                          setEditingPage({
+                            ...editingPage,
+                            confirmationEmail: {
+                              ...(editingPage.confirmationEmail as LandingPageConfirmationEmailConfig),
+                              signatureImageUrl: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </Stack>
+                  )}
                 </Stack>
               </Tabs.Panel>
 

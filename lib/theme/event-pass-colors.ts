@@ -77,4 +77,5 @@ export const EVENT_PASS_COLORS = {
   textEmailMuted: '#6b7280',
   emailWalletButton: '#1f2937',
   textEmailFooter: '#4b5563',
+  promoEmailInk: '#111827',
 } as const;
