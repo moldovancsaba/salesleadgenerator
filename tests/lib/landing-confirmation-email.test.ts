@@ -71,7 +71,12 @@ describe('Landing Confirmation Email & Passes', () => {
         fromEmail: 'office@mrvegas.com',
       });
 
-      expect(result).toEqual({ sent: true, messageId: 're_msg_fallback' });
+      expect(result).toEqual({
+        sent: true,
+        messageId: 're_msg_fallback',
+        fromAddress: 'vegas@haho.ai',
+        subject: 'Entry Confirmed: Event Entry Confirmation — Your Event Pass',
+      });
       expect(resendSendMock).toHaveBeenCalledTimes(2);
       expect(resendSendMock).toHaveBeenNthCalledWith(
         1,

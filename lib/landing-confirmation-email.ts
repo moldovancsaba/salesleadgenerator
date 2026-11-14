@@ -63,6 +63,8 @@ export interface LandingConfirmationEmailOptions {
 export interface LandingConfirmationEmailResult {
   sent: boolean;
   messageId?: string;
+  fromAddress?: string;
+  subject?: string;
   error?: string;
 }
 
@@ -350,7 +352,7 @@ export async function sendLandingConfirmationEmail(
     });
 
     if (!firstAttempt.error) {
-      return { sent: true, messageId: firstAttempt.data?.id };
+      return { sent: true, messageId: firstAttempt.data?.id, fromAddress: primaryFrom, subject };
     }
 
     console.warn(
@@ -368,7 +370,7 @@ export async function sendLandingConfirmationEmail(
       });
 
       if (!retryAttempt.error) {
-        return { sent: true, messageId: retryAttempt.data?.id };
+        return { sent: true, messageId: retryAttempt.data?.id, fromAddress: fallbackFrom, subject };
       }
 
       console.error(

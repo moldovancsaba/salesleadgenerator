@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.380
+
+### Backfill confirmation email dispatch & activity logging for submitted landing leads
+
+- **Idempotent backfill endpoint & editor action (Issue #342, `lib/landing-confirmation-backfill.ts`, `app/api/landing-pages/send-confirmations/route.ts`, `app/outreach/landing-pages/[brand]/landing-pages-client.tsx`):**
+  - Added `POST /api/landing-pages/send-confirmations` (authenticated via `requireBrandAccessApi` or `isCronRequest`) and `dispatchConfirmationEmailsForLandingPage` to dispatch the active confirmation email to previously submitted landing page leads in throttled batches (`limit`, default `50`) with `dryRun: true` preview support.
+  - Deduplicates recipients across submitted leads and automatically skips anyone who already received the target `subject` in Resend history or MongoDB `activityLog`.
+  - Added a **Send to Existing Submitted Leads** action button under **Content & Copy -> Post-Submit Confirmation Email** in `/outreach/landing-pages/[brand]`.
+- **Live confirmation email timeline logging (`app/api/forms/[brand]/submit/route.ts`):**
+  - Successful confirmation emails from live form submissions are now recorded as outbound email entries in `activityLog` for visibility and duplicate-send prevention.
+
 ## 2.4.379
 
 ### Fixed: silent Resend sender-domain rejection on landing confirmation emails

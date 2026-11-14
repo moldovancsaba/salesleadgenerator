@@ -58,7 +58,7 @@ When the **Digital Passes** block is enabled:
 - **Apple Wallet (.pkpass)**: The user can tap **"Add to Apple Wallet"** directly on iOS to add a cobranded pass under the `haho.ai` umbrella with their contact info and hostess-scannable QR code.
 - **Google Wallet**: The user can tap **"Add to Google Wallet / View Pass"** to save to their Android Google Wallet or view the high-resolution pass.
 - **Badge Download**: Generates an 800x1200 high-res SVG / PNG badge optimized for camera scanning.
-- **Confirmation Email**: Resend automatically sends an email containing all three pass links directly to their inbox so they can access their digital pass anytime.
+- **Confirmation Email**: Resend automatically sends an email containing all three pass links directly to their inbox so they can access their digital pass anytime. Alternatively, under **Content & Copy -> Post-Submit Confirmation Email**, admins can enable a custom promotional/thank-you email (which sends even when Digital Passes are off) and click **Send to Existing Submitted Leads** to backfill earlier campaign submissions without duplicate sends (`POST /api/landing-pages/send-confirmations`).
 
 ---
 

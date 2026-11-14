@@ -231,7 +231,7 @@ export async function POST(
 
         const customEmailEnabled = confirmationEmail?.enabled === true;
         if (customEmailEnabled || passesEnabled) {
-          const emailResult = await sendLandingConfirmationEmail({
+          const emailOptions = {
             brand,
             brandLabel: config.label,
             campaign: submission.campaign,
@@ -245,9 +245,35 @@ export async function POST(
             eventDate,
             fromEmail: config.fromEmail,
             confirmationEmail: customEmailEnabled ? confirmationEmail : undefined,
-          });
+          };
+          const emailResult = await sendLandingConfirmationEmail(emailOptions);
           if (!emailResult.sent) {
             console.error('[API:forms/submit] confirmation email not sent:', emailResult.error);
+          } else {
+            try {
+              const loggedSubject =
+                emailResult.subject ||
+                (customEmailEnabled ? confirmationEmail?.subject : undefined) ||
+                emailOptions.campaignTitle;
+              await db.collection(ACTIVITY_LOG_COLLECTION).insertOne({
+                leadId,
+                tenantId,
+                brand,
+                type: 'email',
+                direction: 'outbound',
+                fromAddress: emailResult.fromAddress || config.fromEmail || `${brand}@haho.ai`,
+                toAddresses: [submission.contactEmail],
+                subject: loggedSubject,
+                bodyExcerpt: truncateBody(
+                  `Landing page confirmation email sent to ${submission.contactName} (${submission.contactEmail}).`
+                ),
+                matchedContactKey: submission.contactEmail.toLowerCase(),
+                source: 'manual',
+                createdAt: new Date(),
+              });
+            } catch {
+              // Non-fatal
+            }
           }
         }
       } catch (err) {

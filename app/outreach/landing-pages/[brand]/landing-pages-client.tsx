@@ -80,6 +80,69 @@ export function LandingPagesClient({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingPage, setEditingPage] = useState<LandingPageRecord | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('content');
+  const [sendingBackfill, setSendingBackfill] = useState(false);
+
+  const handleSendToSubmittedLeads = async () => {
+    if (!editingPage?.slug || sendingBackfill) return;
+    setSendingBackfill(true);
+    try {
+      const previewRes = await fetch('/api/landing-pages/send-confirmations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand, slug: editingPage.slug, dryRun: true }),
+      });
+      const preview = await previewRes.json();
+      if (!previewRes.ok) {
+        throw new Error(preview.error || 'Failed to check submitted leads');
+      }
+      if (preview.remaining === 0) {
+        notifications.show({
+          title: 'All Caught Up',
+          message: `All ${preview.uniqueRecipients} unique submitted lead(s) have already received this email.`,
+          color: 'teal',
+        });
+        return;
+      }
+
+      const proceed = window.confirm(
+        `Send "${preview.subject}" to ${preview.remaining} submitted lead(s)? (${preview.skippedAlreadySent} already sent will be skipped.)`
+      );
+      if (!proceed) return;
+
+      let totalSent = 0;
+      let totalFailed = 0;
+      let remaining = preview.remaining as number;
+      while (remaining > 0) {
+        const sendRes = await fetch('/api/landing-pages/send-confirmations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ brand, slug: editingPage.slug, dryRun: false, limit: 50 }),
+        });
+        const batch = await sendRes.json();
+        if (!sendRes.ok) {
+          throw new Error(batch.error || 'Batch send failed');
+        }
+        totalSent += Number(batch.sent || 0);
+        totalFailed += Number(batch.failed || 0);
+        remaining = Number(batch.remaining || 0);
+        if (Number(batch.attempted || 0) === 0) break;
+      }
+
+      notifications.show({
+        title: 'Confirmation Emails Sent',
+        message: `Delivered ${totalSent} email(s)${totalFailed > 0 ? `, ${totalFailed} failed` : ''}.`,
+        color: totalFailed > 0 ? 'yellow' : 'teal',
+      });
+    } catch (err: any) {
+      notifications.show({
+        title: 'Email Dispatch Error',
+        message: err?.message || 'Failed to send confirmation emails',
+        color: 'red',
+      });
+    } finally {
+      setSendingBackfill(false);
+    }
+  };
 
   // Load pages
   const loadPages = async () => {
@@ -956,6 +1019,19 @@ export function LandingPagesClient({
                           })
                         }
                       />
+                      <Group justify="space-between" align="center" pt="xs">
+                        <Text size="xs" c="dimmed">
+                          Need to email leads that submitted before this template was active?
+                        </Text>
+                        <Button
+                          variant="light"
+                          size="xs"
+                          loading={sendingBackfill}
+                          onClick={handleSendToSubmittedLeads}
+                        >
+                          Send to Existing Submitted Leads
+                        </Button>
+                      </Group>
                     </Stack>
                   )}
                 </Stack>
