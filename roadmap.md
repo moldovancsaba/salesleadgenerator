@@ -238,3 +238,7 @@ Last synced: 2026-11-06. Delivered and closed in v2.4.368: #327 ([Rebranding]: R
 
 - **Priority**: P1 = high, P2 = medium, P3 = low — matches each issue's own GitHub label.
 - **Status groups** here mirror what a project board's columns would show (In Progress / Ready / Blocked) — primarily derived from each issue's own `status:` label, not a separate tracking mechanism, with documented exceptions noted inline where a single issue's real-world state doesn't collapse cleanly into one label.
+
+## Completed review — 2026-11-15
+
+- [#343](https://github.com/moldovancsaba/salesleadgenerator/issues/343): read-only board review and manual movement journal. Project 56 is readable and canonical; older access notes describe prior sessions. No board write.

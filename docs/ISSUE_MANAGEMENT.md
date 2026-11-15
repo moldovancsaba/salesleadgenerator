@@ -151,3 +151,7 @@ Since no board is reachable, **`roadmap.md`** (repo root) is the single-page vie
 - `roadmap.md` — the live, current status board substitute.
 - `docs/ARCHITECTURE.md`'s "Project & Issue Management" section — a short pointer back here, in context with the rest of the system's architecture.
 - `docs/LLD.md`'s "GitHub Issue Management & Tooling" section — the same tooling detail from §2 above, positioned alongside this repo's other implementation-depth internals.
+
+## Current project access — 2026-11-15
+
+Project 56 reads succeeded in the current review. Earlier session/proxy restrictions above remain historical observations, not a current blanket prohibition on reads. The owner requires the board to remain read-only: no card/status/field changes, label-driven movements or automatic reconciliation. Conditional proposals and unavailable evidence belong in docs/PROJECT_BOARD_MOVEMENT_LOG.md; the board remains the canonical tracking source. Tracking issue: #343.

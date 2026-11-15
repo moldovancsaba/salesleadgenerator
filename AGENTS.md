@@ -135,3 +135,7 @@ a real user completed a real login — every local check had exercised the winni
 matches the new one — a green build proves nothing about this. Consider a route-collision check script in
 CI if this project grows enough App Router pages that this becomes plausible (see
 `management/scripts/check-route-collisions.mjs` for a working, proven implementation to copy).
+
+## Current project access — 2026-11-15
+
+Project 56 reads succeeded in the current review. Earlier session/proxy restrictions above remain historical observations, not a current blanket prohibition on reads. The owner requires the board to remain read-only: no card/status/field changes, label-driven movements or automatic reconciliation. Conditional proposals and unavailable evidence belong in docs/PROJECT_BOARD_MOVEMENT_LOG.md; the board remains the canonical tracking source. Tracking issue: #343.
