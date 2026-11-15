@@ -4,6 +4,8 @@ import { createGoogleWalletSaveUrl } from './google-wallet';
 import { LandingPageConfirmationEmailConfig } from './landing-page-schema';
 
 export function resolveLandingFromAddress(brand: string, fromEmail?: string): string {
+  // Vegas confirmations use our no-reply sender, including stored brand overrides.
+  if (brand === 'vegas') return 'noreply@haho.ai';
   if (fromEmail) return fromEmail;
   const domain = process.env.RESEND_OUTBOUND_DOMAIN || 'haho.ai';
   return `${brand}@${domain}`;

@@ -1,5 +1,9 @@
 # Changelog — Sales Lead Generator
 
+### Vegas confirmation no-reply sender
+
+- Vegas landing confirmations (new submissions and confirmation backfills) now always send from `noreply@haho.ai`, ignoring stored brand sender overrides and without a Mr Vegas Reply-To. Other brands retain their sender and fallback behavior. This controls outgoing headers; rejecting incoming replies requires mailbox configuration. Rollback: revert this sender-policy change. Validation: typecheck and lint clean; 188 unit files / 1,899 tests and all 5 smoke tests passed.
+
 ## 2.4.380
 
 ### Backfill confirmation email dispatch & activity logging for submitted landing leads

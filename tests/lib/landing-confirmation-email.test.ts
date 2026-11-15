@@ -65,7 +65,7 @@ describe('Landing Confirmation Email & Passes', () => {
         });
 
       const result = await sendLandingConfirmationEmail({
-        brand: 'vegas',
+        brand: 'example',
         recipientEmail: 'fan@example.com',
         recipientName: 'Csaba Moldovan',
         fromEmail: 'office@mrvegas.com',
@@ -74,7 +74,7 @@ describe('Landing Confirmation Email & Passes', () => {
       expect(result).toEqual({
         sent: true,
         messageId: 're_msg_fallback',
-        fromAddress: 'vegas@haho.ai',
+        fromAddress: 'example@haho.ai',
         subject: 'Entry Confirmed: Event Entry Confirmation — Your Event Pass',
       });
       expect(resendSendMock).toHaveBeenCalledTimes(2);
@@ -84,8 +84,27 @@ describe('Landing Confirmation Email & Passes', () => {
       );
       expect(resendSendMock).toHaveBeenNthCalledWith(
         2,
-        expect.objectContaining({ from: 'vegas@haho.ai', replyTo: 'office@mrvegas.com' })
+        expect.objectContaining({ from: 'example@haho.ai', replyTo: 'office@mrvegas.com' })
       );
+    });
+
+    it('sends Vegas confirmations from noreply without a brand reply-to override', async () => {
+      process.env.RESEND_API_KEY = 're_test_123';
+      process.env.RESEND_OUTBOUND_DOMAIN = 'other.example';
+      resendSendMock.mockResolvedValueOnce({ data: { id: 'no_reply' }, error: null });
+
+      const result = await sendLandingConfirmationEmail({
+        brand: 'vegas',
+        recipientEmail: 'fan@example.com',
+        recipientName: 'Fan',
+        fromEmail: 'office@mrvegas.com',
+      });
+
+      expect(result.fromAddress).toBe('noreply@haho.ai');
+      expect(resendSendMock).toHaveBeenCalledTimes(1);
+      const message = resendSendMock.mock.calls[0][0];
+      expect(message.from).toBe('noreply@haho.ai');
+      expect(message).not.toHaveProperty('replyTo');
     });
 
     it('returns sent: false when Resend returns an API error on the fallback sender', async () => {
