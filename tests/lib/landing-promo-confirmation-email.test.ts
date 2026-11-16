@@ -8,15 +8,16 @@ import {
 import { resolveStoredConfirmationEmail } from '../../lib/landing-page-store';
 
 describe('Vegas promotional confirmation email', () => {
-  it('configures the expected Fan Zone copy, affiliate CTA link, and public images on DEFAULT_VEGAS_CAMPAIGN', () => {
+  it('configures the Fan Zone copy and signature image on DEFAULT_VEGAS_CAMPAIGN, with no promotional CTA banner or link (client request 2026-11-16)', () => {
     const cfg = DEFAULT_VEGAS_CAMPAIGN.confirmationEmail;
     expect(cfg?.enabled).toBe(true);
-    expect(cfg?.ctaLinkUrl).toBe('https://trk.affiliates.mrvegas.com/o/lN42Wk?lpage=Y3LTFJ&site_id=7015407');
-    expect(cfg?.ctaImageUrl).toBe('/landing/vegas/mr-vegas-offer-banner.jpg');
+    expect(cfg?.ctaLinkUrl).toBeUndefined();
+    expect(cfg?.ctaImageUrl).toBeUndefined();
+    expect(cfg?.ctaImageAlt).toBeUndefined();
     expect(cfg?.signatureImageUrl).toBe('/landing/vegas/mr-vegas-grand-slam-signature.jpg');
   });
 
-  it('renders Dear ${user_name}, promo copy, clickable CTA banner, closing lines, and signature without wallet/pass links', () => {
+  it('renders Dear ${user_name}, the shortened intro, closing lines, and signature without the offer banner, affiliate link, or wallet/pass links', () => {
     const { subject, html } = buildLandingConfirmationEmailContent({
       brand: 'vegas',
       brandLabel: 'Mr Vegas',
@@ -30,12 +31,12 @@ describe('Vegas promotional confirmation email', () => {
     expect(subject).toBe('Thank you for attending The Mr Vegas Grand Slam of Darts');
     expect(html).toContain('Dear Csaba Moldovan,');
     expect(html).toContain(
-      'Thank you for attending The Mr Vegas Grand Slam of Darts and taking part in the fan zone activities courtesy of the sponsor Mr Vegas who have shared their latest promotional offer here for you;'
+      'Thank you for attending The Mr Vegas Grand Slam of Darts and taking part in the fan zone activities courtesy of the sponsor Mr Vegas.'
     );
-    expect(html).toContain(
-      'href="https://trk.affiliates.mrvegas.com/o/lN42Wk?lpage=Y3LTFJ&amp;site_id=7015407"'
-    );
-    expect(html).toContain('https://sales.haho.ai/landing/vegas/mr-vegas-offer-banner.jpg');
+    expect(html).not.toContain('who have shared their latest promotional offer');
+    expect(html).not.toContain('trk.affiliates.mrvegas.com');
+    expect(html).not.toContain('mr-vegas-offer-banner.jpg');
+    expect(html).not.toContain('Play Now');
     expect(html).toContain('We hope you had the best time at Mr Vegas Grand Slam of Darts!');
     expect(html).toContain('All the best;<br />Mr Vegas Grand Slam of Darts');
     expect(html).toContain('https://sales.haho.ai/landing/vegas/mr-vegas-grand-slam-signature.jpg');

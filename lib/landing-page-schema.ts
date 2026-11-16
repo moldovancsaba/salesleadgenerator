@@ -382,10 +382,7 @@ export const DEFAULT_VEGAS_CAMPAIGN: LandingPageRecord = {
     subject: 'Thank you for attending The Mr Vegas Grand Slam of Darts',
     greetingPrefix: 'Dear',
     bodyBeforeCta:
-      'Thank you for attending The Mr Vegas Grand Slam of Darts and taking part in the fan zone activities courtesy of the sponsor Mr Vegas who have shared their latest promotional offer here for you;',
-    ctaImageUrl: '/landing/vegas/mr-vegas-offer-banner.jpg',
-    ctaLinkUrl: 'https://trk.affiliates.mrvegas.com/o/lN42Wk?lpage=Y3LTFJ&site_id=7015407',
-    ctaImageAlt: 'Mr Vegas — 100% up to £50 Play Now promotional offer',
+      'Thank you for attending The Mr Vegas Grand Slam of Darts and taking part in the fan zone activities courtesy of the sponsor Mr Vegas.',
     bodyAfterCta:
       'We hope you had the best time at Mr Vegas Grand Slam of Darts!\nAll the best;\nMr Vegas Grand Slam of Darts',
     signatureImageUrl: '/landing/vegas/mr-vegas-grand-slam-signature.jpg',

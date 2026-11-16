@@ -4,6 +4,15 @@
 
 - Vegas landing confirmations (new submissions and confirmation backfills) now always send from `noreply@haho.ai`, ignoring stored brand sender overrides and without a Mr Vegas Reply-To. Other brands retain their sender and fallback behavior. This controls outgoing headers; rejecting incoming replies requires mailbox configuration. Rollback: revert this sender-policy change. Validation: typecheck and lint clean; 188 unit files / 1,899 tests and all 5 smoke tests passed.
 
+## 2.4.381
+
+### Vegas confirmation email: shorter intro, no promotional offer banner (Issue #344)
+
+- **Client request (2026-11-16, relayed by the owner):** remove "who have shared their latest promotional offer here for you;" from the first paragraph of the sign-up email, and remove the Mr Vegas offer banner graphic (the email's call to action).
+- **`DEFAULT_VEGAS_CAMPAIGN.confirmationEmail` (`lib/landing-page-schema.ts`):** `bodyBeforeCta` now ends "...courtesy of the sponsor Mr Vegas." (full stop replaces the removed clause); `ctaImageUrl`, `ctaLinkUrl` and `ctaImageAlt` are removed, so the banner block and its affiliate link no longer render. The signature image, greeting and closing lines are unchanged. The banner file stays in `public/landing/vegas/`.
+- **Scope:** applies to the code default and to stored Vegas records that have no explicit `confirmationEmail`. A stored record with its own `confirmationEmail` is changed in the editor (Content & Copy -> Post-Submit Confirmation Email). Emails already sent are not changed.
+- **Tests:** `tests/lib/landing-promo-confirmation-email.test.ts` now asserts the removed phrase, banner image, "Play Now" alt text and affiliate link are absent.
+
 ## 2.4.380
 
 ### Backfill confirmation email dispatch & activity logging for submitted landing leads
