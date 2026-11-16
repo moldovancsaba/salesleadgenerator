@@ -1,6 +1,7 @@
 import { EMAIL_RE } from './validate-lead';
 import { isValidIsoCountry } from './iso-country-codes';
 import { computeIceScore, buildScoreProfile } from './score-profile';
+import { dedupeContacts, deriveContactEmails } from './contacts';
 
 export type InboundFormInput = {
   entityName?: unknown;
@@ -255,6 +256,61 @@ export function validateInboundFormSubmission(
   };
 }
 
+export interface InboundSubmissionSnapshot {
+  submittedAt: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone?: string;
+  country?: string;
+  postCode?: string;
+  city?: string;
+  address?: string;
+  dateOfBirth?: string;
+  consentPdc?: boolean;
+  consentMrVegas?: boolean;
+  campaign?: string;
+  message?: string;
+  dynamicFields?: Record<string, unknown>;
+}
+
+function formatSubmissionExtraNotes(submission: ValidatedInboundFormSubmission): string {
+  const extraNotes: string[] = [];
+  if (submission.postCode) extraNotes.push(`Post Code: ${submission.postCode}`);
+  if (submission.city) extraNotes.push(`City: ${submission.city}`);
+  if (submission.address) extraNotes.push(`Address: ${submission.address}`);
+  if (submission.dateOfBirth) extraNotes.push(`DOB: ${submission.dateOfBirth}`);
+  if (submission.consentPdc !== undefined) extraNotes.push(`PDC Email Opt-in: ${submission.consentPdc ? 'Yes' : 'No'}`);
+  if (submission.consentMrVegas !== undefined) extraNotes.push(`Mr Vegas Promo Opt-in: ${submission.consentMrVegas ? 'Yes' : 'No'}`);
+  if (submission.campaign) extraNotes.push(`Campaign: ${submission.campaign}`);
+  if (submission.dynamicFields) {
+    for (const [key, val] of Object.entries(submission.dynamicFields)) {
+      if (val !== undefined && val !== null && val !== '') {
+        extraNotes.push(`${key}: ${val}`);
+      }
+    }
+  }
+  return extraNotes.length > 0 ? ` [${extraNotes.join(' | ')}]` : '';
+}
+
+function buildSubmissionSnapshot(submission: ValidatedInboundFormSubmission, submittedAt: string): InboundSubmissionSnapshot {
+  return {
+    submittedAt,
+    contactName: submission.contactName,
+    contactEmail: submission.contactEmail,
+    ...(submission.contactPhone ? { contactPhone: submission.contactPhone } : {}),
+    ...(submission.country ? { country: submission.country } : {}),
+    ...(submission.postCode ? { postCode: submission.postCode } : {}),
+    ...(submission.city ? { city: submission.city } : {}),
+    ...(submission.address ? { address: submission.address } : {}),
+    ...(submission.dateOfBirth ? { dateOfBirth: submission.dateOfBirth } : {}),
+    ...(submission.consentPdc !== undefined ? { consentPdc: submission.consentPdc } : {}),
+    ...(submission.consentMrVegas !== undefined ? { consentMrVegas: submission.consentMrVegas } : {}),
+    ...(submission.campaign ? { campaign: submission.campaign } : {}),
+    ...(submission.message ? { message: submission.message } : {}),
+    ...(submission.dynamicFields ? { dynamicFields: submission.dynamicFields } : {}),
+  };
+}
+
 export function buildInboundLeadRecord(params: {
   submission: ValidatedInboundFormSubmission;
   tenantId: string;
@@ -288,26 +344,21 @@ export function buildInboundLeadRecord(params: {
     lastVerifiedAt: nowIso,
   };
 
-  const extraNotes: string[] = [];
-  if (submission.postCode) extraNotes.push(`Post Code: ${submission.postCode}`);
-  if (submission.city) extraNotes.push(`City: ${submission.city}`);
-  if (submission.address) extraNotes.push(`Address: ${submission.address}`);
-  if (submission.dateOfBirth) extraNotes.push(`DOB: ${submission.dateOfBirth}`);
-  if (submission.consentPdc !== undefined) extraNotes.push(`PDC Email Opt-in: ${submission.consentPdc ? 'Yes' : 'No'}`);
-  if (submission.consentMrVegas !== undefined) extraNotes.push(`Mr Vegas Promo Opt-in: ${submission.consentMrVegas ? 'Yes' : 'No'}`);
-  if (submission.campaign) extraNotes.push(`Campaign: ${submission.campaign}`);
-  if (submission.dynamicFields) {
-    for (const [key, val] of Object.entries(submission.dynamicFields)) {
-      if (val !== undefined && val !== null && val !== '') {
-        extraNotes.push(`${key}: ${val}`);
-      }
-    }
-  }
-  const extraNotesStr = extraNotes.length > 0 ? ` [${extraNotes.join(' | ')}]` : '';
+  const extraNotesStr = formatSubmissionExtraNotes(submission);
 
   const fullNote = submission.message
     ? `[Inbound Form ${nowIso.slice(0, 10)}] ${submission.contactName} (${submission.contactEmail}): ${submission.message}${extraNotesStr}`
     : `[Inbound Form ${nowIso.slice(0, 10)}] Submitted by ${submission.contactName} (${submission.contactEmail}).${extraNotesStr}`;
+
+  const extraFields = {
+    postCode: submission.postCode,
+    city: submission.city,
+    address: submission.address,
+    dateOfBirth: submission.dateOfBirth,
+    consentPdc: submission.consentPdc,
+    consentMrVegas: submission.consentMrVegas,
+    dynamicFields: submission.dynamicFields,
+  };
 
   return {
     id: now.getTime(),
@@ -342,15 +393,8 @@ export function buildInboundLeadRecord(params: {
     checklist: [],
     source: submission.campaign ? `landing_${submission.campaign}` : 'inbound',
     campaign: submission.campaign,
-    extraFields: {
-      postCode: submission.postCode,
-      city: submission.city,
-      address: submission.address,
-      dateOfBirth: submission.dateOfBirth,
-      consentPdc: submission.consentPdc,
-      consentMrVegas: submission.consentMrVegas,
-      dynamicFields: submission.dynamicFields,
-    },
+    extraFields,
+    submissionHistory: [buildSubmissionSnapshot(submission, nowIso)],
     fieldVerifications: [],
     kanbanColumn: 'DISCOVERED',
     sortOrder,
@@ -366,6 +410,128 @@ export function buildInboundLeadRecord(params: {
     nextActionDueAt: nowIso,
     nextActionNote: `Respond to lead inquiry from ${submission.contactName}`,
     createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Builds the `$set` update for a repeat form submission against an existing lead:
+ * preserves prior submission history (synthesizing the legacy initial entry if needed)
+ * and enriches contacts, tags, extraFields, and blank firmographics without creating a duplicate lead.
+ */
+export function buildRepeatSubmissionUpdate(params: {
+  existing: Record<string, any>;
+  submission: ValidatedInboundFormSubmission;
+  now?: Date;
+  nowIso?: string;
+}): Record<string, any> {
+  const { existing, submission } = params;
+  const now = params.now ?? new Date();
+  const nowIso = params.nowIso ?? now.toISOString();
+
+  const mergedContacts = dedupeContacts(
+    [
+      ...(Array.isArray(existing.contacts) ? existing.contacts : []),
+      {
+        name: submission.contactName,
+        title: submission.contactTitle,
+        email: submission.contactEmail,
+        ...(submission.contactPhone ? { phone: submission.contactPhone } : {}),
+        isDecisionMaker: true,
+        buyingRole: 'champion',
+        lastVerifiedAt: nowIso,
+      },
+    ],
+    { verify: true }
+  );
+  const contactEmails = deriveContactEmails(mergedContacts);
+
+  const extraNotesStr = formatSubmissionExtraNotes(submission);
+  const noteLine = submission.message
+    ? `[Inbound Form ${nowIso.slice(0, 10)}] ${submission.contactName}: ${submission.message}${extraNotesStr}`
+    : `[Inbound Form ${nowIso.slice(0, 10)}] Repeat inquiry from ${submission.contactName} (${submission.contactEmail}).${extraNotesStr}`;
+  const updatedNotes = existing.notes ? `${existing.notes}\n${noteLine}` : noteLine;
+
+  const prevExtra = existing.extraFields && typeof existing.extraFields === 'object' ? existing.extraFields : {};
+  const existingHistory: InboundSubmissionSnapshot[] = Array.isArray(existing.submissionHistory)
+    ? [...existing.submissionHistory]
+    : [];
+
+  // Preserve historic initial submission fields before appending the new snapshot.
+  if (existingHistory.length === 0) {
+    const firstContact = Array.isArray(existing.contacts) && existing.contacts[0] ? existing.contacts[0] : {};
+    const historicTimestamp =
+      existing.createdAt instanceof Date
+        ? existing.createdAt.toISOString()
+        : typeof existing.createdAt === 'string' && existing.createdAt
+          ? existing.createdAt
+          : nowIso;
+    existingHistory.push({
+      submittedAt: historicTimestamp,
+      contactName: String(firstContact.name || existing.entity_name || submission.contactName),
+      contactEmail: String(firstContact.email || existing.general_contact || submission.contactEmail),
+      ...(firstContact.phone ? { contactPhone: String(firstContact.phone) } : {}),
+      ...(existing.country ? { country: String(existing.country) } : {}),
+      ...(prevExtra.postCode ? { postCode: String(prevExtra.postCode) } : {}),
+      ...(prevExtra.city ? { city: String(prevExtra.city) } : {}),
+      ...(prevExtra.address || existing.address ? { address: String(prevExtra.address || existing.address) } : {}),
+      ...(prevExtra.dateOfBirth ? { dateOfBirth: String(prevExtra.dateOfBirth) } : {}),
+      ...(prevExtra.consentPdc !== undefined ? { consentPdc: Boolean(prevExtra.consentPdc) } : {}),
+      ...(prevExtra.consentMrVegas !== undefined ? { consentMrVegas: Boolean(prevExtra.consentMrVegas) } : {}),
+      ...(existing.campaign ? { campaign: String(existing.campaign) } : {}),
+      ...(prevExtra.dynamicFields && typeof prevExtra.dynamicFields === 'object'
+        ? { dynamicFields: prevExtra.dynamicFields as Record<string, unknown> }
+        : {}),
+    });
+  }
+  existingHistory.push(buildSubmissionSnapshot(submission, nowIso));
+
+  const mergedDynamicFields =
+    prevExtra.dynamicFields || submission.dynamicFields
+      ? {
+          ...(prevExtra.dynamicFields && typeof prevExtra.dynamicFields === 'object' ? prevExtra.dynamicFields : {}),
+          ...(submission.dynamicFields || {}),
+        }
+      : undefined;
+
+  const mergedExtraFields = {
+    ...prevExtra,
+    ...(submission.postCode ? { postCode: submission.postCode } : {}),
+    ...(submission.city ? { city: submission.city } : {}),
+    ...(submission.address ? { address: submission.address } : {}),
+    ...(submission.dateOfBirth ? { dateOfBirth: submission.dateOfBirth } : {}),
+    ...(submission.consentPdc !== undefined ? { consentPdc: submission.consentPdc } : {}),
+    ...(submission.consentMrVegas !== undefined ? { consentMrVegas: submission.consentMrVegas } : {}),
+    ...(mergedDynamicFields ? { dynamicFields: mergedDynamicFields } : {}),
+  };
+
+  const mergedTags = Array.from(
+    new Set([
+      ...(Array.isArray(existing.tags) ? existing.tags.filter((t: unknown): t is string => typeof t === 'string') : []),
+      ...(submission.campaign ? [submission.campaign] : []),
+    ])
+  );
+
+  return {
+    contacts: mergedContacts,
+    contactEmails,
+    notes: updatedNotes,
+    tags: mergedTags,
+    extraFields: mergedExtraFields,
+    submissionHistory: existingHistory,
+    ...(!existing.country && submission.country ? { country: submission.country, region: submission.region } : {}),
+    ...(!existing.address && (submission.address || submission.postCode)
+      ? { address: submission.address || submission.postCode }
+      : {}),
+    ...(!existing.cityName && submission.city ? { cityName: submission.city } : {}),
+    ...(!existing.size && submission.organizationSize ? { size: submission.organizationSize } : {}),
+    ...(!existing.sport_or_sector && submission.sportOrSector ? { sport_or_sector: submission.sportOrSector } : {}),
+    ...(!existing.industry && (submission.industry || submission.sportOrSector)
+      ? { industry: submission.industry || submission.sportOrSector }
+      : {}),
+    ...(!existing.campaign && submission.campaign ? { campaign: submission.campaign } : {}),
+    nextActionDueAt: nowIso,
+    nextActionNote: `Follow up on inbound form inquiry from ${submission.contactName}`,
     updatedAt: now,
   };
 }

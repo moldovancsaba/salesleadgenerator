@@ -25,7 +25,11 @@ const sendEmail = vi.fn(async () => ({ sent: true }));
 vi.mock('@/lib/landing-confirmation-email', () => ({ sendLandingConfirmationEmail: (...args: unknown[]) => sendEmail(...(args as [])) }));
 
 let page: LandingPageRecord | null = null;
-vi.mock('@/lib/landing-page-store', () => ({ getLandingPageBySlug: vi.fn(async () => page) }));
+const incrementSubmission = vi.fn(async () => {});
+vi.mock('@/lib/landing-page-store', () => ({
+  getLandingPageBySlug: vi.fn(async () => page),
+  incrementLandingPageSubmission: (...args: unknown[]) => incrementSubmission(...(args as [])),
+}));
 
 let mockDb: any;
 
@@ -46,6 +50,7 @@ function submit() {
 
 beforeEach(() => {
   sendEmail.mockClear();
+  incrementSubmission.mockClear();
   const collection = {
     findOne: vi.fn().mockResolvedValue(null),
     updateOne: vi.fn().mockResolvedValue({}),
@@ -62,6 +67,7 @@ describe('POST /api/forms/[brand]/submit: confirmation & pass email', () => {
     expect(res.status).toBe(201);
     expect((await res.json()).submitted).toBe(true);
     expect(mockDb.collection().insertOne).toHaveBeenCalled();
+    expect(incrementSubmission).toHaveBeenCalledWith('vegas', 'grand-slam-of-darts');
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -91,6 +97,7 @@ describe('POST /api/forms/[brand]/submit: confirmation & pass email', () => {
     const res = await submit();
     expect(res.status).toBe(201);
     expect(mockDb.collection().insertOne).toHaveBeenCalled();
+    expect(incrementSubmission).toHaveBeenCalledWith('vegas', 'grand-slam-of-darts');
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({

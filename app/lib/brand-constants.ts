@@ -205,7 +205,7 @@ export const FALLBACK_BRAND_CONFIG: Record<string, BrandConfig> = {
         'court_operator',
       ],
     },
-    fromEmail: 'office@racket.land',
+    fromEmail: 'racket-land@haho.ai',
   },
   egm: {
     label: 'EGM',
@@ -238,7 +238,7 @@ export const FALLBACK_BRAND_CONFIG: Record<string, BrandConfig> = {
         'producer',
       ],
     },
-    fromEmail: 'office@egm.doneisbetter.com',
+    fromEmail: 'egm@haho.ai',
   },
   vegas: {
     label: 'Vegas',
@@ -281,6 +281,6 @@ export const FALLBACK_BRAND_CONFIG: Record<string, BrandConfig> = {
         'corporate_sponsor',
       ],
     },
-    fromEmail: 'office@mrvegas.com',
+    fromEmail: 'vegas@haho.ai',
   },
 };

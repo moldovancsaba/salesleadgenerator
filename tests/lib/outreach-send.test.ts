@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { isResendSendConfigured, resolveOutboundFromAddress } from '../../lib/outreach-send';
+import { FALLBACK_BRAND_CONFIG } from '../../app/lib/brand-constants';
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -271,6 +272,15 @@ describe('dispatchOutreachEmail — Personalization Gating & Send Invariants (is
     expect(capturedRawMime).toContain('Reaching out about our solution.\r\n\r\n--=20\r\nBest,\r\nAlex Rep\r\nVP Sales');
     expect(mockDb.insertedLogs[0].bodyExcerpt).toContain('Reaching out about our solution.\n\n-- \nBest,\nAlex Rep\nVP Sales');
     expect(mockDb.insertedLogs[1].body).toContain('Reaching out about our solution.\n\n-- \nBest,\nAlex Rep\nVP Sales');
+  });
+
+  it('configures every fallback brand fromEmail (when present) on @haho.ai', () => {
+    for (const [slug, cfg] of Object.entries(FALLBACK_BRAND_CONFIG)) {
+      if (cfg.fromEmail) {
+        expect(cfg.fromEmail, `${slug} fromEmail`).toMatch(/@haho\.ai$/);
+      }
+      expect(resolveOutboundFromAddress(slug, cfg.fromEmail)).toMatch(/@haho\.ai$/);
+    }
   });
 });
 

@@ -56,7 +56,11 @@ Every landing page consists of modular blocks that admins can **enable (show)** 
 
 When the **Digital Passes** block is enabled:
 - **Apple Wallet (.pkpass)**: The user can tap **"Add to Apple Wallet"** directly on iOS to add a cobranded pass under the `haho.ai` umbrella with their contact info and hostess-scannable QR code.
-- **Google Wallet**: The user can tap **"Add to Google Wallet / View Pass"** to save to their Android Google Wallet or view the high-resolution pass.
+- **Google Wallet**: Generates a signed JWT `Save to Google Wallet` link via `createGoogleWalletSaveUrl()` (`lib/google-wallet.ts`) when Google Wallet credentials are configured, falling back to the attendee badge view otherwise. To activate native Android Wallet saving (tracked in Backlog Issue `#345`):
+  1. Register/locate your Issuer ID in the Google Pay & Wallet Console (`GOOGLE_WALLET_ISSUER_ID`).
+  2. Create a Google Cloud Service Account key JSON (`GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_WALLET_PRIVATE_KEY`) and add that service account email under Google Wallet Console **Users**.
+  3. Set all three environment variables in Vercel Production.
+- **Repeat Submissions & Submission Counter**: Re-submissions from the same email or company fingerprint never duplicate leads; instead, `buildRepeatSubmissionUpdate` appends a snapshot to `submissionHistory[]`, appends timestamped `notes`, merges `contacts`/`tags`/`extraFields`, and enriches blank firmographic fields while `incrementLandingPageSubmission` increments `submissionsCount`.
 - **Badge Download**: Generates an 800x1200 high-res SVG / PNG badge optimized for camera scanning.
 - **Confirmation Email**: Resend automatically sends an email containing all three pass links directly to their inbox so they can access their digital pass anytime. Alternatively, under **Content & Copy -> Post-Submit Confirmation Email**, admins can enable a custom promotional/thank-you email (which sends even when Digital Passes are off) and click **Send to Existing Submitted Leads** to backfill earlier campaign submissions without duplicate sends (`POST /api/landing-pages/send-confirmations`).
 

@@ -578,7 +578,29 @@ export async function dispatchOutreachEmail(
           { idempotencyKey }
         );
         if (error) {
-          sendError = error.message || error.name;
+          const fallbackFrom = resolveOutboundFromAddress(context.brand);
+          if (fromAddress !== fallbackFrom) {
+            const replyTo = fromAddress.includes('@') ? fromAddress : undefined;
+            const retry = await resend.emails.send(
+              {
+                from: fallbackFrom,
+                to,
+                subject,
+                text: deliveredBody,
+                headers: resendHeaders,
+                ...(replyTo ? { replyTo } : {}),
+              },
+              { idempotencyKey: `${idempotencyKey}-fallback` }
+            );
+            if (!retry.error) {
+              fromAddress = fallbackFrom;
+              resendEmailId = retry.data?.id;
+            } else {
+              sendError = retry.error.message || retry.error.name;
+            }
+          } else {
+            sendError = error.message || error.name;
+          }
         } else {
           resendEmailId = data?.id;
         }

@@ -4,9 +4,12 @@ import { resolveBrand, getBrandConfig } from '../../../../lib/brand';
 import { checkAndRecordRateLimit } from '../../../../lib/scheduling-store';
 import { buildFingerprint } from '../../../../../lib/fingerprint';
 import { computeTicketSizeForLead } from '../../../../lib/ticket-size-store';
-import { dedupeContacts, deriveContactEmails } from '../../../../../lib/contacts';
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes, truncateBody } from '../../../../lib/activity-log-store';
-import { validateInboundFormSubmission, buildInboundLeadRecord } from '../../../../../lib/inbound-lead-form';
+import {
+  validateInboundFormSubmission,
+  buildInboundLeadRecord,
+  buildRepeatSubmissionUpdate,
+} from '../../../../../lib/inbound-lead-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,39 +92,11 @@ export async function POST(
 
     if (existing) {
       leadId = existing._id.toString();
-      const mergedContacts = dedupeContacts(
-        [
-          ...(Array.isArray(existing.contacts) ? existing.contacts : []),
-          {
-            name: submission.contactName,
-            title: submission.contactTitle,
-            email: submission.contactEmail,
-            ...(submission.contactPhone ? { phone: submission.contactPhone } : {}),
-            isDecisionMaker: true,
-            buyingRole: 'champion',
-            lastVerifiedAt: nowIso,
-          },
-        ],
-        { verify: true }
-      );
-      const contactEmails = deriveContactEmails(mergedContacts);
-      const noteLine = submission.message
-        ? `[Inbound Form ${nowIso.slice(0, 10)}] ${submission.contactName}: ${submission.message}`
-        : `[Inbound Form ${nowIso.slice(0, 10)}] Repeat inquiry from ${submission.contactName} (${submission.contactEmail}).`;
-      const updatedNotes = existing.notes ? `${existing.notes}\n${noteLine}` : noteLine;
+      const repeatUpdate = buildRepeatSubmissionUpdate({ existing, submission, now, nowIso });
 
       await collection.updateOne(
         { _id: existing._id },
-        {
-          $set: {
-            contacts: mergedContacts,
-            contactEmails,
-            notes: updatedNotes,
-            nextActionDueAt: nowIso,
-            nextActionNote: `Follow up on inbound form inquiry from ${submission.contactName}`,
-            updatedAt: now,
-          },
-        }
+        { $set: repeatUpdate }
       );
     } else {
       // Look up default deal owner from sales settings if configured
@@ -216,9 +191,12 @@ export async function POST(
         let confirmationEmail: ConfirmationEmailCfg | undefined;
         if (submission.campaign) {
           try {
-            const { getLandingPageBySlug } = await import('../../../../../lib/landing-page-store');
+            const landingStore = await import('../../../../../lib/landing-page-store');
             const { landingPassesEnabled } = await import('../../../../../lib/landing-page-schema');
-            const page = await getLandingPageBySlug(brand, submission.campaign);
+            const page = await landingStore.getLandingPageBySlug(brand, submission.campaign);
+            if (typeof landingStore.incrementLandingPageSubmission === 'function') {
+              await landingStore.incrementLandingPageSubmission(brand, submission.campaign);
+            }
             passesEnabled = landingPassesEnabled(page);
             confirmationEmail = page?.confirmationEmail;
             campaignTitle = page?.event?.name || page?.title || undefined;

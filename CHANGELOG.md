@@ -1,5 +1,23 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.382
+
+### Unified haho.ai sender policy, repeat-submit lead enrichment with historic snapshots, landing submission counter & Google Wallet roadmap tracking (Issues #345, #346)
+
+- **Everybody uses `haho.ai` (`app/lib/brand-constants.ts`, `lib/outreach-send.ts`):**
+  - Updated fallback brand sender defaults (`racket-land@haho.ai`, `egm@haho.ai`, `vegas@haho.ai`) to the sending-verified `haho.ai` domain alongside `cogmap`, `seyu`, and `dvsc`.
+  - Added automatic verified-domain fallback (`<brand>@RESEND_OUTBOUND_DOMAIN`) on Resend API rejection in `lib/outreach-send.ts` (matching `lib/landing-confirmation-email.ts`), with a fresh idempotency key (`${idempotencyKey}-fallback`) so legacy stored `brands` records never silently fail on unverified custom domains.
+  - Vegas landing confirmations continue sending from `noreply@haho.ai`.
+- **Non-duplicating repeat-submit lead enrichment & historic data preservation (`lib/inbound-lead-form.ts`, `app/api/forms/[brand]/submit/route.ts`):**
+  - Added `submissionHistory` snapshots (`InboundSubmissionSnapshot`) on new inbound leads and `buildRepeatSubmissionUpdate` when an existing lead submits again.
+  - Preserves historic submission fields (including synthesizing a pre-upgrade entry from legacy leads) alongside appending timestamped `notes`, merging `contacts` and `tags`, merging `extraFields` / `dynamicFields`, and enriching previously blank firmographic fields without duplicating lead records.
+- **Landing submission counter (`app/api/forms/[brand]/submit/route.ts`):**
+  - Wired `incrementLandingPageSubmission(brand, submission.campaign)` so `submissionsCount` tracks live form submissions accurately.
+- **Google Wallet documentation & backlog tracking (Issue #345):**
+  - Documented Google Wallet Issuer ID and Service Account credential setup (`GOOGLE_WALLET_ISSUER_ID`, `GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_WALLET_PRIVATE_KEY`) in `README.md` and `docs/LANDING_PAGE_BUILDER_GUIDE.md` and logged `#345` in `roadmap.md` (`Backlog`) and `docs/PROJECT_BOARD_MOVEMENT_LOG.md`.
+- **Repo hygiene & Vegas close-out (`HANDOVER.md`):**
+  - Confirmed Vegas landing page and confirmation workflow remain active as-is per owner direction (2026-11-16); removed leftover repo scratch file `0` and obsolete `stash@{0}`.
+
 ### Vegas confirmation no-reply sender
 
 - Vegas landing confirmations (new submissions and confirmation backfills) now always send from `noreply@haho.ai`, ignoring stored brand sender overrides and without a Mr Vegas Reply-To. Other brands retain their sender and fallback behavior. This controls outgoing headers; rejecting incoming replies requires mailbox configuration. Rollback: revert this sender-policy change. Validation: typecheck and lint clean; 188 unit files / 1,899 tests and all 5 smoke tests passed.

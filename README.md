@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.381  
+**Version:** 2.4.382  
 **Production:** https://sales.haho.ai (Legacy alias: salesleadgenerator.vercel.app)
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -93,9 +93,11 @@ Environment variables (all read via `process.env.*` in `app/` and `lib/` — see
 |---|---|---|
 | `MONGODB_URI` | Yes | Database connection |
 | `SLG_API_KEY` | Yes | `x-api-key` auth for API clients (research agent, scripts) |
-| `RESEND_API_KEY` | For email | Resend API key, **full access** (inbound matching calls `emails.receiving.get`, which a sending-only key cannot). Without it all outbound email (cadences, one-off sends, quotes, scheduled reports) is off; since 2.4.221 the cadence and report crons hold due work instead of skipping it (issue #224). Not currently set in production |
-| `RESEND_OUTBOUND_DOMAIN` | No | Domain used to build a brand's default from-address (`<brand>@<domain>`); defaults to `haho.ai` (`lib/outreach-send.ts`) |
-| `RESEND_WEBHOOK_SECRET` | For inbound email | Signing secret of the Resend webhook endpoint; with `RESEND_API_KEY` it activates `/api/webhooks/inbound-email` (issue #202). Not currently set in production |
+| `RESEND_API_KEY` | For email | Resend API key, **full access** (inbound matching calls `emails.receiving.get`, which a sending-only key cannot). Without it all outbound email (cadences, one-off sends, quotes, scheduled reports, landing confirmations) is off; configured in Vercel Production |
+| `RESEND_OUTBOUND_DOMAIN` | No | Domain used to build a brand's default from-address (`<brand>@<domain>`); defaults to `haho.ai` (`lib/outreach-send.ts`, `lib/landing-confirmation-email.ts`) |
+| `RESEND_WEBHOOK_SECRET` | For inbound email | Signing secret of the Resend webhook endpoint; with `RESEND_API_KEY` it activates `/api/webhooks/inbound-email` (issue #202); configured in Vercel Production |
+| `APPLE_PASS_TYPE_IDENTIFIER`, `APPLE_TEAM_IDENTIFIER`, `APPLE_WWDR_CERT`, `APPLE_SIGNER_CERT`, `APPLE_SIGNER_KEY` | For Apple Wallet | PKCS#7 signing credentials for `.pkpass` passes under `haho.ai`; configured in Vercel Production (`lib/apple-wallet.ts`) |
+| `GOOGLE_WALLET_ISSUER_ID`, `GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_WALLET_PRIVATE_KEY` | For Google Wallet | Google Pay & Wallet Issuer ID + Service Account JWT key for Android "Save to Google Wallet" links (`lib/google-wallet.ts`). Tracked for production provisioning in Issue `#345` |
 | `CRON_SECRET` | Yes | The only credential Vercel Cron can send (`Authorization: Bearer`). If unset, every one of the 7 scheduled jobs returns 401 and nothing scheduled runs (issue #224); `x-api-key` only covers manual triggers |
 | `CONTACT_STALENESS_THRESHOLD_DAYS` | No | Days before a contact is flagged stale (has a code default) |
 | `SSO_BASE_URL` | For SSO | SSO provider base URL |
