@@ -402,6 +402,59 @@ export function resolveInboundKanbanColumn(submission: {
   return hasMarketingPromoOptIn(submission) ? 'ENGAGED' : 'DISCOVERED';
 }
 
+function dynamicFieldsHaveMarketingOptIn(dynamicFields: unknown): boolean {
+  if (!dynamicFields || typeof dynamicFields !== 'object') return false;
+  for (const [key, val] of Object.entries(dynamicFields as Record<string, unknown>)) {
+    if ((typeof val === 'boolean' || typeof val === 'string') && isMarketingPromoConsent({ key, label: key, value: val })) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Evaluates a stored lead document across current and legacy shapes (`extraFields`,
+ * `submissionHistory`, and legacy inbound form notes) for an affirmative marketing opt-in.
+ */
+export function leadHasMarketingPromoOptIn(lead: Record<string, unknown>): boolean {
+  const extra = lead.extraFields && typeof lead.extraFields === 'object' ? (lead.extraFields as Record<string, unknown>) : {};
+  if (
+    hasMarketingPromoOptIn({
+      consentMrVegas: extra.consentMrVegas === true,
+      consentPdc: extra.consentPdc === true,
+      consents: normalizeInboundConsents(extra.consents),
+    }) ||
+    dynamicFieldsHaveMarketingOptIn(extra.dynamicFields)
+  ) {
+    return true;
+  }
+
+  if (Array.isArray(lead.submissionHistory)) {
+    for (const item of lead.submissionHistory) {
+      if (!item || typeof item !== 'object') continue;
+      const snap = item as Record<string, unknown>;
+      if (
+        hasMarketingPromoOptIn({
+          consentMrVegas: snap.consentMrVegas === true,
+          consentPdc: snap.consentPdc === true,
+          consents: normalizeInboundConsents(snap.consents),
+        }) ||
+        dynamicFieldsHaveMarketingOptIn(snap.dynamicFields)
+      ) {
+        return true;
+      }
+    }
+  }
+
+  if (typeof lead.notes === 'string') {
+    if (/(?:Mr Vegas Promo Opt-in|PDC Email Opt-in|marketing and promotional offers\?):\s*Yes\b/i.test(lead.notes)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function buildInboundLeadRecord(params: {
   submission: ValidatedInboundFormSubmission;
   tenantId: string;

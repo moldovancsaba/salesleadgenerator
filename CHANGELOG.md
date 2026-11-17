@@ -1,5 +1,12 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.385
+
+### Retroactive Engaged promotion for existing marketing opt-in leads (Issue #349)
+
+- **Backfill helper & admin endpoint (`lib/inbound-lead-form.ts` `leadHasMarketingPromoOptIn`, `lib/landing-engaged-backfill.ts`, `app/api/admin/landing-engaged-backfill/route.ts`):**
+  - Evaluates legacy and current lead records (`extraFields`, `submissionHistory`, and `[Mr Vegas Promo Opt-in: Yes]` / `[PDC Email Opt-in: Yes]` inbound notes) and moves eligible earlier-stage leads forward to `ENGAGED` via `executeLeadAction` (`COLUMN_MOVE`), leaving `"No"` leads and leads already at `ENGAGED`, `PROPOSAL`, or `WON` untouched.
+
 ## 2.4.384
 
 ### Landing form marketing opt-in advances leads to Engaged on Kanban (Issue #348)
