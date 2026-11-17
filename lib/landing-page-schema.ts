@@ -347,8 +347,8 @@ export const SLG_LEAD_PROPERTIES: Array<{
   { key: 'address', label: 'Street Address', category: 'Location', defaultType: 'text', description: 'Stored in lead.address' },
   { key: 'date_of_birth', label: 'Date of Birth', category: 'Demographic & Extra', defaultType: 'date', description: 'Recorded in lead.extraNotes and metadata' },
   { key: 'message', label: 'Message / Inquiry Details', category: 'Demographic & Extra', defaultType: 'textarea', description: 'Recorded in lead.value_proposition and activityLog note' },
-  { key: 'custom_consent_checkbox', label: 'Consent Checkbox (Opt-in)', category: 'Demographic & Extra', defaultType: 'checkbox', description: 'Permission consent recorded in lead notes' },
-  { key: 'custom_radio_choice', label: 'Marketing Radio Choice', category: 'Demographic & Extra', defaultType: 'radio', description: 'Preference option recorded in lead notes' },
+  { key: 'custom_consent_checkbox', label: 'Consent Checkbox (Opt-in)', category: 'Demographic & Extra', defaultType: 'checkbox', description: 'Page-defined permission consent recorded under its field label' },
+  { key: 'custom_radio_choice', label: 'Marketing Radio Choice', category: 'Demographic & Extra', defaultType: 'radio', description: 'Page-defined preference option recorded under its field label' },
 ];
 
 export const THEME_PRESETS = LANDING_THEME_PRESETS;

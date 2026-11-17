@@ -105,6 +105,7 @@ export function DynamicLandingClient({
 
     try {
       // Map dynamic fields to SLG Lead payload
+      const consents: Array<{ key: string; label: string; value: boolean | string }> = [];
       const payload: Record<string, any> = {
         campaign: campaignSlug,
         companyFaxHoneypot,
@@ -129,15 +130,18 @@ export function DynamicLandingClient({
         else if (f.leadProperty === 'industry') payload.industry = val;
         else if (f.leadProperty === 'date_of_birth') payload.dateOfBirth = val;
         else if (f.leadProperty === 'message') payload.message = val;
-        else if (f.leadProperty === 'custom_consent_checkbox') {
-          payload.consentPdc = val === true;
-          payload.dynamicFields[f.label] = val ? 'Yes' : 'No';
-        } else if (f.leadProperty === 'custom_radio_choice') {
-          payload.consentMrVegas = val === 'yes' || val === 'Yes';
-          payload.dynamicFields[f.label] = val;
+        else if (f.leadProperty === 'custom_consent_checkbox' || f.leadProperty === 'custom_radio_choice') {
+          const fieldLabel = f.label || f.id;
+          const normalizedVal = f.leadProperty === 'custom_consent_checkbox' ? val === true : String(val ?? '');
+          consents.push({ key: f.id, label: fieldLabel, value: normalizedVal });
+          payload.dynamicFields[fieldLabel] =
+            typeof normalizedVal === 'boolean' ? (normalizedVal ? 'Yes' : 'No') : normalizedVal;
         } else {
           payload.dynamicFields[f.label || f.id] = val;
         }
+      }
+      if (consents.length > 0) {
+        payload.consents = consents;
       }
 
       // Add UTM metadata

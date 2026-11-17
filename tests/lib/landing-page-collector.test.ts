@@ -29,6 +29,52 @@ describe('Landing Page Lead Collector & Vegas Client', () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.data.consentPdc).toBeUndefined();
+    expect(res.data.consentMrVegas).toBeUndefined();
+    expect(res.data.consents).toBeUndefined();
+  });
+
+  it('stores and formats page-defined consents without Vegas-specific keys or duplicate note labels', () => {
+    const res = validateInboundFormSubmission({
+      firstName: 'Alex',
+      lastName: 'Morgan',
+      contactEmail: 'alex@club.example',
+      campaign: 'vip-court-launch',
+      consents: [
+        { key: 'f_gdpr', label: 'Receive tournament updates', value: true },
+        { key: 'f_vip', label: 'Hospitality interest', value: 'Yes' },
+      ],
+      dynamicFields: {
+        'Receive tournament updates': 'Yes',
+        'Hospitality interest': 'Yes',
+        Seat: 'Court A',
+      },
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    expect(res.data.consentPdc).toBeUndefined();
+    expect(res.data.consentMrVegas).toBeUndefined();
+    expect(res.data.consents).toEqual([
+      { key: 'f_gdpr', label: 'Receive tournament updates', value: true },
+      { key: 'f_vip', label: 'Hospitality interest', value: 'Yes' },
+    ]);
+
+    const lead = buildInboundLeadRecord({
+      submission: res.data,
+      tenantId: 'default',
+      fingerprint: 'fp-generic-1',
+      sortOrder: 0,
+      now: new Date('2026-11-17T05:00:00Z'),
+    });
+
+    expect(lead.extraFields?.consents).toEqual(res.data.consents);
+    expect(lead.notes).toContain('Receive tournament updates: Yes');
+    expect(lead.notes).toContain('Hospitality interest: Yes');
+    expect(lead.notes).toContain('Seat: Court A');
+    expect(lead.notes).not.toContain('PDC Email Opt-in');
+    expect(lead.notes).not.toContain('Mr Vegas Promo Opt-in');
+    // Label printed once (not repeated twice from dynamicFields)
+    expect(lead.notes.match(/Receive tournament updates: Yes/g)?.length).toBe(1);
   });
 
   it('validates landing campaign submission with tournament giveaway fields', () => {

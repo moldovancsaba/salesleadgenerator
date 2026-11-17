@@ -1,5 +1,13 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.383
+
+### Generic page-defined consent fields on landing forms (Issue #347)
+
+- **Replaced hardcoded Vegas consent flags on the shared landing client (`app/landing/[brand]/[campaign]/dynamic-landing-client.tsx`, `lib/inbound-lead-form.ts`, `lib/landing-page-schema.ts`):**
+  - `custom_consent_checkbox` and `custom_radio_choice` fields now submit structured `consents` (`{ key, label, value }`) using each field's configured page label rather than Vegas-specific `consentPdc` / `consentMrVegas` keys.
+  - `lib/inbound-lead-form.ts` normalizes, merges across repeat submissions, and prints `consents` under each field's own label in lead notes (without duplicating labels also present in `dynamicFields`), while retaining backward-compatible support for optional legacy direct callers.
+
 ## 2.4.382
 
 ### Unified haho.ai sender policy, repeat-submit lead enrichment with historic snapshots, landing submission counter & Google Wallet roadmap tracking (Issues #345, #346)

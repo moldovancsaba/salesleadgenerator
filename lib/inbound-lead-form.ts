@@ -3,6 +3,12 @@ import { isValidIsoCountry } from './iso-country-codes';
 import { computeIceScore, buildScoreProfile } from './score-profile';
 import { dedupeContacts, deriveContactEmails } from './contacts';
 
+export interface InboundConsentEntry {
+  key: string;
+  label: string;
+  value: boolean | string;
+}
+
 export type InboundFormInput = {
   entityName?: unknown;
   websiteUrl?: unknown;
@@ -17,7 +23,11 @@ export type InboundFormInput = {
   city?: unknown;
   address?: unknown;
   dateOfBirth?: unknown;
+  /** Generic page-defined consent choices keyed by field id & label. */
+  consents?: unknown;
+  /** @deprecated Legacy campaign-specific consent flag retained for backward compatibility. */
   consentPdc?: unknown;
+  /** @deprecated Legacy campaign-specific consent flag retained for backward compatibility. */
   consentMrVegas?: unknown;
   sportOrSector?: unknown;
   industry?: unknown;
@@ -45,6 +55,7 @@ export type ValidatedInboundFormSubmission = {
   city?: string;
   address?: string;
   dateOfBirth?: string;
+  consents?: InboundConsentEntry[];
   consentPdc?: boolean;
   consentMrVegas?: boolean;
   sportOrSector: string;
@@ -55,6 +66,42 @@ export type ValidatedInboundFormSubmission = {
   dynamicFields?: Record<string, unknown>;
   honeypotTriggered: boolean;
 };
+
+function parseOptionalBoolean(raw: unknown): boolean | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  return raw === true || raw === 'true' || raw === '1' || raw === 1;
+}
+
+function normalizeInboundConsents(raw: unknown): InboundConsentEntry[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const normalized: InboundConsentEntry[] = [];
+  for (const item of raw.slice(0, 25)) {
+    if (!item || typeof item !== 'object') continue;
+    const rec = item as Record<string, unknown>;
+    const key = typeof rec.key === 'string' ? rec.key.trim().slice(0, 80) : '';
+    const label = typeof rec.label === 'string' ? rec.label.trim().slice(0, 200) : '';
+    if (!key && !label) continue;
+    const rawVal = rec.value;
+    if (typeof rawVal !== 'boolean' && typeof rawVal !== 'string') continue;
+    const value = typeof rawVal === 'boolean' ? rawVal : rawVal.trim().slice(0, 100);
+    normalized.push({ key: key || label, label: label || key, value });
+  }
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function mergeConsents(
+  existing: unknown,
+  incoming: InboundConsentEntry[] | undefined
+): InboundConsentEntry[] | undefined {
+  const base = Array.isArray(existing)
+    ? existing.filter((c): c is InboundConsentEntry => Boolean(c && typeof c === 'object' && 'key' in c && 'label' in c))
+    : [];
+  if (!incoming || incoming.length === 0) return base.length > 0 ? base : undefined;
+  const byKey = new Map<string, InboundConsentEntry>();
+  for (const item of base) byKey.set(item.key, item);
+  for (const item of incoming) byKey.set(item.key, item);
+  return Array.from(byKey.values());
+}
 
 const CCTLD_TO_COUNTRY: Record<string, string> = {
   uk: 'GB',
@@ -198,10 +245,9 @@ export function validateInboundFormSubmission(
   const city = typeof input.city === 'string' ? input.city.trim().slice(0, 80) : '';
   const address = typeof input.address === 'string' ? input.address.trim().slice(0, 200) : '';
   const dateOfBirth = typeof input.dateOfBirth === 'string' ? input.dateOfBirth.trim().slice(0, 30) : '';
-  const consentPdc = input.consentPdc === undefined
-    ? undefined
-    : input.consentPdc === true || input.consentPdc === 'true' || input.consentPdc === '1' || input.consentPdc === 1;
-  const consentMrVegas = input.consentMrVegas === true || input.consentMrVegas === 'true' || input.consentMrVegas === '1' || input.consentMrVegas === 1;
+  const consents = normalizeInboundConsents(input.consents);
+  const consentPdc = parseOptionalBoolean(input.consentPdc);
+  const consentMrVegas = parseOptionalBoolean(input.consentMrVegas);
   const sportOrSector = typeof input.sportOrSector === 'string' ? input.sportOrSector.trim().slice(0, 120) : '';
   const industry = typeof input.industry === 'string' ? input.industry.trim().slice(0, 120) : '';
   const rawSize = typeof input.organizationSize === 'string' ? input.organizationSize.trim() : '';
@@ -243,6 +289,7 @@ export function validateInboundFormSubmission(
       ...(city ? { city } : {}),
       ...(address ? { address } : {}),
       ...(dateOfBirth ? { dateOfBirth } : {}),
+      ...(consents ? { consents } : {}),
       ...(consentPdc !== undefined ? { consentPdc } : {}),
       ...(consentMrVegas !== undefined ? { consentMrVegas } : {}),
       sportOrSector,
@@ -266,6 +313,7 @@ export interface InboundSubmissionSnapshot {
   city?: string;
   address?: string;
   dateOfBirth?: string;
+  consents?: InboundConsentEntry[];
   consentPdc?: boolean;
   consentMrVegas?: boolean;
   campaign?: string;
@@ -279,11 +327,20 @@ function formatSubmissionExtraNotes(submission: ValidatedInboundFormSubmission):
   if (submission.city) extraNotes.push(`City: ${submission.city}`);
   if (submission.address) extraNotes.push(`Address: ${submission.address}`);
   if (submission.dateOfBirth) extraNotes.push(`DOB: ${submission.dateOfBirth}`);
+  const renderedConsentLabels = new Set<string>();
+  if (submission.consents) {
+    for (const consent of submission.consents) {
+      renderedConsentLabels.add(consent.label);
+      const formattedVal = typeof consent.value === 'boolean' ? (consent.value ? 'Yes' : 'No') : consent.value || 'No';
+      extraNotes.push(`${consent.label}: ${formattedVal}`);
+    }
+  }
   if (submission.consentPdc !== undefined) extraNotes.push(`PDC Email Opt-in: ${submission.consentPdc ? 'Yes' : 'No'}`);
   if (submission.consentMrVegas !== undefined) extraNotes.push(`Mr Vegas Promo Opt-in: ${submission.consentMrVegas ? 'Yes' : 'No'}`);
   if (submission.campaign) extraNotes.push(`Campaign: ${submission.campaign}`);
   if (submission.dynamicFields) {
     for (const [key, val] of Object.entries(submission.dynamicFields)) {
+      if (renderedConsentLabels.has(key)) continue;
       if (val !== undefined && val !== null && val !== '') {
         extraNotes.push(`${key}: ${val}`);
       }
@@ -303,6 +360,7 @@ function buildSubmissionSnapshot(submission: ValidatedInboundFormSubmission, sub
     ...(submission.city ? { city: submission.city } : {}),
     ...(submission.address ? { address: submission.address } : {}),
     ...(submission.dateOfBirth ? { dateOfBirth: submission.dateOfBirth } : {}),
+    ...(submission.consents ? { consents: submission.consents } : {}),
     ...(submission.consentPdc !== undefined ? { consentPdc: submission.consentPdc } : {}),
     ...(submission.consentMrVegas !== undefined ? { consentMrVegas: submission.consentMrVegas } : {}),
     ...(submission.campaign ? { campaign: submission.campaign } : {}),
@@ -355,8 +413,9 @@ export function buildInboundLeadRecord(params: {
     city: submission.city,
     address: submission.address,
     dateOfBirth: submission.dateOfBirth,
-    consentPdc: submission.consentPdc,
-    consentMrVegas: submission.consentMrVegas,
+    ...(submission.consents ? { consents: submission.consents } : {}),
+    ...(submission.consentPdc !== undefined ? { consentPdc: submission.consentPdc } : {}),
+    ...(submission.consentMrVegas !== undefined ? { consentMrVegas: submission.consentMrVegas } : {}),
     dynamicFields: submission.dynamicFields,
   };
 
@@ -476,6 +535,7 @@ export function buildRepeatSubmissionUpdate(params: {
       ...(prevExtra.city ? { city: String(prevExtra.city) } : {}),
       ...(prevExtra.address || existing.address ? { address: String(prevExtra.address || existing.address) } : {}),
       ...(prevExtra.dateOfBirth ? { dateOfBirth: String(prevExtra.dateOfBirth) } : {}),
+      ...(Array.isArray(prevExtra.consents) ? { consents: prevExtra.consents as InboundConsentEntry[] } : {}),
       ...(prevExtra.consentPdc !== undefined ? { consentPdc: Boolean(prevExtra.consentPdc) } : {}),
       ...(prevExtra.consentMrVegas !== undefined ? { consentMrVegas: Boolean(prevExtra.consentMrVegas) } : {}),
       ...(existing.campaign ? { campaign: String(existing.campaign) } : {}),
@@ -494,12 +554,15 @@ export function buildRepeatSubmissionUpdate(params: {
         }
       : undefined;
 
+  const mergedConsents = mergeConsents(prevExtra.consents, submission.consents);
+
   const mergedExtraFields = {
     ...prevExtra,
     ...(submission.postCode ? { postCode: submission.postCode } : {}),
     ...(submission.city ? { city: submission.city } : {}),
     ...(submission.address ? { address: submission.address } : {}),
     ...(submission.dateOfBirth ? { dateOfBirth: submission.dateOfBirth } : {}),
+    ...(mergedConsents ? { consents: mergedConsents } : {}),
     ...(submission.consentPdc !== undefined ? { consentPdc: submission.consentPdc } : {}),
     ...(submission.consentMrVegas !== undefined ? { consentMrVegas: submission.consentMrVegas } : {}),
     ...(mergedDynamicFields ? { dynamicFields: mergedDynamicFields } : {}),

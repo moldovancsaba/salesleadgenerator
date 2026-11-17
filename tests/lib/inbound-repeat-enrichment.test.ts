@@ -118,4 +118,31 @@ describe('inbound form repeat-submission enrichment & history preservation', () 
     expect(patch.size).toBe('Enterprise');
     expect(patch.campaign).toBeUndefined();
   });
+
+  it('merges page-defined consents by field key across repeat submissions', () => {
+    const existing = {
+      contacts: [{ name: 'Alex', email: 'alex@example.com' }],
+      extraFields: {
+        consents: [
+          { key: 'f_news', label: 'Newsletter Opt-in', value: false },
+          { key: 'f_partner', label: 'Partner Offers', value: 'Yes' },
+        ],
+      },
+      createdAt: new Date('2026-11-10T10:00:00Z'),
+    };
+    const repeat = makeSubmission({
+      consentMrVegas: undefined,
+      consents: [
+        { key: 'f_news', label: 'Newsletter Opt-in', value: true },
+        { key: 'f_vip', label: 'VIP Invite', value: true },
+      ],
+    });
+
+    const patch = buildRepeatSubmissionUpdate({ existing, submission: repeat });
+    expect(patch.extraFields.consents).toEqual([
+      { key: 'f_news', label: 'Newsletter Opt-in', value: true },
+      { key: 'f_partner', label: 'Partner Offers', value: 'Yes' },
+      { key: 'f_vip', label: 'VIP Invite', value: true },
+    ]);
+  });
 });
