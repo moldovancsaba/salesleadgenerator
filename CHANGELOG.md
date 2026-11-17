@@ -1,5 +1,13 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.386
+
+### Sync stored landing confirmationEmail config cleanly (Issue #350)
+
+- **Confirmation email patch helper & admin endpoint (`lib/landing-page-schema.ts` `patchConfirmationEmailConfig`, `app/api/admin/landing-page-email/route.ts`):**
+  - Added `GET`/`PATCH /api/admin/landing-page-email` (authenticated via `requireBrandAccessApi` or `isCronRequest`) and `patchConfirmationEmailConfig` with `clearCtaBanner` support so stored MongoDB landing page records can drop promotional banner images/links and update `bodyBeforeCta` cleanly while preserving existing `bodyAfterCta` (`fanselfie.me/mrvegas`) and signature images.
+  - Updated the live stored `vegas` / `grand-slam-of-darts` MongoDB record to end the first paragraph after `Mr Vegas.` and remove the promotional offer banner.
+
 ## 2.4.385
 
 ### Retroactive Engaged promotion for existing marketing opt-in leads (Issue #349)

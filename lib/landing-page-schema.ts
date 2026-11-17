@@ -262,6 +262,27 @@ export function normalizeConfirmationEmailConfig(
   };
 }
 
+/**
+ * Applies a partial confirmation-email update while preserving omitted fields,
+ * and strips CTA banner fields cleanly when `clearCtaBanner` is true.
+ */
+export function patchConfirmationEmailConfig(
+  existing: Partial<LandingPageConfirmationEmailConfig> | undefined,
+  patch: Partial<LandingPageConfirmationEmailConfig> & { clearCtaBanner?: boolean }
+): LandingPageConfirmationEmailConfig {
+  const merged: Partial<LandingPageConfirmationEmailConfig> = {
+    enabled: existing?.enabled ?? false,
+    ...existing,
+    ...patch,
+  };
+  if (patch.clearCtaBanner) {
+    delete merged.ctaImageUrl;
+    delete merged.ctaLinkUrl;
+    delete merged.ctaImageAlt;
+  }
+  return normalizeConfirmationEmailConfig(merged) || { enabled: false };
+}
+
 /** The landing page as a visitor's browser receives it: no scanner or admin email config. */
 export type PublicLandingPageRecord = Omit<LandingPageRecord, 'scanner' | 'confirmationEmail'>;
 
