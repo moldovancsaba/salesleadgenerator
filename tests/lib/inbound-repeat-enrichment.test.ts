@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildInboundLeadRecord,
   buildRepeatSubmissionUpdate,
+  hasMarketingPromoOptIn,
+  resolveInboundKanbanColumn,
   type ValidatedInboundFormSubmission,
 } from '../../lib/inbound-lead-form';
 
@@ -144,5 +146,54 @@ describe('inbound form repeat-submission enrichment & history preservation', () 
       { key: 'f_partner', label: 'Partner Offers', value: 'Yes' },
       { key: 'f_vip', label: 'VIP Invite', value: true },
     ]);
+  });
+
+  it('places new leads into ENGAGED only when opting in ("Yes"/true) to marketing or promotional offers', () => {
+    const vegasYes = makeSubmission({
+      consentMrVegas: undefined,
+      consents: [
+        {
+          key: 'f_vegas_consent',
+          label: 'Can Mr Vegas contact you with marketing and promotional offers?',
+          value: 'Yes',
+        },
+      ],
+    });
+    expect(hasMarketingPromoOptIn(vegasYes)).toBe(true);
+    expect(resolveInboundKanbanColumn(vegasYes)).toBe('ENGAGED');
+    const engagedLead = buildInboundLeadRecord({
+      submission: vegasYes,
+      tenantId: 'default',
+      fingerprint: 'fp-engaged',
+      sortOrder: 0,
+    });
+    expect(engagedLead.kanbanColumn).toBe('ENGAGED');
+    expect(engagedLead.manualLaneFloorColumn).toBe('ENGAGED');
+
+    const vegasNo = makeSubmission({
+      consentMrVegas: undefined,
+      consents: [
+        {
+          key: 'f_vegas_consent',
+          label: 'Can Mr Vegas contact you with marketing and promotional offers?',
+          value: 'no',
+        },
+      ],
+    });
+    expect(hasMarketingPromoOptIn(vegasNo)).toBe(false);
+    expect(resolveInboundKanbanColumn(vegasNo)).toBe('DISCOVERED');
+
+    const legalOnly = makeSubmission({
+      consentMrVegas: undefined,
+      consents: [
+        {
+          key: 'f_terms',
+          label: 'I agree to the Terms & Conditions and Privacy Policy',
+          value: true,
+        },
+      ],
+    });
+    expect(hasMarketingPromoOptIn(legalOnly)).toBe(false);
+    expect(resolveInboundKanbanColumn(legalOnly)).toBe('DISCOVERED');
   });
 });

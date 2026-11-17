@@ -32,6 +32,7 @@ vi.mock('@/lib/landing-page-store', () => ({
 }));
 
 let mockDb: any;
+let mockCollection: any;
 
 const submission = {
   firstName: 'Luke',
@@ -43,21 +44,24 @@ const submission = {
   campaign: 'grand-slam-of-darts',
 };
 
-function submit() {
-  const req = new NextRequest('http://localhost/api/forms/vegas/submit', { method: 'POST', body: JSON.stringify(submission) });
+function submit(overrides: Record<string, unknown> = {}) {
+  const req = new NextRequest('http://localhost/api/forms/vegas/submit', {
+    method: 'POST',
+    body: JSON.stringify({ ...submission, ...overrides }),
+  });
   return POST(req, { params: Promise.resolve({ brand: 'vegas' }) });
 }
 
 beforeEach(() => {
   sendEmail.mockClear();
   incrementSubmission.mockClear();
-  const collection = {
+  mockCollection = {
     findOne: vi.fn().mockResolvedValue(null),
     updateOne: vi.fn().mockResolvedValue({}),
     insertOne: vi.fn().mockResolvedValue({ insertedId: 'lead-1' }),
     countDocuments: vi.fn().mockResolvedValue(0),
   };
-  mockDb = { collection: vi.fn(() => collection) };
+  mockDb = { collection: vi.fn(() => mockCollection) };
 });
 
 describe('POST /api/forms/[brand]/submit: confirmation & pass email', () => {
@@ -104,5 +108,80 @@ describe('POST /api/forms/[brand]/submit: confirmation & pass email', () => {
         confirmationEmail: undefined,
       })
     );
+  });
+
+  it('adds a new lead directly into ENGAGED when visitor answers Yes to marketing/promotional offers', async () => {
+    page = DEFAULT_VEGAS_CAMPAIGN;
+    const res = await submit({
+      consents: [
+        {
+          key: 'f_vegas_consent',
+          label: 'Can Mr Vegas contact you with marketing and promotional offers?',
+          value: 'Yes',
+        },
+      ],
+    });
+    expect(res.status).toBe(201);
+    expect(mockCollection.insertOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kanbanColumn: 'ENGAGED',
+        manualLaneFloorColumn: 'ENGAGED',
+      })
+    );
+  });
+
+  it('moves an existing DISCOVERED lead to ENGAGED on repeat submit with marketing opt-in Yes, without downgrading PROPOSAL leads', async () => {
+    page = DEFAULT_VEGAS_CAMPAIGN;
+    mockCollection.findOne.mockResolvedValueOnce({
+      _id: 'lead-existing-1',
+      kanbanColumn: 'DISCOVERED',
+      contacts: [{ name: 'Luke Humphries', email: 'luke@example.com' }],
+      createdAt: new Date('2026-11-10T10:00:00Z'),
+    });
+
+    const resPromoted = await submit({
+      consents: [
+        {
+          key: 'f_vegas_consent',
+          label: 'Can Mr Vegas contact you with marketing and promotional offers?',
+          value: 'Yes',
+        },
+      ],
+    });
+    expect(resPromoted.status).toBe(201);
+    expect((await resPromoted.json()).deduplicated).toBe(true);
+    const insertedLeadDocs = mockCollection.insertOne.mock.calls.filter(
+      (call: any[]) => call[0] && 'kanbanColumn' in call[0]
+    );
+    expect(insertedLeadDocs).toHaveLength(0);
+    expect(mockCollection.updateOne).toHaveBeenCalledWith(
+      { _id: 'lead-existing-1' },
+      {
+        $set: expect.objectContaining({
+          kanbanColumn: 'ENGAGED',
+        }),
+      }
+    );
+
+    mockCollection.updateOne.mockClear();
+    mockCollection.findOne.mockResolvedValueOnce({
+      _id: 'lead-proposal-1',
+      kanbanColumn: 'PROPOSAL',
+      contacts: [{ name: 'Luke Humphries', email: 'luke@example.com' }],
+      createdAt: new Date('2026-11-10T10:00:00Z'),
+    });
+
+    const resKept = await submit({
+      consents: [
+        {
+          key: 'f_vegas_consent',
+          label: 'Can Mr Vegas contact you with marketing and promotional offers?',
+          value: 'Yes',
+        },
+      ],
+    });
+    expect(resKept.status).toBe(201);
+    const updateCalls = mockCollection.updateOne.mock.calls.map((c: any[]) => c[1]?.$set?.kanbanColumn);
+    expect(updateCalls).not.toContain('ENGAGED');
   });
 });

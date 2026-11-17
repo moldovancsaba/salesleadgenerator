@@ -156,7 +156,7 @@ describe('Landing Page Lead Collector & Vegas Client', () => {
     });
 
     expect(lead.entity_name).toBe('Luke Humphries (Individual)');
-    expect(lead.kanbanColumn).toBe('DISCOVERED');
+    expect(lead.kanbanColumn).toBe('ENGAGED');
     expect(lead.source).toBe('landing_grand-slam-of-darts');
     expect(lead.campaign).toBe('grand-slam-of-darts');
     expect(lead.tags).toContain('grand-slam-of-darts');

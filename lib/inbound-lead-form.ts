@@ -369,6 +369,39 @@ function buildSubmissionSnapshot(submission: ValidatedInboundFormSubmission, sub
   };
 }
 
+const MARKETING_OPT_IN_RE = /\b(marketing|promotional|promotions?|offers?|opt[\s-]?in|newsletter|updates|contact\s+you|communications?)\b/i;
+const NON_MARKETING_GATE_RE = /\b(terms|conditions|privacy\s*policy|rules|aged?\s*18|18\+|over\s*18)\b/i;
+
+/** Returns true when a page-defined consent entry represents an affirmative opt-in for marketing/promotional offers. */
+export function isMarketingPromoConsent(consent: InboundConsentEntry): boolean {
+  const affirmative =
+    consent.value === true ||
+    (typeof consent.value === 'string' && /^(yes|true|1)$/i.test(consent.value.trim()));
+  if (!affirmative) return false;
+  const label = consent.label.trim();
+  if (MARKETING_OPT_IN_RE.test(label)) return true;
+  return !NON_MARKETING_GATE_RE.test(label) && /\b(promo|email|sms|partner|sponsor|news)\b/i.test(label);
+}
+
+/** Returns true when a submission explicitly opted in ("Yes" / checked) for marketing or promotional offers. */
+export function hasMarketingPromoOptIn(submission: {
+  consents?: InboundConsentEntry[];
+  consentMrVegas?: boolean;
+  consentPdc?: boolean;
+}): boolean {
+  if (submission.consentMrVegas === true || submission.consentPdc === true) return true;
+  return Array.isArray(submission.consents) && submission.consents.some(isMarketingPromoConsent);
+}
+
+/** Resolves the initial Kanban column for a newly captured inbound lead. */
+export function resolveInboundKanbanColumn(submission: {
+  consents?: InboundConsentEntry[];
+  consentMrVegas?: boolean;
+  consentPdc?: boolean;
+}): 'ENGAGED' | 'DISCOVERED' {
+  return hasMarketingPromoOptIn(submission) ? 'ENGAGED' : 'DISCOVERED';
+}
+
 export function buildInboundLeadRecord(params: {
   submission: ValidatedInboundFormSubmission;
   tenantId: string;
@@ -419,6 +452,8 @@ export function buildInboundLeadRecord(params: {
     dynamicFields: submission.dynamicFields,
   };
 
+  const initialColumn = resolveInboundKanbanColumn(submission);
+
   return {
     id: now.getTime(),
     region: submission.region,
@@ -455,7 +490,10 @@ export function buildInboundLeadRecord(params: {
     extraFields,
     submissionHistory: [buildSubmissionSnapshot(submission, nowIso)],
     fieldVerifications: [],
-    kanbanColumn: 'DISCOVERED',
+    kanbanColumn: initialColumn,
+    ...(initialColumn === 'ENGAGED'
+      ? { manualLaneFloorColumn: 'ENGAGED', manualLaneOverrideAt: now }
+      : {}),
     sortOrder,
     fingerprint,
     tenantId,
@@ -591,6 +629,9 @@ export function buildRepeatSubmissionUpdate(params: {
     ...(!existing.sport_or_sector && submission.sportOrSector ? { sport_or_sector: submission.sportOrSector } : {}),
     ...(!existing.industry && (submission.industry || submission.sportOrSector)
       ? { industry: submission.industry || submission.sportOrSector }
+      : {}),
+    ...(!existing.value_proposition || !String(existing.value_proposition).trim()
+      ? { value_proposition: submission.message || `Inbound inquiry from ${submission.contactName} (${submission.entityName}).${extraNotesStr}` }
       : {}),
     ...(!existing.campaign && submission.campaign ? { campaign: submission.campaign } : {}),
     nextActionDueAt: nowIso,

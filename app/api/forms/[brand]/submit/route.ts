@@ -9,7 +9,10 @@ import {
   validateInboundFormSubmission,
   buildInboundLeadRecord,
   buildRepeatSubmissionUpdate,
+  hasMarketingPromoOptIn,
+  resolveInboundKanbanColumn,
 } from '../../../../../lib/inbound-lead-form';
+import { checkInAdvancesColumn } from '../../../../../lib/hostess-scan';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,6 +101,38 @@ export async function POST(
         { _id: existing._id },
         { $set: repeatUpdate }
       );
+
+      if (hasMarketingPromoOptIn(submission) && checkInAdvancesColumn(existing.kanbanColumn, 'ENGAGED')) {
+        let promoted = false;
+        try {
+          const { executeLeadAction } = await import('../../../../lib/lead-actions');
+          const actionRes = await executeLeadAction({
+            brand,
+            tenantId,
+            leadId,
+            action: 'COLUMN_MOVE',
+            payload: { kanbanColumn: 'ENGAGED', sortOrder: Date.now() },
+            actorId: 'inbound-form',
+            actorEmail: 'noreply@haho.ai',
+          });
+          promoted = actionRes.success;
+        } catch {
+          // Fallback below ensures column promotion still persists cleanly
+        }
+        if (!promoted) {
+          await collection.updateOne(
+            { _id: existing._id },
+            {
+              $set: {
+                kanbanColumn: 'ENGAGED',
+                manualLaneFloorColumn: 'ENGAGED',
+                manualLaneOverrideAt: now,
+                updatedAt: now,
+              },
+            }
+          );
+        }
+      }
     } else {
       // Look up default deal owner from sales settings if configured
       let assignedTo: string | undefined;
@@ -121,7 +156,8 @@ export async function POST(
         region: submission.region,
       });
 
-      const count = await collection.countDocuments({ kanbanColumn: 'DISCOVERED', tenantId });
+      const targetColumn = resolveInboundKanbanColumn(submission);
+      const count = await collection.countDocuments({ kanbanColumn: targetColumn, tenantId });
       const newLead = buildInboundLeadRecord({
         submission,
         tenantId,

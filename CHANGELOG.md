@@ -1,5 +1,14 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.384
+
+### Landing form marketing opt-in advances leads to Engaged on Kanban (Issue #348)
+
+- **Automatic `ENGAGED` placement & forward-only promotion (`lib/inbound-lead-form.ts`, `app/api/forms/[brand]/submit/route.ts`):**
+  - Added `isMarketingPromoConsent`, `hasMarketingPromoOptIn`, and `resolveInboundKanbanColumn` supporting page-defined `consents[]` (`Yes` / checked on marketing, promotional, offers, updates, newsletter, communication opt-ins while excluding non-marketing terms/privacy/age gates) plus legacy `consentMrVegas` / `consentPdc`.
+  - New landing submissions where the visitor opted in (`"Yes"` / `true`) are created directly in `ENGAGED` (with `manualLaneFloorColumn: 'ENGAGED'`); submissions without marketing opt-in continue entering `DISCOVERED`.
+  - Repeat submissions opting in (`"Yes"` / `true`) move existing `DISCOVERED`, `QUALIFIED`, parked, or lost leads forward to `ENGAGED` via `executeLeadAction` (`COLUMN_MOVE`, firing outcome logs), leaving leads already at `ENGAGED`, `PROPOSAL`, or `WON` unchanged.
+
 ## 2.4.383
 
 ### Generic page-defined consent fields on landing forms (Issue #347)
