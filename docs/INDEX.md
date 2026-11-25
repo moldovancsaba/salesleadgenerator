@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Version:** 2.4.392
+**Version:** 2.4.393
 
 ---
 
@@ -22,6 +22,7 @@
 - `docs/STACK_AND_DEPENDENCIES.md` — runtime, framework, UI, DB, hosting, agent/runtime stack
 - `docs/WEBHOOKS.md` — outbound webhook system, event set, payload shape, retry/dead-letter behavior
 - `docs/USER_EMAIL_INTEGRATION_SPEC.md` — technical specification for Google/Gmail OAuth integration and encryption
+- `docs/APOLLO_INTEGRATION.md` — Apollo.io API key entitlement checks, contact/company field mappings, CSV preset, and deduplication behavior
 - `docs/DOC_LINT.md` — doc lint checklist for maintaining documentation quality
 
 ---

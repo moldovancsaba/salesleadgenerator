@@ -14,6 +14,8 @@ import { MANUAL_LEAD_DEFAULT_ICE } from '@/lib/create-lead-defaults';
 const EMPTY_FORM = {
   entity_name: '',
   url: '',
+  companyLinkedin: '',
+  companyPhone: '',
   country: '',
   region: '',
   address: '',
@@ -67,6 +69,8 @@ export function AddLeadModal({ brand, opened, onClose, onCreated }: Props) {
         body: JSON.stringify({
           entity_name: form.entity_name.trim(),
           url: form.url.trim(),
+          companyLinkedin: form.companyLinkedin.trim() || undefined,
+          companyPhone: form.companyPhone.trim() || undefined,
           country: form.country.trim().toUpperCase(),
           // Required by validateLeadPayload on create — a manually-added
           // lead always starts in Discovered, matching the neutral-ICE
@@ -129,6 +133,20 @@ export function AddLeadModal({ brand, opened, onClose, onCreated }: Props) {
           value={form.url}
           onChange={(e) => { const v = e.currentTarget.value; setForm((f) => ({ ...f, url: v })); }}
         />
+        <Group grow>
+          <TextInput
+            label="Company LinkedIn URL"
+            placeholder="https://www.linkedin.com/company/..."
+            value={form.companyLinkedin}
+            onChange={(e) => { const v = e.currentTarget.value; setForm((f) => ({ ...f, companyLinkedin: v })); }}
+          />
+          <TextInput
+            label="Company Phone"
+            placeholder="+1 555 0100"
+            value={form.companyPhone}
+            onChange={(e) => { const v = e.currentTarget.value; setForm((f) => ({ ...f, companyPhone: v })); }}
+          />
+        </Group>
         <Group grow>
           <TextInput
             label="Country"

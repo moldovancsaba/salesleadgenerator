@@ -3,7 +3,7 @@ import { normalizeLead } from './normalize-lead'
 import { validatePatchPayload } from '../../lib/validate-lead'
 import { isMongoConfigured } from '../../lib/mongodb'
 import { tenantFilter as buildTenantFilter } from '../../lib/tenant'
-import { dedupeContacts, deriveContactEmails, normalizeContact, contactKey, verifiableFieldsDiffer } from '../../lib/contacts'
+import { dedupeContacts, deriveContactEmails, normalizeContact, normalizePhone, contactKey, verifiableFieldsDiffer } from '../../lib/contacts'
 import { scanTechStack } from '../../lib/tech-stack-scan'
 import { computeTicketSizeForLead } from './ticket-size-store'
 import { createManualTicketSizeOverride } from '../../lib/ticket-size'
@@ -307,7 +307,7 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
   }
 
   if (action === 'MODIFY') {
-    const fields = ['entity_name', 'url', 'country', 'address', 'general_contact', 'size', 'industry',
+    const fields = ['entity_name', 'url', 'companyLinkedin', 'companyPhone', 'country', 'address', 'general_contact', 'size', 'industry',
                     'sport_or_sector', 'level_league', 'value_proposition', 'notes', 'tags',
                     'actualDealValueUsd', 'source',
                     // Controlled sports-industry taxonomy (rulebook v1.0,
@@ -321,6 +321,9 @@ export async function executeLeadAction(input: LeadActionInput): Promise<LeadAct
     fields.forEach(field => {
       if (normalizedBody[field] !== undefined) updateData[field] = normalizedBody[field]
     })
+    if (typeof updateData.companyPhone === 'string' && updateData.companyPhone.trim()) {
+      updateData.companyPhone = normalizePhone(updateData.companyPhone)
+    }
     // The real, closed contract value once a lead is WON (issue #83) — coerced
     // to a real number here, the same corruption class the ice-field fix
     // (2.4.8) and PUT's own explicit `ice` coercion already guard against;

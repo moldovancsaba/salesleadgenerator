@@ -4,6 +4,7 @@ import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { isResendSendConfigured, sendManualEmail } from '../../../lib/outreach-send'
 import type { LeadForSend } from '../../../lib/outreach-send'
+import { resolveOutreachTargetContact } from '../../../lib/contacts'
 import { evaluateOutreachRouting } from '../../lib/outreach/routing-rules'
 import { getBrandConfig, resolveBrand } from '../../lib/brand'
 import { ObjectId, type Db } from 'mongodb'
@@ -114,6 +115,27 @@ export async function POST(request: NextRequest) {
     }
 
     const contacts = Array.isArray(stored.contacts) ? stored.contacts : []
+    const requestedTargetEmail =
+      typeof body.targetContactEmail === 'string' && body.targetContactEmail.trim()
+        ? body.targetContactEmail.trim()
+        : undefined
+    const requestedTargetName =
+      typeof body.targetContactName === 'string' && body.targetContactName.trim()
+        ? body.targetContactName.trim()
+        : undefined
+    let explicitTargetContact: ReturnType<typeof resolveOutreachTargetContact> = null
+    if (requestedTargetEmail || requestedTargetName) {
+      explicitTargetContact = resolveOutreachTargetContact(contacts, {
+        email: requestedTargetEmail,
+        name: requestedTargetName,
+      })
+      if (!explicitTargetContact) {
+        return NextResponse.json(
+          { error: 'Selected target contact does not belong to this lead.' },
+          { status: 400 }
+        )
+      }
+    }
 
     // Same pre-check pattern POST /api/outreach-logs already runs, for a
     // clean, immediate 400 on a structurally ineligible request (e.g. no
@@ -121,7 +143,12 @@ export async function POST(request: NextRequest) {
     // internal re-check (issue #150's established defense-in-depth
     // convention) still runs regardless and is authoritative for anything
     // that changes between this check and the actual send.
-    const routing = evaluateOutreachRouting('email', { contacts, url: stored.url }, bodyText)
+    const routing = evaluateOutreachRouting(
+      'email',
+      { contacts, url: stored.url },
+      bodyText,
+      explicitTargetContact ? { selectedContact: explicitTargetContact } : undefined
+    )
     if (!routing.allowed) {
       return NextResponse.json({ error: routing.reason || 'Outreach not allowed for this channel/lead state.' }, { status: 400 })
     }
@@ -164,6 +191,8 @@ export async function POST(request: NextRequest) {
       senderUserId,
       senderName,
       senderEmail,
+      targetContactEmail: explicitTargetContact?.email,
+      targetContactName: explicitTargetContact?.name,
       includeSignature,
       replyInThread,
       threadId,

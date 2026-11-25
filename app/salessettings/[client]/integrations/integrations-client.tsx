@@ -185,7 +185,7 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
               />
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
-              Connect this brand to Google Calendar, Gmail, Google Contacts, and Calendly.
+              Connect this brand to Google Calendar, Gmail, Google Contacts, Calendly, and Apollo.io.
             </Text>
           </div>
         </Group>
@@ -313,13 +313,22 @@ export function IntegrationsClient({ brand, label }: IntegrationsClientProps) {
       >
         <Stack gap="sm">
           <Text size="sm" c="dimmed">
-            Generate a personal access token in Calendly (Integrations → API &amp; Webhooks → Generate new
-            token) and paste it below. Calendly does not display or store it after generation — if it&apos;s
-            lost, generate a new one; there is no recovery. This token acts with the full permission of
-            your Calendly account, broader than a Google connection&apos;s scoped access.
+            {connectModalProvider === 'apollo' ? (
+              <>
+                Generate an API key in Apollo (Settings → Integrations → API → API Keys) and paste it below.
+                Sales Haho verifies account health via <code>x-api-key</code> before saving it encrypted.
+              </>
+            ) : (
+              <>
+                Generate a personal access token in Calendly (Integrations → API &amp; Webhooks → Generate new
+                token) and paste it below. Calendly does not display or store it after generation — if it&apos;s
+                lost, generate a new one; there is no recovery. This token acts with the full permission of
+                your Calendly account, broader than a Google connection&apos;s scoped access.
+              </>
+            )}
           </Text>
           <TextInput
-            label="Personal access token"
+            label={connectModalProvider === 'apollo' ? 'Apollo API key' : 'Personal access token'}
             type="password"
             value={apiKeyValue}
             onChange={(e) => setApiKeyValue(e.currentTarget.value)}

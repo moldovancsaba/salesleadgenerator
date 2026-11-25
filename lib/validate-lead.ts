@@ -97,6 +97,12 @@ export function validateLeadPayload(body: any, brand: string, forbiddenTerms: st
     }
   }
 
+  if (body.companyLinkedin !== undefined && body.companyLinkedin !== null && body.companyLinkedin !== '') {
+    if (typeof body.companyLinkedin !== 'string' || !URL_RE.test(body.companyLinkedin.trim())) {
+      errors.push('companyLinkedin must be a valid HTTP(S) URL');
+    }
+  }
+
   if (!partial || body.country !== undefined) {
     // Issue #223: the real ISO 3166-1 alpha-2 list (plus XK), not just any two
     // capitals — 'SP' (Spain), 'CE' (from "CEE") and 'EM'/'EU' (from "EMEA")

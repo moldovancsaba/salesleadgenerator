@@ -5,14 +5,15 @@
 import type { Lead, KanbanColumn } from '@/app/types';
 import { isValidIsoCountry, ISO_COUNTRY_CODES } from './iso-country-codes';
 import { getIceScore } from '@/app/constants';
+import { normalizeDepartmentInput } from './title-normalization';
 
-export type CrmPreset = 'google_sheets' | 'hubspot' | 'salesforce' | 'pipedrive' | 'universal';
+export type CrmPreset = 'google_sheets' | 'hubspot' | 'salesforce' | 'pipedrive' | 'apollo' | 'universal';
 
 export type CrmPresetInfo = {
   id: CrmPreset;
   label: string;
   description: string;
-  icon: 'google' | 'hubspot' | 'salesforce' | 'pipedrive' | 'csv';
+  icon: 'google' | 'hubspot' | 'salesforce' | 'pipedrive' | 'apollo' | 'csv';
   fileExtension: string;
   sampleHeaders: string[];
 };
@@ -49,6 +50,14 @@ export const CRM_PRESETS: Record<CrmPreset, CrmPresetInfo> = {
     icon: 'pipedrive',
     fileExtension: 'csv',
     sampleHeaders: ['Organization Name', 'Person - Name', 'Person - Email', 'Lead Value', 'Stage'],
+  },
+  apollo: {
+    id: 'apollo',
+    label: 'Apollo.io Export',
+    description: 'Formatted for Apollo.io contact & company CSV exports (First Name, Last Name, Person Linkedin Url, Company Linkedin Url, Corporate Phone, Departments).',
+    icon: 'apollo',
+    fileExtension: 'csv',
+    sampleHeaders: ['First Name', 'Last Name', 'Title', 'Company', 'Email', 'Work Direct Phone', 'Person Linkedin Url', 'Company Linkedin Url', 'Website', 'Industry', 'Departments', 'Country'],
   },
   universal: {
     id: 'universal',
@@ -648,6 +657,17 @@ export function parseCsvOrTsv(rawText: string): { headers: string[]; rows: strin
 export function detectCrmPreset(headers: string[]): CrmPreset {
   const norm = headers.map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
 
+  // Apollo.io detection
+  if (
+    norm.includes('personlinkedinurl') ||
+    norm.includes('companylinkedinurl') ||
+    norm.includes('workdirectphone') ||
+    norm.includes('corporatephone') ||
+    norm.includes('apollocontactid')
+  ) {
+    return 'apollo';
+  }
+
   // HubSpot detection
   if (
     norm.includes('hubspotowner') ||
@@ -705,15 +725,21 @@ export function mapRowToLeadPayload(
     findFieldValue(row, ['company name', 'company', 'organization name', 'organization', 'account name', 'name', 'entity name']) ||
     'Unknown Organization';
 
-  let rawUrl = findFieldValue(row, ['website url', 'website', 'domain', 'url', 'web']);
+  let rawUrl = findFieldValue(row, ['website url', 'website', 'company website', 'domain', 'url', 'web']);
   if (rawUrl && !rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
     rawUrl = `https://${rawUrl}`;
   }
 
+  let rawCompanyLinkedin = findFieldValue(row, ['company linkedin url', 'company linkedin', 'organization linkedin url', 'account linkedin']);
+  if (rawCompanyLinkedin && !rawCompanyLinkedin.startsWith('http://') && !rawCompanyLinkedin.startsWith('https://')) {
+    rawCompanyLinkedin = `https://${rawCompanyLinkedin}`;
+  }
+  const companyPhone = findFieldValue(row, ['corporate phone', 'company phone', 'organization phone', 'hq phone']);
+
   const cityName = findFieldValue(row, ['city', 'city name', 'town']);
   const address = findFieldValue(row, ['street', 'address', 'organization address', 'full address']);
 
-  let rawCountry = findFieldValue(row, ['country/region', 'country', 'country code', 'nation']);
+  let rawCountry = findFieldValue(row, ['country/region', 'country', 'company country', 'country code', 'nation']);
   if (!rawCountry && address) {
     // If country is embedded inside a single-string address (e.g. "Turin, Italy"), extract it
     rawCountry = address;
@@ -734,18 +760,27 @@ export function mapRowToLeadPayload(
     contactName = `${firstName} ${lastName}`.trim();
   }
 
-  const contactEmail = findFieldValue(row, ['email', 'contact email', 'person - email', 'person email', 'work email']);
-  const contactPhone = findFieldValue(row, ['phone', 'phone number', 'contact phone', 'person - phone', 'mobile']);
-  const contactTitle = findFieldValue(row, ['job title', 'title', 'person - job title', 'role', 'position']);
-  const contactLinkedin = findFieldValue(row, ['linkedin', 'linkedin url', 'person linkedin']);
+  const contactEmail = findFieldValue(row, ['email', 'work email', 'contact email', 'person - email', 'person email', 'primary contact email']);
+  const contactPhone = findFieldValue(row, ['work direct phone', 'mobile phone', 'direct phone', 'contact phone', 'person - phone', 'phone', 'phone number', 'mobile', 'primary contact phone']);
+  const contactTitle = findFieldValue(row, ['job title', 'title', 'person - job title', 'role', 'position', 'primary contact title']);
+  const rawDept = findFieldValue(row, ['departments', 'department', 'function']);
+  const deptNorm = rawDept ? normalizeDepartmentInput(rawDept) : 'Unknown';
+  let contactLinkedin = findFieldValue(row, ['person linkedin url', 'personal linkedin', 'contact linkedin', 'primary contact linkedin', 'linkedin url', 'person linkedin', 'linkedin']);
+  if (contactLinkedin && !contactLinkedin.startsWith('http://') && !contactLinkedin.startsWith('https://')) {
+    contactLinkedin = `https://${contactLinkedin}`;
+  }
 
   const contacts: NonNullable<Lead['contacts']> = [];
   if (contactName || contactEmail || contactPhone || contactTitle) {
     contacts.push({
       name: contactName || undefined,
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      country: rawCountry ? country : undefined,
       email: contactEmail || undefined,
       phone: contactPhone || undefined,
       title: contactTitle || undefined,
+      departmentOverride: deptNorm !== 'Unknown' ? deptNorm : undefined,
       linkedin: contactLinkedin || undefined,
       buyingRole: 'unknown',
     });
@@ -770,6 +805,9 @@ export function mapRowToLeadPayload(
   return {
     entity_name: entityName,
     url: rawUrl || undefined,
+    companyLinkedin: rawCompanyLinkedin || undefined,
+    companyPhone: companyPhone || undefined,
+    source: preset === 'apollo' ? 'apollo' : undefined,
     country,
     cityName: cityName || undefined,
     address: address || undefined,

@@ -1,6 +1,6 @@
 # Sales Lead Generator
 
-**Version:** 2.4.392  
+**Version:** 2.4.393  
 **Production:** https://sales.haho.ai (Legacy alias: salesleadgenerator.vercel.app)
 
 Sales Lead Generator is a Next.js sales intelligence app for managing sports organization leads across multiple brands on a kanban board. It supports lead discovery, enrichment, ICE scoring, outreach, and operator feedback learning.
@@ -22,7 +22,7 @@ Sales Lead Generator is a Next.js sales intelligence app for managing sports org
 - Desktop and tablet browser experience: docked collapsible sidebar navigation (`>= 768px`) with show/hide toggle, inline Board/Table/Backlog/Metrics view switcher, command palette shortcut affordances (`⌘K`), and unblocked multi-touch zoom
 - Progressive Web App (PWA) with self-hosted offline shell fallback (`/offline`), app-shell caching, standalone manifest, and shortcuts
 - Mobile-first kanban board, table view, metrics dashboard, and search-learning panel
-- Multi-CRM Lead Import and Export (`/api/leads/export`, `/api/leads/import`, `LeadExportModal`, `LeadImportModal`) for **HubSpot**, **Salesforce**, **Pipedrive**, and **Google Sheets** with RFC 4180 parsing, UTF-8 BOM CSV downloads, and 1-click TSV clipboard copying
+- Multi-CRM Lead Import and Export (`/api/leads/export`, `/api/leads/import`, `/api/integrations/apollo/*`, `LeadExportModal`, `LeadImportModal`, `ApolloImportModal`) for **Apollo.io**, **HubSpot**, **Salesforce**, **Pipedrive**, and **Google Sheets** with live Apollo API key & entitlement checks, RFC 4180 parsing, UTF-8 BOM CSV downloads, and 1-click TSV clipboard copying
 - Modernized 5-Tab Sales Settings (`/salessettings/[client]`) with live central Product Catalog tab (`/salessettings/[client]?tab=products`), assignable brand sales team squad, default deal owner routing, deal sizing bands, and region multipliers
 - Multi-Google Account support for User Profiles, Gmail Outreach, and Contacts with per-account sync, test, disconnect, and default sender management (`/api/user/integrations`)
 - Google Contacts 1-click OAuth integration and batch lead import workspace modal (`/contacts/[brand]`, `/api/contacts/import-google`)

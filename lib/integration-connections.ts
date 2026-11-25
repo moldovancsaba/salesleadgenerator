@@ -5,7 +5,7 @@ import type { EncryptedBlob } from './integration-crypto';
 // Google Contacts, Calendly, and whatever is added later) plugs into,
 // instead of each one inventing its own credential-storage design.
 
-export type IntegrationProvider = 'google_calendar' | 'gmail' | 'google_contacts' | 'calendly';
+export type IntegrationProvider = 'google_calendar' | 'gmail' | 'google_contacts' | 'calendly' | 'apollo';
 export type IntegrationAuthMethod = 'oauth2' | 'api_key';
 export type IntegrationStatus = 'active' | 'expired' | 'revoked' | 'error';
 
@@ -53,7 +53,7 @@ export type IntegrationConnection = {
 };
 
 export const OAUTH_PROVIDERS: IntegrationProvider[] = ['google_calendar', 'gmail', 'google_contacts'];
-export const API_KEY_PROVIDERS: IntegrationProvider[] = ['calendly'];
+export const API_KEY_PROVIDERS: IntegrationProvider[] = ['calendly', 'apollo'];
 export const ALL_PROVIDERS: IntegrationProvider[] = [...OAUTH_PROVIDERS, ...API_KEY_PROVIDERS];
 
 export function isKnownProvider(value: unknown): value is IntegrationProvider {
@@ -78,6 +78,7 @@ type OAuthProviderConfig = {
 
 type ApiKeyProviderConfig = {
   verifyUrl: string;
+  authHeaderStyle?: 'bearer' | 'x-api-key';
 };
 
 // Endpoints verified against each provider's real, published OAuth2/REST
@@ -132,11 +133,27 @@ export const OAUTH_PROVIDER_CONFIG: Record<'google_calendar' | 'gmail' | 'google
 // for this hub's small, fixed, internal-admin use case, verified against
 // Calendly's real, live OpenAPI spec (securitySchemes.personal_access_token:
 // { type: http, scheme: bearer }).
-export const API_KEY_PROVIDER_CONFIG: Record<'calendly', ApiKeyProviderConfig> = {
+export const API_KEY_PROVIDER_CONFIG: Record<'calendly' | 'apollo', ApiKeyProviderConfig> = {
   calendly: {
     verifyUrl: 'https://api.calendly.com/users/me',
+    authHeaderStyle: 'bearer',
+  },
+  apollo: {
+    verifyUrl: 'https://api.apollo.io/api/v1/auth/health',
+    authHeaderStyle: 'x-api-key',
   },
 };
+
+export function buildApiKeyVerifyHeaders(cfg: ApiKeyProviderConfig, apiKey: string): Record<string, string> {
+  if (cfg.authHeaderStyle === 'x-api-key') {
+    return {
+      'x-api-key': apiKey,
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache',
+    };
+  }
+  return { Authorization: `Bearer ${apiKey}` };
+}
 
 export function oauthConfigFor(provider: IntegrationProvider): OAuthProviderConfig | null {
   if (!isOAuthProvider(provider)) return null;
@@ -145,7 +162,7 @@ export function oauthConfigFor(provider: IntegrationProvider): OAuthProviderConf
 
 export function apiKeyConfigFor(provider: IntegrationProvider): ApiKeyProviderConfig | null {
   if (isOAuthProvider(provider)) return null;
-  return API_KEY_PROVIDER_CONFIG[provider as 'calendly'];
+  return API_KEY_PROVIDER_CONFIG[provider as 'calendly' | 'apollo'] || null;
 }
 
 export function buildGoogleAuthorizeUrl(params: {
@@ -177,4 +194,5 @@ export const PROVIDER_LABELS: Record<IntegrationProvider, string> = {
   gmail: 'Gmail',
   google_contacts: 'Google Contacts',
   calendly: 'Calendly',
+  apollo: 'Apollo.io',
 };

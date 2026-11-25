@@ -6,12 +6,13 @@
 
 import type { Db } from 'mongodb';
 import type { EmailVerificationStatus } from './email-verification';
-import { normalizeTitle } from './title-normalization';
+import { normalizeTitle, isValidDepartment, normalizeDepartmentInput } from './title-normalization';
 import type { SeniorityTier, Department } from './title-normalization';
 import { decodeHtmlEntities } from './text-sanitize';
 import { normalizeFieldVerifications } from './field-verifications';
 import type { FieldVerification } from './field-verifications';
 import { splitContactName } from './template-personalization';
+import { isValidIsoCountry } from './iso-country-codes';
 
 export type ContactInput = Record<string, any>;
 
@@ -59,6 +60,7 @@ export type NormalizedContact = {
   name: string;
   firstName?: string;
   lastName?: string;
+  country?: string;
   title: string;
   email: string;
   // Secondary / alternate email address (issue #241). Invariant: MUST NEVER be used as the
@@ -83,11 +85,13 @@ export type NormalizedContact = {
   // status: 'unverified' (checked, but the email failed format validation).
   emailVerificationStatus?: EmailVerificationStatus;
   // Rule-based, derived from `title` on every normalize — see
-  // lib/title-normalization.ts, issue #68. Not user-editable; re-derived
-  // from whatever `title` is, every time, so it can never silently drift
-  // from the title it describes.
+  // lib/title-normalization.ts, issue #68. Optional explicit departmentOverride
+  // (issue #359) allows imports/reps to specify a department when the job title
+  // alone is generic or localized, without allowing stale `department` fields to
+  // drift from recognized titles.
   seniorityTier: SeniorityTier;
   department: Department;
+  departmentOverride?: Department;
   // Per-field provenance for this contact — issue #188. Bare field names
   // ("phone", "email"), never paths. Normalized (collapsed per field+method,
   // capped) on every pass, and undefined rather than [] when absent so an
@@ -181,17 +185,35 @@ export function normalizeContact(c: ContactInput, options?: NormalizeContactOpti
   const title = typeof c?.title === 'string' ? decodeHtmlEntities(c.title.trim()) : '';
   const verify = options?.verify === true;
   const now = options?.now ?? new Date();
-  const { seniorityTier, department } = normalizeTitle(title);
+  const { seniorityTier, department: derivedDepartment } = normalizeTitle(title);
+  const explicitDeptOverride =
+    typeof c?.departmentOverride === 'string' && c.departmentOverride.trim()
+      ? normalizeDepartmentInput(c.departmentOverride)
+      : undefined;
+  const fallbackDeptFromInput =
+    derivedDepartment === 'Unknown' && typeof c?.department === 'string' && c.department.trim()
+      ? normalizeDepartmentInput(c.department)
+      : 'Unknown';
+  const department: Department =
+    explicitDeptOverride && explicitDeptOverride !== 'Unknown'
+      ? explicitDeptOverride
+      : derivedDepartment !== 'Unknown'
+      ? derivedDepartment
+      : fallbackDeptFromInput;
   const buyingRole = resolveBuyingRole(c);
 
-  const fullName = typeof c?.name === 'string' ? toNameCase(decodeHtmlEntities(c.name.trim())) : '';
-  const { firstName: derivedFirst, lastName: derivedLast } = splitContactName(fullName);
+  const inputFullName = typeof c?.name === 'string' ? toNameCase(decodeHtmlEntities(c.name.trim())) : '';
+  const { firstName: derivedFirst, lastName: derivedLast } = splitContactName(inputFullName);
   const rawFirst = typeof c?.firstName === 'string' && c.firstName.trim()
     ? toNameCase(decodeHtmlEntities(c.firstName.trim()))
     : derivedFirst;
   const rawLast = typeof c?.lastName === 'string' && c.lastName.trim()
     ? toNameCase(decodeHtmlEntities(c.lastName.trim()))
     : derivedLast;
+  const fullName = inputFullName || [rawFirst, rawLast].filter(Boolean).join(' ').trim();
+
+  const rawCountry = typeof c?.country === 'string' ? c.country.trim().toUpperCase() : '';
+  const normalizedCountry = rawCountry && isValidIsoCountry(rawCountry) ? rawCountry : undefined;
 
   const normalizedPrimary = rawEmail ? normalizeEmail(rawEmail) : '';
   let normalizedSecondary = rawSecondary ? normalizeEmail(rawSecondary) : undefined;
@@ -217,6 +239,7 @@ export function normalizeContact(c: ContactInput, options?: NormalizeContactOpti
     name: fullName,
     firstName: rawFirst || undefined,
     lastName: rawLast || undefined,
+    country: normalizedCountry,
     title,
     email: normalizedPrimary,
     secondaryEmail: normalizedSecondary,
@@ -230,6 +253,10 @@ export function normalizeContact(c: ContactInput, options?: NormalizeContactOpti
     customFields,
     seniorityTier,
     department,
+    departmentOverride:
+      explicitDeptOverride && explicitDeptOverride !== 'Unknown' && isValidDepartment(explicitDeptOverride)
+        ? explicitDeptOverride
+        : undefined,
     lastVerifiedAt: verify ? now.toISOString() : (typeof c?.lastVerifiedAt === 'string' ? c.lastVerifiedAt : undefined),
     // Passed through as-is when present — this is a server-computed field
     // (issue #67's background MX check), never something a write payload is
@@ -332,12 +359,21 @@ export function dedupeContacts(
 
     deduped[existingIndex] = {
       ...existing,
+      title: existing.title || c.title,
+      email: existing.email || c.email,
+      phone: existing.phone || c.phone,
+      linkedin: existing.linkedin || c.linkedin,
+      role: existing.role || c.role,
+      country: existing.country || c.country,
       firstName: mergedFirst,
       lastName: mergedLast,
       secondaryEmail: mergedSecondary,
       crmStatus: mergedStatus,
       ownerUserId: mergedOwner,
       customFields: mergedCustom,
+      department: existing.department !== 'Unknown' ? existing.department : c.department,
+      departmentOverride: existing.departmentOverride || c.departmentOverride,
+      seniorityTier: existing.seniorityTier !== 'Unknown' ? existing.seniorityTier : c.seniorityTier,
       lastVerifiedAt: merged,
       fieldVerifications: mergedVerifications,
       buyingRole: mergedBuyingRole,
@@ -346,6 +382,132 @@ export function dedupeContacts(
   }
 
   return deduped;
+}
+
+function normalizeLinkedinKey(url: string | undefined): string {
+  if (!url || typeof url !== 'string') return '';
+  return url
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\/(www\.)?/, '')
+    .replace(/\/+$/, '');
+}
+
+/**
+ * Merges incoming enrichment/import contacts into an existing lead's contacts[]
+ * without duplicating an existing contact when new attributes (e.g. phone or LinkedIn)
+ * arrive on a later run (#359 / backlog #11 & #12).
+ */
+export function mergeEnrichedContacts(
+  existingContacts: ContactInput[] | undefined | null,
+  incomingContacts: ContactInput[] | undefined | null,
+  options?: NormalizeContactOptions
+): NormalizedContact[] {
+  const base = dedupeContacts(existingContacts);
+  if (!Array.isArray(incomingContacts) || incomingContacts.length === 0) {
+    return base;
+  }
+
+  const mergedList = [...base];
+
+  for (const raw of incomingContacts) {
+    const incoming = normalizeContact(raw, options);
+    if (!incoming.name && !incoming.email && !incoming.phone) continue;
+
+    const inLinkedin = normalizeLinkedinKey(incoming.linkedin);
+    const inEmail = incoming.email.toLowerCase();
+    const inName = incoming.name.toLowerCase();
+
+    const matchIdx = mergedList.findIndex((ex) => {
+      if (inLinkedin && normalizeLinkedinKey(ex.linkedin) === inLinkedin) return true;
+      if (inEmail && (ex.email.toLowerCase() === inEmail || ex.secondaryEmail?.toLowerCase() === inEmail)) return true;
+      if (contactKey(ex) && contactKey(ex) === contactKey(incoming)) return true;
+      if (
+        inName &&
+        ex.name.toLowerCase() === inName &&
+        ((!ex.email && !incoming.email) || !ex.email || !incoming.email) &&
+        ((!ex.phone && !incoming.phone) || !ex.phone || !incoming.phone)
+      ) {
+        return true;
+      }
+      return false;
+    });
+
+    if (matchIdx === -1) {
+      mergedList.push(incoming);
+      continue;
+    }
+
+    const ex = mergedList[matchIdx];
+    const nextPrimaryEmail = incoming.email || ex.email;
+    let nextSecondary = ex.secondaryEmail || incoming.secondaryEmail;
+    if (!nextSecondary && ex.email && incoming.email && ex.email.toLowerCase() !== incoming.email.toLowerCase()) {
+      nextSecondary = ex.email;
+    }
+    if (nextSecondary && nextSecondary.toLowerCase() === nextPrimaryEmail.toLowerCase()) {
+      nextSecondary = undefined;
+    }
+
+    const nextBuyingRole =
+      incoming.buyingRole !== 'unknown'
+        ? incoming.buyingRole
+        : ex.buyingRole;
+
+    const nextTitle = incoming.title || ex.title;
+    const nextDeptOverride = incoming.departmentOverride || ex.departmentOverride;
+    const nextDept =
+      nextDeptOverride && nextDeptOverride !== 'Unknown'
+        ? nextDeptOverride
+        : incoming.department !== 'Unknown'
+        ? incoming.department
+        : ex.department;
+    const nextSeniority =
+      incoming.seniorityTier !== 'Unknown' ? incoming.seniorityTier : ex.seniorityTier;
+
+    const mergedVerifications =
+      ex.fieldVerifications || incoming.fieldVerifications
+        ? normalizeFieldVerifications([
+            ...(ex.fieldVerifications || []),
+            ...(incoming.fieldVerifications || []),
+          ])
+        : undefined;
+
+    mergedList[matchIdx] = {
+      ...ex,
+      name: incoming.name || ex.name,
+      firstName: incoming.firstName || ex.firstName,
+      lastName: incoming.lastName || ex.lastName,
+      country: incoming.country || ex.country,
+      title: nextTitle,
+      email: nextPrimaryEmail,
+      secondaryEmail: nextSecondary,
+      phone: incoming.phone || ex.phone,
+      linkedin: incoming.linkedin || ex.linkedin,
+      role: incoming.role || ex.role,
+      buyingRole: nextBuyingRole,
+      isDecisionMaker: deriveIsDecisionMaker(nextBuyingRole),
+      crmStatus:
+        incoming.crmStatus && incoming.crmStatus !== 'prospect'
+          ? incoming.crmStatus
+          : ex.crmStatus,
+      ownerUserId: incoming.ownerUserId || ex.ownerUserId,
+      customFields:
+        ex.customFields || incoming.customFields
+          ? { ...(ex.customFields || {}), ...(incoming.customFields || {}) }
+          : undefined,
+      seniorityTier: nextSeniority,
+      department: nextDept,
+      departmentOverride: nextDeptOverride,
+      lastVerifiedAt: laterTimestamp(ex.lastVerifiedAt, incoming.lastVerifiedAt),
+      emailVerificationStatus:
+        nextPrimaryEmail.toLowerCase() === ex.email.toLowerCase()
+          ? ex.emailVerificationStatus ?? incoming.emailVerificationStatus
+          : incoming.emailVerificationStatus,
+      fieldVerifications: mergedVerifications,
+    };
+  }
+
+  return dedupeContacts(mergedList);
 }
 
 // Issue #142 & #241 — the denormalized index that makes "which lead does this
@@ -400,16 +562,47 @@ export function getContactSendEmail(c: NormalizedContact | null | undefined): st
   return c.email;
 }
 
+export function resolveOutreachTargetContact(
+  contacts: ContactInput[] | undefined | null,
+  selector?: { email?: string | null; name?: string | null } | null
+): NormalizedContact | null {
+  if (!Array.isArray(contacts) || contacts.length === 0) return null;
+  if (selector && (selector.email || selector.name)) {
+    const wantEmail = (selector.email || '').trim().toLowerCase();
+    const wantName = (selector.name || '').trim().toLowerCase();
+    const normalizedAll = contacts.map((c) => normalizeContact(c));
+    if (wantEmail) {
+      const byEmail = normalizedAll.find((c) => c.email.toLowerCase() === wantEmail);
+      if (byEmail) return byEmail;
+    }
+    if (wantName) {
+      const byName = normalizedAll.find((c) => c.name.toLowerCase() === wantName);
+      if (byName) return byName;
+    }
+    return null;
+  }
+  return getDecisionMakerContact(contacts);
+}
+
 export type ContactDirectoryEntry = {
   key: string;
   name: string;
   firstName?: string;
   lastName?: string;
+  country?: string;
+  company?: string;
   title: string;
+  department?: Department;
+  industry?: string;
   email: string;
   secondaryEmail?: string;
   phone: string;
   linkedin: string;
+  companyWebsite?: string;
+  companyLinkedin?: string;
+  companyPhone?: string;
+  leadSource?: string;
+  lastResearchedAt?: string;
   buyingRole: BuyingRole;
   isDecisionMaker: boolean;
   crmStatus?: ContactCRMStatus;
@@ -418,7 +611,7 @@ export type ContactDirectoryEntry = {
   leads: Array<{ leadId: string; entity_name: string }>;
 };
 
-// Cross-lead contact directory (issue #139, enhanced #241) — contacts[] has never had a
+// Cross-lead contact directory (issue #139, enhanced #241 & #359) — contacts[] has never had a
 // concept of identity beyond a single lead's own array (contactKey() below
 // is deliberately scoped to one lead). This groups by that same key across
 // every lead passed in, so the same person listed on two leads collapses
@@ -430,13 +623,45 @@ export type ContactDirectoryEntry = {
 // same as dedupeContacts()) — there's nothing to search/display by name for
 // a directory whose only listing key is the name.
 export function aggregateContactsAcrossLeads(
-  leads: Array<{ _id: string; entity_name: string; contacts?: ContactInput[] | null }>
+  leads: Array<{
+    _id: string;
+    entity_name: string;
+    country?: string | null;
+    industry?: string | null;
+    sport_or_sector?: string | null;
+    url?: string | null;
+    companyLinkedin?: string | null;
+    companyPhone?: string | null;
+    source?: string | null;
+    lastResearchedAt?: string | null;
+    contacts?: ContactInput[] | null;
+  }>
 ): ContactDirectoryEntry[] {
   const byKey = new Map<string, ContactDirectoryEntry>();
 
   for (const lead of leads) {
     const leadId = lead._id;
     const entityName = lead.entity_name || '';
+    const leadCountry = typeof lead.country === 'string' && lead.country.trim() ? lead.country.trim().toUpperCase() : undefined;
+    const leadIndustry =
+      (typeof lead.industry === 'string' && lead.industry.trim()) ||
+      (typeof lead.sport_or_sector === 'string' && lead.sport_or_sector.trim()) ||
+      undefined;
+    const leadUrl = typeof lead.url === 'string' && lead.url.trim() ? lead.url.trim() : undefined;
+    const leadCompanyLinkedin =
+      typeof lead.companyLinkedin === 'string' && lead.companyLinkedin.trim()
+        ? lead.companyLinkedin.trim()
+        : undefined;
+    const leadCompanyPhone =
+      typeof lead.companyPhone === 'string' && lead.companyPhone.trim()
+        ? lead.companyPhone.trim()
+        : undefined;
+    const leadSource = typeof lead.source === 'string' && lead.source.trim() ? lead.source.trim() : undefined;
+    const leadLastResearched =
+      typeof lead.lastResearchedAt === 'string' && lead.lastResearchedAt.trim()
+        ? lead.lastResearchedAt.trim()
+        : undefined;
+
     for (const c of dedupeContacts(lead.contacts)) {
       const key = contactKey(c);
       if (!key) continue;
@@ -446,6 +671,11 @@ export function aggregateContactsAcrossLeads(
         if (!existing.leads.some((l) => l.leadId === leadId)) {
           existing.leads.push({ leadId, entity_name: entityName });
         }
+        if (!existing.country && (c.country || leadCountry)) existing.country = c.country || leadCountry;
+        if (!existing.industry && leadIndustry) existing.industry = leadIndustry;
+        if (!existing.companyWebsite && leadUrl) existing.companyWebsite = leadUrl;
+        if (!existing.companyLinkedin && leadCompanyLinkedin) existing.companyLinkedin = leadCompanyLinkedin;
+        if (!existing.companyPhone && leadCompanyPhone) existing.companyPhone = leadCompanyPhone;
         continue;
       }
 
@@ -454,11 +684,20 @@ export function aggregateContactsAcrossLeads(
         name: c.name,
         firstName: c.firstName,
         lastName: c.lastName,
+        country: c.country || leadCountry,
+        company: entityName || undefined,
         title: c.title,
+        department: c.department,
+        industry: leadIndustry,
         email: c.email,
         secondaryEmail: c.secondaryEmail,
         phone: c.phone,
         linkedin: c.linkedin,
+        companyWebsite: leadUrl,
+        companyLinkedin: leadCompanyLinkedin,
+        companyPhone: leadCompanyPhone,
+        leadSource,
+        lastResearchedAt: leadLastResearched,
         buyingRole: c.buyingRole,
         isDecisionMaker: c.isDecisionMaker,
         crmStatus: c.crmStatus,

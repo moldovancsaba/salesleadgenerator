@@ -7,6 +7,33 @@
 export type SeniorityTier = 'C-level' | 'VP' | 'Director' | 'Manager' | 'IC' | 'Unknown';
 export type Department = 'Sales' | 'Marketing' | 'Operations' | 'Executive' | 'Unknown';
 
+export const DEPARTMENTS: Department[] = ['Executive', 'Sales', 'Marketing', 'Operations', 'Unknown'];
+
+export function isValidDepartment(value: unknown): value is Department {
+  return typeof value === 'string' && (DEPARTMENTS as string[]).includes(value);
+}
+
+export function normalizeDepartmentInput(raw: string | undefined | null): Department {
+  if (!raw || typeof raw !== 'string') return 'Unknown';
+  const trimmed = raw.trim();
+  if (!trimmed) return 'Unknown';
+  if (isValidDepartment(trimmed)) return trimmed;
+  const lower = trimmed.toLowerCase();
+  if (/\b(c-suite|executive|founder|co-founder|owner|ceo|(?<!vice )president|leadership|board)\b/.test(lower)) {
+    return 'Executive';
+  }
+  if (/\b(sales|business development|bd|revenue|commercial|partnerships|sponsorship)\b/.test(lower)) {
+    return 'Sales';
+  }
+  if (/\b(marketing|brand|comms|communications|pr|media|digital|growth)\b/.test(lower)) {
+    return 'Marketing';
+  }
+  if (/\b(operations|ops|logistics|events|facilities|finance|legal|hr|it|engineering|product)\b/.test(lower)) {
+    return 'Operations';
+  }
+  return 'Unknown';
+}
+
 export type TitleClassification = {
   seniorityTier: SeniorityTier;
   department: Department;

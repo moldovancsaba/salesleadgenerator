@@ -17,6 +17,7 @@ export const COMPOSE_TOKENS: ComposeToken[] = [
   { token: '{contact_name}', key: 'contact_name', label: 'Contact Name' },
   { token: '{company}', key: 'company', label: 'Company' },
   { token: '{title}', key: 'job_title', label: 'Title' },
+  { token: '{department}', key: 'department', label: 'Department' },
   { token: '{industry}', key: 'industry', label: 'Industry' },
   { token: '{value_proposition}', key: 'value_proposition', label: 'Value Proposition' },
   { token: '{country}', key: 'country', label: 'Country' },

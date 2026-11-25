@@ -168,6 +168,7 @@ export function LeadImportModal({
             onChange={handlePresetChange}
             data={[
               { value: 'auto', label: '✨ Auto-Detect CRM Format' },
+              { value: 'apollo', label: 'Apollo.io CSV Export' },
               { value: 'google_sheets', label: 'Google Sheets / Universal CSV' },
               { value: 'hubspot', label: 'HubSpot CRM' },
               { value: 'salesforce', label: 'Salesforce Sales Cloud' },

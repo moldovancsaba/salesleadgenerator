@@ -5,7 +5,7 @@ import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Tit
 import { IconX, IconPaperclip, IconRefresh, IconEye } from '@tabler/icons-react';
 import { SectionPanel, StatusBadge, LabelTag } from '@sovereignsquad/gds-core/client';
 import { evaluateOutreachRouting } from '../lib/outreach/routing-rules';
-import { getDecisionMakerContact } from '../../lib/contacts';
+import { getDecisionMakerContact, normalizeContact, resolveOutreachTargetContact } from '../../lib/contacts';
 import { buildPersonalizationContext } from '../../lib/template-personalization';
 import { COMPOSE_TOKENS, insertTokenAtCaret, resolveTokenPreview } from '../../lib/compose-token-insertion';
 import { DocumentLibraryPickerModal, formatFileSize } from '../components/DocumentLibraryPickerModal';
@@ -18,17 +18,32 @@ type Props = {
   lead: {
     _id: string;
     entity_name?: string;
-    contacts?: Array<{ name?: string; email?: string; isDecisionMaker?: boolean }>;
+    contacts?: Array<{
+      name?: string;
+      firstName?: string;
+      lastName?: string;
+      country?: string;
+      title?: string;
+      department?: string;
+      email?: string;
+      phone?: string;
+      linkedin?: string;
+      isDecisionMaker?: boolean;
+    }>;
     value_proposition?: string;
     sport_or_sector?: string;
     industry?: string;
     tags?: string[];
     url?: string;
+    companyLinkedin?: string;
+    companyPhone?: string;
     country?: string;
     region?: string;
     [key: string]: any;
   };
   brand?: string;
+  initialContactEmail?: string;
+  initialContactName?: string;
   onSent?: (payload: { leadId: string; templateId?: string; channel: 'email' | 'linkedin'; subject?: string; body: string }) => void;
 };
 
@@ -59,7 +74,15 @@ function interpolate(template: string, values: Record<string, any>): string {
   }, template);
 }
 
-export function OutreachComposeModal({ opened, onClose, lead, brand = 'default', onSent }: Props) {
+export function OutreachComposeModal({
+  opened,
+  onClose,
+  lead,
+  brand = 'default',
+  initialContactEmail,
+  initialContactName,
+  onSent,
+}: Props) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
   const [templateId, setTemplateId] = useState<string | null>(null);
@@ -94,6 +117,24 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   const [selectedGmailAccount, setSelectedGmailAccount] = useState<string | null>(null);
   const [syncingSignature, setSyncingSignature] = useState(false);
   const [showSignaturePreview, setShowSignaturePreview] = useState(false);
+  const [selectedContactIndex, setSelectedContactIndex] = useState<string>('__default_dm__');
+
+  useEffect(() => {
+    if (!opened) return;
+    if (initialContactEmail || initialContactName) {
+      const wantEmail = (initialContactEmail || '').trim().toLowerCase();
+      const wantName = (initialContactName || '').trim().toLowerCase();
+      const contactsList = Array.isArray(lead.contacts) ? lead.contacts : [];
+      const foundIdx = contactsList.findIndex((c) => {
+        if (wantEmail && (c.email || '').trim().toLowerCase() === wantEmail) return true;
+        if (wantName && (c.name || '').trim().toLowerCase() === wantName) return true;
+        return false;
+      });
+      setSelectedContactIndex(foundIdx >= 0 ? String(foundIdx) : '__default_dm__');
+    } else {
+      setSelectedContactIndex('__default_dm__');
+    }
+  }, [opened, lead._id, initialContactEmail, initialContactName, lead.contacts]);
 
   useEffect(() => {
     if (!opened) return;
@@ -193,15 +234,33 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   // Memoized so its identity is stable across renders where `lead` itself
   // hasn't changed — a fresh object every render would make the effects
   // below that depend on it re-fire every render (setState -> re-render loop).
+  const explicitSelectedContact = useMemo(() => {
+    if (selectedContactIndex === '__default_dm__') return null;
+    const idx = parseInt(selectedContactIndex, 10);
+    const raw = Array.isArray(lead.contacts) && Number.isFinite(idx) ? lead.contacts[idx] : undefined;
+    return raw ? normalizeContact(raw) : null;
+  }, [lead.contacts, selectedContactIndex]);
+
+  const activeTargetContact = useMemo(() => {
+    if (explicitSelectedContact) return explicitSelectedContact;
+    if (initialContactEmail || initialContactName) {
+      const matched = resolveOutreachTargetContact(lead.contacts, {
+        email: initialContactEmail,
+        name: initialContactName,
+      });
+      if (matched) return matched;
+    }
+    return getDecisionMakerContact(lead.contacts);
+  }, [explicitSelectedContact, initialContactEmail, initialContactName, lead.contacts]);
+
   const interpolationValues = useMemo(() => {
-    const dm = getDecisionMakerContact(lead.contacts);
-    const personalization = buildPersonalizationContext({ lead, contact: dm });
+    const personalization = buildPersonalizationContext({ lead, contact: activeTargetContact });
     return {
       ...lead,
-      contact_name: dm?.name || '',
+      contact_name: activeTargetContact?.name || '',
       ...personalization,
     };
-  }, [lead]);
+  }, [lead, activeTargetContact]);
 
   // Caret position & active input tracking for merge token inserter (issue #242)
   const [activeField, setActiveField] = useState<'subject' | 'body'>('body');
@@ -260,7 +319,13 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
       });
     }
   };
-  const routeResult = evaluateOutreachRouting(channel, lead, body);
+  const isExplicitContactSelection = Boolean(explicitSelectedContact || initialContactEmail || initialContactName);
+  const routeResult = evaluateOutreachRouting(
+    channel,
+    lead,
+    body,
+    isExplicitContactSelection && activeTargetContact ? { selectedContact: activeTargetContact } : undefined
+  );
   const channelBlockReason = routeResult.allowed ? undefined : routeResult.reason;
   const hasSubjectOrThreadFallback = subject.trim().length > 0 || Boolean(replyInThread && threadContext?.subject);
   const canSendEmail = channel === 'email' && routeResult.allowed && body.trim().length > 0 && hasSubjectOrThreadFallback;
@@ -380,6 +445,8 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           subject: channel === 'email' ? subject : undefined,
           body,
           contacts: lead.contacts,
+          targetContactEmail: isExplicitContactSelection ? activeTargetContact?.email : undefined,
+          targetContactName: isExplicitContactSelection ? activeTargetContact?.name : undefined,
           url: lead.url,
           industry: lead.industry,
           sport_or_sector: lead.sport_or_sector,
@@ -411,13 +478,13 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   // delete, cadence-cancel).
   async function handleSendEmail() {
     if (!canSendEmail) return;
-    const decisionMaker = getDecisionMakerContact(lead.contacts);
+    const recipient = activeTargetContact;
     const activeEmail = selectedGmailAccount || senderInfo.email;
     const senderDescription = senderInfo.provider === 'gmail' && activeEmail
       ? `your connected Gmail (${activeEmail})`
       : 'the system default email sender';
     const confirmed = window.confirm(
-      `Send this email to ${decisionMaker?.name || 'the decision-maker'} <${decisionMaker?.email || ''}> from ${senderDescription} now? This sends a real email immediately and cannot be undone.`
+      `Send this email to ${recipient?.name || 'the selected contact'} <${recipient?.email || ''}> from ${senderDescription} now? This sends a real email immediately and cannot be undone.`
     );
     if (!confirmed) return;
     setSendingEmail(true);
@@ -443,6 +510,8 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
           body,
           idempotencyKey,
           senderEmail: activeEmail,
+          targetContactEmail: isExplicitContactSelection ? activeTargetContact?.email : undefined,
+          targetContactName: isExplicitContactSelection ? activeTargetContact?.name : undefined,
           includeSignature: senderInfo.signatureText ? includeSignature : undefined,
           replyInThread: Boolean(threadContext && replyInThread),
           threadId: replyInThread ? threadContext?.threadId : undefined,
@@ -568,6 +637,40 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
             data={templates.map((t) => ({ value: t.id, label: t.name }))}
             value={templateId}
             onChange={(value) => setTemplateId(value || null)}
+          />
+        )}
+
+        {(lead.contacts?.length ?? 0) > 0 && (
+          <Select
+            label="Target Contact"
+            aria-label="Target contact for outreach"
+            value={selectedContactIndex}
+            onChange={(val) => setSelectedContactIndex(val || '__default_dm__')}
+            data={[
+              {
+                value: '__default_dm__',
+                label: (() => {
+                  const dm = getDecisionMakerContact(lead.contacts);
+                  return dm
+                    ? `Decision Maker: ${dm.name}${dm.email ? ` <${dm.email}>` : ''}`
+                    : 'Decision Maker (not set — select a contact below)';
+                })(),
+              },
+              ...(lead.contacts || []).map((c, idx) => {
+                const norm = normalizeContact(c);
+                const meta = [
+                  norm.title || null,
+                  norm.department !== 'Unknown' ? norm.department : null,
+                  norm.country || lead.country || null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+                return {
+                  value: String(idx),
+                  label: `${norm.name || 'Unnamed'}${norm.email ? ` <${norm.email}>` : ' (no email)'}${meta ? ` — ${meta}` : ''}`,
+                };
+              }),
+            ]}
           />
         )}
 

@@ -43,6 +43,8 @@ export type Lead = {
   region: string; // Issue #172: genuinely free text at the API boundary — a live production audit (2026-08-08) found 55+ distinct values across all 3 brands (ISO codes, full country names, continents, sub-national regions like "Debrecen / Hajdú-Bihar"), not the 3-value union this type previously claimed.
   entity_name: string;
   url?: string;
+  companyLinkedin?: string;
+  companyPhone?: string;
   address?: string;
   general_contact?: string;
   size?: string;
@@ -95,11 +97,15 @@ export type Lead = {
   // tracked in issue #45; those field names are no longer read anywhere.
   contacts?: Array<{
     name?: string;
+    firstName?: string;
+    lastName?: string;
+    country?: string;
     title?: string;
     email?: string;
     phone?: string;
     linkedin?: string;
     role?: string;
+    departmentOverride?: 'Sales' | 'Marketing' | 'Operations' | 'Executive' | 'Unknown';
     // Closed buying-committee role (issue #206) — additive alongside
     // isDecisionMaker, which remains present as a value permanently DERIVED
     // from this field (true iff buyingRole is 'decision_maker' or
@@ -249,6 +255,7 @@ export type Lead = {
   // - "discovery-cron", "search-router-discovery" and a few descriptive
   //   strings on DVSC leads: written by the research agent, left as is.
   source?: string;
+  lastResearchedAt?: string;
   // Lead ownership (issue: CRM Lead ownership) — the SSO ssoUserId (claims.sub,
   // see lib/sso.ts's SsoIdTokenClaims) of the rep this lead is currently
   // assigned to. null = explicitly unassigned (set by a CLEAR); undefined =

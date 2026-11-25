@@ -14,7 +14,8 @@ import { generateRequestId } from '../../lib/request-id'
 import { executeLeadAction } from '../../lib/lead-actions'
 import { deriveKanbanColumn } from '../../../lib/kanban-column'
 import { buildFingerprint } from '../../../lib/fingerprint'
-import { dedupeContacts, deriveContactEmails } from '../../../lib/contacts'
+import { dedupeContacts, deriveContactEmails, normalizePhone } from '../../../lib/contacts'
+import { isAutomatedResearchWrite, recordResearchTelemetryRun } from '../../../lib/research-telemetry'
 import { verifyLeadContactsAsync } from '../../lib/email-verification-store'
 import { scanLeadTechStackAsync } from '../../lib/tech-stack-scan-store'
 import { computeTicketSizeForLead } from '../../lib/ticket-size-store'
@@ -368,6 +369,17 @@ export async function POST(request: NextRequest) {
       region: normalizedBody.region,
     })
 
+    const resolvedSource =
+      typeof normalizedBody.source === 'string' && normalizedBody.source.trim()
+        ? normalizedBody.source.trim()
+        : request.headers.get('x-api-key')
+        ? 'discovery-cron'
+        : 'manual'
+    const isResearchAgent = isAutomatedResearchWrite({
+      hasMachineApiKey: Boolean(request.headers.get('x-api-key')),
+      source: resolvedSource,
+    })
+
     const newLead = {
       id: Date.now(),
       region: normalizedBody.region || 'US',
@@ -379,6 +391,8 @@ export async function POST(request: NextRequest) {
       country: normalizedBody.country || '',
       entity_name: normalizedBody.entity_name || normalizedBody.name,
       url: normalizedBody.url || '',
+      companyLinkedin: normalizedBody.companyLinkedin || '',
+      companyPhone: normalizedBody.companyPhone ? normalizePhone(normalizedBody.companyPhone) : '',
       contacts: normalizedBody.contacts || [],
       contactEmails,
       address: normalizedBody.address || '',
@@ -402,10 +416,17 @@ export async function POST(request: NextRequest) {
       tags: normalizedBody.tags || [],
       deals: [],
       checklist: [],
-      // Issue #123 — defaults to 'manual' when the caller doesn't supply one;
-      // never guessed/inferred from the request beyond an explicit field, so
-      // this stays honest about what's actually known vs. assumed.
-      source: typeof normalizedBody.source === 'string' && normalizedBody.source.trim() ? normalizedBody.source.trim() : 'manual',
+      // Issue #123 & #359 — defaults to 'manual' for browser sessions and
+      // 'discovery-cron' when created via machine API key with no explicit source.
+      source: resolvedSource,
+      ...(isResearchAgent || typeof normalizedBody.lastResearchedAt === 'string'
+        ? {
+            lastResearchedAt:
+              typeof normalizedBody.lastResearchedAt === 'string' && normalizedBody.lastResearchedAt.trim()
+                ? normalizedBody.lastResearchedAt.trim()
+                : new Date().toISOString(),
+          }
+        : {}),
       // Per-field provenance for scalar lead fields (issue #188), collapsed per
       // (field, method) and capped at 60. Contact provenance is not here — it
       // rides on each contact in `contacts` above, since contacts[] is
@@ -429,6 +450,17 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await db.collection(config.dbCollection).insertOne(newLead)
+
+    if (isResearchAgent) {
+      void recordResearchTelemetryRun(db, {
+        brand,
+        tenantId,
+        operation: 'discovery',
+        status: 'succeeded',
+        leadId: result.insertedId.toString(),
+        entityName: newLead.entity_name,
+      }).catch((err) => console.error('[API:leads] research telemetry write failed', err))
+    }
 
     if (normalizedWarnings.length > 0) {
       console.warn('Lead created with normalization warnings', normalizedWarnings)

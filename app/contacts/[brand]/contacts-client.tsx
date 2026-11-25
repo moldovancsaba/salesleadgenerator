@@ -4,23 +4,36 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Box, Title, Text, Group, Stack, TextInput, Loader, Button, Select, ActionIcon, Paper, Pagination } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { StatusBadge, LabelTag, CountBadge, InlineAlert } from '@sovereignsquad/gds-core/client'
-import { IconSearch, IconBrandLinkedin, IconDownload, IconX, IconBrandGoogle, IconCheck } from '@tabler/icons-react'
+import { IconSearch, IconBrandLinkedin, IconDownload, IconX, IconBrandGoogle, IconCheck, IconMail, IconPlugConnected, IconWorld, IconPhone } from '@tabler/icons-react'
 import { showNotification } from '@mantine/notifications'
 import Link from 'next/link'
 import type { Brand } from '@/app/lib/brand'
 import { GoogleContactsWorkspaceModal } from '@/app/components/GoogleContactsWorkspaceModal'
+import { ApolloImportModal } from '@/app/components/ApolloImportModal'
 import { PhoneActions } from '@/app/components/PhoneActions'
+import { OutreachComposeModal } from '@/app/outreach/compose-modal'
 
 type BuyingRole = 'economic_buyer' | 'champion' | 'influencer' | 'blocker' | 'decision_maker' | 'unknown'
 
 type ContactRow = {
   key: string
   name: string
+  firstName?: string
+  lastName?: string
+  country?: string
+  company?: string
   title: string
+  department?: string
+  industry?: string
   email: string
   secondaryEmail?: string
   phone: string
   linkedin?: string
+  companyWebsite?: string
+  companyLinkedin?: string
+  companyPhone?: string
+  leadSource?: string
+  lastResearchedAt?: string
   buyingRole: BuyingRole
   isDecisionMaker: boolean
   crmStatus?: string
@@ -79,7 +92,10 @@ export function ContactsClient({ brand, label }: Props) {
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [crmStatusFilter, setCrmStatusFilter] = useState<string>('all')
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all')
+  const [countryFilter, setCountryFilter] = useState<string>('')
   const [phoneOnlyFilter, setPhoneOnlyFilter] = useState<boolean>(false)
+  const [emailOnlyFilter, setEmailOnlyFilter] = useState<boolean>(false)
   const [contacts, setContacts] = useState<ContactRow[]>([])
   const [totalContacts, setTotalContacts] = useState(0)
   const [filteredCount, setFilteredCount] = useState(0)
@@ -90,8 +106,15 @@ export function ContactsClient({ brand, label }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [sort, setSort] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' })
   const [isGoogleConnected, setIsGoogleConnected] = useState<boolean | undefined>(undefined)
+  const [isApolloConnected, setIsApolloConnected] = useState<boolean>(false)
   const [connectedBanner, setConnectedBanner] = useState(false)
   const [importModalOpen, setImportModalOpen] = useState(false)
+  const [apolloModalOpen, setApolloModalOpen] = useState(false)
+  const [outreachTarget, setOutreachTarget] = useState<{
+    lead: Record<string, any>;
+    contactEmail?: string;
+    contactName?: string;
+  } | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const checkConnectionStatus = useCallback(async () => {
@@ -99,15 +122,22 @@ export function ContactsClient({ brand, label }: Props) {
       const res = await fetch(`/api/integrations/connections?brand=${encodeURIComponent(brand)}`)
       if (res.ok) {
         const data = await res.json()
-        const active = (data.connections || []).some(
+        const list = data.connections || []
+        const active = list.some(
           (c: any) => c.provider === 'google_contacts' && c.status === 'active'
         )
+        const apolloActive = list.some(
+          (c: any) => c.provider === 'apollo' && c.status === 'active'
+        )
         setIsGoogleConnected(active)
+        setIsApolloConnected(apolloActive)
       } else {
         setIsGoogleConnected(false)
+        setIsApolloConnected(false)
       }
     } catch {
       setIsGoogleConnected(false)
+      setIsApolloConnected(false)
     }
   }, [brand])
 
@@ -138,7 +168,10 @@ export function ContactsClient({ brand, label }: Props) {
     q: string,
     role: string,
     status: string,
+    dept: string,
+    country: string,
     phoneOnly: boolean,
+    emailOnly: boolean,
     targetPage: number,
     targetPageSize: number,
     targetSort: { key: string; direction: 'asc' | 'desc' }
@@ -156,7 +189,10 @@ export function ContactsClient({ brand, label }: Props) {
       if (q.trim()) url.searchParams.set('q', q.trim())
       if (role && role !== 'all') url.searchParams.set('buyingRole', role)
       if (status && status !== 'all') url.searchParams.set('crmStatus', status)
+      if (dept && dept !== 'all') url.searchParams.set('department', dept)
+      if (country.trim()) url.searchParams.set('country', country.trim().toUpperCase())
       if (phoneOnly) url.searchParams.set('phoneOnly', '1')
+      if (emailOnly) url.searchParams.set('emailOnly', '1')
       const res = await fetch(url.toString())
       if (!res.ok) throw new Error('Failed to load contacts')
       const data = await res.json()
@@ -181,21 +217,87 @@ export function ContactsClient({ brand, label }: Props) {
   useEffect(() => {
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(
-      () => loadContacts(query, roleFilter, crmStatusFilter, phoneOnlyFilter, page, pageSize, sort),
+      () =>
+        loadContacts(
+          query,
+          roleFilter,
+          crmStatusFilter,
+          departmentFilter,
+          countryFilter,
+          phoneOnlyFilter,
+          emailOnlyFilter,
+          page,
+          pageSize,
+          sort
+        ),
       200
     )
     return () => clearTimeout(debounceRef.current)
-  }, [query, roleFilter, crmStatusFilter, phoneOnlyFilter, page, pageSize, sort, loadContacts])
+  }, [query, roleFilter, crmStatusFilter, departmentFilter, countryFilter, phoneOnlyFilter, emailOnlyFilter, page, pageSize, sort, loadContacts])
 
   const sortedContacts = contacts
   // Any filter/search change returns to the first page so results never appear empty
   // because the previous page index exceeds the new filtered total.
   useEffect(() => {
     setPage(1)
-  }, [query, roleFilter, crmStatusFilter, phoneOnlyFilter, pageSize])
+  }, [query, roleFilter, crmStatusFilter, departmentFilter, countryFilter, phoneOnlyFilter, emailOnlyFilter, pageSize])
   const rangeStart = filteredCount === 0 ? 0 : (page - 1) * pageSize + 1
   const rangeEnd = Math.min(filteredCount, (page - 1) * pageSize + sortedContacts.length)
-  const hasActiveFilter = Boolean(query.trim() || roleFilter !== 'all' || crmStatusFilter !== 'all' || phoneOnlyFilter)
+  const hasActiveFilter = Boolean(
+    query.trim() ||
+    roleFilter !== 'all' ||
+    crmStatusFilter !== 'all' ||
+    departmentFilter !== 'all' ||
+    countryFilter.trim() ||
+    phoneOnlyFilter ||
+    emailOnlyFilter
+  )
+
+  async function openOutreachForContact(row: ContactRow) {
+    const primaryLead = row.leads?.[0]
+    if (!primaryLead?.leadId) return
+    try {
+      const res = await fetch(`/api/leads/${encodeURIComponent(primaryLead.leadId)}?brand=${encodeURIComponent(brand)}`)
+      if (res.ok) {
+        const fullLead = await res.json()
+        setOutreachTarget({
+          lead: fullLead,
+          contactEmail: row.email || undefined,
+          contactName: row.name || undefined,
+        })
+        return
+      }
+    } catch {
+      // Fallback to contact row's own denormalized organization & person fields
+    }
+    setOutreachTarget({
+      lead: {
+        _id: primaryLead.leadId,
+        entity_name: row.company || primaryLead.entity_name,
+        url: row.companyWebsite,
+        companyLinkedin: row.companyLinkedin,
+        companyPhone: row.companyPhone,
+        country: row.country,
+        industry: row.industry,
+        contacts: [
+          {
+            name: row.name,
+            firstName: row.firstName,
+            lastName: row.lastName,
+            country: row.country,
+            title: row.title,
+            department: row.department,
+            email: row.email,
+            phone: row.phone,
+            linkedin: row.linkedin,
+            isDecisionMaker: row.isDecisionMaker,
+          },
+        ],
+      },
+      contactEmail: row.email || undefined,
+      contactName: row.name || undefined,
+    })
+  }
 
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
@@ -216,12 +318,26 @@ export function ContactsClient({ brand, label }: Props) {
                   Google Contacts Active
                 </StatusBadge>
               )}
+              {isApolloConnected && (
+                <StatusBadge status="success" size="xs">
+                  Apollo Active
+                </StatusBadge>
+              )}
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
-              Every contact across <Text span fw={600}>{label}</Text> leads, searchable by name, company, title, and email.
+              Every contact across <Text span fw={600}>{label}</Text> leads, searchable by name, company, title, department, country, industry, and email.
             </Text>
           </div>
           <Group gap="xs" wrap="wrap">
+            <Button
+              variant="light"
+              color="indigo"
+              size="xs"
+              leftSection={<IconPlugConnected size={14} />}
+              onClick={() => setApolloModalOpen(true)}
+            >
+              {isApolloConnected ? 'Import from Apollo' : 'Connect Apollo'}
+            </Button>
             {isGoogleConnected ? (
               <Button
                 variant="light"
@@ -284,15 +400,26 @@ export function ContactsClient({ brand, label }: Props) {
               <Text size="xs" c="dimmed" fw={600}>Quick filters:</Text>
               <Button
                 size="compact-xs"
-                variant={roleFilter === 'all' && !phoneOnlyFilter && crmStatusFilter === 'all' ? 'filled' : 'subtle'}
+                variant={roleFilter === 'all' && !phoneOnlyFilter && !emailOnlyFilter && departmentFilter === 'all' && !countryFilter && crmStatusFilter === 'all' ? 'filled' : 'subtle'}
                 color="blue"
                 onClick={() => {
                   setRoleFilter('all');
                   setPhoneOnlyFilter(false);
+                  setEmailOnlyFilter(false);
+                  setDepartmentFilter('all');
+                  setCountryFilter('');
                   setCrmStatusFilter('all');
                 }}
               >
                 All Contacts
+              </Button>
+              <Button
+                size="compact-xs"
+                variant={emailOnlyFilter ? 'filled' : 'light'}
+                color="cyan"
+                onClick={() => setEmailOnlyFilter((prev) => !prev)}
+              >
+                ✉️ With Email {emailOnlyFilter ? '✓' : ''}
               </Button>
               <Button
                 size="compact-xs"
@@ -363,6 +490,30 @@ export function ContactsClient({ brand, label }: Props) {
               />
               <Select
                 size="xs"
+                w={150}
+                aria-label="Filter by department"
+                value={departmentFilter}
+                onChange={(val) => setDepartmentFilter(val || 'all')}
+                data={[
+                  { value: 'all', label: 'All Departments' },
+                  { value: 'Executive', label: 'Executive' },
+                  { value: 'Sales', label: 'Sales' },
+                  { value: 'Marketing', label: 'Marketing' },
+                  { value: 'Operations', label: 'Operations' },
+                  { value: 'Unknown', label: 'Unclassified Dept' },
+                ]}
+              />
+              <TextInput
+                size="xs"
+                w={96}
+                aria-label="Filter by country ISO code"
+                placeholder="Country (US)"
+                maxLength={2}
+                value={countryFilter}
+                onChange={(e) => setCountryFilter(e.currentTarget.value.toUpperCase())}
+              />
+              <Select
+                size="xs"
                 w={140}
                 aria-label="Filter by CRM status"
                 value={crmStatusFilter}
@@ -376,7 +527,7 @@ export function ContactsClient({ brand, label }: Props) {
                   { value: 'inactive', label: 'Inactive' },
                 ]}
               />
-              {(query || roleFilter !== 'all' || crmStatusFilter !== 'all' || phoneOnlyFilter) && (
+              {hasActiveFilter && (
                 <Button
                   variant="subtle"
                   color="gray"
@@ -385,7 +536,10 @@ export function ContactsClient({ brand, label }: Props) {
                     setQuery('')
                     setRoleFilter('all')
                     setCrmStatusFilter('all')
+                    setDepartmentFilter('all')
+                    setCountryFilter('')
                     setPhoneOnlyFilter(false)
+                    setEmailOnlyFilter(false)
                   }}
                 >
                   Reset
@@ -413,13 +567,16 @@ export function ContactsClient({ brand, label }: Props) {
             columns={[
               {
                 key: 'name',
-                header: 'Contact Name',
+                header: 'Person (First / Last)',
                 rowHeader: true,
                 sortable: true,
-                width: 220,
+                width: 210,
                 accessor: (row) => (
                   <Box>
                     <Text fw={600} size="sm">{row.name || '—'}</Text>
+                    <Text size="xs" c="dimmed">
+                      First: {row.firstName || '—'} · Last: {row.lastName || '—'}
+                    </Text>
                     {row.secondaryEmail && (
                       <Text size="xs" c="dimmed" truncate title={row.secondaryEmail}>
                         Alt: {row.secondaryEmail}
@@ -430,7 +587,7 @@ export function ContactsClient({ brand, label }: Props) {
               },
               {
                 key: 'leads',
-                header: 'Company / Lead',
+                header: 'Company & Org Channels',
                 sortable: true,
                 width: 260,
                 accessor: (row) => {
@@ -438,38 +595,91 @@ export function ContactsClient({ brand, label }: Props) {
                     return <Text size="sm" c="dimmed">—</Text>
                   }
                   return (
-                    <Group gap={6} wrap="wrap">
-                      {row.leads.map((lead) => (
-                        <Link
-                          key={lead.leadId}
-                          href={`/sales/${brand}?leadId=${encodeURIComponent(lead.leadId)}`}
-                          style={{ textDecoration: 'none' }}
-                          title={`Open ${lead.entity_name || 'lead'}`}
-                        >
-                          <LabelTag
-                            tone="info"
+                    <Stack gap={3}>
+                      <Group gap={6} wrap="wrap">
+                        {row.leads.map((lead) => (
+                          <Link
+                            key={lead.leadId}
+                            href={`/sales/${brand}?leadId=${encodeURIComponent(lead.leadId)}`}
+                            style={{ textDecoration: 'none' }}
+                            title={`Open ${lead.entity_name || 'lead'}`}
+                          >
+                            <LabelTag
+                              tone="info"
+                              size="xs"
+                              label={lead.entity_name || 'Untitled lead'}
+                              style={{
+                                cursor: 'pointer',
+                                maxWidth: 240,
+                              }}
+                            />
+                          </Link>
+                        ))}
+                      </Group>
+                      <Group gap={6} wrap="wrap">
+                        <Text size="11px" c="dimmed">
+                          {row.country || '—'} · {row.industry || '—'}
+                        </Text>
+                        {row.companyWebsite ? (
+                          <ActionIcon
+                            component="a"
+                            href={row.companyWebsite}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             size="xs"
-                            label={lead.entity_name || 'Untitled lead'}
-                            style={{
-                              cursor: 'pointer',
-                              maxWidth: 240,
-                            }}
-                          />
-                        </Link>
-                      ))}
-                    </Group>
+                            variant="subtle"
+                            color="gray"
+                            aria-label={`Open website for ${row.company || 'company'}`}
+                            title={row.companyWebsite}
+                          >
+                            <IconWorld size={13} />
+                          </ActionIcon>
+                        ) : (
+                          <Text size="10px" c="dimmed" title="Company website missing">Web: —</Text>
+                        )}
+                        {row.companyLinkedin ? (
+                          <ActionIcon
+                            component="a"
+                            href={row.companyLinkedin.startsWith('http') ? row.companyLinkedin : `https://${row.companyLinkedin}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            size="xs"
+                            variant="subtle"
+                            color="blue"
+                            aria-label={`Open company LinkedIn for ${row.company || 'company'}`}
+                            title={row.companyLinkedin}
+                          >
+                            <IconBrandLinkedin size={13} />
+                          </ActionIcon>
+                        ) : (
+                          <Text size="10px" c="dimmed" title="Company LinkedIn missing">Org LI: —</Text>
+                        )}
+                        {row.companyPhone ? (
+                          <Text size="10px" c="dimmed" title="Company phone">
+                            <IconPhone size={11} style={{ verticalAlign: 'middle' }} /> {row.companyPhone}
+                          </Text>
+                        ) : (
+                          <Text size="10px" c="dimmed" title="Company phone missing">Org Tel: —</Text>
+                        )}
+                      </Group>
+                    </Stack>
                   )
                 },
               },
               {
                 key: 'title',
-                header: 'Title',
+                header: 'Title & Department',
                 sortable: true,
                 width: 200,
                 accessor: (row) => (
-                  <Text size="sm" c={row.title ? undefined : 'dimmed'}>
-                    {row.title || '—'}
-                  </Text>
+                  <Stack gap={2}>
+                    <Text size="sm" c={row.title ? undefined : 'dimmed'}>
+                      {row.title || '—'}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Dept: {row.department && row.department !== 'Unknown' ? row.department : '—'}
+                    </Text>
+                  </Stack>
                 ),
               },
               {
@@ -563,6 +773,24 @@ export function ContactsClient({ brand, label }: Props) {
                   )
                 },
               },
+              {
+                key: 'outreach',
+                header: 'Outreach',
+                width: 115,
+                align: 'end',
+                accessor: (row) => (
+                  <Button
+                    size="compact-xs"
+                    variant="light"
+                    color="indigo"
+                    leftSection={<IconMail size={12} />}
+                    disabled={!row.leads?.[0]?.leadId}
+                    onClick={() => void openOutreachForContact(row)}
+                  >
+                    Outreach
+                  </Button>
+                ),
+              },
             ]}
             renderMobileCard={(row) => (
               <Paper withBorder p="sm" radius="md">
@@ -644,8 +872,57 @@ export function ContactsClient({ brand, label }: Props) {
         onClose={() => setImportModalOpen(false)}
         brand={brand}
         tenantId={tenantId}
-        onImported={() => void loadContacts(query, roleFilter, crmStatusFilter, phoneOnlyFilter, page, pageSize, sort)}
+        onImported={() =>
+          void loadContacts(
+            query,
+            roleFilter,
+            crmStatusFilter,
+            departmentFilter,
+            countryFilter,
+            phoneOnlyFilter,
+            emailOnlyFilter,
+            page,
+            pageSize,
+            sort
+          )
+        }
       />
+
+      <ApolloImportModal
+        opened={apolloModalOpen}
+        onClose={() => {
+          setApolloModalOpen(false)
+          void checkConnectionStatus()
+        }}
+        brand={brand}
+        tenantId={tenantId}
+        onImported={() =>
+          void loadContacts(
+            query,
+            roleFilter,
+            crmStatusFilter,
+            departmentFilter,
+            countryFilter,
+            phoneOnlyFilter,
+            emailOnlyFilter,
+            page,
+            pageSize,
+            sort
+          )
+        }
+      />
+
+      {outreachTarget && (
+        <OutreachComposeModal
+          opened={Boolean(outreachTarget)}
+          onClose={() => setOutreachTarget(null)}
+          lead={outreachTarget.lead as any}
+          brand={brand}
+          initialContactEmail={outreachTarget.contactEmail}
+          initialContactName={outreachTarget.contactName}
+          onSent={() => setOutreachTarget(null)}
+        />
+      )}
     </Box>
   )
 }

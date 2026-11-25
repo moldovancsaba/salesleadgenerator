@@ -3,6 +3,7 @@ import clientPromise, { isMongoConfigured } from '../../../lib/mongodb'
 import { requireApiKey } from '../../../lib/api-auth'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { evaluateOutreachRouting } from '../../lib/outreach/routing-rules'
+import { resolveOutreachTargetContact } from '../../../lib/contacts'
 import { getTenantId } from '../../../lib/tenant'
 import { resolveBrand } from '../../lib/brand'
 
@@ -80,10 +81,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'channel must be email or linkedin' }, { status: 400 })
     }
 
-    const routing = evaluateOutreachRouting(channel, {
-      contacts: Array.isArray(body.contacts) ? body.contacts : [],
-      url: body.url,
-    }, bodyText)
+    const contactsInput = Array.isArray(body.contacts) ? body.contacts : []
+    const selectedTarget =
+      body.targetContactEmail || body.targetContactName
+        ? resolveOutreachTargetContact(contactsInput, {
+            email: typeof body.targetContactEmail === 'string' ? body.targetContactEmail : undefined,
+            name: typeof body.targetContactName === 'string' ? body.targetContactName : undefined,
+          })
+        : null
+
+    const routing = evaluateOutreachRouting(
+      channel,
+      {
+        contacts: contactsInput,
+        url: body.url,
+      },
+      bodyText,
+      selectedTarget ? { selectedContact: selectedTarget } : undefined
+    )
 
     if (!routing.allowed) {
       return NextResponse.json({ error: routing.reason || 'Outreach not allowed for this channel/lead state.' }, { status: 400 })

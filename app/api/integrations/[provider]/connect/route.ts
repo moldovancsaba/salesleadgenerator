@@ -6,7 +6,7 @@ import { getTenantId } from '../../../../../lib/tenant';
 import { generateState, generateCodeVerifier, generateCodeChallenge } from '../../../../../lib/sso';
 import { isIntegrationEncryptionConfigured } from '../../../../../lib/integration-crypto';
 import {
-  isKnownProvider, isOAuthProvider, apiKeyConfigFor, buildGoogleAuthorizeUrl,
+  isKnownProvider, isOAuthProvider, apiKeyConfigFor, buildApiKeyVerifyHeaders, buildGoogleAuthorizeUrl,
   type IntegrationProvider,
 } from '../../../../../lib/integration-connections';
 import { isGoogleOAuthConfigured, GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_REDIRECT_URI, upsertApiKeyConnection, savePendingOAuthState } from '../../../../lib/integration-store';
@@ -129,7 +129,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   let verifyResult: Response;
   try {
-    verifyResult = await fetchWithRetry(cfg.verifyUrl, { headers: { Authorization: `Bearer ${apiKey}` } });
+    verifyResult = await fetchWithRetry(cfg.verifyUrl, {
+      headers: buildApiKeyVerifyHeaders(cfg, apiKey),
+    });
   } catch {
     return NextResponse.json({ error: 'Could not reach the provider to verify this key' }, { status: 422 });
   }
@@ -137,7 +139,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Could not verify this key against the provider' }, { status: 422 });
   }
   const verifyBody = await verifyResult.json().catch(() => ({}));
-  const providerAccountLabel: string | undefined = verifyBody?.resource?.name;
+  if (provider === 'apollo' && (verifyBody?.healthy === false || verifyBody?.is_logged_in === false)) {
+    return NextResponse.json({ error: 'Apollo API key is inactive or not authenticated to a workspace' }, { status: 422 });
+  }
+  const providerAccountLabel: string | undefined =
+    verifyBody?.resource?.name ||
+    (provider === 'apollo' ? 'Apollo Workspace (API Key)' : undefined);
 
   const tenantId = typeof body.tenantId === 'string' && body.tenantId.trim() ? body.tenantId.trim() : 'default';
   const client = await clientPromise;

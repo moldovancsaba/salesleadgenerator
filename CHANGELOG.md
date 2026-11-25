@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.393
+
+### Outreach Person & Organization Schema, Unattended Research Telemetry & Apollo Capture (Issue #359)
+
+- **Person & organization outreach schema & per-contact outreach selection (`lib/contacts.ts`, `lib/contacts-directory.ts`, `lib/title-normalization.ts`, `lib/template-personalization.ts`, `lib/compose-token-insertion.ts`, `app/components/ContactsEditor.tsx`, `app/components/AddLeadModal.tsx`, `app/detail.tsx`, `app/contacts/[brand]/contacts-client.tsx`, `app/outreach/compose-modal.tsx`, `app/api/outreach-send/route.ts`):**
+  - Exposes and persists all 10 person fields (`firstName`, `lastName`, `country`, `company`, `title`, `department` / `departmentOverride`, `industry`, `email`, personal `linkedin`, contact `phone`) and 3 organization fields (`url` website, `companyLinkedin`, `companyPhone`) across manual creation/editing, enrichment writes, CSV imports, `/contacts/[brand]`, and Lead Detail, rendering `—` for missing values.
+  - Added Department, Country, and With Email directory filters, 1-click **Outreach** buttons per contact row in `/contacts/[brand]` and Lead Detail, and a **Target Contact** selector inside `OutreachComposeModal` with live merge-token interpolation (`{first_name}`, `{last_name}`, `{department}`, `{country}`, `{company_website}`, `{company_linkedin}`, `{company_phone}`).
+- **Continuous unattended discovery & enrichment telemetry & non-duplicating contact merge (`lib/research-telemetry.ts`, `app/api/admin/research-telemetry/route.ts`, `app/api/leads/route.ts`, `app/api/leads/[id]/route.ts`, `app/admin/prompts/[brand]/prompt-editor-client.tsx`):**
+  - Stamps `lastResearchedAt` on automated discovery/enrichment writes, merges enriched contact attributes in place via `mergeEnrichedContacts` without duplicating existing contacts, and surfaces `source`, last research time, scheduled runner status (`succeeded` / `failed` / `never_run`), and operating interval (`intervalMinutes`) in Lead Detail and Workspace Prompts.
+- **Apollo-to-Haho entitlement verification & capture flow (`lib/apollo-import.ts`, `lib/integration-connections.ts`, `app/api/integrations/apollo/status/route.ts`, `app/api/integrations/apollo/search/route.ts`, `app/api/integrations/apollo/import/route.ts`, `app/components/ApolloImportModal.tsx`, `lib/crm-lead-exchange.ts`, `docs/APOLLO_INTEGRATION.md`):**
+  - Added workspace `apollo` API-key integration (`x-api-key` verified against `GET /api/v1/auth/health`), live endpoint entitlement verification (`/api/v1/contacts/search` vs `/api/v1/mixed_people/search` go/no-go check), interactive candidate search & capture modal with missing-field indicators, `source: "apollo"` provenance, idempotent repeat deduplication, and `apollo` CSV export preset auto-detection.
+  - Added unit tests in `tests/lib/outreach-apollo-telemetry.test.ts`.
+
 ## 2.4.392
 
 ### Review, Edit, and Send Gmail Drafts in Inbox (Issue #358)

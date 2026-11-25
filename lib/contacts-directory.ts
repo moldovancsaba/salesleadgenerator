@@ -2,9 +2,14 @@ import type { ContactDirectoryEntry } from './contacts';
 
 export type ContactsSortKey =
   | 'name'
+  | 'firstName'
+  | 'lastName'
+  | 'country'
   | 'leads'
   | 'company'
   | 'title'
+  | 'department'
+  | 'industry'
   | 'email'
   | 'phone'
   | 'buyingRole'
@@ -15,7 +20,11 @@ export type ContactsDirectoryQueryOptions = {
   crmStatus?: string;
   owner?: string;
   buyingRole?: string;
+  department?: string;
+  country?: string;
+  industry?: string;
   phoneOnly?: boolean;
+  emailOnly?: boolean;
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
   page?: number;
@@ -45,9 +54,19 @@ export function sortContactsDirectory<T extends ContactDirectoryEntry>(
   return [...list].sort((a, b) => {
     let cmp = 0;
     if (sortBy === 'leads' || sortBy === 'company') {
-      const leadA = a.leads?.[0]?.entity_name || '';
-      const leadB = b.leads?.[0]?.entity_name || '';
+      const leadA = a.company || a.leads?.[0]?.entity_name || '';
+      const leadB = b.company || b.leads?.[0]?.entity_name || '';
       cmp = leadA.localeCompare(leadB);
+    } else if (sortBy === 'firstName') {
+      cmp = (a.firstName || '').localeCompare(b.firstName || '');
+    } else if (sortBy === 'lastName') {
+      cmp = (a.lastName || '').localeCompare(b.lastName || '');
+    } else if (sortBy === 'country') {
+      cmp = (a.country || '').localeCompare(b.country || '');
+    } else if (sortBy === 'department') {
+      cmp = (a.department || '').localeCompare(b.department || '');
+    } else if (sortBy === 'industry') {
+      cmp = (a.industry || '').localeCompare(b.industry || '');
     } else if (sortBy === 'title') {
       cmp = (a.title || '').localeCompare(b.title || '');
     } else if (sortBy === 'email') {
@@ -81,10 +100,16 @@ export function queryContactsDirectory<T extends ContactDirectoryEntry>(
     filtered = filtered.filter(
       (c) =>
         re.test(c.name) ||
+        (c.firstName && re.test(c.firstName)) ||
+        (c.lastName && re.test(c.lastName)) ||
         (c.email && re.test(c.email)) ||
         (c.secondaryEmail && re.test(c.secondaryEmail)) ||
         (c.phone && re.test(c.phone)) ||
         (c.title && re.test(c.title)) ||
+        (c.department && re.test(c.department)) ||
+        (c.industry && re.test(c.industry)) ||
+        (c.country && re.test(c.country)) ||
+        (c.companyWebsite && re.test(c.companyWebsite)) ||
         (c.leads && c.leads.some((l) => re.test(l.entity_name)))
     );
   }
@@ -104,8 +129,28 @@ export function queryContactsDirectory<T extends ContactDirectoryEntry>(
     filtered = filtered.filter((c) => (c.buyingRole || '').toLowerCase() === buyingRoleFilter);
   }
 
+  const deptFilter = (options.department || '').trim().toLowerCase();
+  if (deptFilter && deptFilter !== 'all') {
+    filtered = filtered.filter((c) => (c.department || 'Unknown').toLowerCase() === deptFilter);
+  }
+
+  const countryFilter = (options.country || '').trim().toUpperCase();
+  if (countryFilter && countryFilter !== 'ALL') {
+    filtered = filtered.filter((c) => (c.country || '').toUpperCase() === countryFilter);
+  }
+
+  const industryFilter = (options.industry || '').trim();
+  if (industryFilter) {
+    const indRe = new RegExp(escapeRegExpLiteral(industryFilter), 'i');
+    filtered = filtered.filter((c) => Boolean(c.industry && indRe.test(c.industry)));
+  }
+
   if (options.phoneOnly) {
     filtered = filtered.filter((c) => Boolean(c.phone && c.phone.trim().length > 3));
+  }
+
+  if (options.emailOnly) {
+    filtered = filtered.filter((c) => Boolean(c.email && c.email.includes('@')));
   }
 
   const sorted = sortContactsDirectory(filtered, options.sortBy, options.sortDir);

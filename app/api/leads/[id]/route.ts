@@ -6,7 +6,8 @@ import { normalizeLead } from '../../../lib/normalize-lead'
 import { requireBrandAccessApi, requireMachineKeyApi } from '../../../../lib/require-brand-access-api'
 import { validateLeadPayload } from '../../../../lib/validate-lead'
 import { deriveKanbanColumn, isAutoManagedColumn } from '../../../../lib/kanban-column'
-import { dedupeContacts, deriveContactEmails } from '../../../../lib/contacts'
+import { dedupeContacts, mergeEnrichedContacts, deriveContactEmails, normalizePhone } from '../../../../lib/contacts'
+import { recordResearchTelemetryRun } from '../../../../lib/research-telemetry'
 import { verifyLeadContactsAsync } from '../../../lib/email-verification-store'
 import { computeTicketSizeForLead } from '../../../lib/ticket-size-store'
 import { getTenantId, tenantFilter as buildTenantFilter } from '../../../../lib/tenant'
@@ -139,14 +140,19 @@ export async function PUT(
       return NextResponse.json({ error: 'Validation failed', details: validation.errors }, { status: 400 })
     }
 
+    const nowIso = new Date().toISOString();
     const updateData: Record<string, any> = {
       updatedAt: new Date(),
+      lastResearchedAt:
+        typeof body.lastResearchedAt === 'string' && body.lastResearchedAt.trim()
+          ? body.lastResearchedAt.trim()
+          : nowIso,
     };
 
     const allowedFields = [
-      'entity_name', 'url', 'region', 'country', 'address', 'general_contact', 'size', 'industry',
+      'entity_name', 'url', 'companyLinkedin', 'companyPhone', 'region', 'country', 'address', 'general_contact', 'size', 'industry',
       'sport_or_sector', 'level_league', 'value_proposition', 'notes', 'tags',
-      'kanbanColumn', 'sortOrder', 'status', 'ice', 'iceScore',
+      'kanbanColumn', 'sortOrder', 'status', 'ice', 'iceScore', 'source',
       PRO_FIELD, CON_FIELD, 'contacts', 'qualityStatus',
       'recommended_tier', 'estimated_participants', 'estimated_annual_revenue_usd',
       'revenue_model', 'product_fit_notes', 'pricingByCompany',
@@ -167,6 +173,10 @@ export async function PUT(
       if (body[field] !== undefined) {
         updateData[field] = body[field];
       }
+    }
+
+    if (typeof updateData.companyPhone === 'string' && updateData.companyPhone.trim()) {
+      updateData.companyPhone = normalizePhone(updateData.companyPhone);
     }
 
     // Unlike POST (which runs the whole body through normalizeLead()'s
@@ -220,7 +230,13 @@ export async function PUT(
     }
 
     if (body.contacts && Array.isArray(body.contacts)) {
-      updateData.contacts = dedupeContacts(body.contacts, { verify: true });
+      // Unattended enrichment merges new attributes into existing contacts without
+      // duplicating them (#359 / backlog #11), unless caller explicitly requests
+      // full-array replacement via mergeContacts: false.
+      updateData.contacts =
+        body.mergeContacts === false
+          ? dedupeContacts(body.contacts, { verify: true })
+          : mergeEnrichedContacts(existing.contacts || [], body.contacts, { verify: true });
       // Issue #142 — kept in sync alongside contacts[] on every write path.
       updateData.contactEmails = deriveContactEmails(updateData.contacts);
     }
@@ -302,6 +318,15 @@ export async function PUT(
       return NextResponse.json({ error: 'Lead not found after update' }, { status: 404 })
     }
     const updatedLead = result;
+
+    void recordResearchTelemetryRun(dbInstance, {
+      brand,
+      tenantId,
+      operation: 'enrichment',
+      status: 'succeeded',
+      leadId: existing._id.toString(),
+      entityName: String(updateData.entity_name || existing.entity_name || ''),
+    }).catch((err) => console.error('[API:leads/:id] research telemetry write failed', err));
 
     // Only re-check emails that are new or changed vs. what was already
     // stored — re-verifying every contact on every PUT would waste DNS

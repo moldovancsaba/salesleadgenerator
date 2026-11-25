@@ -143,6 +143,8 @@ export function normalizeLead(raw: LeadRaw, options?: { allowedColumns?: string[
     entity_name: ensureString(raw.entity_name || raw.name),
     region: ensureString(raw.region || 'NA').toUpperCase(),
     url: ensureString(raw.url),
+    companyLinkedin: ensureString(raw.companyLinkedin),
+    companyPhone: ensureString(raw.companyPhone),
     address: ensureString(raw.address),
     general_contact: ensureString(raw.general_contact),
     size: ensureString(raw.size),

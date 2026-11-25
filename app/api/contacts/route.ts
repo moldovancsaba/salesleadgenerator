@@ -6,6 +6,7 @@ import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { aggregateContactsAcrossLeads } from '../../../lib/contacts'
 import { queryContactsDirectory } from '../../../lib/contacts-directory'
+import { resolveLeadLastResearchedAt } from '../../../lib/research-telemetry'
 
 async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url);
@@ -39,6 +40,10 @@ export async function GET(request: NextRequest) {
     const sortBy = (searchParams.get('sortBy') || 'name').trim();
     const sortDir = searchParams.get('sortDir') === 'desc' ? 'desc' : 'asc';
     const phoneOnly = searchParams.get('phoneOnly') === '1' || searchParams.get('phoneOnly') === 'true';
+    const emailOnly = searchParams.get('emailOnly') === '1' || searchParams.get('emailOnly') === 'true';
+    const departmentFilter = (searchParams.get('department') || '').trim();
+    const countryFilter = (searchParams.get('country') || '').trim();
+    const industryFilter = (searchParams.get('industry') || '').trim();
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
@@ -54,7 +59,22 @@ export async function GET(request: NextRequest) {
     };
 
     const cursor = db.collection(config.dbCollection)
-      .find(filter, { projection: { entity_name: 1, contacts: 1 } })
+      .find(filter, {
+        projection: {
+          entity_name: 1,
+          country: 1,
+          industry: 1,
+          sport_or_sector: 1,
+          url: 1,
+          companyLinkedin: 1,
+          companyPhone: 1,
+          source: 1,
+          lastResearchedAt: 1,
+          fieldVerifications: 1,
+          createdAt: 1,
+          contacts: 1,
+        },
+      })
       .sort({ _id: 1 });
     if (explicitLimit !== null) {
       cursor.limit(explicitLimit);
@@ -64,6 +84,14 @@ export async function GET(request: NextRequest) {
     const leads = rawLeads.map((l: any) => ({
       _id: l._id.toString(),
       entity_name: l.entity_name || '',
+      country: l.country,
+      industry: l.industry,
+      sport_or_sector: l.sport_or_sector,
+      url: l.url,
+      companyLinkedin: l.companyLinkedin,
+      companyPhone: l.companyPhone,
+      source: l.source,
+      lastResearchedAt: resolveLeadLastResearchedAt(l) || undefined,
       contacts: l.contacts,
     }));
 
@@ -79,7 +107,11 @@ export async function GET(request: NextRequest) {
       crmStatus: crmStatusFilter,
       owner: ownerFilter,
       buyingRole: buyingRoleFilter,
+      department: departmentFilter,
+      country: countryFilter,
+      industry: industryFilter,
       phoneOnly,
+      emailOnly,
       sortBy,
       sortDir,
       page,
@@ -87,18 +119,46 @@ export async function GET(request: NextRequest) {
     });
 
     if (format === 'csv' || request.headers.get('accept')?.includes('text/csv')) {
-      const header = ['Name', 'First Name', 'Last Name', 'Title', 'Primary Email', 'Secondary Email', 'Phone', 'LinkedIn', 'Buying Role', 'Decision Maker', 'CRM Status', 'Owner', 'Companies'];
+      const header = [
+        'Name',
+        'First Name',
+        'Last Name',
+        'Country',
+        'Company',
+        'Title',
+        'Department',
+        'Industry',
+        'Primary Email',
+        'Secondary Email',
+        'Phone',
+        'LinkedIn',
+        'Company Website',
+        'Company LinkedIn',
+        'Company Phone',
+        'Buying Role',
+        'Decision Maker',
+        'CRM Status',
+        'Owner',
+        'Companies',
+      ];
       const rows = directory.filteredContacts.map((c) => {
         const companies = (c.leads || []).map((l: any) => l.entity_name).join('; ');
         return [
           c.name || '',
           c.firstName || '',
           c.lastName || '',
+          c.country || '',
+          c.company || c.leads?.[0]?.entity_name || '',
           c.title || '',
+          c.department || '',
+          c.industry || '',
           c.email || '',
           c.secondaryEmail || '',
           c.phone || '',
           c.linkedin || '',
+          c.companyWebsite || '',
+          c.companyLinkedin || '',
+          c.companyPhone || '',
           c.buyingRole || '',
           c.isDecisionMaker ? 'true' : 'false',
           c.crmStatus || 'prospect',

@@ -2,7 +2,7 @@ import type { Db } from 'mongodb';
 import { encryptCredentials, decryptCredentials } from '../../lib/integration-crypto';
 import {
   type IntegrationConnection, type IntegrationProvider, type IntegrationStatus,
-  oauthConfigFor, apiKeyConfigFor,
+  oauthConfigFor, apiKeyConfigFor, buildApiKeyVerifyHeaders,
 } from '../../lib/integration-connections';
 import { fetchWithRetry } from '../../lib/integration-http';
 import { resolveLinkedUserIdentities } from '../../lib/sso-access';
@@ -583,8 +583,15 @@ export async function testConnection(db: Db, connection: IntegrationConnection):
       const res = await fetchWithRetry(url.toString());
       ok = res.ok;
     } else if (apiKeyCfg) {
-      const res = await fetchWithRetry(apiKeyCfg.verifyUrl, { headers: { Authorization: `Bearer ${credential}` } });
-      ok = res.ok;
+      const res = await fetchWithRetry(apiKeyCfg.verifyUrl, {
+        headers: buildApiKeyVerifyHeaders(apiKeyCfg, credential),
+      });
+      if (res.ok && connection.provider === 'apollo') {
+        const body = await res.json().catch(() => ({}));
+        ok = body?.healthy !== false && body?.is_logged_in !== false;
+      } else {
+        ok = res.ok;
+      }
     }
 
     const now = new Date().toISOString();

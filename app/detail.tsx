@@ -53,6 +53,7 @@ import { useAuth } from './components/AuthProvider';
 import { exportLeadsToCsv, exportLeadsToGoogleSheetsTsv, type CrmPreset } from '@/lib/crm-lead-exchange';
 import { generateDomainAuditPitch } from '@/lib/domain-audit-pitch';
 import { generatePreCallBriefing, type PreCallBriefing } from '@/lib/pre-call-briefing';
+import { resolveLeadLastResearchedAt } from '@/lib/research-telemetry';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -350,6 +351,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
   const [unbacklogTarget, setUnbacklogTarget] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [outreachOpen, setOutreachOpen] = useState(false);
+  const [outreachContactTarget, setOutreachContactTarget] = useState<{ email?: string; name?: string } | null>(null);
   const [outreachRefreshKey, setOutreachRefreshKey] = useState(0);
   const [movingStage, setMovingStage] = useState(false);
   const stageOptions = pipelineStages && pipelineStages.length > 0
@@ -376,16 +378,12 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
   // from it instead.
   const [editingFields, setEditingFields] = useState(false);
   const [editForm, setEditForm] = useState<{
-    entity_name: string; url: string; country: string; address: string; general_contact: string; size: string;
+    entity_name: string; url: string; companyLinkedin: string; companyPhone: string; country: string; address: string; general_contact: string; size: string;
     industry: string; sport_or_sector: string; level_league: string; value_proposition: string; notes: string; tags: string;
-    // Manual ticket-size override (issue #86) — blank means "no change to
-    // the override state," not "clear it"; clearing is its own explicit
-    // action (handleClearTicketSizeOverride below), never inferred from an
-    // emptied field.
     manualTicketSizeExpected: number | '';
     manualTicketSizeReason: string;
   }>({
-    entity_name: '', url: '', country: '', address: '', general_contact: '', size: '',
+    entity_name: '', url: '', companyLinkedin: '', companyPhone: '', country: '', address: '', general_contact: '', size: '',
     industry: '', sport_or_sector: '', level_league: '', value_proposition: '', notes: '', tags: '',
     manualTicketSizeExpected: '', manualTicketSizeReason: '',
   });
@@ -403,8 +401,18 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
     setContactsForm((lead.contacts || []).map((c) => {
       const buyingRole = resolveBuyingRole(c);
       return {
-        name: c.name || '', title: c.title || '', email: c.email || '', phone: c.phone || '',
-        linkedin: c.linkedin || '', role: c.role || '', buyingRole, isDecisionMaker: deriveIsDecisionMaker(buyingRole),
+        name: c.name || '',
+        firstName: c.firstName || '',
+        lastName: c.lastName || '',
+        country: c.country || '',
+        title: c.title || '',
+        departmentOverride: c.departmentOverride,
+        email: c.email || '',
+        phone: c.phone || '',
+        linkedin: c.linkedin || '',
+        role: c.role || '',
+        buyingRole,
+        isDecisionMaker: deriveIsDecisionMaker(buyingRole),
       };
     }));
     setEditingContacts(true);
@@ -900,6 +908,8 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
     setEditForm({
       entity_name: lead.entity_name || '',
       url: lead.url || '',
+      companyLinkedin: lead.companyLinkedin || '',
+      companyPhone: lead.companyPhone || '',
       country: lead.country || '',
       address: lead.address || '',
       general_contact: lead.general_contact || '',
@@ -939,6 +949,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
       const payload: Record<string, any> = {
         entity_name: editForm.entity_name,
         url: editForm.url,
+        companyPhone: editForm.companyPhone,
         address: editForm.address,
         general_contact: editForm.general_contact,
         size: editForm.size,
@@ -949,6 +960,9 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
         notes: editForm.notes,
         tags: editForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
       };
+      if (editForm.companyLinkedin.trim() || lead.companyLinkedin) {
+        payload.companyLinkedin = editForm.companyLinkedin.trim();
+      }
       // Omitted entirely when blank, not sent as ''  — unlike every other
       // field on this form, the server validates country's format even on a
       // partial MODIFY (a 2-letter ISO code) whenever the key is present at
@@ -1527,6 +1541,16 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
           ) : '—'}
         </Box>
         <Box>
+          <Text size="xs" c="dimmed">Company LinkedIn</Text>
+          {lead.companyLinkedin ? (
+            <Text size="sm" component="a" href={lead.companyLinkedin} target="_blank" c="blue">{lead.companyLinkedin}</Text>
+          ) : '—'}
+        </Box>
+        <Box>
+          <Text size="xs" c="dimmed">Company Phone</Text>
+          <Text size="sm">{lead.companyPhone || '—'}</Text>
+        </Box>
+        <Box>
           <Text size="xs" c="dimmed">Size</Text>
           <Text size="sm">{lead.size || '—'}</Text>
         </Box>
@@ -1541,6 +1565,15 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
         <Box>
           <Text size="xs" c="dimmed">Source</Text>
           <Text size="sm">{lead.source || '—'}</Text>
+        </Box>
+        <Box>
+          <Text size="xs" c="dimmed">Last Researched</Text>
+          <Text size="sm">
+            {(() => {
+              const ts = resolveLeadLastResearchedAt(lead);
+              return ts ? new Date(ts).toLocaleString() : '—';
+            })()}
+          </Text>
         </Box>
         <Box>
           <Text size="xs" c="dimmed">Assigned to</Text>
@@ -1706,6 +1739,8 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
           <Stack gap="xs" mt="xs">
             <TextInput id="edit-form-entity-name" label="Entity name" value={editForm.entity_name} onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, entity_name: v })); }} />
             <TextInput label="URL" value={editForm.url} onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, url: v })); }} />
+            <TextInput label="Company LinkedIn URL" placeholder="https://www.linkedin.com/company/..." value={editForm.companyLinkedin} onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, companyLinkedin: v })); }} />
+            <TextInput label="Company Phone" placeholder="+1 555 0100" value={editForm.companyPhone} onChange={(e) => { const v = e?.target?.value ?? e?.currentTarget?.value ?? ''; setEditForm((f) => ({ ...f, companyPhone: v })); }} />
             <TextInput
               label="Country"
               description="2-letter ISO code, e.g. US, GB, DE"
@@ -1952,20 +1987,42 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
             {(lead.contacts || []).length === 0 && <Text size="sm" c="dimmed">—</Text>}
             {(lead.contacts || []).map((contact, i) => (
               <Box key={i}>
-                <Group gap="xs">
-                  <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
-                  {BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE] && (
-                    <LabelTag
-                      tone="info"
-                      size="xs"
-                      label={BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE]!.label}
-                    />
-                  )}
-                  {isContactStale(contact, DEFAULT_STALENESS_THRESHOLD_DAYS) && (
-                    <StatusBadge status="warning" withIcon size="xs">
-                      Needs re-verification
-                    </StatusBadge>
-                  )}
+                <Group justify="space-between" align="center" wrap="wrap">
+                  <Group gap="xs">
+                    <Text fw={600}>{contact.name || contact.title || 'Contact'}</Text>
+                    {(contact.firstName || contact.lastName || contact.country) && (
+                      <Text size="xs" c="dimmed">
+                        ({[contact.firstName, contact.lastName].filter(Boolean).join(' ') || '—'}
+                        {contact.country ? ` · ${contact.country}` : ''})
+                      </Text>
+                    )}
+                    {BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE] && (
+                      <LabelTag
+                        tone="info"
+                        size="xs"
+                        label={BUYING_ROLE_BADGE[contact.buyingRole as keyof typeof BUYING_ROLE_BADGE]!.label}
+                      />
+                    )}
+                    {isContactStale(contact, DEFAULT_STALENESS_THRESHOLD_DAYS) && (
+                      <StatusBadge status="warning" withIcon size="xs">
+                        Needs re-verification
+                      </StatusBadge>
+                    )}
+                  </Group>
+                  <Button
+                    size="compact-xs"
+                    variant="subtle"
+                    leftSection={<IconMail size={12} />}
+                    onClick={() => {
+                      setOutreachContactTarget({
+                        email: contact.email || undefined,
+                        name: contact.name || undefined,
+                      });
+                      setOutreachOpen(true);
+                    }}
+                  >
+                    Outreach
+                  </Button>
                 </Group>
                 {contact.title && (
                   <Group gap={4} wrap="nowrap">
@@ -2519,9 +2576,14 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
       )}
       <OutreachComposeModal
         opened={outreachOpen}
-        onClose={() => setOutreachOpen(false)}
+        onClose={() => {
+          setOutreachOpen(false);
+          setOutreachContactTarget(null);
+        }}
         lead={lead}
         brand={brand}
+        initialContactEmail={outreachContactTarget?.email}
+        initialContactName={outreachContactTarget?.name}
         onSent={() => setOutreachRefreshKey((k) => k + 1)}
       />
       {/* issue #90: Decline Reason used to be an unconditional field buried

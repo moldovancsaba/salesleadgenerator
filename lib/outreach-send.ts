@@ -19,7 +19,7 @@ import type { Db } from 'mongodb';
 import { Resend } from 'resend';
 import { evaluateOutreachRouting, type LeadFieldSnapshot } from '../app/lib/outreach/routing-rules';
 import { interpolate, type OutreachTemplate } from '../app/lib/outreach/default-templates';
-import { getDecisionMakerContact, getContactSendEmail } from './contacts';
+import { getDecisionMakerContact, getContactSendEmail, resolveOutreachTargetContact } from './contacts';
 import { buildPersonalizationContext, interpolateTemplate, validatePersonalization } from './template-personalization';
 import { getBrandConfig } from '../app/lib/brand';
 import { ACTIVITY_LOG_COLLECTION, ensureActivityLogIndexes, truncateBody } from '../app/lib/activity-log-store';
@@ -54,6 +54,8 @@ export type ManualSendContext = {
   senderUserId?: string;
   senderName?: string;
   senderEmail?: string;
+  targetContactEmail?: string;
+  targetContactName?: string;
   includeSignature?: boolean;
   replyInThread?: boolean;
   threadId?: string;
@@ -80,6 +82,8 @@ export type OutreachSendSource =
       senderUserId?: string;
       senderName?: string;
       senderEmail?: string;
+      targetContactEmail?: string;
+      targetContactName?: string;
       includeSignature?: boolean;
       replyInThread?: boolean;
       threadId?: string;
@@ -300,7 +304,14 @@ export async function dispatchOutreachEmail(
     return { sent: false, reason: 'template not found', outreachLogId };
   }
 
-  const dmContact = getDecisionMakerContact(lead.contacts);
+  const explicitTarget =
+    source.kind === 'manual' && (source.targetContactEmail || source.targetContactName)
+      ? resolveOutreachTargetContact(lead.contacts, {
+          email: source.targetContactEmail,
+          name: source.targetContactName,
+        })
+      : null;
+  const dmContact = explicitTarget ?? getDecisionMakerContact(lead.contacts);
   const to = getContactSendEmail(dmContact) || undefined;
 
   const personalizationContext = buildPersonalizationContext({ lead, contact: dmContact });
@@ -343,7 +354,12 @@ export async function dispatchOutreachEmail(
     }
   }
 
-  const routing = evaluateOutreachRouting('email', lead, body);
+  const routing = evaluateOutreachRouting(
+    'email',
+    lead,
+    body,
+    explicitTarget ? { selectedContact: explicitTarget } : undefined
+  );
   if (!routing.allowed) {
     const outreachLogId = await writeOutreachLog(db, context, leadId, {
       templateId: template.id,
@@ -716,6 +732,8 @@ export async function sendManualEmail(
       senderUserId: context.senderUserId,
       senderName: context.senderName,
       senderEmail: context.senderEmail,
+      targetContactEmail: context.targetContactEmail,
+      targetContactName: context.targetContactName,
       includeSignature: context.includeSignature,
       replyInThread: context.replyInThread,
       threadId: context.threadId,

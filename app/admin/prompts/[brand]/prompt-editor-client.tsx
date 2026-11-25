@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react'
 import {
   Box, Title, Text, Button, Group, Stack, Textarea,
-  Paper, Loader, Divider, Tabs, Alert, TextInput, Switch,
+  Paper, Loader, Divider, Tabs, Alert, TextInput, Switch, SimpleGrid, NumberInput,
 } from '@mantine/core'
-import { LabelTag } from '@sovereignsquad/gds-core/client'
+import { LabelTag, StatusBadge } from '@sovereignsquad/gds-core/client'
 import { IconCheck } from '@tabler/icons-react'
 import type { Brand } from '@/app/lib/brand'
 import { useAuth } from '@/app/components/AuthProvider'
+import type { WorkspaceResearchTelemetry } from '@/lib/research-telemetry'
 
 export function PromptEditorClient({ brand, label }: { brand: Brand; label: string }) {
   const { isSuperAdmin } = useAuth()
@@ -24,6 +25,10 @@ export function PromptEditorClient({ brand, label }: { brand: Brand; label: stri
   const [enrichmentContent, setEnrichmentContent] = useState('')
   const [discoverySource, setDiscoverySource] = useState('')
   const [enrichmentSource, setEnrichmentSource] = useState('')
+  const [telemetry, setTelemetry] = useState<WorkspaceResearchTelemetry | null>(null)
+  const [discIntervalInput, setDiscIntervalInput] = useState<number | ''>(60)
+  const [enrIntervalInput, setEnrIntervalInput] = useState<number | ''>(30)
+  const [savingInterval, setSavingInterval] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -31,10 +36,11 @@ export function PromptEditorClient({ brand, label }: { brand: Brand; label: stri
       setLoading(true)
       setError(null)
       try {
-        const [discRes, enrRes, toggleRes] = await Promise.all([
+        const [discRes, enrRes, toggleRes, telemetryRes] = await Promise.all([
           fetch(`/api/prompts?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}&type=discovery`),
           fetch(`/api/prompts?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}&type=enrichment`),
           fetch(`/api/admin/toggle?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`),
+          fetch(`/api/admin/research-telemetry?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`),
         ])
 
         if (discRes.ok) {
@@ -60,6 +66,14 @@ export function PromptEditorClient({ brand, label }: { brand: Brand; label: stri
             if (typeof toggleData?.toggles?.enrichment === 'boolean') {
               setEnrEnabled(toggleData.toggles.enrichment)
             }
+          }
+        }
+        if (telemetryRes.ok) {
+          const telData: WorkspaceResearchTelemetry = await telemetryRes.json()
+          if (!cancelled) {
+            setTelemetry(telData)
+            setDiscIntervalInput(telData.discovery.intervalMinutes)
+            setEnrIntervalInput(telData.enrichment.intervalMinutes)
           }
         }
       } catch (err: any) {
@@ -114,6 +128,25 @@ export function PromptEditorClient({ brand, label }: { brand: Brand; label: stri
     }
   }
 
+  async function saveOperatingInterval(operation: 'discovery' | 'enrichment', minutes: number) {
+    if (!Number.isFinite(minutes) || minutes < 1) return
+    setSavingInterval(true)
+    try {
+      const res = await fetch('/api/admin/research-telemetry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand, tenantId, operation, intervalMinutes: Math.round(minutes) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Failed to save interval')
+      if (data.telemetry) setTelemetry(data.telemetry)
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save operating interval')
+    } finally {
+      setSavingInterval(false)
+    }
+  }
+
   if (loading) {
     return (
       <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%">
@@ -156,6 +189,84 @@ export function PromptEditorClient({ brand, label }: { brand: Brand; label: stri
 
         {saved && (
           <Alert color="green" title="Saved">Prompt saved.</Alert>
+        )}
+
+        {telemetry && (
+          <Paper withBorder p="sm" radius="md">
+            <Stack gap="xs">
+              <Group justify="space-between" align="center" wrap="wrap">
+                <Text fw={600} size="sm">Unattended Discovery & Enrichment Schedule</Text>
+                <Text size="xs" c="dimmed">
+                  Tracks autonomous background runs, operating intervals, and last verified activity.
+                </Text>
+              </Group>
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                {(['discovery', 'enrichment'] as const).map((op) => {
+                  const info = telemetry[op]
+                  const intervalVal = op === 'discovery' ? discIntervalInput : enrIntervalInput
+                  const setIntervalVal = op === 'discovery' ? setDiscIntervalInput : setEnrIntervalInput
+                  const isEnabled = op === 'discovery' ? discEnabled : enrEnabled
+                  return (
+                    <Paper key={op} withBorder p="xs" radius="sm">
+                      <Stack gap={4}>
+                        <Group justify="space-between" align="center">
+                          <Text fw={600} size="xs" tt="capitalize">{op} Runner</Text>
+                          <Group gap={6}>
+                            <StatusBadge size="xs" status={isEnabled ? 'success' : 'neutral'}>
+                              {isEnabled ? 'Scheduled' : 'Paused'}
+                            </StatusBadge>
+                            <StatusBadge
+                              size="xs"
+                              status={
+                                info.lastRunStatus === 'succeeded'
+                                  ? 'success'
+                                  : info.lastRunStatus === 'failed'
+                                  ? 'danger'
+                                  : 'info'
+                              }
+                            >
+                              {info.lastRunStatus === 'succeeded'
+                                ? 'Last Run Succeeded'
+                                : info.lastRunStatus === 'failed'
+                                ? 'Last Run Failed'
+                                : 'Awaiting First Run'}
+                            </StatusBadge>
+                          </Group>
+                        </Group>
+                        <Text size="xs" c="dimmed">
+                          Last run: {info.lastRunAt ? new Date(info.lastRunAt).toLocaleString() : 'Never recorded'}
+                          {info.lastEntityName ? ` · ${info.lastEntityName}` : ''}
+                        </Text>
+                        {info.lastError && (
+                          <Text size="xs" c="red">Error: {info.lastError}</Text>
+                        )}
+                        <Group gap="xs" align="flex-end" mt={2}>
+                          <NumberInput
+                            size="xs"
+                            label="Operating interval (min)"
+                            min={1}
+                            max={10080}
+                            value={intervalVal}
+                            onChange={(v) => setIntervalVal(typeof v === 'number' ? v : '')}
+                            w={160}
+                          />
+                          <Button
+                            size="xs"
+                            variant="light"
+                            loading={savingInterval}
+                            disabled={typeof intervalVal !== 'number' || intervalVal === info.intervalMinutes}
+                            onClick={() => typeof intervalVal === 'number' && void saveOperatingInterval(op, intervalVal)}
+                          >
+                            Save Interval
+                          </Button>
+                        </Group>
+                      </Stack>
+                    </Paper>
+                  )
+                })}
+              </SimpleGrid>
+            </Stack>
+          </Paper>
         )}
 
         <Tabs value={activeTab} onChange={setActiveTab}>

@@ -17,8 +17,12 @@ export const CANONICAL_TOKENS = {
   PHONE: 'phone',
   LINKEDIN_URL: 'linkedin_url',
   JOB_TITLE: 'job_title',
+  DEPARTMENT: 'department',
+  COUNTRY: 'country',
   COMPANY_NAME: 'company_name',
   COMPANY_WEBSITE: 'company_website',
+  COMPANY_LINKEDIN: 'company_linkedin',
+  COMPANY_PHONE: 'company_phone',
   INDUSTRY: 'industry',
   DIGITAL_AUDIT_PITCH: 'digital_audit_pitch',
 } as const;
@@ -69,6 +73,18 @@ export const TOKEN_ALIASES: Record<string, CanonicalTokenKey> = {
   companywebsite: 'company_website',
   'company website': 'company_website',
   website: 'company_website',
+  url: 'company_website',
+  // Company LinkedIn
+  company_linkedin: 'company_linkedin',
+  companylinkedin: 'company_linkedin',
+  'company linkedin': 'company_linkedin',
+  // Company Phone
+  company_phone: 'company_phone',
+  companyphone: 'company_phone',
+  'company phone': 'company_phone',
+  // Department & Country
+  department: 'department',
+  country: 'country',
   // Industry
   industry: 'industry',
   // Digital Audit Pitch (Issue 293)
@@ -117,11 +133,15 @@ export function buildPersonalizationContext(input: PersonalizationInput): Record
 
   // 1. Lead / Organization level defaults
   const entityName = lead?.entity_name || lead?.company_name || lead?.name || '';
-  const website = lead?.website || lead?.company_website || '';
+  const website = lead?.url || lead?.website || lead?.company_website || '';
+  const companyLinkedin = lead?.companyLinkedin || lead?.company_linkedin || '';
+  const companyPhone = lead?.companyPhone || lead?.company_phone || '';
   const industry = lead?.industry || lead?.sport_or_sector || '';
 
   context.company_name = entityName;
   context.company_website = website;
+  context.company_linkedin = companyLinkedin;
+  context.company_phone = companyPhone;
   context.industry = industry;
 
   // 2. Contact level attributes
@@ -141,6 +161,9 @@ export function buildPersonalizationContext(input: PersonalizationInput): Record
   context.phone = contact?.phone || '';
   context.linkedin_url = contact?.linkedin || '';
   context.job_title = contact?.title || contact?.role || '';
+  context.department =
+    contact?.department && contact.department !== 'Unknown' ? contact.department : '';
+  context.country = contact?.country || lead?.country || '';
 
   // Digital audit pitch hook if tech stack signals exist on lead
   const signals = lead?.techSignals || lead?.techStackSignals;

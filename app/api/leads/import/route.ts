@@ -4,7 +4,7 @@ import { resolveBrand, getBrandConfig, type Brand } from '@/app/lib/brand';
 import { requireBrandAccessApi } from '@/lib/require-brand-access-api';
 import { getTenantId } from '@/lib/tenant';
 import { normalizeLead } from '@/app/lib/normalize-lead';
-import { dedupeContacts, deriveContactEmails } from '@/lib/contacts';
+import { dedupeContacts, mergeEnrichedContacts, deriveContactEmails, normalizePhone } from '@/lib/contacts';
 import { buildFingerprint } from '@/lib/fingerprint';
 import { computeIceScore, buildScoreProfile } from '@/lib/score-profile';
 import { computeTicketSizeForLead } from '@/app/lib/ticket-size-store';
@@ -103,6 +103,8 @@ export async function POST(request: NextRequest) {
           const updateFields: any = { updatedAt: now };
 
           if (!existing.url && url) updateFields.url = url;
+          if (!existing.companyLinkedin && input.companyLinkedin) updateFields.companyLinkedin = input.companyLinkedin;
+          if (!existing.companyPhone && input.companyPhone) updateFields.companyPhone = normalizePhone(input.companyPhone);
           if (!existing.country && country) updateFields.country = country;
           if (!existing.cityName && input.cityName) updateFields.cityName = input.cityName;
           if (!existing.address && input.address) updateFields.address = input.address;
@@ -117,9 +119,9 @@ export async function POST(request: NextRequest) {
           const mergedTags = Array.from(new Set([...existingTags, ...newTags, 'crm-import', `source:${preset}`]));
           updateFields.tags = mergedTags;
 
-          // Merge contacts
+          // Merge contacts without duplicating existing people (#359)
           if (contacts.length > 0) {
-            const mergedContacts = dedupeContacts([...(existing.contacts || []), ...contacts]);
+            const mergedContacts = mergeEnrichedContacts(existing.contacts || [], contacts, { verify: true });
             updateFields.contacts = mergedContacts;
             updateFields.contactEmails = deriveContactEmails(mergedContacts);
           }
@@ -155,6 +157,8 @@ export async function POST(request: NextRequest) {
         country,
         entity_name: entityName,
         url: url || `https://${entityName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
+        companyLinkedin: input.companyLinkedin ? input.companyLinkedin.trim() : '',
+        companyPhone: input.companyPhone ? normalizePhone(input.companyPhone) : '',
         contacts,
         contactEmails,
         address: input.address || '',
@@ -174,7 +178,7 @@ export async function POST(request: NextRequest) {
         tags,
         deals: [],
         checklist: [],
-        source: `crm_import_${preset}`,
+        source: preset === 'apollo' ? 'apollo' : `crm_import_${preset}`,
         kanbanColumn,
         sortOrder: count * 100,
         fingerprint,
