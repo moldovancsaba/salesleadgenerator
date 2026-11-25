@@ -153,28 +153,53 @@ describe('Gmail Sync Store (Issue 216 & 249)', () => {
     allowedSsoDomains: ['example.com'],
   };
 
-  it('ingests an email to/from a known contact and minimizes unneeded data', async () => {
+  it('ingests full connected user inbox with CRM match flags while skipping spam/drafts and advancing cursor', async () => {
     const knownEmails = new Set(['lead.decision@prospect.com']);
 
-    // Mock Google APIs
     const originalFetch = global.fetch;
     const fetchCalls: string[] = [];
     global.fetch = vi.fn().mockImplementation(async (url: string) => {
       fetchCalls.push(url);
+      if (url.includes('/settings/sendAs')) {
+        return new Response(
+          JSON.stringify({
+            sendAs: [
+              {
+                sendAsEmail: 'rep.jane@example.com',
+                isPrimary: true,
+                isDefault: true,
+                signature: '<div>Jane Rep<br/>Sales Director</div>',
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
       if (url.includes('/messages?')) {
-        return new Response(JSON.stringify({ messages: [{ id: 'msg-101' }, { id: 'msg-102' }] }), { status: 200 });
+        if (url.includes('pageToken=page2')) {
+          // Older page (returned second by Gmail newest-first)
+          return new Response(JSON.stringify({ messages: [{ id: 'msg-101' }] }), { status: 200 });
+        }
+        return new Response(
+          JSON.stringify({
+            messages: [{ id: 'msg-draft-99' }, { id: 'msg-102' }],
+            nextPageToken: 'page2',
+          }),
+          { status: 200 }
+        );
       }
       if (url.includes('/messages/msg-101?format=metadata')) {
         return new Response(
           JSON.stringify({
             id: 'msg-101',
             threadId: 'th-101',
+            labelIds: ['INBOX', 'UNREAD'],
             payload: {
               headers: [
                 { name: 'From', value: 'lead.decision@prospect.com' },
                 { name: 'To', value: 'rep.jane@example.com' },
                 { name: 'Subject', value: 'Interested in demo' },
-                { name: 'Date', value: '2026-10-14T09:00:00Z' },
+                { name: 'Date', value: '2026-10-21T09:00:00Z' },
                 { name: 'Message-ID', value: '<msg-101@prospect.com>' },
               ],
             },
@@ -195,16 +220,47 @@ describe('Gmail Sync Store (Issue 216 & 249)', () => {
         );
       }
       if (url.includes('/messages/msg-102?format=metadata')) {
-        // Unrelated personal email
+        return new Response(
+          JSON.stringify({
+            id: 'msg-102',
+            threadId: 'th-102',
+            labelIds: ['INBOX'],
+            payload: {
+              headers: [
+                { name: 'From', value: 'partner@newcompany.org' },
+                { name: 'To', value: 'rep.jane@example.com' },
+                { name: 'Subject', value: 'Event inquiry' },
+                { name: 'Date', value: '2026-11-20T09:05:00Z' },
+                { name: 'Message-ID', value: '<msg-102@newcompany.org>' },
+              ],
+            },
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.includes('/messages/msg-102?format=full')) {
         return new Response(
           JSON.stringify({
             id: 'msg-102',
             payload: {
+              mimeType: 'text/plain',
+              body: { data: Buffer.from('Can we discuss sponsorship?').toString('base64') },
+            },
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.includes('/messages/msg-draft-99?format=metadata')) {
+        return new Response(
+          JSON.stringify({
+            id: 'msg-draft-99',
+            labelIds: ['DRAFT'],
+            payload: {
               headers: [
-                { name: 'From', value: 'newsletter@random.org' },
-                { name: 'To', value: 'rep.jane@example.com' },
-                { name: 'Subject', value: 'Weekly digest' },
-                { name: 'Date', value: '2026-10-14T09:05:00Z' },
+                { name: 'From', value: 'rep.jane@example.com' },
+                { name: 'To', value: 'partner@newcompany.org' },
+                { name: 'Subject', value: 'Unsent draft' },
+                { name: 'Date', value: '2026-11-24T12:00:00Z' },
               ],
             },
           }),
@@ -224,27 +280,30 @@ describe('Gmail Sync Store (Issue 216 & 249)', () => {
         knownEmails
       );
 
-      expect(result.ingested).toBe(1);
+      // Both Inbox messages ingested chronologically; DRAFT message skipped without freezing cursor
+      expect(result.ingested).toBe(2);
       expect(result.skipped).toBe(1);
 
-      // Verify data minimization: msg-102 format=full was NEVER fetched!
-      const fullBodyCalls = fetchCalls.filter((u) => u.includes('format=full'));
-      expect(fullBodyCalls.length).toBe(1);
-      expect(fullBodyCalls[0]).toContain('msg-101');
-
-      // Verify activityLog was written
-      expect(activityLogs.length).toBe(1);
+      expect(activityLogs.length).toBe(2);
+      // Chronological order: msg-101 (Oct 21) first, msg-102 (Nov 20) second
       expect(activityLogs[0].externalId).toBe('gmail:<msg-101@prospect.com>');
       expect(activityLogs[0].threadId).toBe('th-101');
-      expect(activityLogs[0].rfcMessageId).toBe('<msg-101@prospect.com>');
-      expect(activityLogs[0].direction).toBe('inbound');
-      expect(activityLogs[0].subject).toBe('Interested in demo');
+      expect(activityLogs[0].isCrmMatched).toBe(true);
+      expect(activityLogs[0].gmailUnread).toBe(true);
       expect(activityLogs[0].bodyExcerpt).toContain('Sounds great');
 
-      // Verify cursor was updated
+      expect(activityLogs[1].externalId).toBe('gmail:<msg-102@newcompany.org>');
+      expect(activityLogs[1].isCrmMatched).toBeUndefined();
+      expect(activityLogs[1].gmailUnread).toBe(false);
+
+      // Cursor advanced all the way past the Nov 24 skipped draft so it never freezes on Oct 21
       expect(cursors.length).toBe(1);
       expect(cursors[0].connectionId).toBe('conn-user-1');
       expect(cursors[0].gmailAddress).toBe('rep.jane@example.com');
+      expect(new Date(cursors[0].lastSyncedAt).getTime()).toBeGreaterThanOrEqual(
+        new Date('2026-11-24T12:00:00Z').getTime()
+      );
+      expect(cursors[0].lastError).toBeNull();
     } finally {
       global.fetch = originalFetch;
     }

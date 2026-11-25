@@ -323,7 +323,7 @@ export function TodayClient({ brand, label }: Props) {
         </Group>
 
         {/* Metric summary strip */}
-        <SimpleGrid cols={{ base: 2, sm: 3, md: 5 }} spacing="md">
+        <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="md">
           <Card withBorder padding="sm" radius="md">
             <Text size="xs" c="dimmed" fw={600} tt="uppercase">
               Total Queue
@@ -334,6 +334,58 @@ export function TodayClient({ brand, label }: Props) {
             <Text size="xs" c="dimmed">
               actions pending
             </Text>
+          </Card>
+          <Card
+            component={Link}
+            href={`/inbox/${brand}?stream=inbox&unread=true`}
+            withBorder
+            padding="sm"
+            radius="md"
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
+            <Group justify="space-between" align="center">
+              <Text size="xs" c="dimmed" fw={600} tt="uppercase">
+                Unread Inbox
+              </Text>
+              {data?.inboxSummary?.syncState === 'failed' ? (
+                <StatusBadge status="danger" size="xs">
+                  Sync Error
+                </StatusBadge>
+              ) : data?.inboxSummary?.syncState === 'stale' ? (
+                <StatusBadge status="warning" size="xs">
+                  Stale Sync
+                </StatusBadge>
+              ) : data?.inboxSummary?.syncState === 'disconnected' ? (
+                <StatusBadge status="neutral" size="xs">
+                  Disconnected
+                </StatusBadge>
+              ) : (data?.inboxSummary?.unreadConversations ?? 0) > 0 ? (
+                <StatusBadge status="info" size="xs">
+                  Unread
+                </StatusBadge>
+              ) : null}
+            </Group>
+            <Title order={3} mt={4} c={(data?.inboxSummary?.unreadConversations ?? 0) > 0 ? 'indigo' : undefined}>
+              {data?.inboxSummary?.unreadConversations ?? 0}
+            </Title>
+            <Text size="xs" c="dimmed">
+              unread conversations · Gmail Inbox
+            </Text>
+            {data?.inboxSummary?.syncState === 'disconnected' ? (
+              <Text size="10px" c="dimmed" mt={2}>
+                Connect Gmail to sync mail
+              </Text>
+            ) : data?.inboxSummary?.lastSuccessAt ? (
+              <Text size="10px" c={data.inboxSummary.isStale ? 'orange' : 'dimmed'} mt={2}>
+                Last synced{' '}
+                {new Date(data.inboxSummary.lastSuccessAt).toLocaleString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </Text>
+            ) : null}
           </Card>
           <Card withBorder padding="sm" radius="md">
             <Group justify="space-between" align="center">

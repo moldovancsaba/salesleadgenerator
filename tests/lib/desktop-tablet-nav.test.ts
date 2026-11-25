@@ -42,7 +42,7 @@ describe('desktop and tablet navigation affordances', () => {
 
   it('configures responsive grid cols for tablet portrait on Today view', () => {
     const content = readFileSync(join(root, 'app', 'today', '[brand]', 'today-client.tsx'), 'utf8');
-    expect(content).toContain('cols={{ base: 2, sm: 3, md: 5 }}');
+    expect(content).toContain('cols={{ base: 2, sm: 3, md: 6 }}');
   });
 
   it('supports organization switcher navigation in AppHeader and AppNav', () => {

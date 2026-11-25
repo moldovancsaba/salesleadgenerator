@@ -26,32 +26,43 @@ import {
   isInternalOrSystemEmail,
 } from '../../lib/email-contact-extractor';
 import { mergeContactsIntoLead } from '../../lib/email-contact-merge';
+import { syncGmailConnectionSignatures } from '../../lib/gmail-signature';
+import { getAccessibleBrands, isSuperAdminEmail } from '../../lib/sso-access';
 
 export const GMAIL_SYNC_CURSORS_COLLECTION = 'gmailSyncCursors';
 
-// Issue #216 — real disclosed architectural note (see docs/ARCHITECTURE.md
-// for full detail): this issue's own spec text describes "every
-// Gmail-connected rep" for a brand, implying multiple simultaneous
-// per-rep connections. The hub this issue depends on (issue #217, already
-// shipped) models a connection as one-per-{brand,tenantId,provider} —
-// there is no per-rep dimension in that schema at all. Rather than
-// redesigning the already-shipped, tested hub, this module polls the
-// SINGLE Gmail connection a brand/tenant has (if any), attributed to
-// whichever admin connected it (IntegrationConnection.connectedBy) — a
-// genuine, disclosed scope reduction from the issue's own "every rep"
-// framing, not a silent reinterpretation.
+const FIRST_SYNC_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const MAX_LIST_PAGE_SIZE = 250;
+const MAX_LIST_PAGES_PER_POLL = 10; // up to 2,500 message IDs inspected chronologically per poll
+const MAX_MESSAGES_PER_POLL = 150;
+const SIGNATURE_REFRESH_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+const STALE_SYNC_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 hours
+const CROSS_SOURCE_MATCH_WINDOW_MS = 2 * 60 * 1000; // ±2 minutes
 
-const FIRST_SYNC_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // 30 days, per issue #216 §11's own v1 simplification
-const MAX_MESSAGES_PER_POLL = 50;
-const CROSS_SOURCE_MATCH_WINDOW_MS = 2 * 60 * 1000; // ±2 minutes, per issue #216 §11
-
-type GmailSyncCursor = {
+export type GmailSyncCursor = {
   connectionId: string;
   brand: string;
   tenantId: string;
   gmailAddress?: string;
   lastSyncedAt: string;
+  lastPolledAt?: string;
+  lastSuccessAt?: string | null;
+  lastError?: string | null;
+  lastIngestedCount?: number;
+  lastSkippedCount?: number;
   updatedAt: string;
+};
+
+export type GmailSyncHealthState = 'up_to_date' | 'stale' | 'failed' | 'disconnected';
+
+export type GmailSyncHealth = {
+  state: GmailSyncHealthState;
+  connectedEmail?: string;
+  lastSuccessAt?: string | null;
+  lastPolledAt?: string | null;
+  lastSyncedAt?: string | null;
+  lastError?: string | null;
+  isStale: boolean;
 };
 
 let indexesEnsured = false;
@@ -118,14 +129,51 @@ async function fetchGmailProfile(token: string): Promise<{ emailAddress: string 
   return res.json();
 }
 
-async function listMessageIds(token: string, sinceMs: number): Promise<string[]> {
-  const url = new URL(`${GMAIL_API_BASE}/messages`);
-  url.searchParams.set('q', `after:${Math.floor(sinceMs / 1000)}`);
-  url.searchParams.set('maxResults', String(MAX_MESSAGES_PER_POLL));
-  const res = await fetchWithRetry(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) return [];
-  const body = await res.json();
-  return (body.messages || []).map((m: any) => m.id);
+async function listMessageIds(
+  token: string,
+  sinceMs: number
+): Promise<{ ids: string[]; truncated: boolean; apiFailed: boolean }> {
+  const collected: string[] = [];
+  let pageToken: string | undefined;
+  let hasMoreAfterMaxPages = false;
+
+  for (let page = 0; page < MAX_LIST_PAGES_PER_POLL; page++) {
+    const url = new URL(`${GMAIL_API_BASE}/messages`);
+    url.searchParams.set('q', `after:${Math.floor(sinceMs / 1000)} -in:spam -in:trash -in:drafts`);
+    url.searchParams.set('maxResults', String(MAX_LIST_PAGE_SIZE));
+    if (pageToken) {
+      url.searchParams.set('pageToken', pageToken);
+    }
+
+    const res = await fetchWithRetry(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) {
+      return { ids: collected, truncated: false, apiFailed: collected.length === 0 };
+    }
+    const body = await res.json();
+    const pageIds = Array.isArray(body.messages)
+      ? body.messages.map((m: any) => m?.id).filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+      : [];
+    for (const id of pageIds) {
+      if (!collected.includes(id)) collected.push(id);
+    }
+
+    if (typeof body.nextPageToken === 'string' && body.nextPageToken.trim()) {
+      pageToken = body.nextPageToken.trim();
+      if (page === MAX_LIST_PAGES_PER_POLL - 1) {
+        hasMoreAfterMaxPages = true;
+      }
+    } else {
+      pageToken = undefined;
+      break;
+    }
+  }
+
+  // Gmail messages.list returns newest-first. Reverse into chronological oldest-to-newest order
+  // so bounded batches advance the cursor cleanly from the prior sync point without skipping older gaps.
+  collected.reverse();
+  const truncated = hasMoreAfterMaxPages || collected.length > MAX_MESSAGES_PER_POLL;
+  const ids = collected.slice(0, MAX_MESSAGES_PER_POLL);
+  return { ids, truncated, apiFailed: false };
 }
 
 async function getMessageHeaders(token: string, id: string): Promise<any> {
@@ -200,18 +248,49 @@ export async function pollSingleGmailConnection(
   brand: Brand,
   tenantId: string,
   brandConfig: NonNullable<Awaited<ReturnType<typeof getBrandConfig>>>,
-  knownEmails: Set<string>
+  knownEmails: Set<string>,
+  options: { forceSignatureSync?: boolean } = {}
 ): Promise<GmailPollResult> {
+  await ensureGmailSyncCursorIndexes(db);
+  await ensureActivityLogIndexes(db);
+
+  const pollNowIso = new Date().toISOString();
   let token: string;
   try {
     token = await getValidCredential(db, connection);
   } catch (error) {
     const reason = error instanceof ConnectionRevokedError ? error.message : 'token_unavailable';
+    await db
+      .collection(GMAIL_SYNC_CURSORS_COLLECTION)
+      .updateOne(
+        { connectionId: connection.id, brand },
+        {
+          $set: {
+            tenantId,
+            ...(connection.userEmail ? { gmailAddress: connection.userEmail } : {}),
+            lastPolledAt: pollNowIso,
+            lastError: reason,
+            updatedAt: pollNowIso,
+          },
+          $setOnInsert: {
+            lastSyncedAt: new Date(Date.now() - FIRST_SYNC_WINDOW_MS).toISOString(),
+          },
+        },
+        { upsert: true }
+      )
+      .catch(() => {});
     return { ingested: 0, skipped: 0, failure: reason };
   }
 
-  await ensureGmailSyncCursorIndexes(db);
-  await ensureActivityLogIndexes(db);
+  // Keep user sendAs signatures current automatically so compose/preview never stales
+  if (connection.userId) {
+    const sigAgeMs = connection.signatureSyncedAt
+      ? Date.now() - new Date(connection.signatureSyncedAt).getTime()
+      : Number.POSITIVE_INFINITY;
+    if (options.forceSignatureSync || Number.isNaN(sigAgeMs) || sigAgeMs > SIGNATURE_REFRESH_INTERVAL_MS) {
+      await syncGmailConnectionSignatures(db, connection, token).catch(() => {});
+    }
+  }
 
   const cursorDoc = await db.collection(GMAIL_SYNC_CURSORS_COLLECTION).findOne({
     connectionId: connection.id,
@@ -222,13 +301,60 @@ export async function pollSingleGmailConnection(
   let gmailAddress = connection.userEmail || cursorDoc?.gmailAddress;
   if (!gmailAddress) {
     const profile = await fetchGmailProfile(token);
-    if (!profile?.emailAddress) return { ingested: 0, skipped: 0, failure: 'profile_unavailable' };
+    if (!profile?.emailAddress) {
+      await db
+        .collection(GMAIL_SYNC_CURSORS_COLLECTION)
+        .updateOne(
+          { connectionId: connection.id, brand },
+          {
+            $set: {
+              tenantId,
+              lastPolledAt: pollNowIso,
+              lastError: 'profile_unavailable',
+              updatedAt: pollNowIso,
+            },
+            $setOnInsert: {
+              lastSyncedAt: new Date(Date.now() - FIRST_SYNC_WINDOW_MS).toISOString(),
+            },
+          },
+          { upsert: true }
+        )
+        .catch(() => {});
+      return { ingested: 0, skipped: 0, failure: 'profile_unavailable' };
+    }
     gmailAddress = profile.emailAddress;
   }
 
-  const windowStartMs = cursorDoc ? new Date(cursorDoc.lastSyncedAt).getTime() : Date.now() - FIRST_SYNC_WINDOW_MS;
+  const windowStartMs = cursorDoc?.lastSyncedAt
+    ? new Date(cursorDoc.lastSyncedAt).getTime()
+    : Date.now() - FIRST_SYNC_WINDOW_MS;
 
-  const messageIds = await listMessageIds(token, windowStartMs);
+  const listed = await listMessageIds(token, windowStartMs);
+  if (listed.apiFailed) {
+    await db
+      .collection(GMAIL_SYNC_CURSORS_COLLECTION)
+      .updateOne(
+        { connectionId: connection.id, brand },
+        {
+          $set: {
+            tenantId,
+            gmailAddress,
+            lastPolledAt: pollNowIso,
+            lastError: 'gmail_list_failed',
+            updatedAt: pollNowIso,
+          },
+          $setOnInsert: {
+            lastSyncedAt: new Date(windowStartMs).toISOString(),
+          },
+        },
+        { upsert: true }
+      )
+      .catch(() => {});
+    return { ingested: 0, skipped: 0, failure: 'gmail_list_failed' };
+  }
+
+  const messageIds = listed.ids;
+  const isPersonalUserConnection = Boolean(connection.userId);
   let ingested = 0;
   let skipped = 0;
   let newestSeenMs = windowStartMs;
@@ -246,6 +372,25 @@ export async function pollSingleGmailConnection(
     const messageIdHeader = getHeader(headers, 'Message-ID');
     const inReplyToHeader = getHeader(headers, 'In-Reply-To');
     const referencesHeader = getHeader(headers, 'References');
+    const labelIds: string[] = Array.isArray(meta.labelIds) ? meta.labelIds : [];
+
+    const parsedDateMs = dateHeader ? new Date(dateHeader).getTime() : Number.NaN;
+    const internalDateMs = meta.internalDate ? Number(meta.internalDate) : Number.NaN;
+    const resolvedMsgMs = !Number.isNaN(parsedDateMs)
+      ? parsedDateMs
+      : !Number.isNaN(internalDateMs)
+        ? internalDateMs
+        : Date.now();
+    const dateIso = new Date(resolvedMsgMs).toISOString();
+
+    // Always advance cursor past every inspected message so skipped internal/spam messages never freeze sync!
+    newestSeenMs = Math.max(newestSeenMs, resolvedMsgMs);
+
+    // Exclude unsent drafts, spam, and trash
+    if (labelIds.includes('DRAFT') || labelIds.includes('SPAM') || labelIds.includes('TRASH')) {
+      skipped++;
+      continue;
+    }
 
     const fromEmails = parseAddressList(fromRaw);
     const toEmails = parseAddressList(toRaw);
@@ -261,8 +406,6 @@ export async function pollSingleGmailConnection(
 
     const direction = resolveGmailDirection(fromEmail, gmailAddress, brand);
 
-    // Inbound emails from external senders must intersect known contact/prospect emails to avoid ingesting random spam/newsletters.
-    // Outbound emails directly sent by the connected rep account to external recipients are sales communications and are ingested.
     const isOutboundFromUser =
       Boolean(gmailAddress) &&
       normalizeEmail(fromEmail) === normalizeEmail(gmailAddress) &&
@@ -270,15 +413,16 @@ export async function pollSingleGmailConnection(
 
     const matchesKnown = participantsIntersectKnownEmails(participantEmails, knownEmails);
 
-    if (!matchesKnown && !isOutboundFromUser) {
+    // Shared brand-level connections remain gated to known CRM contacts; personal user Gmail connections
+    // sync the full connected Inbox/Sent stream so reps have a complete mailbox with CRM Lead badges.
+    if (!isPersonalUserConnection && !matchesKnown && !isOutboundFromUser) {
       skipped++;
       continue;
     }
 
-    const dateIso = dateHeader ? new Date(dateHeader).toISOString() : new Date().toISOString();
-    newestSeenMs = Math.max(newestSeenMs, new Date(dateIso).getTime());
-
-    const externalId = messageIdHeader ? buildGmailExternalId(messageIdHeader) : `gmail:no-message-id:${messageId}`;
+    const baseExternalId = messageIdHeader ? buildGmailExternalId(messageIdHeader) : `gmail:no-message-id:${messageId}`;
+    const homeBrand = connection.brand || 'cogmap';
+    const externalId = brand === homeBrand ? baseExternalId : `${baseExternalId}#${brand}`;
 
     const existingByExternalId = await db.collection(ACTIVITY_LOG_COLLECTION).findOne({ externalId });
     if (existingByExternalId) { skipped++; continue; }
@@ -295,6 +439,7 @@ export async function pollSingleGmailConnection(
 
     const internalSender = fromEmail && isInternalOrSystemEmail(fromEmail, { brand }) ? normalizeEmail(fromEmail) : null;
     const docUserEmail = internalSender || connection.userEmail || gmailAddress;
+    const gmailUnread = labelIds.length > 0 ? labelIds.includes('UNREAD') : undefined;
 
     const doc: ActivityLogDocument = {
       leadId: null,
@@ -315,6 +460,8 @@ export async function pollSingleGmailConnection(
       userId: (internalSender && internalSender !== normalizeEmail(connection.userEmail || '')) ? undefined : connection.userId,
       userEmail: docUserEmail,
       connectionId: connection.id,
+      ...(typeof gmailUnread === 'boolean' ? { gmailUnread } : {}),
+      ...(matchesKnown ? { isCrmMatched: true } : {}),
       ...(meta.threadId ? { threadId: meta.threadId } : {}),
       ...(messageIdHeader ? { rfcMessageId: messageIdHeader } : {}),
       ...(inReplyToHeader ? { inReplyTo: inReplyToHeader } : {}),
@@ -327,6 +474,7 @@ export async function pollSingleGmailConnection(
       if (match.kind === 'single-match') {
         matchedLeadId = match.leadId;
         doc.leadId = match.leadId;
+        doc.isCrmMatched = true;
         const contact = await findMatchedContact(db, brand, tenantId, match.leadId, counterpartyEmail);
         if (contact) doc.matchedContactKey = contactKey(contact);
 
@@ -348,6 +496,7 @@ export async function pollSingleGmailConnection(
         }
       } else if (match.kind === 'multi-match') {
         doc.matchedLeadIds = match.leadIds;
+        doc.isCrmMatched = true;
       }
     }
 
@@ -437,9 +586,24 @@ export async function pollSingleGmailConnection(
   // failed run leaves the prior cursor intact, so the next run safely
   // re-covers the same window rather than skipping it (issue #216 §11/§15).
   const now = new Date().toISOString();
+  const nextCursorMs = listed.truncated
+    ? Math.max(newestSeenMs, windowStartMs)
+    : Math.max(newestSeenMs, windowStartMs, messageIds.length === 0 ? Date.now() - 60_000 : newestSeenMs);
   await db.collection(GMAIL_SYNC_CURSORS_COLLECTION).updateOne(
     { connectionId: connection.id, brand },
-    { $set: { tenantId, gmailAddress, lastSyncedAt: new Date(Math.max(newestSeenMs, windowStartMs)).toISOString(), updatedAt: now } },
+    {
+      $set: {
+        tenantId,
+        gmailAddress,
+        lastSyncedAt: new Date(nextCursorMs).toISOString(),
+        lastPolledAt: now,
+        lastSuccessAt: now,
+        lastError: null,
+        lastIngestedCount: ingested,
+        lastSkippedCount: skipped,
+        updatedAt: now,
+      },
+    },
     { upsert: true }
   );
 
@@ -508,20 +672,146 @@ async function collectKnownBrandEmails(
   return knownEmails;
 }
 
-// Issue #216 / #249: Polls all active Gmail connections for a brand (including both
-// brand-level and individual rep accounts).
+async function resolveAllowedBrandsForUserConnection(
+  db: Db,
+  connection: IntegrationConnection,
+  allBrands: string[]
+): Promise<Set<string>> {
+  if (!connection.userId) {
+    return new Set([connection.brand]);
+  }
+  if (connection.userEmail && isSuperAdminEmail(connection.userEmail)) {
+    return new Set(allBrands);
+  }
+  try {
+    const accessDoc = await db.collection('sso_user_access').findOne({ ssoUserId: connection.userId });
+    if (accessDoc) {
+      const email = typeof accessDoc.email === 'string' ? accessDoc.email : connection.userEmail;
+      const brands = getAccessibleBrands(email, accessDoc.orgAccess, allBrands);
+      if (brands.length > 0) {
+        return new Set(brands);
+      }
+    }
+  } catch {
+    // Fall back to connection's home brand below
+  }
+  return new Set([connection.brand || 'cogmap']);
+}
+
+export async function getGmailSyncHealth(
+  db: Db,
+  brand: string,
+  tenantId: string,
+  options: { userId?: string; userEmail?: string } = {}
+): Promise<GmailSyncHealth> {
+  try {
+    let connections: IntegrationConnection[] = [];
+    if (options.userId) {
+      connections = await listActiveUserConnections(db, options.userId, 'gmail');
+      if (connections.length === 0) {
+        // Check if user has a non-active (expired/error) connection so we distinguish failed vs disconnected
+        const anyUserConns = await db
+          .collection('integration_connections')
+          .find({
+            provider: 'gmail',
+            status: { $ne: 'revoked' },
+            $or: [
+              { userId: options.userId },
+              ...(options.userEmail ? [{ userEmail: options.userEmail.toLowerCase().trim() }] : []),
+            ],
+          })
+          .toArray()
+          .catch(() => []);
+        if (anyUserConns.length > 0) {
+          const broken = anyUserConns[0] as any;
+          return {
+            state: 'failed',
+            connectedEmail: broken.userEmail || broken.providerAccountLabel,
+            lastSuccessAt: null,
+            lastPolledAt: broken.updatedAt || null,
+            lastSyncedAt: null,
+            lastError: broken.lastSyncError || `connection_${broken.status || 'inactive'}`,
+            isStale: true,
+          };
+        }
+      }
+    } else {
+      const brandConn = await getActiveConnectionByProvider(db, brand, tenantId, 'gmail');
+      if (brandConn) connections = [brandConn];
+    }
+
+    if (connections.length === 0) {
+      return {
+        state: 'disconnected',
+        lastSuccessAt: null,
+        lastPolledAt: null,
+        lastSyncedAt: null,
+        lastError: null,
+        isStale: false,
+      };
+    }
+
+    const primary = connections.find((c) => c.isDefault) || connections[0];
+    const cursorDoc = (await db
+      .collection(GMAIL_SYNC_CURSORS_COLLECTION)
+      .findOne({ connectionId: primary.id, brand })
+      .catch(() => null)) as GmailSyncCursor | null;
+
+    const lastSuccessAt = cursorDoc?.lastSuccessAt || cursorDoc?.lastSyncedAt || null;
+    const lastPolledAt = cursorDoc?.lastPolledAt || cursorDoc?.updatedAt || null;
+    const lastError = cursorDoc?.lastError || primary.lastSyncError || null;
+    const ageMs = lastSuccessAt ? Date.now() - new Date(lastSuccessAt).getTime() : Number.POSITIVE_INFINITY;
+    const isStale = Number.isNaN(ageMs) || ageMs > STALE_SYNC_THRESHOLD_MS;
+
+    if (lastError) {
+      return {
+        state: 'failed',
+        connectedEmail: primary.userEmail || cursorDoc?.gmailAddress || primary.providerAccountLabel,
+        lastSuccessAt,
+        lastPolledAt,
+        lastSyncedAt: cursorDoc?.lastSyncedAt || null,
+        lastError,
+        isStale: true,
+      };
+    }
+
+    return {
+      state: isStale ? 'stale' : 'up_to_date',
+      connectedEmail: primary.userEmail || cursorDoc?.gmailAddress || primary.providerAccountLabel,
+      lastSuccessAt,
+      lastPolledAt,
+      lastSyncedAt: cursorDoc?.lastSyncedAt || null,
+      lastError: null,
+      isStale,
+    };
+  } catch {
+    return {
+      state: 'disconnected',
+      lastSuccessAt: null,
+      lastPolledAt: null,
+      lastSyncedAt: null,
+      lastError: null,
+      isStale: false,
+    };
+  }
+}
+
+// Issue #216 / #249 / #357: Polls active Gmail connections authorized for this brand.
 export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string): Promise<GmailPollResult> {
   const brandConfig = await getBrandConfig(brand);
   if (!brandConfig) return { ingested: 0, skipped: 0, failure: 'unknown_brand' };
 
-  // Issue #249: Retrieve brand connection and all active user connections
+  const allBrandKeys = Object.keys(await getAllBrandConfigs());
   const brandConn = await getActiveConnectionByProvider(db, brand, tenantId, 'gmail');
   const userConns = await listAllActiveUserConnections(db, 'gmail');
 
   const connectionMap = new Map<string, IntegrationConnection>();
   if (brandConn) connectionMap.set(brandConn.id, brandConn);
   for (const c of userConns) {
-    connectionMap.set(c.id, c);
+    const allowed = await resolveAllowedBrandsForUserConnection(db, c, allBrandKeys);
+    if (allowed.has(brand)) {
+      connectionMap.set(c.id, c);
+    }
   }
 
   const connections = Array.from(connectionMap.values());
@@ -551,9 +841,8 @@ export async function pollGmailForBrand(db: Db, brand: Brand, tenantId: string):
   };
 }
 
-// Issue #249: Polls Gmail messages for a single user's connected Google account across
-// Issue #249 / #252: Polls Gmail messages for all of a user's connected Google accounts
-// across configured CRM brands (or a specific preferred brand/connection).
+// Issue #249 / #252 / #357: Polls Gmail messages for a user's connected Google account(s)
+// across their accessible CRM brands (or a specific requested brand/connection) and refreshes signatures.
 export async function pollUserGmail(
   db: Db,
   userId: string,
@@ -569,15 +858,20 @@ export async function pollUserGmail(
   }
 
   const allBrandConfigs = await getAllBrandConfigs();
-  const brandsToSync = targetBrand && allBrandConfigs[targetBrand]
-    ? [targetBrand]
-    : Object.keys(allBrandConfigs);
+  const allBrandKeys = Object.keys(allBrandConfigs);
 
   let totalIngested = 0;
   let totalSkipped = 0;
   const failureReasons: string[] = [];
 
   for (const connection of connections) {
+    const allowedBrands = await resolveAllowedBrandsForUserConnection(db, connection, allBrandKeys);
+    const brandsToSync =
+      targetBrand && allBrandConfigs[targetBrand]
+        ? [targetBrand]
+        : Array.from(allowedBrands).filter((b) => Boolean(allBrandConfigs[b]));
+
+    let syncedSigOnce = false;
     for (const b of brandsToSync) {
       const brandConfig = allBrandConfigs[b];
       if (!brandConfig) continue;
@@ -586,7 +880,10 @@ export async function pollUserGmail(
       const knownEmails = await collectKnownBrandEmails(db, b as Brand, tenantId, brandConfig.dbCollection);
 
       try {
-        const res = await pollSingleGmailConnection(db, connection, b as Brand, tenantId, brandConfig, knownEmails);
+        const res = await pollSingleGmailConnection(db, connection, b as Brand, tenantId, brandConfig, knownEmails, {
+          forceSignatureSync: !syncedSigOnce,
+        });
+        syncedSigOnce = true;
         totalIngested += res.ingested;
         totalSkipped += res.skipped;
         if (res.failure) failureReasons.push(res.failure);

@@ -27,7 +27,7 @@ import { isRecipientSuppressed } from './suppression';
 import { deduplicateDocumentIds, resolveDocumentAttachmentRefs, type DocumentRecord } from './documents';
 import { getUserConnection, getValidCredential } from '../app/lib/integration-store';
 import { buildRfc2822Message, sendGmailMessage } from './gmail-send';
-import { appendSignatureToBody } from './gmail-signature';
+import { appendSignatureToBody, resolveSignatureForSender } from './gmail-signature';
 import { resolveLeadThreadContext, formatReSubject, type LeadThreadContext } from './gmail-threading';
 
 export type AutomatedSendContext = {
@@ -492,14 +492,19 @@ export async function dispatchOutreachEmail(
   let usedTransport: 'gmail' | 'resend' = 'resend';
   let fromAddress: string | undefined;
 
-  // Issue #241: If sending manually from a rep's account and includeSignature is enabled,
-  // append their synced signature formatted with standard RFC 3676 delimiter.
+  // Issue #241 / #357: Resolve the active Gmail connection & sendAs alias signature once so
+  // compose, preview, and delivery use the exact signature for the selected sender identity.
   let deliveredBody = body;
-  if (source.kind === 'manual' && source.senderUserId && source.includeSignature !== false) {
+  let resolvedGmailConn: Awaited<ReturnType<typeof getUserConnection>> = null;
+  let resolvedSenderIdentity: ReturnType<typeof resolveSignatureForSender> | null = null;
+  if (source.kind === 'manual' && source.senderUserId) {
     try {
-      const userConn = await getUserConnection(db, source.senderUserId, 'gmail', source.senderEmail);
-      if (userConn?.signatureText) {
-        deliveredBody = appendSignatureToBody(body, userConn.signatureText);
+      resolvedGmailConn = await getUserConnection(db, source.senderUserId, 'gmail', source.senderEmail);
+      if (resolvedGmailConn) {
+        resolvedSenderIdentity = resolveSignatureForSender(resolvedGmailConn, source.senderEmail);
+        if (source.includeSignature !== false && resolvedSenderIdentity.signatureText) {
+          deliveredBody = appendSignatureToBody(body, resolvedSenderIdentity.signatureText);
+        }
       }
     } catch {
       // Non-fatal, send original body
@@ -519,18 +524,24 @@ export async function dispatchOutreachEmail(
 
   let rfcMessageId: string | undefined;
 
-  // Issue #248 / #252: If this is a manual send and the sales rep has connected personal
+  // Issue #248 / #252 / #357: If this is a manual send and the sales rep has connected personal
   // Google / Gmail account(s), route via the chosen account's Gmail REST API (messages.send).
   if (source.kind === 'manual' && source.senderUserId) {
     try {
-      const userConn = await getUserConnection(db, source.senderUserId, 'gmail', source.senderEmail);
+      const userConn = resolvedGmailConn ?? await getUserConnection(db, source.senderUserId, 'gmail', source.senderEmail);
       if (userConn && userConn.status === 'active') {
         usedTransport = 'gmail';
         const accessToken = await getValidCredential(db, userConn);
-        const repFromEmail = userConn.userEmail || source.senderEmail || userConn.providerAccountLabel || 'me';
+        const repFromEmail =
+          resolvedSenderIdentity?.fromEmail ||
+          source.senderEmail ||
+          userConn.userEmail ||
+          userConn.providerAccountLabel ||
+          'me';
+        const senderDisplayName = resolvedSenderIdentity?.displayName || source.senderName;
         fromAddress = repFromEmail;
         const { messageText, messageId } = buildRfc2822Message({
-          from: { name: source.senderName, email: repFromEmail },
+          from: { name: senderDisplayName, email: repFromEmail },
           to: { name: dmContact?.name, email: to },
           subject,
           bodyText: deliveredBody,

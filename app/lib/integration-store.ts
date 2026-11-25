@@ -262,9 +262,11 @@ export async function getUserConnection(
       const normEmail = connectionIdOrEmail.toLowerCase().trim();
       const byEmail = await db.collection(INTEGRATION_CONNECTIONS_COLLECTION).findOne({
         ...baseQuery,
-        ...(hasMultiple
-          ? { $or: [{ userEmail: normEmail }, { providerAccountLabel: normEmail }] }
-          : { userEmail: normEmail }),
+        $or: [
+          { userEmail: normEmail },
+          { providerAccountLabel: normEmail },
+          { sendAsAliases: normEmail },
+        ],
       });
       if (byEmail) return byEmail as unknown as IntegrationConnection;
     } else {

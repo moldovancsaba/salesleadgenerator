@@ -82,6 +82,14 @@ type Props = {
   initialStream?: string;
   initialSearch?: string;
   initialThreadId?: string;
+  initialUnreadOnly?: boolean;
+};
+
+type SenderIdentityOption = {
+  value: string;
+  label: string;
+  connectionId: string;
+  signatureText: string;
 };
 
 function formatRelativeTime(dateStr: string): string {
@@ -111,7 +119,14 @@ function formatFullTime(dateStr: string): string {
   });
 }
 
-export function InboxClient({ brand, label, initialStream, initialSearch, initialThreadId }: Props) {
+export function InboxClient({
+  brand,
+  label,
+  initialStream,
+  initialSearch,
+  initialThreadId,
+  initialUnreadOnly = false,
+}: Props) {
   const { hideNeedsReplyByBrand } = useAuth();
   const hideNeedsReply = Boolean(hideNeedsReplyByBrand?.[brand]);
   const [stream, setStream] = useState<InboxStream>(
@@ -126,7 +141,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
   }, [hideNeedsReply, stream]);
   const [search, setSearch] = useState(initialSearch || '');
   const [starredOnly, setStarredOnly] = useState(false);
-  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [unreadOnly, setUnreadOnly] = useState(initialUnreadOnly);
   const [archivedOnly, setArchivedOnly] = useState(false);
 
   const [threads, setThreads] = useState<InboxThread[]>([]);
@@ -140,6 +155,14 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
     system: 0,
     unread: 0,
   });
+  const [unreadInboxCount, setUnreadInboxCount] = useState(0);
+  const [syncHealth, setSyncHealth] = useState<{
+    state: 'up_to_date' | 'stale' | 'failed' | 'disconnected';
+    connectedEmail?: string;
+    lastSuccessAt?: string | null;
+    lastError?: string | null;
+    isStale: boolean;
+  } | null>(null);
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [syncingGmail, setSyncingGmail] = useState(false);
   const [syncNotice, setSyncNotice] = useState<{ message: string; color: 'teal' | 'red' | 'blue' } | null>(null);
@@ -168,7 +191,10 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
   // Bulk thread selection & composer enhancement state (Issue 272)
   const [checkedThreadIds, setCheckedThreadIds] = useState<string[]>([]);
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [senderIdentities, setSenderIdentities] = useState<SenderIdentityOption[]>([]);
+  const [selectedSenderEmail, setSelectedSenderEmail] = useState<string | null>(null);
   const [userSignatureText, setUserSignatureText] = useState<string>('');
+  const [syncingSignature, setSyncingSignature] = useState(false);
   const [showSignaturePreview, setShowSignaturePreview] = useState(false);
   const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -202,11 +228,50 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
           );
         }
         if (intRes?.connections && Array.isArray(intRes.connections)) {
-          const activeGmail =
-            intRes.connections.find((c: any) => c.provider === 'gmail' && c.status === 'active' && c.isDefault) ||
-            intRes.connections.find((c: any) => c.provider === 'gmail' && c.status === 'active');
-          if (activeGmail?.signatureText) {
-            setUserSignatureText(activeGmail.signatureText);
+          const activeGmails = intRes.connections.filter(
+            (c: any) => c.provider === 'gmail' && c.status === 'active'
+          );
+          const options: SenderIdentityOption[] = [];
+          const seenEmails = new Set<string>();
+          for (const conn of activeGmails) {
+            const primaryEmail = (conn.userEmail || conn.providerAccountLabel || '').trim().toLowerCase();
+            const sendAsMap = conn.sendAsSignatures && typeof conn.sendAsSignatures === 'object' ? conn.sendAsSignatures : {};
+            const sendAsEntries = Object.values(sendAsMap) as Array<{
+              email?: string;
+              displayName?: string;
+              signatureText?: string;
+              isDefault?: boolean;
+            }>;
+            if (sendAsEntries.length > 0) {
+              for (const entry of sendAsEntries) {
+                const email = (entry.email || '').trim().toLowerCase();
+                if (!email || seenEmails.has(email)) continue;
+                seenEmails.add(email);
+                options.push({
+                  value: email,
+                  label: entry.displayName ? `${entry.displayName} <${email}>` : email,
+                  connectionId: conn.id,
+                  signatureText: entry.signatureText ?? conn.signatureText ?? '',
+                });
+              }
+            }
+            if (primaryEmail && !seenEmails.has(primaryEmail)) {
+              seenEmails.add(primaryEmail);
+              options.push({
+                value: primaryEmail,
+                label: `${primaryEmail}${conn.isDefault ? ' (Default)' : ''}`,
+                connectionId: conn.id,
+                signatureText: conn.signatureText || '',
+              });
+            }
+          }
+          setSenderIdentities(options);
+          const defaultConn = activeGmails.find((c: any) => c.isDefault) || activeGmails[0];
+          const defaultEmail = (defaultConn?.userEmail || defaultConn?.providerAccountLabel || '').trim().toLowerCase();
+          const chosen = options.find((o) => o.value === defaultEmail) || options[0];
+          if (chosen) {
+            setSelectedSenderEmail(chosen.value);
+            setUserSignatureText(chosen.signatureText);
           }
         }
       } catch {
@@ -304,6 +369,12 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
       if (data.counts) {
         setCounts(data.counts);
       }
+      if (typeof data.unreadInboxCount === 'number') {
+        setUnreadInboxCount(data.unreadInboxCount);
+      }
+      if (data.syncHealth) {
+        setSyncHealth(data.syncHealth);
+      }
     } catch (err: any) {
       console.error('Error fetching inbox threads:', err);
     } finally {
@@ -386,14 +457,17 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
           setMessages(data.messages || []);
           setLead(data.lead);
 
-          // Update local unread state in threads list
-          setThreads((prev) =>
-            prev.map((t) => (t.id === selectedThreadId ? { ...t, isRead: true } : t))
-          );
-          setCounts((prev) => ({
-            ...prev,
-            unread: Math.max(0, prev.unread - 1),
-          }));
+          // Update local unread state in threads list only if the thread was actually unread
+          setThreads((prev) => {
+            const target = prev.find((t) => t.id === selectedThreadId);
+            if (target && !target.isRead) {
+              setCounts((c) => ({ ...c, unread: Math.max(0, c.unread - 1) }));
+              if (target.streams.includes('inbox')) {
+                setUnreadInboxCount((u) => Math.max(0, u - 1));
+              }
+            }
+            return prev.map((t) => (t.id === selectedThreadId ? { ...t, isRead: true } : t));
+          });
 
           // Pre-fill composer
           const th = data.thread;
@@ -478,6 +552,9 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
       ...prev,
       unread: nextRead ? Math.max(0, prev.unread - 1) : prev.unread + 1,
     }));
+    setUnreadInboxCount((prev) =>
+      nextRead ? Math.max(0, prev - 1) : prev + 1
+    );
 
     try {
       await fetch(`/api/inbox/${brand}/threads/${encodeURIComponent(threadId)}`, {
@@ -516,6 +593,43 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
     }
   };
 
+  const handleRefreshInboxSignature = async () => {
+    setSyncingSignature(true);
+    try {
+      const currentOpt = senderIdentities.find((o) => o.value === selectedSenderEmail) || senderIdentities[0];
+      const res = await fetch('/api/user/integrations/gmail/signature/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentOpt?.connectionId || selectedSenderEmail || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        const sendAsMap = data.sendAsSignatures && typeof data.sendAsSignatures === 'object' ? data.sendAsSignatures : {};
+        setSenderIdentities((prev) =>
+          prev.map((opt) => {
+            const updatedEntry = sendAsMap[opt.value];
+            if (updatedEntry && typeof updatedEntry.signatureText === 'string') {
+              return { ...opt, signatureText: updatedEntry.signatureText };
+            }
+            if (opt.connectionId === currentOpt?.connectionId && typeof data.signatureText === 'string') {
+              return { ...opt, signatureText: data.signatureText };
+            }
+            return opt;
+          })
+        );
+        const targetSig =
+          (selectedSenderEmail && sendAsMap[selectedSenderEmail]?.signatureText) ??
+          data.signatureText ??
+          '';
+        setUserSignatureText(targetSig);
+      }
+    } catch {
+      // non-fatal
+    } finally {
+      setSyncingSignature(false);
+    }
+  };
+
   // Submit in-thread reply or note
   const handleSendReply = async () => {
     if (!selectedThreadId) return;
@@ -533,6 +647,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
               recipientEmail: replyRecipient,
               documentIds: replyDocumentIds,
               includeSignature,
+              ...(selectedSenderEmail ? { senderEmail: selectedSenderEmail } : {}),
             }
           : {
               kind: 'note',
@@ -629,6 +744,38 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
           </Alert>
         )}
 
+        {syncHealth && (
+          <Box mb="xs">
+            <Group gap={6} justify="space-between" wrap="nowrap">
+              <StatusBadge
+                status={
+                  syncHealth.state === 'up_to_date'
+                    ? 'success'
+                    : syncHealth.state === 'stale'
+                      ? 'warning'
+                      : syncHealth.state === 'failed'
+                        ? 'danger'
+                        : 'neutral'
+                }
+                size="xs"
+              >
+                {syncHealth.state === 'up_to_date'
+                  ? 'Gmail Up to Date'
+                  : syncHealth.state === 'stale'
+                    ? 'Gmail Sync Stale'
+                    : syncHealth.state === 'failed'
+                      ? 'Gmail Sync Error'
+                      : 'Gmail Disconnected'}
+              </StatusBadge>
+              {syncHealth.lastSuccessAt && (
+                <Text size="10px" c="dimmed" truncate title={formatFullTime(syncHealth.lastSuccessAt)}>
+                  {formatRelativeTime(syncHealth.lastSuccessAt)}
+                </Text>
+              )}
+            </Group>
+          </Box>
+        )}
+
         <Divider mb="sm" />
 
         <Stack gap={4} style={{ flex: 1 }}>
@@ -636,8 +783,13 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
             label="Inbox"
             leftSection={<IconInbox size={18} />}
             rightSection={
-              counts.unread > 0 ? (
-                <CountBadge size="xs" value={counts.unread} srLabel="Unread messages count" />
+              (unreadInboxCount > 0 || counts.unread > 0) ? (
+                <CountBadge
+                  size="xs"
+                  value={unreadInboxCount || counts.unread}
+                  cap={Number.MAX_SAFE_INTEGER}
+                  srLabel="Unread conversations count"
+                />
               ) : counts.inbox > 0 ? (
                 <Text size="xs" c="dimmed">
                   {counts.inbox}
@@ -1029,12 +1181,18 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                     {/* Availability Indicators & Actions Row */}
                     <Group justify="space-between" align="center" mt={2} wrap="nowrap">
                       <Group gap={4} wrap="wrap">
-                        {/* Lead Availability Indicator */}
-                        <Tooltip label={t.hasLead ? `Lead: ${t.leadName}` : 'No lead linked'}>
+                        {/* CRM Lead Match Indicator */}
+                        <Tooltip
+                          label={
+                            t.hasLead || t.isCrmLead
+                              ? `CRM Lead: ${t.leadName}`
+                              : 'Connected mailbox email (not yet in CRM)'
+                          }
+                        >
                           <Box component="span">
-                            {t.hasLead ? (
+                            {t.hasLead || t.isCrmLead ? (
                               <StatusBadge status="success" size="xs">
-                                Lead
+                                CRM Lead
                               </StatusBadge>
                             ) : (
                               <LabelTag
@@ -1662,6 +1820,23 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
               {replyMode === 'email' && (
                 <Stack gap="xs" mb="xs">
                   <Group grow>
+                    {senderIdentities.length > 0 && (
+                      <Select
+                        size="xs"
+                        label="From (Gmail Identity)"
+                        data={senderIdentities.map((s) => ({ value: s.value, label: s.label }))}
+                        value={selectedSenderEmail}
+                        onChange={(val) => {
+                          if (!val) return;
+                          setSelectedSenderEmail(val);
+                          const chosen = senderIdentities.find((o) => o.value === val);
+                          if (chosen) {
+                            setUserSignatureText(chosen.signatureText);
+                          }
+                        }}
+                        allowDeselect={false}
+                      />
+                    )}
                     <TextInput
                       size="xs"
                       label="To"
@@ -1781,6 +1956,18 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                       checked={includeSignature}
                       onChange={(e) => setIncludeSignature(e.currentTarget.checked)}
                     />
+                    {senderIdentities.length > 0 && (
+                      <Button
+                        size="compact-xs"
+                        variant="subtle"
+                        color="gray"
+                        loading={syncingSignature}
+                        leftSection={<IconRefresh size={12} />}
+                        onClick={handleRefreshInboxSignature}
+                      >
+                        Sync Signature
+                      </Button>
+                    )}
                     {includeSignature && userSignatureText && (
                       <Button
                         size="compact-xs"

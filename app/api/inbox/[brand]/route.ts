@@ -9,6 +9,7 @@ import {
   setThreadStatus,
   type InboxStream,
 } from '../../../lib/inbox-store';
+import { getGmailSyncHealth } from '../../../lib/gmail-sync-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,23 +52,27 @@ export async function GET(
     const client = await clientPromise;
     const db = client.db();
 
-    const result = await listInboxThreads(db, brand, tenantId, {
-      stream,
-      search,
-      starredOnly,
-      unreadOnly,
-      archivedOnly,
-      userId,
-      userEmail,
-      scope,
-      mailbox,
-      limit,
-      offset,
-    });
+    const [result, syncHealth] = await Promise.all([
+      listInboxThreads(db, brand, tenantId, {
+        stream,
+        search,
+        starredOnly,
+        unreadOnly,
+        archivedOnly,
+        userId,
+        userEmail,
+        scope,
+        mailbox,
+        limit,
+        offset,
+      }),
+      getGmailSyncHealth(db, brand, tenantId, { userId, userEmail }),
+    ]);
 
     return NextResponse.json({
       brand,
       tenantId,
+      syncHealth,
       ...result,
     });
   } catch (error: any) {

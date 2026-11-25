@@ -32,13 +32,12 @@ export async function GET(
     const scope: 'mine' | 'all' = rawScope === 'all' ? 'all' : 'mine';
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 50;
 
-    // Resolve rep user identity from SSO token if scope is 'mine'
-    let userId: string | undefined;
-    if (scope === 'mine') {
-      const idToken = request.cookies.get('sso_id_token')?.value;
-      const claims = await resolveSessionFromIdToken(idToken);
-      userId = claims?.sub || claims?.email;
-    }
+    // Resolve rep user identity from SSO token for personal queue scoping and personal Unread Inbox tile (#03)
+    const idToken = request.cookies.get('sso_id_token')?.value;
+    const claims = await resolveSessionFromIdToken(idToken);
+    const viewerUserId = claims?.sub || claims?.email;
+    const viewerEmail = claims?.email;
+    const userId = scope === 'mine' ? viewerUserId : undefined;
 
     const tenantId = getTenantId(request);
     const client = await getClientPromise();
@@ -47,7 +46,8 @@ export async function GET(
     const data = await getTodayViewData(db, brand, {
       timezone,
       scope,
-      userId,
+      userId: userId ?? viewerUserId,
+      userEmail: viewerEmail,
       limit,
       tenantId,
     });

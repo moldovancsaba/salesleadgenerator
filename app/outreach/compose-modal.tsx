@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title, TagsInput, Pill, Tooltip, ActionIcon } from '@mantine/core';
-import { IconX, IconPaperclip } from '@tabler/icons-react';
+import { Modal, Stack, Group, Text, Button, Textarea, Select, Loader, Paper, Title, TagsInput, Pill, Tooltip, ActionIcon, Collapse } from '@mantine/core';
+import { IconX, IconPaperclip, IconRefresh, IconEye } from '@tabler/icons-react';
 import { SectionPanel, StatusBadge, LabelTag } from '@sovereignsquad/gds-core/client';
 import { evaluateOutreachRouting } from '../lib/outreach/routing-rules';
 import { getDecisionMakerContact } from '../../lib/contacts';
@@ -90,8 +90,10 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
   const [replyInThread, setReplyInThread] = useState(true);
   const [attachedDocs, setAttachedDocs] = useState<DocumentRecord[]>([]);
   const [pickerOpened, setPickerOpened] = useState(false);
-  const [gmailAccounts, setGmailAccounts] = useState<Array<{ id: string; email: string; signatureText?: string; isDefault?: boolean }>>([]);
+  const [gmailAccounts, setGmailAccounts] = useState<Array<{ id: string; email: string; label: string; signatureText?: string; isDefault?: boolean }>>([]);
   const [selectedGmailAccount, setSelectedGmailAccount] = useState<string | null>(null);
+  const [syncingSignature, setSyncingSignature] = useState(false);
+  const [showSignaturePreview, setShowSignaturePreview] = useState(false);
 
   useEffect(() => {
     if (!opened) return;
@@ -101,15 +103,46 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
       .then((data) => {
         if (cancelled) return;
         const activeConns = (data?.connections || []).filter((c: any) => c.provider === 'gmail' && c.status === 'active');
-        const accounts = activeConns.map((c: any) => ({
-          id: c.id,
-          email: c.userEmail || c.providerAccountLabel || '',
-          signatureText: c.signatureText,
-          isDefault: Boolean(c.isDefault),
-        }));
+        const accounts: Array<{ id: string; email: string; label: string; signatureText?: string; isDefault?: boolean }> = [];
+        const seenEmails = new Set<string>();
+        for (const c of activeConns) {
+          const primaryEmail = (c.userEmail || c.providerAccountLabel || '').trim().toLowerCase();
+          const sendAsMap = c.sendAsSignatures && typeof c.sendAsSignatures === 'object' ? c.sendAsSignatures : {};
+          const sendAsEntries = Object.values(sendAsMap) as Array<{
+            email?: string;
+            displayName?: string;
+            signatureText?: string;
+            isDefault?: boolean;
+          }>;
+          for (const entry of sendAsEntries) {
+            const aliasEmail = (entry.email || '').trim().toLowerCase();
+            if (!aliasEmail || seenEmails.has(aliasEmail)) continue;
+            seenEmails.add(aliasEmail);
+            const isDefaultIdentity = Boolean(c.isDefault && (entry.isDefault || aliasEmail === primaryEmail));
+            accounts.push({
+              id: c.id,
+              email: aliasEmail,
+              label: entry.displayName
+                ? `${entry.displayName} <${aliasEmail}>${isDefaultIdentity ? ' (Default)' : ''}`
+                : `${aliasEmail}${isDefaultIdentity ? ' (Default)' : ''}`,
+              signatureText: entry.signatureText ?? c.signatureText,
+              isDefault: isDefaultIdentity,
+            });
+          }
+          if (primaryEmail && !seenEmails.has(primaryEmail)) {
+            seenEmails.add(primaryEmail);
+            accounts.push({
+              id: c.id,
+              email: primaryEmail,
+              label: `${primaryEmail}${c.isDefault ? ' (Default)' : ''}`,
+              signatureText: c.signatureText,
+              isDefault: Boolean(c.isDefault),
+            });
+          }
+        }
         setGmailAccounts(accounts);
         if (accounts.length > 0) {
-          const defaultAcc = accounts.find((a: any) => a.isDefault) || accounts[0];
+          const defaultAcc = accounts.find((a) => a.isDefault) || accounts[0];
           setSelectedGmailAccount(defaultAcc.email);
           setSenderInfo({
             email: defaultAcc.email,
@@ -650,6 +683,19 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
             )}
           </Stack>
         )}
+        {channel === 'email' && senderInfo.provider === 'gmail' && includeSignature && senderInfo.signatureText && (
+          <Collapse expanded={showSignaturePreview}>
+            <Paper p="xs" radius="sm" withBorder style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
+              <Text size="10px" fw={700} c="dimmed" tt="uppercase" mb={2}>
+                Gmail Signature Preview ({selectedGmailAccount || senderInfo.email})
+              </Text>
+              <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
+                -- {'\n'}
+                {senderInfo.signatureText}
+              </Text>
+            </Paper>
+          </Collapse>
+        )}
         <Group justify="space-between" align="center" wrap="wrap" gap="xs">
           <Group gap="xs">
             {senderInfo.provider === 'gmail' ? (
@@ -659,7 +705,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
                   aria-label="Select sender Gmail account"
                   data={gmailAccounts.map((a) => ({
                     value: a.email,
-                    label: `${a.email}${a.isDefault ? ' (Default)' : ''}`,
+                    label: a.label,
                   }))}
                   value={selectedGmailAccount}
                   onChange={(val) => {
@@ -675,7 +721,7 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
                     }
                   }}
                   comboboxProps={{ withinPortal: true }}
-                  w={230}
+                  w={250}
                 />
               ) : (
                 <StatusBadge status="success" size="xs">
@@ -698,16 +744,78 @@ export function OutreachComposeModal({ opened, onClose, lead, brand = 'default',
                 </Button>
               </>
             )}
-            {senderInfo.provider === 'gmail' && senderInfo.signatureText && channel === 'email' && (
-              <Button
-                size="compact-xs"
-                variant={includeSignature ? 'light' : 'subtle'}
-                color={includeSignature ? 'indigo' : 'gray'}
-                onClick={() => setIncludeSignature((v) => !v)}
-                title={includeSignature ? 'Click to exclude Gmail signature' : 'Click to include Gmail signature'}
-              >
-                {includeSignature ? 'Signature attached' : 'No signature'}
-              </Button>
+            {senderInfo.provider === 'gmail' && channel === 'email' && (
+              <>
+                {senderInfo.signatureText && (
+                  <>
+                    <Button
+                      size="compact-xs"
+                      variant={includeSignature ? 'light' : 'subtle'}
+                      color={includeSignature ? 'indigo' : 'gray'}
+                      onClick={() => setIncludeSignature((v) => !v)}
+                      title={includeSignature ? 'Click to exclude Gmail signature' : 'Click to include Gmail signature'}
+                    >
+                      {includeSignature ? 'Signature attached' : 'No signature'}
+                    </Button>
+                    {includeSignature && (
+                      <Button
+                        size="compact-xs"
+                        variant="subtle"
+                        color="gray"
+                        leftSection={<IconEye size={12} />}
+                        onClick={() => setShowSignaturePreview((v) => !v)}
+                      >
+                        {showSignaturePreview ? 'Hide preview' : 'Preview signature'}
+                      </Button>
+                    )}
+                  </>
+                )}
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  color="gray"
+                  loading={syncingSignature}
+                  leftSection={<IconRefresh size={12} />}
+                  onClick={async () => {
+                    setSyncingSignature(true);
+                    try {
+                      const activeAcc = gmailAccounts.find((a) => a.email === selectedGmailAccount) || gmailAccounts[0];
+                      const res = await fetch('/api/user/integrations/gmail/signature/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: activeAcc?.id || selectedGmailAccount || undefined }),
+                      });
+                      const data = await res.json().catch(() => ({}));
+                      if (res.ok && data.ok) {
+                        const sendAsMap = data.sendAsSignatures && typeof data.sendAsSignatures === 'object' ? data.sendAsSignatures : {};
+                        setGmailAccounts((prev) =>
+                          prev.map((acc) => {
+                            const entry = sendAsMap[acc.email];
+                            if (entry && typeof entry.signatureText === 'string') {
+                              return { ...acc, signatureText: entry.signatureText };
+                            }
+                            if (acc.id === activeAcc?.id && typeof data.signatureText === 'string') {
+                              return { ...acc, signatureText: data.signatureText };
+                            }
+                            return acc;
+                          })
+                        );
+                        const nextSig =
+                          (selectedGmailAccount && sendAsMap[selectedGmailAccount]?.signatureText) ??
+                          data.signatureText ??
+                          '';
+                        setSenderInfo((prev) => ({ ...prev, signatureText: nextSig }));
+                      }
+                    } catch {
+                      // non-fatal
+                    } finally {
+                      setSyncingSignature(false);
+                    }
+                  }}
+                >
+                  Sync signature
+                </Button>
+              </>
             )}
             {threadContext && channel === 'email' && (
               <Button

@@ -1,5 +1,20 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.391
+
+### Full Gmail Inbox Sync Recovery, CRM Lead Badges, Live Sender Signatures & Today Unread Tile (Issue #357)
+
+- **Paginated chronological Gmail sync & cursor recovery (`app/lib/gmail-sync-store.ts`, `app/lib/activity-log-store.ts`, `docs/PRIVACY_POLICY.md`):**
+  - Paginated `users/me/messages?q=after:<epoch> -in:spam -in:trash -in:drafts` via `nextPageToken` in chronological (`oldest -> newest`) batches so multi-week backlogs never skip gaps, and updated cursor tracking to advance `lastSyncedAt` past skipped internal/draft/spam messages so sync cursors never freeze.
+  - Personal connected Gmail accounts now synchronize the user's full Inbox/Sent stream with strict user-mailbox isolation, honor Gmail `UNREAD` label state on initial ingestion, scope multi-workspace polling to accessible workspaces (`sso_user_access`), and record `lastPolledAt`, `lastSuccessAt`, and `lastError` for `up_to_date` / `stale` / `failed` / `disconnected` health indicators.
+- **CRM Lead badges & direct non-CRM Gmail replies (`app/lib/inbox-store.ts`, `app/api/inbox/[brand]/route.ts`, `app/inbox/[brand]/inbox-client.tsx`):**
+  - Live-matches external thread participants against workspace leads to render a **CRM Lead** badge on matched conversations and enables replying directly via connected Gmail on non-CRM threads prior to lead conversion.
+- **Gmail `sendAs` alias signatures & duplicate-signature prevention (`lib/gmail-signature.ts`, `lib/integration-connections.ts`, `app/lib/integration-store.ts`, `lib/outreach-send.ts`, `app/outreach/compose-modal.tsx`, `app/inbox/[brand]/inbox-client.tsx`):**
+  - Synchronizes all Gmail `sendAs` identities and signatures (automatically during Gmail sync and on-demand via **Sync Signature**), resolves the exact signature and `From:` address when switching accounts or aliases in Compose and Inbox, and makes `appendSignatureToBody` idempotent so `-- \n` signatures appear at most once.
+- **Today Dashboard Unread Inbox tile (`lib/today.ts`, `lib/today-query.ts`, `app/api/today/[brand]/route.ts`, `app/today/[brand]/today-client.tsx`, `app/inbox/[brand]/page.tsx`):**
+  - Added an **Unread Inbox** KPI card showing unread conversations from the connected Gmail Inbox, drilling down to `/inbox/[brand]?stream=inbox&unread=true` with matching count, updating immediately when read, and surfacing last-sync / stale / disconnected status.
+  - Added tests in `tests/lib/gmail-signature-today-unread.test.ts` and updated `tests/lib/gmail-sync-store.test.ts`.
+
 ## 2.4.390
 
 ### Workspace admin delegation for Prompt Editor and Duplicate Review (Issue #356)

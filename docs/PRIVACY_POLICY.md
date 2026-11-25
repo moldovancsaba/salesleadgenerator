@@ -72,8 +72,8 @@ When connecting your Google account, Sales Lead Generator requests the minimum n
 Sales Lead Generator operates a 2-way email synchronization engine designed with strict **Data Minimization** and **Privacy Isolation**:
 
 ### Data Minimization Filter
-- **CRM Contact Filtering**: When checking for new incoming emails, our sync engine fetches message headers and inspects sender and recipient addresses.
-- **Strict Non-CRM Discard**: The sync engine compares participants against the known email addresses of leads and contacts in your active CRM brand. If an email thread is between you and a personal contact, non-CRM colleague, or external party not registered in your CRM leads, **the email is immediately skipped**. The body text, attachments, and contents of non-CRM emails are **never fetched, never processed, and never stored** in our database.
+- **Connected Personal Mailbox Scope**: When you connect your personal Google / Gmail account, Sales Lead Generator synchronizes your Inbox and Sent correspondence (strictly excluding `SPAM`, `TRASH`, and unsent `DRAFT` messages) into your isolated personal inbox view, tagging conversations that match registered workspace leads with a **CRM Lead** badge while keeping non-CRM emails unlinked from pipeline lead records unless you explicitly convert them.
+- **Brand-Level CRM Contact Filtering**: For shared workspace-level mailbox connections, our sync engine inspects message headers first and restricts ingestion to correspondence intersecting known workspace lead/contact email addresses.
 
 ### Systemic Internal Domain Shielding
 - To prevent private internal company discussions (such as internal team syncs, payroll notices, HR communications, or automated calendar bot summaries) from polluting sales records, Sales Lead Generator maintains an enforced `INTERNAL_COMPANY_DOMAINS` filter.

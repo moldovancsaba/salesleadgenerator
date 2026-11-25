@@ -8,13 +8,17 @@ import {
   type TodayCadenceTask,
   type TodayFollowUp,
   type TodayDealAttention,
+  type TodayInboxSummary,
   type TodayViewData,
 } from './today';
+import { listInboxThreads } from '@/app/lib/inbox-store';
+import { getGmailSyncHealth } from '@/app/lib/gmail-sync-store';
 
 export type TodayQueryOptions = {
   timezone?: string;
   scope?: 'mine' | 'all';
   userId?: string;
+  userEmail?: string;
   limit?: number;
   now?: Date;
   tenantId?: string;
@@ -244,6 +248,41 @@ export async function getTodayViewData(
     };
   });
 
+  // 6. Personal Unread Inbox Summary (#03): exact same connected Gmail Inbox scope as /inbox/[brand]?stream=inbox&unread=true
+  let inboxSummary: TodayInboxSummary | undefined;
+  if (options.userId || options.userEmail) {
+    try {
+      const tenant = options.tenantId || 'default';
+      const [inboxList, syncHealth] = await Promise.all([
+        listInboxThreads(db, brand, tenant, {
+          stream: 'inbox',
+          unreadOnly: true,
+          userId: options.userId,
+          userEmail: options.userEmail,
+          limit: 1,
+        }),
+        getGmailSyncHealth(db, brand, tenant, {
+          userId: options.userId,
+          userEmail: options.userEmail,
+        }),
+      ]);
+      inboxSummary = {
+        unreadConversations: inboxList.unreadInboxCount ?? inboxList.total,
+        totalInboxConversations: inboxList.counts.inbox,
+        unit: 'conversations',
+        scopeLabel: 'connected_gmail_inbox',
+        syncState: syncHealth.state,
+        connectedEmail: syncHealth.connectedEmail,
+        lastSuccessAt: syncHealth.lastSuccessAt,
+        lastPolledAt: syncHealth.lastPolledAt,
+        lastError: syncHealth.lastError,
+        isStale: syncHealth.isStale,
+      };
+    } catch {
+      // Non-fatal: Today queue still renders if inbox summary lookup fails
+    }
+  }
+
   return {
     date: window.dateStr,
     timezone: window.timezone,
@@ -261,6 +300,7 @@ export async function getTodayViewData(
       dealsNeedingAttention: limitedDeals.length,
       inboundQueue: inboundQueue.length,
     },
+    ...(inboxSummary ? { inboxSummary } : {}),
     cadenceTasks,
     overdueFollowUps,
     dueTodayFollowUps,

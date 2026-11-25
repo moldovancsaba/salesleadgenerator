@@ -55,6 +55,19 @@ export type TodayInboundItem = {
   notes?: string;
 };
 
+export type TodayInboxSummary = {
+  unreadConversations: number;
+  totalInboxConversations: number;
+  unit: 'conversations';
+  scopeLabel: 'connected_gmail_inbox';
+  syncState: 'up_to_date' | 'stale' | 'failed' | 'disconnected';
+  connectedEmail?: string;
+  lastSuccessAt?: string | null;
+  lastPolledAt?: string | null;
+  lastError?: string | null;
+  isStale: boolean;
+};
+
 export type TodayViewData = {
   date: string;
   timezone: string;
@@ -67,6 +80,7 @@ export type TodayViewData = {
     dealsNeedingAttention: number;
     inboundQueue: number;
   };
+  inboxSummary?: TodayInboxSummary;
   cadenceTasks: TodayCadenceTask[];
   overdueFollowUps: TodayFollowUp[];
   dueTodayFollowUps: TodayFollowUp[];

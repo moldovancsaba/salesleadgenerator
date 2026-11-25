@@ -79,10 +79,12 @@ export type ActivityEntry = {
   openCount?: number
   clickCount?: number
   isHistorical?: boolean
-  // Mailbox & user attribution (Issue 268)
+  // Mailbox & user attribution (Issue 268 / 357)
   userId?: string
   userEmail?: string
   connectionId?: string
+  gmailUnread?: boolean
+  isCrmMatched?: boolean
   // Attachment metadata (Issue 272)
   gmailMessageId?: string
   attachments?: Array<{
@@ -158,10 +160,12 @@ export type ActivityLogDocument = {
   rfcMessageId?: string
   inReplyTo?: string
   references?: string
-  // Mailbox & user attribution (Issue 268)
+  // Mailbox & user attribution (Issue 268 / 357)
   userId?: string
   userEmail?: string
   connectionId?: string
+  gmailUnread?: boolean
+  isCrmMatched?: boolean
   // Attachment metadata (Issue 272)
   gmailMessageId?: string
   attachments?: Array<{

@@ -17,7 +17,7 @@ export default async function InboxPage({
   searchParams,
 }: {
   params: Promise<{ brand: string }>;
-  searchParams?: Promise<{ stream?: string; search?: string; lead?: string; thread?: string }>;
+  searchParams?: Promise<{ stream?: string; search?: string; lead?: string; thread?: string; unread?: string }>;
 }) {
   const { brand: brandParam } = await params;
   const sp = searchParams ? await searchParams : {};
@@ -25,6 +25,7 @@ export default async function InboxPage({
   if (!brand) notFound();
   await requireBrandAccess(brand);
   const config = await getBrandConfig(brand);
+  const initialUnreadOnly = sp.unread === 'true' || sp.unread === '1';
 
   return (
     <InboxClient
@@ -33,6 +34,7 @@ export default async function InboxPage({
       initialStream={sp.stream}
       initialSearch={sp.search || sp.lead}
       initialThreadId={sp.thread}
+      initialUnreadOnly={initialUnreadOnly}
     />
   );
 }

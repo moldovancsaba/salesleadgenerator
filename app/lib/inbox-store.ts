@@ -4,6 +4,9 @@ import { ACTIVITY_LOG_COLLECTION, truncateBody, ensureActivityLogIndexes } from 
 import { getBrandConfig } from './brand';
 import { sendManualEmail, type LeadForSend, type AutomatedSendResult } from '../../lib/outreach-send';
 import { formatReSubject, resolveLeadThreadContext } from '../../lib/gmail-threading';
+import { getUserConnection, getValidCredential } from './integration-store';
+import { buildRfc2822Message, sendGmailMessage } from '../../lib/gmail-send';
+import { appendSignatureToBody, resolveSignatureForSender } from '../../lib/gmail-signature';
 import type { OutreachTemplate } from './outreach/default-templates';
 import {
   extractContactsFromEmailMessage,
@@ -66,10 +69,12 @@ export interface InboxMessage {
   emailStatus?: string;
   openCount?: number;
   clickCount?: number;
-  // Mailbox & user attribution (Issue 268)
+  // Mailbox & user attribution (Issue 268 / 357)
   userId?: string;
   userEmail?: string;
   connectionId?: string;
+  gmailUnread?: boolean;
+  isCrmMatched?: boolean;
   // Attachment metadata (Issue 272)
   gmailMessageId?: string;
   attachments?: InboxAttachmentMeta[];
@@ -96,6 +101,7 @@ export interface InboxThread {
   senderDisplayName?: string;
   senderEmail?: string;
   hasLead: boolean;
+  isCrmLead?: boolean;
   hasContact: boolean;
   hasDeal: boolean;
   dealsCount?: number;
@@ -303,6 +309,8 @@ function mapActivityToInboxMessage(doc: any): InboxMessage {
     userId: doc.userId,
     userEmail: doc.userEmail,
     connectionId: doc.connectionId,
+    ...(typeof doc.gmailUnread === 'boolean' ? { gmailUnread: doc.gmailUnread } : {}),
+    ...(typeof doc.isCrmMatched === 'boolean' ? { isCrmMatched: doc.isCrmMatched } : {}),
     ...(gmailMessageId ? { gmailMessageId } : {}),
     ...(attachments ? { attachments } : {}),
   };
@@ -357,6 +365,7 @@ export async function listInboxThreads(
 ): Promise<{
   threads: InboxThread[];
   counts: InboxCounts;
+  unreadInboxCount?: number;
   total: number;
   mailboxes: InboxMailboxOption[];
   activeScope: 'my';
@@ -423,6 +432,7 @@ export async function listInboxThreads(
     return {
       threads: [],
       counts: { all: 0, inbox: 0, sent: 0, needs_reply: 0, internal: 0, calls: 0, system: 0, unread: 0 },
+      unreadInboxCount: 0,
       total: 0,
       mailboxes: [],
       activeScope: 'my',
@@ -456,6 +466,7 @@ export async function listInboxThreads(
     return {
       threads: [],
       counts: { all: 0, inbox: 0, sent: 0, needs_reply: 0, internal: 0, calls: 0, system: 0, unread: 0 },
+      unreadInboxCount: 0,
       total: 0,
       mailboxes: [],
       activeScope: 'my',
@@ -546,11 +557,24 @@ export async function listInboxThreads(
     stateByThread.set(st.threadId, st);
   }
 
-  // 4. Resolve lead IDs and fetch lead details
+  // 4. Resolve lead IDs and external participant emails to identify CRM-matched threads
   const leadIdSet = new Set<string>();
+  const externalEmailsToMatch = new Set<string>();
   for (const msgs of messagesByThread.values()) {
     for (const m of msgs) {
       if (m.leadId) leadIdSet.add(m.leadId);
+      if (!m.leadId) {
+        if (m.from && !isInternalOrSystemEmail(m.from, { brand })) {
+          const parsed = parseSingleEmail(m.from);
+          if (parsed) externalEmailsToMatch.add(parsed);
+        }
+        for (const recip of [...(m.to || []), ...(m.cc || [])]) {
+          const parsed = parseSingleEmail(recip);
+          if (parsed && !isInternalOrSystemEmail(parsed, { brand })) {
+            externalEmailsToMatch.add(parsed);
+          }
+        }
+      }
     }
   }
 
@@ -558,7 +582,8 @@ export async function listInboxThreads(
   const leadsCollectionName = brandConfig?.dbCollection || 'leads';
 
   const leadLookup = new Map<string, any>();
-  if (leadIdSet.size > 0) {
+  const leadByEmailLookup = new Map<string, any>();
+  if (leadIdSet.size > 0 || externalEmailsToMatch.size > 0) {
     const rawLeadIds = Array.from(leadIdSet);
     const objectIds: ObjectId[] = [];
     const literalIds: any[] = [];
@@ -576,37 +601,60 @@ export async function listInboxThreads(
       }
     }
 
-    const orClauses: any[] = [{ id: { $in: literalIds } }];
+    const orClauses: any[] = [];
+    if (literalIds.length > 0) orClauses.push({ id: { $in: literalIds } });
     if (objectIds.length > 0) {
       orClauses.push({ _id: { $in: objectIds } });
     }
+    if (externalEmailsToMatch.size > 0) {
+      const emailArr = Array.from(externalEmailsToMatch);
+      orClauses.push({ contactEmails: { $in: emailArr } });
+      orClauses.push({ 'contacts.email': { $in: emailArr } });
+    }
 
-    const leadDocs = await db.collection(leadsCollectionName)
-      .find({
-        $or: orClauses,
-        ...(tenantId ? { tenantId } : {}),
-      }, {
-        projection: {
-          _id: 1,
-          id: 1,
-          entity_name: 1,
-          name: 1,
-          kanbanColumn: 1,
-          status: 1,
-          contacts: 1,
-          deals: 1,
-          estimated_annual_revenue_usd: 1,
-          ticketSizeEstimate: 1,
-          assignedTo: 1,
-          assignedToEmail: 1,
-        },
-      })
-      .toArray()
-      .catch(() => []);
+    const leadDocs = orClauses.length > 0
+      ? await db.collection(leadsCollectionName)
+          .find({
+            $or: orClauses,
+            ...(tenantId ? { tenantId } : {}),
+          }, {
+            projection: {
+              _id: 1,
+              id: 1,
+              entity_name: 1,
+              name: 1,
+              kanbanColumn: 1,
+              status: 1,
+              contacts: 1,
+              contactEmails: 1,
+              deals: 1,
+              estimated_annual_revenue_usd: 1,
+              ticketSizeEstimate: 1,
+              assignedTo: 1,
+              assignedToEmail: 1,
+            },
+          })
+          .toArray()
+          .catch(() => [])
+      : [];
 
     for (const l of leadDocs) {
       if (l._id) leadLookup.set(l._id.toString(), l);
       if (l.id !== undefined && l.id !== null) leadLookup.set(String(l.id), l);
+      if (Array.isArray(l.contactEmails)) {
+        for (const ce of l.contactEmails) {
+          if (typeof ce === 'string' && ce.trim()) {
+            leadByEmailLookup.set(ce.trim().toLowerCase(), l);
+          }
+        }
+      }
+      if (Array.isArray(l.contacts)) {
+        for (const c of l.contacts) {
+          if (c?.email && typeof c.email === 'string') {
+            leadByEmailLookup.set(c.email.trim().toLowerCase(), l);
+          }
+        }
+      }
     }
   }
 
@@ -619,8 +667,21 @@ export async function listInboxThreads(
     msgs.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
     const lastMessage = msgs[msgs.length - 1];
-    const threadLeadId = msgs.find((m) => m.leadId)?.leadId || '';
-    const lead = threadLeadId ? leadLookup.get(threadLeadId) : null;
+    let threadLeadId = msgs.find((m) => m.leadId)?.leadId || '';
+    let lead = threadLeadId ? leadLookup.get(threadLeadId) : null;
+    if (!lead) {
+      for (const m of msgs) {
+        const candidates = [m.from, ...(m.to || []), ...(m.cc || [])]
+          .map((e) => parseSingleEmail(e))
+          .filter((e): e is string => Boolean(e && !isInternalOrSystemEmail(e, { brand })));
+        const matched = candidates.map((e) => leadByEmailLookup.get(e)).find(Boolean);
+        if (matched) {
+          lead = matched;
+          threadLeadId = matched._id ? matched._id.toString() : String(matched.id || '');
+          break;
+        }
+      }
+    }
 
     const lastInbound = msgs.slice().reverse().find((m) => m.direction === 'inbound' && m.from);
     const lastOutbound = msgs.slice().reverse().find((m) => m.direction === 'outbound' && m.to && m.to[0]);
@@ -690,6 +751,7 @@ export async function listInboxThreads(
     }
 
     const hasLead = Boolean(threadLeadId && lead);
+    const isCrmLead = Boolean(hasLead || msgs.some((m) => m.isCrmMatched === true));
     const contactsCount = (lead?.contacts && Array.isArray(lead.contacts)) ? lead.contacts.length : (contactEmail ? 1 : 0);
     const hasContact = contactsCount > 0;
     const dealsCount = (lead?.deals && Array.isArray(lead.deals)) ? lead.deals.length : (dealValue ? 1 : 0);
@@ -729,7 +791,10 @@ export async function listInboxThreads(
     }
 
     const state = stateByThread.get(threadId);
-    const defaultUnread = lastMessage.direction === 'inbound';
+    const defaultUnread =
+      typeof lastMessage.gmailUnread === 'boolean'
+        ? lastMessage.gmailUnread
+        : lastMessage.direction === 'inbound';
     const isRead = state?.isRead !== undefined ? Boolean(state.isRead) : !defaultUnread;
     const isStarred = Boolean(state?.isStarred);
     const isArchived = Boolean(state?.isArchived);
@@ -812,6 +877,7 @@ export async function listInboxThreads(
       senderDisplayName,
       senderEmail,
       hasLead,
+      isCrmLead,
       hasContact,
       hasDeal,
       dealsCount,
@@ -859,6 +925,7 @@ export async function listInboxThreads(
     unread: 0,
   };
 
+  let unreadInboxCount = 0;
   for (const t of scopedThreads) {
     if (!t.isArchived) {
       counts.all++;
@@ -868,7 +935,10 @@ export async function listInboxThreads(
       if (t.streams.includes('internal')) counts.internal++;
       if (t.streams.includes('calls')) counts.calls++;
       if (t.streams.includes('system')) counts.system++;
-      if (!t.isRead) counts.unread++;
+      if (!t.isRead) {
+        counts.unread++;
+        if (t.streams.includes('inbox')) unreadInboxCount++;
+      }
     }
   }
 
@@ -926,6 +996,7 @@ export async function listInboxThreads(
   return {
     threads: paged,
     counts,
+    unreadInboxCount,
     total,
     mailboxes,
     activeScope: requestedScope,
@@ -1181,7 +1252,10 @@ export async function getInboxThreadDetail(
   const needsReply = !lastMsgFromInternal && lastMessage.direction === 'inbound' && lastMessage.type === 'email-inbound';
   if (needsReply) streams.add('needs_reply');
 
-  const defaultUnread = lastMessage.direction === 'inbound';
+  const defaultUnread =
+    typeof lastMessage.gmailUnread === 'boolean'
+      ? lastMessage.gmailUnread
+      : lastMessage.direction === 'inbound';
   let isRead = stateDoc?.isRead !== undefined ? Boolean(stateDoc.isRead) : !defaultUnread;
   const isStarred = Boolean(stateDoc?.isStarred);
   const isArchived = Boolean(stateDoc?.isArchived);
@@ -1375,6 +1449,7 @@ export async function getInboxThreadDetail(
     senderDisplayName,
     senderEmail,
     hasLead,
+    isCrmLead: Boolean(hasLead || messages.some((m) => m.isCrmMatched === true) || participants.some((p) => p.isExistingContact)),
     hasContact,
     hasDeal,
     dealsCount,
@@ -1516,10 +1591,7 @@ export async function postInboxReply(
     return { success: false, error: 'Conversation thread not found' };
   }
 
-  const { thread, lead } = detail;
-  if (!thread.leadId && payload.kind === 'email') {
-    return { success: false, error: 'Cannot reply via email to a thread without an associated Lead' };
-  }
+  const { thread, lead, messages } = detail;
 
   if (payload.kind === 'note') {
     const rawText = payload.text.trim();
@@ -1528,7 +1600,7 @@ export async function postInboxReply(
 
     const now = new Date();
     await db.collection(ACTIVITY_LOG_COLLECTION).insertOne({
-      leadId: thread.leadId,
+      leadId: thread.leadId || null,
       tenantId,
       brand,
       type: 'note',
@@ -1555,6 +1627,89 @@ export async function postInboxReply(
   if (payload.kind === 'email') {
     if (!payload.body || !payload.body.trim()) {
       return { success: false, error: 'Email reply body cannot be empty' };
+    }
+
+    // Direct Gmail reply for non-CRM connected-mailbox threads before lead conversion (#05 / Owner Decision A2)
+    if (!thread.leadId) {
+      const recipient = (payload.recipientEmail || thread.contactEmail || thread.senderEmail || '').trim();
+      if (!recipient || !recipient.includes('@')) {
+        return { success: false, error: 'Recipient email address is required to reply' };
+      }
+      if (!userContext.userId) {
+        return { success: false, error: 'Authenticated user session required to reply from Gmail' };
+      }
+      const userConn = await getUserConnection(db, userContext.userId, 'gmail', payload.senderEmail || userContext.userEmail);
+      if (!userConn || userConn.status !== 'active') {
+        return { success: false, error: 'Connect Gmail in Email & Integrations to reply to non-CRM mailbox threads' };
+      }
+
+      try {
+        const accessToken = await getValidCredential(db, userConn);
+        const senderIdentity = resolveSignatureForSender(userConn, payload.senderEmail || userContext.userEmail);
+        const fromAddress = senderIdentity.fromEmail || payload.senderEmail || userConn.userEmail || userContext.userEmail || 'me';
+        const deliveredBody =
+          payload.includeSignature !== false && senderIdentity.signatureText
+            ? appendSignatureToBody(payload.body, senderIdentity.signatureText)
+            : payload.body;
+        const replySubject =
+          payload.subject && payload.subject.trim()
+            ? payload.subject.trim()
+            : formatReSubject(thread.subject);
+        const lastWithRfc = [...messages].reverse().find((m) => m.rfcMessageId);
+        const inReplyTo = lastWithRfc?.rfcMessageId;
+        const references = lastWithRfc?.references
+          ? `${lastWithRfc.references} ${lastWithRfc.rfcMessageId}`.trim()
+          : inReplyTo;
+        const validGmailThreadId = /^[0-9a-fA-F]{16,}$/.test(threadId) ? threadId : undefined;
+
+        const { messageText, messageId } = buildRfc2822Message({
+          from: { name: senderIdentity.displayName || userContext.userName, email: fromAddress },
+          to: { name: thread.contactName || thread.senderDisplayName, email: recipient },
+          subject: replySubject,
+          bodyText: deliveredBody,
+          inReplyTo,
+          references,
+        });
+
+        const gmailResult = await sendGmailMessage({
+          accessToken,
+          rawMime: messageText,
+          threadId: validGmailThreadId,
+        });
+
+        await ensureActivityLogIndexes(db);
+        await db.collection(ACTIVITY_LOG_COLLECTION).insertOne({
+          leadId: null,
+          tenantId,
+          brand,
+          type: 'email-outbound',
+          direction: 'outbound',
+          fromAddress,
+          toAddresses: [recipient],
+          subject: replySubject,
+          bodyExcerpt: truncateBody(deliveredBody),
+          matchedContactKey: null,
+          source: 'manual',
+          externalId: gmailResult.id,
+          gmailMessageId: gmailResult.id,
+          threadId: gmailResult.threadId || validGmailThreadId || threadId,
+          rfcMessageId: messageId,
+          ...(inReplyTo ? { inReplyTo } : {}),
+          ...(references ? { references } : {}),
+          userId: userContext.userId,
+          userEmail: userConn.userEmail || userContext.userEmail,
+          connectionId: userConn.id,
+          createdAt: new Date(),
+        });
+
+        await setThreadStatus(db, brand, tenantId, threadId, { isRead: true }, userContext.userId);
+        return {
+          success: true,
+          result: { sent: true, outreachLogId: gmailResult.id, gmailMessageId: gmailResult.id },
+        };
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Gmail reply failed' };
+      }
     }
 
     // Resolve Lead document to construct LeadForSend

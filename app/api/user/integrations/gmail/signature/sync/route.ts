@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
     ok: true,
     signatureText: result.signatureText,
     signatureSyncedAt: result.signatureSyncedAt,
+    sendAsSignatures: result.sendAsSignatures,
   });
 }
 

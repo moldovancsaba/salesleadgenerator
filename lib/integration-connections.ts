@@ -34,10 +34,22 @@ export type IntegrationConnection = {
   userId?: string; // ssoUserId of the user who owns this connection (omitted for brand-level)
   userEmail?: string; // authenticated Google account email
   isDefault?: boolean; // primary/default connection for this provider (issue 252)
-  // Signature synchronization extension (issue #241)
+  // Signature synchronization extension (issue #241 / #357)
   signatureHtml?: string;
   signatureText?: string;
   signatureSyncedAt?: string;
+  sendAsAliases?: string[];
+  sendAsSignatures?: Record<
+    string,
+    {
+      email: string;
+      displayName?: string;
+      signatureHtml: string;
+      signatureText: string;
+      isPrimary?: boolean;
+      isDefault?: boolean;
+    }
+  >;
 };
 
 export const OAUTH_PROVIDERS: IntegrationProvider[] = ['google_calendar', 'gmail', 'google_contacts'];
