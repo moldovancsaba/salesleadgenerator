@@ -25,7 +25,7 @@ export const INBOX_THREAD_STATES_COLLECTION = 'inbox_thread_states';
 
 export { KNOWN_USER_ALIASES };
 
-export type InboxStream = 'all' | 'inbox' | 'sent' | 'needs_reply' | 'internal' | 'calls' | 'system';
+export type InboxStream = 'all' | 'inbox' | 'drafts' | 'sent' | 'needs_reply' | 'internal' | 'calls' | 'system';
 
 export interface InboxThreadState {
   brand: string;

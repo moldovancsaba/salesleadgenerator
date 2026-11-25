@@ -1,5 +1,17 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.392
+
+### Review, Edit, and Send Gmail Drafts in Inbox (Issue #358)
+
+- **Gmail Drafts synchronization, matching & single-send dispatch (`lib/gmail-drafts.ts`, `app/api/inbox/[brand]/drafts/route.ts`, `lib/integration-connections.ts`, `docs/PRIVACY_POLICY.md`):**
+  - Lists and decodes unsent Gmail Drafts (including meeting follow-up drafts placed in Gmail Drafts by external inbox assistants) across all connected personal Google accounts.
+  - Matches each draft to its sender identity, recipient(s), workspace CRM lead, and existing Inbox conversation thread (`threadId`, `In-Reply-To`, `References`).
+  - Supports sending unchanged or edited drafts via Google (`users.drafts.update` + `users.drafts.send` when `gmail.compose` is granted, with automatic `users.messages.send` fallback for existing `gmail.readonly` + `gmail.send` connections), appends the sender's Gmail signature idempotently, and enforces single-send deduplication via `gmail_draft_dispatches` (`activityLog` + `outreach_logs`).
+- **Inbox Gmail Drafts stream & inline thread banner (`app/inbox/[brand]/inbox-client.tsx`, `app/lib/inbox-store.ts`):**
+  - Added a **Gmail Drafts** stream with live draft count badge, CRM Lead & Thread match indicators, an inline **"Gmail Draft Ready"** banner inside matching threads, and a full review/edit/send pane (**Send Unchanged**, **Send Edited Draft**, or leave unsent).
+  - Added unit tests in `tests/lib/gmail-drafts.test.ts`.
+
 ## 2.4.391
 
 ### Full Gmail Inbox Sync Recovery, CRM Lead Badges, Live Sender Signatures & Today Unread Tile (Issue #357)

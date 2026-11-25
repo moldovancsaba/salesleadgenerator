@@ -109,7 +109,12 @@ export const OAUTH_PROVIDER_CONFIG: Record<'google_calendar' | 'gmail' | 'google
     tokenUrl: GOOGLE_TOKEN_URL,
     revokeUrl: GOOGLE_REVOKE_URL,
     tokenInfoUrl: GOOGLE_TOKENINFO_URL,
-    scopes: ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/userinfo.email'],
+    scopes: [
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.compose',
+      'https://www.googleapis.com/auth/userinfo.email',
+    ],
   },
   google_contacts: {
     authorizeUrl: GOOGLE_AUTHORIZE_URL,

@@ -60,6 +60,7 @@ Sales Lead Generator provides native, multi-account Google integration so that s
 ### Scopes Requested & Functional Justification:
 When connecting your Google account, Sales Lead Generator requests the minimum necessary permissions:
 - `https://www.googleapis.com/auth/gmail.send`: Allows Sales Lead Generator to dispatch 1:1 business outreach emails and scheduled cadence sequence steps directly from your authenticated email address upon your command.
+- `https://www.googleapis.com/auth/gmail.compose`: Allows Sales Lead Generator to display, update, and send email drafts saved in your Gmail Drafts folder (including meeting follow-up drafts prepared by your inbox assistant) only when you explicitly review and send them.
 - `https://www.googleapis.com/auth/gmail.readonly`: Allows Sales Lead Generator to read and synchronize inbound email correspondence received from your CRM leads and contacts, displaying them on the lead activity timeline and in your personal Unified Inbox.
 - `https://www.googleapis.com/auth/userinfo.email`: Allows the service to identify your Google email address and bind the integration connection to your user profile.
 - `https://www.googleapis.com/auth/calendar.events` & `https://www.googleapis.com/auth/calendar.freebusy`: Allows the meeting scheduler to check your free/busy availability and automatically create calendar invitations with Google Meet conferencing links when a prospect books a meeting with you.

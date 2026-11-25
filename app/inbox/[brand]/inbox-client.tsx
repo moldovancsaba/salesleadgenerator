@@ -8,6 +8,7 @@ import {
   Stack,
   Group,
   Text,
+  Title,
   Button,
   ActionIcon,
   TextInput,
@@ -64,6 +65,7 @@ import {
   IconLink,
   IconDownload,
   IconEye,
+  IconFileText,
 } from '@tabler/icons-react';
 import type { Brand } from '@/app/lib/brand-constants';
 import type {
@@ -72,6 +74,7 @@ import type {
   InboxMessage,
   InboxCounts,
 } from '@/app/lib/inbox-store';
+import type { GmailDraftItem } from '@/lib/gmail-drafts';
 import { isInternalOrSystemEmail } from '@/lib/email-contact-extractor';
 import { useAuth } from '@/app/components/AuthProvider';
 import { ConvertModal } from './convert-modal';
@@ -130,7 +133,7 @@ export function InboxClient({
   const { hideNeedsReplyByBrand } = useAuth();
   const hideNeedsReply = Boolean(hideNeedsReplyByBrand?.[brand]);
   const [stream, setStream] = useState<InboxStream>(
-    initialStream && ['inbox', 'sent', 'needs_reply', 'internal', 'calls', 'system', 'all'].includes(initialStream)
+    initialStream && ['inbox', 'drafts', 'sent', 'needs_reply', 'internal', 'calls', 'system', 'all'].includes(initialStream)
       ? (initialStream as InboxStream)
       : 'inbox'
   );
@@ -205,7 +208,110 @@ export function InboxClient({
     { name?: string; email: string; title?: string; phone?: string } | undefined
   >(undefined);
 
+  // Gmail Drafts state (#08 — assistant follow-ups & mailbox drafts)
+  const [gmailDrafts, setGmailDrafts] = useState<GmailDraftItem[]>([]);
+  const [draftsConnected, setDraftsConnected] = useState(false);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
+  const [draftTo, setDraftTo] = useState('');
+  const [draftCc, setDraftCc] = useState('');
+  const [draftSubject, setDraftSubject] = useState('');
+  const [draftBody, setDraftBody] = useState('');
+  const [draftSenderEmail, setDraftSenderEmail] = useState<string | null>(null);
+  const [draftEdited, setDraftEdited] = useState(false);
+  const [sendingDraft, setSendingDraft] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [draftSuccess, setDraftSuccess] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const loadDrafts = useCallback(async () => {
+    setLoadingDrafts(true);
+    try {
+      const res = await fetch(`/api/inbox/${brand}/drafts`);
+      if (res.ok) {
+        const data = await res.json();
+        setDraftsConnected(Boolean(data.connected));
+        const items: GmailDraftItem[] = Array.isArray(data.drafts) ? data.drafts : [];
+        setGmailDrafts(items);
+        setSelectedDraftId((prev) => {
+          if (prev && items.some((d) => d.draftId === prev)) return prev;
+          return items[0]?.draftId || null;
+        });
+      }
+    } catch {
+      // non-fatal
+    } finally {
+      setLoadingDrafts(false);
+    }
+  }, [brand]);
+
+  useEffect(() => {
+    void loadDrafts();
+  }, [loadDrafts]);
+
+  const activeDraft = gmailDrafts.find((d) => d.draftId === selectedDraftId) || null;
+
+  useEffect(() => {
+    if (!activeDraft) {
+      setDraftTo('');
+      setDraftCc('');
+      setDraftSubject('');
+      setDraftBody('');
+      setDraftEdited(false);
+      return;
+    }
+    setDraftTo(activeDraft.to.join(', '));
+    setDraftCc(activeDraft.cc.join(', '));
+    setDraftSubject(activeDraft.subject === '(No subject)' ? '' : activeDraft.subject);
+    setDraftBody(activeDraft.bodyText);
+    setDraftSenderEmail(activeDraft.senderEmail || selectedSenderEmail);
+    setDraftEdited(false);
+    setDraftError(null);
+  }, [activeDraft, selectedSenderEmail]);
+
+  const handleSendDraft = async (unchanged: boolean) => {
+    if (!activeDraft) return;
+    setSendingDraft(true);
+    setDraftError(null);
+    setDraftSuccess(null);
+    try {
+      const res = await fetch(`/api/inbox/${brand}/drafts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          draftId: activeDraft.draftId,
+          connectionId: activeDraft.connectionId,
+          to: unchanged ? activeDraft.to : draftTo,
+          cc: unchanged ? activeDraft.cc : draftCc,
+          subject: unchanged ? activeDraft.subject : draftSubject,
+          body: unchanged ? activeDraft.bodyText : draftBody,
+          unchanged,
+          includeSignature,
+          senderEmail: draftSenderEmail || activeDraft.senderEmail,
+          threadId: activeDraft.threadId,
+          inReplyTo: activeDraft.inReplyTo,
+          references: activeDraft.references,
+          matchedLeadId: activeDraft.matchedLeadId,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'Failed to send Gmail draft');
+      }
+      setDraftSuccess(`Draft sent through Google (${draftSenderEmail || activeDraft.senderEmail}).`);
+      setGmailDrafts((prev) => {
+        const remaining = prev.filter((d) => d.draftId !== activeDraft.draftId);
+        setSelectedDraftId(remaining[0]?.draftId || null);
+        return remaining;
+      });
+      await loadThreads();
+    } catch (err: any) {
+      setDraftError(err?.message || 'Failed to send Gmail draft');
+    } finally {
+      setSendingDraft(false);
+    }
+  };
 
   // Fetch templates, documents, and user signature for composer
   useEffect(() => {
@@ -404,6 +510,7 @@ export function InboxClient({
           : 'Gmail inbox checked — no new correspondence found.';
         setSyncNotice({ message: msg, color: 'teal' });
         loadThreads();
+        void loadDrafts();
       } else {
         const errorText = data.error === 'invalid_grant'
           ? 'Google authorization has expired or was revoked. Please reconnect your account in Email & Integrations.'
@@ -721,7 +828,10 @@ export function InboxClient({
                 variant="subtle"
                 color="gray"
                 size="sm"
-                onClick={() => loadThreads()}
+                onClick={() => {
+                  loadThreads();
+                  void loadDrafts();
+                }}
                 loading={loadingThreads}
                 aria-label="Refresh messages"
               >
@@ -801,6 +911,29 @@ export function InboxClient({
             onClick={() => {
               setStream('inbox');
               setArchivedOnly(false);
+            }}
+            style={{ borderRadius: 6 }}
+          />
+
+          <NavLink
+            label="Gmail Drafts"
+            leftSection={<IconFileText size={18} />}
+            rightSection={
+              gmailDrafts.length > 0 ? (
+                <CountBadge
+                  size="xs"
+                  value={gmailDrafts.length}
+                  cap={Number.MAX_SAFE_INTEGER}
+                  srLabel="Unsent Gmail drafts count"
+                />
+              ) : null
+            }
+            active={stream === 'drafts' && !archivedOnly}
+            color="teal"
+            onClick={() => {
+              setStream('drafts');
+              setArchivedOnly(false);
+              void loadDrafts();
             }}
             style={{ borderRadius: 6 }}
           />
@@ -1066,7 +1199,96 @@ export function InboxClient({
         </Box>
 
         <ScrollArea style={{ flex: 1 }}>
-          {loadingThreads ? (
+          {stream === 'drafts' ? (
+            loadingDrafts ? (
+              <Flex justify="center" align="center" h={200}>
+                <Loader size="sm" />
+              </Flex>
+            ) : !draftsConnected ? (
+              <Flex direction="column" justify="center" align="center" p="xl" h={220}>
+                <Text size="sm" fw={600} ta="center">
+                  Gmail not connected
+                </Text>
+                <Text size="xs" c="dimmed" ta="center" mt={4}>
+                  Connect your Google account in Email &amp; Integrations to review and send Gmail Drafts.
+                </Text>
+              </Flex>
+            ) : (
+              (() => {
+                const q = search.trim().toLowerCase();
+                const filteredDrafts = q
+                  ? gmailDrafts.filter(
+                      (d) =>
+                        d.subject.toLowerCase().includes(q) ||
+                        d.snippet.toLowerCase().includes(q) ||
+                        d.to.some((e) => e.includes(q)) ||
+                        (d.matchedLeadName && d.matchedLeadName.toLowerCase().includes(q)) ||
+                        (d.matchedContactName && d.matchedContactName.toLowerCase().includes(q))
+                    )
+                  : gmailDrafts;
+                if (filteredDrafts.length === 0) {
+                  return (
+                    <Flex direction="column" justify="center" align="center" p="xl" h={200}>
+                      <Text size="sm" c="dimmed" ta="center">
+                        No unsent Gmail drafts found.
+                      </Text>
+                    </Flex>
+                  );
+                }
+                return (
+                  <Box>
+                    {filteredDrafts.map((d) => {
+                      const isSelected = selectedDraftId === d.draftId;
+                      return (
+                        <Box
+                          key={d.draftId}
+                          p="sm"
+                          onClick={() => setSelectedDraftId(d.draftId)}
+                          style={{
+                            cursor: 'pointer',
+                            borderBottom: '1px solid var(--gds-border-card, var(--mantine-color-gray-2))',
+                            borderLeft: isSelected
+                              ? '4px solid var(--mantine-color-teal-6)'
+                              : '4px solid transparent',
+                            backgroundColor: isSelected
+                              ? 'var(--mantine-color-teal-0)'
+                              : 'var(--gds-bg-card, var(--mantine-color-white))',
+                          }}
+                        >
+                          <Group justify="space-between" align="flex-start" wrap="nowrap" mb={2}>
+                            <Text fw={700} size="sm" truncate>
+                              {d.matchedContactName || d.to[0] || '(No recipient yet)'}
+                            </Text>
+                            <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                              {formatRelativeTime(d.updatedAt)}
+                            </Text>
+                          </Group>
+                          <Text fw={600} size="xs" truncate mb={2}>
+                            {d.subject}
+                          </Text>
+                          <Text size="xs" c="dimmed" lineClamp={2} mb={6}>
+                            {d.snippet || 'Empty draft'}
+                          </Text>
+                          <Group gap={4} wrap="wrap">
+                            <LabelTag size="xs" tone="warning" label="Draft" />
+                            {d.isCrmLead && (
+                              <StatusBadge status="success" size="xs">
+                                CRM Lead{d.matchedLeadName ? `: ${d.matchedLeadName}` : ''}
+                              </StatusBadge>
+                            )}
+                            {d.matchedThreadId && (
+                              <LabelTag size="xs" tone="info" label="Thread Matched" />
+                            )}
+                            <LabelTag size="xs" tone="neutral" label={d.senderEmail.split('@')[0]} />
+                          </Group>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                );
+              })()
+            )
+          ) : loadingThreads ? (
             <Flex justify="center" align="center" h={200}>
               <Loader size="sm" />
             </Flex>
@@ -1287,7 +1509,229 @@ export function InboxClient({
 
       {/* ---------------- PANE 3: Conversation Reader & Composer ---------------- */}
       <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {!selectedThread ? (
+        {stream === 'drafts' ? (
+          !activeDraft ? (
+            <Flex direction="column" justify="center" align="center" h="100%" p="xl">
+              <IconFileText size={48} color="var(--mantine-color-gray-5)" stroke={1.5} />
+              <Text size="md" fw={600} c="dimmed" mt="sm">
+                {draftSuccess ? 'Draft Sent!' : 'No draft selected'}
+              </Text>
+              <Text size="xs" c="dimmed" ta="center" mt={4}>
+                {draftSuccess || 'Select a Gmail draft (including meeting-assistant follow-ups) to review, edit, or send via Google.'}
+              </Text>
+            </Flex>
+          ) : (
+            <ScrollArea style={{ flex: 1 }} p="md">
+              <Stack gap="md">
+                {draftSuccess && (
+                  <InlineAlert
+                    severity="success"
+                    title="Sent via Google"
+                    message={draftSuccess}
+                    action={
+                      <Button size="compact-xs" variant="subtle" color="teal" onClick={() => setDraftSuccess(null)}>
+                        Dismiss
+                      </Button>
+                    }
+                  />
+                )}
+                {draftError && (
+                  <InlineAlert
+                    severity="error"
+                    title="Could not send draft"
+                    message={draftError}
+                    action={
+                      <Button size="compact-xs" variant="subtle" color="red" onClick={() => setDraftError(null)}>
+                        Dismiss
+                      </Button>
+                    }
+                  />
+                )}
+
+                <Paper withBorder p="md" radius="md">
+                  <Group justify="space-between" align="flex-start" wrap="wrap" mb="xs">
+                    <div>
+                      <Group gap="xs" align="center">
+                        <Title order={4} style={{ margin: 0 }}>
+                          Review Gmail Draft
+                        </Title>
+                        <LabelTag size="xs" tone="warning" label="Unsent Gmail Draft" />
+                        {activeDraft.isCrmLead && (
+                          <StatusBadge status="success" size="xs">
+                            CRM Lead
+                          </StatusBadge>
+                        )}
+                      </Group>
+                      <Text size="xs" c="dimmed" mt={2}>
+                        Send unchanged, edit before sending through Google, or leave unsent in Gmail Drafts.
+                      </Text>
+                    </div>
+                    <Group gap="xs">
+                      {activeDraft.matchedLeadId && (
+                        <Button
+                          component={Link}
+                          href={`/sales/${brand}?leadId=${encodeURIComponent(activeDraft.matchedLeadId)}`}
+                          size="compact-xs"
+                          variant="light"
+                          color="teal"
+                          rightSection={<IconExternalLink size={12} />}
+                        >
+                          Lead: {activeDraft.matchedLeadName || 'Open'}
+                        </Button>
+                      )}
+                      {activeDraft.matchedThreadId && (
+                        <Button
+                          size="compact-xs"
+                          variant="light"
+                          color="indigo"
+                          onClick={() => {
+                            setStream('all');
+                            setSelectedThreadId(activeDraft.matchedThreadId!);
+                          }}
+                        >
+                          Open Matched Thread
+                        </Button>
+                      )}
+                    </Group>
+                  </Group>
+
+                  <Stack gap="xs" mt="sm">
+                    <Group grow>
+                      {senderIdentities.length > 0 ? (
+                        <Select
+                          size="xs"
+                          label="Sender (Google Account / Alias)"
+                          data={senderIdentities.map((s) => ({ value: s.value, label: s.label }))}
+                          value={draftSenderEmail || activeDraft.senderEmail}
+                          onChange={(val) => {
+                            if (!val) return;
+                            setDraftSenderEmail(val);
+                            setDraftEdited(val !== activeDraft.senderEmail || draftEdited);
+                            const chosen = senderIdentities.find((o) => o.value === val);
+                            if (chosen) setUserSignatureText(chosen.signatureText);
+                          }}
+                          allowDeselect={false}
+                        />
+                      ) : (
+                        <TextInput size="xs" label="Sender" value={activeDraft.senderEmail} readOnly />
+                      )}
+                      <TextInput
+                        size="xs"
+                        label="To"
+                        placeholder="recipient@company.com"
+                        value={draftTo}
+                        onChange={(e) => {
+                          setDraftTo(e.currentTarget.value);
+                          setDraftEdited(true);
+                        }}
+                      />
+                    </Group>
+
+                    <Group grow>
+                      <TextInput
+                        size="xs"
+                        label="Cc (optional)"
+                        placeholder="colleague@company.com"
+                        value={draftCc}
+                        onChange={(e) => {
+                          setDraftCc(e.currentTarget.value);
+                          setDraftEdited(true);
+                        }}
+                      />
+                      <TextInput
+                        size="xs"
+                        label="Subject"
+                        value={draftSubject}
+                        onChange={(e) => {
+                          setDraftSubject(e.currentTarget.value);
+                          setDraftEdited(true);
+                        }}
+                      />
+                    </Group>
+
+                    <Textarea
+                      label="Follow-up Message"
+                      minRows={10}
+                      maxRows={22}
+                      autosize
+                      value={draftBody}
+                      onChange={(e) => {
+                        setDraftBody(e.currentTarget.value);
+                        setDraftEdited(true);
+                      }}
+                    />
+
+                    {includeSignature && userSignatureText && (
+                      <Paper p="xs" radius="sm" withBorder style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
+                        <Text size="10px" fw={700} c="dimmed" tt="uppercase" mb={2}>
+                          Gmail Signature Appended on Send (if not already in draft)
+                        </Text>
+                        <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
+                          -- {'\n'}
+                          {userSignatureText}
+                        </Text>
+                      </Paper>
+                    )}
+
+                    <Group justify="space-between" align="center" mt="xs" wrap="wrap">
+                      <Group gap="sm">
+                        <Switch
+                          label="Include Gmail Signature"
+                          size="xs"
+                          checked={includeSignature}
+                          onChange={(e) => setIncludeSignature(e.currentTarget.checked)}
+                        />
+                        {draftEdited && (
+                          <Button
+                            size="compact-xs"
+                            variant="subtle"
+                            color="gray"
+                            onClick={() => {
+                              setDraftTo(activeDraft.to.join(', '));
+                              setDraftCc(activeDraft.cc.join(', '));
+                              setDraftSubject(activeDraft.subject === '(No subject)' ? '' : activeDraft.subject);
+                              setDraftBody(activeDraft.bodyText);
+                              setDraftSenderEmail(activeDraft.senderEmail);
+                              setDraftEdited(false);
+                            }}
+                          >
+                            Reset Edits
+                          </Button>
+                        )}
+                      </Group>
+
+                      <Group gap="xs">
+                        {!draftEdited && (
+                          <Button
+                            size="xs"
+                            color="teal"
+                            leftSection={<IconSend size={14} />}
+                            loading={sendingDraft}
+                            disabled={!draftTo.trim() || !draftBody.trim()}
+                            onClick={() => handleSendDraft(true)}
+                          >
+                            Send Unchanged
+                          </Button>
+                        )}
+                        <Button
+                          size="xs"
+                          color="indigo"
+                          variant={draftEdited ? 'filled' : 'light'}
+                          leftSection={<IconSend size={14} />}
+                          loading={sendingDraft}
+                          disabled={!draftTo.trim() || !draftSubject.trim() || !draftBody.trim()}
+                          onClick={() => handleSendDraft(false)}
+                        >
+                          {draftEdited ? 'Send Edited Draft' : 'Send with Signature'}
+                        </Button>
+                      </Group>
+                    </Group>
+                  </Stack>
+                </Paper>
+              </Stack>
+            </ScrollArea>
+          )
+        ) : !selectedThread ? (
           <Flex direction="column" justify="center" align="center" h="100%" p="xl">
             <IconInbox size={48} color="var(--mantine-color-gray-5)" stroke={1.5} />
             <Text size="md" fw={600} c="dimmed" mt="sm">
@@ -1579,6 +2023,61 @@ export function InboxClient({
             </Paper>
 
             {/* Messages Timeline */}
+            {(() => {
+              const threadMatchingDraft = gmailDrafts.find(
+                (d) =>
+                  (d.threadId && d.threadId === selectedThread.id) ||
+                  (selectedThread.contactEmail &&
+                    d.to.some((addr) => addr.toLowerCase() === selectedThread.contactEmail?.toLowerCase()))
+              );
+              if (!threadMatchingDraft) return null;
+              return (
+                <Paper
+                  px="md"
+                  py="xs"
+                  radius={0}
+                  style={{
+                    backgroundColor: 'var(--mantine-color-teal-0)',
+                    borderBottom: '1px solid var(--mantine-color-teal-3)',
+                  }}
+                >
+                  <Group justify="space-between" align="center" wrap="wrap" gap="xs">
+                    <Group gap="xs">
+                      <IconFileText size={16} color="var(--mantine-color-teal-7)" />
+                      <Text size="xs" fw={600}>
+                        Gmail Follow-Up Draft Ready: &ldquo;{threadMatchingDraft.subject}&rdquo;
+                      </Text>
+                    </Group>
+                    <Group gap="xs">
+                      <Button
+                        size="compact-xs"
+                        variant="light"
+                        color="teal"
+                        onClick={() => {
+                          setReplyMode('email');
+                          setReplySubject(threadMatchingDraft.subject);
+                          setReplyBody(threadMatchingDraft.bodyText);
+                          if (threadMatchingDraft.to[0]) setReplyRecipient(threadMatchingDraft.to[0]);
+                        }}
+                      >
+                        Load into Reply
+                      </Button>
+                      <Button
+                        size="compact-xs"
+                        variant="filled"
+                        color="teal"
+                        onClick={() => {
+                          setSelectedDraftId(threadMatchingDraft.draftId);
+                          setStream('drafts');
+                        }}
+                      >
+                        Review &amp; Send Draft
+                      </Button>
+                    </Group>
+                  </Group>
+                </Paper>
+              );
+            })()}
             <ScrollArea style={{ flex: 1 }} p="md">
               {loadingDetail ? (
                 <Flex justify="center" align="center" h={200}>

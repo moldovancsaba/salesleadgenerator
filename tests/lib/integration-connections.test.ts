@@ -102,6 +102,6 @@ describe('buildGoogleAuthorizeUrl (issue 217 & 252)', () => {
       codeChallenge: 'cc',
     });
     const scope = new URL(url).searchParams.get('scope');
-    expect(scope).toBe('https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email');
+    expect(scope).toBe('https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/userinfo.email');
   });
 });
