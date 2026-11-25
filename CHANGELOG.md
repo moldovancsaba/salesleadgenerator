@@ -1,5 +1,15 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.388
+
+### Login Label Standardization, Per-User Start Screen, Needs Reply Preference & Today Link Fix (Issue #354)
+
+- **Standardized `Login` action labels (`content/landing.ts`, `app/page.tsx`, `app/components/AppNav.tsx`):** Replaced `"Sign in"` / `"Sign in with SSO"` on launch and sidebar unauthenticated entry points with `"Login"`.
+- **Per-user start screen preference (`lib/sso-access.ts`, `app/api/auth/login/route.ts`, `app/api/oauth/callback/route.ts`, `app/api/auth/session/route.ts`, `app/api/user/preferences/route.ts`, `app/components/AuthProvider.tsx`, `app/components/UserSettingsModal.tsx`):** Added `preferredStartScreen` (`today` | `sales` | `inbox`) saved per user on `sso_user_access`, honored during SSO login with safe `returnTo` deep-link preservation and automatic fallback when permissions change, plus editable controls in My Account settings.
+- **Per-workspace per-user `"Needs Reply"` visibility (`app/inbox/[brand]/inbox-client.tsx`, `app/components/UserSettingsModal.tsx`, `/api/user/preferences`):** Added per-user, per-workspace `hideNeedsReplyByBrand` toggle that hides the `"Needs Reply"` stream tab and badge while retaining unread counts, incoming replies, and cadence stop-on-reply behavior.
+- **`Today → View` destination fix (`app/today/[brand]/today-client.tsx`, `app/sales/[brand]/sales-page-client.tsx`):** Fixed Today queue record/deal links to pass `?leadId=` and added `?lead=` fallback on the pipeline board so clicking any Today item opens its exact lead/deal modal.
+- **Roadmap / Idea Bank additions:** Filed `#352` (external meeting-assistant API/webhook draft sync) and `#353` (automated WhatsApp Business Cloud / Twilio sequence channel).
+
 ## 2.4.387
 
 ### Reliable cross-column Kanban drag-and-drop (Issue #351)

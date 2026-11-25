@@ -9,6 +9,7 @@ const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30 days, matches DoneIsBette
 function clearOauthCookies(response: NextResponse) {
   response.cookies.delete('sso_oauth_state');
   response.cookies.delete('sso_code_verifier');
+  response.cookies.delete('sso_return_to');
 }
 
 export async function GET(request: NextRequest) {
@@ -54,8 +55,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const returnTo = request.cookies.get('sso_return_to')?.value ?? null;
     const allBrands = Object.keys(await getAllBrandConfigs());
-    const destination = resolveLoginDestination(permission?.status, claims.email, userAccessRecord?.orgAccess, allBrands);
+    const destination = resolveLoginDestination(permission?.status, claims.email, userAccessRecord?.orgAccess, allBrands, {
+      preferredStartScreen: userAccessRecord?.preferredStartScreen,
+      returnTo,
+    });
 
     const response = NextResponse.redirect(new URL(destination, request.url));
     clearOauthCookies(response);

@@ -29,12 +29,18 @@ async function buildSessionBody(claims: SsoIdTokenClaims, accessToken: string) {
 
   let accessibleBrands: string[] = [];
   let hasSeenTour = false;
+  let preferredStartScreen: string | null = null;
+  let hideNeedsReplyByBrand: Record<string, boolean> = {};
+  let orgRoles: Record<string, 'admin' | 'user'> = {};
   if (isMongoConfigured()) {
     const client = await clientPromise;
     const db = client.db();
     const record = await getUserAccess(db, claims.sub);
     accessibleBrands = getAccessibleBrands(claims.email, record?.orgAccess, allBrands);
     hasSeenTour = Boolean(record?.tourSeenAt);
+    preferredStartScreen = record?.preferredStartScreen ?? null;
+    hideNeedsReplyByBrand = record?.hideNeedsReplyByBrand ?? {};
+    orgRoles = (record?.orgAccess as Record<string, 'admin' | 'user'>) ?? {};
   } else if (isSuperAdminEmail(claims.email)) {
     // No DB configured (local dev without MONGODB_URI) — a super admin
     // still needs to see something rather than an empty nav, since
@@ -47,8 +53,11 @@ async function buildSessionBody(claims: SsoIdTokenClaims, accessToken: string) {
     permission,
     accessibleBrands,
     brandLabels,
+    orgRoles,
     isSuperAdmin: isSuperAdminEmail(claims.email),
     hasSeenTour,
+    preferredStartScreen,
+    hideNeedsReplyByBrand,
   };
 }
 
@@ -58,7 +67,7 @@ export async function GET(request: NextRequest) {
   const refreshToken = request.cookies.get('sso_refresh_token')?.value;
 
   if (!idToken || !accessToken) {
-    return NextResponse.json({ user: null, permission: null, accessibleBrands: [], brandLabels: {}, isSuperAdmin: false, hasSeenTour: false }, { status: 401 });
+    return NextResponse.json({ user: null, permission: null, accessibleBrands: [], brandLabels: {}, orgRoles: {}, isSuperAdmin: false, hasSeenTour: false, preferredStartScreen: null, hideNeedsReplyByBrand: {} }, { status: 401 });
   }
 
   try {
@@ -96,7 +105,7 @@ export async function GET(request: NextRequest) {
       console.error('[api/auth/session] verification failed:', error);
     }
 
-    const response = NextResponse.json({ user: null, permission: null, accessibleBrands: [], brandLabels: {}, isSuperAdmin: false, hasSeenTour: false }, { status: 401 });
+    const response = NextResponse.json({ user: null, permission: null, accessibleBrands: [], brandLabels: {}, orgRoles: {}, isSuperAdmin: false, hasSeenTour: false, preferredStartScreen: null, hideNeedsReplyByBrand: {} }, { status: 401 });
     response.cookies.delete('sso_access_token');
     response.cookies.delete('sso_id_token');
     response.cookies.delete('sso_refresh_token');

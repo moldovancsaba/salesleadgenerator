@@ -10,6 +10,12 @@ const COLLECTION = 'sso_user_access';
 
 export type OrgRole = 'admin' | 'user';
 export type OrgAccessMap = Partial<Record<Brand, OrgRole>>;
+export type PreferredStartScreen = 'today' | 'sales' | 'inbox';
+export const PREFERRED_START_SCREENS: readonly PreferredStartScreen[] = ['today', 'sales', 'inbox'];
+
+export function isPreferredStartScreen(value: unknown): value is PreferredStartScreen {
+  return typeof value === 'string' && (PREFERRED_START_SCREENS as readonly string[]).includes(value);
+}
 
 export type SsoUserAccessRecord = {
   ssoUserId: string;
@@ -27,6 +33,9 @@ export type SsoUserAccessRecord = {
   // Issue 271: Admin-managed linked mailbox aliases (e.g. personal SSO email
   // linked to corporate Google Workspace mailboxes). Stored normalized lowercase.
   aliases?: string[];
+  // Personal workspace preferences (#354 / #355):
+  preferredStartScreen?: PreferredStartScreen;
+  hideNeedsReplyByBrand?: Record<string, boolean>;
 };
 
 // Deliberately NOT persisted as a field on the record — persisting it risks
@@ -267,15 +276,93 @@ export function getRoleForBrand(email: string | undefined, orgAccess: OrgAccessM
 // agnostic marketing root) rather than a generic "/" — "first" is
 // getAccessibleBrands()'s own canonical-order first entry, deterministic
 // regardless of the order access was granted in.
+export async function setUserPreferences(
+  db: Db,
+  ssoUserId: string,
+  updates: {
+    preferredStartScreen?: PreferredStartScreen | null;
+    hideNeedsReplyBrand?: { brand: string; hide: boolean };
+  }
+): Promise<SsoUserAccessRecord | null> {
+  const collection = db.collection<SsoUserAccessRecord>(COLLECTION);
+  const now = new Date().toISOString();
+  const $set: Record<string, unknown> = { updatedAt: now };
+  const $unset: Record<string, string> = {};
+
+  if (updates.preferredStartScreen !== undefined) {
+    if (updates.preferredStartScreen === null) {
+      $unset.preferredStartScreen = '';
+    } else if (isPreferredStartScreen(updates.preferredStartScreen)) {
+      $set.preferredStartScreen = updates.preferredStartScreen;
+    }
+  }
+
+  if (updates.hideNeedsReplyBrand) {
+    const cleanBrand = updates.hideNeedsReplyBrand.brand.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    if (cleanBrand) {
+      if (updates.hideNeedsReplyBrand.hide) {
+        $set[`hideNeedsReplyByBrand.${cleanBrand}`] = true;
+      } else {
+        $unset[`hideNeedsReplyByBrand.${cleanBrand}`] = '';
+      }
+    }
+  }
+
+  const updateOp: Record<string, unknown> = { $set };
+  if (Object.keys($unset).length > 0) updateOp.$unset = $unset;
+  await collection.updateOne({ ssoUserId }, updateOp);
+  return getUserAccess(db, ssoUserId);
+}
+
+export function sanitizeReturnTo(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.includes('\r') || trimmed.includes('\n')) {
+    return null;
+  }
+  if (trimmed.startsWith('/api/auth/') || trimmed.startsWith('/api/oauth/')) {
+    return null;
+  }
+  return trimmed;
+}
+
+function isReturnToAccessible(returnTo: string, accessibleBrands: Brand[], allBrands: Brand[]): boolean {
+  const pathname = returnTo.split('?')[0].split('#')[0];
+  const match = pathname.match(
+    /^\/(?:sales|today|inbox|contacts|whats-new|salessettings|forecast|reports|accounts|battlecards|outreach\/[a-z-]+|admin\/products|admin\/prompts|automation|documents)\/([^/]+)/
+  );
+  if (match) {
+    const requestedBrand = match[1];
+    if (allBrands.includes(requestedBrand as Brand)) {
+      return accessibleBrands.includes(requestedBrand as Brand);
+    }
+    return false;
+  }
+  return true;
+}
+
 export function resolveLoginDestination(
   permissionStatus: 'pending' | 'approved' | 'revoked' | undefined | null,
   email: string | undefined,
   orgAccess: OrgAccessMap | undefined,
-  allBrands: Brand[]
+  allBrands: Brand[],
+  options?: {
+    preferredStartScreen?: PreferredStartScreen | null;
+    returnTo?: string | null;
+  }
 ): string {
   if (permissionStatus === 'pending') return '/access-pending';
   if (permissionStatus === 'revoked') return '/access-denied';
   const accessibleBrands = getAccessibleBrands(email, orgAccess, allBrands);
   if (accessibleBrands.length === 0) return '/access-pending';
-  return `/forecast/${accessibleBrands[0]}`;
+
+  const safeReturnTo = sanitizeReturnTo(options?.returnTo);
+  if (safeReturnTo && safeReturnTo !== '/' && isReturnToAccessible(safeReturnTo, accessibleBrands, allBrands)) {
+    return safeReturnTo;
+  }
+
+  const screen = isPreferredStartScreen(options?.preferredStartScreen)
+    ? options!.preferredStartScreen
+    : 'forecast';
+  return `/${screen}/${accessibleBrands[0]}`;
 }

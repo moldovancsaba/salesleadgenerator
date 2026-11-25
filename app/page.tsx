@@ -65,8 +65,9 @@ function getFeatureIcon(iconName: string) {
 }
 
 export default function LandingPage() {
-  const { user, loading, login } = useAuth();
+  const { user, loading, login, preferredStartScreen } = useAuth();
   const c = LANDING_CONTENT;
+  const startHref = preferredStartScreen ? `/${preferredStartScreen}` : '/today';
 
   return (
     <div className={styles.landingRoot}>
@@ -104,7 +105,7 @@ export default function LandingPage() {
               {!loading && user ? (
                 <Button
                   component={Link}
-                  href="/today"
+                  href={startHref}
                   size="xs"
                   color="indigo"
                   rightSection={<IconArrowRight size={14} />}
@@ -116,7 +117,7 @@ export default function LandingPage() {
                   <Button
                     variant="subtle"
                     size="xs"
-                    onClick={login}
+                    onClick={() => login()}
                     leftSection={<IconLogin size={14} />}
                   >
                     {c.navigation.signInLabel}
@@ -156,7 +157,7 @@ export default function LandingPage() {
               {!loading && user ? (
                 <Button
                   component={Link}
-                  href="/today"
+                  href={startHref}
                   size="md"
                   color="indigo"
                   rightSection={<IconArrowRight size={16} />}
@@ -177,10 +178,10 @@ export default function LandingPage() {
                   <Button
                     variant="default"
                     size="md"
-                    onClick={login}
+                    onClick={() => login()}
                     leftSection={<IconLogin size={16} />}
                   >
-                    Sign in with SSO
+                    {c.navigation.signInLabel}
                   </Button>
                 </>
               )}

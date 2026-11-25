@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildAuthorizeUrl, generateCodeChallenge, generateCodeVerifier, generateState, isSsoConfigured } from '@/lib/sso';
+import { sanitizeReturnTo } from '@/lib/sso-access';
 
 // Short-lived, HTTP-only, first-party cookies carrying the PKCE verifier and
 // CSRF state across the redirect to the hosted SSO login UI and back. 10
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
   const state = generateState();
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = generateCodeChallenge(codeVerifier);
+  const returnTo = sanitizeReturnTo(new URL(request.url).searchParams.get('returnTo'));
 
   const authorizeUrl = buildAuthorizeUrl({ state, codeChallenge });
 
@@ -31,5 +33,8 @@ export async function GET(request: NextRequest) {
   };
   response.cookies.set('sso_oauth_state', state, cookieOpts);
   response.cookies.set('sso_code_verifier', codeVerifier, cookieOpts);
+  if (returnTo) {
+    response.cookies.set('sso_return_to', returnTo, cookieOpts);
+  }
   return response;
 }

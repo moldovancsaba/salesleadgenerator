@@ -482,7 +482,7 @@ export function TodayClient({ brand, label }: Props) {
                         <div>
                           <Group gap="xs">
                             <Link
-                              href={`/sales/${brand}?lead=${item.leadId}`}
+                              href={`/sales/${brand}?leadId=${encodeURIComponent(item.leadId)}`}
                               style={{ textDecoration: 'none', color: 'inherit' }}
                             >
                               <Text fw={600} size="sm" className="hover:underline">
@@ -533,7 +533,7 @@ export function TodayClient({ brand, label }: Props) {
                       <Group gap="xs">
                         <Button
                           component={Link}
-                          href={`/sales/${brand}?lead=${item.leadId}`}
+                          href={`/sales/${brand}?leadId=${encodeURIComponent(item.leadId)}`}
                           size="xs"
                           variant="light"
                           rightSection={<IconArrowNarrowRight size={14} />}
@@ -574,7 +574,7 @@ export function TodayClient({ brand, label }: Props) {
                         <div>
                           <Group gap="xs">
                             <Link
-                              href={`/sales/${brand}?lead=${task.leadId}`}
+                              href={`/sales/${brand}?leadId=${encodeURIComponent(task.leadId)}`}
                               style={{ textDecoration: 'none', color: 'inherit' }}
                             >
                               <Text fw={600} size="sm" className="hover:underline">
@@ -729,7 +729,7 @@ export function TodayClient({ brand, label }: Props) {
                         <div>
                           <Group gap="xs">
                             <Link
-                              href={`/sales/${brand}?lead=${item.leadId}`}
+                              href={`/sales/${brand}?leadId=${encodeURIComponent(item.leadId)}`}
                               style={{ textDecoration: 'none', color: 'inherit' }}
                             >
                               <Text fw={600} size="sm" className="hover:underline">
@@ -875,7 +875,7 @@ export function TodayClient({ brand, label }: Props) {
                         <div>
                           <Group gap="xs">
                             <Link
-                              href={`/sales/${brand}?lead=${item.leadId}`}
+                              href={`/sales/${brand}?leadId=${encodeURIComponent(item.leadId)}`}
                               style={{ textDecoration: 'none', color: 'inherit' }}
                             >
                               <Text fw={600} size="sm" className="hover:underline">
@@ -1021,7 +1021,7 @@ export function TodayClient({ brand, label }: Props) {
                         <div>
                           <Group gap="xs">
                             <Link
-                              href={`/sales/${brand}?lead=${deal.leadId}`}
+                              href={`/sales/${brand}?leadId=${encodeURIComponent(deal.leadId)}`}
                               style={{ textDecoration: 'none', color: 'inherit' }}
                             >
                               <Text fw={600} size="sm" className="hover:underline">
@@ -1073,7 +1073,7 @@ export function TodayClient({ brand, label }: Props) {
                         </Button>
                         <Button
                           component={Link}
-                          href={`/sales/${brand}?lead=${deal.leadId}`}
+                          href={`/sales/${brand}?leadId=${encodeURIComponent(deal.leadId)}`}
                           size="xs"
                           variant="default"
                           rightSection={<IconArrowRight size={14} />}

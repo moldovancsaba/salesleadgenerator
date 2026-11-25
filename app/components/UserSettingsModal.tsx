@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { Modal, Stack, Group, Title, Text, Button, Paper, Divider, Loader, Switch, NumberInput } from '@mantine/core';
+import { Modal, Stack, Group, Title, Text, Button, Paper, Divider, Loader, Switch, NumberInput, Select } from '@mantine/core';
 import { StatusBadge, LabelTag, InlineAlert } from '@sovereignsquad/gds-core/client';
 import { IconMail, IconBrandGoogle, IconCheck, IconAlertTriangle, IconRefresh, IconUnlink, IconCalendar, IconInfoCircle, IconPlus } from '@tabler/icons-react';
 import { useAuth } from './AuthProvider';
@@ -51,8 +51,9 @@ function formatRelativeTime(iso: string | undefined): string {
 }
 
 export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) {
-  const { user, isSuperAdmin } = useAuth();
+  const { user, isSuperAdmin, preferredStartScreen, hideNeedsReplyByBrand, refresh } = useAuth();
   const pathname = usePathname();
+  const [prefsSaving, setPrefsSaving] = useState(false);
   const [connections, setConnections] = useState<SafeConnection[]>([]);
   const [configured, setConfigured] = useState<{ google: boolean; encryption: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -300,6 +301,32 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
     }
   }
 
+  async function handleUpdateUserPreferences(patch: {
+    preferredStartScreen?: string | null;
+    hideNeedsReply?: { brand: string; hide: boolean };
+  }) {
+    setPrefsSaving(true);
+    setFeedback(null);
+    try {
+      const res = await fetch('/api/user/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setFeedback({ type: 'success', message: 'Workspace preference saved.' });
+        await refresh();
+      } else {
+        setFeedback({ type: 'error', message: data.error || 'Failed to save workspace preference.' });
+      }
+    } catch {
+      setFeedback({ type: 'error', message: 'Could not reach server to update preferences.' });
+    } finally {
+      setPrefsSaving(false);
+    }
+  }
+
   async function handleUpdateCalendarSettings(patch: Partial<CalendarSyncSettings>) {
     setCalendarSaving(true);
     setFeedback(null);
@@ -341,6 +368,50 @@ export function UserSettingsModal({ opened, onClose, brand = 'cogmap' }: Props) 
             </div>
             <LabelTag tone="info" size="xs" label={isSuperAdmin ? 'Super Admin' : 'Sales Rep'} />
           </Group>
+          <Divider my="xs" />
+          <Stack gap="xs">
+            <Group justify="space-between" align="center" wrap="nowrap">
+              <div>
+                <Text size="sm" fw={500}>Default Start Screen</Text>
+                <Text size="xs" c="dimmed">Where you land right after login</Text>
+              </div>
+              <Select
+                size="xs"
+                w={170}
+                aria-label="Default Start Screen"
+                value={preferredStartScreen || 'default'}
+                disabled={prefsSaving}
+                data={[
+                  { value: 'default', label: 'Default (Forecast)' },
+                  { value: 'today', label: 'Dashboard (Today)' },
+                  { value: 'sales', label: 'Deals (Pipeline)' },
+                  { value: 'inbox', label: 'Inbox' },
+                ]}
+                onChange={(val) =>
+                  handleUpdateUserPreferences({
+                    preferredStartScreen: val === 'default' || !val ? null : val,
+                  })
+                }
+              />
+            </Group>
+            <Group justify="space-between" align="center" wrap="nowrap">
+              <div>
+                <Text size="sm" fw={500}>Hide &ldquo;Needs Reply&rdquo; queue in {brand}</Text>
+                <Text size="xs" c="dimmed">Keep unread counts while hiding the Needs Reply filter and badge</Text>
+              </div>
+              <Switch
+                aria-label={`Hide Needs Reply in ${brand}`}
+                checked={Boolean(hideNeedsReplyByBrand?.[brand])}
+                disabled={prefsSaving}
+                color="indigo"
+                onChange={(e) =>
+                  handleUpdateUserPreferences({
+                    hideNeedsReply: { brand, hide: e.currentTarget.checked },
+                  })
+                }
+              />
+            </Group>
+          </Stack>
         </Paper>
 
         <div>

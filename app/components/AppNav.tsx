@@ -256,10 +256,10 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
       ) : !user ? (
         <>
           <Text size="sm" c="dimmed" mt={4}>
-            Sign in to see your organizations.
+            Log in to see your organizations.
           </Text>
           <NavLink
-            label="Sign in"
+            label="Login"
             leftSection={<IconLogin size={18} />}
             onClick={() => {
               handleLinkClick();

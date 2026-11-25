@@ -127,7 +127,7 @@ export const LANDING_CONTENT: LandingContent = {
       { label: "Pricing", href: "#pricing" },
       { label: "FAQ", href: "#faq" },
     ],
-    signInLabel: "Sign in",
+    signInLabel: "Login",
     dashboardLabel: "Go to Dashboard",
     contactLabel: "Contact for Quote",
     contactHref: "mailto:salesleadgenerator@haho.ai",

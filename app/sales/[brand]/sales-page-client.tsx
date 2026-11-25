@@ -59,7 +59,7 @@ export function SalesPageClient({ brand, currency }: Props) {
   // card/row already rendered on this page). Fetched once per leadId value;
   // cleared from the URL on close so refreshing after dismissing the modal
   // doesn't reopen it.
-  const leadIdParam = searchParams.get('leadId');
+  const leadIdParam = searchParams.get('leadId') || searchParams.get('lead');
   useEffect(() => {
     if (!leadIdParam) return;
     let cancelled = false;

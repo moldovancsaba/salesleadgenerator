@@ -5,8 +5,10 @@ import {
   hasAccessToBrand,
   getRoleForBrand,
   resolveLoginDestination,
+  sanitizeReturnTo,
   setUserAliases,
   getUserAliases,
+  setUserPreferences,
 } from '../../lib/sso-access';
 
 // isSuperAdminEmail reads process.env.SSO_SUPER_ADMIN_EMAILS fresh on every
@@ -168,6 +170,73 @@ describe('lib/sso-access', () => {
       process.env.SSO_SUPER_ADMIN_EMAILS = 'moldovancsaba@gmail.com';
       expect(resolveLoginDestination('approved', 'moldovancsaba@gmail.com', undefined, ALL_BRANDS)).toBe('/forecast/cogmap');
       expect(resolveLoginDestination(undefined, 'moldovancsaba@gmail.com', {}, ALL_BRANDS)).toBe('/forecast/cogmap');
+    });
+
+    it('honors per-user preferredStartScreen (today, sales, inbox)', () => {
+      process.env.SSO_SUPER_ADMIN_EMAILS = '';
+      expect(
+        resolveLoginDestination('approved', 'user@example.com', { seyu: 'user' }, ALL_BRANDS, { preferredStartScreen: 'today' })
+      ).toBe('/today/seyu');
+      expect(
+        resolveLoginDestination('approved', 'user@example.com', { seyu: 'user' }, ALL_BRANDS, { preferredStartScreen: 'sales' })
+      ).toBe('/sales/seyu');
+      expect(
+        resolveLoginDestination('approved', 'user@example.com', { seyu: 'user' }, ALL_BRANDS, { preferredStartScreen: 'inbox' })
+      ).toBe('/inbox/seyu');
+    });
+
+    it('preserves accessible deep links and falls back safely if permission changed', () => {
+      process.env.SSO_SUPER_ADMIN_EMAILS = '';
+      expect(
+        resolveLoginDestination('approved', 'user@example.com', { cogmap: 'user' }, ALL_BRANDS, {
+          preferredStartScreen: 'today',
+          returnTo: '/sales/cogmap?leadId=abc',
+        })
+      ).toBe('/sales/cogmap?leadId=abc');
+      expect(
+        resolveLoginDestination('approved', 'user@example.com', { cogmap: 'user' }, ALL_BRANDS, {
+          preferredStartScreen: 'inbox',
+          returnTo: '/sales/seyu?leadId=abc',
+        })
+      ).toBe('/inbox/cogmap');
+      expect(sanitizeReturnTo('https://evil.example.com')).toBeNull();
+      expect(sanitizeReturnTo('//evil.example.com')).toBeNull();
+      expect(sanitizeReturnTo('/inbox/cogmap')).toBe('/inbox/cogmap');
+    });
+  });
+
+  describe('setUserPreferences', () => {
+    it('persists preferredStartScreen and per-workspace hideNeedsReply flag', async () => {
+      const stored: any = { ssoUserId: 'user_1', email: 'u@example.com', orgAccess: { cogmap: 'user' } };
+      const mockDb: any = {
+        collection: () => ({
+          updateOne: async (_q: any, op: any) => {
+            if (op.$set?.preferredStartScreen) stored.preferredStartScreen = op.$set.preferredStartScreen;
+            if (op.$set?.['hideNeedsReplyByBrand.cogmap']) {
+              stored.hideNeedsReplyByBrand = { ...(stored.hideNeedsReplyByBrand || {}), cogmap: true };
+            }
+            if (op.$unset?.preferredStartScreen !== undefined) delete stored.preferredStartScreen;
+            if (op.$unset?.['hideNeedsReplyByBrand.cogmap'] !== undefined && stored.hideNeedsReplyByBrand) {
+              delete stored.hideNeedsReplyByBrand.cogmap;
+            }
+          },
+          findOne: async () => stored,
+        }),
+      };
+
+      const res1 = await setUserPreferences(mockDb, 'user_1', {
+        preferredStartScreen: 'inbox',
+        hideNeedsReplyBrand: { brand: 'cogmap', hide: true },
+      });
+      expect(res1?.preferredStartScreen).toBe('inbox');
+      expect(res1?.hideNeedsReplyByBrand?.cogmap).toBe(true);
+
+      const res2 = await setUserPreferences(mockDb, 'user_1', {
+        preferredStartScreen: null,
+        hideNeedsReplyBrand: { brand: 'cogmap', hide: false },
+      });
+      expect(res2?.preferredStartScreen).toBeUndefined();
+      expect(res2?.hideNeedsReplyByBrand?.cogmap).toBeUndefined();
     });
   });
 

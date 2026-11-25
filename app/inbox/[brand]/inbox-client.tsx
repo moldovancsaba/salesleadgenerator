@@ -73,6 +73,7 @@ import type {
   InboxCounts,
 } from '@/app/lib/inbox-store';
 import { isInternalOrSystemEmail } from '@/lib/email-contact-extractor';
+import { useAuth } from '@/app/components/AuthProvider';
 import { ConvertModal } from './convert-modal';
 
 type Props = {
@@ -111,11 +112,18 @@ function formatFullTime(dateStr: string): string {
 }
 
 export function InboxClient({ brand, label, initialStream, initialSearch, initialThreadId }: Props) {
+  const { hideNeedsReplyByBrand } = useAuth();
+  const hideNeedsReply = Boolean(hideNeedsReplyByBrand?.[brand]);
   const [stream, setStream] = useState<InboxStream>(
     initialStream && ['inbox', 'sent', 'needs_reply', 'internal', 'calls', 'system', 'all'].includes(initialStream)
       ? (initialStream as InboxStream)
       : 'inbox'
   );
+  useEffect(() => {
+    if (hideNeedsReply && stream === 'needs_reply') {
+      setStream('inbox');
+    }
+  }, [hideNeedsReply, stream]);
   const [search, setSearch] = useState(initialSearch || '');
   const [starredOnly, setStarredOnly] = useState(false);
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -645,22 +653,24 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
             style={{ borderRadius: 6 }}
           />
 
-          <NavLink
-            label="Needs Reply"
-            leftSection={<IconFlame size={18} />}
-            rightSection={
-              counts.needs_reply > 0 ? (
-                <CountBadge size="xs" value={counts.needs_reply} srLabel="Needs reply count" />
-              ) : null
-            }
-            active={stream === 'needs_reply' && !archivedOnly}
-            color="orange"
-            onClick={() => {
-              setStream('needs_reply');
-              setArchivedOnly(false);
-            }}
-            style={{ borderRadius: 6 }}
-          />
+          {!hideNeedsReply && (
+            <NavLink
+              label="Needs Reply"
+              leftSection={<IconFlame size={18} />}
+              rightSection={
+                counts.needs_reply > 0 ? (
+                  <CountBadge size="xs" value={counts.needs_reply} srLabel="Needs reply count" />
+                ) : null
+              }
+              active={stream === 'needs_reply' && !archivedOnly}
+              color="orange"
+              onClick={() => {
+                setStream('needs_reply');
+                setArchivedOnly(false);
+              }}
+              style={{ borderRadius: 6 }}
+            />
+          )}
 
           <NavLink
             label="Sent Outreach"
@@ -1075,7 +1085,7 @@ export function InboxClient({ brand, label, initialStream, initialSearch, initia
                           </Box>
                         </Tooltip>
 
-                        {t.needsReply && (
+                        {!hideNeedsReply && t.needsReply && (
                           <StatusBadge status="warning" withIcon size="xs">
                             Reply Needed
                           </StatusBadge>

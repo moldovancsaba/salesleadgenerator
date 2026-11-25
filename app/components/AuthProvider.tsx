@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { SsoAppRole, SsoPermissionStatus } from '@/lib/sso';
+import type { OrgRole, PreferredStartScreen } from '@/lib/sso-access';
 import type { Brand } from '@/app/lib/brand';
 
 // Issue #103: now mounted in app/components/Providers.tsx — the first page
@@ -25,11 +26,14 @@ type AuthContextValue = {
   permission: SsoPermission;
   accessibleBrands: Brand[];
   brandLabels: Record<string, string>;
+  orgRoles: Partial<Record<Brand, OrgRole>>;
   isSuperAdmin: boolean;
   hasSeenTour: boolean;
+  preferredStartScreen: PreferredStartScreen | null;
+  hideNeedsReplyByBrand: Record<string, boolean>;
   loading: boolean;
   isApproved: boolean;
-  login: () => void;
+  login: (returnTo?: string) => void;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -41,8 +45,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [permission, setPermission] = useState<SsoPermission>(null);
   const [accessibleBrands, setAccessibleBrands] = useState<Brand[]>([]);
   const [brandLabels, setBrandLabels] = useState<Record<string, string>>({});
+  const [orgRoles, setOrgRoles] = useState<Partial<Record<Brand, OrgRole>>>({});
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [hasSeenTour, setHasSeenTour] = useState(false);
+  const [preferredStartScreen, setPreferredStartScreen] = useState<PreferredStartScreen | null>(null);
+  const [hideNeedsReplyByBrand, setHideNeedsReplyByBrand] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
   const checkSession = useCallback(async () => {
@@ -55,15 +62,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPermission(data.permission ?? null);
         setAccessibleBrands(data.accessibleBrands ?? []);
         setBrandLabels(data.brandLabels ?? {});
+        setOrgRoles(data.orgRoles ?? {});
         setIsSuperAdmin(Boolean(data.isSuperAdmin));
         setHasSeenTour(Boolean(data.hasSeenTour));
+        setPreferredStartScreen(data.preferredStartScreen ?? null);
+        setHideNeedsReplyByBrand(data.hideNeedsReplyByBrand ?? {});
       } else {
         setUser(null);
         setPermission(null);
         setAccessibleBrands([]);
         setBrandLabels({});
+        setOrgRoles({});
         setIsSuperAdmin(false);
         setHasSeenTour(false);
+        setPreferredStartScreen(null);
+        setHideNeedsReplyByBrand({});
       }
     } catch (err) {
       console.error('[AuthProvider] session check failed:', err);
@@ -71,8 +84,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setPermission(null);
       setAccessibleBrands([]);
       setBrandLabels({});
+      setOrgRoles({});
       setIsSuperAdmin(false);
       setHasSeenTour(false);
+      setPreferredStartScreen(null);
+      setHideNeedsReplyByBrand({});
     } finally {
       setLoading(false);
     }
@@ -82,15 +98,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkSession();
   }, [checkSession]);
 
-  const login = useCallback(() => {
-    // Issue #179 (Next.js 16.3.0 bump) — this new lint rule assumes a
-    // relative-path destination is always an internal page reachable via
-    // client-side routing. /api/auth/login is an API route that issues a
-    // real server-side HTTP redirect chain into the SSO provider's own OAuth
-    // flow; router.push() would perform a client-side transition instead of
-    // a true browser navigation and never follow that redirect correctly.
+  const login = useCallback((returnTo?: string) => {
+    const suffix = typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')
+      ? `?returnTo=${encodeURIComponent(returnTo)}`
+      : '';
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.href = '/api/auth/login';
+    window.location.href = `/api/auth/login${suffix}`;
   }, []);
 
   const logout = useCallback(async () => {
@@ -103,8 +116,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setPermission(null);
       setAccessibleBrands([]);
       setBrandLabels({});
+      setOrgRoles({});
       setIsSuperAdmin(false);
       setHasSeenTour(false);
+      setPreferredStartScreen(null);
+      setHideNeedsReplyByBrand({});
       // Hard navigation to '/' ensures full cleanup of in-memory client state
       // and router caches across all tenant workspaces on sign-out.
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
@@ -119,8 +135,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         permission,
         accessibleBrands,
         brandLabels,
+        orgRoles,
         isSuperAdmin,
         hasSeenTour,
+        preferredStartScreen,
+        hideNeedsReplyByBrand,
         loading,
         isApproved: permission?.status === 'approved',
         login,
