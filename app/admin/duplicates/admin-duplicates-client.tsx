@@ -38,9 +38,11 @@ export function AdminDuplicatesClient() {
   // already relies on, instead of a module-scope BRAND_CONFIG import that
   // would go stale the instant a brand is added through /admin/clients
   // (issue #196) without a page reload.
-  const { brandLabels } = useAuth()
-  const brandOptions = Object.entries(brandLabels).map(([value, label]) => ({ value, label }))
-  const [brand, setBrand] = useState<string>(brandOptions[0]?.value || 'cogmap')
+  const { brandLabels, orgRoles, isSuperAdmin, loading: authLoading } = useAuth()
+  const brandOptions = Object.entries(brandLabels)
+    .filter(([value]) => isSuperAdmin || orgRoles?.[value as keyof typeof orgRoles] === 'admin')
+    .map(([value, label]) => ({ value, label }))
+  const [brand, setBrand] = useState<string>(brandOptions[0]?.value || '')
   const [statusFilter, setStatusFilter] = useState<ReviewStatus>('pending')
   const [reviews, setReviews] = useState<DuplicateReview[]>([])
   const [loading, setLoading] = useState(true)
@@ -49,7 +51,17 @@ export function AdminDuplicatesClient() {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [mergeReviewId, setMergeReviewId] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (authLoading || brandOptions.length === 0) return
+    if (!brand || !brandOptions.some((option) => option.value === brand)) {
+      setBrand(brandOptions[0].value)
+    }
+  }, [authLoading, brand, brandOptions])
+
+  const hasValidBrand = Boolean(brand && brandOptions.some((option) => option.value === brand))
+
   const loadReviews = useCallback(async () => {
+    if (!hasValidBrand) return
     setLoading(true)
     setError(null)
     try {
@@ -65,11 +77,16 @@ export function AdminDuplicatesClient() {
     } finally {
       setLoading(false)
     }
-  }, [brand, statusFilter])
+  }, [brand, hasValidBrand, statusFilter])
 
   useEffect(() => {
+    if (authLoading) return
+    if (!hasValidBrand) {
+      if (brandOptions.length === 0) setLoading(false)
+      return
+    }
     loadReviews()
-  }, [loadReviews])
+  }, [authLoading, brandOptions.length, hasValidBrand, loadReviews])
 
   const runScan = useCallback(async () => {
     setScanning(true)

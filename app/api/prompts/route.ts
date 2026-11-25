@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { requireSuperAdminSession } from '@/lib/session'
+import { requireBrandAdminSession } from '@/lib/session'
+import { isSuperAdminEmail } from '@/lib/sso-access'
+import { resolveBrand } from '@/app/lib/brand'
 import { isSafeIdentifier } from '@/lib/safe-identifier'
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
@@ -26,14 +28,26 @@ function diskPromptExists(tenantId: string, type: 'discovery' | 'enrichment'): {
   return { path, exists: existsSync(path) }
 }
 
-export async function GET(request: NextRequest) {
-  const claimsOrResponse = await requireSuperAdminSession(request)
+// A workspace admin may only touch their own workspace's prompts: the brand
+// must be a real configured one and tenantId may not point elsewhere.
+async function authorizePromptAccess(request: NextRequest, rawBrand: string, rawTenantId: string) {
+  const brand = await resolveBrand(rawBrand)
+  if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+  const claimsOrResponse = await requireBrandAdminSession(request, brand)
   if (claimsOrResponse instanceof NextResponse) return claimsOrResponse
+  if (!isSuperAdminEmail(claimsOrResponse.email) && rawTenantId !== brand) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  return null
+}
 
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const brand = searchParams.get('brand') || 'cogmap'
     const tenantId = searchParams.get('tenantId') || brand
+    const denied = await authorizePromptAccess(request, brand, tenantId)
+    if (denied) return denied
     const type = searchParams.get('type')
 
     if (!type || (type !== 'discovery' && type !== 'enrichment')) {
@@ -74,13 +88,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const claimsOrResponse = await requireSuperAdminSession(request)
-  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse
-
   try {
     const body = await request.json()
     const brand = body.brand || 'cogmap'
     const tenantId = body.tenantId || brand
+    const denied = await authorizePromptAccess(request, brand, tenantId)
+    if (denied) return denied
     const type = body.type
     const content = body.content
 

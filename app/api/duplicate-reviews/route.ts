@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
-import { requireSuperAdminSession } from '@/lib/session';
+import { requireBrandAdminSession } from '@/lib/session';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
 import { getBrandConfig, resolveBrand } from '@/app/lib/brand';
 
@@ -8,16 +8,15 @@ import { getBrandConfig, resolveBrand } from '@/app/lib/brand';
 // app/api/admin/users/* — a human super admin reviewing pairs in the
 // browser at /admin/duplicates.
 export async function GET(request: NextRequest) {
-  const claimsOrResponse = await requireSuperAdminSession(request);
-  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse;
-
-  if (!isMongoConfigured()) {
-    return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
-  }
-
   const { searchParams } = new URL(request.url);
   const brand = await resolveBrand(searchParams.get('brand') || undefined);
   if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
+  // Super admin, or the admin of exactly this workspace (client delivery #20).
+  const claimsOrResponse = await requireBrandAdminSession(request, brand);
+  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse;
+  if (!isMongoConfigured()) {
+    return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
+  }
   const tenantId = (searchParams.get('tenantId') || 'default').trim() || 'default';
   const status = (searchParams.get('status') || 'pending').trim();
   const config = await getBrandConfig(brand);
@@ -55,25 +54,35 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const claimsOrResponse = await requireSuperAdminSession(request);
-  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse;
-
-  if (!isMongoConfigured()) {
-    return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
-  }
-
   const body = await request.json().catch(() => ({}));
   const reviewId = String(body.reviewId || '').trim();
   const status = String(body.status || '').trim();
 
-  if (!reviewId || !['dismissed', 'confirmed'].includes(status)) {
-    return NextResponse.json({ error: 'reviewId and a status of dismissed or confirmed are required' }, { status: 400 });
-  }
+  // Verify session before touching DB, then authorize against the review's own workspace.
+  let dbRef: Awaited<typeof clientPromise> extends { db: () => infer D } ? D : never;
+  const claimsOrResponse = await requireBrandAdminSession(request, async () => {
+    if (!isMongoConfigured()) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
+    }
+    if (!reviewId || !['dismissed', 'confirmed'].includes(status)) {
+      return NextResponse.json({ error: 'reviewId and a status of dismissed or confirmed are required' }, { status: 400 });
+    }
+    if (!ObjectId.isValid(reviewId)) {
+      return NextResponse.json({ error: 'Invalid reviewId' }, { status: 400 });
+    }
+    const client = await clientPromise;
+    dbRef = client.db();
+    const existing = await dbRef
+      .collection('duplicate_reviews')
+      .findOne({ _id: new ObjectId(reviewId) }, { projection: { brand: 1 } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Review not found' }, { status: 404 });
+    }
+    return String(existing.brand);
+  });
+  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse;
 
-  const client = await clientPromise;
-  const db = client.db();
-
-  const result = await db.collection('duplicate_reviews').findOneAndUpdate(
+  const result = await dbRef!.collection('duplicate_reviews').findOneAndUpdate(
     { _id: new ObjectId(reviewId) },
     { $set: { status, reviewedAt: new Date(), reviewedBy: claimsOrResponse.email } },
     { returnDocument: 'after' }

@@ -11,9 +11,19 @@ import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
 // business logic — the FK-repointing/hard-delete/field-merge sequence is the
 // highest-risk part of this feature and deserves real DB-backed coverage,
 // not just a 401 check.
-const requireSuperAdminSessionMock = vi.fn();
+const requireBrandAdminSessionMock = vi.fn();
 vi.mock('@/lib/session', () => ({
-  requireSuperAdminSession: (...args: any[]) => requireSuperAdminSessionMock(...args),
+  requireBrandAdminSession: async (req: any, brandOrResolver: any) => {
+    const auth = await requireBrandAdminSessionMock(req);
+    if (auth instanceof NextResponse) return auth;
+    const brand = typeof brandOrResolver === 'function' ? await brandOrResolver() : brandOrResolver;
+    if (brand instanceof NextResponse) return brand;
+    if (typeof auth?.authorizeBrand === 'function') {
+      const denied = auth.authorizeBrand(brand);
+      if (denied instanceof NextResponse) return denied;
+    }
+    return auth;
+  },
 }));
 
 let mongod: MongoMemoryServer;
@@ -83,14 +93,29 @@ async function seedReview(leadIdA: string, leadIdB: string, status: 'pending' | 
 }
 
 beforeAll(() => {
-  requireSuperAdminSessionMock.mockResolvedValue({ sub: 'test-admin', email: 'admin@test.example.com' });
+  requireBrandAdminSessionMock.mockResolvedValue({ sub: 'test-admin', email: 'admin@test.example.com' });
 });
 
 describe('GET /api/duplicate-reviews/merge — auth gate', () => {
   it('rejects a request the session check itself rejects (401), matching every other /admin/duplicates-adjacent route', async () => {
-    requireSuperAdminSessionMock.mockResolvedValueOnce(NextResponse.json({ error: 'Not authenticated' }, { status: 401 }));
+    requireBrandAdminSessionMock.mockResolvedValueOnce(NextResponse.json({ error: 'Not authenticated' }, { status: 401 }));
     const res = await mergeGET(req('/api/duplicate-reviews/merge?reviewId=000000000000000000000000'));
     expect(res.status).toBe(401);
+  });
+
+  it('rejects a brand admin whose workspace does not match the review brand (403)', async () => {
+    const idA = await seedLead({ entity_name: 'Cross Workspace A' });
+    const idB = await seedLead({ entity_name: 'Cross Workspace B' });
+    const reviewId = await seedReview(idA, idB);
+
+    requireBrandAdminSessionMock.mockResolvedValueOnce({
+      sub: 'seyu-admin',
+      email: 'seyu-admin@test.example.com',
+      authorizeBrand: (b: string) =>
+        b === 'seyu' ? null : NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+    });
+    const res = await mergeGET(req(`/api/duplicate-reviews/merge?reviewId=${reviewId}`));
+    expect(res.status).toBe(403);
   });
 });
 

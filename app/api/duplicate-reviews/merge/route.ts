@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId, type Db } from 'mongodb';
-import { requireSuperAdminSession } from '@/lib/session';
+import { requireBrandAdminSession } from '@/lib/session';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
 import { getBrandConfig } from '@/app/lib/brand';
 import { diffLeads, buildMergedLead, suggestPrimaryId } from '@/lib/lead-merge';
@@ -60,22 +60,28 @@ async function loadReviewAndLeads(reviewId: string): Promise<LoadReviewResult> {
 // Preview only — never writes. Powers the merge UI's conflict picker before
 // the operator commits anything.
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const claimsOrResponse = await requireSuperAdminSession(request);
-  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse;
-
-  if (!isMongoConfigured()) {
-    return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
-  }
-
   const { searchParams } = new URL(request.url);
   const reviewId = (searchParams.get('reviewId') || '').trim();
-  if (!reviewId) {
-    return NextResponse.json({ error: 'reviewId is required' }, { status: 400 });
-  }
 
-  const loaded = await loadReviewAndLeads(reviewId);
-  if ('error' in loaded) return loaded.error;
-  const { review, leadA, leadB } = loaded;
+  let loaded: Exclude<LoadReviewResult, { error: NextResponse }> | null = null;
+  // Workspace admin of the review's own brand, or super admin (client delivery #20).
+  const claimsOrResponse = await requireBrandAdminSession(request, async () => {
+    if (!isMongoConfigured()) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
+    }
+    if (!reviewId) {
+      return NextResponse.json({ error: 'reviewId is required' }, { status: 400 });
+    }
+    const res = await loadReviewAndLeads(reviewId);
+    if ('error' in res) return res.error;
+    loaded = res;
+    return String(res.review.brand);
+  });
+  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse;
+  if (!loaded) {
+    return NextResponse.json({ error: 'Review not found' }, { status: 404 });
+  }
+  const { review, leadA, leadB } = loaded as Exclude<LoadReviewResult, { error: NextResponse }>;
 
   const classifications = diffLeads(leadA, leadB);
 
@@ -95,25 +101,29 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 // docs/ARCHITECTURE.md's "Duplicate Lead Merge" section for the owner's own
 // confirmed choice of hard delete over soft-archive.
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const claimsOrResponse = await requireSuperAdminSession(request);
-  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse;
-
-  if (!isMongoConfigured()) {
-    return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
-  }
-
   const body = await request.json().catch(() => ({}));
   const reviewId = String(body.reviewId || '').trim();
   const primaryId = String(body.primaryId || '').trim();
   const resolutions: Record<string, 'A' | 'B'> = body.resolutions && typeof body.resolutions === 'object' ? body.resolutions : {};
 
-  if (!reviewId || !primaryId) {
-    return NextResponse.json({ error: 'reviewId and primaryId are required' }, { status: 400 });
+  let loaded: Exclude<LoadReviewResult, { error: NextResponse }> | null = null;
+  const claimsOrResponse = await requireBrandAdminSession(request, async () => {
+    if (!isMongoConfigured()) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
+    }
+    if (!reviewId || !primaryId) {
+      return NextResponse.json({ error: 'reviewId and primaryId are required' }, { status: 400 });
+    }
+    const res = await loadReviewAndLeads(reviewId);
+    if ('error' in res) return res.error;
+    loaded = res;
+    return String(res.review.brand);
+  });
+  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse;
+  if (!loaded) {
+    return NextResponse.json({ error: 'Review not found' }, { status: 404 });
   }
-
-  const loaded = await loadReviewAndLeads(reviewId);
-  if ('error' in loaded) return loaded.error;
-  const { db, review, config, leadA, leadB } = loaded;
+  const { db, review, config, leadA, leadB } = loaded as Exclude<LoadReviewResult, { error: NextResponse }>;
 
   // Merging is a special case of confirming a pair is genuinely a duplicate
   // — enforced server-side, not just by the UI only showing "Merge" on a

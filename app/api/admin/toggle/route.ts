@@ -1,19 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { requireSuperAdminSession } from '@/lib/session'
-import { resolveBrand } from '@/app/lib/brand'
+import { requireBrandAdminSession } from '@/lib/session'
+import { isSuperAdminEmail } from '@/lib/sso-access'
+import { resolveBrand, type Brand } from '@/app/lib/brand'
 import { readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
-export async function PUT(request: NextRequest) {
-  const claimsOrResponse = await requireSuperAdminSession(request)
-  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse
+async function authorizeToggleAccess(
+  request: NextRequest,
+  rawBrand: string,
+  rawTenantId: string,
+): Promise<{ ok: false; error: NextResponse } | { ok: true; brand: Brand }> {
+  const brand = await resolveBrand(rawBrand)
+  if (!brand) return { ok: false, error: NextResponse.json({ error: 'Invalid brand' }, { status: 400 }) }
+  const claimsOrResponse = await requireBrandAdminSession(request, brand)
+  if (claimsOrResponse instanceof NextResponse) return { ok: false, error: claimsOrResponse }
+  if (!isSuperAdminEmail(claimsOrResponse.email) && rawTenantId !== brand) {
+    return { ok: false, error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+  }
+  return { ok: true, brand }
+}
 
+export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json()
-    const brand = resolveBrand(body.brand || 'cogmap')
-    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
-    const tenantId = body.tenantId || brand
+    const rawBrand = body.brand || 'cogmap'
+    const tenantId = body.tenantId || rawBrand
+    const auth = await authorizeToggleAccess(request, rawBrand, tenantId)
+    if (!auth.ok) return auth.error
+    const { brand } = auth
     const operation = body.operation
     const enabled = body.enabled
 
@@ -59,15 +74,14 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
-  const claimsOrResponse = await requireSuperAdminSession(request)
-  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse
-
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url)
-    const brand = resolveBrand(searchParams.get('brand') || 'cogmap')
-    if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
-    const tenantId = searchParams.get('tenantId') || brand
+    const rawBrand = searchParams.get('brand') || 'cogmap'
+    const tenantId = searchParams.get('tenantId') || rawBrand
+    const auth = await authorizeToggleAccess(request, rawBrand, tenantId)
+    if (!auth.ok) return auth.error
+    const { brand } = auth
 
     if (!process.env.MONGODB_URI) {
       return NextResponse.json({ error: 'MongoDB not configured' }, { status: 500 })

@@ -1,5 +1,18 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.390
+
+### Workspace admin delegation for Prompt Editor and Duplicate Review (Issue #356)
+
+- **Workspace-scoped admin session gate (`lib/session.ts` `requireBrandAdminSession`):**
+  - Verifies `sso_id_token` first (`401` before any database read) and authorizes super admins across all workspaces or users whose `sso_user_access.orgAccess[brand] === 'admin'` for that exact workspace (`403` for ordinary `'user'` members or admins of other workspaces).
+- **Prompt & operation toggle delegation (`app/api/prompts/route.ts`, `app/api/admin/toggle/route.ts`, `app/admin/prompts/[brand]/page.tsx`, `app/admin/prompts/[brand]/prompt-editor-client.tsx`):**
+  - Enabled workspace `admin` users to view, edit, and toggle Discovery and Enrichment prompts for their own workspace while locking `tenantId === brand` for non-super-admins and loading initial toggle state from `GET /api/admin/toggle`.
+- **Duplicate Review delegation (`app/api/duplicate-reviews/route.ts`, `app/api/duplicate-reviews/merge/route.ts`, `app/api/admin/duplicate-scan/route.ts`, `app/admin/duplicates/page.tsx`, `app/admin/duplicates/admin-duplicates-client.tsx`, `app/components/AppNav.tsx`):**
+  - Authorized duplicate list, scan, confirm/dismiss, and merge preview/commit against the review row's stored workspace `brand`, filtered the `/admin/duplicates` brand selector to workspaces where the user is `admin`, and surfaced a collapsible **Workspace Admin** section (`Prompt Editor` + `Duplicate Review`) in `AppNav`.
+  - Platform administration (`/admin/users`, `/admin/clients`, `/admin/api-keys`, `/admin/teams`) remains super-admin-only.
+  - Added tests in `tests/lib/workspace-admin-delegation.test.ts` and updated `tests/integration/duplicate-scan.integration.test.ts` and `tests/integration/duplicate-review-merge.integration.test.ts`.
+
 ## 2.4.389
 
 ### Exact contact totals and full-directory paging (Issue #355)

@@ -8,8 +8,10 @@ import {
 import { LabelTag } from '@sovereignsquad/gds-core/client'
 import { IconCheck } from '@tabler/icons-react'
 import type { Brand } from '@/app/lib/brand'
+import { useAuth } from '@/app/components/AuthProvider'
 
 export function PromptEditorClient({ brand, label }: { brand: Brand; label: string }) {
+  const { isSuperAdmin } = useAuth()
   const [tenantId, setTenantId] = useState<string>(brand)
   const [activeTab, setActiveTab] = useState<string | null>('discovery')
   const [loading, setLoading] = useState(true)
@@ -29,23 +31,35 @@ export function PromptEditorClient({ brand, label }: { brand: Brand; label: stri
       setLoading(true)
       setError(null)
       try {
-        const [discRes, enrRes] = await Promise.all([
+        const [discRes, enrRes, toggleRes] = await Promise.all([
           fetch(`/api/prompts?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}&type=discovery`),
           fetch(`/api/prompts?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}&type=enrichment`),
+          fetch(`/api/admin/toggle?brand=${brand}&tenantId=${encodeURIComponent(tenantId)}`),
         ])
 
         if (discRes.ok) {
           const discData = await discRes.json()
           if (!cancelled) {
-            setDiscoveryContent(discData.prompt?.content || '')
+            setDiscoveryContent(typeof discData.prompt === 'string' ? discData.prompt : (discData.prompt?.content || ''))
             setDiscoverySource(discData.source || 'unknown')
           }
         }
         if (enrRes.ok) {
           const enrData = await enrRes.json()
           if (!cancelled) {
-            setEnrichmentContent(enrData.prompt?.content || '')
+            setEnrichmentContent(typeof enrData.prompt === 'string' ? enrData.prompt : (enrData.prompt?.content || ''))
             setEnrichmentSource(enrData.source || 'unknown')
+          }
+        }
+        if (toggleRes.ok) {
+          const toggleData = await toggleRes.json()
+          if (!cancelled) {
+            if (typeof toggleData?.toggles?.discovery === 'boolean') {
+              setDiscEnabled(toggleData.toggles.discovery)
+            }
+            if (typeof toggleData?.toggles?.enrichment === 'boolean') {
+              setEnrEnabled(toggleData.toggles.enrichment)
+            }
           }
         }
       } catch (err: any) {
@@ -124,15 +138,17 @@ export function PromptEditorClient({ brand, label }: { brand: Brand; label: stri
           </div>
         </Group>
 
-        <Group gap="xs" align="center">
-          <Text size="xs" c="dimmed">Tenant ID:</Text>
-          <TextInput
-            size="xs"
-            value={tenantId}
-            onChange={(e) => setTenantId(e.currentTarget.value)}
-            style={{ maxWidth: 180 }}
-          />
-        </Group>
+        {isSuperAdmin && (
+          <Group gap="xs" align="center">
+            <Text size="xs" c="dimmed">Tenant ID:</Text>
+            <TextInput
+              size="xs"
+              value={tenantId}
+              onChange={(e) => setTenantId(e.currentTarget.value)}
+              style={{ maxWidth: 180 }}
+            />
+          </Group>
+        )}
 
         {error && (
           <Alert color="red" title="Error">{error}</Alert>

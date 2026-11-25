@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import type { SsoIdTokenClaims } from './sso';
 import { verifyIdToken } from './sso';
-import { isSuperAdminEmail, getUserAccess, getAccessibleBrands } from './sso-access';
+import { isSuperAdminEmail, getUserAccess, getAccessibleBrands, getRoleForBrand } from './sso-access';
 import { isMongoConfigured, getClientPromise } from './mongodb';
 import { getAllBrandConfigs } from '@/app/lib/brand';
 import { recordLegacyKeyUse } from './legacy-key-usage';
@@ -32,6 +32,36 @@ export async function requireSuperAdminSession(request: NextRequest): Promise<Ss
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
   if (!isSuperAdminEmail(claims.email)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  return claims;
+}
+
+// Workspace-scoped admin gate (client delivery #20): a super admin, or a user
+// whose own role for exactly this brand is 'admin'. Used by the research
+// prompt and duplicate-review routes so a client's designated admin can run
+// their own workspace without platform-wide rights. A brand-admin of one
+// workspace never passes for another, and an ordinary 'user' role never passes.
+// Accepts either a resolved brand string or a lazy resolver (for reviewId-
+// indexed routes) so session verification (401) always fires before any DB read.
+export async function requireBrandAdminSession(
+  request: NextRequest,
+  brandOrResolver: string | (() => Promise<string | NextResponse>),
+): Promise<SsoIdTokenClaims | NextResponse> {
+  const idToken = request.cookies.get('sso_id_token')?.value;
+  const claims = await resolveSessionFromIdToken(idToken);
+  if (!claims) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  }
+  const resolvedBrand = typeof brandOrResolver === 'function' ? await brandOrResolver() : brandOrResolver;
+  if (resolvedBrand instanceof NextResponse) return resolvedBrand;
+  if (isSuperAdminEmail(claims.email)) return claims;
+  if (!isMongoConfigured()) {
+    return NextResponse.json({ error: 'Access control not configured' }, { status: 503 });
+  }
+  const client = await getClientPromise();
+  const record = await getUserAccess(client.db(), claims.sub);
+  if (getRoleForBrand(claims.email, record?.orgAccess, resolvedBrand) !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   return claims;

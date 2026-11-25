@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import { resolveSessionFromIdToken } from '@/lib/session'
-import { isSuperAdminEmail } from '@/lib/sso-access'
+import { isSuperAdminEmail, getUserAccess, getRoleForBrand } from '@/lib/sso-access'
+import clientPromise, { isMongoConfigured } from '@/lib/mongodb'
 import { PromptEditorClient } from './prompt-editor-client'
 import { resolveBrand, getBrandConfig } from '@/app/lib/brand'
 
@@ -26,13 +27,21 @@ export default async function PromptEditorPage({ params }: { params: Promise<{ b
   if (!claims) {
     redirect('/api/auth/login')
   }
-  if (!isSuperAdminEmail(claims.email)) {
-    redirect('/access-denied')
-  }
 
   const { brand: brandParam } = await params
   const brand = await resolveBrand(brandParam)
   if (!brand) notFound()
+
+  // Super admin, or the admin of exactly this workspace (client delivery #20).
+  if (!isSuperAdminEmail(claims.email)) {
+    let allowed = false
+    if (isMongoConfigured()) {
+      const db = (await clientPromise).db()
+      const record = await getUserAccess(db, claims.sub)
+      allowed = getRoleForBrand(claims.email, record?.orgAccess, brand) === 'admin'
+    }
+    if (!allowed) redirect('/access-denied')
+  }
   const config = await getBrandConfig(brand)
 
   return <PromptEditorClient brand={brand} label={config?.label ?? brand} />

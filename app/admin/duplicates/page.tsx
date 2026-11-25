@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { resolveSessionFromIdToken } from '@/lib/session';
-import { isSuperAdminEmail } from '@/lib/sso-access';
+import { isSuperAdminEmail, getUserAccess } from '@/lib/sso-access';
+import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
 import { AdminDuplicatesClient } from './admin-duplicates-client';
 
 export const metadata = { title: 'Admin — Duplicate Review' };
@@ -15,8 +16,16 @@ export default async function AdminDuplicatesPage() {
   if (!claims) {
     redirect('/api/auth/login');
   }
+  // Super admin, or a user who is admin of at least one workspace (client
+  // delivery #20); the client and every API call then scope to those brands.
   if (!isSuperAdminEmail(claims.email)) {
-    redirect('/access-denied');
+    let hasAdminRole = false;
+    if (isMongoConfigured()) {
+      const db = (await clientPromise).db();
+      const record = await getUserAccess(db, claims.sub);
+      hasAdminRole = Object.values(record?.orgAccess || {}).some((role) => role === 'admin');
+    }
+    if (!hasAdminRole) redirect('/access-denied');
   }
 
   return <AdminDuplicatesClient />;

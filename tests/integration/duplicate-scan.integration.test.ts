@@ -4,11 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { startTestMongo, stopTestMongo } from './helpers/mongo-test-server';
 
 // Same mocked session boundary as duplicate-review-merge.integration.test.ts:
-// requireSuperAdminSession verifies a real SSO JWT against a live JWKS
+// requireBrandAdminSession verifies a real SSO JWT against a live JWKS
 // endpoint, which this sandbox cannot sign for.
-const requireSuperAdminSessionMock = vi.fn();
+const requireBrandAdminSessionMock = vi.fn();
 vi.mock('@/lib/session', () => ({
-  requireSuperAdminSession: (...args: any[]) => requireSuperAdminSessionMock(...args),
+  requireBrandAdminSession: (...args: any[]) => requireBrandAdminSessionMock(...args),
 }));
 
 let mongod: MongoMemoryServer;
@@ -17,7 +17,7 @@ let scanPOST: typeof import('../../app/api/admin/duplicate-scan/route').POST;
 beforeAll(async () => {
   mongod = await startTestMongo();
   scanPOST = (await import('../../app/api/admin/duplicate-scan/route')).POST;
-  requireSuperAdminSessionMock.mockResolvedValue({ sub: 'test-admin', email: 'admin@test.example.com' });
+  requireBrandAdminSessionMock.mockResolvedValue({ sub: 'test-admin', email: 'admin@test.example.com' });
 }, 60000);
 
 afterAll(async () => {
@@ -55,9 +55,15 @@ async function scan() {
 
 describe('POST /api/admin/duplicate-scan', () => {
   it('rejects a request the session check rejects (401)', async () => {
-    requireSuperAdminSessionMock.mockResolvedValueOnce(NextResponse.json({ error: 'Not authenticated' }, { status: 401 }));
+    requireBrandAdminSessionMock.mockResolvedValueOnce(NextResponse.json({ error: 'Not authenticated' }, { status: 401 }));
     const { status } = await scan();
     expect(status).toBe(401);
+  });
+
+  it('rejects a brand admin of a different workspace (403)', async () => {
+    requireBrandAdminSessionMock.mockResolvedValueOnce(NextResponse.json({ error: 'Forbidden' }, { status: 403 }));
+    const { status } = await scan();
+    expect(status).toBe(403);
   });
 
   it('inserts a candidate pair once, with sorted ids, and does not re-insert it on a re-scan', async () => {

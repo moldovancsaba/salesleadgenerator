@@ -166,7 +166,7 @@ export function AppNavSidebar() {
 export function AppNavContent({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, loading, accessibleBrands, brandLabels, isSuperAdmin, login, logout } = useAuth();
+  const { user, loading, accessibleBrands, brandLabels, orgRoles, isSuperAdmin, login, logout } = useAuth();
   const { startTour } = useTour();
   const urlBrand = currentBrandFromPath(pathname, Object.keys(brandLabels));
 
@@ -595,6 +595,37 @@ export function AppNavContent({ onClose }: { onClose?: () => void }) {
                   label="API Keys"
                   leftSection={<IconKey size={18} />}
                   active={pathname === '/admin/api-keys'}
+                  onClick={handleLinkClick}
+                />
+              </NavLink>
+            </>
+          )}
+
+          {!isSuperAdmin && effectiveBrand && orgRoles?.[effectiveBrand] === 'admin' && (
+            <>
+              <Divider my="xs" />
+              <NavLink
+                label="Workspace Admin"
+                leftSection={<IconShieldLock size={18} />}
+                opened={adminOpen}
+                onChange={setAdminOpen}
+                childrenOffset={12}
+                defaultOpened={adminOpen}
+              >
+                <NavLink
+                  component={Link}
+                  href={`/admin/prompts/${effectiveBrand}`}
+                  label="Prompt Editor"
+                  leftSection={<IconEdit size={18} />}
+                  active={pathname.startsWith('/admin/prompts')}
+                  onClick={handleLinkClick}
+                />
+                <NavLink
+                  component={Link}
+                  href="/admin/duplicates"
+                  label="Duplicate Review"
+                  leftSection={<IconCopyCheck size={18} />}
+                  active={pathname === '/admin/duplicates'}
                   onClick={handleLinkClick}
                 />
               </NavLink>

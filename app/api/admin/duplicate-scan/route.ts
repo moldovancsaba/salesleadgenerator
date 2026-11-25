@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireSuperAdminSession } from '@/lib/session';
+import { requireBrandAdminSession } from '@/lib/session';
 import clientPromise, { isMongoConfigured } from '@/lib/mongodb';
 import { tenantFilter } from '@/lib/tenant';
 import { getBrandConfig, resolveBrand } from '@/app/lib/brand';
@@ -34,16 +34,15 @@ function pairKey(a: string, b: string): string {
 // API key, the same constraint documented elsewhere in this repo (e.g. PUT
 // /api/sales-settings/[brand]).
 export async function POST(request: NextRequest) {
-  const claimsOrResponse = await requireSuperAdminSession(request);
-  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse;
-
-  if (!isMongoConfigured()) {
-    return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
-  }
-
   const body = await request.json().catch(() => ({}));
   const brand = await resolveBrand(body.brand);
   if (!brand) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
+  // Super admin or this workspace's own admin only (client delivery #20).
+  const claimsOrResponse = await requireBrandAdminSession(request, brand);
+  if (claimsOrResponse instanceof NextResponse) return claimsOrResponse;
+  if (!isMongoConfigured()) {
+    return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
+  }
   const tenantId = (body.tenantId || 'default').trim() || 'default';
   const config = await getBrandConfig(brand);
   if (!config) return NextResponse.json({ error: 'Invalid brand' }, { status: 400 });
