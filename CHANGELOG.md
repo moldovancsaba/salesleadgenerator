@@ -1,5 +1,13 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.389
+
+### Exact contact totals and full-directory paging (Issue #355)
+
+- **`GET /api/contacts` (`app/api/contacts/route.ts`, `lib/contacts-directory.ts`):** removed the hard 5,000-lead ceiling (leads are now read in full, restricted to leads that have contacts) and added server-side `page`/`pageSize`/`sortBy`/`sortDir`/`phoneOnly` with a deterministic tie-break key so paging is stable. The response now carries `totalContacts`, `filteredCount`, `page`, `pageSize` and `totalPages`; calls without paging params keep returning the full list, and CSV export covers every filtered contact.
+- **Contacts page (`app/contacts/[brand]/contacts-client.tsx`):** the header badge shows the exact total (no `99+` cap) plus the matching count when filtered, and the table has page-size and page controls so the last contact is reachable and searchable.
+- Tests in `tests/lib/contacts-directory.test.ts` (5,600-contact fixture).
+
 ## 2.4.388
 
 ### Login Label Standardization, Per-User Start Screen, Needs Reply Preference & Today Link Fix (Issue #354)

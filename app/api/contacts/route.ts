@@ -5,7 +5,7 @@ import type { Brand } from '../../lib/brand'
 import { requireBrandAccessApi } from '../../../lib/require-brand-access-api'
 import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { aggregateContactsAcrossLeads } from '../../../lib/contacts'
-import { escapeRegExp } from '../../lib/search/tagged-content-filter'
+import { queryContactsDirectory } from '../../../lib/contacts-directory'
 
 async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url);
@@ -30,9 +30,15 @@ export async function GET(request: NextRequest) {
     const tenantId = getTenantId(request);
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get('q') || '').trim();
-    // Same bound as GET /api/leads — revisit only if real usage shows this
-    // in-process aggregation needs to become a Mongo-level pipeline instead.
-    const limit = Math.max(1, Math.min(5000, parseInt(searchParams.get('limit') || '5000') || 5000));
+    const limitParam = searchParams.get('limit');
+    const explicitLimit = limitParam ? Math.max(1, parseInt(limitParam, 10) || 5000) : null;
+    const pageParam = searchParams.get('page');
+    const pageSizeParam = searchParams.get('pageSize');
+    const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : undefined;
+    const pageSize = pageSizeParam ? Math.max(1, Math.min(500, parseInt(pageSizeParam, 10) || 100)) : undefined;
+    const sortBy = (searchParams.get('sortBy') || 'name').trim();
+    const sortDir = searchParams.get('sortDir') === 'desc' ? 'desc' : 'asc';
+    const phoneOnly = searchParams.get('phoneOnly') === '1' || searchParams.get('phoneOnly') === 'true';
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
@@ -40,12 +46,20 @@ export async function GET(request: NextRequest) {
 
     const client = await getClientPromise();
     const db = client.db();
-    const filter = { ...tenantFilter(tenantId) };
+    // Combine tenant filter via $and because default-tenant tenantFilter carries $or.
+    // Restricting to leads that actually have at least one contact avoids scanning
+    // unpopulated leads while preserving 100% of contacts across all >5,000+ leads.
+    const filter = {
+      $and: [tenantFilter(tenantId), { 'contacts.0': { $exists: true } }],
+    };
 
-    const rawLeads = await db.collection(config.dbCollection)
+    const cursor = db.collection(config.dbCollection)
       .find(filter, { projection: { entity_name: 1, contacts: 1 } })
-      .limit(limit)
-      .toArray();
+      .sort({ _id: 1 });
+    if (explicitLimit !== null) {
+      cursor.limit(explicitLimit);
+    }
+    const rawLeads = await cursor.toArray();
 
     const leads = rawLeads.map((l: any) => ({
       _id: l._id.toString(),
@@ -53,40 +67,28 @@ export async function GET(request: NextRequest) {
       contacts: l.contacts,
     }));
 
-    let contacts = aggregateContactsAcrossLeads(leads);
+    const aggregated = aggregateContactsAcrossLeads(leads);
 
     const crmStatusFilter = (searchParams.get('crmStatus') || '').trim().toLowerCase();
     const ownerFilter = (searchParams.get('owner') || '').trim();
     const buyingRoleFilter = (searchParams.get('buyingRole') || '').trim().toLowerCase();
     const format = (searchParams.get('format') || '').trim().toLowerCase();
 
-    if (q) {
-      // Case-insensitive substring match against name, email, secondaryEmail, title, or company name (issue #241).
-      const re = new RegExp(escapeRegExp(q), 'i');
-      contacts = contacts.filter((c) =>
-        re.test(c.name) ||
-        (c.email && re.test(c.email)) ||
-        (c.secondaryEmail && re.test(c.secondaryEmail)) ||
-        (c.title && re.test(c.title)) ||
-        (c.leads && c.leads.some((l) => re.test(l.entity_name)))
-      );
-    }
-
-    if (crmStatusFilter) {
-      contacts = contacts.filter((c) => (c.crmStatus || 'prospect').toLowerCase() === crmStatusFilter);
-    }
-
-    if (ownerFilter) {
-      contacts = contacts.filter((c) => c.ownerUserId === ownerFilter);
-    }
-
-    if (buyingRoleFilter) {
-      contacts = contacts.filter((c) => (c.buyingRole || '').toLowerCase() === buyingRoleFilter);
-    }
+    const directory = queryContactsDirectory(aggregated, {
+      q,
+      crmStatus: crmStatusFilter,
+      owner: ownerFilter,
+      buyingRole: buyingRoleFilter,
+      phoneOnly,
+      sortBy,
+      sortDir,
+      page,
+      pageSize,
+    });
 
     if (format === 'csv' || request.headers.get('accept')?.includes('text/csv')) {
       const header = ['Name', 'First Name', 'Last Name', 'Title', 'Primary Email', 'Secondary Email', 'Phone', 'LinkedIn', 'Buying Role', 'Decision Maker', 'CRM Status', 'Owner', 'Companies'];
-      const rows = contacts.map((c) => {
+      const rows = directory.filteredContacts.map((c) => {
         const companies = (c.leads || []).map((l: any) => l.entity_name).join('; ');
         return [
           c.name || '',
@@ -115,10 +117,15 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      contacts,
+      contacts: directory.contacts,
       brand,
       tenantId,
-      returned: contacts.length,
+      returned: directory.contacts.length,
+      totalContacts: directory.totalContacts,
+      filteredCount: directory.filteredCount,
+      page: directory.page,
+      pageSize: directory.pageSize,
+      totalPages: directory.totalPages,
     });
   } catch (error: any) {
     console.error('GET /api/contacts Error:', error)

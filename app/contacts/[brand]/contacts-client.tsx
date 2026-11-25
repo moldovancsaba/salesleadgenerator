@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Title, Text, Group, Stack, TextInput, Loader, Button, Select, ActionIcon, Paper } from '@mantine/core'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Box, Title, Text, Group, Stack, TextInput, Loader, Button, Select, ActionIcon, Paper, Pagination } from '@mantine/core'
 import { AdminDataTable, AdminFormStatus, AdminResourceEmptyState } from '@sovereignsquad/gds-admin/client'
 import { StatusBadge, LabelTag, CountBadge, InlineAlert } from '@sovereignsquad/gds-core/client'
 import { IconSearch, IconBrandLinkedin, IconDownload, IconX, IconBrandGoogle, IconCheck } from '@tabler/icons-react'
@@ -81,6 +81,11 @@ export function ContactsClient({ brand, label }: Props) {
   const [crmStatusFilter, setCrmStatusFilter] = useState<string>('all')
   const [phoneOnlyFilter, setPhoneOnlyFilter] = useState<boolean>(false)
   const [contacts, setContacts] = useState<ContactRow[]>([])
+  const [totalContacts, setTotalContacts] = useState(0)
+  const [filteredCount, setFilteredCount] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(100)
+  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sort, setSort] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' })
@@ -129,20 +134,41 @@ export function ContactsClient({ brand, label }: Props) {
     } catch {}
   }, [])
 
-  const loadContacts = useCallback(async (q: string, role: string, status: string) => {
+  const loadContacts = useCallback(async (
+    q: string,
+    role: string,
+    status: string,
+    phoneOnly: boolean,
+    targetPage: number,
+    targetPageSize: number,
+    targetSort: { key: string; direction: 'asc' | 'desc' }
+  ) => {
     setLoading(true)
     setError(null)
     try {
       const url = new URL('/api/contacts', window.location.origin)
       url.searchParams.set('brand', brand)
       url.searchParams.set('tenantId', tenantId)
+      url.searchParams.set('page', String(targetPage))
+      url.searchParams.set('pageSize', String(targetPageSize))
+      url.searchParams.set('sortBy', targetSort.key)
+      url.searchParams.set('sortDir', targetSort.direction)
       if (q.trim()) url.searchParams.set('q', q.trim())
       if (role && role !== 'all') url.searchParams.set('buyingRole', role)
       if (status && status !== 'all') url.searchParams.set('crmStatus', status)
+      if (phoneOnly) url.searchParams.set('phoneOnly', '1')
       const res = await fetch(url.toString())
       if (!res.ok) throw new Error('Failed to load contacts')
       const data = await res.json()
       setContacts(data.contacts || [])
+      const total = typeof data.totalContacts === 'number' ? data.totalContacts : (data.contacts || []).length
+      const filtered = typeof data.filteredCount === 'number' ? data.filteredCount : (data.contacts || []).length
+      setTotalContacts(total)
+      setFilteredCount(filtered)
+      setTotalPages(typeof data.totalPages === 'number' ? data.totalPages : 1)
+      if (typeof data.page === 'number' && data.page !== targetPage) {
+        setPage(data.page)
+      }
     } catch (err: any) {
       setError(err?.message || 'Failed to load contacts')
     } finally {
@@ -154,38 +180,22 @@ export function ContactsClient({ brand, label }: Props) {
   // on the sales board's own search box (app/sales/[brand]/sales-page-client.tsx).
   useEffect(() => {
     clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => loadContacts(query, roleFilter, crmStatusFilter), 250)
+    debounceRef.current = setTimeout(
+      () => loadContacts(query, roleFilter, crmStatusFilter, phoneOnlyFilter, page, pageSize, sort),
+      200
+    )
     return () => clearTimeout(debounceRef.current)
-  }, [query, roleFilter, crmStatusFilter, loadContacts])
+  }, [query, roleFilter, crmStatusFilter, phoneOnlyFilter, page, pageSize, sort, loadContacts])
 
-  const sortedContacts = useMemo(() => {
-    let list = [...contacts]
-    if (phoneOnlyFilter) {
-      list = list.filter((c) => Boolean(c.phone && c.phone.trim().length > 3));
-    }
-    list.sort((a, b) => {
-      let cmp = 0
-      if (sort.key === 'name') {
-        cmp = (a.name || '').localeCompare(b.name || '')
-      } else if (sort.key === 'leads' || sort.key === 'company') {
-        const leadA = a.leads?.[0]?.entity_name || ''
-        const leadB = b.leads?.[0]?.entity_name || ''
-        cmp = leadA.localeCompare(leadB)
-      } else if (sort.key === 'title') {
-        cmp = (a.title || '').localeCompare(b.title || '')
-      } else if (sort.key === 'email') {
-        cmp = (a.email || '').localeCompare(b.email || '')
-      } else if (sort.key === 'phone') {
-        cmp = (a.phone || '').localeCompare(b.phone || '')
-      } else if (sort.key === 'buyingRole') {
-        cmp = (a.buyingRole || '').localeCompare(b.buyingRole || '')
-      } else if (sort.key === 'crmStatus') {
-        cmp = (a.crmStatus || '').localeCompare(b.crmStatus || '')
-      }
-      return sort.direction === 'asc' ? cmp : -cmp
-    })
-    return list
-  }, [contacts, phoneOnlyFilter, sort])
+  const sortedContacts = contacts
+  // Any filter/search change returns to the first page so results never appear empty
+  // because the previous page index exceeds the new filtered total.
+  useEffect(() => {
+    setPage(1)
+  }, [query, roleFilter, crmStatusFilter, phoneOnlyFilter, pageSize])
+  const rangeStart = filteredCount === 0 ? 0 : (page - 1) * pageSize + 1
+  const rangeEnd = Math.min(filteredCount, (page - 1) * pageSize + sortedContacts.length)
+  const hasActiveFilter = Boolean(query.trim() || roleFilter !== 'all' || crmStatusFilter !== 'all' || phoneOnlyFilter)
 
   return (
     <Box px={{ base: 'sm', sm: 'md', md: 'lg' }} py="md" w="100%" style={{ flex: 1, minWidth: 0 }}>
@@ -195,7 +205,12 @@ export function ContactsClient({ brand, label }: Props) {
           <div>
             <Group gap="xs" align="center">
               <Title order={2} style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Contacts</Title>
-              <CountBadge value={contacts.length} size="md" srLabel="Total contacts" />
+              <CountBadge value={totalContacts} cap={Number.MAX_SAFE_INTEGER} size="md" srLabel="Total contacts" />
+              {hasActiveFilter && filteredCount !== totalContacts && (
+                <Text size="xs" c="dimmed">
+                  ({filteredCount.toLocaleString()} matching)
+                </Text>
+              )}
               {isGoogleConnected && (
                 <StatusBadge status="success" size="xs">
                   Google Contacts Active
@@ -231,7 +246,7 @@ export function ContactsClient({ brand, label }: Props) {
             ) : null}
             <Button
               component="a"
-              href={`/api/contacts?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}&format=csv${query.trim() ? `&q=${encodeURIComponent(query.trim())}` : ''}${roleFilter !== 'all' ? `&buyingRole=${encodeURIComponent(roleFilter)}` : ''}${crmStatusFilter !== 'all' ? `&crmStatus=${encodeURIComponent(crmStatusFilter)}` : ''}`}
+              href={`/api/contacts?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}&format=csv${query.trim() ? `&q=${encodeURIComponent(query.trim())}` : ''}${roleFilter !== 'all' ? `&buyingRole=${encodeURIComponent(roleFilter)}` : ''}${crmStatusFilter !== 'all' ? `&crmStatus=${encodeURIComponent(crmStatusFilter)}` : ''}${phoneOnlyFilter ? '&phoneOnly=1' : ''}`}
               variant="default"
               size="xs"
               leftSection={<IconDownload size={14} />}
@@ -386,13 +401,13 @@ export function ContactsClient({ brand, label }: Props) {
           <Group justify="center" py="xl"><Loader size="sm" /></Group>
         ) : contacts.length === 0 ? (
           <AdminResourceEmptyState
-            title={query.trim() || roleFilter !== 'all' || crmStatusFilter !== 'all' ? 'No matching contacts' : 'No contacts yet'}
-            description={query.trim() || roleFilter !== 'all' || crmStatusFilter !== 'all' ? 'Try adjusting your search query or role/status filters.' : 'Contacts appear here once leads have named contacts.'}
+            title={hasActiveFilter ? 'No matching contacts' : 'No contacts yet'}
+            description={hasActiveFilter ? 'Try adjusting your search query or role/status filters.' : 'Contacts appear here once leads have named contacts.'}
           />
         ) : (
           <AdminDataTable<ContactRow>
             rows={sortedContacts}
-            caption={`Showing ${sortedContacts.length} contacts`}
+            caption={`Showing ${rangeStart.toLocaleString()}–${rangeEnd.toLocaleString()} of ${filteredCount.toLocaleString()} contacts`}
             sort={sort}
             onSortChange={setSort}
             columns={[
@@ -599,6 +614,29 @@ export function ContactsClient({ brand, label }: Props) {
             getRowKey={(row) => row.key}
           />
         )}
+
+        {!loading && filteredCount > 0 && (
+          <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+            <Text size="xs" c="dimmed">
+              {rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of {filteredCount.toLocaleString()}
+              {hasActiveFilter ? ` matching (${totalContacts.toLocaleString()} total)` : ' contacts'}
+            </Text>
+            <Group gap="xs" align="center">
+              <Select
+                size="xs"
+                w={110}
+                aria-label="Contacts per page"
+                value={String(pageSize)}
+                onChange={(val) => setPageSize(Number(val) || 100)}
+                data={['50', '100', '250', '500']}
+                allowDeselect={false}
+              />
+              {totalPages > 1 && (
+                <Pagination size="sm" total={totalPages} value={page} onChange={setPage} aria-label="Contacts pages" />
+              )}
+            </Group>
+          </Group>
+        )}
       </Stack>
 
       <GoogleContactsWorkspaceModal
@@ -606,7 +644,7 @@ export function ContactsClient({ brand, label }: Props) {
         onClose={() => setImportModalOpen(false)}
         brand={brand}
         tenantId={tenantId}
-        onImported={() => void loadContacts(query, roleFilter, crmStatusFilter)}
+        onImported={() => void loadContacts(query, roleFilter, crmStatusFilter, phoneOnlyFilter, page, pageSize, sort)}
       />
     </Box>
   )
