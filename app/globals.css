@@ -173,10 +173,23 @@ textarea {
 }
 
 [data-gds-kanban-column] [data-gds-kanban-drop-zone] {
-  flex: 0 0 auto !important;
+  flex: 1 1 auto !important;
+  min-height: 120px !important;
+  width: 100% !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: flex-start !important;
+}
+
+[data-gds-kanban-drop-shell] > [data-gds-kanban-column] {
+  flex: 1 1 auto !important;
+  transition: outline-color 0.12s ease, background-color 0.12s ease;
+}
+
+[data-gds-kanban-drop-target="true"] > [data-gds-kanban-column] {
+  outline: 2px solid var(--mantine-color-blue-5) !important;
+  outline-offset: -2px !important;
+  background-color: var(--mantine-color-blue-light) !important;
 }
 
 [data-gds-kanban-column="BACKLOG"] {

@@ -1,10 +1,24 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
-import { Box, Group, Loader, Button, Checkbox, Text, Select, TextInput } from '@mantine/core';
+import { Box, Group, Loader, Button, Checkbox, Text, Select, TextInput, Stack, ScrollArea, Paper } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
-import { KanbanBoard as GdsKanbanBoard, StatusBadge } from '@sovereignsquad/gds-core/client';
+import { KanbanColumn as GdsKanbanColumn, StatusBadge, useGdsKanbanOrientation } from '@sovereignsquad/gds-core/client';
 import type { KanbanItem as GdsKanbanItem, KanbanColumnData as GdsKanbanColumnData } from '@sovereignsquad/gds-core/client';
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  MeasuringStrategy,
+  PointerSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
 import type { Lead, KanbanColumn } from './types';
 import type { CurrencyCode } from './lib/brand';
 import { LeadCard } from './card';
@@ -16,6 +30,12 @@ import type { LeadFilter } from '../lib/saved-filters';
 import { TOUR_SELECTOR } from './lib/tour/selectors';
 import { isAutoManagedColumn } from '../lib/kanban-column';
 import { decideMoveItemAction, resolveReorderNeighbors } from '../lib/kanban-reorder';
+import {
+  kanbanCollisionDetection,
+  resolveColumnForDroppableId,
+  resolveDropDestination,
+  toColumnShellId,
+} from '../lib/kanban-collision';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isVerticalScrollIntent } from '../lib/desktop-scroll-passthrough';
 import { matchesQuickFilterPreset, type QuickFilterPreset } from '../lib/quick-filter-presets';
@@ -125,6 +145,265 @@ function LoadMoreSentinel({ onLoadMore }: { onLoadMore: () => void }) {
   );
 }
 
+function DroppableColumnShell({
+  columnId,
+  disabled,
+  isDropTarget,
+  isBacklog,
+  isCollapsed,
+  children,
+}: {
+  columnId: string;
+  disabled: boolean;
+  isDropTarget: boolean;
+  isBacklog: boolean;
+  isCollapsed: boolean;
+  children: ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({
+    id: toColumnShellId(columnId),
+    disabled,
+  });
+
+  return (
+    <div
+      ref={disabled ? undefined : setNodeRef}
+      data-gds-kanban-drop-shell={columnId}
+      data-gds-kanban-drop-shell-collapsed={isCollapsed ? 'true' : undefined}
+      data-gds-kanban-drop-target={isDropTarget ? 'true' : undefined}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: isBacklog ? '1 1 100%' : '0 0 auto',
+        width: isBacklog ? '100%' : undefined,
+        alignSelf: 'stretch',
+        minHeight: 0,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function ReliableKanbanBoard({
+  columns,
+  onMoveItem,
+  renderItem,
+  emptyColumnLabel,
+  collapsedColumnIds,
+  onCollapsedChange,
+  enableDrag,
+  columnPanZone,
+  columnWidth,
+}: {
+  columns: LeadKanbanColumn[];
+  onMoveItem: (itemId: string, fromColumnId: string, toColumnId: string, toIndex?: number) => void;
+  renderItem: (item: GdsKanbanItem, column: GdsKanbanColumnData) => ReactNode;
+  emptyColumnLabel: string;
+  collapsedColumnIds: string[];
+  onCollapsedChange: (columnId: string, collapsed: boolean) => void;
+  enableDrag: boolean;
+  columnPanZone: 'header' | 'none';
+  columnWidth: number;
+}) {
+  const resolvedOrientation = useGdsKanbanOrientation();
+  const [activeItem, setActiveItem] = useState<{ item: LeadKanbanItem; column: LeadKanbanColumn } | null>(null);
+  const [activeOverColumnId, setActiveOverColumnId] = useState<string | null>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || columnPanZone !== 'header' || resolvedOrientation === 'stacked') {
+      return undefined;
+    }
+    if (typeof window === 'undefined' || !window.matchMedia?.('(pointer: fine)').matches) {
+      return undefined;
+    }
+    const onWheel = (event: WheelEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest?.('[data-gds-kanban-column-header]')) {
+        return;
+      }
+      const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
+      if (delta === 0) return;
+      const rtl = getComputedStyle(viewport).direction === 'rtl';
+      viewport.scrollLeft += rtl ? -delta : delta;
+      event.preventDefault();
+    };
+    viewport.addEventListener('wheel', onWheel, { passive: false });
+    return () => viewport.removeEventListener('wheel', onWheel);
+  }, [columnPanZone, resolvedOrientation]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  const { columnIds, itemToColumn } = useMemo(() => {
+    const cols = new Set<string>();
+    const items = new Map<string, string>();
+    for (const col of columns) {
+      cols.add(col.id);
+      for (const item of col.items) {
+        items.set(item.id, col.id);
+      }
+    }
+    return { columnIds: cols, itemToColumn: items };
+  }, [columns]);
+
+  const collisionContextRef = useRef({ columnIds, itemToColumn });
+  useEffect(() => {
+    collisionContextRef.current = { columnIds, itemToColumn };
+  }, [columnIds, itemToColumn]);
+
+  const collisionDetection: CollisionDetection = useCallback(
+    (args) => kanbanCollisionDetection(args, collisionContextRef.current),
+    [],
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const activeId = String(event.active.id);
+    const fromColumn = columns.find((col) => col.items.some((item) => item.id === activeId));
+    const item = fromColumn?.items.find((candidate) => candidate.id === activeId);
+    if (fromColumn && item) {
+      setActiveItem({ item, column: fromColumn });
+      setActiveOverColumnId(fromColumn.id);
+    }
+  }, [columns]);
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    if (!event.over) {
+      setActiveOverColumnId((prev) => (prev !== null ? null : prev));
+      return;
+    }
+    const nextCol = resolveColumnForDroppableId(String(event.over.id), collisionContextRef.current);
+    setActiveOverColumnId((prev) => (prev === nextCol ? prev : nextCol));
+  }, []);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveItem(null);
+    setActiveOverColumnId(null);
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const startColId = activeItem?.column.id ?? null;
+    setActiveItem(null);
+    setActiveOverColumnId(null);
+
+    const { active, over } = event;
+    if (!over) return;
+
+    const itemId = String(active.id);
+    const fromColumn = columns.find((col) => col.items.some((item) => item.id === itemId));
+    const fromColumnId = fromColumn?.id ?? startColId;
+    if (!fromColumnId) return;
+
+    const dest = resolveDropDestination(String(over.id), columns);
+    if (!dest) return;
+
+    if (fromColumn) {
+      const currentIdx = fromColumn.items.findIndex((candidate) => candidate.id === itemId);
+      if (fromColumnId === dest.columnId && dest.toIndex === currentIdx) {
+        return;
+      }
+    }
+
+    onMoveItem(itemId, fromColumnId, dest.columnId, dest.toIndex);
+  }, [columns, activeItem, onMoveItem]);
+
+  const gdsColumns = columns as GdsKanbanColumnData[];
+  const renderColumnList = () => columns.map((column) => {
+    const isCollapsed = collapsedColumnIds.includes(column.id);
+    const isDropTarget = Boolean(
+      enableDrag &&
+      activeItem &&
+      activeOverColumnId === column.id &&
+      activeItem.column.id !== column.id &&
+      !isCollapsed,
+    );
+    return (
+      <DroppableColumnShell
+        key={column.id}
+        columnId={column.id}
+        disabled={!enableDrag || isCollapsed}
+        isDropTarget={isDropTarget}
+        isBacklog={column.id === 'BACKLOG'}
+        isCollapsed={isCollapsed}
+      >
+        <GdsKanbanColumn
+          column={column}
+          columns={gdsColumns}
+          onMoveItem={onMoveItem}
+          renderItem={renderItem}
+          emptyLabel={emptyColumnLabel}
+          enableDrag={enableDrag}
+          width={resolvedOrientation === 'stacked' ? undefined : columnWidth}
+          collapsible
+          collapsed={isCollapsed}
+          onCollapsedChange={(next) => onCollapsedChange(column.id, next)}
+        />
+      </DroppableColumnShell>
+    );
+  });
+
+  const board = (
+    <Stack gap="md" role="region" aria-label="Kanban board" data-gds-kanban-orientation={resolvedOrientation}>
+      {resolvedOrientation === 'stacked' ? (
+        <Stack gap="lg">{renderColumnList()}</Stack>
+      ) : (
+        <ScrollArea type="auto" scrollbarSize={8} offsetScrollbars viewportRef={viewportRef}>
+          <Group gap="md" wrap="nowrap" align="stretch">
+            {renderColumnList()}
+          </Group>
+        </ScrollArea>
+      )}
+    </Stack>
+  );
+
+  if (!enableDrag) {
+    return board;
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={collisionDetection}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragCancel={handleDragCancel}
+      onDragEnd={handleDragEnd}
+    >
+      {board}
+      <DragOverlay dropAnimation={null} zIndex={1400}>
+        {activeItem ? (
+          <Paper
+            withBorder
+            radius="md"
+            p="sm"
+            shadow="md"
+            style={{
+              width: 300,
+              pointerEvents: 'none',
+              borderColor: 'var(--mantine-color-blue-5)',
+              backgroundColor: 'var(--gds-bg-card)',
+            }}
+          >
+            <Stack gap={2}>
+              <Text fw={600} size="sm" truncate>
+                {activeItem.item.title}
+              </Text>
+              <Text size="xs" c="dimmed">
+                Moving from {activeItem.column.ariaLabel || (typeof activeItem.column.title === 'string' ? activeItem.column.title : activeItem.column.id)}
+              </Text>
+            </Stack>
+          </Paper>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
 export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast, forecastCurrency = 'USD', filter, selectMode = false, columnDefs = COLUMNS, onVisibleLeadsChange, onAction, quickPreset = 'all', currentUserId, currentUserEmail }: BoardProps) {
   // Record<string, ...> (not Record<KanbanColumn, ...>) — this component no
   // longer always manages all 6 Pipeline columns; the Backlog board mounts
@@ -136,6 +415,12 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
     }
     return init
   })
+  const columnStatesRef = useRef(columnStates)
+  useEffect(() => {
+    columnStatesRef.current = columnStates
+  }, [columnStates])
+  const columnEpochRef = useRef<Record<string, number>>({})
+  const inFlightMoveCountRef = useRef(0)
   const [bootstrapped, setBootstrapped] = useState(false)
 
   // Ensure columnStates stays populated when columnDefs changes dynamically
@@ -265,6 +550,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   }, [])
 
   const loadColumn = useCallback(async (colKey: KanbanColumn, cursor?: string | null) => {
+    const epoch = (columnEpochRef.current[colKey] = (columnEpochRef.current[colKey] || 0) + 1)
     setColumnStates((prev) => ({
       ...prev,
       [colKey]: { ...(prev[colKey] || { leads: [], count: 0, hasMore: false, cursor: null }), loading: true },
@@ -285,6 +571,14 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       if (!res.ok) throw new Error(`Column load failed: ${res.status}`)
 
       const data = await res.json()
+
+      if (columnEpochRef.current[colKey] !== epoch) {
+        setColumnStates((prev) => ({
+          ...prev,
+          [colKey]: { ...(prev[colKey] || { leads: [], count: 0, hasMore: false, cursor: null }), loading: false },
+        }))
+        return
+      }
 
       setColumnStates((prev) => {
         const current = prev[colKey] || { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
@@ -330,17 +624,37 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   }, [brand, tenantId, loadColumn, columnDefs])
 
   const handleMove = useCallback(async (leadId: string, fromColumn: KanbanColumn, toColumn: KanbanColumn) => {
-    // Optimistic UI: drop the card from its source column immediately so the
-    // move feels instant; reload both columns afterward to reconcile with
-    // the server (sortOrder, dedup, etc.)
+    const prevFromLeads = columnStatesRef.current[fromColumn]?.leads ?? []
+    const originalIndex = prevFromLeads.findIndex((l) => l._id === leadId)
+    const sourceLead = originalIndex >= 0 ? prevFromLeads[originalIndex] : null
+
+    columnEpochRef.current[fromColumn] = (columnEpochRef.current[fromColumn] || 0) + 1
+    columnEpochRef.current[toColumn] = (columnEpochRef.current[toColumn] || 0) + 1
+    inFlightMoveCountRef.current += 1
+
+    // Optimistic UI: move the card visibly into toColumn right away so it
+    // never vanishes during network latency; reconcile with server afterward.
     setColumnStates((prev) => {
-      const current = prev[fromColumn] || { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
+      const fromState = prev[fromColumn] || { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
+      const toState = prev[toColumn] || { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
+      const currentLead = (fromState.leads || []).find((l) => l._id === leadId) ?? sourceLead
+      const updatedLead = currentLead ? { ...currentLead, kanbanColumn: toColumn } : null
+      const alreadyInTarget = (toState.leads || []).some((l) => l._id === leadId)
+      const nextToLeads = updatedLead
+        ? [updatedLead, ...(toState.leads || []).filter((l) => l._id !== leadId)]
+        : (toState.leads || [])
+      const nextFromLeads = (fromState.leads || []).filter((l) => l._id !== leadId)
       return {
         ...prev,
         [fromColumn]: {
-          ...current,
-          leads: (current.leads || []).filter((l) => l._id !== leadId),
-          count: Math.max(0, (current.count || 0) - 1),
+          ...fromState,
+          leads: nextFromLeads,
+          count: nextFromLeads.length < (fromState.leads || []).length ? Math.max(0, (fromState.count || 0) - 1) : (fromState.count || 0),
+        },
+        [toColumn]: {
+          ...toState,
+          leads: nextToLeads,
+          count: updatedLead && !alreadyInTarget ? (toState.count || 0) + 1 : (toState.count || 0),
         },
       }
     })
@@ -364,24 +678,50 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
         const data = await res.json().catch(() => ({}))
         throw new Error(data?.error || `Move failed: ${res.status}`)
       }
-      await Promise.all([loadColumn(toColumn), loadColumn(fromColumn)])
+
+      if (inFlightMoveCountRef.current <= 1) {
+        await Promise.all([loadColumn(toColumn), loadColumn(fromColumn)])
+      }
     } catch (err) {
       console.error('Column move error:', err)
-      // issue #91: this previously reverted the optimistic removal with zero
-      // visible feedback — a real move failure (network, validation, server
-      // error) looked identical to "nothing happened," indistinguishable
-      // from the move menu itself not working at all. Every other action in
-      // this app (see app/detail.tsx's handleAccept/handleDecline/etc.)
-      // already surfaces failures via showNotification; this brings column
-      // moves in line rather than leaving them the one silent exception.
+      if (sourceLead) {
+        setColumnStates((prev) => {
+          const fromState = prev[fromColumn] || { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
+          const toState = prev[toColumn] || { leads: [], count: 0, hasMore: false, cursor: null, loading: false }
+          const alreadyInFrom = (fromState.leads || []).some((l) => l._id === leadId)
+          const fromLeads = alreadyInFrom
+            ? (fromState.leads || [])
+            : [
+                ...(fromState.leads || []).slice(0, Math.max(0, originalIndex)),
+                sourceLead,
+                ...(fromState.leads || []).slice(Math.max(0, originalIndex)),
+              ]
+          const removedFromTo = (toState.leads || []).some((l) => l._id === leadId)
+          return {
+            ...prev,
+            [fromColumn]: {
+              ...fromState,
+              leads: fromLeads,
+              count: alreadyInFrom ? (fromState.count || 0) : (fromState.count || 0) + 1,
+            },
+            [toColumn]: {
+              ...toState,
+              leads: (toState.leads || []).filter((l) => l._id !== leadId),
+              count: removedFromTo ? Math.max(0, (toState.count || 0) - 1) : (toState.count || 0),
+            },
+          }
+        })
+      }
       showNotification({
         message: err instanceof Error ? err.message : 'Failed to move lead to that column',
         color: 'red',
         autoClose: 5000,
       })
-      // Reconcile with the server on failure too, so the optimistic removal
-      // doesn't leave the UI out of sync with what's actually persisted.
-      await loadColumn(fromColumn)
+      if (inFlightMoveCountRef.current <= 1) {
+        await Promise.all([loadColumn(fromColumn), loadColumn(toColumn)])
+      }
+    } finally {
+      inFlightMoveCountRef.current = Math.max(0, inFlightMoveCountRef.current - 1)
     }
   }, [brand, tenantId, loadColumn])
 
@@ -392,7 +732,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
   // reload the column from the server to discard it and surface the real
   // reason via showNotification — never a silent revert.
   const handleReorder = useCallback(async (leadId: string, column: KanbanColumn, toIndex: number) => {
-    const currentIds = columnStates[column]?.leads.map((l) => l._id) ?? []
+    const currentIds = columnStatesRef.current[column]?.leads.map((l) => l._id) ?? []
     const { prevLeadId, nextLeadId } = resolveReorderNeighbors(currentIds, leadId, toIndex)
 
     setColumnStates((prev) => {
@@ -430,7 +770,7 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
       })
       await loadColumn(column)
     }
-  }, [brand, tenantId, columnStates, loadColumn])
+  }, [brand, tenantId, loadColumn])
 
   // GDS's drag (SortableContext) allows same-column reordering as well as
   // cross-column moves — previously a same-column drag was a hard no-op
@@ -1000,20 +1340,16 @@ export function KanbanBoard({ brand, tenantId = 'default', onOpenLead, forecast,
             </Box>
           }
         >
-          <GdsKanbanBoard
+          <ReliableKanbanBoard
             columns={columns}
             onMoveItem={handleMoveItem}
             renderItem={renderItem}
             emptyColumnLabel={bootstrapped ? 'No leads' : 'Loading…'}
-            collapsible
             collapsedColumnIds={collapsedColumnIds}
             onCollapsedChange={handleCollapsedChange}
             enableDrag={dragEnabled}
-            // GDS's native zone-based wheel-scroll routing (columnPanZone="header")
-            // pans columns horizontally when hovering over column headers.
-            // Combined with boardWrapperRef's vertical scroll passthrough over cards
-            // and board body, this provides a complete dual-zone experience in desktop Chrome:
-            // headers pan horizontally; cards/empty space scroll the page vertically.
+            // Zone-based header horizontal wheel panning + non-passive vertical
+            // scroll passthrough over cards/body.
             columnPanZone="header"
             columnWidth={320}
           />

@@ -1,5 +1,15 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.387
+
+### Reliable cross-column Kanban drag-and-drop (Issue #351)
+
+- **Container-first collision detection & full-height drop zones (`lib/kanban-collision.ts`, `app/kanban.tsx`, `app/globals.css`):**
+  - Added pure container-first collision detection (`kanbanCollisionDetection`) using `pointerWithin` -> `rectIntersection` -> keyboard `closestCenter`, preventing tall adjacent columns' cards from stealing drops aimed at empty or shorter target columns.
+  - Wrapped each uncollapsed GDS `KanbanColumn` in `DroppableColumnShell` with `MeasuringStrategy.Always`, visual drop-target highlighting, and a fixed-width `DragOverlay` card preview, and updated `app/globals.css` so `[data-gds-kanban-drop-zone]` stretches `flex: 1 1 auto !important` across the full column body instead of shrinking to content height.
+  - Updated `handleMove` in `app/kanban.tsx` to place moved leads optimistically into the target column right away, guard against stale column reloads via per-column epochs, and roll back immediately with error notification if rejected (e.g. Stage Gate enforcement).
+  - Added unit tests in `tests/lib/kanban-collision.test.ts`.
+
 ## 2.4.386
 
 ### Sync stored landing confirmationEmail config cleanly (Issue #350)
