@@ -9,7 +9,7 @@ import { LabelTag, StatusBadge } from '@sovereignsquad/gds-core/client'
 import { IconCheck } from '@tabler/icons-react'
 import type { Brand } from '@/app/lib/brand'
 import { useAuth } from '@/app/components/AuthProvider'
-import type { WorkspaceResearchTelemetry } from '@/lib/research-telemetry'
+import type { WorkspaceResearchTelemetry } from '@/lib/research-telemetry-shared'
 
 export function PromptEditorClient({ brand, label }: { brand: Brand; label: string }) {
   const { isSuperAdmin } = useAuth()

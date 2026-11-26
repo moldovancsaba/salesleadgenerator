@@ -53,7 +53,7 @@ import { useAuth } from './components/AuthProvider';
 import { exportLeadsToCsv, exportLeadsToGoogleSheetsTsv, type CrmPreset } from '@/lib/crm-lead-exchange';
 import { generateDomainAuditPitch } from '@/lib/domain-audit-pitch';
 import { generatePreCallBriefing, type PreCallBriefing } from '@/lib/pre-call-briefing';
-import { resolveLeadLastResearchedAt } from '@/lib/research-telemetry';
+import { resolveLeadLastResearchedAt } from '@/lib/research-telemetry-shared';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;

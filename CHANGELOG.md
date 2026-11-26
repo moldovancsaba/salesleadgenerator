@@ -1,5 +1,12 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.394
+
+### Fix Next.js Production Webpack Client Bundle Build (Issue #359)
+
+- **Client/server module boundary split (`lib/research-telemetry-shared.ts`, `lib/research-telemetry.ts`, `app/detail.tsx`, `app/admin/prompts/[brand]/prompt-editor-client.tsx`):**
+  - Extracted browser-safe types and pure timestamp/provenance helpers (`resolveLeadLastResearchedAt`, `isAutomatedResearchWrite`, `WorkspaceResearchTelemetry`) into `lib/research-telemetry-shared.ts` with zero Node.js built-ins so client components (`app/detail.tsx`, `prompt-editor-client.tsx`) never pull `fs`/`path` into the Next.js Webpack client bundle during `npm run vercel-build`.
+
 ## 2.4.393
 
 ### Outreach Person & Organization Schema, Unattended Research Telemetry & Apollo Capture (Issue #359)
