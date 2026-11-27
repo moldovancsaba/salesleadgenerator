@@ -2,6 +2,7 @@ import { EMAIL_RE } from './validate-lead';
 import { isValidIsoCountry } from './iso-country-codes';
 import { computeIceScore, buildScoreProfile } from './score-profile';
 import { dedupeContacts, deriveContactEmails } from './contacts';
+import { mergeConsentEntries, resolveLeadConsents } from './lead-consents';
 
 export interface InboundConsentEntry {
   key: string;
@@ -478,11 +479,24 @@ export function buildInboundLeadRecord(params: {
   const iceScore = computeIceScore(impact, confidence, ease);
   const scoreProfile = buildScoreProfile(impact, confidence, ease);
 
+  const structuredConsents = resolveLeadConsents({
+    consents: submission.consents,
+    extraFields: {
+      consents: submission.consents,
+      consentPdc: submission.consentPdc,
+      consentMrVegas: submission.consentMrVegas,
+    },
+  });
+
   const contact = {
     name: submission.contactName,
+    ...(submission.firstName ? { firstName: submission.firstName } : {}),
+    ...(submission.lastName ? { lastName: submission.lastName } : {}),
+    ...(submission.country ? { country: submission.country } : {}),
     title: submission.contactTitle || 'Lead Contact',
     email: submission.contactEmail,
     ...(submission.contactPhone ? { phone: submission.contactPhone } : {}),
+    ...(structuredConsents.length > 0 ? { consents: structuredConsents } : {}),
     isDecisionMaker: true,
     buyingRole: 'champion' as const,
     lastVerifiedAt: nowIso,
@@ -540,6 +554,7 @@ export function buildInboundLeadRecord(params: {
     checklist: [],
     source: submission.campaign ? `landing_${submission.campaign}` : 'inbound',
     campaign: submission.campaign,
+    ...(structuredConsents.length > 0 ? { consents: structuredConsents } : {}),
     extraFields,
     submissionHistory: [buildSubmissionSnapshot(submission, nowIso)],
     fieldVerifications: [],
@@ -579,20 +594,50 @@ export function buildRepeatSubmissionUpdate(params: {
   const now = params.now ?? new Date();
   const nowIso = params.nowIso ?? now.toISOString();
 
-  const mergedContacts = dedupeContacts(
+  const incomingStructuredConsents = resolveLeadConsents({
+    consents: submission.consents,
+    extraFields: {
+      consents: submission.consents,
+      consentPdc: submission.consentPdc,
+      consentMrVegas: submission.consentMrVegas,
+    },
+  });
+
+  // Contacts are matched on name + phone, else name + e-mail. So that a second form with or
+  // without a phone number does not turn one person into two, both sides get the number.
+  const priorContacts: any[] = Array.isArray(existing.contacts) ? existing.contacts : [];
+  const submitterEmail = submission.contactEmail.trim().toLowerCase();
+  const hasSubmitterEmail = (c: any) => String(c?.email ?? '').trim().toLowerCase() === submitterEmail;
+  const isSamePerson = (c: any) =>
+    hasSubmitterEmail(c) &&
+    String(c?.name ?? '').trim().toLowerCase() === submission.contactName.trim().toLowerCase();
+  const phone =
+    submission.contactPhone || priorContacts.find((c) => isSamePerson(c) && c.phone)?.phone || undefined;
+
+  const dedupedContacts = dedupeContacts(
     [
-      ...(Array.isArray(existing.contacts) ? existing.contacts : []),
+      ...priorContacts.map((c) => (phone && isSamePerson(c) && !c.phone ? { ...c, phone } : c)),
       {
         name: submission.contactName,
+        ...(submission.firstName ? { firstName: submission.firstName } : {}),
+        ...(submission.lastName ? { lastName: submission.lastName } : {}),
+        ...(submission.country ? { country: submission.country } : {}),
         title: submission.contactTitle,
         email: submission.contactEmail,
-        ...(submission.contactPhone ? { phone: submission.contactPhone } : {}),
+        ...(phone ? { phone } : {}),
+        ...(incomingStructuredConsents.length > 0 ? { consents: incomingStructuredConsents } : {}),
         isDecisionMaker: true,
         buyingRole: 'champion',
         lastVerifiedAt: nowIso,
       },
     ],
     { verify: true }
+  );
+  // The new answers apply to every entry with the submitter's address, so none keeps an old one.
+  const mergedContacts = dedupedContacts.map((c) =>
+    incomingStructuredConsents.length > 0 && hasSubmitterEmail(c)
+      ? { ...c, consents: mergeConsentEntries(c.consents, incomingStructuredConsents) }
+      : c
   );
   const contactEmails = deriveContactEmails(mergedContacts);
 
@@ -646,6 +691,16 @@ export function buildRepeatSubmissionUpdate(params: {
       : undefined;
 
   const mergedConsents = mergeConsents(prevExtra.consents, submission.consents);
+  const fullResolvedConsents = resolveLeadConsents({
+    ...existing,
+    consents: mergeConsents(existing.consents, incomingStructuredConsents),
+    extraFields: {
+      ...prevExtra,
+      ...(mergedConsents ? { consents: mergedConsents } : {}),
+      ...(submission.consentPdc !== undefined ? { consentPdc: submission.consentPdc } : {}),
+      ...(submission.consentMrVegas !== undefined ? { consentMrVegas: submission.consentMrVegas } : {}),
+    },
+  });
 
   const mergedExtraFields = {
     ...prevExtra,
@@ -671,6 +726,7 @@ export function buildRepeatSubmissionUpdate(params: {
     contactEmails,
     notes: updatedNotes,
     tags: mergedTags,
+    ...(fullResolvedConsents.length > 0 ? { consents: fullResolvedConsents } : {}),
     extraFields: mergedExtraFields,
     submissionHistory: existingHistory,
     ...(!existing.country && submission.country ? { country: submission.country, region: submission.region } : {}),

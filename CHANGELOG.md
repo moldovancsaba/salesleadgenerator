@@ -1,5 +1,16 @@
 # Changelog — Sales Lead Generator
 
+## 2.4.395
+
+### Pipeline Stage & Landing Page Consents in Lead Data and CSV Exports (Issue #361)
+
+- **A consent answer belongs only to the e-mail address that gave it (`lib/lead-consents.ts`):** one lead can hold several people (a second form from the same organisation joins the same lead). The contacts directory, contacts CSV, lead exports and Lead Details take each person's own answers from the form history; a contact who never answered stays blank. Where a record saved before 2026-11-16 does not say who answered, Lead Details shows "Person not recorded" and the contact columns stay blank.
+- **Structured consents on lead and contact (`lib/inbound-lead-form.ts`, `lib/contacts.ts`, `app/lib/normalize-lead.ts`, `app/types.ts`):** first and repeat forms store `consents` (`{ key, label, value }[]`) on the lead and on the submitter's contact. Stored leads need no migration.
+- **Repeat forms:** a second form with or without a phone number no longer creates a second contact for the same name and e-mail, and the new answers apply to every contact entry with that address. A later "No" in the older yes/no fields replaces an earlier "Yes".
+- **Display (`app/detail.tsx`, `app/contacts/[brand]/contacts-client.tsx`, `app/components/ConsentAnswers.tsx`):** Lead Details groups answers by person; the Contacts page shows pipeline stage and answers on desktop and phone layouts, answer first so a long question cannot hide it, and filters by pipeline stage.
+- **Exports (`lib/crm-lead-exchange.ts`, `app/api/contacts/route.ts`):** `Pipeline Stage`, `Consents` and one `Consent: <question>` column per question in every lead CSV preset, the Google Sheets copy and `GET /api/contacts?format=csv`; CSV import reads the `Consent:` columns back. Columns are matched by the question's wording, because copied campaign pages reuse field ids. A lead export row carries the answers of the contact it names (the first one); use the contacts export for everyone on a lead.
+- **Tests:** `tests/lib/pipeline-consents-export.test.ts` and `tests/integration/contacts.integration.test.ts`, including a run through the landing form submit route.
+
 ## 2.4.394
 
 ### Fix Next.js Production Webpack Client Bundle Build (Issue #359)

@@ -11,6 +11,7 @@ import type { Brand } from '@/app/lib/brand'
 import { GoogleContactsWorkspaceModal } from '@/app/components/GoogleContactsWorkspaceModal'
 import { ApolloImportModal } from '@/app/components/ApolloImportModal'
 import { PhoneActions } from '@/app/components/PhoneActions'
+import { ConsentAnswers } from '@/app/components/ConsentAnswers'
 import { OutreachComposeModal } from '@/app/outreach/compose-modal'
 
 type BuyingRole = 'economic_buyer' | 'champion' | 'influencer' | 'blocker' | 'decision_maker' | 'unknown'
@@ -22,6 +23,7 @@ type ContactRow = {
   lastName?: string
   country?: string
   company?: string
+  pipelineStage?: string
   title: string
   department?: string
   industry?: string
@@ -37,7 +39,8 @@ type ContactRow = {
   buyingRole: BuyingRole
   isDecisionMaker: boolean
   crmStatus?: string
-  leads: Array<{ leadId: string; entity_name: string }>
+  consents?: Array<{ key: string; label: string; value: boolean | string }>
+  leads: Array<{ leadId: string; entity_name: string; kanbanColumn?: string }>
 }
 
 // Issue #206 — role-specific badge, replacing the single "Decision maker"
@@ -79,6 +82,16 @@ type Props = {
 // lens onto the same lead data (like Table/Kanban), not a competing source
 // of truth. Per CLAUDE.md's UI-affordance rule, this page must never render
 // as if editing were possible here.
+function PipelineStageBadge({ stage }: { stage: string }) {
+  const status =
+    stage === 'WON' ? 'success' : stage === 'LOST' ? 'danger' : stage === 'ENGAGED' || stage === 'PROPOSAL' ? 'info' : 'neutral'
+  return (
+    <StatusBadge size="xs" status={status}>
+      {stage}
+    </StatusBadge>
+  )
+}
+
 export function ContactsClient({ brand, label }: Props) {
   const [tenantId, setTenantId] = useState('default')
 
@@ -92,6 +105,7 @@ export function ContactsClient({ brand, label }: Props) {
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [crmStatusFilter, setCrmStatusFilter] = useState<string>('all')
+  const [pipelineStageFilter, setPipelineStageFilter] = useState<string>('all')
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')
   const [countryFilter, setCountryFilter] = useState<string>('')
   const [phoneOnlyFilter, setPhoneOnlyFilter] = useState<boolean>(false)
@@ -168,6 +182,7 @@ export function ContactsClient({ brand, label }: Props) {
     q: string,
     role: string,
     status: string,
+    stage: string,
     dept: string,
     country: string,
     phoneOnly: boolean,
@@ -189,6 +204,7 @@ export function ContactsClient({ brand, label }: Props) {
       if (q.trim()) url.searchParams.set('q', q.trim())
       if (role && role !== 'all') url.searchParams.set('buyingRole', role)
       if (status && status !== 'all') url.searchParams.set('crmStatus', status)
+      if (stage && stage !== 'all') url.searchParams.set('pipelineStage', stage)
       if (dept && dept !== 'all') url.searchParams.set('department', dept)
       if (country.trim()) url.searchParams.set('country', country.trim().toUpperCase())
       if (phoneOnly) url.searchParams.set('phoneOnly', '1')
@@ -222,6 +238,7 @@ export function ContactsClient({ brand, label }: Props) {
           query,
           roleFilter,
           crmStatusFilter,
+          pipelineStageFilter,
           departmentFilter,
           countryFilter,
           phoneOnlyFilter,
@@ -233,20 +250,21 @@ export function ContactsClient({ brand, label }: Props) {
       200
     )
     return () => clearTimeout(debounceRef.current)
-  }, [query, roleFilter, crmStatusFilter, departmentFilter, countryFilter, phoneOnlyFilter, emailOnlyFilter, page, pageSize, sort, loadContacts])
+  }, [query, roleFilter, crmStatusFilter, pipelineStageFilter, departmentFilter, countryFilter, phoneOnlyFilter, emailOnlyFilter, page, pageSize, sort, loadContacts])
 
   const sortedContacts = contacts
   // Any filter/search change returns to the first page so results never appear empty
   // because the previous page index exceeds the new filtered total.
   useEffect(() => {
     setPage(1)
-  }, [query, roleFilter, crmStatusFilter, departmentFilter, countryFilter, phoneOnlyFilter, emailOnlyFilter, pageSize])
+  }, [query, roleFilter, crmStatusFilter, pipelineStageFilter, departmentFilter, countryFilter, phoneOnlyFilter, emailOnlyFilter, pageSize])
   const rangeStart = filteredCount === 0 ? 0 : (page - 1) * pageSize + 1
   const rangeEnd = Math.min(filteredCount, (page - 1) * pageSize + sortedContacts.length)
   const hasActiveFilter = Boolean(
     query.trim() ||
     roleFilter !== 'all' ||
     crmStatusFilter !== 'all' ||
+    pipelineStageFilter !== 'all' ||
     departmentFilter !== 'all' ||
     countryFilter.trim() ||
     phoneOnlyFilter ||
@@ -362,7 +380,7 @@ export function ContactsClient({ brand, label }: Props) {
             ) : null}
             <Button
               component="a"
-              href={`/api/contacts?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}&format=csv${query.trim() ? `&q=${encodeURIComponent(query.trim())}` : ''}${roleFilter !== 'all' ? `&buyingRole=${encodeURIComponent(roleFilter)}` : ''}${crmStatusFilter !== 'all' ? `&crmStatus=${encodeURIComponent(crmStatusFilter)}` : ''}${phoneOnlyFilter ? '&phoneOnly=1' : ''}`}
+              href={`/api/contacts?brand=${encodeURIComponent(brand)}&tenantId=${encodeURIComponent(tenantId)}&format=csv&sortBy=${encodeURIComponent(sort.key)}&sortDir=${encodeURIComponent(sort.direction)}${query.trim() ? `&q=${encodeURIComponent(query.trim())}` : ''}${roleFilter !== 'all' ? `&buyingRole=${encodeURIComponent(roleFilter)}` : ''}${crmStatusFilter !== 'all' ? `&crmStatus=${encodeURIComponent(crmStatusFilter)}` : ''}${pipelineStageFilter !== 'all' ? `&pipelineStage=${encodeURIComponent(pipelineStageFilter)}` : ''}${departmentFilter !== 'all' ? `&department=${encodeURIComponent(departmentFilter)}` : ''}${countryFilter.trim() ? `&country=${encodeURIComponent(countryFilter.trim().toUpperCase())}` : ''}${phoneOnlyFilter ? '&phoneOnly=1' : ''}${emailOnlyFilter ? '&emailOnly=1' : ''}`}
               variant="default"
               size="xs"
               leftSection={<IconDownload size={14} />}
@@ -400,7 +418,7 @@ export function ContactsClient({ brand, label }: Props) {
               <Text size="xs" c="dimmed" fw={600}>Quick filters:</Text>
               <Button
                 size="compact-xs"
-                variant={roleFilter === 'all' && !phoneOnlyFilter && !emailOnlyFilter && departmentFilter === 'all' && !countryFilter && crmStatusFilter === 'all' ? 'filled' : 'subtle'}
+                variant={roleFilter === 'all' && !phoneOnlyFilter && !emailOnlyFilter && departmentFilter === 'all' && !countryFilter && crmStatusFilter === 'all' && pipelineStageFilter === 'all' ? 'filled' : 'subtle'}
                 color="blue"
                 onClick={() => {
                   setRoleFilter('all');
@@ -409,6 +427,7 @@ export function ContactsClient({ brand, label }: Props) {
                   setDepartmentFilter('all');
                   setCountryFilter('');
                   setCrmStatusFilter('all');
+                  setPipelineStageFilter('all');
                 }}
               >
                 All Contacts
@@ -514,6 +533,23 @@ export function ContactsClient({ brand, label }: Props) {
               />
               <Select
                 size="xs"
+                w={170}
+                aria-label="Filter by pipeline stage"
+                value={pipelineStageFilter}
+                onChange={(val) => setPipelineStageFilter(val || 'all')}
+                data={[
+                  { value: 'all', label: 'All Pipeline Stages' },
+                  { value: 'DISCOVERED', label: 'Discovered' },
+                  { value: 'QUALIFIED', label: 'Qualified' },
+                  { value: 'ENGAGED', label: 'Engaged' },
+                  { value: 'PROPOSAL', label: 'Proposal' },
+                  { value: 'WON', label: 'Won' },
+                  { value: 'LOST', label: 'Lost' },
+                  { value: 'BACKLOG', label: 'Backlog' },
+                ]}
+              />
+              <Select
+                size="xs"
                 w={140}
                 aria-label="Filter by CRM status"
                 value={crmStatusFilter}
@@ -536,6 +572,7 @@ export function ContactsClient({ brand, label }: Props) {
                     setQuery('')
                     setRoleFilter('all')
                     setCrmStatusFilter('all')
+                    setPipelineStageFilter('all')
                     setDepartmentFilter('all')
                     setCountryFilter('')
                     setPhoneOnlyFilter(false)
@@ -598,24 +635,27 @@ export function ContactsClient({ brand, label }: Props) {
                     <Stack gap={3}>
                       <Group gap={6} wrap="wrap">
                         {row.leads.map((lead) => (
-                          <Link
-                            key={lead.leadId}
-                            href={`/sales/${brand}?leadId=${encodeURIComponent(lead.leadId)}`}
-                            style={{ textDecoration: 'none' }}
-                            title={`Open ${lead.entity_name || 'lead'}`}
-                          >
-                            <LabelTag
-                              tone="info"
-                              size="xs"
-                              label={lead.entity_name || 'Untitled lead'}
-                              style={{
-                                cursor: 'pointer',
-                                maxWidth: 240,
-                              }}
-                            />
-                          </Link>
+                          <Group key={lead.leadId} gap={4} wrap="wrap">
+                            <Link
+                              href={`/sales/${brand}?leadId=${encodeURIComponent(lead.leadId)}`}
+                              style={{ textDecoration: 'none' }}
+                              title={`Open ${lead.entity_name || 'lead'}`}
+                            >
+                              <LabelTag
+                                tone="info"
+                                size="xs"
+                                label={lead.entity_name || 'Untitled lead'}
+                                style={{
+                                  cursor: 'pointer',
+                                  maxWidth: 220,
+                                }}
+                              />
+                            </Link>
+                            {lead.kanbanColumn && <PipelineStageBadge stage={lead.kanbanColumn} />}
+                          </Group>
                         ))}
                       </Group>
+                      {row.consents && <ConsentAnswers consents={row.consents} />}
                       <Group gap={6} wrap="wrap">
                         <Text size="11px" c="dimmed">
                           {row.country || '—'} · {row.industry || '—'}
@@ -816,11 +856,19 @@ export function ContactsClient({ brand, label }: Props) {
                 {row.leads?.length > 0 && (
                   <Group gap={4} mb="xs">
                     {row.leads.map((l) => (
-                      <Link key={l.leadId} href={`/sales/${brand}?leadId=${encodeURIComponent(l.leadId)}`} style={{ textDecoration: 'none' }}>
-                        <LabelTag tone="info" size="xs" label={l.entity_name} />
-                      </Link>
+                      <Group key={l.leadId} gap={4} wrap="wrap">
+                        <Link href={`/sales/${brand}?leadId=${encodeURIComponent(l.leadId)}`} style={{ textDecoration: 'none' }}>
+                          <LabelTag tone="info" size="xs" label={l.entity_name} />
+                        </Link>
+                        {l.kanbanColumn && <PipelineStageBadge stage={l.kanbanColumn} />}
+                      </Group>
                     ))}
                   </Group>
+                )}
+                {row.consents && row.consents.length > 0 && (
+                  <Box mb="xs">
+                    <ConsentAnswers consents={row.consents} size="xs" />
+                  </Box>
                 )}
                 <Group gap="md">
                   {row.email && (
@@ -877,6 +925,7 @@ export function ContactsClient({ brand, label }: Props) {
             query,
             roleFilter,
             crmStatusFilter,
+            pipelineStageFilter,
             departmentFilter,
             countryFilter,
             phoneOnlyFilter,
@@ -901,6 +950,7 @@ export function ContactsClient({ brand, label }: Props) {
             query,
             roleFilter,
             crmStatusFilter,
+            pipelineStageFilter,
             departmentFilter,
             countryFilter,
             phoneOnlyFilter,

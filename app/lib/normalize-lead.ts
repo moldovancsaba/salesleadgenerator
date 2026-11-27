@@ -1,5 +1,6 @@
 import { PRO_FIELD, CON_FIELD } from './brand-constants';
 import { decodeHtmlEntities } from '../../lib/text-sanitize';
+import { resolveLeadConsents } from '../../lib/lead-consents';
 
 export type LeadRaw = Record<string, any>;
 
@@ -120,9 +121,11 @@ export function normalizeLead(raw: LeadRaw, options?: { allowedColumns?: string[
 
   const kanbanColumn = typeof raw.kanbanColumn === 'string' ? raw.kanbanColumn.trim().toUpperCase() : '';
   const normalizedColumn = kanbanColumn && VALID_KANBAN_COLUMNS.has(kanbanColumn) ? kanbanColumn : 'DISCOVERED';
+  const resolvedConsents = resolveLeadConsents(raw);
 
   const normalized: NormalizedLead = {
     ...raw,
+    ...(resolvedConsents.length > 0 ? { consents: resolvedConsents } : {}),
     [PRO_FIELD]: pro,
     [CON_FIELD]: con,
     qualityStatus: typeof raw.qualityStatus === 'string' ? raw.qualityStatus : 'DRAFT',

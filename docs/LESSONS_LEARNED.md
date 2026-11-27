@@ -122,6 +122,8 @@ Several dependency bumps were attempted, hit a real blocker, and were reverted â
 
 32. **A `<p>` passed into a Mantine `label` or `description` can be a paragraph inside a paragraph.** Mantine wraps `description` in a `<p>`; giving it a `<Text>` (also a `<p>`) is invalid HTML, the browser closes the outer paragraph early, and React fails hydration (error 418) on every load and rebuilds the page. It showed only as one console error, with no visible fault. Pass a `<Text component="span">`, and render the page with `renderToStaticMarkup` in a test to catch nesting errors (`tests/lib/landing-page-markup.test.tsx`).
 
+33. **Consent belongs to a person, not to a record.** A lead can hold several people. A first draft of the consent export (#361) copied the lead's merged answers to every contact, so in a test a person who had said "No" was exported as "Yes", and so was a contact who never filled in a form. Test any per-person field with two people on one record plus one who never answered, and look at the screen too: the same draft cut the "Yes"/"No" off long questions, which no test noticed.
+
 ---
 
 See also: `docs/ARCHITECTURE.md` (system design and the "why" for specific mechanisms, cross-referenced throughout), `docs/OPERATOR_GUIDE.md` (day-to-day usage and current Known Issues), `docs/STACK_AND_DEPENDENCIES.md` (dependency-specific rationale and blockers), and `CHANGELOG.md` (the complete, dated record every claim above is drawn from).

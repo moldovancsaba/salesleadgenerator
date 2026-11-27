@@ -54,6 +54,8 @@ import { exportLeadsToCsv, exportLeadsToGoogleSheetsTsv, type CrmPreset } from '
 import { generateDomainAuditPitch } from '@/lib/domain-audit-pitch';
 import { generatePreCallBriefing, type PreCallBriefing } from '@/lib/pre-call-briefing';
 import { resolveLeadLastResearchedAt } from '@/lib/research-telemetry-shared';
+import { buildConsentLedger, resolveConsentsByPerson, resolveContactConsents } from '@/lib/lead-consents';
+import { ConsentAnswers } from './components/ConsentAnswers';
 
 type KanbanColumn = Lead['kanbanColumn'];
 type DeclineReason = Lead extends { declineReason?: infer R } ? R : never;
@@ -758,6 +760,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
   const normalizedCon = ensureArrayField((normalized as any)[CON_FIELD]);
 
   const contactStaleCount = (lead.contacts || []).filter((c) => isContactStale(c, DEFAULT_STALENESS_THRESHOLD_DAYS)).length;
+  const consentLedger = buildConsentLedger([lead as Record<string, any>]);
 
   // DEFAULT_STALE_THRESHOLDS (not brand-fetched /api/settings thresholds):
   // this modal makes no additional API calls per issue #62's own scope, and
@@ -1591,6 +1594,54 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
         </Box>
       </SimpleGrid>
 
+      {(() => {
+        const { people, unattributed } = resolveConsentsByPerson(lead as Record<string, any>);
+        const groups = [
+          ...people.map((person) => ({
+            id: person.email || person.name,
+            who: [person.name, person.email].filter(Boolean).join(' · '),
+            consents: person.consents,
+          })),
+          ...(unattributed.length > 0
+            ? [{ id: 'unattributed', who: 'Person not recorded', consents: unattributed }]
+            : []),
+        ];
+        if (groups.length === 0 && !lead.campaign) return null;
+        return (
+          <Box
+            p="sm"
+            style={{
+              border: '1px solid var(--gds-border-card)',
+              borderRadius: 6,
+              backgroundColor: 'var(--gds-bg-card)',
+            }}
+          >
+            <Group justify="space-between" align="center" mb={groups.length > 0 ? 'xs' : 0} wrap="wrap" gap="xs">
+              <Text size="xs" c="dimmed" fw={600} tt="uppercase">
+                Landing Page Consents
+              </Text>
+              {lead.campaign && (
+                <LabelTag tone="info" size="xs" label={`Campaign: ${lead.campaign}`} />
+              )}
+            </Group>
+            {groups.length > 0 ? (
+              <Stack gap="sm">
+                {groups.map((group) => (
+                  <Box key={group.id}>
+                    <Text size="xs" fw={600} mb={2} style={{ overflowWrap: 'anywhere' }}>
+                      {group.who}
+                    </Text>
+                    <ConsentAnswers consents={group.consents} size="sm" />
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <Text size="xs" c="dimmed">No consent checkboxes recorded on this campaign entry.</Text>
+            )}
+          </Box>
+        );
+      })()}
+
       <Box>
         <Text size="xs" c="dimmed" fw={600} mb={4}>PIPELINE STAGE</Text>
         <Group gap="xs" align="flex-end" wrap="wrap">
@@ -2052,6 +2103,7 @@ export function LeadDetailModal({ lead, brand = 'slg', currency, pipelineStages,
                   />
                 )}
                 {contact.linkedin && <Text size="sm" c="blue">{contact.linkedin}</Text>}
+                <ConsentAnswers consents={resolveContactConsents(contact, consentLedger)} />
               </Box>
             ))}
           </>

@@ -175,6 +175,6 @@ describe('aggregateContactsAcrossLeads (issue 241)', () => {
     expect(dir[0].crmStatus).toBe('active');
     expect(dir[0].ownerUserId).toBe('user-1');
     expect(dir[0].customFields).toEqual({ region: 'EMEA' });
-    expect(dir[0].leads).toEqual([{ leadId: 'lead-1', entity_name: 'Acme Corp' }]);
+    expect(dir[0].leads).toEqual([{ leadId: 'lead-1', entity_name: 'Acme Corp', kanbanColumn: 'DISCOVERED' }]);
   });
 });

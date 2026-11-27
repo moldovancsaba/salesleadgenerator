@@ -5,8 +5,9 @@ import type { ActiveCadence } from '../lib/cadences';
 import type { FieldVerification } from '../lib/field-verifications';
 import type { ForecastCategory } from '../lib/forecast-category';
 import type { Pipeline, PipelineStage } from '../lib/pipelines';
+import type { LeadConsentEntry } from '../lib/lead-consents';
 
-export type { FieldVerification, ForecastCategory, Pipeline, PipelineStage };
+export type { FieldVerification, ForecastCategory, Pipeline, PipelineStage, LeadConsentEntry };
 
 // Kanban columns
 export type KanbanColumn =
@@ -141,7 +142,13 @@ export type Lead = {
     // lib/title-normalization.ts, issue #68. Not user-editable.
     seniorityTier?: 'C-level' | 'VP' | 'Director' | 'Manager' | 'IC' | 'Unknown';
     department?: 'Sales' | 'Marketing' | 'Operations' | 'Executive' | 'Unknown';
+    consents?: LeadConsentEntry[];
   }>;
+  // Structured consent choices captured on inbound landing page submissions (issue #361).
+  consents?: LeadConsentEntry[];
+  campaign?: string;
+  extraFields?: Record<string, any>;
+  submissionHistory?: Array<Record<string, any>>;
   // Lowercased index of every contacts[] email, kept in sync on every
   // contact write path by lib/contacts.ts's deriveContactEmails() — issue
   // #142's inbound-reply matching index. Server-derived, not user-editable.

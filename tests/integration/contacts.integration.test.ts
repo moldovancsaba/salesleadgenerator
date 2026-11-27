@@ -78,8 +78,83 @@ describe('GET /api/contacts', () => {
     expect(body.contacts.some((c: any) => c.name === 'Seyu Only Contact')).toBe(false);
   });
 
+  it('exports Pipeline Stage and landing-page Consents in GET /api/contacts?format=csv', async () => {
+    const postRes = await leadsPOST(req('/api/leads?brand=cogmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entity_name: 'Landing Visitor FC',
+        url: 'https://landing-visitor-fc.example.com',
+        country: 'GB',
+        kanbanColumn: 'ENGAGED',
+        ice: { impact: 7, confidence: 8, ease: 8 },
+        contacts: [
+          {
+            name: 'Visitor Jane',
+            email: 'visitor@landing-fc.example.com',
+            isDecisionMaker: true,
+            consents: [{ key: 'promo_opt_in', label: 'Marketing Offers Opt-In', value: true }],
+          },
+        ],
+      }),
+    }));
+    expect(postRes.status).toBe(201);
+
+    const csvRes = await contactsGET(req('/api/contacts?brand=cogmap&q=Visitor%20Jane&format=csv'));
+    expect(csvRes.status).toBe(200);
+    const csvText = await csvRes.text();
+    expect(csvText).toContain('"Pipeline Stage"');
+    expect(csvText).toContain('"Consents"');
+    expect(csvText).toContain('"Consent: Marketing Offers Opt-In"');
+    expect(csvText).toContain('"ENGAGED"');
+    expect(csvText).toContain('"Marketing Offers Opt-In: Yes"');
+  });
+
   it('rejects a request with no valid auth', async () => {
     const res = await contactsGET(new (await import('next/server')).NextRequest('http://localhost/api/contacts?brand=cogmap'));
     expect(res.status).toBe(401);
+  });
+
+  it('exports each landing-form visitor\'s own consent answers, through the real submit route', async () => {
+    const { POST: submitForm } = await import('../../app/api/forms/[brand]/submit/route');
+    const send = async (firstName: string, email: string, value: string, extra: Record<string, unknown> = {}) => {
+      const res = await submitForm(
+        req('/api/forms/cogmap/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName,
+            lastName: 'Walker',
+            contactEmail: email,
+            entityName: 'Shared Walkers Club',
+            websiteUrl: 'https://walkers.example.com',
+            country: 'GB',
+            campaign: 'spring',
+            consents: [{ key: 'f_news', label: 'News by email', value }],
+            ...extra,
+          }),
+        }),
+        { params: Promise.resolve({ brand: 'cogmap' }) }
+      );
+      expect(res.status).toBe(201);
+      return res.json();
+    };
+
+    const first = await send('Anna', 'anna@walkers.example.com', 'Yes', { contactPhone: '+44 7700 900123' });
+    const second = await send('Ben', 'ben@walkers.example.com', 'Yes');
+    const third = await send('Anna', 'anna@walkers.example.com', 'No');
+    expect([second.leadId, third.leadId]).toEqual([first.leadId, first.leadId]);
+
+    const res = await contactsGET(req('/api/contacts?brand=cogmap&q=Walker&format=csv'));
+    expect(res.status).toBe(200);
+    const { parseCsvOrTsv } = await import('../../lib/crm-lead-exchange');
+    const { headers, rows } = parseCsvOrTsv(await res.text());
+    const answersByEmail = rows
+      .map((r) => [r[headers.indexOf('Primary Email')], r[headers.indexOf('Consent: News by email')]])
+      .sort();
+    expect(answersByEmail).toEqual([
+      ['anna@walkers.example.com', 'No'],
+      ['ben@walkers.example.com', 'Yes'],
+    ]);
   });
 });

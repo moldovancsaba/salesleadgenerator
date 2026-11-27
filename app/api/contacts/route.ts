@@ -7,6 +7,12 @@ import { getTenantId, tenantFilter } from '../../../lib/tenant'
 import { aggregateContactsAcrossLeads } from '../../../lib/contacts'
 import { queryContactsDirectory } from '../../../lib/contacts-directory'
 import { resolveLeadLastResearchedAt } from '../../../lib/research-telemetry'
+import {
+  collectConsentColumnDefs,
+  formatConsentsSummary,
+  resolveConsentColumnValue,
+} from '../../../lib/lead-consents'
+import { buildCsv } from '../../../lib/crm-lead-exchange'
 
 async function getBrand(request: Request): Promise<Brand | null> {
   const url = new URL(request.url);
@@ -44,6 +50,7 @@ export async function GET(request: NextRequest) {
     const departmentFilter = (searchParams.get('department') || '').trim();
     const countryFilter = (searchParams.get('country') || '').trim();
     const industryFilter = (searchParams.get('industry') || '').trim();
+    const pipelineStageFilter = (searchParams.get('pipelineStage') || '').trim();
 
     if (!isMongoConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
@@ -62,6 +69,7 @@ export async function GET(request: NextRequest) {
       .find(filter, {
         projection: {
           entity_name: 1,
+          kanbanColumn: 1,
           country: 1,
           industry: 1,
           sport_or_sector: 1,
@@ -69,6 +77,10 @@ export async function GET(request: NextRequest) {
           companyLinkedin: 1,
           companyPhone: 1,
           source: 1,
+          campaign: 1,
+          extraFields: 1,
+          submissionHistory: 1,
+          general_contact: 1,
           lastResearchedAt: 1,
           fieldVerifications: 1,
           createdAt: 1,
@@ -84,6 +96,7 @@ export async function GET(request: NextRequest) {
     const leads = rawLeads.map((l: any) => ({
       _id: l._id.toString(),
       entity_name: l.entity_name || '',
+      kanbanColumn: l.kanbanColumn || 'DISCOVERED',
       country: l.country,
       industry: l.industry,
       sport_or_sector: l.sport_or_sector,
@@ -92,6 +105,11 @@ export async function GET(request: NextRequest) {
       companyPhone: l.companyPhone,
       source: l.source,
       lastResearchedAt: resolveLeadLastResearchedAt(l) || undefined,
+      campaign: l.campaign,
+      extraFields: l.extraFields,
+      submissionHistory: l.submissionHistory,
+      general_contact: l.general_contact,
+      createdAt: l.createdAt,
       contacts: l.contacts,
     }));
 
@@ -105,6 +123,7 @@ export async function GET(request: NextRequest) {
     const directory = queryContactsDirectory(aggregated, {
       q,
       crmStatus: crmStatusFilter,
+      pipelineStage: pipelineStageFilter,
       owner: ownerFilter,
       buyingRole: buyingRoleFilter,
       department: departmentFilter,
@@ -119,12 +138,16 @@ export async function GET(request: NextRequest) {
     });
 
     if (format === 'csv' || request.headers.get('accept')?.includes('text/csv')) {
+      const consentCols = collectConsentColumnDefs(
+        directory.filteredContacts.map((c) => c.consents)
+      );
       const header = [
         'Name',
         'First Name',
         'Last Name',
         'Country',
         'Company',
+        'Pipeline Stage',
         'Title',
         'Department',
         'Industry',
@@ -140,15 +163,28 @@ export async function GET(request: NextRequest) {
         'CRM Status',
         'Owner',
         'Companies',
+        'Consents',
+        ...consentCols.map((c) => c.header),
       ];
       const rows = directory.filteredContacts.map((c) => {
         const companies = (c.leads || []).map((l: any) => l.entity_name).join('; ');
+        const distinctStages = Array.from(
+          new Set((c.leads || []).map((l: any) => l.kanbanColumn).filter(Boolean))
+        );
+        const stageCell =
+          (c.leads?.length ?? 0) > 1 && distinctStages.length > 1
+            ? (c.leads || [])
+                .map((l: any) => `${l.entity_name}: ${l.kanbanColumn || 'DISCOVERED'}`)
+                .join('; ')
+            : c.pipelineStage || c.leads?.[0]?.kanbanColumn || 'DISCOVERED';
+
         return [
           c.name || '',
           c.firstName || '',
           c.lastName || '',
           c.country || '',
           c.company || c.leads?.[0]?.entity_name || '',
+          stageCell,
           c.title || '',
           c.department || '',
           c.industry || '',
@@ -164,9 +200,11 @@ export async function GET(request: NextRequest) {
           c.crmStatus || 'prospect',
           c.ownerUserId || '',
           companies,
-        ].map((field) => `"${String(field).replace(/"/g, '""')}"`).join(',');
+          formatConsentsSummary(c.consents),
+          ...consentCols.map((col) => resolveConsentColumnValue(c.consents, col)),
+        ];
       });
-      const csvContent = [header.join(','), ...rows].join('\n');
+      const csvContent = buildCsv(header, rows);
       return new Response(csvContent, {
         status: 200,
         headers: {

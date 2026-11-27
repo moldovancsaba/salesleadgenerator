@@ -13,6 +13,14 @@ import { normalizeFieldVerifications } from './field-verifications';
 import type { FieldVerification } from './field-verifications';
 import { splitContactName } from './template-personalization';
 import { isValidIsoCountry } from './iso-country-codes';
+import {
+  buildConsentLedger,
+  mergeConsentEntries,
+  mergeConsentsKeepingRefusals,
+  normalizeConsentEntries,
+  resolveContactConsents,
+  type LeadConsentEntry,
+} from './lead-consents';
 
 export type ContactInput = Record<string, any>;
 
@@ -75,6 +83,7 @@ export type NormalizedContact = {
   crmStatus?: ContactCRMStatus;
   ownerUserId?: string;
   customFields?: Record<string, string>;
+  consents?: LeadConsentEntry[];
   // ISO timestamp of the last time this contact's verifiable fields (email,
   // phone, linkedin, title, role) were confirmed accurate — see issue #66.
   // Undefined means never verified, not "verified at record creation."
@@ -235,6 +244,8 @@ export function normalizeContact(c: ContactInput, options?: NormalizeContactOpti
     if (Object.keys(customFields).length === 0) customFields = undefined;
   }
 
+  const normalizedConsents = normalizeConsentEntries(c?.consents);
+
   return {
     name: fullName,
     firstName: rawFirst || undefined,
@@ -251,6 +262,7 @@ export function normalizeContact(c: ContactInput, options?: NormalizeContactOpti
     crmStatus,
     ownerUserId,
     customFields,
+    ...(normalizedConsents.length > 0 ? { consents: normalizedConsents } : {}),
     seniorityTier,
     department,
     departmentOverride:
@@ -356,6 +368,7 @@ export function dedupeContacts(
     const mergedCustom = existing.customFields || c.customFields
       ? { ...(existing.customFields || {}), ...(c.customFields || {}) }
       : undefined;
+    const mergedConsents = mergeConsentEntries(existing.consents, c.consents);
 
     deduped[existingIndex] = {
       ...existing,
@@ -371,6 +384,7 @@ export function dedupeContacts(
       crmStatus: mergedStatus,
       ownerUserId: mergedOwner,
       customFields: mergedCustom,
+      ...(mergedConsents && mergedConsents.length > 0 ? { consents: mergedConsents } : {}),
       department: existing.department !== 'Unknown' ? existing.department : c.department,
       departmentOverride: existing.departmentOverride || c.departmentOverride,
       seniorityTier: existing.seniorityTier !== 'Unknown' ? existing.seniorityTier : c.seniorityTier,
@@ -495,6 +509,9 @@ export function mergeEnrichedContacts(
         ex.customFields || incoming.customFields
           ? { ...(ex.customFields || {}), ...(incoming.customFields || {}) }
           : undefined,
+      ...(mergeConsentEntries(ex.consents, incoming.consents)
+        ? { consents: mergeConsentEntries(ex.consents, incoming.consents) }
+        : {}),
       seniorityTier: nextSeniority,
       department: nextDept,
       departmentOverride: nextDeptOverride,
@@ -591,6 +608,7 @@ export type ContactDirectoryEntry = {
   lastName?: string;
   country?: string;
   company?: string;
+  pipelineStage?: string;
   title: string;
   department?: Department;
   industry?: string;
@@ -608,8 +626,27 @@ export type ContactDirectoryEntry = {
   crmStatus?: ContactCRMStatus;
   ownerUserId?: string;
   customFields?: Record<string, string>;
-  leads: Array<{ leadId: string; entity_name: string }>;
+  consents?: LeadConsentEntry[];
+  leads: Array<{ leadId: string; entity_name: string; kanbanColumn?: string }>;
 };
+
+const PIPELINE_STAGE_PRIORITY: Record<string, number> = {
+  WON: 70,
+  PROPOSAL: 60,
+  ENGAGED: 50,
+  QUALIFIED: 40,
+  DISCOVERED: 30,
+  BACKLOG: 20,
+  LOST: 10,
+};
+
+function pickHigherPriorityStage(a?: string, b?: string): string | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  const rankA = PIPELINE_STAGE_PRIORITY[a.toUpperCase()] ?? 25;
+  const rankB = PIPELINE_STAGE_PRIORITY[b.toUpperCase()] ?? 25;
+  return rankB > rankA ? b : a;
+}
 
 // Cross-lead contact directory (issue #139, enhanced #241 & #359) — contacts[] has never had a
 // concept of identity beyond a single lead's own array (contactKey() below
@@ -626,6 +663,7 @@ export function aggregateContactsAcrossLeads(
   leads: Array<{
     _id: string;
     entity_name: string;
+    kanbanColumn?: string | null;
     country?: string | null;
     industry?: string | null;
     sport_or_sector?: string | null;
@@ -634,14 +672,26 @@ export function aggregateContactsAcrossLeads(
     companyPhone?: string | null;
     source?: string | null;
     lastResearchedAt?: string | null;
+    // What says who gave which consent answer (lib/lead-consents.ts).
+    submissionHistory?: unknown;
+    extraFields?: unknown;
+    general_contact?: string | null;
+    createdAt?: unknown;
+    campaign?: string | null;
     contacts?: ContactInput[] | null;
   }>
 ): ContactDirectoryEntry[] {
   const byKey = new Map<string, ContactDirectoryEntry>();
+  // Built across all leads, so a person's newest answer shows wherever they appear.
+  const consentLedger = buildConsentLedger(leads);
 
   for (const lead of leads) {
     const leadId = lead._id;
     const entityName = lead.entity_name || '';
+    const leadStage =
+      typeof lead.kanbanColumn === 'string' && lead.kanbanColumn.trim()
+        ? lead.kanbanColumn.trim().toUpperCase()
+        : 'DISCOVERED';
     const leadCountry = typeof lead.country === 'string' && lead.country.trim() ? lead.country.trim().toUpperCase() : undefined;
     const leadIndustry =
       (typeof lead.industry === 'string' && lead.industry.trim()) ||
@@ -666,10 +716,16 @@ export function aggregateContactsAcrossLeads(
       const key = contactKey(c);
       if (!key) continue;
 
+      const contactConsents = resolveContactConsents(c, consentLedger);
       const existing = byKey.get(key);
       if (existing) {
         if (!existing.leads.some((l) => l.leadId === leadId)) {
-          existing.leads.push({ leadId, entity_name: entityName });
+          existing.leads.push({ leadId, entity_name: entityName, kanbanColumn: leadStage });
+        }
+        existing.pipelineStage = pickHigherPriorityStage(existing.pipelineStage, leadStage);
+        const mergedDirConsents = mergeConsentsKeepingRefusals(existing.consents, contactConsents);
+        if (mergedDirConsents) {
+          existing.consents = mergedDirConsents;
         }
         if (!existing.country && (c.country || leadCountry)) existing.country = c.country || leadCountry;
         if (!existing.industry && leadIndustry) existing.industry = leadIndustry;
@@ -686,6 +742,7 @@ export function aggregateContactsAcrossLeads(
         lastName: c.lastName,
         country: c.country || leadCountry,
         company: entityName || undefined,
+        pipelineStage: leadStage,
         title: c.title,
         department: c.department,
         industry: leadIndustry,
@@ -703,7 +760,8 @@ export function aggregateContactsAcrossLeads(
         crmStatus: c.crmStatus,
         ownerUserId: c.ownerUserId,
         customFields: c.customFields,
-        leads: [{ leadId, entity_name: entityName }],
+        ...(contactConsents.length > 0 ? { consents: contactConsents } : {}),
+        leads: [{ leadId, entity_name: entityName, kanbanColumn: leadStage }],
       });
     }
   }

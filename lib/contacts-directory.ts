@@ -7,6 +7,7 @@ export type ContactsSortKey =
   | 'country'
   | 'leads'
   | 'company'
+  | 'pipelineStage'
   | 'title'
   | 'department'
   | 'industry'
@@ -18,6 +19,7 @@ export type ContactsSortKey =
 export type ContactsDirectoryQueryOptions = {
   q?: string;
   crmStatus?: string;
+  pipelineStage?: string;
   owner?: string;
   buyingRole?: string;
   department?: string;
@@ -77,6 +79,8 @@ export function sortContactsDirectory<T extends ContactDirectoryEntry>(
       cmp = (a.buyingRole || '').localeCompare(b.buyingRole || '');
     } else if (sortBy === 'crmStatus') {
       cmp = (a.crmStatus || '').localeCompare(b.crmStatus || '');
+    } else if (sortBy === 'pipelineStage') {
+      cmp = (a.pipelineStage || '').localeCompare(b.pipelineStage || '');
     } else {
       cmp = (a.name || '').localeCompare(b.name || '');
     }
@@ -117,6 +121,15 @@ export function queryContactsDirectory<T extends ContactDirectoryEntry>(
   const crmStatusFilter = (options.crmStatus || '').trim().toLowerCase();
   if (crmStatusFilter) {
     filtered = filtered.filter((c) => (c.crmStatus || 'prospect').toLowerCase() === crmStatusFilter);
+  }
+
+  const pipelineStageFilter = (options.pipelineStage || '').trim().toUpperCase();
+  if (pipelineStageFilter && pipelineStageFilter !== 'ALL') {
+    filtered = filtered.filter(
+      (c) =>
+        (c.pipelineStage || '').toUpperCase() === pipelineStageFilter ||
+        Boolean(c.leads?.some((l) => (l.kanbanColumn || '').toUpperCase() === pipelineStageFilter))
+    );
   }
 
   const ownerFilter = (options.owner || '').trim();

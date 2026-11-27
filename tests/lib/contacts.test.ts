@@ -386,8 +386,8 @@ describe('aggregateContactsAcrossLeads (issue 139)', () => {
     ]);
     expect(result).toHaveLength(1);
     expect(result[0].leads).toEqual([
-      { leadId: 'lead-1', entity_name: 'Acme FC' },
-      { leadId: 'lead-2', entity_name: 'Acme Agency' },
+      { leadId: 'lead-1', entity_name: 'Acme FC', kanbanColumn: 'DISCOVERED' },
+      { leadId: 'lead-2', entity_name: 'Acme Agency', kanbanColumn: 'DISCOVERED' },
     ]);
   });
 

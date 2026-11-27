@@ -6,6 +6,14 @@ import type { Lead, KanbanColumn } from '@/app/types';
 import { isValidIsoCountry, ISO_COUNTRY_CODES } from './iso-country-codes';
 import { getIceScore } from '@/app/constants';
 import { normalizeDepartmentInput } from './title-normalization';
+import {
+  collectConsentColumnDefs,
+  formatConsentsSummary,
+  resolveConsentColumnValue,
+  buildConsentLedger,
+  resolveRowConsents,
+  type LeadConsentEntry,
+} from './lead-consents';
 
 export type CrmPreset = 'google_sheets' | 'hubspot' | 'salesforce' | 'pipedrive' | 'apollo' | 'universal';
 
@@ -237,6 +245,18 @@ export function splitFullName(fullName?: string): { firstName: string; lastName:
 // -------------------------------------------------------------
 
 export function exportLeadsToCsv(leads: Partial<Lead>[], preset: CrmPreset = 'google_sheets', _brand?: string): string {
+  const consentLedger = buildConsentLedger(leads as Record<string, any>[]);
+  const perLeadConsents = leads.map((l) => resolveRowConsents(l as Record<string, any>, consentLedger));
+  const consentCols = collectConsentColumnDefs(perLeadConsents);
+  const consentHeaders = ['Consents', ...consentCols.map((c) => c.header)];
+  const buildConsentCells = (idx: number): string[] => {
+    const list = perLeadConsents[idx] || [];
+    return [
+      formatConsentsSummary(list),
+      ...consentCols.map((col) => resolveConsentColumnValue(list, col)),
+    ];
+  };
+
   switch (preset) {
     case 'hubspot': {
       const headers = [
@@ -249,17 +269,20 @@ export function exportLeadsToCsv(leads: Partial<Lead>[], preset: CrmPreset = 'go
         'Phone Number',
         'Lifecycle Stage',
         'Lead Status',
+        'Pipeline Stage',
         'Annual Revenue',
         'Industry',
         'City',
         'Country/Region',
         'Description',
         'HubSpot Owner',
+        ...consentHeaders,
       ];
 
-      const rows = leads.map((lead) => {
+      const rows = leads.map((lead, idx) => {
         const contact = (lead.contacts && lead.contacts[0]) || {};
         const { firstName, lastName } = splitFullName(contact.name);
+        const pipelineStage = lead.kanbanColumn || 'DISCOVERED';
 
         let lifecycleStage = 'lead';
         let leadStatus = 'NEW';
@@ -306,12 +329,14 @@ export function exportLeadsToCsv(leads: Partial<Lead>[], preset: CrmPreset = 'go
           contact.phone || '',
           lifecycleStage,
           leadStatus,
+          pipelineStage,
           estRev,
           lead.industry || lead.sport_or_sector || '',
           lead.cityName || '',
           lead.country || lead.region || '',
           lead.notes || lead.value_proposition || '',
           lead.assignedToEmail || '',
+          ...buildConsentCells(idx),
         ];
       });
 
@@ -328,6 +353,7 @@ export function exportLeadsToCsv(leads: Partial<Lead>[], preset: CrmPreset = 'go
         'Phone',
         'Website',
         'Status',
+        'Pipeline Stage',
         'Rating',
         'Industry',
         'Country',
@@ -335,11 +361,13 @@ export function exportLeadsToCsv(leads: Partial<Lead>[], preset: CrmPreset = 'go
         'Street',
         'AnnualRevenue',
         'Description',
+        ...consentHeaders,
       ];
 
-      const rows = leads.map((lead) => {
+      const rows = leads.map((lead, idx) => {
         const contact = (lead.contacts && lead.contacts[0]) || {};
         const { firstName, lastName } = splitFullName(contact.name);
+        const pipelineStage = lead.kanbanColumn || 'DISCOVERED';
 
         let status = 'Open - Not Contacted';
         switch (lead.kanbanColumn) {
@@ -374,6 +402,7 @@ export function exportLeadsToCsv(leads: Partial<Lead>[], preset: CrmPreset = 'go
           contact.phone || '',
           lead.url || '',
           status,
+          pipelineStage,
           rating,
           lead.industry || lead.sport_or_sector || '',
           lead.country || 'US',
@@ -381,6 +410,7 @@ export function exportLeadsToCsv(leads: Partial<Lead>[], preset: CrmPreset = 'go
           lead.address || '',
           estRev,
           lead.notes || lead.value_proposition || '',
+          ...buildConsentCells(idx),
         ];
       });
 
@@ -397,13 +427,16 @@ export function exportLeadsToCsv(leads: Partial<Lead>[], preset: CrmPreset = 'go
         'Lead Title',
         'Lead Value',
         'Stage',
+        'Pipeline Stage',
         'Organization Address',
         'Notes',
         'Labels',
+        ...consentHeaders,
       ];
 
-      const rows = leads.map((lead) => {
+      const rows = leads.map((lead, idx) => {
         const contact = (lead.contacts && lead.contacts[0]) || {};
+        const pipelineStage = lead.kanbanColumn || 'DISCOVERED';
 
         let stage = 'Lead In';
         switch (lead.kanbanColumn) {
@@ -441,9 +474,59 @@ export function exportLeadsToCsv(leads: Partial<Lead>[], preset: CrmPreset = 'go
           `${lead.entity_name || 'Deal'} - Lead`,
           estRev,
           stage,
+          pipelineStage,
           lead.address || lead.cityName || '',
           lead.notes || lead.value_proposition || '',
           tags,
+          ...buildConsentCells(idx),
+        ];
+      });
+
+      return buildCsv(headers, rows);
+    }
+
+    case 'apollo': {
+      const headers = [
+        'First Name',
+        'Last Name',
+        'Title',
+        'Company',
+        'Email',
+        'Work Direct Phone',
+        'Corporate Phone',
+        'Person Linkedin Url',
+        'Company Linkedin Url',
+        'Website',
+        'Industry',
+        'Departments',
+        'Country',
+        'City',
+        'Pipeline Stage',
+        ...consentHeaders,
+      ];
+
+      const rows = leads.map((lead, idx) => {
+        const contact = (lead.contacts && lead.contacts[0]) || {};
+        const split = splitFullName(contact.name);
+        const firstName = contact.firstName || split.firstName;
+        const lastName = contact.lastName || split.lastName;
+        return [
+          firstName,
+          lastName,
+          contact.title || '',
+          lead.entity_name || '',
+          contact.email || '',
+          contact.phone || '',
+          lead.companyPhone || '',
+          contact.linkedin || '',
+          lead.companyLinkedin || '',
+          lead.url || '',
+          lead.industry || lead.sport_or_sector || '',
+          contact.department && contact.department !== 'Unknown' ? contact.department : '',
+          contact.country || lead.country || '',
+          lead.cityName || '',
+          lead.kanbanColumn || 'DISCOVERED',
+          ...buildConsentCells(idx),
         ];
       });
 
@@ -473,9 +556,10 @@ export function exportLeadsToCsv(leads: Partial<Lead>[], preset: CrmPreset = 'go
         'Notes',
         'Tags',
         'Lead ID',
+        ...consentHeaders,
       ];
 
-      const rows = leads.map((lead) => {
+      const rows = leads.map((lead, idx) => {
         const contact = (lead.contacts && lead.contacts[0]) || {};
         const estRev = lead.ticketSizeEstimate?.expected || lead.estimated_annual_revenue_usd || '';
         const tags = Array.isArray(lead.tags) ? lead.tags.join(', ') : '';
@@ -500,6 +584,7 @@ export function exportLeadsToCsv(leads: Partial<Lead>[], preset: CrmPreset = 'go
           lead.notes || '',
           tags,
           lead._id || '',
+          ...buildConsentCells(idx),
         ];
       });
 
@@ -509,6 +594,9 @@ export function exportLeadsToCsv(leads: Partial<Lead>[], preset: CrmPreset = 'go
 }
 
 export function exportLeadsToGoogleSheetsTsv(leads: Partial<Lead>[]): string {
+  const consentLedger = buildConsentLedger(leads as Record<string, any>[]);
+  const perLeadConsents = leads.map((l) => resolveRowConsents(l as Record<string, any>, consentLedger));
+  const consentCols = collectConsentColumnDefs(perLeadConsents);
   const headers = [
     'Company Name',
     'Website',
@@ -524,11 +612,14 @@ export function exportLeadsToGoogleSheetsTsv(leads: Partial<Lead>[]): string {
     'Primary Contact Email',
     'Primary Contact Phone',
     'Notes',
+    'Consents',
+    ...consentCols.map((c) => c.header),
   ];
 
-  const rows = leads.map((lead) => {
+  const rows = leads.map((lead, idx) => {
     const contact = (lead.contacts && lead.contacts[0]) || {};
     const estRev = lead.ticketSizeEstimate?.expected || lead.estimated_annual_revenue_usd || '';
+    const list = perLeadConsents[idx] || [];
     return [
       lead.entity_name || '',
       lead.url || '',
@@ -544,6 +635,8 @@ export function exportLeadsToGoogleSheetsTsv(leads: Partial<Lead>[]): string {
       contact.email || '',
       contact.phone || '',
       lead.notes || lead.value_proposition || '',
+      formatConsentsSummary(list),
+      ...consentCols.map((col) => resolveConsentColumnValue(list, col)),
     ].map((val) => String(val ?? '').replace(/\t/g, ' ').replace(/\n/g, ' '));
   });
 
@@ -770,6 +863,27 @@ export function mapRowToLeadPayload(
     contactLinkedin = `https://${contactLinkedin}`;
   }
 
+  const importedConsents: LeadConsentEntry[] = [];
+  for (const [colHeader, rawVal] of Object.entries(row)) {
+    const trimmedHeader = colHeader.trim();
+    const consentPrefixMatch = /^consent:\s*(.+)$/i.exec(trimmedHeader);
+    if (consentPrefixMatch && typeof rawVal === 'string' && rawVal.trim()) {
+      const label = consentPrefixMatch[1].trim();
+      const valTrimmed = rawVal.trim();
+      const parsedVal: boolean | string =
+        /^(yes|true|1)$/i.test(valTrimmed)
+          ? true
+          : /^(no|false|0)$/i.test(valTrimmed)
+          ? false
+          : valTrimmed;
+      importedConsents.push({
+        key: label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'consent',
+        label,
+        value: parsedVal,
+      });
+    }
+  }
+
   const contacts: NonNullable<Lead['contacts']> = [];
   if (contactName || contactEmail || contactPhone || contactTitle) {
     contacts.push({
@@ -782,6 +896,7 @@ export function mapRowToLeadPayload(
       title: contactTitle || undefined,
       departmentOverride: deptNorm !== 'Unknown' ? deptNorm : undefined,
       linkedin: contactLinkedin || undefined,
+      ...(importedConsents.length > 0 ? { consents: importedConsents } : {}),
       buyingRole: 'unknown',
     });
   }
@@ -816,6 +931,7 @@ export function mapRowToLeadPayload(
     sport_or_sector: sportOrSector || undefined,
     kanbanColumn,
     contacts,
+    ...(importedConsents.length > 0 ? { consents: importedConsents } : {}),
     notes: notes || undefined,
     value_proposition: valueProp || undefined,
     estimated_annual_revenue_usd: Number.isFinite(dealValueNum) ? dealValueNum : undefined,
